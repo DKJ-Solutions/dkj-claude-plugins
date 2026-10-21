@@ -395,9 +395,15 @@ try {
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html') {
-                $html = Format-RepoHubHtml -Pages (Get-RepoHubPages) -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' }) -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
+                $html = Format-RepoHubHtml -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
                 $body = $utf8.GetBytes($html)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
+                continue
+            }
+            if ($path -eq '/about') {
+                # The repo itself: its pages, the general ones and its facts (#3270).
+                $html = Format-RepoAboutHtml -Pages (Get-RepoHubPages) -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' }) -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
             if ($path -eq '/connectors') {
@@ -467,7 +473,7 @@ try {
                 continue
             }
             if ($path -eq '/hub') {
-                # The general pages' "Repo hub" crumb, now that they are served from this origin (#3168).
+                # The general pages' "Home" crumb, now that they are served from this origin (#3168).
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/' } -Method $method
                 continue
             }

@@ -1,15 +1,17 @@
 <#
 .SYNOPSIS
-    The Repo hub on '/' of this repo's dev server and its own pages: the test-gate page (the per-suite CI
+    The Repo hub of this repo's dev server -- the home page on '/' and About this repo on '/about' (#3270) --
+    and its own pages: the test-gate page (the per-suite CI
     durations, #3097), the Specialists page, and the status page /brandbook/ answers with when the brandbook/ app's
     build cannot be served (its paths and content types are dkj-solutions-pages-lib's, #3210). No I/O -- the server
     (scripts/dashboard/serve-connector-dashboard.ps1) measures and reads, and hands the results in, so every rule here is tested without a server.
 
 .DESCRIPTION
-    THE HUB TAKES THE ONE FORM THE BRAND BOOK LAYS DOWN (house style v0.3.0, "The Repo hub"): the bar
-    with its one crumb, the settings button, the intro with the fixed h1, the Pages block (block 7: the
-    'This repo' card linking the repo's own pages, then the General card), About this repo and a footer note. This repo is no product and keeps no in-flight
-    lists on the hub, so blocks 6 and 8 to 10 are left out. The pages it links are Get-RepoHubPages, the
+    THE HUB TAKES THE ONE FORM THE HOUSE STYLE LAYS DOWN ("The Repo hub", #3270): the home page is a portal --
+    the bar with its one crumb, Home, the settings button, the intro with the repo's name as its h1, one link
+    to About this repo and the Brand book section; About this repo holds the Pages block (the 'This repo'
+    card linking the repo's own pages, then the General card), the facts and a footer note. This repo is no
+    product and keeps no in-flight lists, so it has no Products section and no lists. The pages it links are Get-RepoHubPages, the
     ones only this repo has. The GENERAL pages -- Artifacts, Issues, Release notes and SessionStart, which
     every repo has -- are no longer built here (#3119): the dkj-policy plugin ships them (since #3198) as
     a server of its own, and the hub's second card, General, links that server, through the plugin's
@@ -80,9 +82,43 @@ function Get-RepoHubPages {
 
 function Format-RepoHubHtml {
     <#
-        The Repo hub on '/'. -Pages is Get-RepoHubPages' shape; -SourceCommit is the short sha the server
-        reads, or empty; -GeneralPagesUrl is the general pages server's base url when it answers, or empty
-        (the General card then says it is not running).
+        The repo's home page on '/' (#3270): the repo's name as its h1, one link to About this repo, and the
+        Brand book section -- the DKJ-Solutions card, with this hub's own DKJ repos page. This repo is no
+        product, so it has no Products section. -GeneralPagesUrl is the general pages server's base url when
+        it answers, or empty (the Brand book card then says it is not running).
+    #>
+    param([AllowEmptyString()][string]$GeneralPagesUrl = '')
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine('<!doctype html>')
+    [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">')
+    [void]$sb.AppendLine('<head>')
+    [void]$sb.AppendLine('<meta charset="utf-8">')
+    [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
+    [void]$sb.AppendLine('<title>dkj-claude-plugins -- Home</title>')
+    [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
+    [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
+    # No page layer of its own: the heading above a group of cards (.grid__head), a card that takes the whole
+    # row (.grid__full) and a card's margin inside a .grid-2 are the house style's own since #3133.
+    [void]$sb.AppendLine('</head>')
+    [void]$sb.AppendLine('<body>')
+    [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName 'dkj-claude-plugins' -Lead 'The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.'))
+    [void]$sb.Append((Format-RepoAboutLinkHtml))
+    # Brand book: the plugin's DKJ-Solutions card standing alone, with the DKJ repos page this hub serves itself.
+    [void]$sb.Append((Format-DkjSolutionsPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $false -SameOrigin -LocalPages @(Get-RepoHubDkjPages)))
+    [void]$sb.AppendLine('</main>')
+    [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
+    [void]$sb.AppendLine('</body>')
+    [void]$sb.AppendLine('</html>')
+    return $sb.ToString()
+}
+
+function Format-RepoAboutHtml {
+    <#
+        The About this repo page on '/about' (#3270): everything about the repo itself. The Pages block (the
+        'This repo' card linking the repo's own pages, then the General card, on one .grid-2 row under one h2),
+        this repo's facts and a footer note. -Pages is Get-RepoHubPages' shape; -SourceCommit is the short sha
+        the server reads, or empty; -GeneralPagesUrl is the general pages server's base url when it answers,
+        or empty (the General card then says it is not running).
     #>
     param(
         [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Pages,
@@ -91,49 +127,13 @@ function Format-RepoHubHtml {
     )
     $e = { param($v) ConvertTo-DashboardText $v }
     $sb = New-Object System.Text.StringBuilder
-    [void]$sb.AppendLine('<!doctype html>')
-    [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">')
-    [void]$sb.AppendLine('<head>')
-    [void]$sb.AppendLine('<meta charset="utf-8">')
-    [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    [void]$sb.AppendLine('<title>dkj-claude-plugins -- Repo hub</title>')
-    [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
-    [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
-    # No page layer of its own: the heading above a group of cards (.grid__head), a card that takes the whole
-    # row (.grid__full) and a card's margin inside a .grid-2 are the house style's own since #3133, so every
-    # h2 in a grid__head carries a short sub line, the house .card__sub, and nothing here restyles them.
-    [void]$sb.AppendLine('</head>')
-    [void]$sb.AppendLine('<body>')
-    # Block 0, the breadcrumb bar: on the hub its trail is the one crumb.
-    [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
-    [void]$sb.AppendLine('<li><span aria-current="page">Repo hub</span></li>')
-    [void]$sb.AppendLine('</ol></nav></div></div>')
-    # Block 1, the settings button, sits outside <main>.
-    [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>')
-    [void]$sb.AppendLine('<main class="page-column">')
-    # Blocks 2 to 5: the intro is a <div>, never a <header>, which the house style lays out as a flex row.
-    [void]$sb.AppendLine('<div>')
-    [void]$sb.AppendLine('<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>')
-    [void]$sb.AppendLine('<h1>Repo hub</h1>')
-    [void]$sb.AppendLine('<p class="lead">The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.</p>')
-    [void]$sb.AppendLine('</div>')
-    # The general banner (#3250), the same on every Repo hub, directly under the intro.
-    [void]$sb.AppendLine((Format-RepoHubBanner))
-
-    # Block 7, Pages: the repo's own pages, then the general ones in a card of their own, the two on one row
-    # of the house's .grid-2 (it stacks them again below 760px) under one grid__head carrying the h2, so
-    # each card's title is an h3, the house's own. One menu-item row per page, direct siblings so the house
-    # draws the line between them. The General card is the plugin's, the same in every hub
-    # (Format-GeneralPagesCardHtml): it links the general pages server at -GeneralPagesUrl, or says it is not
-    # running. The DKJ-Solutions card (Format-DkjSolutionsPagesCardHtml) follows it, the same card with the
-    # pages only DKJ-Solutions repos share, so on a wide screen it opens the row below. Both are always
-    # drawn; the repo's own card is drawn when there is a page for it, and one card
-    # alone is block 7 as the form gives it: its h2 still stands above the card, never inside it (#3175).
+    # Pages: one menu-item row per page, direct siblings so the house draws the line between them. One card
+    # alone still has its h2 above the card, never inside it (#3175).
     $repoRows = @($Pages)
     $row = $repoRows.Count -gt 0
     if ($row) {
         [void]$sb.AppendLine('<div class="grid-2">')
-        [void]$sb.AppendLine('<div class="grid__head"><h2>Pages</h2><p class="card__sub">Every page this dev server serves, and the shared ones beside it</p></div>')
+        [void]$sb.AppendLine('<div class="grid__head"><h2>Pages</h2><p class="card__sub">This repo''s own pages, and the general ones beside them</p></div>')
         [void]$sb.AppendLine('<section class="card">')
         [void]$sb.AppendLine('<div class="card__head"><h3>This repo</h3><p class="card__sub">Specific to this repo</p></div>')
         [void]$sb.AppendLine('<nav class="menu-list" aria-label="This repo pages">')
@@ -145,14 +145,11 @@ function Format-RepoHubHtml {
         [void]$sb.AppendLine('</section>')
     }
     [void]$sb.Append((Format-GeneralPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $row -SameOrigin))
-    [void]$sb.Append((Format-DkjSolutionsPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $row -SameOrigin -LocalPages @(Get-RepoHubDkjPages)))
     if ($row) { [void]$sb.AppendLine('</div>') }
 
-    # Block 11: About this repo, the fixed title, with this repo's own facts. Its h2 stands outside the
-    # card in a grid__head, as Pages' does, so the two blocks read alike and stay apart; the card spans
-    # both columns of a grid-2 row of its own, which gives head and card the same gap as the Pages row.
+    # Facts: its h2 stands outside the card in a grid__head, as Pages' does; the card spans both columns.
     [void]$sb.AppendLine('<div class="grid-2">')
-    [void]$sb.AppendLine('<div class="grid__head"><h2>About this repo</h2><p class="card__sub">What this repo is, and the commit this hub is served from</p></div>')
+    [void]$sb.AppendLine('<div class="grid__head"><h2>Facts</h2><p class="card__sub">What this repo is, and the commit this hub is served from</p></div>')
     [void]$sb.AppendLine('<section class="card grid__full">')
     [void]$sb.AppendLine('<dl class="facts">')
     [void]$sb.AppendLine('<div><dt>Marketplace</dt><dd>dkj-claude-plugins</dd></div>')
@@ -164,13 +161,9 @@ function Format-RepoHubHtml {
     [void]$sb.AppendLine('</section>')
     [void]$sb.AppendLine('</div>')
 
-    # Block 12: where the data comes from.
-    [void]$sb.AppendLine('<p class="footer-note">The facts are this repo''s own, and each page names its own source. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
-    [void]$sb.AppendLine('</main>')
-    [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
-    [void]$sb.AppendLine('</body>')
-    [void]$sb.AppendLine('</html>')
-    return $sb.ToString()
+    return Format-DevPageHtml -Title 'About this repo' -Body $sb.ToString() `
+        -Lead 'Everything about the repo itself rather than what it offers: its own pages, the general pages every repo has, and its facts.' `
+        -FooterNote 'The facts are this repo''s own, and each page names its own source. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.'
 }
 
 function ConvertFrom-SuiteDurations {

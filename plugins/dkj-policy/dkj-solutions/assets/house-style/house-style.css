@@ -624,7 +624,7 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
 /* ---- Breadcrumbs ---------------------------------------------------------------- */
 /* Where the page sits, on every page a dev server serves: the first thing in <body>, above <main>.
    <div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>
-   <li><a href="/">Repo hub</a></li><li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24">
+   <li><a href="/">Home</a></li><li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24">
    (the chevron path, in the house-style README)</svg></span><span aria-current="page">Current page</span></li></ol></nav></div></div>.
    The bar stands on the theme's colour (owner, #3235, October 21, 2026), so the trail is in the paper steps, all of
    which read on it: the chevron --paper-3, the ancestor links --paper-2, the current page --paper-1, so it stands out

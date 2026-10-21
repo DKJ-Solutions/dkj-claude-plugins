@@ -1,8 +1,9 @@
 <#
 .SYNOPSIS
-    The plugin's own Repo hub page (#3245): what the general pages server answers on '/', '/index.html' and
-    '/hub' in every repo that has not opted out with OwnHub. No I/O -- hub/pages/serve-general-pages.ps1 reads
-    the state file and hands the values in, so every rule here is tested without a server.
+    The plugin's own Repo hub (#3245): the repo's home page, which the general pages server answers on '/',
+    '/index.html' and '/hub', and its About this repo page on '/about' (#3270), in every repo that has not
+    opted out with OwnHub. No I/O -- hub/pages/serve-general-pages.ps1 reads the state file and hands the
+    values in, so every rule here is tested without a server.
 
 .DESCRIPTION
     INBOUND #3245. The owner decided (October 21, 2026) that the plugin serves the Repo hub in EVERY repo,
@@ -11,19 +12,20 @@
     replaces #3047's placeholder, whose own server and ports (4880-4889) are retired; what of that page
     survived is here: the setup cards, the facts and the repo-name handling.
 
+    TWO PAGES, ONE PORTAL (#3270, the owner, October 21, 2026). The home page on '/' is a way in and as little
+    as possible: the repo's name as its h1, the Products section (the product, or the two setup cards where
+    the repo states none), one link to About this repo, and in a DKJ-Solutions repo (-DkjSolutions) the Brand
+    book section. Everything about the repo itself -- the general pages and the facts -- is on '/about'.
+
     THE PAGE STARTS FROM THE HOUSE STYLE: it loads /house-style.css and /house-theme.js, which the general
     server serves from the canonical copy inside dkj-policy's payload (dkj-solutions/assets/house-style/,
     which Get-HouseStyleDir names), in every repo, and its own layer uses only names the house file does not
     define (.ph-*).
 
-    AND IT TAKES THE REPO HUB FORM (#3066, #3097): the blocks and their order laid down in the plugin's
-    dkj-solutions/assets/house-style/README.md, "The Repo hub". The repo name is the eyebrow and the h1 is
-    "Repo hub", word for word. This hub has no in-flight lists to count, so the tiles and the loading line
-    are left out. Under the lead: the Product card where the repo states a server of its own, then the
-    General card and, where the repo enables dkj-solutions (-DkjSolutions), the DKJ-Solutions card; the two
-    setup cards take the data cards' place only where the repo states no Get-DevPreview at all.
+    AND IT TAKES THE REPO HUB FORM (#3066, #3097, #3270): the blocks and their order laid down in the plugin's
+    dkj-solutions/assets/house-style/README.md, "The Repo hub".
 
-    ONE ORIGIN: the General and DKJ-Solutions cards link their pages by bare path (-SameOrigin), because
+    ONE ORIGIN: the General and Brand book cards link their pages by bare path (-SameOrigin), because
     this page is served by the same server, so the visitor keeps one origin and one stored theme choice.
 
     THE REPO NAME AND THE PRODUCT URL ARE THE ONLY VALUES FROM OUTSIDE. The name is a repo name or a folder
@@ -40,32 +42,34 @@
 $dkjSolutionsPagesLib = Get-DkjSolutionsPagesLibPath -PluginRoot (Join-Path $PSScriptRoot '..\..')
 if (Test-Path -LiteralPath $dkjSolutionsPagesLib -PathType Leaf) { . $dkjSolutionsPagesLib }
 
+function ConvertTo-PluginRepoHubName {
+    <#
+        A repo or folder name as both pages show it, NOT yet escaped: control characters blanked, cut at 80,
+        'this repo' when empty. Each caller escapes it where it is used, once.
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$Name)
+    $t = ([string]$Name) -replace '[\p{C}]', ' '
+    if ($t.Length -gt 80) { $t = $t.Substring(0, 80) }
+    if (-not $t.Trim()) { $t = 'this repo' }
+    return $t.Trim()
+}
+
 function Format-PluginRepoHubHtml {
     <#
-        The whole page for the repo named -RepoName. -Folder is the checkout's folder name (the facts card;
-        defaults to the repo name). -Mode is what the repo states: 'none' (no Get-DevPreview: the setup cards
-        show) or 'product' (a server of its own: the Product card shows). -ProductUrl is that server's url,
-        or empty where it is not running (the card says so). -PagesUrl is this server's own base url; it is
-        always the general server that serves this page, so the General card links by bare path.
-        -DkjSolutions adds the DKJ-Solutions card, for a repo that enables that plugin.
+        The home page for the repo named -RepoName. -Mode is what the repo states: 'none' (no Get-DevPreview:
+        the setup cards show) or 'product' (a server of its own: the Products section links it). -ProductUrl
+        is that server's url, or empty where it is not running (the section says so). -PagesUrl is this
+        server's own base url; it is always the general server that serves this page, so the Brand book card
+        links by bare path. -DkjSolutions adds the Brand book section, for a repo that enables that plugin.
     #>
     param(
         [AllowNull()][AllowEmptyString()][string]$RepoName,
-        [AllowNull()][AllowEmptyString()][string]$Folder = '',
         [ValidateSet('none', 'product')][string]$Mode = 'none',
         [AllowEmptyString()][string]$ProductUrl = '',
         [AllowEmptyString()][string]$PagesUrl = '',
         [switch]$DkjSolutions
     )
-    $cut = {
-        param($v)
-        $t = ([string]$v) -replace '[\p{C}]', ' '
-        if ($t.Length -gt 80) { $t = $t.Substring(0, 80) }
-        if (-not $t.Trim()) { $t = 'this repo' }
-        return (ConvertTo-GeneralPageText $t.Trim())
-    }
-    $n = & $cut $RepoName
-    $f = if ($Folder) { & $cut $Folder } else { $n }
+    $n = ConvertTo-GeneralPageText (ConvertTo-PluginRepoHubName $RepoName)
     $product = if (Test-RepoHubLocalUrl $ProductUrl) { $ProductUrl } else { '' }
     $e = { param($v) ConvertTo-GeneralPageText $v }
 
@@ -77,7 +81,7 @@ function Format-PluginRepoHubHtml {
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    [void]$sb.AppendLine('<title>' + $n + ' -- Repo hub</title>')
+    [void]$sb.AppendLine('<title>' + $n + ' -- Home</title>')
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The repo layer: one name the house file does not define (.ph-code), for the code samples.
@@ -86,31 +90,18 @@ function Format-PluginRepoHubHtml {
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
-    # Block 0, the breadcrumb bar: first in <body> on every dev-server page; on the Repo hub its trail is this one crumb.
-    [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
-    [void]$sb.AppendLine('<li><span aria-current="page">Repo hub</span></li>')
-    [void]$sb.AppendLine('</ol></nav></div></div>')
-    # Block 1, the settings button, sits outside <main>.
-    [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>')
-    [void]$sb.AppendLine('<main class="page-column">')
-    # Blocks 2 to 5: the intro is a <div>, never a <header>, which the house style lays out as a flex row.
-    [void]$sb.AppendLine('<div>')
-    [void]$sb.AppendLine('<p class="eyebrow">' + $n + '</p>')
-    [void]$sb.AppendLine('<h1>Repo hub</h1>')
-    $lead = if ($Mode -eq 'product') { 'The way to every page about this repo, and to the dev server it states, its product.' }
-            else { 'The way to every page about this repo. It states no dev server of its own yet, so there is no product to link.' }
-    [void]$sb.AppendLine('<p class="lead">' + $lead + '</p>')
-    [void]$sb.AppendLine('</div>')
-    # The general banner (#3250), the same on every Repo hub, directly under the intro.
-    [void]$sb.AppendLine((Format-RepoHubBanner))
+    $lead = if ($Mode -eq 'product') { 'The way in to what this repo offers: its product, and the page about the repo itself.' }
+            else { 'The way in to this repo. It states no dev server of its own yet, so there is no product to link.' }
+    [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName $n -Lead $lead))
 
-    # Block 6's place: the product, the repo's own server, as one link row under an h2 of its own.
+    # Products: the repo's own server, one link row; where it states none, the two setup cards take the
+    # section's place, under one h2 of their own and each titled with an h3 (#3175).
     if ($Mode -eq 'product') {
         [void]$sb.AppendLine('<div class="grid-2">')
-        [void]$sb.AppendLine('<div class="grid__head"><h2>Product</h2><p class="card__sub">This repo''s own dev server</p></div>')
+        [void]$sb.AppendLine('<div class="grid__head"><h2>Products</h2><p class="card__sub">What this repo offers, each on a route of its own</p></div>')
         [void]$sb.AppendLine('<section class="card grid__full">')
         if ($product) {
-            [void]$sb.AppendLine('<nav class="menu-list" aria-label="Product">')
+            [void]$sb.AppendLine('<nav class="menu-list" aria-label="Products">')
             [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e $product) + '"><span class="menu-item__label">Open the product<span class="menu-item__sub">' + (& $e $product) + ' -- started from the Get-DevPreview this repo states</span></span>' + $script:RepoHubChevron + '</a>')
             [void]$sb.AppendLine('</nav>')
         } else {
@@ -118,21 +109,11 @@ function Format-PluginRepoHubHtml {
         }
         [void]$sb.AppendLine('</section>')
         [void]$sb.AppendLine('</div>')
-    }
-
-    # Block 7, Pages: the general pages, and in a DKJ-Solutions repo the DKJ-Solutions ones beside them.
-    [void]$sb.Append((Format-GeneralPagesCardHtml -PagesUrl $PagesUrl -InRow $false -SameOrigin))
-    if ($DkjSolutions -and (Get-Command Format-DkjSolutionsPagesCardHtml -ErrorAction SilentlyContinue)) {
-        [void]$sb.Append((Format-DkjSolutionsPagesCardHtml -PagesUrl $PagesUrl -InRow $false -SameOrigin))
-    }
-
-    # Block 10's place, only where the repo states no Get-DevPreview: the two setup cards, under one h2 of their
-    # own and each titled with an h3 (#3175).
-    if ($Mode -eq 'none') {
+    } else {
         [void]$sb.AppendLine('<div class="grid-2">')
         [void]$sb.AppendLine('<div class="grid__head"><h2>Set up a product</h2><p class="card__sub">Two steps, both in this repo''s own files</p></div>')
         [void]$sb.AppendLine('<section class="card grid__full">')
-        [void]$sb.AppendLine('<div class="card__head"><h3 class="card__title">Add a dev server of your own</h3><p class="card__sub">From the next session on, it is the product on this hub</p></div>')
+        [void]$sb.AppendLine('<div class="card__head"><h3 class="card__title">Add a dev server of your own</h3><p class="card__sub">From the next session on, it is the product on this page</p></div>')
         [void]$sb.AppendLine('<div>')
         [void]$sb.AppendLine('<p>State <code>Get-DevPreview</code> in this repo''s <code>scripts/repo-config.ps1</code>. The hook then starts that server, or reuses the one already running, and hands out its link beside this hub''s.</p>')
         [void]$sb.AppendLine('<pre class="ph-code"><code>function Get-DevPreview {')
@@ -157,10 +138,46 @@ function Format-PluginRepoHubHtml {
         [void]$sb.AppendLine('</div>')
     }
 
-    # Block 11: About this repo, the fixed title, with what the hub knows.
+    # About this repo: one link to the page that holds the repo itself.
+    [void]$sb.Append((Format-RepoAboutLinkHtml))
+
+    # Brand book: the DKJ-Solutions pages, only in a repo that enables that plugin.
+    if ($DkjSolutions -and (Get-Command Format-DkjSolutionsPagesCardHtml -ErrorAction SilentlyContinue)) {
+        [void]$sb.Append((Format-DkjSolutionsPagesCardHtml -PagesUrl $PagesUrl -InRow $false -SameOrigin))
+    }
+
+    [void]$sb.AppendLine('</main>')
+    [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
+    [void]$sb.AppendLine('</body>')
+    [void]$sb.AppendLine('</html>')
+    return $sb.ToString()
+}
+
+function Format-PluginRepoAboutHtml {
+    <#
+        The About this repo page on '/about' (#3270): the general pages and what the hub knows about the
+        repo. Its trail is Home > About this repo. -Folder is the checkout's folder name (defaults to the repo
+        name); -Mode, -ProductUrl and -PagesUrl are Format-PluginRepoHubHtml's, and give the Dev preview fact.
+    #>
+    param(
+        [AllowNull()][AllowEmptyString()][string]$RepoName,
+        [AllowNull()][AllowEmptyString()][string]$Folder = '',
+        [ValidateSet('none', 'product')][string]$Mode = 'none',
+        [AllowEmptyString()][string]$ProductUrl = '',
+        [AllowEmptyString()][string]$PagesUrl = ''
+    )
+    $n = ConvertTo-PluginRepoHubName $RepoName
+    $f = ConvertTo-GeneralPageText $(if ($Folder) { ConvertTo-PluginRepoHubName $Folder } else { $n })
+    $product = if (Test-RepoHubLocalUrl $ProductUrl) { $ProductUrl } else { '' }
+    $e = { param($v) ConvertTo-GeneralPageText $v }
+
+    $sb = New-Object System.Text.StringBuilder
+    # The general pages, linked by bare path: this server serves them.
+    [void]$sb.Append((Format-GeneralPagesCardHtml -PagesUrl $PagesUrl -InRow $false -SameOrigin))
+    # The facts: what the hub knows about this folder.
     $devPreview = if ($Mode -ne 'product') { 'none stated yet' } elseif ($product) { & $e $product } else { 'stated, not running' }
     [void]$sb.AppendLine('<div class="grid-2">')
-    [void]$sb.AppendLine('<div class="grid__head"><h2>About this repo</h2><p class="card__sub">What the hub knows about this folder</p></div>')
+    [void]$sb.AppendLine('<div class="grid__head"><h2>Facts</h2><p class="card__sub">What the hub knows about this folder</p></div>')
     [void]$sb.AppendLine('<section class="card grid__full">')
     [void]$sb.AppendLine('<dl class="facts">')
     [void]$sb.AppendLine('<div><dt>Folder</dt><dd>' + $f + '</dd></div>')
@@ -171,11 +188,8 @@ function Format-PluginRepoHubHtml {
     [void]$sb.AppendLine('</section>')
     [void]$sb.AppendLine('</div>')
 
-    # Block 12: where the page comes from.
-    [void]$sb.AppendLine('<p class="footer-note">Served on 127.0.0.1 only, by the dkj-policy plugin''s <code>hub/pages/serve-general-pages.ps1</code>.</p>')
-    [void]$sb.AppendLine('</main>')
-    [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
-    [void]$sb.AppendLine('</body>')
-    [void]$sb.AppendLine('</html>')
-    return $sb.ToString()
+    # The shell escapes the eyebrow and the title itself, so it takes the name raw.
+    return Format-GeneralPageHtml -Title 'About this repo' -Body $sb.ToString() -Eyebrow $n -SiteName $n -HubHref '/' `
+        -Lead 'Everything about the repo itself rather than what it offers: the general pages every repo has, and what the hub knows about this folder.' `
+        -FooterNote 'Served on 127.0.0.1 only, by the dkj-policy plugin''s <code>hub/pages/serve-general-pages.ps1</code>.'
 }

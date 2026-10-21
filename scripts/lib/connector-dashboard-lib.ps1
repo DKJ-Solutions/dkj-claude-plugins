@@ -345,7 +345,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<body>')
     # The breadcrumb bar: first in <body> on every dev-server page, its trail from the Repo hub to this page.
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
-    [void]$sb.AppendLine('<li><a href="/">Repo hub</a></li>')
+    [void]$sb.AppendLine('<li><a href="/">Home</a></li>')
     [void]$sb.AppendLine('<li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span><span aria-current="page">Connectors</span></li>')
     [void]$sb.AppendLine('</ol></nav></div></div>')
     # The settings button sits outside <main>.

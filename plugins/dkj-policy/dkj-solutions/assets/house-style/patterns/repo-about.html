@@ -1,0 +1,181 @@
+<!doctype html>
+<!--
+  About this repo, the stylesheet-only reference (#141, #3270): the second page of the Repo hub, on /about.
+
+  Built, like repo-dashboard.html (the home page on /), from ../house-style.css and ../house-theme.js alone,
+  linked and not inlined, and from nothing else (no other CSS, no external request). The form, its blocks and
+  their order are in house-style/README.md, "The Repo hub". The data below is static placeholder data. A real
+  page reads its own lists, or writes them in when it is built. When a repo copies this file, the two links
+  take the vendored copies of the stylesheet and the script.
+-->
+<html lang="en" data-theme-light="blue" data-theme-dark="cyan">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>About this repo</title>
+  <link rel="stylesheet" href="../house-style.css">
+  <script src="../house-theme.js"></script>
+</head>
+<body>
+  <!-- The breadcrumb bar: Home, then this page. -->
+  <div class="breadcrumbs-bar">
+    <div class="container">
+      <nav class="breadcrumbs" aria-label="Breadcrumb">
+        <ol>
+          <li><a href="repo-dashboard.html">Home</a></li>
+          <li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span><span aria-current="page">About this repo</span></li>
+        </ol>
+      </nav>
+    </div>
+  </div>
+
+  <!-- The settings button: house-theme.js draws it and fixes it at the top right, outside <main>. -->
+  <div id="settings" class="theme-settings--floating"></div>
+
+  <main class="page-column">
+
+    <!-- The intro: a <div>, never a <header> (the house style makes main > header a flex row). -->
+    <div>
+      <p class="eyebrow">DKJ-Solutions/example-repo</p>
+      <h1>About this repo</h1>
+      <p class="lead">Everything about the repo itself rather than what it offers: its pages, what is in flight, and its facts.</p>
+    </div>
+    <!-- 1. Pages: the repo's own pages and the general ones (#200, #206). Each card holds a nav of house
+         .menu-item links: label, an optional one-line description, a chevron. Not .tile: a tile shows a figure.
+         Shown in its two-group form (This repo, General): the h2 stands above both cards in a .grid__head spanning
+         the columns, and each card is titled with an h3. A hub with one group only keeps the same .grid__head,
+         with the one card spanning the row (.grid__full) and no title of its own: an h2 never stands inside a card. -->
+    <div class="grid-2">
+      <div class="grid__head">
+        <h2>Pages</h2>
+        <p class="card__sub">This repo's own pages, and the general ones beside them</p>
+      </div>
+      <section class="card">
+        <div class="card__head">
+          <h3>This repo</h3>
+          <p class="card__sub">Specific to this repo</p>
+        </div>
+        <nav class="menu-list" aria-label="This repo pages">
+          <a class="menu-item" href="#">
+            <span class="menu-item__label">Release history<span class="menu-item__sub">Every release, newest first</span></span>
+            <svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="menu-item" href="#">
+            <span class="menu-item__label">Roadmap<span class="menu-item__sub">What is planned and in what order</span></span>
+            <svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </nav>
+      </section>
+      <section class="card">
+        <div class="card__head">
+          <h3>General</h3>
+          <p class="card__sub">Not specific to this repo: every DKJ-Solutions repo has them</p>
+        </div>
+        <nav class="menu-list" aria-label="General pages">
+          <a class="menu-item" href="#">
+            <span class="menu-item__label">Issues</span>
+            <svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a class="menu-item" href="#">
+            <span class="menu-item__label">Release notes</span>
+            <svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </nav>
+      </section>
+    </div>
+
+    <!-- 2. One stat tile per in-flight list. -->
+    <div class="tiles">
+      <div class="tile"><div class="label">Open pull requests</div><div class="v">2</div></div>
+      <div class="tile"><div class="label">Open issues</div><div class="v">3</div></div>
+      <div class="tile"><div class="label">Branches off main</div><div class="v">3</div></div>
+    </div>
+
+    <!-- 3. The loading line, or the warning that the lists could not be read. Shown here as the warning; a page
+         with its data in hand leaves it out. The loading line takes role="status", the warning role="alert", so a
+         screen reader announces the line when it appears. -->
+    <p class="msg msg--warn" role="alert">What is in flight could not be read: this is the placeholder state of the reference page.</p>
+
+    <!-- 4. One data card per in-flight list, in the tiles' order, under one h2 that stands above them (#3175):
+         each card spans the row and is titled with an h3.card__title. -->
+    <div class="grid-2">
+      <div class="grid__head">
+        <h2>In flight</h2>
+        <p class="card__sub">Every list this repo has open</p>
+      </div>
+      <section class="card grid__full">
+        <div class="card__head">
+          <h3 class="card__title">Pull requests</h3>
+          <p class="card__sub">Open, newest first</p>
+        </div>
+        <div class="table-wrap" role="region" aria-label="Open pull requests" tabindex="0">
+          <table class="table">
+            <thead><tr><th scope="col">Pull request</th><th scope="col">Number</th><th scope="col">Opened</th></tr></thead>
+            <tbody>
+              <tr><td><a href="#">Add the facts list</a><div class="muted">feat/12-facts-list</div></td><td>#14</td><td>15 Oct</td></tr>
+              <tr><td><a href="#">Fix the table head</a><div class="muted">fix/9-table-head (draft)</div></td><td>#13</td><td>12 Oct</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card grid__full">
+        <div class="card__head">
+          <h3 class="card__title">Issues</h3>
+          <p class="card__sub">Open, by priority</p>
+        </div>
+        <div class="table-wrap" role="region" aria-label="Open issues" tabindex="0">
+          <table class="table">
+            <thead><tr><th scope="col">Issue</th><th scope="col">Number</th><th scope="col">Priority</th></tr></thead>
+            <tbody>
+              <tr><td><a href="#">The facts list has no stylesheet class</a><div class="muted">Claimed by example-user</div></td><td>#12</td><td>1</td></tr>
+              <tr><td><a href="#">The table head is too tall</a><div class="muted">Unclaimed</div></td><td>#9</td><td>2</td></tr>
+              <tr><td><a href="#">Write the release notes</a><div class="muted">Unclaimed</div></td><td>#10</td><td>--</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card grid__full">
+        <div class="card__head">
+          <h3 class="card__title">Branches</h3>
+          <p class="card__sub">Every branch off main, with its pull request where one is open</p>
+        </div>
+        <div class="table-wrap" role="region" aria-label="Branches off main" tabindex="0">
+          <table class="table">
+            <thead><tr><th scope="col">Branch</th><th scope="col">Pull request</th></tr></thead>
+            <tbody>
+              <tr><td><a href="#">feat/12-facts-list</a></td><td>#14</td></tr>
+              <tr><td><a href="#">fix/9-table-head</a></td><td>#13</td></tr>
+              <tr><td><a href="#">docs/11-release-notes</a></td><td>none yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <!-- 5. Facts: a facts card. Its h2 and sub line stand above the card, in a .grid__head; the card spans the row (#206). -->
+    <div class="grid-2">
+      <div class="grid__head">
+        <h2>Facts</h2>
+        <p class="card__sub">What this repo is</p>
+      </div>
+      <section class="card grid__full">
+        <dl class="facts">
+          <div><dt>Stack</dt><dd>React 19 + TypeScript + Vite</dd></div>
+          <div><dt>Trunk</dt><dd>main</dd></div>
+          <div><dt>Gate</dt><dd>scripts/lint/lint-web.ps1</dd></div>
+          <div><dt>Showcase</dt><dd>/showcase</dd></div>
+        </dl>
+      </section>
+    </div>
+
+    <!-- 6. The footer note: where the data comes from. -->
+    <p class="footer-note">In flight is placeholder data in this reference page; a real page names its source here, for <a href="https://github.com/DKJ-Solutions/example-repo">DKJ-Solutions/example-repo</a>.</p>
+  </main>
+
+  <script>
+    DKJTheme.settings(document.getElementById('settings'), { label: 'Preview settings', theme: 'Theme', reset: 'Reset theme', light: 'Light', dark: 'Dark', width: 'Width', fluid: 'Fluid', phone: 'Phone', full: 'Full' });
+  </script>
+</body>
+</html>

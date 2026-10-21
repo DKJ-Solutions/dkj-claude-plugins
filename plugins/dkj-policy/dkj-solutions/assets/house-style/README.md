@@ -546,7 +546,7 @@ Move the `h2` and its sub line into a `.grid__head` above the card, and add `.gr
 ### Every page: the breadcrumb bar
 
 **Every page a DKJ-Solutions dev server serves opens with a breadcrumb bar** (owner's request, October 17,
-2026). That is every page you can open in the preview browser: the Repo hub, the product, and any
+2026). That is every page you can open in the preview browser: the home page, the product, and any
 page below either. The bar says where the page sits and is the way back, so no page needs a "back" link of
 its own.
 
@@ -556,11 +556,11 @@ its own.
   (44px) high and one line: a trail longer than the screen scrolls sideways inside the bar instead of
   wrapping, so the height never changes. Whatever else sticks to the top sits under it, at `top: var(--tap)`;
   the house style already does that for the floating settings button and for in-page anchors.
-- **The trail:** it always starts at **Repo hub**, linking to `/`. Each further crumb is one level
+- **The trail:** it always starts at **Home**, linking to `/` (it read **Repo hub** until #3270). Each further crumb is one level
   down: the product (under its own name), then a page inside it. The last crumb is the current page,
   unlinked, with `aria-current="page"`. The bar stands on the theme's colour, `--primary` (owner, #3235, October 21, 2026), so
   the trail is in the paper steps, which all read on it: the chevron `--paper-3`, the ancestor links `--paper-2` (with
-  a `--paper-1` focus ring), the current page `--paper-1`, every crumb at weight 400; a link shows its underline only under the pointer. On the Repo hub itself the trail is that one crumb: the bar is
+  a `--paper-1` focus ring), the current page `--paper-1`, every crumb at weight 400; a link shows its underline only under the pointer. On the home page itself the trail is that one crumb: the bar is
   still there, so it sits in the same place on every page.
 - **The labels** are the pages' own names, short, in the app's language. A crumb names a page, never a
   section on a page: an in-page anchor is not a level.
@@ -582,88 +582,75 @@ or the bar covers it.
 
 ### The Repo hub
 
-It is called a hub, not a dashboard (owner's call, October 17, 2026, [#199](https://github.com/DKJ-Solutions/dkj-brandbook/issues/199)): the index's job is to get you to the page you want quickly, while a dashboard is a page that shows how something stands, and the pages below the index can be dashboards.
+It is called a hub, not a dashboard (owner's call, October 17, 2026, [#199](https://github.com/DKJ-Solutions/dkj-brandbook/issues/199)): its job is to get you to the page you want quickly, while a dashboard is a page that shows how something stands, and the pages below it can be dashboards.
 
 **Every DKJ-Solutions repo's Repo hub has this one form, and only its content differs** (owner's
-decision, October 16, 2026, [#139](https://github.com/DKJ-Solutions/dkj-brandbook/issues/139)). The Repo
-hub is the index (`/`) of a repo's dev server: what the repo is for and what is in flight. Where a repo states no dev server, or has not opted out of it (`OwnHub` in `Get-DevPreview`), the index is the dkj-policy plugin's own hub server instead, and the repo's server is its product ([#3245](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3245)). The form is
-the one approved in [#137](https://github.com/DKJ-Solutions/dkj-brandbook/issues/137), and its reference
-implementation is this repo's own [`RepoDashboard.tsx`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.4.0/src/dashboard/RepoDashboard.tsx).
+decision, October 16, 2026, [#139](https://github.com/DKJ-Solutions/dkj-brandbook/issues/139)). Where a repo
+states no dev server, or has not opted out of it (`OwnHub` in `Get-DevPreview`), the hub is the dkj-policy
+plugin's own hub server, and the repo's server is its product
+([#3245](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3245)).
 
-**The blocks, top to bottom, in this order:**
+**The hub is two pages: the home page on `/` and About this repo on `/about`** (owner, October 21, 2026,
+[#3270](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3270): *"het is echt bedoeld als portaal
+dat je naar andere pagina's verwijst"*, it is really meant as a portal that sends you to other pages). Until
+then one page on `/` carried both jobs: the way in to what the repo **offers**, and the state of the repo
+**itself**. Now the home page is the way in and as little as possible, and everything about the repo
+itself is one click away.
 
-| # | Block | Brand book component (React) | House class (the stylesheet-only equivalent) | Fixed, or the repo's own |
-|---|---|---|---|---|
-| 0 | The breadcrumb bar, above `<main>`: the one crumb **Repo hub** ([above](#every-page-the-breadcrumb-bar)) | `Breadcrumbs bar` | `.breadcrumbs-bar` / `.breadcrumbs` | fixed |
-| 1 | The settings button | `Toolbar` (showcase; the settings button only) | `DKJTheme.settings(el)` from `house-theme.js` (`.theme-settings`) | fixed |
-| 2 | The intro, wrapping 3 to 6: a `<div>`, never a `<header>` (below) | `<div className="dkj-intro">` | a plain `<div>` | fixed |
-| 3 | Eyebrow: `<owner>/<repo>` | `<p className="dkj-eyebrow">` | `.eyebrow` | fixed form, the repo's own slug |
-| 4 | `h1`: **Repo hub** | `<h1>` | `h1` | fixed, word for word |
-| 5 | Lead: one paragraph on what the repo is for | `<p className="dkj-lead">` | `.lead` | the repo's own text |
-| 6 | A primary button to the product | `Button variant="primary"` | `.btn.btn--touch.btn--primary`, in a `<p class="page-cta">` | product repos only, with the repo's own label. The product has its own route and is never the page on `/`. The plugin's own hub, which has no build to carry a button, shows the product as a **Product** card instead, a one-row link list under its own `h2` |
-| 6a | The general banner: a countdown to the next full hour, and once an hour has passed a tone and a **10 airsquats** checkbox that shows the total owed ([#3250](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3250)) | -- | a `.notice` holding two `.msg` lines, the second `.msg--warn`, written by `Format-RepoHubBanner` in `dkj-policy`'s `hub/lib/general-pages-lib.ps1` | fixed: the same on the plugin's hub and on this source repo's own; a hub a repo builds itself carries it only if it calls that function |
-| 7 | **Pages**: links to the repo's own pages, one row per page (below the table). With general pages too, two groups, **This repo** and **General**, under one `h2` | `PageLinks` (a `CardGroup` around one `Card variant="data"` holding a `<nav>` of house `.menu-item` link rows, or two cards when there are two groups) | a `.grid-2` with a `.grid__head` (the `h2` and its `.card__sub`) above the card(s); the list is a `<nav class="menu-list">` of `<a class="menu-item">` rows, each with `.menu-item__label`, optionally `.menu-item__sub`, and `.menu-item__chevron`. One group: one `.card.grid__full` with no title of its own. Two groups: two cards titled with an `h3` | optional: any repo with a page of its own besides `/` and the product, or with general pages. Fixed titles and form; the repo's own pages and their group |
-| 8 | One stat tile per in-flight list, counting it | `StatTiles` / `StatTile` | `.tiles` / `.tile`, with `.label` and `.v` | the repo's own lists. A count not read yet shows `--` |
-| 9 | A loading line, or a warning that the lists could not be read | `Message live="status"` (loading) / `Message tone="warn" live="alert"` (error) | `.msg` with `role="status"` / `.msg.msg--warn` with `role="alert"` | fixed. The role makes a screen reader announce the line when it appears |
-| 10 | **In flight**: one data card per in-flight list, in the tiles' order, under one `h2` | `InFlightCards`: a `CardGroup` around one `Card variant="data" className="grid__full"` per list, each with `CardHead` (title, sub line) and `DataTable` | a `.grid-2` with a `.grid__head` (`h2` + `.card__sub`), then one `.card.grid__full` per list around `.table-wrap` / `.table`; the card head is `.card__head` with `.card__title` (an `h3`) and `.card__sub` | fixed title; the lists and the sub line are the repo's own |
-| 11 | **About this repo**: a facts card, its `h2` and sub line above it | `Card variant="data"` with `DefinitionList variant="facts"`, in a `CardGroup` | a `.grid-2` with a `.grid__head` (`h2` + `.card__sub`) and the `.card.grid__full` holding the facts list `.facts` (a `<dl>`) | fixed title; the sub line and the facts are the repo's own |
-| 12 | A footer note naming where the data comes from | `FooterNote` | `.footer-note` | the repo's own source |
+**The home page (`/`), top to bottom, in this order:**
 
-**The Pages block (7)**, added in [#200](https://github.com/DKJ-Solutions/dkj-brandbook/issues/200). Four decisions, each with its reason:
+| # | Block | House class (the stylesheet-only form) | Fixed, or the repo's own |
+|---|---|---|---|
+| 0 | The breadcrumb bar, above `<main>`: the one crumb **Home** ([above](#every-page-the-breadcrumb-bar)) | `.breadcrumbs-bar` / `.breadcrumbs` | fixed |
+| 1 | The settings button | `DKJTheme.settings(el)` from `house-theme.js` (`.theme-settings`) | fixed |
+| 2 | The intro, wrapping 3 and 4: a `<div>`, never a `<header>` (below) | a plain `<div>` | fixed |
+| 3 | `h1`: **the repo's name**. No eyebrow: the `h1` already names the repo | `h1` | the repo's own name |
+| 4 | Lead: one paragraph on what the repo is for | `.lead` | the repo's own text |
+| 5 | The general banner: a countdown to the next full hour, and once an hour has passed a tone and a **10 airsquats** checkbox that shows the total owed ([#3250](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3250)) | a `.notice` holding two `.msg` lines, the second `.msg--warn`, written by `Format-RepoHubBanner` in `dkj-policy`'s `hub/lib/general-pages-lib.ps1` | fixed: a hub a repo builds itself carries it only if it calls that function |
+| 6 | **Products**: every product the repo offers, one row each, linking its own route. The product is never the page on `/` | a `.grid-2` with a `.grid__head` (`h2` + `.card__sub`) above one `.card.grid__full` holding a `<nav class="menu-list">` of `<a class="menu-item">` rows | product repos only; the products, their labels and descriptions are the repo's own. The plugin's hub shows, in a repo that states no product, the two **Set up a product** cards in this place |
+| 7 | **About this repo**: one row, linking `/about` | the same section form, one `.menu-item` | fixed |
+| 8 | **Brand book**: the pages every DKJ-Solutions repo shares (the Brandbook first) | the same section form | only in a repo under the DKJ brand, i.e. one that enables `dkj-solutions`. A repo may add DKJ-Solutions pages it serves itself |
 
-- **Where: block 7, directly under the intro and above the stat tiles.** The hub's job is to get you to the
-  page you want, so the way on comes before the status, and it does not depend on the lists having loaded,
-  so it never moves or waits while they are read.
-- **What it looks like: a card under the `h2` "Pages" (with one group of pages; two groups are below) holding a navigation list, the house `.menu-item` row as an
-  `<a>`** (label, optional one-line description beneath it, a chevron at the end; a line between rows). The
-  `.menu-item` is already the house's "this goes somewhere" row, so nothing is invented but the description
-  line (`.menu-item__sub`, the muted `--text-sm` line, as `.card__sub`). A row is a full-width, `--tap`-high
-  link that tints on hover; a `.tile` is a figure that does not respond, so the two cannot be mistaken for
-  each other, which is the separation the action buttons already have from the tiles. The `h2` stands above
-  the card, never inside it ([above](#an-h2-never-stands-inside-a-card)).
-- **Fixed or optional: optional, with a fixed form.** A repo with no page of its own besides `/` and the
-  product leaves it out; a repo with at least one more page carries it, and its rows are the repo's own
-  (label in the app's language, short, the page's own name as the breadcrumb uses it; the description is one
-  line or nothing, and each link is a route on the same dev server, never an external site).
-- **Relation to block 6: the product button stays the single primary action and is not repeated as a row.**
-  The button is the one thing most visitors came for; the rows are everything else. A repo with a product
-  and other pages has both; a repo with several pages and no product has no block 6 and the Pages card is
-  the first thing under the lead. What used to be a second, outline button next to the product button moves
-  into this list, so the intro keeps one button.
+No in-flight data, no tiles and no facts on the home page.
 
-**A second group, General, and the heading above the cards**
-([#206](https://github.com/DKJ-Solutions/dkj-brandbook/issues/206), approved in
-[dkj-claude-plugins#3121](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3121)). Every DKJ-Solutions
-repo serves some pages that are not its own (Issues, Release notes), so a repo with both carries **two cards
-side by side, under one `h2` that stands above them**: **This repo** (sub line "Specific to this repo") and
-**General** (sub line "Not specific to this repo: every repo has them"), each titled with a
-plain `h3`. **A third group, DKJ-Solutions** (sub line "Shared by every DKJ-Solutions repo: the house style
-they are all built from"), follows General (the owner's split, October 20, 2026): General is what every repo
-has, whichever organisation it belongs to, and DKJ-Solutions is what only the DKJ-Solutions repos share,
-the Brandbook first. On the `.grid-2` the third card opens the next row. The `h2` is **Pages** with the sub line "Every page this dev server serves". **Only one group
-with pages, whichever group it is, keeps the same heading:** the `h2` Pages and its sub line above one
-`.card.grid__full`, which has no title of its own (#3175; until then that card carried `h2.card__title` inside
-it). Blocks 10 and 11 take the same heading form: the `h2` and a sub line stand above the cards; block 11's
-sub line is the repo's own, one line on what its facts are (for example "What this repo is"). So **every `h2`
-stands above its cards and carries a sub line.**
+**About this repo (`/about`)** is a page below the home page, in the ordinary page form: the trail **Home**
+› **About this repo**, the settings button, the intro (the eyebrow `<owner>/<repo>`, the `h1` **About this
+repo**, a lead), then, in this order:
 
-Without React, one group is a `.grid-2` > `.grid__head` (`h2` + `p.card__sub`) + `.card.grid__full` > `nav.menu-list[aria-label="Pages"]` >
-one `a.menu-item[href]` per page (direct siblings, so the house rule `.menu-item + .menu-item` draws the line
-between rows) > `span.menu-item__label` (the label, then optionally `span.menu-item__sub`) + the
-`.menu-item__chevron` svg; [`patterns/repo-dashboard.html`](patterns/repo-dashboard.html) carries it. A
-description sits inside the label span so the chevron stays aligned at the end of the row. Two groups: a
-`.grid-2` whose first child is `.grid__head` (`h2` + `p.card__sub`, spanning both columns), then two
-`.card`s, each `.card__head` > `h3` + `.card__sub`, then `nav.menu-list[aria-label="<title> pages"]`. Block 11:
-a `.grid-2` with a `.grid__head` and one `.card.grid__full`.
+| # | Block | House class (the stylesheet-only form) | Fixed, or the repo's own |
+|---|---|---|---|
+| 1 | **Pages**: the repo's own pages and the general ones, in two groups, **This repo** and **General**, under one `h2` (below) | a `.grid-2` with a `.grid__head`, one `.card` per group, each with a `.card__head` > `h3` + `.card__sub` and a `<nav class="menu-list">` | fixed form; the repo's own pages |
+| 2 | One stat tile per in-flight list, counting it | `.tiles` / `.tile`, with `.label` and `.v` | the repo's own lists. A count not read yet shows `--` |
+| 3 | A loading line, or a warning that the lists could not be read | `.msg` with `role="status"` / `.msg.msg--warn` with `role="alert"` | fixed. The role makes a screen reader announce the line when it appears |
+| 4 | **In flight**: one data card per in-flight list, in the tiles' order, under one `h2` | a `.grid-2` with a `.grid__head`, then one `.card.grid__full` per list around `.table-wrap` / `.table`, its head `.card__head` with `.card__title` (an `h3`) and `.card__sub` | fixed title; the lists and the sub line are the repo's own |
+| 5 | **Facts**: a facts card, its `h2` and sub line above it | a `.grid-2` with a `.grid__head` and one `.card.grid__full` holding `.facts` (a `<dl>`) | fixed title; the sub line and the facts are the repo's own |
+| 6 | A footer note naming where the data comes from | `.footer-note` | the repo's own source |
 
-`Button` and `Card` render the brand-book classes `.dkj-btn` and `.dkj-card`; the house `.btn--primary` and
-`.card` are the stylesheet's own classes for the same blocks. In the reference the blocks stack in the page
-column with one `--spacing-5` gap between them (`.dkj-dashboard`, a grid on `<main>`); the stylesheet-only
-equivalent is `.page-column` on `<main>`, which also takes the top margin of its direct `.card`, `.tiles`,
-`.notice` and `.footer-note` so the gap stays one `--spacing-5`. An in-page anchor (an element with an `id`
-in the column) scrolls to `5rem` below the top, clear of the settings button, in both forms; a card a table
-links down to carries a compact outline "Back to overview" button in its card head
-([#156](https://github.com/DKJ-Solutions/dkj-brandbook/issues/156)).
+A repo with no in-flight lists leaves blocks 2 to 4 out; this source repo's hub and the plugin's are both
+such repos. **An open issue is not listed twice**: where the general **Issues** page is linked in block 1, an
+in-flight issues list is that page's job, and the About page links it rather than repeating it.
+
+**The Pages block.** Its rows are the house `.menu-item` row as an `<a>` (label, optional one-line
+description beneath it, a chevron at the end; a line between rows): the house's "this goes somewhere" row.
+A row is a full-width, `--tap`-high link that tints on hover; a `.tile` is a figure that does not respond, so
+the two cannot be mistaken for each other. Each row's label is the page's own name as its breadcrumb reads it,
+short, in the app's language; its description is one line or nothing; its link is a route on the same dev
+server, never an external site.
+
+**The groups** ([#206](https://github.com/DKJ-Solutions/dkj-brandbook/issues/206), approved in
+[dkj-claude-plugins#3121](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3121)): **This repo** (sub
+line "Specific to this repo") and **General** (sub line "Not specific to this repo: every repo has them"),
+side by side, each titled with a plain `h3`, under the `h2` **Pages**. Only one group with pages keeps the
+same heading: the `h2` and its sub line above one `.card.grid__full`, with no title of its own (#3175). The
+third group of before, **DKJ-Solutions**, is the home page's Brand book section now (#3270), because the
+house style is something the repo offers its visitors rather than a fact about the repo.
+
+**Every `h2` stands above its cards and carries a sub line**, on both pages
+([above](#an-h2-never-stands-inside-a-card)). Without React, a section is a `.grid-2` > `.grid__head` (`h2` +
+`p.card__sub`) + `.card.grid__full` > `nav.menu-list[aria-label="<title>"]` > one `a.menu-item[href]` per row
+(direct siblings, so the house rule `.menu-item + .menu-item` draws the line between them) >
+`span.menu-item__label` (the label, then optionally `span.menu-item__sub`) + the `.menu-item__chevron` svg. A
+description sits inside the label span so the chevron stays aligned at the end of the row.
 
 **The in-flight lists, where a repo has them:** open pull requests, newest first, with the branch as the
 sub line (and "(draft)" on a draft); open issues by their `prio-N` label, unprioritised last and the highest
@@ -671,33 +658,30 @@ number first within a priority, with who claimed it as the sub line; every branc
 request where one is open. A repo leaves out a list it has no use for and adds one it needs, each as a tile
 and a card. An empty list keeps its card and says so in the table ("No open issues.").
 
-**What is fixed:** the order, the components, the `h1`, the intro's form, the "Pages" and "About this repo"
-titles, the "Pages" heading's sub line, and the "This repo" and "General" group titles with their sub lines.
-**What is the repo's own:** the slug, the lead, the product button and its label, whether the Pages block
-appears and which pages it links (with their labels and descriptions, and in which group: the General group
-is optional), which lists appear, the facts and their sub line, and the data source. The reference reads its lists live from the GitHub API, unauthenticated, which
-a public repo can do; a private repo reads them some other way and says which in the footer note.
+**What is fixed:** the two pages and their routes, the order, the crumbs, the intro's form, the section
+titles (Products, About this repo, Brand book; Pages, In flight, Facts) with the Pages groups' titles and sub
+lines. **What is the repo's own:** the name and the lead, its products, its own pages, which lists appear, the
+facts and their sub line, and the data source. A private repo reads its lists without the GitHub API's
+unauthenticated access and says how in the footer note.
 
 **The intro is not a `<header>` directly inside `<main>`.** The house style makes `main > header` the
-page-header row, a flex row with its controls beside the title, so a `<header>` there lays the eyebrow, the
-`h1`, the lead and the button out side by side. #137 hit exactly this; a `<div>` keeps them stacked.
+page-header row, a flex row with its controls beside the title, so a `<header>` there lays the `h1` and the
+lead out side by side. #137 hit exactly this; a `<div>` keeps them stacked.
 
 **Without React, the form is complete from `house-style.css`** ([#141](https://github.com/DKJ-Solutions/dkj-brandbook/issues/141)).
-Every block in the table has a house class: the eyebrow (`.eyebrow`), the lead (`.lead`), the page links
-(`.menu-list`, `.menu-item`, `.menu-item__label`, `.menu-item__sub`), the loading line
-(`.msg`, `.msg--warn`), the data-card head (`.card__head`, `.card__title`, `.card__sub`), the facts list
-(`.facts`) and the page column (`.page-column`, with `.page-cta` for the button's spacing). The house
-`.card`, `.tiles`, `.notice` and `.footer-note` carry a top margin of their own, and `.page-column` zeroes it
-for its direct children, so the rhythm is the reference's. `.grid-2` does the same for a direct `.card`,
-`.tiles` or `.notice`, so its rows sit one `--spacing-4` gap apart
-([#207](https://github.com/DKJ-Solutions/dkj-brandbook/issues/207)); `.grid__head` and `.grid__full` span
-every column of it, for a heading above its cards
-([#206](https://github.com/DKJ-Solutions/dkj-brandbook/issues/206)). A repo without a build copies
-[`patterns/repo-dashboard.html`](patterns/repo-dashboard.html), the stylesheet-only reference page: it links
-`house-style.css` and `house-theme.js` and carries no CSS of its own. It differs from the React page in two
-places: the settings button is fixed at the top right of the screen (`theme-settings--floating`) instead of
-sitting in the showcase's sticky wrapper, and the product button is the house `.btn--touch` (44px, the
-brand-book button's height).
+Every block above has a house class. The blocks stack in the page column, `.page-column` on `<main>`, which
+takes the top margin of its direct `.card`, `.tiles`, `.notice` and `.footer-note`, so they sit one
+`--spacing-5` apart; `.grid-2` does the same for a direct `.card`, `.tiles` or `.notice`, so its rows sit
+one `--spacing-4` apart ([#207](https://github.com/DKJ-Solutions/dkj-brandbook/issues/207)), and
+`.grid__head` and `.grid__full` span every column of it. An in-page anchor scrolls to `5rem` below the top,
+clear of the settings button; a card a table links down to carries a compact outline "Back to overview"
+button in its card head ([#156](https://github.com/DKJ-Solutions/dkj-brandbook/issues/156)). A repo without
+a build copies [`patterns/repo-dashboard.html`](patterns/repo-dashboard.html) (the home page) and
+[`patterns/repo-about.html`](patterns/repo-about.html) (About this repo), the stylesheet-only reference
+pages: they link `house-style.css` and `house-theme.js` and carry no CSS of their own, and their settings
+button is fixed at the top right of the screen (`theme-settings--floating`). The brand book app's React
+specimen of the hub (`RepoDashboard.tsx`) still shows the one-page form, and is brought to these two pages
+separately ([#3274](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3274)).
 
 **`.btn` draws no underline on a link any more** (#141): a `.btn` on an `<a>` showed the browser's underline,
 because the house link rules set its thickness and not whether it shows. An app with link buttons loses that

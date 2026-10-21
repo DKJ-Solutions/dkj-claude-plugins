@@ -28,10 +28,10 @@ plugin's payload (`Get-HouseStyleDir`, `dkj-solutions/assets/house-style/`). Eve
 `dkj-policy` carries that folder, whether or not the repo enables `dkj-solutions`. A repo's own pages are
 another matter: BWJ-Development styles those itself.
 
-**What a repo gets from enabling `dkj-solutions` is the DKJ-Solutions card**, after the General one, and
-the Brandbook page it links. Both are read from `.claude/settings.json` and `.claude/settings.local.json`
-(`Test-DkjSolutionsEnabled`; the local file wins where it names the plugin too) when each server starts.
-Without it, `/brandbook` is a plain 404 and the hub shows the General card alone.
+**What a repo gets from enabling `dkj-solutions` is the home page's Brand book section** (the DKJ-Solutions
+card, #3270) and the Brandbook page it links. Both are read from `.claude/settings.json` and
+`.claude/settings.local.json` (`Test-DkjSolutionsEnabled`; the local file wins where it names the plugin too)
+when each server starts. Without it, `/brandbook` is a plain 404 and the home page has no Brand book section.
 
 ## The hub and the product
 
@@ -46,15 +46,17 @@ link on that hub, not the hub itself.
 **The hub has one form, in every repo** (the owner's decision, October 16, 2026,
 [#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)): the one laid down in
 [`dkj-solutions/assets/house-style/README.md`](../dkj-solutions/assets/house-style/README.md), section
-"The Repo hub". The blocks, their order and the `h1`, `Repo hub`, are fixed. The plugin's hub carries, under
-the lead:
+"The Repo hub": two pages, the home page on `/` and About this repo on `/about` (#3270). The blocks and their
+order are fixed. The plugin's home page carries the repo's name as its `h1`, and under the lead:
 
-- a **Product** card, where the repo states a server: its link, or a line saying it is not running;
-- the **General** card and, where the repo enables `dkj-solutions`, the **DKJ-Solutions** card, linking
-  their pages by bare path;
-- two **setup cards**, only where the repo states no `Get-DevPreview` at all: how to add one, and which port
-  to route to VS Code's Simple Browser;
-- **About this repo**, and a footer naming the serving script.
+- a **Products** section, where the repo states a server: its link, or a line saying it is not running;
+- two **setup cards** in its place, only where the repo states no `Get-DevPreview` at all: how to add one,
+  and which port to route to VS Code's Simple Browser;
+- **About this repo**, one link to `/about`;
+- the **Brand book** section, where the repo enables `dkj-solutions`, linking its pages by bare path.
+
+Its About this repo page carries the **General** pages, by bare path, the facts, and a footer naming the
+serving script.
 
 The page is built per request from the state file below, and the repo's name and the product url, the only
 values from outside, are HTML-escaped. The line the hook prints opens with `Repo hub:`, and a repo cannot
@@ -175,7 +177,7 @@ under `/brandbook/`. The PowerShell Brandbook page it replaces is retired, so th
 
 | Page | Reads, from the repo it was started in | When it is absent |
 |---|---|---|
-| `/`, `/index.html`, `/hub` | The state file below, on every request: the Repo hub of this plugin. Under `OwnHub` a 303 to the repo's own hub instead | Under `OwnHub` with no hub known, a short 404 text |
+| `/`, `/index.html`, `/hub`, `/about` | The state file below, on every request: the home page of this plugin's Repo hub, and on `/about` its About this repo page. Under `OwnHub` a 303 to the repo's own hub instead | Under `OwnHub` with no hub known, a short 404 text |
 | `/artifacts` | `scripts/dashboard/artifacts.json`, on every request | The page says the file is not there |
 | `/brandbook/` | Only where the repo enables `dkj-solutions`: the brand book app's build in the `dkj-solutions/assets/brandbook/` this server runs from, its own routes answered with its `index.html`; `/brandbook` is a 303 to it | A plain 404 in a repo without `dkj-solutions`; a plugin copy that ships no build gets a page saying so |
 | `/issues` | `gh issue list`, three calls (the open issues, and those opened and closed in the last 28 days), for `--repo <owner/name>` taken from the `origin` remote when it is on github.com, else for the repo `gh` finds in the working directory; kept for five minutes | A `gh` that fails or is missing is a warning on the page |
