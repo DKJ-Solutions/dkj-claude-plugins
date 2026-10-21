@@ -320,13 +320,16 @@ column, and `.container--narrow` / `main.narrow` follow too:
 - `full`: no maximum, the whole width.
 
 Which width applies: the user's own choice, remembered per app on the device (`dkj-width`, with the same
-`data-theme-key` suffix as the theme); otherwise the app's own default, `<html data-width-default="full">`;
-otherwise `fluid`. `DKJTheme.setWidth('phone')` and `DKJTheme.width()` set and read it from code. An app
+`data-theme-key` suffix as the theme); otherwise the app's own default, `<html data-width-default="fluid">`;
+otherwise `full` ([#3269](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3269): a DKJ-Solutions app
+opens at the whole width unless it opts out). `DKJTheme.setWidth('phone')` and `DKJTheme.width()` set and read it from code. An app
 whose layout has no page column to widen leaves the group out with `widths: false`. The attribute sits
 inside `:where()`, so a column class of the app's own still decides its own width. Every `main` and
 `.container` without such a class follows the width, a footer's or a demo's too. The top bar's inner row
 (`.topbar__inner`) deliberately does not: it stays the narrow column, the width of the app's own controls.
-Without the script there is no `data-width`, and the column is fluid.
+Without the script there is no `data-width`, and the column is fluid, deliberately: the stylesheet alone
+also serves e-mail, Artifacts and static reports, which have no settings panel to narrow an unbounded
+column back to a reading width.
 
 **The theme names and the picker's row labels are Dutch on purpose**: DKJ-Solutions apps are
 Dutch-language, and the names are the ones their users read. An app in another language passes its own

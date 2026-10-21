@@ -39,19 +39,44 @@
 
 ### PLAN
 
+Issue #3269 (inbound from dkj-lifehub): an app that sets no `data-width-default` opens at `fluid`,
+because that is `resolveWidth()`'s last fallback. The owner wants `full` as the house default.
+
+#### The no-script case stays fluid -- a decision for the owner's look
+
+The issue leaves open whether `house-style.css` without the script should render full too. It does
+not, here: the stylesheet alone also serves e-mail, Artifacts and static reports, which have no settings
+panel to narrow an unbounded column back to a reading width, and making it full would need a new
+`fluid` rule plus a changed `main` default in every consumer at once. Reverse it at the review if the
+owner wants the two cases identical.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-theme.js`: the last fallback in `resolveWidth()` is `'full'`; the header comment follows.
+- [x] `README.md` (*The page width is part of the settings panel*): the order ends in `full`, the
+  example `data-width-default` names `fluid`, and why the no-script column stays fluid.
 
 ### TEST
 
+- [x] No suite pins the fallback (searched for `resolveWidth` and the `fluid` literal); the release
+  rebuild of `assets/brandbook/` carries the new script into the built brand book.
+- [ ] The owner looks at an app without `data-width-default` and sees it open at full width.
+
 ### DEPLOY: feat/3269-full-default-width
 
-**Score:**
+Every DKJ-Solutions page that runs `house-theme.js` and sets no `data-width-default` now opens at
+**full** width instead of the 1080px fluid column (#3269). A width picked in the settings panel still
+wins, and an app's own `data-width-default` still decides its default. Without the script the column
+stays fluid.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+An app that relied on the implicit `fluid` opens wider after the update. To keep the old look, set
+`<html data-width-default="fluid">`.
+
+**Score:** 3
 
 #### Pull Request
 
