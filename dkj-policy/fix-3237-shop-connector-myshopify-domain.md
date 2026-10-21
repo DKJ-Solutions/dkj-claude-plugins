@@ -57,9 +57,9 @@ through `graphql_query` answered the `*.myshopify.com` domain. The skill is the 
 ### DEPLOY: fix/3237-shop-connector-myshopify-domain
 
 `check-shop-connector` no longer stops on every store with a custom primary domain (#3237). It took the
-`*.myshopify.com` domain from `get-shop-info`, whose `domain` is the custom domain and which carries no
-`myshopify.com` field at all, so the comparison always read as a mismatch, even when the connector was
-bound to the right store. Step 2 now reads it with the read-only Admin GraphQL query
+`*.myshopify.com` domain from `get-shop-info`, whose `domain` is the custom domain and which has no
+`myshopify.com` field, so the comparison read as a mismatch on any store with a custom domain, even
+when the connector was bound to the right store. Step 2 now reads it with the read-only Admin GraphQL query
 `{ shop { myshopifyDomain } }`.
 
 **Score:** 3
