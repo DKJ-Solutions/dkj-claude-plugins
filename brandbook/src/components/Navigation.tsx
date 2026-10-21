@@ -228,20 +228,9 @@ function PageRows({ pages, label }: { pages: readonly Page[]; label: string }) {
  * chevron at the end), a line between rows. It uses the house `.menu-item` rows (house-style.css, loaded globally) and
  * renders nothing without pages.
  * One group only (either): one data card titled "Pages". With both pages and generalPages (the pages every DKJ-Solutions repo serves, #206): the
- * h2 "Pages" and its sub line stand above two cards side by side, "This repo" (pages) and "General" (generalPages). The home page's
- * sections (Products, About this repo, Brand book, #3270) are the one-group form with a title and subtitle of their own.
+ * h2 "Pages" and its sub line stand above two cards side by side, "This repo" (pages) and "General" (generalPages).
  */
-export function PageLinks({
-  pages,
-  generalPages = [],
-  title = 'Pages',
-  subtitle = 'Every page this dev server serves',
-}: {
-  pages: readonly Page[]
-  generalPages?: readonly Page[]
-  title?: string
-  subtitle?: string
-}) {
+export function PageLinks({ pages, generalPages = [], title = 'Pages' }: { pages: readonly Page[]; generalPages?: readonly Page[]; title?: string }) {
   const groups = [
     { group: 'This repo', sub: 'Specific to this repo', rows: pages },
     { group: 'General', sub: 'Not specific to this repo: every DKJ-Solutions repo has them', rows: generalPages },
@@ -249,7 +238,7 @@ export function PageLinks({
   if (groups.length === 0) return null
   if (groups.length === 1) {
     return (
-      <CardGroup title={title} subtitle={subtitle}>
+      <CardGroup title={title} subtitle="Every page this dev server serves">
         <Card variant="data" className="grid__full">
           <CardBody>
             <PageRows pages={groups[0].rows} label={title} />
@@ -259,7 +248,7 @@ export function PageLinks({
     )
   }
   return (
-    <CardGroup title={title} subtitle={subtitle}>
+    <CardGroup title={title} subtitle="Every page this dev server serves">
       {groups.map((g) => (
         <Card key={g.group} variant="data">
           <CardHead level={3} title={g.group} subtitle={g.sub} />

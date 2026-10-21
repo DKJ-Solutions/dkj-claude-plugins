@@ -39,55 +39,46 @@
 
 ### PLAN
 
-Issue #3274, step 2 of #3270: the brand book app's React specimen of the Repo hub takes the two-page form the
-house-style README and the PowerShell hubs took in #3279 -- the home page and About this repo.
-
-#### Choices made where the issue left them open
-
-- **The previews show each repo's About this repo page.** `PlaceholderDashboard` is the About form now, and
-  the seven hub previews keep passing their own cards as its children, between In flight and Facts. Drawing a
-  home page per preview would show the same three sections seven times; the cards are what each preview is for.
-  A repo's `product` label feeds the Products row of the home specimen.
-- **The README gets one sentence naming the React components, not a column back in its two tables**: the column
-  would read `PageLinks` on nearly every row, and the sentence names the two specimens' routes as well.
-- **Cody's lens is filled in on this branch**, because the brandbook app is his first work here
-  (`SPECIALISTS.md`: a lens is filled the day its specialist first has work, before it is deployed).
+Issue #3274, step 2 of #3270: bring the brand book app's Repo hub specimen to the two-page form. Built first as
+two React specimens; at the review the owner asked why the Repo hub sits in the brand book at all, and chose
+(October 21, 2026) to **remove the specimen and the hub previews**: the house-style README and its two
+stylesheet-only patterns are the only reference to the hub's form. That reverses #3202's *keep it as a
+specimen*, whose reason was a component reference for repos with React; the patterns carry the form without
+one, and two renderings of one form is the drift #3202 itself was about.
 
 ### CREATE
 
-- [x] `routes.ts` and `main.tsx`: `ABOUT_PATH` (`/brandbook/repo-hub/about`) and its page, `RepoAbout`.
-- [x] `PlaceholderDashboard.tsx`: `PlaceholderHome` (the repo's name as `h1`, Products, About this repo, Brand
-  book) and `PlaceholderDashboard` as About this repo (eyebrow, tiles, In flight, the repo's cards, Facts).
-- [x] `RepoDashboard.tsx`: the home specimen, and `RepoAbout` with the trail Brand book > Repo hub pattern >
-  About this repo.
-- [x] `DashboardShell.tsx`: the intro's eyebrow is optional; `Navigation.tsx`: `PageLinks` takes a `subtitle`.
-- [x] The "Repo hub" texts: the app's Home crumb (`App.tsx`), the previews' About title and intro, the showcase
-  section (with a button to the About specimen), and `brandbook/README.md`.
-- [x] `house-style/README.md`: the React sentence replaces "still shows the one-page form".
-- [x] `.claude/specialists/lenses/specialist-04-13-lens.md`: Cody's lens, filled.
+- [x] Removed `brandbook/src/dashboard/` (the specimen, its shell, the seven hub previews and their CSS) and the
+  showcase's Repo hub section; `main.tsx` renders the showcase alone, `routes.ts` keeps `HUB_PATH` and
+  `SHOWCASE_PATH`, and the Apps group in `App.tsx` and the `Section` ids lose `repo-hub`.
+- [x] The brand book's crumb back to the hub reads Home (`App.tsx`), as every hub page's does since #3270.
+- [x] `house-style/README.md`: the two patterns are the only reference; `brandbook/README.md` says the app drew
+  a specimen until #3274.
+- [x] `.claude/specialists/lenses/specialist-04-13-lens.md`: Cody's lens, filled (his first work here).
 
 ### TEST
 
-- [x] `npm run gate` in `brandbook/`: eslint (0 errors; the two warnings are the `pull`/`issue` exports that
-  were there before), CSS syntax, custom properties, colour tokens, build.
-- [x] The full gate (`open-pr.ps1 -GatesOnly`), before the park: green.
-- [ ] The owner looks at `/brandbook/repo-hub`, `/brandbook/repo-hub/about` and a hub preview, and approves.
+- [x] `npm run gate` in `brandbook/`: eslint (0 problems: the two warnings went with the removed file), CSS
+  syntax, custom properties, colour tokens, build.
+- [ ] The full gate (`open-pr.ps1 -GatesOnly`), before the park.
+- [ ] The owner looks at `/brandbook/` and approves.
 
 ### DEPLOY: feat/3274-brandbook-home-about
 
-The brand book's Repo hub pattern is two pages too (#3274, step 2 of #3270): `/brandbook/repo-hub` is the
-home page specimen (the repo's name, its products, one link to About this repo, the Brand book) and
-`/brandbook/repo-hub/about` the About this repo specimen (in flight, the repo's own cards, its facts). The hub
-previews show each repo's About page, and the brand book's crumb back to the hub reads Home.
+The brand book app no longer draws a Repo hub specimen or previews of other repos' hubs (#3274):
+`/brandbook/repo-hub` and `/brandbook/dashboards` are the showcase now, like any other path under it. The hub's
+form is laid down once, in the house-style README and its two stylesheet-only patterns. The brand book's crumb
+back to the hub reads Home.
 
 **Score:** 2
 
 #### What makes this deploy extra special
 
-The brand book a DKJ-Solutions repo opens from its hub shows the new form from this release on.
+A DKJ-Solutions repo's brand book loses its Repo hub section; a repo building its own hub starts from the
+house-style README and `patterns/repo-dashboard.html` plus `patterns/repo-about.html`.
 
 **Score:** 2
+
 #### Pull Request
 
-Brand book app: the Repo hub specimen is a Home page and an About this repo page
-
+Brand book app: remove the Repo hub specimen and the hub previews
