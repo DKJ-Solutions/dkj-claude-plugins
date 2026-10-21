@@ -1,6 +1,6 @@
 ---
 name: check-shop-connector
-description: Before the first claude.ai Shopify connector call in a session (products, orders, metafields, Admin GraphQL, analytics), confirm the connector is bound to THIS repo's store and not to the store another session switched it to. It reads the shop's myshopify.com domain through a read-only Admin GraphQL query, compares it with the store the repo names, and on a mismatch stops with the one remedy a person has to run. It never calls switch-shop itself.
+description: Before the first claude.ai Shopify connector call in a session (products, orders, metafields, Admin GraphQL, analytics), confirm the connector is bound to THIS repo's store and not to the store another session switched it to. It reads the shop's myshopify.com domain through a read-only Admin GraphQL query, compares it with the store the repo names, and on a mismatch stops with the one remedy a person has to run. It never calls switch-shop itself. It also carries the one query rule measured so far: never alias the same field with different arguments in one query.
 ---
 
 # check-shop-connector -- is the connector talking to this repo's store?
@@ -53,6 +53,21 @@ answer from the connector.
 
      > The Shopify connector is bound to `<connector store>`, but this repo is `<expected store>`.
      > Run `/mcp`, then `switch-shop <expected store>`, and ask me again.
+
+## One query rule for every connector call after it
+
+**Never request the same field twice in one query under aliases with different arguments.** Through the
+connector's `graphql_query`, a query of that shape returned the **union** of every alias's results under
+each alias. Measured once, on `translations(locale:)` in a `translatableResourcesByIds` query (inbound
+[#3266](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3266), October 21, 2026): `nl:` and
+`de:` each came back with the nl, de, fr and es values mixed together, 16 entries for a resource holding
+4 per locale, while the same field queried once without an alias returned the correct 4. A copy plan
+built on the aliased answer put French and Spanish text under the Dutch locale; it was caught before
+any write. Other fields are untested, so the rule covers them all:
+
+- **One query per argument set**, and no alias that exists only to ask the same field twice.
+- **Before acting on a result**, check its count against a single unaliased query for the same argument
+  set. A plausible-looking answer is the failure here: nothing in it says it is mixed.
 
 ## What it never does
 
