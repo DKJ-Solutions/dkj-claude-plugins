@@ -300,6 +300,11 @@ function Get-GoLiveBlockText {
     # THE MEASUREMENT FORM'S LINE (#3179): the store DID change, only the effect is a number nobody sees, so
     # it neither says nothing changed nor invites a look. The same words the closed message composes.
     $closedMeasure = 'Nothing changes visibly on the storefront. You can take a new measurement yourself, as described below.'
+    # THE ALREADY-FIXED FORM'S LINE (#3242): nothing changed IN THIS ROUND, because an earlier release had
+    # already fixed it. 'Nothing has changed' alone read as 'the bug is still there', and the go-live form
+    # presented the earlier fix as this round's result (smartwatchbanden#1006). The same words the closed
+    # message composes.
+    $closedAlreadyFixed = 'Nothing was changed for this ticket: it was already fixed by an earlier release. Check below that it holds for you.'
     # THE RESEARCH BLOCK'S HEADING IS FIXED AND ENGLISH ON EVERY BOARD (#3017), like the closed line above
     # it, so it is the same in both languages; only the bullets under it carry the task's own words.
     $outcome = 'OUTCOME'
@@ -312,6 +317,7 @@ function Get-GoLiveBlockText {
             ClosedRelease = $closedRelease
             ClosedResearch = $closedResearch
             ClosedMeasure = $closedMeasure
+            ClosedAlreadyFixed = $closedAlreadyFixed
             Outcome      = $outcome
             Measure      = 'HOW TO MEASURE'
             Targets      = 'TARGETS'
@@ -337,6 +343,9 @@ function Get-GoLiveBlockText {
             AskNoStorefront = 'There is nothing to look at on the storefront, because nothing changes for customers. Above you can read what is different now.'
             AskYes       = 'Is it right? Say so, and tick off this task.'
             AskNo        = 'Is it not? Then we would like to hear two things: what is not right yet, and what exactly should change. The issue is then reopened for a new round.'
+            FixedWhen    = 'WHEN IT WAS FIXED'
+            FixedIn      = 'It was fixed with the release of {0}, as version v{1}.'
+            FixedLink    = 'Check here that it holds for you: {0}'
         }
     }
     return @{
@@ -346,6 +355,7 @@ function Get-GoLiveBlockText {
         ClosedRelease = $closedRelease
         ClosedResearch = $closedResearch
         ClosedMeasure = $closedMeasure
+        ClosedAlreadyFixed = $closedAlreadyFixed
         Outcome      = $outcome
         Measure      = 'ZO MEET JE HET'
         Targets      = 'DOELEN'
@@ -371,6 +381,9 @@ function Get-GoLiveBlockText {
         AskNoStorefront = 'Op de storefront is niets te bekijken, want voor klanten verandert er niets. Lees hierboven wat er nu anders is.'
         AskYes       = 'Klopt het: laat het weten en vink deze taak af.'
         AskNo        = "Klopt het niet, dan horen we graag twee dingen: wat er niet goed is, ${e}n wat er precies anders moet. Dan pakken we het opnieuw op in een volgende ronde."
+        FixedWhen    = 'WANNEER HET IS OPGELOST'
+        FixedIn      = 'Het is opgelost met de release van {0}, als versie v{1}.'
+        FixedLink    = 'Kijk hier of het bij jou ook klopt: {0}'
     }
 }
 
@@ -395,15 +408,16 @@ function ConvertFrom-GoLiveProse {
         block missing the part the session wrote. '[outcome]' is the research block's one section
         (#3017). It was '[found]' until then (#3004), and that name is still read into the same
         section, so a prose file written for the old form is not refused. '[measure]', '[targets]',
-        '[baseline]' and '[when]' are the measurement block's (#3179). Which sections a block may
-        carry is the driver's question, not this parser's.
+        '[baseline]' and '[when]' are the measurement block's (#3179), and '[fixed]' is the
+        already-fixed block's (#3242). Which sections a block may carry is the driver's question, not
+        this parser's.
     #>
     param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Text)
 
     $known   = @{ 'changed' = 'Changed'; 'where' = 'WhereToLook'; 'not-included' = 'NotIncluded'; 'outcome' = 'Outcome'; 'found' = 'Outcome'
-                  'measure' = 'Measure'; 'targets' = 'Targets'; 'baseline' = 'Baseline'; 'when' = 'MeasureWhen' }
-    $buckets = @{ Changed = @(); WhereToLook = @(); NotIncluded = @(); Outcome = @(); Measure = @(); Targets = @(); Baseline = @(); MeasureWhen = @() }
-    $knownList = '[changed], [where], [not-included], [outcome], [measure], [targets], [baseline], [when]'
+                  'measure' = 'Measure'; 'targets' = 'Targets'; 'baseline' = 'Baseline'; 'when' = 'MeasureWhen'; 'fixed' = 'Fixed' }
+    $buckets = @{ Changed = @(); WhereToLook = @(); NotIncluded = @(); Outcome = @(); Measure = @(); Targets = @(); Baseline = @(); MeasureWhen = @(); Fixed = @() }
+    $knownList = '[changed], [where], [not-included], [outcome], [measure], [targets], [baseline], [when], [fixed]'
     $current = $null
     $lineNo  = 0
     foreach ($line in ($Text -split "`r?`n")) {
@@ -575,7 +589,8 @@ function Format-GoLiveClosedLine {
         (#2700), and on the next line, with no blank line between, the line that tells the forms apart
         (#3069): the reopen invitation, or with -AfterRelease the same said of a result that becomes
         visible with the release, or with -Research that nothing changed, or with -Measure (#3179) that
-        nothing changes visibly and the requester can measure it themselves.
+        nothing changes visibly and the requester can measure it themselves, or with -AlreadyFixed
+        (#3242) that nothing changed for this ticket because an earlier release had fixed it.
         -IssueRef is 'owner/repo#<n>'; a bare number has no repo to link to and is refused.
     #>
     param(
@@ -583,14 +598,15 @@ function Format-GoLiveClosedLine {
         [hashtable]$Text,
         [switch]$AfterRelease,
         [switch]$Research,
-        [switch]$Measure
+        [switch]$Measure,
+        [switch]$AlreadyFixed
     )
     if ($IssueRef -notmatch '^([^\s#/]+/[^\s#/]+)#(\d+)$') {
         throw "IssueRef '$IssueRef' is not 'owner/repo#<n>', so the closed line has no issue to link."
     }
     $url = "https://github.com/$($Matches[1])/issues/$($Matches[2])"
     $t = if ($Text) { $Text } else { Get-GoLiveBlockText }
-    $second = if ($Measure) { $t.ClosedMeasure } elseif ($Research) { $t.ClosedResearch } elseif ($AfterRelease) { $t.ClosedRelease } else { $t.ClosedLive }
+    $second = if ($Measure) { $t.ClosedMeasure } elseif ($AlreadyFixed) { $t.ClosedAlreadyFixed } elseif ($Research) { $t.ClosedResearch } elseif ($AfterRelease) { $t.ClosedRelease } else { $t.ClosedLive }
     return (($t.Closed -f $IssueRef, $url) + "`n" + $second)
 }
 
@@ -878,6 +894,85 @@ function Format-GoLiveMeasureBlock {
     $lines += ''
     $lines += '---'
     return ($lines -join "`n")
+}
+
+function Format-GoLiveAlreadyFixedBlock {
+    <#
+        Pure: the whole GitHub comment for a ticket that was ALREADY FIXED BY EARLIER WORK (#3242): the
+        session verified it, and nothing changed in this round. The header, the shared completed intro with
+        'Nothing was changed for this ticket: it was already fixed by an earlier release. Check below that
+        it holds for you.' under it, then WHEN IT WAS FIXED -- the release that fixed it, by day and
+        version, and the session's [fixed] prose -- and WHERE TO LOOK, the link and the [where] prose.
+
+        NEITHER OTHER FORM IS HONEST HERE. Measured on BWJ-Development/smartwatchbanden#1006 (October 21,
+        2026): a bug already fixed by #186 in v2.11.1 was closed with the go-live form and -LiveSince, and
+        the requester read 'Het resultaat is hier te bekijken' and 'WAT ER NU ANDERS IS' over a round that
+        changed no code. -Research says 'Nothing has changed', true for this round but read as 'the bug is
+        still there'. So the fact the reader needs first -- it was already fixed, and when -- sits directly
+        under the intro, and no section presents the earlier fix as this round's work.
+
+        THE CLOSING ASK IS NOT IN THE BLOCK, for the research form's reason: it names the board's own done
+        section, which only the closed message can read. -AlreadyFixedMarker sits beside the marker so the
+        closed message can tell this block from the others; both are passed IN, for the reason
+        Format-GoLiveBlock gives. -FixedOn is the day as Format-GoLiveDate writes it.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Marker,
+        [Parameter(Mandatory = $true)][string]$AlreadyFixedMarker,
+        [Parameter(Mandatory = $true)][string]$IssueRef,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$FixedOn,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$FixedIn,
+        [string]$ResultLink,
+        [AllowEmptyCollection()][string[]]$Fixed = @(),
+        [AllowEmptyCollection()][string[]]$WhereToLook = @(),
+        [ValidateSet('nl', 'en')][string]$Language = 'nl',
+        [ValidateSet('linked', 'none', 'ambiguous', 'unchecked')][string]$AsanaLink = 'linked'
+    )
+
+    if (-not $FixedOn.Trim()) { throw 'An already-fixed block needs the day it was fixed: -FixedOn is empty.' }
+    $version = ConvertTo-GoLiveFixedVersion -Version $FixedIn
+    if (-not $version) { throw "An already-fixed block needs the version that fixed it as X.Y.Z: -FixedIn '$FixedIn' is not one." }
+    $t = Get-GoLiveBlockText -Language $Language
+
+    $lines = @(
+        $Marker,
+        $AlreadyFixedMarker,
+        '',
+        (Get-GoLiveBlockLead -AsanaLink $AsanaLink),
+        '',
+        '---',
+        $t.Header,
+        '',
+        (Format-GoLiveClosedLine -IssueRef $IssueRef -Text $t -AlreadyFixed)
+    )
+    $where = @()
+    if ($ResultLink) { $where += ($t.FixedLink -f $ResultLink) }
+    $where += @(@($WhereToLook) | Where-Object { $_ -and $_.Trim() })
+    foreach ($s in @(
+        @{ Heading = $t.FixedWhen; Paras = @(($t.FixedIn -f $FixedOn.Trim(), $version)) + @(@($Fixed) | Where-Object { $_ -and $_.Trim() }) },
+        @{ Heading = $t.Where;     Paras = $where }
+    )) {
+        if (@($s.Paras).Count -eq 0) { continue }
+        $lines += ''
+        $lines += $s.Heading
+        foreach ($p in $s.Paras) { $lines += ''; $lines += $p }
+    }
+    # The blank line before the closing rule is load-bearing, as in Format-GoLiveBlock (#2701).
+    $lines += ''
+    $lines += '---'
+    return ($lines -join "`n")
+}
+
+function ConvertTo-GoLiveFixedVersion {
+    <#
+        Pure: -FixedIn as 'X.Y.Z' -- a leading 'v' dropped, since a session copies the tag -- or '' when it
+        is not one (#3242). The block names it as 'vX.Y.Z', so a number that is not a release is refused
+        rather than printed.
+    #>
+    param([AllowEmptyString()][string]$Version)
+    $v = ([string]$Version).Trim() -replace '^[vV]', ''
+    if ($v -match '^[0-9]+\.[0-9]+\.[0-9]+$') { return $v }
+    return ''
 }
 
 function Format-GoLiveByHandBlock {
