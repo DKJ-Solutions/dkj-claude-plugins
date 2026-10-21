@@ -21,8 +21,20 @@
 
     WHAT IS COMPARED, AND WHY NOT A SHA:
       - THIS side is the version in this plugin's own .claude-plugin/plugin.json, read relative to this
-        file. That is exactly the payload the session loaded -- no install record has to be resolved,
-        and the plugins are versioned in lockstep, so one version speaks for all of them.
+        file. That is exactly the payload of THIS plugin the session loaded, and the plugins are
+        versioned in lockstep -- but lockstep is a property of a release, not of an install, so it is
+        checked rather than assumed (next bullet).
+      - THE MIX CHECK (#3273). Every enabled plugin of this marketplace is installed on its own, at its
+        own scope, so one session can load them from different releases. Measured October 21, 2026: a
+        consumer had dkj-policy at user scope on 5.27.0 and at project scope on 5.26.0, the session
+        loaded the user-scope copy of this hook, and it printed "this session runs dkj plugins v5.27.0"
+        while dkj-solutions and dkj-subagents-lifehub -- project scope only -- ran from the 5.26.0
+        cache. So the install records that cover this checkout (Get-InstallRecord: this path's, plus
+        the path-less ones) are read for every enabled id of the marketplace. Where they and the
+        running version name more than one version, the verdict is [MIXED] and lists them per plugin.
+        Which of two records for one plugin a session loads is not something a hook can see, so a
+        plugin with two disagreeing records is itself named as mixed rather than resolved by guess.
+        Reading the records is best-effort: where it fails, the lockstep reading above stands.
       - THE OTHER side is the highest vX.Y.Z tag on the marketplace clone's `origin`, read with
         `git ls-remote --tags --refs`, which writes nothing into the clone.
       - NOT the clone's HEAD against origin's HEAD: the clone tracks the trunk, which moves on every
@@ -62,6 +74,13 @@
 .PARAMETER CacheRootOverride
     (Optional, for tests) Passed to session-cache-lib as -Root.
 
+.PARAMETER RootOverride
+    (Optional, for tests) The checkout whose enable state and install records the mix check reads,
+    instead of CLAUDE_PROJECT_DIR or the working directory.
+
+.PARAMETER UserHomeOverride
+    (Optional, for tests) The home directory '~/.claude' hangs off, for the mix check's two reads.
+
 .PARAMETER TimeoutSeconds
     How long the remote probe gets. Default 5.
 #>
@@ -70,6 +89,8 @@ param(
     [string]$PluginJsonOverride = '',
     [string]$CloneOverride = '',
     [string]$CacheRootOverride = '',
+    [string]$RootOverride = '',
+    [string]$UserHomeOverride = '',
     [int]$TimeoutSeconds = 5
 )
 
@@ -84,6 +105,49 @@ function ConvertTo-ReleaseVersion {
     return $null
 }
 
+function Get-LoadedVersionMix {
+    <#
+        The mix check (#3273): per enabled plugin of -Marketplace, the versions its install records for
+        -Root carry. Returns @() when everything agrees with -Running, or when the records cannot be
+        read; otherwise one 'name vX.Y.Z (scope)[ and ...]' phrase per plugin, ordinally sorted.
+    #>
+    param([string]$Root, [string]$UserHome, [string]$Marketplace, [version]$Running)
+    $lib = Join-Path $PSScriptRoot '..\scripts\lib\check-report-lib.ps1'
+    if (-not $Root -or -not (Test-Path -LiteralPath $lib -PathType Leaf)) { return @() }
+    try {
+        . $lib
+        $enabled = Get-EnabledPlugins -RepoRoot $Root -UserHomeOverride $UserHome
+        $install = Get-InstallRecord -RepoRoot $Root -UserHomeOverride $UserHome
+    } catch { return @() }
+    $versions = @{ "$Running" = $true }
+    $phrases = @()
+    foreach ($id in @($enabled.Ids)) {
+        # The name is the one free-text value that reaches the model, and an opened repo's settings can
+        # enable any id it likes: only a slug-shaped name of exactly this marketplace counts.
+        $halves = $id -split '@'
+        if ($halves.Count -ne 2 -or $halves[1] -cne $Marketplace -or -not $halves[0] -or -not (Test-PluginNameSlug $halves[0])) { continue }
+        $recs = @()
+        if ($install.RecordsById.ContainsKey($id)) { $recs += @($install.RecordsById[$id]) }
+        if ($install.PathlessById.ContainsKey($id)) { $recs += @($install.PathlessById[$id]) }
+        $parts = @()
+        foreach ($rec in $recs) {
+            $v = ConvertTo-ReleaseVersion -Text ([string]$rec.Version)
+            if (-not $v) { continue }
+            $versions["$v"] = $true
+            $scope = $(if ($rec.Scope -cmatch '^[a-z]{1,16}$') { $rec.Scope } else { 'unknown scope' })
+            $parts += "v$v ($scope)"
+        }
+        if ($parts.Count -gt 0) { $phrases += ($halves[0] + ' ' + ($parts -join ' and ')) }
+    }
+    if ($versions.Count -le 1) { return @() }
+    $sorted = [string[]]@($phrases)
+    if ($sorted.Count -gt 1) { [array]::Sort($sorted, [System.StringComparer]::Ordinal) }
+    return [pscustomobject]@{
+        Phrases = $sorted
+        Lowest  = (@($versions.Keys | ForEach-Object { [version]$_ }) | Sort-Object | Select-Object -First 1)
+    }
+}
+
 try {
     # --- this side: the version of the payload that is running ------------------------------------
     $pluginJson = $(if ($PluginJsonOverride) { $PluginJsonOverride } else { Join-Path $PSScriptRoot '..\.claude-plugin\plugin.json' })
@@ -94,12 +158,13 @@ try {
     if (-not $running) { exit 0 }
 
     # --- the other side: the clone whose origin is GitHub --------------------------------------------
+    $marketplace = 'dkj-claude-plugins'
     if ($CloneOverride) {
         $clone = $CloneOverride
     } else {
         $home_ = $(if ($env:USERPROFILE) { $env:USERPROFILE } else { $env:HOME })
         if (-not $home_) { exit 0 }
-        $clone = Join-Path $home_ '.claude\plugins\marketplaces\dkj-claude-plugins'
+        $clone = Join-Path $home_ ('.claude\plugins\marketplaces\' + $marketplace)
     }
     if (-not (Test-Path -LiteralPath (Join-Path $clone '.git'))) { exit 0 }
 
@@ -136,7 +201,20 @@ try {
 
     if (-not $newest) { exit 0 }
 
-    if ($newest -le $running) {
+    $root = $(if ($RootOverride) { $RootOverride } elseif ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path })
+    $mix = Get-LoadedVersionMix -Root $root -UserHome $UserHomeOverride -Marketplace $marketplace -Running $running
+
+    if ($mix) {
+        # MIXED OUTRANKS BOTH VERDICTS BELOW (#3273): either one would name a single version for a
+        # session that loaded several. The lowest is what an update has to close.
+        $listed = ($mix.Phrases -join '; ')
+        if ($mix.Lowest -lt $newest) {
+            $user = "dkj plugins are on mixed versions in this session: $listed. GitHub's newest release is v$newest. Run /dkj-policy:update-plugins, then restart the session."
+        } else {
+            $user = "dkj plugins are on mixed versions in this session: $listed. GitHub's newest release is v$newest."
+        }
+        $model = "release-freshness-sessioncheck: [MIXED] the enabled dkj plugins load different versions for this checkout ($listed); this hook's own copy runs v$running, the lowest is v$($mix.Lowest), and the marketplace's origin's newest release is v$newest. A skill or hook can therefore run from an older release than this line's own version. The user has been shown this."
+    } elseif ($newest -le $running) {
         # CURRENT SPEAKS TOO (#2702). #2673 shipped this as silent, and silence turned out to be two
         # facts the user could not tell apart -- "current" and "could not check" -- so the question it
         # was built to answer ("do I need update-plugins?") was still guesswork on every good start.

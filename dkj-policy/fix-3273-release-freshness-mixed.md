@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Inbound #3273, verified on pickup: the hook still takes its own `plugin.json` as the version of every
+dkj plugin ("one version speaks for all of them"). The proposed repair -- read every enabled dkj
+plugin's install records and report `[MIXED]` -- fits `Get-EnabledPlugins` + `Get-InstallRecord`,
+which already exist. Loading `check-report-lib.ps1` costs about 200ms in a cold PowerShell 5.1.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `release-freshness-sessioncheck.ps1`: `Get-LoadedVersionMix` reads the install records covering
+  this checkout for every enabled id of the marketplace; more than one version (the running one included)
+  is `[MIXED]`, listed per plugin with its scopes. It outranks `[CURRENT]` and `[BEHIND]`, and an unreadable
+  administration leaves the lockstep verdict standing.
+- [x] Tests: every scenario pins a fixture home and checkout, plus five mix scenarios (the measured shape,
+  mixed with nothing behind, agreeing records, a record for a plugin not enabled, an unreadable file).
 
 ### TEST
 
+- [x] Review: Victor and Sebastian. Their shared finding -- the plugin name was the one unchecked value reaching the model -- is repaired: only a slug name of exactly this marketplace counts (hostile-id test added).
+- [x] `release-freshness-sessioncheck.tests.ps1`: 36 of 36 pass.
+- [x] Live in this checkout (all records on 5.27.0): still `[CURRENT]`.
+
 ### DEPLOY: fix/3273-release-freshness-mixed
 
-**Score:**
+The session-start release check no longer says "this session runs dkj plugins vX" when the enabled dkj
+plugins load different versions (#3273). When a user-scope install sits beside an older project-scope
+one, or the plugins of one checkout were updated apart, it now reports `[MIXED]`. It names each plugin's
+version and scope, and asks for `/dkj-policy:update-plugins` when one of them is behind GitHub's newest
+release.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+**Score:** N/A
 
 #### Pull Request
 
