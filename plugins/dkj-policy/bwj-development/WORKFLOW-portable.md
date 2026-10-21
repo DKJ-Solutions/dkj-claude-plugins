@@ -916,16 +916,20 @@ issue chooses which task is read, which is acceptable because the store repos ar
 `ASANA_PAT` only. It mirrors the team's call, made in Asana, and makes none. The source repo's own
 tracker still ranks its issues on the same four labels, typed by whoever files.
 
-### 6. (Retired October 5, 2026) The board's sections are no longer moved automatically
+### 6. (Retired October 5, 2026; one move back October 21, 2026) The board's sections are moved automatically only into InReview
 
 The board's numbered sections are still the stages a colleague reads, from *a colleague put this on your
 name* to *tested and good*, and `Get-AsanaStageMap` still names what each number means. **But no workflow
-moves a card between them any more** (Dave, October 5, 2026): the stage sweep, the three GitHub Project
+sweeps a card between them any more** (Dave, October 5, 2026): the stage sweep, the three GitHub Project
 statuses that drove it, the `ReadyToTest` promotion on feedback and the terminal-stage guard are retired
-with the mirror, and `Get-GithubStatusMap` is no longer read. **`Filed` is the one section the tooling
-writes**: `report-issue` creates the card there and reads the stage map to find it. Every other move is a
-person dragging the card, so a card stays in `Filed` after the issue is built, closed or reopened until
-somebody moves it.
+with the mirror, and `Get-GithubStatusMap` is no longer read. **The tooling writes two sections, and
+each on one event only.** `report-issue` creates the card in `Filed` and reads the stage map to find it.
+**A close as completed that carries this round's go-live, research, measurement or already-fixed block
+moves the card into `InReview`** (#3248, Maikel, October 21, 2026), after the closed message has posted,
+because that message tells the requester the task is now in review. It is never made on a `-ByHand` close,
+a close without a block, a not-planned close or a reopen, and it never takes a card out of `Completed`.
+Where the task is on several boards, or its board has no single section with the `InReview` code, it is
+skipped and the message still posts. Every other move is a person dragging the card.
 
 The two ends were always the submitter's -- their untriaged inbox at one end and `Completed` at the other
 -- and that is unchanged: **this plugin never ticks a task off** (step 4).
@@ -1109,8 +1113,8 @@ the other direction -- no card without the label -- and since
 [#2940](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2940) `asana-link-pickupcheck` names
 a linked issue that lacks it, with the line that adds it.
 
-Nothing moves the card after filing (step 6 is retired), so a person moves it through the board's
-sections as the ticket progresses.
+After filing, only a completed close with a block moves the card, and only into `InReview` (step 6), so a
+person moves it through the other sections as the ticket progresses.
 
 **Everything that comes out of Asana stays in that issue** -- the request, what was worked out, what
 was measured, what went back to the requester. There is no second home for it, and the issue's own
