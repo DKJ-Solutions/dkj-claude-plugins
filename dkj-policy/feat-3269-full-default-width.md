@@ -55,6 +55,8 @@ owner wants the two cases identical.
 - [x] `house-theme.js`: the last fallback in `resolveWidth()` is `'full'`; the header comment follows.
 - [x] `README.md` (*The page width is part of the settings panel*): the order ends in `full`, the
   example `data-width-default` names `fluid`, and why the no-script column stays fluid.
+- [x] `skills/house-style/SKILL.md`: the `house-theme.js` sha256 names the new bytes; the cut repoints
+  the tag, as every house-style branch before this one left it.
 
 ### TEST
 
