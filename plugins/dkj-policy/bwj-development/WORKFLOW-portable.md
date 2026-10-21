@@ -285,6 +285,11 @@ session writes to a colleague follows their language: the requester fixed it wor
 ([#2656](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2656), replacing #2653's
 wording). The steps are in `report-issue`.
 
+**A task the procedure creates itself gets the same comment** (Maikel, October 21, 2026,
+[#3253](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3253)). The colleagues on a board read
+it as the sign that the GitHub issue exists, on every card, and cannot tell a colleague's ticket from a
+session-created one. Its description needs no second write: the skeleton already opens with the link.
+
 **A board may also carry a `Github Issue` text custom field** -- that capitalization is the field's
 literal, as-configured name in Asana, not a typo -- **and where it does, task creation is
 where it gets set.** It is optional -- most Asana projects have no such field, and a repo whose
