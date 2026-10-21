@@ -29,7 +29,7 @@ $ErrorActionPreference = 'Stop'
 $palettes = [ordered]@{}
 $failed = 0
 foreach ($t in Get-HousePaletteThemes) {
-    $p = Get-HousePalette -Hue $t.Hue -Mode $t.Mode
+    $p = Get-HousePalette -Hue $t.Hue -Mode $t.Mode -ChromaMax ([double]$t.ChromaMax)
     $palettes[$t.Id] = $p
     Write-Host ("{0} ({1}, hue {2})" -f $t.Id, $t.Mode, $t.Hue)
     Write-Host ("  " + (Format-HousePaletteDeclarations $p))

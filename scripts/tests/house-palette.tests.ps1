@@ -66,7 +66,7 @@ $themes = @(Get-HousePaletteThemes)
 Assert-Equal 12 $themes.Count 'twelve themes'
 Assert-Equal 6 @($themes | Where-Object Mode -eq 'light').Count 'six light themes'
 foreach ($th in $themes) {
-    $p = Get-HousePalette -Hue $th.Hue -Mode $th.Mode
+    $p = Get-HousePalette -Hue $th.Hue -Mode $th.Mode -ChromaMax ([double]$th.ChromaMax)
     Assert-Equal 11 $p.Count "$($th.Id): eleven tokens"
     $miss = @(Get-HousePaletteContrast $p | Where-Object { $_.Ratio -lt $_.Floor } | ForEach-Object { '{0} {1:N2}' -f $_.Pair, $_.Ratio })
     Assert-Equal '' ($miss -join '; ') "$($th.Id): every pairing reaches its floor"
@@ -80,6 +80,7 @@ foreach ($th in $themes) {
     # the primary is the MOST saturated colour that reads: a step of HSL lightness toward 50% no longer reaches 4.55:1
     $pl = ConvertTo-HslLightness $p['--primary']
     $stp = Get-HousePaletteSteps -Mode $th.Mode
+    if ($th.ChromaMax) { $stp.PrimaryChromaMax = $th.ChromaMax }
     $pc = ConvertTo-OkLch $p['--primary']
     if ($stp.PrimaryChromaMax) { Assert-True ($pc.C -le $stp.PrimaryChromaMax + 0.002) "$($th.Id): the primary is no more saturated than chroma $($stp.PrimaryChromaMax)" }
     if ($stp.PrimaryChromaMax -and [math]::Abs($pc.C - $stp.PrimaryChromaMax) -lt 0.003) {
@@ -103,14 +104,14 @@ Write-Host '-- group 3: the stylesheet carries exactly the computed values' -For
 
 $css = [System.IO.File]::ReadAllText($Style)
 foreach ($th in $themes) {
-    $expected = Format-HousePaletteDeclarations (Get-HousePalette -Hue $th.Hue -Mode $th.Mode)
+    $expected = Format-HousePaletteDeclarations (Get-HousePalette -Hue $th.Hue -Mode $th.Mode -ChromaMax ([double]$th.ChromaMax))
     $line = ([regex]::Match($css, ":root\[data-theme=""$($th.Id)""\], \.theme-swatch\[data-id=""$($th.Id)""\] \{ ([^}]*)\}")).Groups[1].Value
     Assert-True ($line.StartsWith($expected)) "$($th.Id): its theme line starts with the computed eleven"
 }
 $blocks = @([regex]::Matches($css, '(?m)^\s+(--paper-1:[^\r\n]*)$') | ForEach-Object { $_.Groups[1].Value.Trim() })
 Assert-Equal 3 $blocks.Count 'three default token lines'
 Assert-Equal (Format-HousePaletteDeclarations (Get-HousePalette -Hue 240 -Mode light)) $blocks[0] 'the light default is Blauw'
-Assert-Equal (Format-HousePaletteDeclarations (Get-HousePalette -Hue 185 -Mode dark)) $blocks[1] 'the OS-followed dark default is Cyaan'
+Assert-Equal (Format-HousePaletteDeclarations (Get-HousePalette -Hue 185 -Mode dark -ChromaMax 0.10)) $blocks[1] 'the OS-followed dark default is Cyaan'
 Assert-Equal $blocks[1] $blocks[2] 'the two dark default blocks agree'
 Assert-True ($css -notmatch '--ink-[1-7]\b') 'no --ink-* is left in the stylesheet'
 Assert-True ($css -match 'data-id="rust"\] \{[^}]*--warning-3: #b88a00;') 'Roest keeps its own --warning-3 beside the eleven'

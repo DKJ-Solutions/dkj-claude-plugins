@@ -69,7 +69,8 @@ This is a visible result: the branch stops for the owner's look at the brand boo
   near-black text. A deep fill with light text (`--primary-fill`) was tried and reverted on the owner's word; the
   owner's call instead is a much lighter primary on dark, so its floor there is 9:1 on all four paper steps (Roze
   `#ff9fd4`, Lila `#d6adff`, Hemelsblauw `#b8b8ff`, Oranje `#ffaa74`). Cyaan and Geel passed 9:1 at full strength and
-  stayed neon (owner), so a dark primary is capped at OKLCH chroma 0.13: Cyaan `#26d3e5`, Geel `#e2ba51`.
+  stayed neon (owner), so a dark primary is capped at OKLCH chroma 0.13: Geel `#e2ba51`; Cyaan was still too vivid
+  there and has a cap of its own, 0.10: `#63cfdc`.
 - [x] README: the token table, the rename table (from `--ink-*` and straight from `--primary-*`), the model, the
   measurements, the Fills section and the reserved class names.
 - [x] The gate: `--ink-1`..`--ink-7` retired, `--primary` and `--muted` live again; the skill's checksum repinned.

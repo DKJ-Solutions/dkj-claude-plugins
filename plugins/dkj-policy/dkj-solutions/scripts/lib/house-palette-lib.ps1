@@ -19,7 +19,8 @@
     on it, the text on a primary fill, reads at 9:1 too. At 4.55:1 a fill was a vivid band under near-black text.
     And no dark primary is more saturated than OKLCH chroma 0.13 (Roze's, the most saturated of the light tints):
     Cyaan and Geel reach 9:1 at full strength already, so the floor alone left them neon (owner, the same day); above
-    the cap the primary is taken again at that chroma, at the lightness where it reaches 9:1.
+    the cap the primary is taken again at that chroma, at the lightness where it reaches 9:1. A theme can set a lower
+    cap of its own (ChromaMax): Cyaan still read too vivid at 0.13 and takes 0.10, Hemelsblauw's.
 
     Every threshold is 4.55:1 or 7.05:1 rather than 4.5 and 7, which leaves room for the rounding to #rrggbb.
     Pure ASCII (repo convention for .ps1).
@@ -37,7 +38,7 @@ function Get-HousePaletteThemes {
         @{ Id = 'pink';    Mode = 'dark';  Hue = 327 }
         @{ Id = 'lilac';   Mode = 'dark';  Hue = 270 }
         @{ Id = 'sky';     Mode = 'dark';  Hue = 240 }
-        @{ Id = 'cyan';    Mode = 'dark';  Hue = 185 }
+        @{ Id = 'cyan';    Mode = 'dark';  Hue = 185; ChromaMax = 0.10 }   # still too vivid at 0.13 (owner, October 21, 2026)
         @{ Id = 'yellow';  Mode = 'dark';  Hue = 47  }
         @{ Id = 'orange';  Mode = 'dark';  Hue = 23  }
     )
@@ -152,8 +153,9 @@ function Find-LightnessAtContrast {
 # ---- the palette ----------------------------------------------------------------------------------------------
 function Get-HousePalette {
     <# The eleven tokens of one theme, as an ordered map of token name to #rrggbb. #>
-    param([Parameter(Mandatory)][double]$Hue, [Parameter(Mandatory)][ValidateSet('light', 'dark')][string]$Mode)
+    param([Parameter(Mandatory)][double]$Hue, [Parameter(Mandatory)][ValidateSet('light', 'dark')][string]$Mode, [double]$ChromaMax = 0)
     $steps = Get-HousePaletteSteps -Mode $Mode
+    if ($ChromaMax -gt 0) { $steps.PrimaryChromaMax = $ChromaMax }
     $okHue = (ConvertTo-OkLch (ConvertFrom-Hsl $Hue 1 0.5)).H
     $paper = 0..3 | ForEach-Object { ConvertFrom-OkLch $steps.PaperL[$_] $steps.PaperC[$_] $okHue }
     $fg    = 0..3 | ForEach-Object { ConvertFrom-OkLch $steps.FgL[$_] $steps.FgC[$_] $okHue }
