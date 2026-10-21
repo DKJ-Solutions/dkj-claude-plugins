@@ -166,7 +166,10 @@ function New-FixtureRepo {
         [switch]$WithPatchNote,
         [switch]$PlainNote,
         [switch]$TitleLineDrifted,
-        [switch]$NoLiveMarker
+        [switch]$NoLiveMarker,
+        # A consumer that leaves Get-ReleaseHistoryPath unanswered, so its history sits at the computed
+        # default the cut writes to (#3243).
+        [switch]$NoHistorySeam
     )
     $root = Join-Path $Fixture "repo-$Label"
     if (Test-Path -LiteralPath $root) { Remove-Item -Recurse -Force -LiteralPath $root }
@@ -177,7 +180,7 @@ function New-FixtureRepo {
 function Get-RepoName { return 'fixture-owner/fixture-repo' }
 function Get-ReleaseNoteRoot { return 'releases/audience' }
 function Get-ReleaseNotesGrouping { return '$Grouping' }
-function Get-ReleaseHistoryPath { return 'releases/README.md' }
+$(if ($NoHistorySeam) { '' } else { "function Get-ReleaseHistoryPath { return 'releases/README.md' }" })
 function Get-ReleasePageWorkerName { return '$WorkerName' }
 $titleFn
 $(if ($ThemeBody) { "function Get-ReleasePageTheme { $ThemeBody }" } else { '' })
@@ -204,7 +207,8 @@ $(if ($MastheadBody) { "function Get-ReleasePageMasthead { $MastheadBody }" } el
 |---|---|---|---|
 | [1.0.0](audience/1.x/1.0.0.md) | 2026-07-01 | Major | Older than any note |
 "@
-    Write-FixtureFile (Join-Path $root 'releases\README.md') $history
+    $historyRel = if ($NoHistorySeam) { 'dkj-policy\releases\history.md' } else { 'releases\README.md' }
+    Write-FixtureFile (Join-Path $root $historyRel) $history
 
     $folder = { param($v) if ($Grouping -eq 'minor') { ($v.Split('.')[0..1] -join '.') } else { "$($v.Split('.')[0]).x" } }
     $extra = if ($NoteWithScriptTag) { "`n`nA literal closing script tag follows: </script> and the page must survive it." } else { '' }
@@ -464,6 +468,15 @@ try {
     $b10 = Invoke-Build -Root $r10
     Assert-Equal 1 $b10.Code 'no history: refuses'
     Assert-Says $b10.Out 'Get-ReleaseHistoryPath' 'no history: the error names the seam that points at it'
+
+    # --- 10b. An unanswered history seam (#3243) ---------------------------------------------------
+    # The page reads the history where the cut writes it: the computed default, not the pre-#885
+    # 'releases/README.md' the builder's own fallback used to name.
+    Write-Host "build -- an unanswered Get-ReleaseHistoryPath reads the computed default" -ForegroundColor Cyan
+    $r10b = New-FixtureRepo -Label 'historydefault' -NoHistorySeam
+    $b10b = Invoke-Build -Root $r10b
+    Assert-Equal 0 $b10b.Code 'history default: builds from dkj-policy/releases/history.md'
+    Assert-True (Test-Path -LiteralPath (Join-Path $r10b 'releases\page\release-notes.html') -PathType Leaf) 'history default: the page is written'
 
     # --- 11. The palette seam (inbound #759) -------------------------------------------------------
     # WHY THE ASSERTS ARE ABOUT POSITION AND NOT ONLY PRESENCE. The override has to beat the

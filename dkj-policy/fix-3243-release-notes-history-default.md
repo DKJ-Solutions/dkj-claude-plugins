@@ -39,19 +39,37 @@
 
 ### PLAN
 
+#3243: `build-release-notes-page.ps1` kept its own literal `releases/README.md` as the fallback for an
+unanswered `Get-ReleaseHistoryPath`, while the cut writes to the computed default. The issue's side
+remark about `NoteRoot` does not stand: `cut-release.ps1` keeps `releases/notes` as that seam's default
+on purpose (line 578), so the two agree there.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The builder dot-sources `seam-lib.ps1` and falls back to `Get-DefaultReleaseHistoryPath`, in the
+  source and its plugin mirror.
+- [x] A fixture with no history seam and its history at `dkj-policy/releases/history.md` (case 10b).
 
 ### TEST
 
+- [x] `release-notes-page.tests.ps1`: 177 passed, 0 failed.
+
 ### DEPLOY: fix/3243-release-notes-history-default
 
-**Score:**
+The release-notes page builder now finds the release history where the cut writes it (#3243). In a repo
+that leaves `Get-ReleaseHistoryPath` unanswered, `build-release-notes-page.ps1` looked for
+`releases/README.md`, the pre-#885 default, while `cut-release.ps1` wrote the history to
+`dkj-policy/releases/history.md`, so the build refused and the general pages server's `/release-notes`
+returned 404. It now resolves the same computed default the cut uses.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer that follows the default gets its release-notes page after this release; the workaround of
+answering `Get-ReleaseHistoryPath` in `scripts/repo-config.ps1` can stay or go.
+
+**Score:** 3
 
 #### Pull Request
 
