@@ -112,6 +112,7 @@
                                       "check-plugin-integrity-script-set.tests.ps1",
                                       "check-plugin-integrity-skill-spans.tests.ps1",
                                       "fix-mojibake.tests.ps1",
+                                      "house-palette.tests.ps1",
                                       "param-binding-strictness.tests.ps1",
                                       "roster-sync.tests.ps1",
                                       "script-contract.tests.ps1",
@@ -122,7 +123,7 @@
                                     "These suites test the lint; the lint itself runs in its own CI job. A red check-plugin-integrity-* suite means a check changed, not that the tree broke it.",
                                     "This is the heaviest group, about a third of the sum."
                                 ],
-                       "split":  "check-plugin-integrity on its own (its 15 suites), and the other gates beside it: the always-on budget, the roster, the script contract, the shared scripts, the house style, mojibake and parameter binding."
+                       "split":  "check-plugin-integrity on its own (its 15 suites), and the other gates beside it: the always-on budget, the roster, the script contract, the shared scripts, the house style and its palette, mojibake and parameter binding."
                    },
                    {
                        "key":  "ci",

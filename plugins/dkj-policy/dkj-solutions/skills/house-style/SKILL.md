@@ -28,7 +28,7 @@ always pins the release that carries the bytes its checksums name.
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.26.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css` | `1fc9e9260f063d0e60b2793ce43d9226d328add200433ce559f1d69bebc38385` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.26.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css` | `654f5db37cd1ae67dc0f4a81aa078ec5348f13e3f628ec68f538a48ce6ed6ab1` |
 | `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.26.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-theme.js` | `cddf0c0c493cd09156e76211461df709ace3cbdd77c90e7ca2203db572723d38` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
@@ -153,6 +153,23 @@ itself, which the `check-house-style` test suite holds to it and which goes red 
 without the table following. So a change to a house file lands together with the new checksums here and,
 where a token is retired, with the new names in `Get-HouseStyleRetiredTokens` in
 `scripts/lib/house-style-rules.ps1`.
+
+**A theme's colours are computed, never typed**
+([#3235](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3235)). Each theme's eleven colours (one
+`--primary`, the greys `--muted` and `--muted-inverse`, `--paper-1` … `--paper-4` and `--fg-1` … `--fg-4`) come
+from its hue and mode through
+[`scripts/build/build-house-palette.ps1`](../../scripts/build/build-house-palette.ps1), with the model in
+`scripts/lib/house-palette-lib.ps1` beside it. A change to a theme, a step or a contrast floor is made there:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File plugins/dkj-policy/dkj-solutions/scripts/build/build-house-palette.ps1          # print and check
+powershell -NoProfile -ExecutionPolicy Bypass -File plugins/dkj-policy/dkj-solutions/scripts/build/build-house-palette.ps1 -Apply   # write house-style.css
+```
+
+Without `-Apply` it prints every theme's declarations and each pairing that misses its floor, and writes
+nothing; with `-Apply` it rewrites the twelve theme lines and the three default blocks, and refuses to write
+when a floor is missed. The `house-palette` test suite holds the stylesheet to the computed values, so a hand
+edit to a colour goes red. After `-Apply` the checksum in the table above changes too.
 
 **A merged change reaches the apps only once it is released.** The house style has no version of its
 own: it ships with the plugin and follows its lockstep release. The cut repoints the consumer URLs above

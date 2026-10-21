@@ -5,7 +5,7 @@
 .dkj-iconbtn:focus-visible, .dkj-iconbtn[data-demo-state='focus'],
 .dkj-badge-toggle:focus-visible, .dkj-badge-toggle[data-demo-state='focus'],
 .dkj-inline-toggle:focus-visible, .dkj-inline-toggle[data-demo-state='focus'] {
-  outline: var(--dkj-focus-w) solid var(--ink-3);
+  outline: var(--dkj-focus-w) solid var(--muted);
   outline-offset: var(--dkj-focus-offset);
 }
 
@@ -24,7 +24,7 @@
   border: 1px solid var(--paper-3);
   border-radius: var(--dkj-radius-md);
   background: var(--paper-2);
-  color: var(--ink-7);
+  color: var(--fg-1);
   font: inherit;
   font-weight: var(--dkj-fw-semibold);
   line-height: var(--dkj-lh-tight);
@@ -38,22 +38,22 @@
 .dkj-btn svg { flex: none; }
 .dkj-btn:disabled, .dkj-btn[aria-disabled='true'] { opacity: 0.5; cursor: not-allowed; }
 .dkj-btn--block { display: flex; width: 100%; }
-.dkj-btn--primary { background: var(--ink-1); border-color: var(--ink-1); color: var(--paper-1); }
+.dkj-btn--primary { background: var(--primary); border-color: var(--primary); color: var(--paper-1); }
 /* Primary disabled: visible, colourless, inert -- "Save only becomes active when there is something to save". */
 .dkj-btn--primary:disabled, .dkj-btn--primary[aria-disabled='true'] {
   opacity: 1;
   cursor: default;
-  color: var(--ink-7);
+  color: var(--fg-1);
   background: var(--paper-3);
   border-color: var(--paper-3);
 }
 /* The default look answers a hover or a press with the accent border (the download button's behaviour, now every default button's).
    Choices in a segmented row or list carry their own pressed state and are left out. */
 .dkj-btn--default:not(.dkj-choice):active:not(:disabled):not([aria-disabled='true']),
-.dkj-btn--default:not(.dkj-choice)[data-demo-state='active'] { transform: translateY(1px); border-color: var(--ink-3); }
-.dkj-btn--default:not(.dkj-choice)[data-demo-state='hover'] { border-color: var(--ink-3); }
+.dkj-btn--default:not(.dkj-choice)[data-demo-state='active'] { transform: translateY(1px); border-color: var(--muted); }
+.dkj-btn--default:not(.dkj-choice)[data-demo-state='hover'] { border-color: var(--muted); }
 @media (hover: hover) {
-  .dkj-btn--default:not(.dkj-choice):hover:not(:disabled):not([aria-disabled='true']) { border-color: var(--ink-3); }
+  .dkj-btn--default:not(.dkj-choice):hover:not(:disabled):not([aria-disabled='true']) { border-color: var(--muted); }
 }
 @media (prefers-reduced-motion: reduce) {
   .dkj-btn { transition: none; }
@@ -66,37 +66,37 @@
 }
 .dkj-btn--outline {
   background: transparent;
-  color: var(--ink-1);
+  color: var(--primary);
   border-color: currentColor;
   font-weight: var(--dkj-fw-medium);
 }
 /* Accent outline (Button tone="accent"): accent text, the border and press of the Stepper beside it. */
-.dkj-btn--outline.dkj-btn--accent { color: var(--ink-3); border-color: var(--paper-3); }
+.dkj-btn--outline.dkj-btn--accent { color: var(--muted); border-color: var(--paper-3); }
 .dkj-btn--outline.dkj-btn--accent:active:not(:disabled):not([aria-disabled='true']),
 .dkj-btn--outline.dkj-btn--accent[data-demo-state='active'] {
   background: var(--paper-3);
-  color: var(--ink-1);
-  border-color: var(--ink-3);
+  color: var(--primary);
+  border-color: var(--muted);
 }
 /* Hover and press for the other fills, the same pattern as the default look (hover only where a pointer hovers, never on a
    disabled button or a .dkj-choice; [data-demo-state] pins it in the showcase). Every role keeps ONE step in light and dark:
-   A colour step alone is nearly invisible on a filled button (ink-1 to ink-2 is dark to a slightly different dark on every light theme),
+   A colour step alone is nearly invisible on a filled button (a step of the colour is dark to a slightly different dark on every light theme),
    so hover pairs a step with a lift of 1px; the press sinks back 1px and drops the shadow. One step per role in light and dark:
-   - primary: the fill goes to ink-4 (on light a vivid dark turns to a dark grey of the colour, on dark a bright colour turns to a light grey of it;
-     --paper-1 stays at 6.5:1 or better on it in both modes), with --shadow-pop under the lift;
+   - primary: the fill goes to --muted (on light a vivid dark turns to a dark grey of the colour, on dark a bright colour turns to a light grey of it;
+     --paper-1 stays at 7:1 or better on it in both modes), with --shadow-pop under the lift;
    - outline: the tinted surface paper-3 (the house "hover" surface) behind the same text and border, lifted, no shadow; the accent outline keeps its own press;
    - positive: the gradient settles on a flat --positive-5, darker on light and lighter on dark, with --shadow-pop under the lift. */
-.dkj-btn--primary:not(.dkj-choice)[data-demo-state='hover'] { background: var(--ink-4); border-color: var(--ink-4); box-shadow: var(--shadow-pop); transform: translateY(-1px); }
+.dkj-btn--primary:not(.dkj-choice)[data-demo-state='hover'] { background: var(--muted); border-color: var(--muted); box-shadow: var(--shadow-pop); transform: translateY(-1px); }
 .dkj-btn--outline:not(.dkj-btn--accent):not(.dkj-choice)[data-demo-state='hover'] { background: var(--paper-3); transform: translateY(-1px); }
 .dkj-btn--positive:not(.dkj-choice)[data-demo-state='hover'] { background: linear-gradient(180deg, var(--positive-5), var(--positive-5)) border-box; box-shadow: var(--shadow-pop); transform: translateY(-1px); }
 @media (hover: hover) {
-  .dkj-btn--primary:not(.dkj-choice):hover:not(:disabled):not([aria-disabled='true']) { background: var(--ink-4); border-color: var(--ink-4); box-shadow: var(--shadow-pop); transform: translateY(-1px); }
+  .dkj-btn--primary:not(.dkj-choice):hover:not(:disabled):not([aria-disabled='true']) { background: var(--muted); border-color: var(--muted); box-shadow: var(--shadow-pop); transform: translateY(-1px); }
   .dkj-btn--outline:not(.dkj-btn--accent):not(.dkj-choice):hover:not(:disabled):not([aria-disabled='true']) { background: var(--paper-3); transform: translateY(-1px); }
   .dkj-btn--positive:not(.dkj-choice):hover:not(:disabled):not([aria-disabled='true']) { background: linear-gradient(180deg, var(--positive-5), var(--positive-5)) border-box; box-shadow: var(--shadow-pop); transform: translateY(-1px); }
 }
 /* Press: after the hover rules so it wins; the same fill as the hover, sunk 1px, no shadow. */
 .dkj-btn--primary:not(.dkj-choice):active:not(:disabled):not([aria-disabled='true']),
-.dkj-btn--primary:not(.dkj-choice)[data-demo-state='active'] { background: var(--ink-4); border-color: var(--ink-4); box-shadow: none; transform: translateY(1px); }
+.dkj-btn--primary:not(.dkj-choice)[data-demo-state='active'] { background: var(--muted); border-color: var(--muted); box-shadow: none; transform: translateY(1px); }
 .dkj-btn--outline:not(.dkj-btn--accent):not(.dkj-choice):active:not(:disabled):not([aria-disabled='true']),
 .dkj-btn--outline:not(.dkj-btn--accent):not(.dkj-choice)[data-demo-state='active'] { background: var(--paper-3); transform: translateY(1px); }
 .dkj-btn--positive:not(.dkj-choice):active:not(:disabled):not([aria-disabled='true']),
@@ -138,7 +138,7 @@
   min-width: 0;
   height: var(--dkj-tap);
   color: var(--paper-1);
-  background: var(--ink-1);
+  background: var(--primary);
   border: 0;
   border-radius: var(--dkj-radius-md);
 }
@@ -146,17 +146,17 @@
   flex: none;
   width: var(--dkj-control-h);
   height: var(--dkj-control-h);
-  color: var(--ink-7);
+  color: var(--fg-1);
   background: var(--paper-1);
   border: 1px solid var(--paper-3);
   border-radius: var(--dkj-radius-md);
 }
-.dkj-iconbtn--outline[aria-pressed='true'] { background: none; border-color: transparent; color: var(--ink-3); }
+.dkj-iconbtn--outline[aria-pressed='true'] { background: none; border-color: transparent; color: var(--muted); }
 .dkj-iconbtn--ghost {
   flex: none;
   width: var(--dkj-tap);
   height: var(--dkj-tap);
-  color: var(--ink-7);
+  color: var(--fg-1);
   background: transparent;
   border: 0;
   border-radius: var(--dkj-radius-md);
@@ -179,7 +179,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: var(--ink-7);
+  color: var(--fg-1);
   background: transparent;
   border: 0;
   border-radius: 50%;
@@ -187,10 +187,10 @@
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
-.dkj-round-toggle--info { color: var(--ink-7); }
-.dkj-round-toggle[aria-expanded='true'] { color: var(--ink-3); }
+.dkj-round-toggle--info { color: var(--fg-1); }
+.dkj-round-toggle[aria-expanded='true'] { color: var(--muted); }
 .dkj-round-toggle:focus-visible, .dkj-round-toggle[data-demo-state='focus'] {
-  outline: var(--dkj-focus-w) solid var(--ink-3);
+  outline: var(--dkj-focus-w) solid var(--muted);
   outline-offset: var(--dkj-focus-offset-inset);
 }
 
@@ -206,7 +206,7 @@
   font-size: var(--text-sm);
   font-weight: var(--dkj-fw-bold);
   line-height: var(--dkj-lh-none);
-  color: var(--ink-7);
+  color: var(--fg-1);
   background: var(--paper-1);
   border: 1px solid var(--paper-3);
   border-radius: var(--dkj-radius-pill);
@@ -215,7 +215,7 @@
   -webkit-tap-highlight-color: transparent;
 }
 .dkj-badge-toggle::after { content: ''; position: absolute; inset: calc(-1 * var(--spacing-2)); }
-.dkj-badge-toggle[aria-expanded='true'] { color: var(--ink-3); border-color: var(--ink-3); }
+.dkj-badge-toggle[aria-expanded='true'] { color: var(--muted); border-color: var(--muted); }
 
 .dkj-inline-toggle {
   position: relative;
@@ -232,7 +232,7 @@
   font-size: var(--text-xs);
   font-weight: var(--dkj-fw-semibold);
   line-height: var(--dkj-lh-none);
-  color: var(--ink-7);
+  color: var(--fg-1);
   background: none;
   border: 1px solid var(--paper-3);
   border-radius: 50%;
@@ -242,8 +242,8 @@
 }
 /* The ring is 16px; the tap area is 44px high but only 8px wider on each side, so neighbouring toggles and the label text are not covered. */
 .dkj-inline-toggle::after { content: ''; position: absolute; inset: calc((var(--dkj-inline-toggle) - var(--dkj-tap)) / 2) calc(-1 * var(--spacing-2)); }
-.dkj-inline-toggle:hover { color: var(--ink-1); border-color: var(--ink-1); }
-.dkj-inline-toggle[aria-expanded='true'] { color: var(--ink-3); border-color: var(--ink-3); }
+.dkj-inline-toggle:hover { color: var(--primary); border-color: var(--primary); }
+.dkj-inline-toggle[aria-expanded='true'] { color: var(--muted); border-color: var(--muted); }
 
 /* ---------- SegmentedChoice ---------- */
 .dkj-choices--row {
@@ -259,9 +259,9 @@
   white-space: nowrap;
 }
 .dkj-choices--row .dkj-choice[aria-pressed='true'] {
-  border-color: var(--ink-3);
-  box-shadow: inset 0 0 0 1px var(--ink-3);
-  color: var(--ink-3);
+  border-color: var(--muted);
+  box-shadow: inset 0 0 0 1px var(--muted);
+  color: var(--muted);
 }
 .dkj-choices--list { display: flex; flex-direction: column; }
 .dkj-choices--list .dkj-choice {
@@ -276,10 +276,10 @@
   font-size: var(--text-h5);
   font-weight: var(--dkj-fw-regular);
   text-align: left;
-  color: var(--ink-7);
+  color: var(--fg-1);
 }
 .dkj-choices--list .dkj-choice + .dkj-choice { border-top: 1px solid var(--paper-3); }
-.dkj-choices--list .dkj-choice[aria-pressed='true'] { color: var(--ink-3); font-weight: var(--dkj-fw-semibold); }
+.dkj-choices--list .dkj-choice[aria-pressed='true'] { color: var(--muted); font-weight: var(--dkj-fw-semibold); }
 
 /* Joined: one capsule. The face is --dkj-control-dense high; ::after grows the tap area to 44px without moving anything.
    No overflow:hidden on the capsule (it would clip that area), so the end buttons round their own corners. */
@@ -299,7 +299,7 @@
   background: none;
   font-size: var(--text-sm);
   font-weight: var(--dkj-fw-regular);
-  color: var(--ink-7);
+  color: var(--fg-1);
   white-space: nowrap;
 }
 .dkj-choices--joined .dkj-choice::after { content: ''; position: absolute; inset: calc((var(--dkj-control-dense) - var(--dkj-tap)) / 2) 0; }
@@ -307,8 +307,8 @@
 .dkj-choices--joined .dkj-choice:first-child { border-radius: calc(var(--dkj-radius-md) - 1px) 0 0 calc(var(--dkj-radius-md) - 1px); }
 .dkj-choices--joined .dkj-choice:last-child { border-radius: 0 calc(var(--dkj-radius-md) - 1px) calc(var(--dkj-radius-md) - 1px) 0; }
 .dkj-choices--joined .dkj-choice:only-child { border-radius: calc(var(--dkj-radius-md) - 1px); }
-.dkj-choices--joined .dkj-choice[aria-pressed='true'] { background: var(--ink-3); color: var(--paper-1); font-weight: var(--dkj-fw-semibold); }
-.dkj-choices--joined .dkj-choice:hover:not([aria-pressed='true']) { background: var(--paper-3); color: var(--ink-1); }
+.dkj-choices--joined .dkj-choice[aria-pressed='true'] { background: var(--muted); color: var(--paper-1); font-weight: var(--dkj-fw-semibold); }
+.dkj-choices--joined .dkj-choice:hover:not([aria-pressed='true']) { background: var(--paper-3); color: var(--primary); }
 /* The ring sits above the neighbouring button, which would otherwise paint over half of it. */
 .dkj-choices--joined .dkj-choice:focus-visible { z-index: 1; }
 
@@ -324,17 +324,17 @@
   border: 1px solid var(--paper-3);
   border-radius: var(--dkj-radius-pill);
   background: var(--paper-2);
-  color: var(--ink-7);
+  color: var(--fg-1);
   font: inherit;
   font-size: var(--text-sm);
   cursor: pointer;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
-.dkj-filter-chip:hover:not([aria-pressed='true']) { border-color: var(--ink-1); color: var(--ink-1); }
+.dkj-filter-chip:hover:not([aria-pressed='true']) { border-color: var(--primary); color: var(--primary); }
 .dkj-filter-chip[aria-pressed='true'] {
-  background: var(--ink-3);
-  border-color: var(--ink-3);
+  background: var(--muted);
+  border-color: var(--muted);
   color: var(--paper-1);
   font-weight: var(--dkj-fw-semibold);
 }
@@ -344,7 +344,7 @@
   flex: none;
   width: var(--spacing-3);
   height: var(--spacing-3);
-  border: 1px solid var(--ink-1);
+  border: 1px solid var(--primary);
   border-radius: 50%;
   background: var(--c);
 }
@@ -354,7 +354,7 @@
   padding: 0 var(--spacing-2);
   border: 0;
   background: none;
-  color: var(--ink-3);
+  color: var(--muted);
   font: inherit;
   font-size: var(--text-sm);
   font-weight: var(--dkj-fw-semibold);
@@ -364,6 +364,6 @@
   -webkit-tap-highlight-color: transparent;
 }
 .dkj-filter-chip:focus-visible, .dkj-filter-chips__clear:focus-visible {
-  outline: var(--dkj-focus-w) solid var(--ink-3);
+  outline: var(--dkj-focus-w) solid var(--muted);
   outline-offset: var(--dkj-focus-offset);
 }
