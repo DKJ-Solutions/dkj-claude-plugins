@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Inbound #3237, verified on pickup against the live connector (October 21, 2026): `get-shop-info`
+answered `name`, `domain`, `email`, `planName`, `currencyCode`, `timezone`, `country` and
+`criticalUserMessage`, with `domain` the store's custom domain, while `{ shop { myshopifyDomain } }`
+through `graphql_query` answered the `*.myshopify.com` domain. The skill is the only reader in the tree.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `check-shop-connector` step 2 reads `myshopifyDomain` through Admin GraphQL, and says why not
+  `get-shop-info`; step 3's unreadable case and the skill's description follow.
 
 ### TEST
 
+- [~] No suite: the step is a model instruction, not a script. The query itself was run against the
+  connector on pickup, above.
+
 ### DEPLOY: fix/3237-shop-connector-myshopify-domain
 
-**Score:**
+`check-shop-connector` no longer stops on every store with a custom primary domain (#3237). It took the
+`*.myshopify.com` domain from `get-shop-info`, whose `domain` is the custom domain and which carries no
+`myshopify.com` field at all, so the comparison always read as a mismatch, even when the connector was
+bound to the right store. Step 2 now reads it with the read-only Admin GraphQL query
+`{ shop { myshopifyDomain } }`.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A store repo whose session stopped at this check on the right store now passes it; nothing to do but
+take the release.
+
+**Score:** 3
 
 #### Pull Request
 
