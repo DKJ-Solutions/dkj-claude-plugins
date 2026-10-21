@@ -2,7 +2,41 @@
 
 ## [Unreleased]
 
-**1 / 3 minor entries** <!-- pending-tally -->
+**2 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3235-color-token-model · 20261021-094328Z
+
+Every theme's colours are rebuilt on one model (#3235), and computed by a script rather than tuned by hand. Each
+theme has **one primary**, the most saturated colour of its hue that reads at 4.5:1 on all four paper steps (so the
+paper reads on it too); **two greys**, `--muted` at 7:1 on the page and `--muted-inverse` at 7:1 on the far end;
+**four paper steps** from white towards a little darker; and **four text steps** (`--fg-1` to `--fg-4`), near black
+on light and near white on dark, in very small steps. `h2` and `h3`-`h5` move from the colour to the text steps, and
+two new classes, `.fill-primary` and `.fill-inverse`, switch the text to the paper on a coloured ground, so an `h2`
+reads there as well. The breadcrumb bar now stands on the primary, with its crumbs in the paper steps, and the theme settings button takes it as its border. On dark the primary is a light tint, reaching 9:1 on every paper step and no more saturated than OKLCH chroma 0.13, so a fill reads as a calm band under dark text. On light the primary is a little darker and the paper a little lighter than before; nothing in
+the model is below 4.5:1 any more. `scripts/build/build-house-palette.ps1` computes and writes the values, and a
+new suite holds the stylesheet to them.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions app that takes this release renames its own layer. From v5.26.0's twelve steps:
+`--primary-1`..`-3` become `--paper-1`..`-3`, `-4` is removed, `-5` becomes `--paper-4`, `-6` and `-7` become `--muted`, `-8`
+becomes `--fg-4`, `-9` becomes `--primary`, `-10` `--fg-2`, `-11` `--fg-3` and `-12` `--fg-1`; a grey on an
+inverted surface takes `--muted-inverse`. The house-style README carries both tables, and the gate names each
+leftover.
+
+**Score:** 5
+
+#### Pull Request
+
+A new colour token model: primary, muted, paper and text
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3238](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3238)
+
+---
 
 ### DEPLOY: feat/ink-and-paper · 20261020-205113Z
 
