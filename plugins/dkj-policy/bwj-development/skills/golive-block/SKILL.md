@@ -59,7 +59,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    the same ([#3069](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3069)). Both are fixed and
    English on every board, then five fixed
    headings (`TE BEKIJKEN OP` / `WAT ER NU ANDERS IS` / `WANNEER HET LIVE KOMT` / `WAT ER BEWUST NIET IN ZIT`
-   / `WAT WE VAN JE VRAGEN`, where-to-look first, [#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700)), in the language
+   / `WAT WE VAN JE VRAGEN`, where-to-look first, [#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700);
+   under `-LiveSince` the third reads `SINDS WANNEER HET LIVE STAAT`, so it never promises a future the
+   sentence under it denies, [#3241](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3241)), in the language
    of the Asana task -- Dutch by default, `-Language en` for a task written in English
    ([#2507](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2507)). The prose sections are
    **yours to write**, and they come in through `-ProseFile` (below). The script fills in the facts.
