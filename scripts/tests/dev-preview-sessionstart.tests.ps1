@@ -196,7 +196,7 @@ $SolutionsRoot = Join-Path $PluginRoot 'dkj-solutions'
 # The placeholder is retired (#3245): the hub is the general pages server, so nothing of it ships any more.
 Assert-True (-not (Test-Path -LiteralPath (Join-Path $PluginRoot 'hub\preview\serve-placeholder.ps1'))) 'the placeholder server no longer ships'
 Assert-True (-not (Test-Path -LiteralPath (Join-Path $PluginRoot 'hub\lib\dev-preview-placeholder.ps1'))) 'nor does its page lib: the hub renderer replaced it'
-Assert-True (-not (Get-Command Get-DevPreviewPlaceholder -ErrorAction SilentlyContinue)) 'and the rules lib has no placeholder answer: no seam is no server, not a second server'
+Assert-True (-not (Test-Path -LiteralPath 'Function:\Get-DevPreviewPlaceholder')) 'and the rules lib has no placeholder answer: no seam is no server, not a second server'
 Assert-True ((Get-Content -LiteralPath $Hook -Raw) -notmatch 'PlaceholderPortsOverride') 'the hook has no placeholder ports override any more'
 
 $routed = "{`n  // the preview`n  `"workbench.externalUriOpeners`": {`n    `"localhost:4890`": `"simpleBrowser.open`"`n  }`n}"
