@@ -39,19 +39,47 @@
 
 ### PLAN
 
+#3245, as decided on the issue (maikel-bwj, October 21, 2026): the plugin serves the Repo hub in every
+repo; a repo's own dev server is its product, one link on the hub; `OwnHub = $true` in `Get-DevPreview`
+opts out; the session-start line names both; the General pages always start (which settles #3244's
+second half). A visible result, so the branch stops for the owner's look.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The general pages server answers `/`, `/index.html` and `/hub` with the Repo hub
+  (`hub/lib/repo-hub-page.ps1`), or a 303 to the repo's own hub under `OwnHub`.
+- [x] `Get-DevPreview` takes `OwnHub`; the state file carries `product` and `mode`.
+- [x] The hook starts the general pages first, whatever happens to the product, and prints one line with
+  both links.
+- [x] The placeholder server and its 4880-4889 range are retired; this repo states `OwnHub = $true`.
+- [x] `hub/README.md` and the house-style docs describe the new model.
 
 ### TEST
 
+- [x] `dev-preview-sessionstart` 265/0, `connector-dashboard` 196/0, `dev-pages` 274/0,
+  `check-house-style` 88/0; `check-plugin-integrity` 0 errors.
+- [x] `open-pr.ps1 -GatesOnly` before the park.
+
 ### DEPLOY: feat/3245-plugin-repo-hub
 
-**Score:**
+**The plugin now serves the Repo hub in every repo** (#3245). The general pages server, which already
+served Artifacts, Issues, Release notes and SessionStart, answers `/` with the hub itself, on the same
+origin as those pages. A repo that states `Get-DevPreview` sees its own dev server as the **Product**
+card on that hub instead of in its place, and the session-start line names both:
+`Repo hub: http://localhost:4890/ -- product: http://localhost:4321/... (started)`. A repo that wants its
+own server to stay the hub states `OwnHub = $true` in `Get-DevPreview`. The General pages now start
+whatever happens to the product, also when its port is taken. The placeholder server on 4880-4889 is
+retired: a repo without `Get-DevPreview` gets the same plugin hub, with the setup cards.
+
+**Score:** 4
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo whose dev server is its product no longer has to build a hub of its own: after this release its
+session-start line hands out the plugin's hub beside the product. A repo whose own server should stay the
+hub adds `OwnHub = $true` to `Get-DevPreview`; a `.vscode/settings.json` route for 4880 becomes one for 4890.
+
+**Score:** 4
 
 #### Pull Request
 

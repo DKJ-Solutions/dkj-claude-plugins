@@ -583,7 +583,7 @@ It is called a hub, not a dashboard (owner's call, October 17, 2026, [#199](http
 
 **Every DKJ-Solutions repo's Repo hub has this one form, and only its content differs** (owner's
 decision, October 16, 2026, [#139](https://github.com/DKJ-Solutions/dkj-brandbook/issues/139)). The Repo
-hub is the index (`/`) of a repo's dev server: what the repo is for and what is in flight. The form is
+hub is the index (`/`) of a repo's dev server: what the repo is for and what is in flight. Where a repo states no dev server, or has not opted out of it (`OwnHub` in `Get-DevPreview`), the index is the dkj-policy plugin's own hub server instead, and the repo's server is its product ([#3245](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3245)). The form is
 the one approved in [#137](https://github.com/DKJ-Solutions/dkj-brandbook/issues/137), and its reference
 implementation is this repo's own [`RepoDashboard.tsx`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.4.0/src/dashboard/RepoDashboard.tsx).
 
@@ -597,7 +597,7 @@ implementation is this repo's own [`RepoDashboard.tsx`](https://github.com/DKJ-S
 | 3 | Eyebrow: `<owner>/<repo>` | `<p className="dkj-eyebrow">` | `.eyebrow` | fixed form, the repo's own slug |
 | 4 | `h1`: **Repo hub** | `<h1>` | `h1` | fixed, word for word |
 | 5 | Lead: one paragraph on what the repo is for | `<p className="dkj-lead">` | `.lead` | the repo's own text |
-| 6 | A primary button to the product | `Button variant="primary"` | `.btn.btn--touch.btn--primary`, in a `<p class="page-cta">` | product repos only, with the repo's own label. The product has its own route and is never the page on `/` |
+| 6 | A primary button to the product | `Button variant="primary"` | `.btn.btn--touch.btn--primary`, in a `<p class="page-cta">` | product repos only, with the repo's own label. The product has its own route and is never the page on `/`. The plugin's own hub, which has no build to carry a button, shows the product as a **Product** card instead, a one-row link list under its own `h2` |
 | 7 | **Pages**: links to the repo's own pages, one row per page (below the table). With general pages too, two groups, **This repo** and **General**, under one `h2` | `PageLinks` (a `CardGroup` around one `Card variant="data"` holding a `<nav>` of house `.menu-item` link rows, or two cards when there are two groups) | a `.grid-2` with a `.grid__head` (the `h2` and its `.card__sub`) above the card(s); the list is a `<nav class="menu-list">` of `<a class="menu-item">` rows, each with `.menu-item__label`, optionally `.menu-item__sub`, and `.menu-item__chevron`. One group: one `.card.grid__full` with no title of its own. Two groups: two cards titled with an `h3` | optional: any repo with a page of its own besides `/` and the product, or with general pages. Fixed titles and form; the repo's own pages and their group |
 | 8 | One stat tile per in-flight list, counting it | `StatTiles` / `StatTile` | `.tiles` / `.tile`, with `.label` and `.v` | the repo's own lists. A count not read yet shows `--` |
 | 9 | A loading line, or a warning that the lists could not be read | `Message live="status"` (loading) / `Message tone="warn" live="alert"` (error) | `.msg` with `role="status"` / `.msg.msg--warn` with `role="alert"` | fixed. The role makes a screen reader announce the line when it appears |

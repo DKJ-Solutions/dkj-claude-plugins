@@ -6,9 +6,10 @@
 .DESCRIPTION
     The rules -- the path, the shape, what is believed -- are in dev-preview-rules.ps1 (no I/O), which this
     file dot-sources. What is here touches the disk and one loopback socket, and is shared by the three
-    things that need it: the dev-preview hook (writes), the general pages server (reads, for /hub) and a
-    repo hub (reads, to render its General card). A state file that is absent, unreadable or about another
-    root reads as nothing, never as an error: a hub then shows the card's "not running" form. Beside it,
+    things that need it: the dev-preview hook (writes), the general pages server (reads, to render the hub
+    or send '/hub' on to the repo's own, #3245) and a repo's own hub (reads, to render its General card). A
+    state file that is absent, unreadable or about another root reads as nothing, never as an error: a hub
+    then shows the card's "not running" form. Beside it,
     Test-DkjSolutionsEnabled: the one other thing the plugin's servers read from the repo to decide a page.
 
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/dev-preview-sessionstart.tests.ps1 in the source repo.
@@ -17,21 +18,27 @@
 . (Join-Path $PSScriptRoot 'dev-preview-rules.ps1')
 
 function Read-RepoHubState {
-    <# @{ Hub; Pages } for the checkout at -Root, both '' when the file is absent, unreadable or not this root's. #>
+    <# @{ Hub; Pages; Product; Mode } for the checkout at -Root: every url '' and Mode 'none' when the file is absent, unreadable or not this root's. #>
     param([Parameter(Mandatory = $true)][string]$Root)
     $path = Get-RepoHubStatePath -Root $Root
     try {
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return @{ Hub = ''; Pages = '' } }
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return @{ Hub = ''; Pages = ''; Product = ''; Mode = 'none' } }
         return (ConvertFrom-RepoHubState -Text ([System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)) -Root $Root)
     } catch {
-        return @{ Hub = ''; Pages = '' }
+        return @{ Hub = ''; Pages = ''; Product = ''; Mode = 'none' }
     }
 }
 
 function Write-RepoHubState {
     <# Writes the state file for -Root. Throws on a write failure; the hook wraps it, since it never fails a session. #>
-    param([Parameter(Mandatory = $true)][string]$Root, [AllowEmptyString()][string]$Hub = '', [AllowEmptyString()][string]$Pages = '')
-    $text = Format-RepoHubState -Root $Root -Hub $Hub -Pages $Pages
+    param(
+        [Parameter(Mandatory = $true)][string]$Root,
+        [AllowEmptyString()][string]$Hub = '',
+        [AllowEmptyString()][string]$Pages = '',
+        [AllowEmptyString()][string]$Product = '',
+        [ValidateSet('none', 'product', 'ownhub')][string]$Mode = 'none'
+    )
+    $text = Format-RepoHubState -Root $Root -Hub $Hub -Pages $Pages -Product $Product -Mode $Mode
     [System.IO.File]::WriteAllText((Get-RepoHubStatePath -Root $Root), $text, (New-Object System.Text.UTF8Encoding($false)))
 }
 
