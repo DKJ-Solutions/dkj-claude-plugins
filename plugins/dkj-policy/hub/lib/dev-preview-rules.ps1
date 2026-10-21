@@ -286,24 +286,30 @@ function Get-DevPreviewHolderName {
         first command line that names a checkout wins -- the folder above 'node_modules', or the folder a
         'cd /d' changes into (the hook's own start line; read after the slash swap, so as 'cd \d'). Without
         one, the listener's own executable.
+
+        HELD TO A NARROW ALPHABET (#3258): the name comes from ANOTHER process's command line and reaches the
+        session's context through the hook's line, so a folder named in free words would be free text of that
+        process's choosing. A name outside [A-Za-z0-9._@-], or longer than 40 characters, reads as '', and the
+        line falls back to the pid alone.
     #>
     param([int]$ProcessId, [Parameter(Mandatory = $true)][hashtable]$Processes)
     $seen = @{}
     $id = $ProcessId
-    $exe = ''
+    $name = ''
     for ($depth = 0; $depth -le $script:DevPreviewMaxAncestors; $depth++) {
         if ($seen.ContainsKey($id) -or -not $Processes.ContainsKey($id)) { break }
         $seen[$id] = $true
         $cl = ([string]$Processes[$id].CommandLine).Replace('/', '\')
-        if ($cl -match '([^\\"'' ]+)\\node_modules\\') { return $Matches[1] }
-        if ($cl -match '(?i)\bcd \\d "([^"]+)"') { return (Split-Path -Leaf $Matches[1].TrimEnd('\')) }
+        if ($cl -match '([^\\"'' ]+)\\node_modules\\') { $name = $Matches[1]; break }
+        if ($cl -match '(?i)\bcd \\d "([^"]+)"') { $name = Split-Path -Leaf $Matches[1].TrimEnd('\'); break }
         if ($depth -eq 0 -and $cl -match '^\s*(?:"([^"]+)"|(\S+))') {
             $first = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
-            $exe = Split-Path -Leaf $first
+            $name = Split-Path -Leaf $first
         }
         $id = [int]$Processes[$id].ParentId
     }
-    return $exe
+    if ($name -cmatch '^[A-Za-z0-9._@-]{1,40}\z') { return $name }
+    return ''
 }
 
 function Format-DevPreviewPortHolders {

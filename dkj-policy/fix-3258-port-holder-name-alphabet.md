@@ -39,19 +39,33 @@
 
 ### PLAN
 
+#3258: `Get-DevPreviewHolderName` read the port holder's name from another process's command line, and
+that name reaches the session's context through the hook's line.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The name is held to `[A-Za-z0-9._@-]` and 40 characters at the function's one exit; anything else
+  reads as '', so the line names the pid alone.
+- [x] Three asserts: a folder in free words, a name past 40 characters, the pid-only line.
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: 276 passed, 0 failed.
+
 ### DEPLOY: fix/3258-port-holder-name-alphabet
 
-**Score:**
+The dev-preview hook names a port's holder only by a plain name (#3258). The name comes from another
+process's command line and reaches the session's context, so a folder named in free words could put text
+of that process's choosing there. A name outside letters, digits and `._@-`, or longer than 40
+characters, is now left out, and the line says `3000 by pid 19544` instead.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
