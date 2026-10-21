@@ -2,7 +2,41 @@
 
 ## [Unreleased]
 
-**9 / 12 minor entries** <!-- pending-tally -->
+**10 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3248-closed-message-inreview-move · 20261021-124119Z
+
+In this repo the template's guardrail moved: the closed-message template now knows two writes instead of
+one. The suite holds both writes to their pure builders, holds the move to after the message, and holds
+the one section write to an `addTask`. Security review accepted one widening knowingly. The move is a
+state change rather than an append, and it lands on the task the issue's marker names, the same trust
+model the comment already rides on. It is bounded to that task's own single board, and it never moves a
+card out of `Completed`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A BWJ store that re-adopts `asana-closed-message` now gets its Asana card moved into the board's review
+section (on xoxowildhearts, `3. Waiting for review`) when an issue closes as completed with a go-live,
+research, measurement or already-fixed block. That matches the closed message, which already says *"this
+Asana task is now in review"*. The move is never made on a by-hand, blockless or not-planned close or on a
+reopen, and it never takes a card out of `Completed`. Where the task is on several boards, or the board
+has no single section with the `InReview` code from `Get-AsanaStageMap`, the move is skipped and the
+message still posts. The store takes it through adopt's stop-and-diff of the two `asana-closed-message`
+files ([#3248](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3248)).
+
+**Score:** 3
+
+#### Pull Request
+
+asana-closed-message moves the task to the board's InReview section on a completed close with a block
+
+Plugins: bwj-development
+
+[PR #3256](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3256)
+
+---
 
 ### DEPLOY: feat/3247-h1-uppercase · 20261021-123033Z
 
