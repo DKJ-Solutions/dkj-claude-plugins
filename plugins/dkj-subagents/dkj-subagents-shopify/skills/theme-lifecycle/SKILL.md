@@ -188,7 +188,9 @@ it undoes later third-party drift, not the push itself.
    and a theme block that do not exist. A refused path cannot be restored this way. The published
    theme will lack it, so write down which paths those are.
 
-3. **Publish it.** Run `shopify theme publish --store <store> --theme <backup-id>`. The theme that was live
+3. **Publish it**, once [`carry-theme-translations`](../carry-theme-translations/SKILL.md) has verified
+   that the backup holds live's content translations: they are stored per theme, not in its files. Run
+   `shopify theme publish --store <store> --theme <backup-id>`. The theme that was live
    is now unpublished, still standing, and carries no reserved prefix, so no sweep or rotation will
    touch it. Retire it by hand later with [`archive-theme`](../archive-theme/SKILL.md), or keep it for
    the post-mortem.
