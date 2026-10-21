@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**13 / 19 minor entries** <!-- pending-tally -->
+**14 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3266-connector-alias-merge · 20261021-160701Z
+
+`check-shop-connector` now carries one query rule for every connector call after it: never request the
+same field twice in one query under aliases with different arguments. Through the claude.ai Shopify
+connector an aliased query on `translations(locale:)` returned the union of every alias's results under each alias, so a copy plan
+built on it put French and Spanish text under the Dutch locale
+([#3266](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3266)). Ask once per argument set,
+and check a result's count against a single unaliased query before acting on it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A Shopify store repo that reads Admin data through the connector gets the rule at the moment it starts
+using it, before an aliased query can mix locales or other argument sets into one wrong answer.
+
+**Score:** 2
+
+#### Pull Request
+
+check-shop-connector warns that the connector merges aliased fields with different arguments
+
+Plugins: dkj-subagents-shopify
+
+[PR #3268](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3268)
+
+---
 
 ### DEPLOY: feat/3250-repo-hub-airsquats-banner · 20261021-155447Z
 
