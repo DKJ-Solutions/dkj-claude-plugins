@@ -101,6 +101,8 @@ function Format-PluginRepoHubHtml {
             else { 'The way to every page about this repo. It states no dev server of its own yet, so there is no product to link.' }
     [void]$sb.AppendLine('<p class="lead">' + $lead + '</p>')
     [void]$sb.AppendLine('</div>')
+    # The general banner (#3250), the same on every Repo hub, directly under the intro.
+    [void]$sb.AppendLine((Format-RepoHubBanner))
 
     # Block 6's place: the product, the repo's own server, as one link row under an h2 of its own.
     if ($Mode -eq 'product') {

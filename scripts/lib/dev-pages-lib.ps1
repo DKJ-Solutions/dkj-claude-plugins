@@ -117,6 +117,8 @@ function Format-RepoHubHtml {
     [void]$sb.AppendLine('<h1>Repo hub</h1>')
     [void]$sb.AppendLine('<p class="lead">The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.</p>')
     [void]$sb.AppendLine('</div>')
+    # The general banner (#3250), the same on every Repo hub, directly under the intro.
+    [void]$sb.AppendLine((Format-RepoHubBanner))
 
     # Block 7, Pages: the repo's own pages, then the general ones in a card of their own, the two on one row
     # of the house's .grid-2 (it stacks them again below 760px) under one grid__head carrying the h2, so

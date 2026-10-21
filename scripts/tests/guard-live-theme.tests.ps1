@@ -177,6 +177,9 @@ function Get-ShopifyThemeEstateStore { 'x.myshopify.com' }
         @{ n = 'live push through a wrapper';  c = 'powershell -Command "shopify theme push --allow-live"' }
     )
     foreach ($case in $blocked) { Assert-Equal 2 (Invoke-Guard -Command $case.c -Root $configured) "blocked: $($case.n)" }
+    # #3265: the publish refusal is where a session preparing a theme switch meets the translation carry-over.
+    $publishRefusal = Get-GuardRefusal -Command 'shopify theme publish --theme 123' -Root $configured
+    Assert-True ($publishRefusal -match 'carry-theme-translations') 'blocked: the publish refusal names carry-theme-translations, the step a theme switch owes first'
 
     # --- group 1b: what must stay possible --------------------------------------------------------
     Write-Host "group 1b -- and the work that must stay possible is untouched" -ForegroundColor Cyan

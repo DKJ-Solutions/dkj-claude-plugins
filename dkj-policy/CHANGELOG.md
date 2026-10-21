@@ -2,7 +2,65 @@
 
 ## [Unreleased]
 
-**11 / 17 minor entries** <!-- pending-tally -->
+**13 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3250-repo-hub-airsquats-banner · 20261021-155447Z
+
+The Repo hub now carries a general banner (#3250): a countdown to the next full hour, and when an hour
+has passed, a short tone and a **10 airsquats** checkbox. The countdown keeps running whether or not the
+box is ticked, and every unticked hour adds another 10, so the box shows the total owed; ticking it
+clears the total. It is on the plugin's Repo hub, which every repo gets, and on this repo's own, in house classes only,
+and its state stays in the browser.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo's Repo hub shows the banner from the next release.
+
+**Score:** 2
+
+#### Pull Request
+
+Repo hub: an hourly airsquats banner
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3260](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3260)
+
+---
+
+### DEPLOY: feat/3265-theme-translation-carryover · 20261021-154613Z
+
+A new `dkj-subagents-shopify` skill, `carry-theme-translations`, carries a store's per-theme content
+translations over to a theme before a person publishes it as live, and verifies that none are missing.
+Those translations (Translate & Adapt, the Translations API) are stored per theme in the store, not in
+the theme files, so neither git nor a push nor a Git connection brings them along. A cutover in a
+consumer lost about 1,225 section-setting translations across four languages, and every non-English
+storefront went English
+([#3265](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3265)). The step runs through the
+Shopify connector and never publishes. The live-theme guard's publish refusal now names it, and
+`theme-lifecycle`'s restore runs it before publishing a backup.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A Shopify store repo that switches its live theme (a cutover to a Git-connected theme, or a restore) now
+has a step that keeps its translated storefronts from falling back to the primary language at the
+publish. A store that never switches themes sees one longer refusal line and nothing else.
+
+**Score:** 3
+
+#### Pull Request
+
+A theme switch carries the per-theme content translations over, verified before the publish
+
+Plugins: dkj-subagents-shopify
+
+[PR #3267](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3267)
+
+---
 
 ### DEPLOY: feat/3261-gate-progress-scope · 20261021-151323Z
 

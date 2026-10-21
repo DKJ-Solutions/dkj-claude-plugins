@@ -567,7 +567,7 @@ foreach ($segment in $segments) {
     # '[\s:]+' AND NOT '\s+': the CLI also takes the oclif topic form, 'theme:publish', and before #2881
     # none of these patterns matched it.
     if ($lc -match 'shopify\s+theme[\s:]+publish') {
-        Deny "a theme publish is never allowed from here. Publishing makes a theme the live customer-facing theme, and that is the store owner's own keystroke rather than something a session decides -- run it yourself if that is what you want."
+        Deny "a theme publish is never allowed from here. Publishing makes a theme the live customer-facing theme, and that is the store owner's own keystroke rather than something a session decides -- run it yourself if that is what you want. Before a publish that makes a different theme live, the carry-theme-translations skill carries the per-theme content translations over and verifies them: they are not in git, so the incoming theme lacks them until then."
     }
 
     if ($lc -match 'shopify\s+theme[\s:]+delete') {
@@ -600,7 +600,7 @@ foreach ($segment in $segments) {
         }
         $t = $read.Text
         if ($t -match 'themepublish\b' -or $t -match 'role\s*:\s*"?main\b') {
-            Deny "a themePublish through 'shopify store execute' is never allowed from here, for the reason 'shopify theme publish' is not: publishing makes a theme the live customer-facing theme, and that is the store owner's own act."
+            Deny "a themePublish through 'shopify store execute' is never allowed from here, for the reason 'shopify theme publish' is not: publishing makes a theme the live customer-facing theme, and that is the store owner's own act. Before it, the carry-theme-translations skill carries the per-theme content translations over to the incoming theme."
         }
         $namesLive = $LIVE_ID -and ($t -match "(?<!\d)$LIVE_ID(?!\d)")
         if ($t -match 'themedelete\b') {
