@@ -529,9 +529,13 @@ $glLive = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#190' -GoLiveDat
 Assert-True ($glLive.Contains('Het staat live sinds maandag 12 oktober 2026.')) '-Live names the day it went live'
 Assert-True ($glLive -notmatch 'gepland|Zodra het live is|laatste moment') 'and no planned release, no before-the-release caveat, no last-moment sentence'
 Assert-True ($glLive.Contains("Je ziet het hier live:`n`nNL $glDash https://example.invalid/p")) 'the live list carries a plain label'
-Assert-True ($glLive.Contains("`nWANNEER HET LIVE KOMT`n") -and $glLive.Contains('Het staat al live')) 'the fixed headings stay; the ask says it is already live'
+Assert-True ($glLive.Contains("`nSINDS WANNEER HET LIVE STAAT`n") -and $glLive.Contains('Het staat al live')) 'the heading is past tense too (#3241); the ask says it is already live'
+Assert-True ($glLive -notmatch 'WANNEER HET LIVE KOMT') 'and the future-tense heading never sits above a live-since sentence (#3241)'
+Assert-True ($goLiveBare.Contains("`nWANNEER HET LIVE KOMT`n") -and $goLiveBare -notmatch 'SINDS WANNEER') 'while a planned block keeps the future-tense heading'
 $glLiveEn = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#190' -GoLiveDate 'Monday 12 October 2026' -Live -Version '3.1.0' -Language en
 Assert-True ($glLiveEn.Contains('It has been live since Monday 12 October 2026, as version v3.1.0.')) 'in English, with a version'
+Assert-True ($glLiveEn.Contains("`nLIVE SINCE`n") -and $glLiveEn -notmatch 'WHEN IT GOES LIVE') 'and in English the heading is past tense as well (#3241)'
+Assert-True ((Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#190' -GoLiveDate 'Monday 12 October 2026' -Language en).Contains("`nWHEN IT GOES LIVE`n")) 'while an English planned block keeps WHEN IT GOES LIVE'
 $glLiveRel = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#190' -GoLiveDate 'maandag 12 oktober 2026' -Live -ReleaseMarker (Get-AsanaReleaseBlockMarker)
 Assert-True (-not $glLiveRel.Contains((Get-AsanaReleaseBlockMarker))) 'a -Live block never carries the after-release marker, even when one is handed in (#3069)'
 Assert-True ($glLiveRel.Contains("is now **closed**: this Asana task is now in review.`nIt can be reopened anytime when something is still not working as expected.`n") -and $glLiveRel -notmatch 'becomes visible') 'and its closed line is the intro with the plain reopen line'
@@ -1140,6 +1144,7 @@ Assert-True $nlBook.Contains('`notify-live` skill, -Version v1.3.0') '...with th
 # again. So the verdict is pinned case by case over hand-built comments, and the message by its exact words.
 Write-Host "`n-- notify-live --" -ForegroundColor Cyan
 . (Join-Path $PluginRoot 'scripts\lib\live-message-rules.ps1')
+Assert-Equal 'en' (Get-LiveMessageLanguage -Sections "LIVE SINCE`n`nIt has been live since Monday.") 'the live message reads the past-tense heading''s language too'
 
 Assert-Equal '12,7,3067' ((Get-ReleaseRangePullNumbers -Subjects @('merge: fix/12-x (#12)', 'Merge pull request #7 from o/b', 'fold: y (#3067)', 'fold: again (#12)', 'no number')) -join ',') 'every #<n> in the subjects, distinct, in first-seen order'
 Assert-Equal 0 @(Get-ReleaseRangePullNumbers -Subjects @()).Count 'no subjects, no numbers'

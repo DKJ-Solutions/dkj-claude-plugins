@@ -139,7 +139,7 @@ function Get-LiveMessageLanguage {
     )
     foreach ($lang in @('nl', 'en')) {
         $t = Get-GoLiveBlockText -Language $lang
-        foreach ($h in @($t.Ask, $t.When, $t.Where, $t.Changed)) {
+        foreach ($h in @($t.Ask, $t.When, $t.WhenLive, $t.Where, $t.Changed)) {
             if (([string]$Sections) -cmatch "(?m)^\s*$([regex]::Escape($h))\s*$") { return $lang }
         }
     }

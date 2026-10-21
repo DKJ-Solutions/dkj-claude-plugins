@@ -320,6 +320,7 @@ function Get-GoLiveBlockText {
             Changed     = 'WHAT IS DIFFERENT NOW'
             Where        = 'WHERE TO LOOK'
             When         = 'WHEN IT GOES LIVE'
+            WhenLive     = 'LIVE SINCE'
             NotIncluded  = 'WHAT IS DELIBERATELY NOT IN IT'
             Ask          = 'WHAT WE ASK OF YOU'
             ResultLink   = 'You can view the result here: {0}'
@@ -353,6 +354,7 @@ function Get-GoLiveBlockText {
         Changed     = 'WAT ER NU ANDERS IS'
         Where        = 'TE BEKIJKEN OP'
         When         = 'WANNEER HET LIVE KOMT'
+        WhenLive     = 'SINDS WANNEER HET LIVE STAAT'
         NotIncluded  = 'WAT ER BEWUST NIET IN ZIT'
         Ask          = 'WAT WE VAN JE VRAGEN'
         ResultLink   = 'Het resultaat is hier te bekijken: {0}'
@@ -729,7 +731,9 @@ function Format-GoLiveBlock {
         $whenParas += $label
         $whenParas += ($list -join "`n")
     }
-    $lines += & $addSection $t.When $whenParas
+    # UNDER -Live THE HEADING IS PAST TENSE TOO (#3241): smartwatchbanden#1006 read 'WANNEER HET LIVE KOMT'
+    # above 'Het staat live sinds ...', and the requester read the heading, not the sentence.
+    $lines += & $addSection $(if ($Live) { $t.WhenLive } else { $t.When }) $whenParas
 
     $notParas = @($NotIncluded | Where-Object { $_ -and $_.Trim() })
     if ($notParas.Count -gt 0) { $lines += & $addSection $t.NotIncluded $notParas }
