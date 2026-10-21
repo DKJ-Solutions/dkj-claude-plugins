@@ -147,6 +147,15 @@ Assert-True ($pick.Action -eq 'start' -and $pick.Port -eq 5174) 'with none ours,
 $pick = Select-DevPreviewPort -Ports @(5173) -Listeners @((& $L 5173 200)) -Processes $procs -Root $root
 Assert-Equal 'none' $pick.Action 'every port taken by others is none'
 
+# #3244: the line names who holds a taken port, from the process table the hook already read.
+Assert-Equal 'repo2' (Get-DevPreviewHolderName -ProcessId 300 -Processes $procs) 'another checkout''s server is named by the folder above node_modules'
+Assert-Equal 'repo' (Get-DevPreviewHolderName -ProcessId 103 -Processes $procs) 'a server the hook started is named by the cd /d of its cmd.exe ancestor'
+Assert-Equal 'other-app.exe' (Get-DevPreviewHolderName -ProcessId 200 -Processes $procs) 'a foreign app with no checkout is named by its executable'
+Assert-Equal '' (Get-DevPreviewHolderName -ProcessId 999 -Processes $procs) 'a process that is gone has no name'
+Assert-Equal 'loop' (Get-DevPreviewHolderName -ProcessId 400 -Processes $procs) 'a parent cycle ends the walk and keeps the executable'
+Assert-Equal '5173 by repo2 (pid 300); 5174 by pid 999' (Format-DevPreviewPortHolders -Ports @(5173, 5174, 5175) -Listeners @((& $L 5173 300), (& $L 5174 999)) -Processes $procs) 'one entry per held port, a pid alone where no name is read, a free port left out'
+Assert-Equal '' (Format-DevPreviewPortHolders -Ports @(5173) -Listeners @() -Processes $procs) 'no listener, no holders'
+
 # #3041: a reused listener bound to every interface while the Command asked for loopback.
 Assert-True (Test-DevPreviewCommandIsLoopback 'next dev -H 127.0.0.1 -p {port}') 'a Command binding 127.0.0.1 is loopback'
 Assert-True (Test-DevPreviewCommandIsLoopback 'vite --host localhost --port {port}') 'and so is one binding localhost'
@@ -482,6 +491,7 @@ try {
         Write-RepoHubState -Root $takenRoot -Hub 'http://localhost:4870/' -Pages "http://localhost:$genPort"
         $r = Invoke-Hook $takenRepo
         Assert-True ((Get-Message $r.Text) -match 'taken by other processes' -and -not (Test-Path -LiteralPath (Get-RepoHubStatePath -Root $takenRoot))) 'and so is it when the hub''s ports are all taken'
+        Assert-True ((Get-Message $r.Text) -match "taken by other processes: $phPort by .+ \(pid \d+\)\.") 'and the line names who holds the port, by checkout and pid (#3244)'
 
         # THE REAL START: a loopback listener that holds the port for a minute, started by the hook.
         $listen = "powershell -NoProfile -Command `"`$l = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), {port}; `$l.Start(); Start-Sleep 60`""
