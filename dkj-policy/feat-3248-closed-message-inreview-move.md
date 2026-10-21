@@ -51,12 +51,16 @@ silently where `InReview` does not resolve, and not-planned closes never move th
 ### TEST
 
 - [x] `bwj-development.tests.ps1`: the structural guard now allows exactly two writes (comment, then move), plus asserts for each skip rule, the board read and the request; 874/874 green
+- [x] Review: Victor (the Completed guard and a code-less section now fail closed; one `Get-SectionCode`; one config read; end-to-end `Invoke-Main` runs for move, by-hand, no block, Completed, refused move, not planned and reopen), Edith (step 6 heading, adopt step 5, report-issue and yml wording), Sebastian (no blocking findings); 885/885 green
 
 ### DEPLOY: feat/3248-closed-message-inreview-move
 
 In this repo the template's guardrail moved: the closed-message template now knows two writes instead of
 one. The suite holds both writes to their pure builders, holds the move to after the message, and holds
-the one section write to an `addTask`.
+the one section write to an `addTask`. Security review accepted one widening knowingly. The move is a
+state change rather than an append, and it lands on the task the issue's marker names, the same trust
+model the comment already rides on. It is bounded to that task's own single board, and it never moves a
+card out of `Completed`.
 
 **Score:** 2
 

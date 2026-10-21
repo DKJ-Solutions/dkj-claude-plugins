@@ -1160,10 +1160,7 @@ function Select-DoneSectionName {
         [AllowEmptyString()][string]$Code = ''
     )
     if (-not $Code) { return '' }
-    $hits = @(@($Names) | Where-Object {
-        $m = [regex]::Match([string]$_, '^\s*([0-9]+[A-Za-z]?)\.')
-        $m.Success -and $m.Groups[1].Value -ieq $Code
-    } | ForEach-Object { ([string]$_).Trim() } | Select-Object -Unique)
+    $hits = @(@($Names) | Where-Object { (Get-SectionCode -Name ([string]$_)) -ieq $Code } | ForEach-Object { ([string]$_).Trim() } | Select-Object -Unique)
     if ($hits.Count -eq 1) { return $hits[0] }
     return ''
 }
@@ -1224,7 +1221,9 @@ function Select-ReviewMoveSection {
           - the task is on exactly ONE board: on several, which card the requester looks at is a guess;
           - the repo states an InReview code, and exactly one section of that board carries it;
           - the card is NOT in the Completed section: a requester who ticked it off early is never pulled
-            backwards (Maikel, October 21, 2026);
+            backwards (Maikel, October 21, 2026). THAT GUARD FAILS CLOSED (code review): a repo that
+            states no Completed code, or a card in a section without a code, cannot be shown not to be
+            done, so it is not moved;
           - the card is not in the InReview section already, which would be a move to where it is.
 
         SectionGid is '' wherever the move is skipped, and Why is a log phrase that never carries a
@@ -1238,10 +1237,12 @@ function Select-ReviewMoveSection {
     )
     $skip = { param($why) [pscustomobject]@{ SectionGid = ''; Why = $why } }
     if (-not $InReviewCode) { return (& $skip 'the repo states no InReview stage in Get-AsanaStageMap') }
+    if (-not $CompletedCode) { return (& $skip 'the repo states no Completed stage in Get-AsanaStageMap, so a done card cannot be told apart') }
     $boards = @(@($Memberships) | ForEach-Object { [string]$_.Project } | Where-Object { $_ } | Select-Object -Unique)
     if ($boards.Count -ne 1) { return (& $skip "the task is on $($boards.Count) boards, not one") }
     $current = Get-SectionCode -Name ([string](@($Memberships)[0].SectionName))
-    if ($CompletedCode -and $current -ieq $CompletedCode) { return (& $skip "the card is already in the Completed section (code $CompletedCode), and a move never pulls it backwards") }
+    if (-not $current) { return (& $skip 'the card sits in a section without a code, so it cannot be shown not to be done') }
+    if ($current -ieq $CompletedCode) { return (& $skip "the card is already in the Completed section (code $CompletedCode), and a move never pulls it backwards") }
     if ($current -ieq $InReviewCode) { return (& $skip "the card is already in the InReview section (code $InReviewCode)") }
     $hits = @(@($Sections) | Where-Object { (Get-SectionCode -Name ([string]$_.Name)) -ieq $InReviewCode -and ([string]$_.Gid) -match '\A[0-9]+\z' })
     if ($hits.Count -ne 1) { return (& $skip "no single section with code $InReviewCode on the task's board") }
@@ -1393,8 +1394,9 @@ function Invoke-Main {
         # A RESEARCH CLOSE NAMES THE BOARD'S OWN DONE SECTION IN ITS CLOSING ASK (#3017), never a fixed
         # '4. Done'. The reads are made only here, so every other message costs nothing extra.
         $done = ''
+        $configText = if ($sections) { Read-RepoConfigText } else { '' }
         if (($research -or $measure -or $alreadyFixed) -and $sections) {
-            $resolved = Resolve-DoneSectionName -Gid $decision.Gid -Code (Get-RepoStageCode -ConfigText (Read-RepoConfigText)) -Pat $AsanaPat
+            $resolved = Resolve-DoneSectionName -Gid $decision.Gid -Code (Get-RepoStageCode -ConfigText $configText) -Pat $AsanaPat
             $done = $resolved.Name
             Write-Host "Done section for the closing ask: $(if ($done) { 'named' } else { 'not named' }) -- $($resolved.Why)."
         }
@@ -1428,8 +1430,9 @@ function Invoke-Main {
     # event -- a completed close that carried this round's block -- and only after the message went out,
     # so a skipped or refused move never costs the requester the message. A close without a block, a
     # by-hand close (returned above), a not-planned close and a reopen never move the card.
+    # A REFUSED MOVE IS LOGGED, AND THE RUN STILL EXITS 0: the message is the requester's, and it has gone
+    # out; a card left where it was is repaired by a person dragging it.
     if ($sections) {
-        $configText = Read-RepoConfigText
         $target = Resolve-ReviewMoveSection -Gid $decision.Gid -InReviewCode (Get-RepoStageCode -ConfigText $configText -Stage 'InReview') `
             -CompletedCode (Get-RepoStageCode -ConfigText $configText) -Pat $AsanaPat
         if (-not $target.SectionGid) {

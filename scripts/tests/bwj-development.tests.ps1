@@ -1504,6 +1504,8 @@ Assert-Equal '' (Select-ReviewMoveSection -Memberships ($cmMem + @([pscustomobje
 Assert-Equal '' (Select-ReviewMoveSection -Memberships $cmMem -Sections ($cmSecs + @([pscustomobject]@{ Gid = '305'; Name = '3. Review' })) -InReviewCode '3' -CompletedCode '4').SectionGid 'two sections with the InReview code is a guess, so none'
 Assert-Equal '' (Select-ReviewMoveSection -Memberships $cmMem -Sections $cmSecs -InReviewCode '' -CompletedCode '4').SectionGid 'no InReview code in the stage map, no move'
 Assert-Equal '' (Select-ReviewMoveSection -Memberships $cmMem -Sections $cmSecs -InReviewCode '9' -CompletedCode '4').SectionGid 'a board without that code, no move'
+Assert-Equal '' (Select-ReviewMoveSection -Memberships $cmMem -Sections $cmSecs -InReviewCode '3' -CompletedCode '').SectionGid 'no Completed code: a done card cannot be told apart, so the guard fails closed'
+Assert-Equal '' (Select-ReviewMoveSection -Memberships @([pscustomobject]@{ Project = '77'; SectionName = 'Done' }) -Sections $cmSecs -InReviewCode '3' -CompletedCode '4').SectionGid 'a card in a section without a code is not moved either'
 Assert-Equal '5' (Get-RepoStageCode -ConfigText "function Get-AsanaStageMap { @{`nInReview = 5`nCompleted = 7`n} }" -Stage 'InReview') 'the InReview code is read from the same map, as text'
 $cmGetMove = { param($Uri) if ($Uri -like '*/tasks/*') { @{ data = @{ memberships = @(@{ project = @{ gid = '77' }; section = @{ name = '2. In Progress' } }) } } } else { @{ data = @(@{ gid = '303'; name = '3. Waiting for review' }, @{ gid = '304'; name = '4. Done' }) } } }
 Assert-Equal '303' (Resolve-ReviewMoveSection -Gid '123' -InReviewCode '3' -CompletedCode '4' -Get $cmGetMove).SectionGid 'resolved through the task''s board and the section it sits in'
@@ -1705,11 +1707,18 @@ function Invoke-RestMethod {
     # The two board reads a research close makes for its done section (#3017).
     if ($Method -eq 'GET') {
         $script:stAsanaReads += ,$Uri
-        if ($Uri -like '*/tasks/*') { return @{ data = @{ memberships = @(@{ project = @{ gid = '55' } }) } } }
-        return @{ data = @(@{ name = '1. Todo' }, @{ name = '4. Done' }) }
+        if ($Uri -like '*/tasks/*') { return @{ data = @{ memberships = @(@{ project = @{ gid = '55' }; section = @{ name = $script:stCardSection } }) } } }
+        return @{ data = @(@{ gid = '501'; name = '1. Todo' }, @{ gid = '503'; name = '3. Waiting for review' }, @{ gid = '504'; name = '4. Done' }) }
+    }
+    # The one card move (#3248), kept apart from the message so neither overwrites the other.
+    if ($Uri -like '*/addTask') {
+        $script:stMoves += ,$Uri
+        if ($script:stMoveFail) { throw 'HTTP 403' }
+        return
     }
     $script:stPosted = [System.Text.Encoding]::UTF8.GetString($Body)
 }
+$script:stCardSection = '2. In Progress'; $script:stMoves = @(); $script:stMoveFail = $false
 $stConfig = Join-Path ([System.IO.Path]::GetTempPath()) "st-repo-config-$([Guid]::NewGuid().ToString('N')).ps1"
 [System.IO.File]::WriteAllText($stConfig, "function Get-AsanaStageMap {`n    return @{ Completed = '4' }`n}`n")
 $script:RepoConfigPath = $stConfig
@@ -1717,12 +1726,12 @@ function New-StLine { param([string]$Body, [string]$At) (ConvertTo-Json -Compres
 function Invoke-StMain {
     param([string[]]$Comments, [string[]]$Events, [bool]$EventsFail = $false)
     $script:stComments = $Comments; $script:stEvents = $Events; $script:stEventsFail = $EventsFail
-    $script:stGhCalls = @(); $script:stPosted = ''; $script:stAsanaReads = @()
+    $script:stGhCalls = @(); $script:stPosted = ''; $script:stAsanaReads = @(); $script:stMoves = @()
     $script:IssueRef = 'o/r#7'; $script:StateReason = 'completed'; $script:Event = 'closed'; $script:AsanaPat = 'x'
     $script:IssueBody = '<!-- asana-task: 1234 -->'; $script:IssueLabels = ''
     $log = (& { Invoke-Main } 6>&1 | Out-String)
     $posted = if ($script:stPosted) { [string](ConvertFrom-Json -InputObject $script:stPosted).data.html_text } else { '' }
-    return [pscustomobject]@{ Body = $posted; Log = $log; Calls = @($script:stGhCalls); AsanaReads = @($script:stAsanaReads) }
+    return [pscustomobject]@{ Body = $posted; Log = $log; Calls = @($script:stGhCalls); AsanaReads = @($script:stAsanaReads); Moves = @($script:stMoves) }
 }
 $stOld = New-StLine $stBlock $stT1
 $stNew = New-StLine $stBlock2 $stT3
@@ -1767,6 +1776,36 @@ Assert-True (-not $stRun.Body.Contains('round-1') -and $stRun.Body.Contains('fol
 $stRun = Invoke-StMain -Comments @((New-StLine $hbBlock $stT1)) -Events @()
 Assert-Equal '' $stRun.Body 'a by-hand record for this round: nothing is posted on the task'
 Assert-True ($stRun.Log -match 'posted on Asana task 1234 by hand' -and $stRun.AsanaReads.Count -eq 0) 'and the log says why, with no board read'
+Assert-Equal 0 $stRun.Moves.Count 'and a by-hand close never moves the card (#3248)'
+
+# THE ONE CARD MOVE, END TO END (#3248): a stage map that states InReview, against the stubbed board.
+$stMoveConfig = Join-Path ([System.IO.Path]::GetTempPath()) "st-repo-config-move-$([Guid]::NewGuid().ToString('N')).ps1"
+[System.IO.File]::WriteAllText($stMoveConfig, "function Get-AsanaStageMap {`n    return @{ InReview = '3'; Completed = '4' }`n}`n")
+$script:RepoConfigPath = $stMoveConfig
+$stRun = Invoke-StMain -Comments @($stOld) -Events @()
+Assert-True ($stRun.Body.Contains('round-1') -and @($stRun.Moves) -join '|' -eq 'https://app.asana.com/api/1.0/sections/503/addTask') 'a completed close with a block posts its message and moves the card into InReview'
+Assert-True ($stRun.Log -match 'The card was moved to the InReview section \(found by code 3\)' -and $stRun.Log -notmatch 'Waiting for review') 'and the log says so without printing the board''s text'
+$stRun = Invoke-StMain -Comments @((New-StLine 'just talk' $stT1)) -Events @()
+Assert-True ($stRun.Body.Contains('follows') -and $stRun.Moves.Count -eq 0) 'a close without a block posts and moves nothing'
+$stRun = Invoke-StMain -Comments @((New-StLine $hbBlock $stT1)) -Events @()
+Assert-Equal 0 $stRun.Moves.Count 'a by-hand close moves nothing, with InReview stated too'
+$script:stCardSection = '4. Done'
+$stRun = Invoke-StMain -Comments @($stOld) -Events @()
+Assert-True ($stRun.Body.Contains('round-1') -and $stRun.Moves.Count -eq 0 -and $stRun.Log -match 'never pulls it backwards') 'a card already in Completed keeps its place, and the message still goes out'
+$script:stCardSection = '2. In Progress'; $script:stMoveFail = $true
+$stRun = Invoke-StMain -Comments @($stOld) -Events @()
+Assert-True ($stRun.Body.Contains('round-1') -and $stRun.Log -match 'The card was NOT moved: Asana refused the move \(HTTP') 'a refused move is logged, never thrown, and the message has gone out'
+$script:stMoveFail = $false
+$script:StateReason = 'not_planned'
+$script:IssueLabels = '["awaiting-info-client"]'; $script:stMoves = @()
+& { Invoke-Main } 6>&1 | Out-Null
+Assert-Equal 0 @($script:stMoves).Count 'a not-planned close moves nothing'
+$script:Event = 'reopened'; $script:stMoves = @()
+& { Invoke-Main } 6>&1 | Out-Null
+Assert-Equal 0 @($script:stMoves).Count 'nor does a reopen'
+$script:StateReason = 'completed'; $script:Event = 'closed'; $script:IssueLabels = ''
+$script:RepoConfigPath = $stConfig
+Remove-Item -LiteralPath $stMoveConfig -Force
 $stRun = Invoke-StMain -Comments @((New-StLine $hbBlock $stT1)) -Events @($stT2)
 Assert-True ($stRun.Body.Contains('follows')) 'a by-hand record from before the last reopen is held back, and the close posts as any other'
 $stRun = Invoke-StMain -Comments @((ConvertTo-Json -Compress @{ author_association = 'NONE'; login = 'stranger'; body = $hbBlock; created_at = $stT1 })) -Events @()

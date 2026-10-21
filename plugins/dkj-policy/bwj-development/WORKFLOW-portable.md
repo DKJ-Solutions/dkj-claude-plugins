@@ -916,11 +916,11 @@ issue chooses which task is read, which is acceptable because the store repos ar
 `ASANA_PAT` only. It mirrors the team's call, made in Asana, and makes none. The source repo's own
 tracker still ranks its issues on the same four labels, typed by whoever files.
 
-### 6. (Retired October 5, 2026) The board's sections are no longer moved automatically
+### 6. (Retired October 5, 2026; one move back October 21, 2026) The board's sections are moved automatically only into InReview
 
 The board's numbered sections are still the stages a colleague reads, from *a colleague put this on your
 name* to *tested and good*, and `Get-AsanaStageMap` still names what each number means. **But no workflow
-moves a card between them any more** (Dave, October 5, 2026): the stage sweep, the three GitHub Project
+sweeps a card between them any more** (Dave, October 5, 2026): the stage sweep, the three GitHub Project
 statuses that drove it, the `ReadyToTest` promotion on feedback and the terminal-stage guard are retired
 with the mirror, and `Get-GithubStatusMap` is no longer read. **The tooling writes two sections, and
 each on one event only.** `report-issue` creates the card in `Filed` and reads the stage map to find it.

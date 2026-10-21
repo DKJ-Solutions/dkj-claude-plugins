@@ -505,8 +505,9 @@ naming `feature` on a tracker without it stops every `feat/` PR.
 ## 5 -- read the board's sections, so the Filed section can be found
 
 `report-issue` creates a new card in the board's `Filed` section, and finds it by the **number its
-section's name starts with**, taking the *meaning* of each number from `Get-AsanaStageMap`. Nothing moves
-a card afterwards (Dave, October 5, 2026), so the map matters for one number. **This step comes before
+section's name starts with**, taking the *meaning* of each number from `Get-AsanaStageMap`. Afterwards
+only a completed close with a block moves a card, into `InReview` (#3248), and `asana-closed-message`
+reads `Completed` beside it, so the map matters for the `Filed`, `InReview` and `Completed` numbers. **This step comes before
 step 2's proposal can be written** -- read the sections of the project and report them:
 
 ```text

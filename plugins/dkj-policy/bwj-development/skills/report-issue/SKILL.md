@@ -356,8 +356,9 @@ Closing the GitHub issue as completed posts one comment on the task: the `asana-
 workflow's closed message, carrying the go-live block (the `golive-block` skill) the shipping session
 left on the issue (#2818; a block from before the issue's last reopen is withheld, #2968), and then moves
 the card into `InReview` (#3248); reopening it posts the reopened message (#2854). That is all it does.
-The rest of the retired `asana-mirror` CI (the stage sweep, every other move) did not come back, so until
-that close the card stays in `Filed` unless a person moves it, and the task stays open until the colleague who filed it ticks it off. Nothing in this chain
+The rest of the retired `asana-mirror` CI (the stage sweep, every other move) did not come back, so the
+card stays in `Filed` unless a person moves it, apart from that one move at a completed close with a
+block, and the task stays open until the colleague who filed it ticks it off. Nothing in this chain
 completes a task, and nothing puts a card in `Completed` either.
 
 **Say which section the card is in**, alongside the two URLs. It is the half a colleague can see
