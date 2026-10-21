@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**3 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3270-home-and-about · 20261021-210601Z
+
+The Repo hub is two pages now (#3270). **`/` is the repo's home page**, a portal: its `h1` is the repo's
+name, then its Products, one link to **About this repo**, and in a DKJ-Solutions repo the **Brand book**.
+**`/about` holds the repo itself**: its own pages, the general pages (Artifacts, Issues, Release notes,
+SessionStart) and its facts. The first crumb on every page reads **Home**. The plugin's hub and this
+repo's own both take the form, and the house-style README and its two patterns lay it down; the brand
+book's React specimen follows in #3274.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+Every repo's hub opens on a page with the repo's name and its products, and the general pages move one
+click further, to About this repo. A repo that serves its own hub (`OwnHub`) takes the new form from the
+house-style README and `patterns/repo-dashboard.html` plus `patterns/repo-about.html`.
+
+**Score:** 4
+#### Pull Request
+
+Repo hub: '/' becomes the home page, the repo itself moves to 'About this repo'
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3279](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3279)
+
+---
 
 ### DEPLOY: fix/3273-release-freshness-mixed · 20261021-204425Z
 
