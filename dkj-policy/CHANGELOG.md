@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**4 / 6 minor entries** <!-- pending-tally -->
+**5 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3241-golive-live-since-heading · 20261021-113444Z
+
+A go-live block closed with `-LiveSince` no longer carries the future-tense heading `WANNEER HET LIVE
+KOMT` (`WHEN IT GOES LIVE`) above *"Het staat live sinds ..."* (#3241). Under `-LiveSince` the section
+now reads `SINDS WANNEER HET LIVE STAAT` (`LIVE SINCE`), so heading and sentence never disagree; a
+planned block keeps the old heading.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A requester reading an Asana closed message for work that is already live is no longer told it is
+still coming; nothing to do but take the release.
+
+**Score:** 2
+
+#### Pull Request
+
+golive-block: a past-tense heading under -LiveSince
+
+Plugins: bwj-development
+
+[PR #3246](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3246)
+
+---
 
 ### DEPLOY: fix/3237-shop-connector-myshopify-domain · 20261021-101927Z
 
