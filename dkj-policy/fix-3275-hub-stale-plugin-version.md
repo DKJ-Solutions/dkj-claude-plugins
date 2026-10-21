@@ -39,21 +39,39 @@
 
 ### PLAN
 
+Inbound #3275, its reason verified against the tree: `Select-DevPreviewPort` recognises a hub by the
+checkout its command line names, never by the plugin payload it runs, so `Start-DevPreviewHub` reused a
+v5.26.0 server after the update. That server's `/` sends a 303 to the state file's `hub`, which since
+#3245 is the server itself.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-DevPreviewStaleHubOwners` in `hub/lib/dev-preview-rules.ps1`: the listeners whose own command line runs
+  a `serve-general-pages.ps1` from an absolute path other than the hook's.
+- [x] `Start-DevPreviewHub` stops such a server and starts this version's on the same port; one that will not stop
+  is reused as before. The line reads `(restarted: it ran another plugin version)`.
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: unit cases (another version, the own payload in another case and
+  slash, a relative path, no hub) and an end-to-end case with a fake older hub on the port: 285 passed, 0 failed.
+
 ### DEPLOY: fix/3275-hub-stale-plugin-version
 
-**Score:**
+The dev-preview hook no longer reuses a hub that this checkout started under another plugin version (#3275).
+After an update it stops that server and starts the new version's on the same port, and the session's line
+reads `(restarted: it ran another plugin version)`. Before this, a server from v5.26.0 kept running after the
+move to v5.27.0, and its `/` redirected to itself (`ERR_TOO_MANY_REDIRECTS`). A server started by hand from a
+relative path is still reused.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+After an update the Repo hub link opens the hub again, without anyone stopping the old server by hand.
+
+**Score:** 2
 
 #### Pull Request
 
 dev-preview hook restarts a hub server that runs from another plugin version
-

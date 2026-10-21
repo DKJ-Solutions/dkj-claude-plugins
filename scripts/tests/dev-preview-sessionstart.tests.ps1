@@ -160,6 +160,18 @@ Assert-True ($pick.Action -eq 'start' -and $pick.Port -eq 5174) 'with none ours,
 $pick = Select-DevPreviewPort -Ports @(5173) -Listeners @((& $L 5173 200)) -Processes $procs -Root $root
 Assert-Equal 'none' $pick.Action 'every port taken by others is none'
 
+# #3275: a hub of this checkout that runs from another plugin version is stopped, not reused.
+$srv = 'C:\Users\x\.claude\plugins\cache\dkj-claude-plugins\dkj-policy\5.27.0\hub\pages\serve-general-pages.ps1'
+$hubProcs = @{
+    600 = @{ CommandLine = 'powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\x\.claude\plugins\cache\dkj-claude-plugins\dkj-policy\5.26.0\hub\pages\serve-general-pages.ps1" -Port 4895'; ParentId = 100 }
+    601 = @{ CommandLine = 'powershell -NoProfile -ExecutionPolicy Bypass -File "c:/users/X/.claude/plugins/cache/dkj-claude-plugins/dkj-policy/5.27.0/hub/pages/serve-general-pages.ps1" -Port 4896'; ParentId = 100 }
+    602 = @{ CommandLine = 'powershell -File hub\pages\serve-general-pages.ps1 -Port 4897'; ParentId = 100 }
+}
+Assert-Equal '600' ((Get-DevPreviewStaleHubOwners -Port 4895 -Listeners @((& $L 4895 600), (& $L 4895 600)) -Processes $hubProcs -Server $srv) -join ',') 'a hub run from another version''s payload is stale, once per process'
+Assert-Equal 0 @(Get-DevPreviewStaleHubOwners -Port 4896 -Listeners @((& $L 4896 601)) -Processes $hubProcs -Server $srv).Count 'the hook''s own payload, in another case and slash, is not'
+Assert-Equal 0 @(Get-DevPreviewStaleHubOwners -Port 4897 -Listeners @((& $L 4897 602)) -Processes $hubProcs -Server $srv).Count 'nor one started by hand from a relative path'
+Assert-Equal 0 @(Get-DevPreviewStaleHubOwners -Port 4898 -Listeners @((& $L 4898 103), (& $L 4898 999)) -Processes $hubProcs -Server $srv).Count 'nor a listener that is no hub, or whose process is gone'
+
 # #3244: the line names who holds a taken port, from the process table the hook already read.
 Assert-Equal 'repo2' (Get-DevPreviewHolderName -ProcessId 300 -Processes $procs) 'another checkout''s server is named by the folder above node_modules'
 Assert-Equal 'repo' (Get-DevPreviewHolderName -ProcessId 103 -Processes $procs) 'a server the hook started is named by the cd /d of its cmd.exe ancestor'
@@ -531,6 +543,29 @@ try {
         $null = Invoke-Hook $noConfig
         Assert-Equal 1 (Get-Owners $genPort).Count 'a later session start reuses the hub instead of starting another'
         Assert-Equal "http://localhost:$genPort" (Get-HubState $noConfig).Pages 'and writes the same pages url again'
+
+        # A HUB FROM ANOTHER PLUGIN VERSION (#3275): this checkout's, so it reads as ours, but it is stopped and
+        # this version's started on the same port, because an older server's '/' can redirect to itself.
+        Use-GeneralPort (New-FreePort)
+        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
+        $staleRepo = [System.IO.Path]::GetFullPath((New-Repo 'stale-hub' $null))
+        $oldHub = "powershell -NoProfile -Command `"`$l = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), {port}; `$l.Start(); Start-Sleep 60 # C:\old\dkj-policy\5.26.0\hub\pages\serve-general-pages.ps1`""
+        $null = Start-Process -FilePath 'cmd.exe' -WorkingDirectory $staleRepo -WindowStyle Hidden -PassThru `
+            -ArgumentList (Get-DevPreviewStartLine -Root $staleRepo -Command $oldHub -Port $g -LogPath (Join-Path $Fixture 'old-hub.log'))
+        $until = (Get-Date).AddSeconds(20)
+        while ((Get-Date) -lt $until -and -not (Get-Owners $g).Count) { Start-Sleep -Milliseconds 200 }
+        $oldOwners = Get-Owners $g
+        $started += $oldOwners
+        $r = Invoke-Hook $staleRepo
+        $m = Get-Message $r.Text
+        Assert-True ($oldOwners.Count -eq 1 -and $m -match "^Repo hub: http://localhost:$g/ \(restarted: it ran another plugin version\)") "a hub this checkout started under another plugin version is restarted, and the line says so (got '$m')"
+        $newOwners = Get-Owners $g
+        Assert-True ($newOwners.Count -eq 1 -and $newOwners[0] -ne $oldOwners[0]) 'by a server of its own on the same port'
+        Assert-True ((& $getRaw $g '/') -match 'HTTP/1.1 200[\s\S]*<h1>Repo hub</h1>') 'whose / renders the hub instead of redirecting'
+        $r = Invoke-Hook $staleRepo
+        Assert-True ((Get-Message $r.Text) -match "^Repo hub: http://localhost:$g/ \(already running") 'and the next start reuses it'
+        # The cases below share the first port again.
+        $env:DKJ_GENERAL_PAGES_PORTS = [string]$genPort
 
         $r = Invoke-Hook (New-Repo 'no-seam' "function Get-ReachLabel { 'minor' }`n")
         Assert-True ((Get-Message $r.Text) -match "^Repo hub: not started -- port $genPort taken") 'a config without Get-DevPreview is a repo with no server too, and another checkout''s hub is not taken for its own'

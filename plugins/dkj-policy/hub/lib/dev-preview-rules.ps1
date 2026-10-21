@@ -278,6 +278,32 @@ function Select-DevPreviewPort {
     return @{ Action = 'none'; Port = $null }
 }
 
+function Get-DevPreviewStaleHubOwners {
+    <#
+        The process ids listening on -Port whose own command line runs a serve-general-pages.ps1 from an
+        absolute path other than -Server: a hub this checkout started under ANOTHER plugin version. INBOUND
+        #3275: ownership is read from the checkout the command line names, not from the payload it runs, so
+        after an update the hook reused a v5.26.0 server whose '/' answered with a 303 to the state file's hub
+        -- itself, since #3245 made the hub this server's own page. Empty where the listener runs -Server,
+        or a relative path (a server somebody started by hand from a tree), which is left alone.
+    #>
+    param(
+        [int]$Port,
+        [AllowEmptyCollection()][object[]]$Listeners,
+        [Parameter(Mandatory = $true)][hashtable]$Processes,
+        [Parameter(Mandatory = $true)][string]$Server
+    )
+    $own = [System.IO.Path]::GetFullPath($Server)
+    $stale = @()
+    foreach ($o in @($Listeners | Where-Object { $_ -and [int]$_.LocalPort -eq $Port } | ForEach-Object { [int]$_.OwningProcess } | Select-Object -Unique)) {
+        if (-not $Processes.ContainsKey($o)) { continue }
+        $cl = ([string]$Processes[$o].CommandLine).Replace('/', '\')
+        if ($cl -notmatch '(?i)([A-Za-z]:\\[^"]*?\\hub\\pages\\serve-general-pages\.ps1)') { continue }
+        if (-not [string]::Equals([System.IO.Path]::GetFullPath($Matches[1]), $own, [StringComparison]::OrdinalIgnoreCase)) { $stale += $o }
+    }
+    return $stale
+}
+
 function Get-DevPreviewHolderName {
     <#
         The name a person recognises for the process -ProcessId, or '' where none can be read. INBOUND
