@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**7 / 10 minor entries** <!-- pending-tally -->
+**8 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3253-created-comment-on-own-tasks · 20261021-121925Z
+
+`report-issue` now posts the fixed `created:` comment on a task it creates itself too, right after
+placing it, not only on a task that came from Asana (#3253). Colleagues read that comment as the sign
+that the GitHub issue exists, on every card, and a session-created card without it read as a skipped
+automation. Step 3 and `WORKFLOW-portable.md` say the same.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A session running `report-issue` in a store repo now writes one more comment on every task it creates.
+
+**Score:** 2
+
+#### Pull Request
+
+report-issue: the created: comment on a task the procedure creates itself too
+
+Plugins: bwj-development
+
+[PR #3254](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3254)
+
+---
 
 ### DEPLOY: fix/3244-dev-preview-name-port-holder · 20261021-120747Z
 
