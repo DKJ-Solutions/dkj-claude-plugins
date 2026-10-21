@@ -71,6 +71,8 @@ release.
 
 #### What makes this deploy extra special
 
+Nothing to do on update: the new line appears by itself at the next session start.
+
 **Score:** N/A
 
 #### Pull Request
