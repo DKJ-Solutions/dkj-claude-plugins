@@ -17,6 +17,9 @@
     primary is much lighter than a mirror would give (owner, October 21, 2026): it reaches 9:1 on all four paper
     steps, not 4.55:1, so it is a light tint of the colour rather than the colour at full strength, and the dark paper
     on it, the text on a primary fill, reads at 9:1 too. At 4.55:1 a fill was a vivid band under near-black text.
+    And no dark primary is more saturated than OKLCH chroma 0.13 (Roze's, the most saturated of the light tints):
+    Cyaan and Geel reach 9:1 at full strength already, so the floor alone left them neon (owner, the same day); above
+    the cap the primary is taken again at that chroma, at the lightness where it reaches 9:1.
 
     Every threshold is 4.55:1 or 7.05:1 rather than 4.5 and 7, which leaves room for the rounding to #rrggbb.
     Pure ASCII (repo convention for .ps1).
@@ -49,7 +52,7 @@ function Get-HousePaletteSteps {
            FgL    = @(0.12, 0.16, 0.20, 0.24);     FgC    = @(0.030, 0.030, 0.028, 0.026); MutedC = 0.03; PrimaryFloor = 4.55 }
     } else {
         @{ PaperL = @(0.13, 0.155, 0.19, 0.235);   PaperC = @(0.020, 0.024, 0.032, 0.045)
-           FgL    = @(0.99, 0.955, 0.92, 0.885);   FgC    = @(0.006, 0.010, 0.012, 0.014); MutedC = 0.03; PrimaryFloor = 9.0 }
+           FgL    = @(0.99, 0.955, 0.92, 0.885);   FgC    = @(0.006, 0.010, 0.012, 0.014); MutedC = 0.03; PrimaryFloor = 9.0; PrimaryChromaMax = 0.13 }
     }
 }
 
@@ -160,6 +163,11 @@ function Get-HousePalette {
     $makePrimary = { param($l) ConvertFrom-Hsl $Hue 1 $l }.GetNewClosure()
     if ($Mode -eq 'light') { $primary = Find-LightnessAtContrast $makePrimary $paper[3] $steps.PrimaryFloor 0 0.5 'high' }
     else                   { $primary = Find-LightnessAtContrast $makePrimary $paper[3] $steps.PrimaryFloor 0.5 1 'low' }
+    if ($steps.PrimaryChromaMax -and (ConvertTo-OkLch $primary).C -gt $steps.PrimaryChromaMax) {
+        $cap = $steps.PrimaryChromaMax; $capHue = (ConvertTo-OkLch $primary).H
+        $makeCapped = { param($l) ConvertFrom-OkLch $l $cap $capHue }.GetNewClosure()
+        $primary = Find-LightnessAtContrast $makeCapped $paper[3] $steps.PrimaryFloor 0 1 'low'
+    }
 
     # the greys: as close to their ground as 7:1 allows, so they recede by colour while still reading extra well
     $mc = $steps.MutedC

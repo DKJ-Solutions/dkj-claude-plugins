@@ -79,7 +79,13 @@ foreach ($th in $themes) {
     Assert-True $ordered "$($th.Id): the paper steps run away from the page"
     # the primary is the MOST saturated colour that reads: a step of HSL lightness toward 50% no longer reaches 4.55:1
     $pl = ConvertTo-HslLightness $p['--primary']
-    if ([math]::Abs($pl - 0.5) -gt 0.02) {
+    $stp = Get-HousePaletteSteps -Mode $th.Mode
+    $pc = ConvertTo-OkLch $p['--primary']
+    if ($stp.PrimaryChromaMax) { Assert-True ($pc.C -le $stp.PrimaryChromaMax + 0.002) "$($th.Id): the primary is no more saturated than chroma $($stp.PrimaryChromaMax)" }
+    if ($stp.PrimaryChromaMax -and [math]::Abs($pc.C - $stp.PrimaryChromaMax) -lt 0.003) {
+        $darker = ConvertFrom-OkLch ($pc.L - 0.01) $pc.C $pc.H
+        Assert-True ((Get-ContrastRatio $darker $p['--paper-4']) -lt $stp.PrimaryFloor) "$($th.Id): the capped primary sits at the lightness where it reaches $($stp.PrimaryFloor):1"
+    } elseif ([math]::Abs($pl - 0.5) -gt 0.02) {
         $closer = ConvertFrom-Hsl $th.Hue 1 ($pl + $(if ($dark) { -0.01 } else { 0.01 }))
         $floor = (Get-HousePaletteSteps -Mode $th.Mode).PrimaryFloor
         Assert-True ((Get-ContrastRatio $closer $p['--paper-4']) -lt $floor) "$($th.Id): the primary is the most saturated colour that still reaches $($floor):1 on paper-4"

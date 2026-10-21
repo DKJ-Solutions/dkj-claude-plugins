@@ -256,7 +256,7 @@ primary colour, its `--primary` in either mode (the dot the picker draws):
 | Mode | Themes (`data-theme`), in hue order |
 |---|---|
 | Light | `magenta` Magenta `#b90085`, `purple` Paars `#7f00ff`, `blue` Blauw `#0000ff`, `teal` Petrol `#006e79`, `ochre` Oker `#716300`, `rust` Roest `#9c4b00` |
-| Dark | `pink` Roze `#ff9fd4`, `lilac` Lila `#d6adff`, `sky` Hemelsblauw `#b8b8ff`, `cyan` Cyaan `#00eaff`, `yellow` Geel `#ffc800`, `orange` Oranje `#ffaa74` |
+| Dark | `pink` Roze `#ff9fd4`, `lilac` Lila `#d6adff`, `sky` Hemelsblauw `#b8b8ff`, `cyan` Cyaan `#26d3e5`, `yellow` Geel `#e2ba51`, `orange` Oranje `#ffaa74` |
 
 - **No red and no green theme.** Those hues mean bad and good, and a primary colour beside a red "−1,1%"
   makes the number disappear. The status colours are the same in every theme.
@@ -385,8 +385,9 @@ out). Three more things follow it by default, in light and in dark (and a measur
     steps, so every paper step reads on it as well. **On a dark theme the floor is 9:1**, so the primary is a light
     tint of the colour, and the dark paper on a primary fill reads at 9:1 or better (owner, October 21, 2026: at
     4.55:1 the dark primaries were the colour at full strength, and a primary fill was a vivid band under near-black
-    text; a deep fill with light text was tried and dropped the same day). Cyaan and Geel are light at full strength
-    already and pass 9:1 unchanged. The hue is the HSL hue of the owner's original theme colour
+    text; a deep fill with light text was tried and dropped the same day). **And no dark primary is more saturated than
+    OKLCH chroma 0.13**, Roze's: Cyaan and Geel reach 9:1 at full strength already, so the floor alone left them neon,
+    and above the cap they are taken again at that chroma, at the lightness where they reach 9:1. The hue is the HSL hue of the owner's original theme colour
     (Blauw and Hemelsblauw 240), held in HSL because at a constant OKLCH hue a saturated blue turns violet; Lila takes
     270, the hue of its light counterpart Paars, because at its own 254 it read as blue (owner, October 19, 2026).
   - **Two greys**: a grey of the colour that reads extra well on white (`--muted`) and one that reads extra well on
