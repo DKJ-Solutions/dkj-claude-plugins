@@ -1,7 +1,7 @@
 # brandbook
 
 The DKJ-Solutions brand book app: the showcase of every house token, theme, class and component with its
-variants and states, a theme and mode switcher, a 360px phone width, and the Repo hub pattern. Moved here from
+variants and states, a theme and mode switcher and a 360px phone width. Moved here from
 `DKJ-Solutions/dkj-brandbook` ([#3131](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3131),
 step 2 of [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130)).
 
@@ -26,8 +26,9 @@ and copies `dist/` into the `dkj-solutions` plugin's `assets/brandbook/` in the 
 [#3210](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3210)), and the plugin's general pages server
 serves that folder at `/brandbook/`. So a change here reaches consumers with the next release, never before.
 
-The app is built for the base `/brandbook/` (`vite.config.ts`): the showcase is its index, the Repo hub pattern is
-`/brandbook/repo-hub` and the hub previews are `/brandbook/dashboards`. The "Repo hub" crumb goes to the real hub on `/`.
+The app is built for the base `/brandbook/` (`vite.config.ts`): the showcase is its one page, and the "Home" crumb
+goes to the real hub on `/`. It drew a Repo hub specimen and previews of other repos' hubs until #3274; the hub's form
+is the house-style README's, with its two stylesheet-only patterns.
 
 ## Work on it
 
