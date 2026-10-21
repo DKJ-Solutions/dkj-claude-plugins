@@ -70,7 +70,7 @@ house-style README and the PowerShell hubs took in #3279 -- the home page and Ab
 
 - [x] `npm run gate` in `brandbook/`: eslint (0 errors; the two warnings are the `pull`/`issue` exports that
   were there before), CSS syntax, custom properties, colour tokens, build.
-- [ ] The full gate (`open-pr.ps1 -GatesOnly`), before the park.
+- [x] The full gate (`open-pr.ps1 -GatesOnly`), before the park: green.
 - [ ] The owner looks at `/brandbook/repo-hub`, `/brandbook/repo-hub/about` and a hub preview, and approves.
 
 ### DEPLOY: feat/3274-brandbook-home-about
