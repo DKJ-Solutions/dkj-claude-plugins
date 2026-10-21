@@ -64,9 +64,9 @@
      today row, the accent dialog); paper-4 a stronger border (an open card, a selected box). --primary the
      highlight: links (owner's decision, October 15, 2026), the primary button's fill (#109), the picker's dot, h1,
      the states (hover, sorted) and native controls through accent-color. --muted the eyebrow, sub lines, notes,
-     .muted, the tile label, the breadcrumb links, the fills (switches, info badges, a pressed .seg), most focus
+     .muted, the tile label, the fills (switches, info badges, a pressed .seg), most focus
      rings and meters (a ring on a sort header, a .seg button, a chart bar or the read-more toggle is --primary). fg-1 every paragraph and an inverted surface (.fill-inverse, the showcase's panel); fg-2 h2 and .meta on a span; fg-3 h3-h5;
-     fg-4 the breadcrumb's current page. On a fill the text switches: on .fill-primary the paper is the text, so an h2
+     fg-4 no role yet. The breadcrumb bar stands on --primary, with the paper steps as its text. On a fill the text switches: on .fill-primary the paper is the text, so an h2
      is --paper-1 there and --fg-2 on the page (owner, #3235: "h2 heeft niet altijd dezelfde kleur", an h2 does not always have the same colour).
      Measured (WCAG relative luminance, October 21, 2026), worst and best over the twelve themes: primary on paper-1
      5.4:1 (Pink) to 13.6:1 (Cyaan), on paper-4 4.55:1 to 11.2:1; fg-1 on paper-1 19.5:1 to 20.1:1, fg-4 on paper-4
@@ -616,22 +616,24 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
    <div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>
    <li><a href="/">Repo hub</a></li><li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24">
    (the chevron path, in the house-style README)</svg></span><span aria-current="page">Current page</span></li></ol></nav></div></div>.
-   The whole trail is in the muted greys (owner, October 20, 2026): the chevron --muted, the ancestor links
-   --muted, the current page --fg-4, so it recedes the least; every crumb at weight 400. A link shows its
-   underline only under the pointer.
-   The bar spans the full width on the surface tint and sticks to the top of the screen, so it is always visible. It is
+   The bar stands on the theme's colour (owner, #3235, October 21, 2026), so the trail is in the paper steps, all of
+   which read on it: the chevron --paper-3, the ancestor links --paper-2, the current page --paper-1, so it stands out
+   the most; every crumb at weight 400. A link shows its underline only under the pointer, and its focus ring is
+   --paper-1, because the usual --muted ring would not show on the primary.
+   The bar spans the full width on --primary and sticks to the top of the screen, so it is always visible. It is
    one --tap high and one line: a trail longer than the screen scrolls sideways inside the bar rather than wrapping, so
    the height stays fixed and whatever else sticks to the top sits right under it. Its trail lines up with the page
    column (.container). */
 .breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); white-space: nowrap; }
 .breadcrumbs li { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }
-.breadcrumbs a { color: var(--muted); text-decoration: none; text-underline-offset: 4px; }
+.breadcrumbs a { color: var(--paper-2); text-decoration: none; text-underline-offset: 4px; }
+.breadcrumbs a:focus-visible { outline-color: var(--paper-1); }
 .breadcrumbs a:hover { text-decoration: underline; }
-.breadcrumbs__sep { display: inline-flex; color: var(--muted); }
+.breadcrumbs__sep { display: inline-flex; color: var(--paper-3); }
 .breadcrumbs__sep svg { width: 1.25rem; height: 1.25rem; }
 .breadcrumbs__sep path { stroke: currentColor; stroke-width: 0.75; stroke-linejoin: round; }   /* thickens the filled chevron */
-.breadcrumbs [aria-current='page'] { color: var(--fg-4); font-weight: 400; }
-.breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--paper-2); box-shadow: 0 1px 0 var(--paper-3); }
+.breadcrumbs [aria-current='page'] { color: var(--paper-1); font-weight: 400; }
+.breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary); }
 .breadcrumbs-bar > .container { display: flex; align-items: center; height: var(--tap); padding-top: 0; padding-bottom: 0; overflow-x: auto; }
 /* Under the bar: an anchor lands below it, and the floating settings button moves down by its height. */
 html:has(.breadcrumbs-bar) { scroll-padding-top: var(--tap); }
