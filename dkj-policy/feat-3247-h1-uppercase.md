@@ -39,19 +39,32 @@
 
 ### PLAN
 
+#3247: the `h1` always in capitals, so it stands further apart from the `h2`. A visible result: the
+branch stops for the owner's look, with no pull request until then.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: `h1` takes `text-transform: uppercase` and `letter-spacing: 0.02em` (capitals
+  set at the serif's `-0.01em` read cramped).
+- [x] The new sha256 in the `house-style` skill's table; the rule in the house-style README.
 
 ### TEST
 
+- [x] `open-pr.ps1 -GatesOnly` before the park.
+
 ### DEPLOY: feat/3247-h1-uppercase
 
-**Score:**
+Every DKJ-Solutions page now sets its `h1` in capitals (#3247), so the page title stands further apart
+from the `h2` than size alone made it. The tracking opens to `0.02em` for the capitals; the markup keeps
+its ordinary case. An app takes it with its next copy of `house-style.css`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every app's page titles read in capitals once it takes the new copy; nothing to rename or change.
+
+**Score:** 2
 
 #### Pull Request
 

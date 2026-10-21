@@ -227,6 +227,9 @@ scale did not, so taking it over changed sizes: body 15 → 14, `h2` 29 → 32, 
 small text → 12, a mini-card value 20 → 18, the info button's mark 10 → 11 (Maikel, October 12, 2026).
 Two departures from the library followed on October 20, 2026: its `h0` was retired with `h1` taking the 48px,
 and its 24px `h3` was retired with every level below it moving up one.
+**The `h1` is set in capitals** (`text-transform: uppercase`, tracking opened to `0.02em`), so it stands further
+apart from the `h2` than size alone made it (owner's decision, October 21, 2026,
+[#3247](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3247)). The markup keeps its ordinary case.
 
 ### The heading shift of October 20, 2026
 
