@@ -2,7 +2,46 @@
 
 ## [Unreleased]
 
-**1 / 2 minor entries** <!-- pending-tally -->
+**1 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/product-connectors-specialists · 20261022-132050Z
+
+This repo's product port now carries the Connectors, Specialists and DKJ repos pages beside the brand book: its
+root page links all four, and the Repository (the hub) lists none of the three, so its home page holds About this
+repo alone. The pages are still built by the hub,
+which runs `check-connectors.ps1` and reads this tree; the product's Vite dev server (`productRoot` in
+`brandbook/vite.config.ts`) finds this checkout's hub by asking ports 4870-4879 for a new `/whoami` (the root's
+`Get-DevPreviewRootHash`, as the general server already answers) and relays each request, so the pages, their
+Home crumb and their refresh link all stay on the product's origin. The hub keeps answering the three paths, for
+that relay. The dev server computes the same hash in TypeScript, so the two must agree: the live check above
+compared them, and a change to the hash in `dev-preview-rules.ps1` has to land in `vite.config.ts` too.
+
+Both ports also open with a **site header** now, a new house-style pattern (`.site-header`): at most 72px
+high on the theme's primary, the DKJ wordmark and the repo's name on the left as the way home, the settings
+button on the far right. The breadcrumb bar stands right under it, on the paper with a subtle line, and the
+eyebrow above each `h1` is gone, since the header names the site. The page shell in dkj-policy draws the
+header only for a caller that passes `-Brand`, so every other repo's pages are unchanged, and in the house
+style a breadcrumb bar changes colour only right under a site header. The house style also gains `.grid-3`, `.grid-2`'s group three to a row, and `.facts--row`, the facts as one row on the page. The header says `hub` after the name on the hub and`nproduct` on the product port, and both ports open in the same theme (lilac, one theme key).
+
+The house style's largest heading is now 32px: `--text-h1` came down from 48px to `h2`'s size, the hero figure with it, so a page fits more on a 900px-high screen; `h1` stands apart by its capitals and colour. On the two home pages the `h1` repeated the name the header shows, so under a site header the home page has no intro at all: no `h1`, no lead, `<main>` opens on its first block. And the hub is one page now: its home holds everything About this repo held (every page as a card of its own, three to a row and with no heading above them, and the footer note); a new Repository page (`/repository`) holds the GitHub repo's facts as one row of label-over-value (`.facts--row`, new in the house style, since every card is a link and the facts are not), the Issues page and its pull requests and Actions on GitHub, and `/about` sends an old link on to `/`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the source repo's own dev servers; no consumer's hub or product changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The Connectors, Specialists and DKJ repos pages move from the Repository to the product port
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3291](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3291)
+
+---
 
 ### DEPLOY: fix/hub-without-brandbook · 20261022-103726Z
 
