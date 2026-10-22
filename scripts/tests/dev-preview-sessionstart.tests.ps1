@@ -246,11 +246,11 @@ Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText "{`n  // `"localhost
 
 # A repo that states no Get-DevPreview: the home page, its setup cards, no Products section (#3270).
 $html = Format-PluginRepositoryHtml -RepoName 'dkj-thumbnail-generator' -PagesUrl 'http://localhost:4890'
-Assert-True ($html -match '<h1>dkj-thumbnail-generator</h1>' -and $html -notmatch 'class="eyebrow"') 'the home page''s h1 is the repo''s name, so it needs no eyebrow (#3270)'
+Assert-True ($html -match 'site-header__name">dkj-thumbnail-generator <span class="site-header__tag">hub</span>' -and $html -notmatch '<h1' -and $html -notmatch 'class="eyebrow"') 'the site header names the repo, so the home page needs no h1 and no eyebrow (October 22, 2026)'
 Assert-True ($html -match '<main class="page-column">' -and $html -notmatch '<dl class="facts">') 'and takes the home page form: the page column, and no facts card, which is About''s'
-Assert-True ($html -match '<body>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Home</span></li>') 'the breadcrumb bar opens <body>, its trail the one crumb Home (#3090, #3270)'
-Assert-True ($html.Contains((Format-RepositoryBanner)) -and $html.IndexOf('id="hub-banner"') -gt $html.IndexOf('<h1>dkj-thumbnail-generator</h1>')) 'the plugin hub carries the same airsquats banner, under its intro (#3250)'
-Assert-True ($html -notmatch '<header') 'and its intro is no <header>, which the house style lays out as a flex row'
+Assert-True ($html -match '<body>\s*<header class="site-header">.*</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Home</span></li>') 'the site header opens <body>, the breadcrumb bar under it, its trail the one crumb Home (#3090, #3270)'
+Assert-True ($html.Contains((Format-RepositoryBanner)) -and $html.IndexOf('id="hub-banner"') -gt $html.IndexOf('class="breadcrumbs-bar"')) 'the plugin hub carries the same airsquats banner, under the bar (#3250)'
+Assert-True (([regex]::Matches($html, '<header')).Count -eq 1) 'and its one <header> is the site header: no intro, so none the house style would lay out as a flex row'
 Assert-True ($html -match '<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">') 'with no stored theme it falls back to lilac, and it shares the general pages'' theme key: one origin now'
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'and starts from the house style its own server serves'
 Assert-True ($html -notmatch '<h2>Products</h2>') 'without a stated server there is no Products section'
@@ -266,12 +266,12 @@ Assert-True ($html -match '<title>dkj-thumbnail-generator -- Home</title>' -and 
 
 # Its About this repo page: the general pages and the facts.
 $about = Format-PluginRepoAboutHtml -RepoName 'dkj-thumbnail-generator' -PagesUrl 'http://localhost:4890'
-Assert-True ($about -match '<h1>About this repo</h1>' -and $about -match '<p class="eyebrow">dkj-thumbnail-generator</p>' -and $about -match '<title>dkj-thumbnail-generator -- About this repo</title>') 'About this repo is a page under the hub, the repo''s name its eyebrow'
+Assert-True ($about -match '<h1>About this repo</h1>' -and $about -match 'site-header__name">dkj-thumbnail-generator <span' -and $about -notmatch 'class="eyebrow"' -and $about -match '<title>dkj-thumbnail-generator -- About this repo</title>') 'About this repo is a page under the hub, the repo''s name in its site header'
 Assert-True ($about -match '<li><a href="/">Home</a></li>' -and $about -match '<span aria-current="page">About this repo</span>') 'its trail is Home, then the page itself'
 Assert-True ($about -match '<h2>General pages</h2>' -and $about -match 'href="/issues"' -and $about -match 'href="/release-notes"' -and $about -notmatch 'localhost:4890/') 'it links the General pages, by bare path: the hub and its pages are one origin (#3245)'
 Assert-True ($about -match '<h2>Facts</h2>' -and $about -match '<dt>Dev preview</dt><dd>none stated yet</dd>' -and $about -match '<dt>Hub served by</dt><dd>the dkj-policy plugin, on a port from 4890 to 4899</dd>') 'the facts say none is stated and who serves the hub'
 Assert-True ($about -match '<p class="footer-note">[^<]*<code>hub/pages/serve-general-pages.ps1</code>') 'the footer names the serving script'
-Assert-True ((Format-PluginRepoAboutHtml -RepoName 'a<b>&c' -Folder 'f<x>') -match '<p class="eyebrow">a&lt;b&gt;&amp;c</p>' -and (Format-PluginRepoAboutHtml -RepoName 'a<b>&c' -Folder 'f<x>') -match '<dd>f&lt;x&gt;</dd>') 'the name and the folder are escaped once, not twice'
+Assert-True ((Format-PluginRepoAboutHtml -RepoName 'a<b>&c' -Folder 'f<x>') -match 'site-header__name">a&lt;b&gt;&amp;c <span class="site-header__tag">hub</span>' -and (Format-PluginRepoAboutHtml -RepoName 'a<b>&c' -Folder 'f<x>') -match '<dd>f&lt;x&gt;</dd>') 'the name and the folder are escaped once, not twice'
 
 # A repo that states a server: the Products section, and no setup cards.
 $html = Format-PluginRepositoryHtml -RepoName 'dkj-recipes' -Mode 'product' -ProductUrl 'http://localhost:4321/dkj-recipes/' -PagesUrl 'http://localhost:4890'
@@ -280,7 +280,7 @@ Assert-True ($html.IndexOf('<h2>Products</h2>') -lt $html.IndexOf('<h2>About thi
 Assert-True ($html -notmatch 'Set up a product' -and $html -notmatch 'Add a dev server of your own') 'and the setup cards are only for a repo that states none'
 $about = Format-PluginRepoAboutHtml -RepoName 'dkj-recipes' -Folder 'recipes-checkout' -Mode 'product' -ProductUrl 'http://localhost:4321/dkj-recipes/' -PagesUrl 'http://localhost:4890'
 Assert-True ($about -match '<dt>Folder</dt><dd>recipes-checkout</dd>' -and $about -match '<dt>Dev preview</dt><dd>http://localhost:4321/dkj-recipes/</dd>') 'the facts name the folder and the product'
-Assert-True ($html -match '<h1>dkj-recipes</h1>') 'the h1 is the repo''s name whatever the repo states'
+Assert-True ($html -match 'site-header__name">dkj-recipes <span') 'the site header names the repo whatever the repo states'
 $html = Format-PluginRepositoryHtml -RepoName 'dkj-recipes' -Mode 'product' -ProductUrl '' -PagesUrl 'http://localhost:4890'
 Assert-True ($html -match '<h2>Products</h2>' -and $html -match 'own server is not running' -and $html -notmatch 'aria-label="Products"' -and (Format-PluginRepoAboutHtml -RepoName 'dkj-recipes' -Mode 'product' -ProductUrl '') -match '<dd>stated, not running</dd>') 'a stated server that is not running says so, with no link'
 foreach ($badProduct in 'http://evil.example/x', 'javascript:alert(1)', 'https://localhost:4321/', 'http://localhost:4321@evil.example/', "http://localhost:4321/a`r`nb", 'http://localhost:99999/', 'http://localhost:4321//evil.example/', 'http://localhost:4321/"><script>x</script>') {
@@ -291,15 +291,15 @@ Assert-True ((Format-PluginRepoAboutHtml -RepoName 'r' -PagesUrl '') -match 'The
 
 # The two values from outside.
 $html = Format-PluginRepositoryHtml -RepoName '<script>x</script>'
-Assert-True ($html -notmatch '<script>x' -and $html -match '<h1>&lt;script&gt;x&lt;/script&gt;</h1>') 'a repo name is HTML-escaped before it reaches the home page'
+Assert-True ($html -notmatch '<script>x' -and $html -match 'site-header__name">&lt;script&gt;x&lt;/script&gt; <span class="site-header__tag">hub</span>') 'a repo name is HTML-escaped before it reaches the home page'
 $about = Format-PluginRepoAboutHtml -RepoName ('a&amp;b<i>"' + "'q") -Folder '"><b>f</b>'
 $once = 'a&amp;amp;b&lt;i&gt;&quot;&#39;q'
-Assert-True ($about -match ('<p class="eyebrow">' + [regex]::Escape($once) + '</p>') -and $about -match ('<title>' + [regex]::Escape($once) + ' -- About this repo</title>')) 'and on About it is escaped exactly once, in the eyebrow and the title alike'
+Assert-True ($about -match ('site-header__name">' + [regex]::Escape($once) + ' <span') -and $about -match ('<title>' + [regex]::Escape($once) + ' -- About this repo</title>')) 'and on About it is escaped exactly once, in the site header and the title alike'
 Assert-True ($about -match '<dd>&quot;&gt;&lt;b&gt;f&lt;/b&gt;</dd>' -and $about -notmatch '<b>f</b>' -and $about -notmatch '<i>"') 'and the folder too, where About shows it'
 $html = Format-PluginRepositoryHtml -RepoName ('n' * 120)
-Assert-True ($html -match ('<h1>n{80}</h1>') -and (Format-PluginRepoAboutHtml -RepoName ('n' * 120)) -match ('<p class="eyebrow">n{80}</p>')) 'and cut at 80 characters, on both pages'
-Assert-True ((Format-PluginRepositoryHtml -RepoName "a`nb") -match '<h1>a b</h1>') 'with control characters made spaces'
-Assert-True ((Format-PluginRepositoryHtml -RepoName '  ') -match '<h1>this repo</h1>') 'and a blank name read as this repo'
+Assert-True ($html -match ('site-header__name">n{80} <span') -and (Format-PluginRepoAboutHtml -RepoName ('n' * 120)) -match ('site-header__name">n{80} <span')) 'and cut at 80 characters, on both pages'
+Assert-True ((Format-PluginRepositoryHtml -RepoName "a`nb") -match 'site-header__name">a b <span') 'with control characters made spaces'
+Assert-True ((Format-PluginRepositoryHtml -RepoName '  ') -match 'site-header__name">this repo <span') 'and a blank name read as this repo'
 
 # The plugin's canonical copy is held to the house-style skill's table, like the dashboard's (#2989): a
 # repoint that leaves it behind goes red here instead of shipping a stale page to every repo.
@@ -482,7 +482,7 @@ try {
         $started += $genOwners
         try {
             $page = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$genPort/" -TimeoutSec 15
-            Assert-True ($page.StatusCode -eq 200 -and $page.Content -match '<h1>no-config</h1>') 'the home page is served on /, naming the repo it was started in'
+            Assert-True ($page.StatusCode -eq 200 -and $page.Content -match 'site-header__name">no-config <span') 'the home page is served on /, naming the repo it was started in'
             Assert-True ($page.Content -match '<h2>Set up a product</h2>' -and $page.Content -notmatch '<h2>Products</h2>') 'with the setup cards and no Products section, since the repo states no Get-DevPreview'
             Assert-True ($page.Content -match 'href="/about"' -and $page.Content -match '<h2>Brand book</h2>') 'it links About this repo, and the Brand book is there where the repo enables the plugin'
             $aboutPage = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$genPort/about" -TimeoutSec 15
@@ -520,15 +520,15 @@ try {
         $r2 = & $getRaw $genPort '/artifacts' '' $nav
         Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>Artifacts</h1>') 'a click from the hub to a general page, same-site and a navigation, is served'
         $r2 = & $getRaw $genPort '/hub' '' $nav
-        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>no-config</h1>') 'and so is the "Home" crumb on it: /hub is the rendered home page'
+        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match 'site-header__name">no-config <span') 'and so is the "Home" crumb on it: /hub is the rendered home page'
         Assert-True ((& $getRaw $genPort '/artifacts' '' "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: no-cors`r`n") -match 'HTTP/1.1 403') 'a same-site subresource request is refused'
         Assert-True ((& $getRaw $genPort '/artifacts' '' "Sec-Fetch-Site: cross-site`r`nSec-Fetch-Mode: navigate`r`n") -match 'HTTP/1.1 403') 'and a cross-site navigation'
         $r2 = & $getRaw $genPort '/'
-        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>no-config</h1>') '/ renders the hub too, not a redirect: there is no Repository to send the visitor to'
+        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match 'site-header__name">no-config <span') '/ renders the hub too, not a redirect: there is no Repository to send the visitor to'
         Assert-True ((& $getRaw $genPort '/index.html') -match 'HTTP/1.1 200') 'and so does /index.html'
         Assert-True ((& $getRaw $genPort '/hub' 'evil.example') -match 'HTTP/1.1 403') 'a foreign Host is refused'
         $r2 = & $getRaw $genPort '/artifacts'
-        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>Artifacts</h1>' -and $r2 -match 'the file is not there' -and $r2 -match '<li><a href="/hub">Home</a></li>' -and $r2 -match '<p class="eyebrow">no-config</p>') '/artifacts says the register is not there, in a repo that has none, under the folder''s name'
+        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>Artifacts</h1>' -and $r2 -match 'the file is not there' -and $r2 -match '<li><a href="/hub">Home</a></li>' -and $r2 -match 'site-header__name">no-config <span') '/artifacts says the register is not there, in a repo that has none, under the folder''s name'
         New-Item -ItemType Directory -Force -Path (Join-Path $noConfig 'scripts\dashboard') | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $noConfig 'scripts\dashboard\artifacts.json'), '{ "artifacts": [ { "title": "Fixture page", "url": "https://claude.ai/artifact/Fx1", "kind": "page", "created": "2026-10-01" } ] }')
         Assert-True ((& $getRaw $genPort '/artifacts') -match 'href="https://claude.ai/artifact/Fx1"[^>]*>Fixture page</a>') 'and lists the repo''s own register, read on every request'

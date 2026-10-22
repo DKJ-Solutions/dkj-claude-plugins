@@ -92,7 +92,8 @@ function Format-PluginRepositoryHtml {
     [void]$sb.AppendLine('<body>')
     $lead = if ($Mode -eq 'product') { 'The way in to what this repo offers: its product, and the page about the repo itself.' }
             else { 'The way in to this repo. It states no dev server of its own yet, so there is no product to link.' }
-    [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName $n -Lead $lead))
+    # The site header on the home page too (October 22, 2026): it names the repo, so the page has no intro of its own.
+    [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName $n -Lead $lead -Brand (ConvertTo-SiteHeaderName -RepoName (ConvertTo-PluginRepositoryName $RepoName)) -BrandTag 'hub'))
 
     # Products: the repo's own server, one link row; where it states none, the two setup cards take the
     # section's place, under one h2 of their own and each titled with an h3 (#3175).

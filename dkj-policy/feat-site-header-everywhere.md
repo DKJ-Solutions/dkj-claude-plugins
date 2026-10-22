@@ -39,19 +39,38 @@
 
 ### PLAN
 
+The owner: the site header on ALL pages, not only the homes. Missing were the four general pages (built by the
+dkj-policy plugin's hub server for every repo) and the brand book app (whose build the plugin ships to every
+DKJ-Solutions repo). Chosen from a menu: in the plugin, for every repo; and in the app, under a neutral name.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-GeneralPageHtml`: a page that names its site gets the header (the repo's short name via `ConvertTo-SiteHeaderName`, `hub` after it), so Artifacts, Issues, SessionStart, About and the Brandbook-missing page carry it
+- [x] `Format-ReleaseNotesDevPage -RepoName`: the header above the release notes' bar; the general server passes it
+- [x] The plugin hub's home (`repository-page.ps1`): the header, so the intro goes there too
+- [x] The brand book app: `SiteHeader` (`DKJ brand book`, home `/`) in place of the `Toolbar`, holding the preview settings; its bar under the header on the paper, as the house bar
+- [x] The house-style README: every hub page and the brand book carry the header
 
 ### TEST
 
+- [x] `dev-pages` (292), `connector-dashboard` (198), `dev-preview-sessionstart` (309) green; `npm run gate` green; `check-house-style` OK
+- [~] Looked at in the browser -- the extension was not connected; the owner looks at it before the merge
+
 ### DEPLOY: feat/site-header-everywhere
 
-**Score:**
+The site header now stands on every hub page in every DKJ-Solutions repo, not only on this repo's own pages: the
+dkj-policy hub server draws it on the home page, About, Artifacts, Issues, Release notes and SessionStart, with the
+repo's name and `hub` after it, the settings button in it and no eyebrow or intro under it. The brand book app
+carries it too, as *DKJ brand book*, holding its preview settings.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every DKJ-Solutions repo that takes the release sees its hub pages open with the site header, and its hub home
+without the h1 and lead it had.
+
+**Score:** 3
 
 #### Pull Request
 

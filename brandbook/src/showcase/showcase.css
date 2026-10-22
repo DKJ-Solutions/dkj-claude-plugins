@@ -99,17 +99,8 @@
 /* The breadcrumb trail above it lines up with it: the same full width and the same side padding, so the trail and
    the content start on one line (on the dashboard pages both are the house column already). */
 .dkj-page > .dkj-breadcrumbs-bar > .container { max-width: none; padding-left: var(--spacing-6); padding-right: var(--spacing-6); }
-/* The preview settings: the house settings button (.theme-settings), placed top right in a sticky
-   wrapper with no height, so its panel lies over the page and nothing in the flow moves. It sticks under the
-   breadcrumb bar. */
-.dkj-settings {
-  position: sticky;
-  top: var(--tap);
-  z-index: 3;
-  height: 0;
-  margin: 0 calc(-1 * var(--spacing-6));
-}
-.dkj-settings-anchor { position: absolute; top: var(--spacing-3); right: var(--spacing-6); }
+/* The site header lines up with them too: the full width and the same side padding. The preview settings sit in it. */
+.dkj-page > .site-header > .container { max-width: none; padding-left: var(--spacing-6); padding-right: var(--spacing-6); }
 
 /* The page width from the settings panel (house-theme.js sets <html data-width>). <main> keeps the full width here, so the
    showcase sizes its content itself. Phone width: everything renders in a 360px column, like the source app on the
@@ -227,8 +218,7 @@
   .dkj-contents-inner { width: 100%; }
   .dkj-shell--open .dkj-panel-toggle { left: min(230px, calc(100% - 3rem)); }
   .dkj-page > .dkj-breadcrumbs-bar > .container { padding-left: var(--spacing-4); padding-right: var(--spacing-4); }
-  .dkj-settings { margin: 0 calc(-1 * var(--spacing-4)); }
-  .dkj-settings-anchor { right: var(--spacing-4); }
+  .dkj-page > .site-header > .container { padding-left: var(--spacing-4); padding-right: var(--spacing-4); }
 }
 
 /* A tooltip drawn in place, to show how it looks open: the house .tooltip is fixed and hidden until a script shows it. */

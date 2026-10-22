@@ -64,10 +64,12 @@ export function Demo({ label, children, wide, surface = true }: { label: string;
 }
 
 /**
- * The preview settings: the house settings button (DKJTheme.settings) -- a round toggle whose panel holds
- * the theme picker, the page width (fluid, phone, full; set as <html data-width>) and a reset.
+ * The house site header (house-style.css, "Site header", October 22, 2026): the mark and the name on the theme's colour,
+ * linking home, and on the far right the preview settings -- the house settings button (DKJTheme.settings), whose
+ * panel holds the theme picker, the page width (fluid, phone, full; set as <html data-width>) and a reset. The name is
+ * the brand book's own, not a repo's, because the plugin ships this build to every DKJ-Solutions repo.
  */
-export function Toolbar() {
+export function SiteHeader({ home }: { home: string }) {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     // The house API has no destroy, and settings() leaves an element it has drawn alone (StrictMode runs this twice safely).
@@ -84,8 +86,16 @@ export function Toolbar() {
     })
   }, [])
   return (
-    <div className="dkj-settings">
-      <div className="dkj-settings-anchor" ref={ref} />
-    </div>
+    <header className="site-header">
+      <div className="container">
+        <a className="site-header__brand" href={home} aria-label="DKJ brand book, home">
+          <span className="site-header__mark" aria-hidden="true">
+            DKJ
+          </span>
+          <span className="site-header__name">DKJ brand book</span>
+        </a>
+        <div ref={ref} />
+      </div>
+    </header>
   )
 }

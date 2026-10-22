@@ -585,8 +585,9 @@ or the bar covers it.
 ### The site header, above the bar
 
 **An app may open with a site header, and the breadcrumb bar then stands right under it** (owner, October
-22, 2026; the source repo's Repository and product carry it). It is an option, not yet the rule for every
-page: an app without one keeps the bar as described above.
+22, 2026). **Every hub page carries it**: the dkj-policy plugin's hub server draws it on the home page, About and
+every general page of every repo, with the repo's name and `hub` after it, and the brand book app carries it as
+*DKJ brand book*. A repo's own product may add it; an app without one keeps the bar as described above.
 
 - **The header:** `header.site-header` > `.container`, at most `--spacing-18` (72px) high, on `--primary`
   over the full width. On the left the app's mark and name, `a.site-header__brand` linking home (`/`); on

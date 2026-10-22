@@ -4,7 +4,7 @@ import { Icon } from './components/Icon'
 import { Breadcrumbs } from './components/Navigation'
 import { REPOS } from './repos'
 import { HUB_PATH, SHOWCASE_PATH } from './routes'
-import { Toolbar } from './showcase/Showcase'
+import { SiteHeader } from './showcase/Showcase'
 import { Intro } from './showcase/sections/Intro'
 import { RepoPreview } from './showcase/previews/RepoPreview'
 import { Apps } from './showcase/sections/Apps'
@@ -149,8 +149,9 @@ export default function App() {
           </nav>
         </div>
       </aside>
-      {/* The page column: the breadcrumb bar over <main>, beside the panel, which takes the full height. */}
+      {/* The page column: the site header, then the breadcrumb bar, over <main>, beside the panel, which takes the full height. */}
       <div className="dkj-page">
+        <SiteHeader home={HUB_PATH} />
         <Breadcrumbs
           bar
           items={[
@@ -159,7 +160,6 @@ export default function App() {
           ]}
         />
         <main className="dkj-main">
-          <Toolbar />
           <div className="dkj-content">
             {previewRepo ? (
               <RepoPreview repo={previewRepo} />

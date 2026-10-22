@@ -86,7 +86,8 @@ function Format-GeneralPageHtml {
         answers it itself (#3168). -Style is the page's own layer, names the house file does not define. -Lead and
         -FooterNote are markup the caller has escaped. -Brand opts into the house site header (Format-SiteHeaderHtml):
         the app's name on the primary above the bar, linking -HubHref, with the settings button in it; the eyebrow
-        then goes, since the header already names the site. -BrandTag is the word after the name. Without it the page is as it always was.
+        then goes, since the header already names the site. -BrandTag is the word after the name. A page that
+        names -SiteName and no -Brand gets the header anyway (ConvertTo-SiteHeaderName), since October 22, 2026. Without it the page is as it always was.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Title,
@@ -101,6 +102,9 @@ function Format-GeneralPageHtml {
         [AllowEmptyString()][string]$Brand = '',
         [AllowEmptyString()][string]$BrandTag = ''
     )
+    # EVERY NAMED PAGE CARRIES THE SITE HEADER (owner, October 22, 2026): a caller that names its site and passes no
+    # -Brand gets the repo's short name in it, with 'hub' after it, since these are the hub's pages.
+    if (-not $Brand -and $SiteName) { $Brand = ConvertTo-SiteHeaderName -RepoName $SiteName; if (-not $BrandTag) { $BrandTag = 'hub' } }
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $site = if ($SiteName) { (& $e $SiteName) + ' -- ' } else { '' }
     $sb = New-Object System.Text.StringBuilder
@@ -282,6 +286,14 @@ function Format-GeneralPagesCardHtml {
     [void]$sb.AppendLine('</section>')
     if (-not $InRow) { [void]$sb.AppendLine('</div>') }
     return $sb.ToString()
+}
+
+function ConvertTo-SiteHeaderName {
+    <# The name a site header shows for -RepoName: a GitHub slug without its 'Owner/' (DKJ-Solutions/x -> x); any other
+       name as it is, so a folder name with a slash in it is not cut. #>
+    param([AllowEmptyString()][string]$RepoName = '')
+    if ($RepoName -cmatch '^[A-Za-z0-9._-]+/([A-Za-z0-9._-]+)\z') { return $Matches[1] }
+    return $RepoName
 }
 
 function Format-SiteHeaderHtml {
@@ -1048,7 +1060,7 @@ function Format-ReleaseNotesDevPage {
         The built release-notes page (#3108), as a dev server serves it: the house stylesheet and theme
         script, the breadcrumb bar and the settings button, put around the page build-release-notes-page.ps1
         leaves in dkj-policy/releases/page/. -HubHref is where the "Home" crumb goes ('/hub' on the
-        general server).
+        general server). -RepoName puts the site header above the bar (October 22, 2026).
 
         ONLY THIS COPY, NOT THE TEMPLATE. The template is dkj-policy's, shared with every consumer --
         BWJ-Development repos included, which do not take the house style -- and it is deliberately
@@ -1066,7 +1078,8 @@ function Format-ReleaseNotesDevPage {
     param(
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Html,
         [string]$ThemeKey = 'general-pages',
-        [string]$HubHref = '/hub'
+        [string]$HubHref = '/hub',
+        [AllowEmptyString()][string]$RepoName = ''
     )
     $htmlRx = [regex]'<html\b[^>]*>'
     $styleEnd = $Html.IndexOf('</style>')
@@ -1090,8 +1103,10 @@ function Format-ReleaseNotesDevPage {
         ('<li><a href="' + (& $e $HubHref) + '">Home</a></li>')
         '<li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span><span aria-current="page">Release notes</span></li>'
         '</ol></nav></div></div>'
-        '<div id="settings" class="theme-settings--floating"></div>'
     ) -join "`n"
+    # The site header above the bar, holding the settings button, when the repo is named; else the button floats.
+    $bar = if ($RepoName) { (Format-SiteHeaderHtml -Name (ConvertTo-SiteHeaderName -RepoName $RepoName) -Href $HubHref -Tag 'hub') + $bar }
+            else { $bar + "`n" + '<div id="settings" class="theme-settings--floating"></div>' }
     $settings = '<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>'
 
     # Back to front, so each index still points where it was read.
