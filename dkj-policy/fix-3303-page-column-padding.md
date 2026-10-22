@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Issue #3303: `.page-column` takes the padding `var(--spacing-4) var(--spacing-4) var(--spacing-12)`.
+It sits on `<main>`, whose own padding is `--spacing-6` on top. The class outranks the element, so the
+page column now starts `--spacing-4` under the header. Sides and bottom are as before.
+
+#### Merging after #3302
+
+#3302's branch moves the same sha256 pin in the `house-style` skill. Whichever of the two merges second
+takes the trunk in and pins the hash of the stylesheet as it stands after the merge.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `.page-column` takes the padding `var(--spacing-4) var(--spacing-4) var(--spacing-12)` in
+  `house-style.css`
+- [x] Move the `house-style` skill's sha256 pin for `house-style.css` to the new file
 
 ### TEST
 
+- [~] `open-pr.ps1 -GatesOnly` before the park: dropped at the owner's word. The ship after the review
+  runs open-pr's gate and the required CI check on this same branch (#3304)
+- [ ] The owner looks at a page with a page column in the hub (awaiting-review-dev)
+
 ### DEPLOY: fix/3303-page-column-padding
 
-**Score:**
+The house style's page column (`.page-column`) sits closer under the header: it takes its own padding
+of `--spacing-4` on top, sides `--spacing-4` and `--spacing-12` at the bottom, where `<main>` gave it
+`--spacing-6` on top (#3303).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions app that takes the new `house-style.css` gets the tighter top on every page built on
+`.page-column` without changing anything of its own.
+
+**Score:** 2
 
 #### Pull Request
 
