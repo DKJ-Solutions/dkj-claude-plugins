@@ -1,4 +1,4 @@
-## fix/3304-visible-park-no-full-gate
+﻿## fix/3304-visible-park-no-full-gate
 
 > **How this file is read.** A step is `- [ ]` until it is resolved -- `- [x]` done, or
 > `- [~]` dropped with the reason, which exists so nobody ticks a box for work they did not do.
@@ -65,7 +65,7 @@ both gate it before the merge.
 
 N/A
 
-**Score:** 0
+**Score:** N/A
 
 #### Pull Request
 
