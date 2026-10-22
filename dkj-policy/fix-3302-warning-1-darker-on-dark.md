@@ -55,7 +55,7 @@ out a step brighter than its red sibling. Take it down to `#2b1f0c` (about 0.015
 
 - [~] `open-pr.ps1 -GatesOnly` before the park: stopped at the owner's word. The ship after the review
   runs open-pr's gate and the required CI check on this same branch (#3304)
-- [ ] The owner looks at a notice on a dark theme (awaiting-review-dev)
+- [x] The owner looks at a notice on a dark theme (awaiting-review-dev): approved, October 22, 2026
 
 ### DEPLOY: fix/3302-warning-1-darker-on-dark
 
