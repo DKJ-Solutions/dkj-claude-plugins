@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#### Status
+
+A visible result: parked for the owner's eye, no pull request until they have looked. It also carries #3299,
+whose two comment fixes were held for the next change that re-pins `house-style.css` anyway.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `.site-header__mark` drops its fixed `--spacing-10` square for a thin padding round a `--text-h2` line, so the edges hug the initials and the mark grows (#3301)
+- [x] The two `house-style.css` comments that still said "the Repository's" say "the hub's" (#3299)
+- [x] The house-style README names the mark's size; the `house-style` skill's checksum is re-pinned
 
 ### TEST
 
+- [x] `open-pr.ps1 -GatesOnly` before the park
+
 ### DEPLOY: fix/3301-site-header-mark-hugs-initials
 
-**Score:**
+The site header's mark ([#3301](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3301)) was a fixed
+40px square with 12px initials in it, so most of it was empty space above and below the letters. It now sizes to
+its initials: a thin padding round a `--text-h2` line, which makes the letters, and the mark, larger. The same
+re-pin of [`house-style.css`](../plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css) carries
+[#3299](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3299): two comments that still called the
+hub "the Repository" now say "the hub's".
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+Every page with a site header (each repo's hub, the brand book, and any app that uses the pattern) shows a
+larger mark whose edges sit close to its initials. It is noticed when somebody points it out.
+
+**Score:** 2
 
 #### Pull Request
 
