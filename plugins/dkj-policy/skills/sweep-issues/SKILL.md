@@ -182,9 +182,9 @@ The prefix table is this repo's own (`scripts/lib/branch-info.ps1`) -- read it r
 Fill the `### DEPLOY:` section of `dkj-policy/<branch>.md`: that section IS the changelog entry. The
 change and its entry go in **one** commit.
 
-### 4. The gates, before the hand-over and not after
+### 4. The gates -- `ship-pr` runs them, not you
 
-**Which command runs them depends on where step 5 sends the branch.**
+**You run no gate yourself, wherever step 5 sends the branch.**
 
 - **It ships** (the gates prove it): run nothing yourself. `ship-pr` runs the full gate before it pushes,
   and a pre-run is almost never credited -- `open-pr` skips a gate only on a recorded pass of the
@@ -193,14 +193,17 @@ change and its entry go in **one** commit.
   worktree, so the same gate simply runs twice. Measured
   ([#2372](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2372)): 1,400s of `-GatesOnly`,
   then the same 1,400s again inside `ship-pr` on the same commit.
-- **It stops** (a visible result, no pull request): here the gates have no other chance to run, so run
-  them yourself before you park it:
+- **It stops** (a visible result, no pull request): run nothing yourself either. The park is not the
+  last chance the gates get. Once the owner has looked, step 6 ships the same branch with `ship-pr`, so
+  `open-pr`'s own gate runs then, and so does the required CI check before the merge. A failure found
+  there costs one fix commit. A `-GatesOnly` run at the park would be a third run of the same proof,
+  paid while the requester waits, and nothing credits it later, because ticking the TEST step changes
+  the tree. `-GatesOnly` also runs the **whole** suite pool rather than `open-pr`'s selection, since it
+  assumes nothing runs after it. Measured
+  ([#3304](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3304)): two hex values in
+  `house-style.css` held the requester up for a ten-minute full-pool run before the park.
 
-  ```powershell
-  powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/release/open-pr.ps1" -GatesOnly
-  ```
-
-Either way the outcome is a number, not a feeling.
+Either way the gates' outcome is a number, not a feeling, and it is `ship-pr` that records it.
 
 ### 5. Where the sweep STOPS
 

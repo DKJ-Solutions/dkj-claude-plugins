@@ -593,7 +593,7 @@ every general page of every repo, with the repo's name and `hub` after it, and t
   over the full width. On the left the app's mark and name, `a.site-header__brand` linking home (`/`); on
   the far right the settings button, `DKJTheme.settings` mounted in a plain `#settings` inside the header,
   so nothing floats. The mark is `.site-header__mark`, the organisation's initials on `--paper-1`, until the
-  app has a logo of its own; `.site-header__tag` sets a quieter word after the name (`product`).
+  app has a logo of its own: set at `--text-h2` with a thin padding, so the edges hug the letters (#3301); `.site-header__tag` sets a quieter word after the name (`product`).
 - **No eyebrow under it:** the header already names the site, so the intro opens with the `h1`. **A home page has no
   intro at all** (owner, October 22, 2026): its `h1` and lead only repeated the header, so `<main>` opens on its first
   block.

@@ -58,7 +58,8 @@ takes the trunk in and pins the hash of the stylesheet as it stands after the me
 
 - [~] `open-pr.ps1 -GatesOnly` before the park: dropped at the owner's word. The ship after the review
   runs open-pr's gate and the required CI check on this same branch (#3304)
-- [ ] The owner looks at a page with a page column in the hub (awaiting-review-dev)
+- [x] The owner looks at a page with a page column in the hub (awaiting-review-dev): approved, October 22,
+  2026
 
 ### DEPLOY: fix/3303-page-column-padding
 

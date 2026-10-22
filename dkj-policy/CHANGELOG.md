@@ -2,7 +2,85 @@
 
 ## [Unreleased]
 
-**5 / 8 minor entries** <!-- pending-tally -->
+**7 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3302-warning-1-darker-on-dark · 20261022-211931Z
+
+The house style's warning background (`--warning-1`) is darker on the dark themes: `#2b1f0c` instead
+of `#3a2a10`, the same lightness as the negative-message background beside it, so a notice no longer
+reads as a lighter patch on a dark page. Light themes are unchanged (#3302).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions app that takes the new `house-style.css` gets the darker notice background on every
+dark theme without changing anything of its own.
+
+**Score:** 2
+
+#### Pull Request
+
+--warning-1 is darker on the dark themes
+
+Plugins: dkj-solutions
+
+[PR #3306](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3306)
+
+---
+
+### DEPLOY: fix/3304-visible-park-no-full-gate · 20261022-201122Z
+
+A sweep that parks a visible result for the owner's look no longer runs `open-pr.ps1 -GatesOnly`
+first. That run covered the whole suite pool, took about ten minutes even for a two-value colour
+change, and was repeated anyway when the approved branch ships: `ship-pr` and the required CI check
+both gate it before the merge.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+A visible park in a sweep no longer runs the full gate pool first
+
+Plugins: dkj-policy
+
+[PR #3307](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3307)
+
+---
+
+### DEPLOY: fix/3301-site-header-mark-hugs-initials · 20261022-200117Z
+
+The site header's mark ([#3301](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3301)) was a fixed
+40px square with 12px initials in it, so most of it was empty space above and below the letters. It now sizes to
+its initials: a thin padding round a `--text-h2` line, which makes the letters, and the mark, larger. The same
+re-pin of [`house-style.css`](../plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css) carries
+[#3299](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3299): two comments that still called the
+hub "the Repository" now say "the hub's".
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Every page with a site header (each repo's hub, the brand book, and any app that uses the pattern) shows a
+larger mark whose edges sit close to its initials. It is noticed when somebody points it out.
+
+**Score:** 2
+
+#### Pull Request
+
+The site header's mark hugs its initials, and is larger
+
+Plugins: dkj-solutions
+
+[PR #3305](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3305)
+
+---
 
 ### DEPLOY: fix/3294-hub-not-repository · 20261022-193830Z
 
