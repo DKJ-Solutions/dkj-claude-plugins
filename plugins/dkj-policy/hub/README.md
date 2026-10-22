@@ -70,6 +70,14 @@ still starts beside it and answers `/hub` and `/` with a 303 to that hub. This r
 is such a hub, which relays the general pages from its own origin
 ([#3168](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3168)).
 
+**A repo with its own hub can still state a product** beside it, with a nested `Product = @{ ... }` in
+the same `Get-DevPreview` ([#3283](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3283)). The
+`Product` takes the fields the server itself takes (`Command`, `Ports`, `Path`, `Requires`,
+`WaitSeconds`), under the same rules, and its ports may not overlap the hub's. It is refused without
+`OwnHub = $true`, because there the server itself is already the product. Any other fault in it costs the
+product alone: the own hub still starts, and the line says `product not started: the Product: <why>`. This repo uses it: the
+connector dashboard is the hub, and the brand book's Vite dev server is the product.
+
 ## The dev-preview hook
 
 [`hooks/dev-preview-sessionstart.ps1`](../hooks/dev-preview-sessionstart.ps1) runs at session start
@@ -97,6 +105,7 @@ is such a hub, which relays the general pages from its own origin
 | states a server | `Repo hub: http://localhost:4890/ -- product: http://localhost:4321/dkj-recipes/ (started)`; `(already running)` where it is reused |
 | states a server that cannot start | `Repo hub: http://localhost:4890/ -- product not started: port 3000 taken by other processes: 3000 by dkj-lifehub (pid 19544)` |
 | states `OwnHub = $true` | `Repo hub: http://localhost:4870/ (started)`, as before #3245 |
+| states `OwnHub = $true` and a `Product` | `Repo hub: http://localhost:4870/ (started) -- product: http://localhost:5173/brandbook/ (started)` |
 | and the hub cannot start | `Repo hub: not started -- <why>`, then the product's clause where there is one |
 
 The route hint appears only where the repo states no server and does not route the hub's port; with the
@@ -146,8 +155,10 @@ function Get-DevPreview {
   its port is skipped and the next one tried.
 - **The servers outlive the session.** They run hidden and detached, logging to
   `%TEMP%\dev-preview-<repo>-<hash>.log` (the product) and `%TEMP%\dev-preview-general-<repo>-<hash>.log`
-  (the hub), each overwritten at its start, and are stopped like any process. A server that exits at start
-  is reported at once, with that log's path. **The price of the hub is one small PowerShell server per
+  (the hub). Under `OwnHub` the first is the repo's own hub, and a product beside it logs to
+  `%TEMP%\dev-preview-product-<repo>-<hash>.log`. Each log is overwritten when its server
+  starts, and the servers are stopped like any process. A server that exits at start is reported at once,
+  with that log's path. **The price of the hub is one small PowerShell server per
   checkout**, whatever the repo's own server is: a repo on Vite or Next.js gets the same pages without
   touching its server.
 - **`OpenInVsCode`** runs `code --open-url <hub url>` (the repo's own server's under `OwnHub`), only when
@@ -211,7 +222,8 @@ carry the repo's name, `owner/name` from the `origin` remote, else the folder's.
 `mode` is what the repo states: `none` (no `Get-DevPreview`, so the hub shows the setup cards), `product`
 (a server of its own, one link on the plugin's hub) or `ownhub` (the repo opted out). `hub` is the general
 server's own base plus `/` where the plugin serves the hub, and the repo's own server where it opted out;
-`product` is the repo's own server url. The hash is the one the hook's log paths use (SHA1 of the lowercased
+`product` is the repo's own server url, and under `ownhub` the url of the product beside that hub, or empty
+where it states none (#3283). The hash is the one the hook's log paths use (SHA1 of the lowercased
 root). A reader believes the file only when `root` names its own checkout. `hub` and `product` are believed
 only as `http://localhost:<port>` plus an optional path of the characters `Path` allows (at most 240
 characters: no other host, no other scheme, no control character), `pages` only on a port of 4890-4899, and
