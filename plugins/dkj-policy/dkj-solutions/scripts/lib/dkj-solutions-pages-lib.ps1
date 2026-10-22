@@ -18,8 +18,11 @@
     (Get-ReleaseBuilds), and the general server serves that folder under /brandbook/, the base the app is
     built for. So a consumer sees the brand book of the release it runs, and the page is the app's alone.
 
+    THE SOURCE REPO'S OWN HUB DOES NOT SHOW IT. There the brand book is the product, on a port of its own
+    (#3283), so its hub neither links nor serves /brandbook (October 22, 2026).
+
     IT IS LOADED, NOT LOADING. Its callers -- dkj-policy's hub/pages/serve-general-pages.ps1 and
-    hub/lib/repository-page.ps1, and the source repo's scripts/lib/dev-pages-lib.ps1 -- dot-source
+    hub/lib/repository-page.ps1 -- dot-source
     dkj-policy's general-pages-lib.ps1 first, and this file then uses its page shell (Format-GeneralPageHtml,
     Format-GeneralPagesCardHtml, ConvertTo-GeneralPageText and $script:DevBarStyle). It dot-sources nothing
     itself: in the plugin cache this plugin's own folder has no dkj-policy beside it.

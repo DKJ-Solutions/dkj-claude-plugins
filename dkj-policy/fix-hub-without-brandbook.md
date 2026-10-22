@@ -39,19 +39,38 @@
 
 ### PLAN
 
+The owner: the brand book showed on the repo port (4870) and belongs on the product port (5173) alone.
+Chosen from a menu: the hub's home keeps only the DKJ repos link, and /brandbook on the hub is a 404.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `serve-connector-dashboard.ps1`: drop the /brandbook routes, `Update-BrandbookBuild` and `-NoBrandbookBuild`
+- [x] `dev-pages-lib.ps1`: the home page's section becomes DKJ-Solutions with DKJ repos only; drop `Format-BrandbookStatusHtml` and the dkj-solutions lib's dot-source
+- [x] `general-pages-lib.ps1`: a card with no server rows says nothing about the general pages server
+- [x] Docstrings and `brandbook/README.md` name the product port as the one place
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` (284 passed) and `connector-dashboard.tests.ps1` (196 passed)
+
 ### DEPLOY: fix/hub-without-brandbook
 
-**Score:**
+This repo's Repository (the hub on port 4870) no longer shows the brand book: its home page drops the Brandbook
+link, its section is now called DKJ-Solutions and holds the DKJ repos page alone, and `/brandbook` is a 404
+there. The hub had served a build of the `brandbook/` app at `/brandbook/` since #3210, rebuilding it with npm
+on a stale visit; since #3283 the same app runs as this repo's product on a port of its own, from the tree, so
+one brand book was visible on two ports. The product port is now the one place. The shared General card, in
+dkj-policy's `general-pages-lib.ps1`, no longer says the general pages server is not running when it is
+handed no server rows, since it links nothing of that server. Every other DKJ-Solutions repo still gets the
+brand book from the dkj-solutions plugin, unchanged.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the source repo's own hub; no consumer's hub or brand book changes.
+
+**Score:** N/A
 
 #### Pull Request
 

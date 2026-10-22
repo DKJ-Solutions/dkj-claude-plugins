@@ -286,7 +286,7 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
     $probe = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
     $probe.Start(); $env:DKJ_GENERAL_PAGES_PORTS = [string]$probe.LocalEndpoint.Port; $probe.Stop()
     $proc = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
-        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$Server`"", '-Port', $port, '-NoBrandbookBuild')
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$Server`"", '-Port', $port)
     try {
         # THE TWO WINDOWS BELOW ARE WIDE ON PURPOSE (#3038). Both groups failed on a loaded CI shard and
         # passed on a rerun. Measured unloaded: the server is up in ~0.6s, a request behind a silent
@@ -328,12 +328,9 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             Assert-Equal 403 (Get-Status 'GET' '/house-style.css' "evil.example:$port") 'a foreign Host is refused'
             Assert-Equal 405 (Get-Status 'POST' '/' "localhost:$port") 'a POST is refused'
             Assert-Equal 404 (Get-Status 'GET' '/../connectors/x.json' "localhost:$port") 'a path outside the routes is not found'
-            Assert-True ((Get-Raw 'GET' '/brandbook' "localhost:$port") -match 'HTTP/1.1 303[\s\S]*Location: /brandbook/\r') '/brandbook goes to /brandbook/, the base the brand book app is built for'
-            # -NoBrandbookBuild: the build is served as it stands, and where there is none (CI) the page says so.
-            $bb = Get-Raw 'GET' '/brandbook/' "localhost:$port"
-            $built = Test-Path -LiteralPath (Join-Path $RepoRoot 'brandbook\dist\index.html') -PathType Leaf
-            Assert-True ($(if ($built) { $bb -match 'HTTP/1.1 200' -and $bb -match '<div id="root">' } else { $bb -match 'HTTP/1.1 503' -and $bb -match 'not built, and this server does not build it' })) '/brandbook/ serves the brandbook/ app''s build, or says it is not built'
-            Assert-Equal 404 (Get-Status 'GET' '/brandbook/../connectors/x.json' "localhost:$port") 'a brand book path that climbs out of dist/ is not found'
+            # The brand book is the product port's alone (October 22, 2026): the hub neither serves nor redirects it.
+            Assert-Equal 404 (Get-Status 'GET' '/brandbook' "localhost:$port") '/brandbook is not a page of the hub'
+            Assert-Equal 404 (Get-Status 'GET' '/brandbook/' "localhost:$port") 'and neither is /brandbook/, whether or not brandbook/dist is built'
             Assert-Equal 303 (Get-Status 'GET' '/refresh' "localhost:$port") '/refresh redirects to the page'
             Assert-True ((Get-Raw 'GET' '/refresh?page=connectors' "localhost:$port") -match 'Location: /connectors\r') '/refresh?page= goes back to the page that asked'
             Assert-True ((Get-Raw 'GET' '/refresh?page=sessionstart' "localhost:$port") -match 'Location: /\r') 'and a page that moved to the general pages server (#3119) is no page of this one''s'
@@ -428,7 +425,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             # suite-durations.json, so the test-gate page takes its failure path, and is still served.
             $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match '<h1>dkj-claude-plugins</h1>' -and $hub -match '<a class="menu-item" href="/about">') '/ serves the home page, linking About this repo (#3270)'
-            Assert-True ($hub -match 'The general pages server is not running' -and $hub -notmatch 'href="http://localhost') 'its Brand book card says the general pages server is not running while no state file names one'
+            Assert-True ($hub -notmatch 'is not running' -and $hub -notmatch 'href="/brandbook' -and $hub -match 'href="/dkj-repos"') 'the home page names no general pages server and no brand book: its DKJ-Solutions section is the DKJ repos page this hub serves'
             $about = if ($up) { Get-Raw 'GET' '/about' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($about -match 'HTTP/1.1 200' -and $about -match '<h1>About this repo</h1>' -and $about -match '<a class="menu-item" href="/connectors">' -and $about -match '<a href="/">Home</a>') '/about serves About this repo, linking the pages below the hub, its trail starting at Home'
             Assert-True ($about -match 'The general pages server is not running' -and $about -notmatch 'href="http://localhost') 'and its General card says the general pages server is not running too'
@@ -480,15 +477,12 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
                 if (-not $gen3.HasExited) { Stop-Process -Id $gen3.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
                 $gen3.WaitForExit(5000) | Out-Null
             }
-            $hubDown = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($hubDown -match 'HTTP/1.1 200' -and $hubDown -match 'The general pages server is not running') 'and the card is back to not running once nothing answers there'
+            $hubDown = if ($up) { Get-Raw 'GET' '/about' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($hubDown -match 'HTTP/1.1 200' -and $hubDown -match 'The general pages server is not running') 'and the General card is back to not running once nothing answers there'
             Remove-Item -LiteralPath $srcState -Force -ErrorAction SilentlyContinue
             Assert-True ($page -match 'HTTP/1.1 200' -and $page -match '<h1>Connectors</h1>' -and $page -match '<a href="/">Home</a>') '/connectors serves the overview as a page under the Repository'
             $tg = if ($up) { Get-Raw 'GET' '/test-gate' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($tg -match 'HTTP/1.1 200' -and $tg -match 'the file is not there') '/test-gate reports a missing suite-durations.json, rather than failing'
-            # The fixture has no brandbook/ app, so /brandbook/ says so, as a page under the Repository, and runs no npm.
-            $bbf = if ($up) { Get-Raw 'GET' '/brandbook/' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($bbf -match 'HTTP/1.1 503' -and $bbf -match 'There is no brandbook/ app in this checkout' -and $bbf -match '<a href="/">Home</a>') '/brandbook/ names a missing brandbook/ app, rather than failing'
         } finally {
             if (-not $proc3.HasExited) { Stop-Process -Id $proc3.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
         }

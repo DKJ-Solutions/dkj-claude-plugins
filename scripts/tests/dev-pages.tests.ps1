@@ -13,6 +13,8 @@ $ErrorActionPreference = 'Continue'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 . (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1')
+# The hub no longer loads the DKJ-Solutions lib (it shows no brand book), so its own tests load it here.
+. (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\scripts\lib\dkj-solutions-pages-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -60,14 +62,15 @@ $pages = @(Get-RepositoryPages)
 Assert-Equal '/connectors,/specialists,/test-gate' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links this repo''s own three pages, in order: the Brandbook is no longer one of them'
 Assert-Equal '/artifacts,/issues,/release-notes,/sessionstart' ((Get-GeneralPages | ForEach-Object { $_.Href }) -join ',') 'the plugin lists the four general pages, in order'
 Assert-Equal '/brandbook' ((Get-DkjSolutionsPages | ForEach-Object { $_.Href }) -join ',') 'and the one page only DKJ-Solutions repos share, the Brandbook'
-$hub = Format-RepositoryHtml -GeneralPagesUrl 'http://localhost:4890'
+$hub = Format-RepositoryHtml
 Assert-True ($hub -match '<title>dkj-claude-plugins -- Home</title>' -and $hub -match '<h1>dkj-claude-plugins</h1>' -and $hub -notmatch '<h1>Repository</h1>') 'the home page''s h1 is the repo''s name, and its title says Home'
 Assert-True ($hub -match '<body>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Home</span></li>\s*</ol>') 'the bar opens <body>, its trail the one crumb Home'
 Assert-True ($hub -notmatch 'class="eyebrow"' -and $hub -notmatch '<header' -and $hub -notmatch 'btn--primary') 'no eyebrow (the h1 names the repo), no <header>, and no product button'
 Assert-True ($hub -match '<div class="grid__head"><h2>About this repo</h2><p class="card__sub">[^<]+</p></div>\r?\n<section class="card grid__full">\r?\n<nav class="menu-list" aria-label="About this repo">\r?\n<a class="menu-item" href="/about">') 'About this repo is one link, to /about'
-Assert-True ($hub -match '<div class="grid__head"><h2>Brand book</h2><p class="card__sub">[^<]+</p></div>\r?\n<section class="card grid__full">\r?\n<nav class="menu-list" aria-label="DKJ-Solutions pages">\r?\n<a class="menu-item" href="/brandbook"' -and $hub -match 'href="/dkj-repos"') 'the Brand book section is the DKJ-Solutions card standing alone: the Brandbook and this hub''s DKJ repos page'
+Assert-True ($hub -match '<div class="grid__head"><h2>DKJ-Solutions</h2><p class="card__sub">[^<]+</p></div>\r?\n<section class="card grid__full">\r?\n<nav class="menu-list" aria-label="DKJ-Solutions pages">\r?\n<a class="menu-item" href="/dkj-repos"') 'the DKJ-Solutions section is one card standing alone, holding this hub''s DKJ repos page'
+Assert-True ($hub -notmatch 'brandbook' -and $hub -notmatch 'Brand book' -and $hub -notmatch 'is not running') 'and no brand book, which is the product port''s alone, and no word on the general pages server, which it links nothing of'
 Assert-True ($hub -notmatch '<dl class="facts">' -and $hub -notmatch '<h3>General</h3>' -and $hub -notmatch 'href="/connectors"' -and $hub -notmatch 'class="footer-note"') 'and nothing about the repo itself: no facts, no General card, none of its own pages'
-Assert-True ($hub.IndexOf('<h2>About this repo</h2>') -lt $hub.IndexOf('<h2>Brand book</h2>')) 'About this repo comes before the Brand book'
+Assert-True ($hub.IndexOf('<h2>About this repo</h2>') -lt $hub.IndexOf('<h2>DKJ-Solutions</h2>')) 'About this repo comes before DKJ-Solutions'
 # THE GENERAL BANNER (#3250): under the intro, above the sections, in house classes only, and its state in this browser.
 $hubBanner = $hub.IndexOf('<div class="notice" id="hub-banner"')
 Assert-True ($hubBanner -gt $hub.IndexOf('<h1>dkj-claude-plugins</h1>') -and $hubBanner -lt $hub.IndexOf('<h2>About this repo</h2>')) 'the airsquats banner sits directly under the intro, above the sections'
@@ -77,7 +80,7 @@ Assert-True ($bannerJs -match 'localStorage' -and $bannerJs -notmatch 'fetch\(|X
 Assert-True ($bannerJs -match 's\.owed \+= passed' -and $bannerJs -match 'PER \* s\.owed') 'an unticked hour adds to the total owed, so the box shows 10 per hour passed'
 Assert-True ($hub -notmatch '<style>' -and $hub -notmatch 'grid__card') 'the home page restyles nothing (#3133)'
 Assert-Equal ([regex]::Matches($hub, '<h2[ >]')).Count ([regex]::Matches($hub, '</h2><p class="card__sub">[^<]+</p>')).Count 'every h2 on the home page carries a sub line'
-Assert-True ((Format-RepositoryHtml) -match 'The general pages server is not running' -and (Format-RepositoryHtml) -match 'href="/dkj-repos"') 'with no general server the Brand book card says so, and still links the page this hub serves itself'
+Assert-True ((Format-GeneralPagesCardHtml -Pages @() -LocalPages @(@{ Href = '/x'; Label = 'X' })) -notmatch 'is not running') 'a card with no server rows says nothing about the server'
 
 $about = Format-RepoAboutHtml -Pages $pages -SourceCommit 'abc1234' -GeneralPagesUrl 'http://localhost:4890'
 Assert-True ($about -match '<title>dkj-claude-plugins -- About this repo</title>' -and $about -match '<h1>About this repo</h1>' -and $about -match '<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>') 'About this repo is a page under the hub, with the slug as its eyebrow'
@@ -128,8 +131,6 @@ Assert-True ((Get-BrandbookBuildDir -PluginRoot 'C:\p\dkj-policy\') -eq 'C:\p\dk
 $bm = Format-BrandbookMissingHtml -RepoName 'Org/<r>'
 Assert-True ($bm -match '<h1>Brandbook</h1>' -and $bm -match '<a href="/hub">Home</a>' -and $bm -match 'ships no build of the brand book' -and $bm -match 'Org/&lt;r&gt;') 'a payload with no build says so, as a general page, and escapes the repo name'
 Assert-Equal 'text/javascript; charset=utf-8|text/css; charset=utf-8|image/svg+xml|application/octet-stream' (('a.js', 'b.css', 'c.svg', 'd.map' | ForEach-Object { Get-BrandbookContentType -RelPath $_ }) -join '|') 'each file is sent with its type'
-$bs = Format-BrandbookStatusHtml -Message 'Not <built>' -Detail 'line <1>'
-Assert-True ($bs -match '<h1>Brandbook</h1>' -and $bs -match '<a href="/">Home</a>' -and $bs -match 'role="alert">Not &lt;built&gt;' -and $bs -match '<pre class="note">line &lt;1&gt;</pre>') 'the status page is a page under the Repository, and escapes what it is handed'
 
 Write-Host '-- the test-gate model' -ForegroundColor Cyan
 $json = '{ "seconds": { "a.tests.ps1": 10, "b.tests.ps1": 30, "gone.tests.ps1": 5 }, "recordedFrom": { "runs": ["111", "222"], "date": "2026-10-07", "machine": "m", "method": "mean" } }' | ConvertFrom-Json
@@ -496,10 +497,6 @@ Assert-True ($sp.Contains('3.12 characters per token')) 'the footer names the fa
 Assert-True ((Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3.12).Contains('No specialist was found')) 'none found says so instead of an empty table'
 Assert-True ((Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3.12 -ReadError 'x.md').Contains('msg--warn')) 'a failed read is a warning on the page'
 Write-Host '-- the DKJ repos page (#3231): in the DKJ-Solutions card, and what it shows' -ForegroundColor Cyan
-$hubUp = Format-RepositoryHtml -GeneralPagesUrl 'http://localhost:4890'
-$hubDown = Format-RepositoryHtml -GeneralPagesUrl ''
-Assert-True ($hubUp.IndexOf('href="/brandbook"') -lt $hubUp.IndexOf('href="/dkj-repos"') -and $hubUp.IndexOf('<h3>DKJ-Solutions</h3>') -lt $hubUp.IndexOf('href="/dkj-repos"')) 'the DKJ-Solutions card links DKJ repos after the Brandbook'
-Assert-True ($hubDown -match 'href="/dkj-repos"' -and $hubDown -notmatch 'href="/brandbook"') 'DKJ repos is linked even when the general pages server is down, because this hub serves it'
 Assert-True ((Format-DkjSolutionsPagesCardHtml -PagesUrl 'http://localhost:4890' -SameOrigin) -notmatch 'dkj-repos' -and (Format-DkjSolutionsPagesCardHtml -PagesUrl 'http://localhost:4890' -SameOrigin) -match 'the house style they are all built from') 'a hub that passes no local page draws the card as it always was'
 $gql = '{"data":{"organization":{"repositories":{"nodes":[' +
     '{"name":"dkj-lifehub","nameWithOwner":"DKJ-Solutions/dkj-lifehub","url":"https://github.com/DKJ-Solutions/dkj-lifehub","description":"<b>life</b>","visibility":"PRIVATE","isArchived":false,"pushedAt":"2026-10-20T10:00:00Z","issues":{"totalCount":3},"pullRequests":{"totalCount":0}},' +

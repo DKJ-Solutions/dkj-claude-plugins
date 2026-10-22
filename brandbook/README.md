@@ -11,14 +11,15 @@ of its own: it reads the one copy in
 where it lives (`src/main.tsx` imports the stylesheet, `vite.config.ts` inlines the theme script, and
 `scripts/lint/house-path.mjs` names it for the checks). A change to the house style is made there, not here.
 
-## Where to see it: the Repository, at `/brandbook/`
+## Where to see it: the product port, at `/brandbook/`
 
-**This is the one brand book.** The Repository (`scripts/dashboard/serve-connector-dashboard.ps1`, started at
-session start) serves this app's build at `http://localhost:<hub port>/brandbook/`; the hub's own PowerShell
-Brandbook page it replaces is gone, and its themes table and class list live here now. Before it serves the page,
-the hub rebuilds the app when anything it is built from is newer than `dist/` -- `src/`, `public/`, the config, or
-the house style -- running `npm ci` first when `node_modules` is missing. So the hub always shows the tree; the
-first visit after a change waits a few seconds for the build.
+**This is the one brand book, and this repo shows it on the product port alone.** The dev-preview hook starts
+this app's Vite dev server at session start, beside the Repository (`Get-DevPreview`'s `Product` in
+`scripts/repo-config.ps1`, [#3283](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3283)), and hands
+out its url: `http://localhost:<product port>/brandbook/`. It shows the tree as it is edited, with no build. The
+hub's own PowerShell Brandbook page it replaced is gone, and its themes table and class list live here now.
+**The Repository neither links nor serves it** (October 22, 2026): it used to serve a build of this app at
+`/brandbook/` too, so one brand book was visible on two ports.
 
 **Every other DKJ-Solutions repo sees the build of the release it runs.** The cut builds this app after its gates
 and copies `dist/` into the `dkj-solutions` plugin's `assets/brandbook/` in the release commit
