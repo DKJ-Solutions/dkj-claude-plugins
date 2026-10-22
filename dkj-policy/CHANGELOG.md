@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**2 / 5 minor entries** <!-- pending-tally -->
+**3 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/session-line-says-hub · 20261022-190822Z
+
+The session-start line opens with `Hub:` instead of `Repository:` (#3285 had renamed it from
+`Repo hub:`). Since #3291 *Repository* is the name of a page on the hub, `/repository`, and the port
+itself is called `hub` in the site header, so the line follows the port.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo running `dkj-policy` sees its session-start line open with `Hub:`; nothing has to be done for it.
+
+**Score:** 2
+
+#### Pull Request
+
+The session-start line opens with Hub, not Repository
+
+Plugins: dkj-policy
+
+[PR #3295](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3295)
+
+---
 
 ### DEPLOY: feat/site-header-everywhere · 20261022-183959Z
 
