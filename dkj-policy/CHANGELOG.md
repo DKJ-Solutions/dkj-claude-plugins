@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**8 / 12 minor entries** <!-- pending-tally -->
+**9 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3289-one-page-hub · 20261022-214353Z
+
+The hub ([#3289](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3289)) is one page in every repo
+now, not a home page that links an About this repo page. The plugin's hub home page holds the Products section
+(or the setup cards), the General pages, the facts, the Brand book in a DKJ-Solutions repo, and a footer note.
+`/about` answers 303 to `/`, so an old link still lands. The house-style README's "The hub" lays the one page
+down as one table, and its stylesheet-only reference is the single
+[`patterns/repo-dashboard.html`](../plugins/dkj-policy/dkj-solutions/assets/house-style/patterns/repo-dashboard.html),
+under a site header. `repo-about.html` is gone.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The hub that every repo's session start links is one page: the General pages and the facts are on it, so they
+no longer sit one click away on About this repo. A repo that copied the two stylesheet-only patterns now has one
+pattern to follow.
+
+**Score:** 3
+
+#### Pull Request
+
+Every repo's hub is one page: About this repo folds into the home page
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3308](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3308)
+
+---
 
 ### DEPLOY: fix/3303-page-column-padding · 20261022-213405Z
 
