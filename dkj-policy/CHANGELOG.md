@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**1 / 4 minor entries** <!-- pending-tally -->
+**2 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/site-header-everywhere · 20261022-183959Z
+
+The site header now stands on every hub page in every DKJ-Solutions repo, not only on this repo's own pages: the
+dkj-policy hub server draws it on the home page, About, Artifacts, Issues, Release notes and SessionStart, with the
+repo's name and `hub` after it, the settings button in it and no eyebrow or intro under it. The brand book app
+carries it too, as *DKJ brand book*, holding its preview settings, across the whole width with the contents panel under it.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions repo that takes the release sees its hub pages open with the site header, and its hub home
+without the h1 and lead it had.
+
+**Score:** 3
+
+#### Pull Request
+
+The site header on every page: the general pages in every repo, and the brand book app
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3293](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3293)
+
+---
 
 ### DEPLOY: feat/product-root-cards · 20261022-174227Z
 
