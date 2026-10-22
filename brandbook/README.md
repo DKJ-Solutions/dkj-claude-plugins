@@ -16,7 +16,9 @@ where it lives (`src/main.tsx` imports the stylesheet, `vite.config.ts` inlines 
 **This is the one brand book, and this repo shows it on the product port alone.** The dev-preview hook starts
 this app's Vite dev server at session start, beside the Repository (`Get-DevPreview`'s `Product` in
 `scripts/repo-config.ps1`, [#3283](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3283)), and hands
-out its url: `http://localhost:<product port>/brandbook/`. It shows the tree as it is edited, with no build. The
+out its url: `http://localhost:<product port>/`. **The product starts at the root**: in dev, `/` is
+[`root.html`](root.html), a page linking the brand book at `/brandbook/` (`productRoot` in `vite.config.ts`; the
+build is the app alone). It shows the tree as it is edited, with no build. The
 hub's own PowerShell Brandbook page it replaced is gone, and its themes table and class list live here now.
 **The Repository neither links nor serves it** (October 22, 2026): it used to serve a build of this app at
 `/brandbook/` too, so one brand book was visible on two ports.
@@ -28,7 +30,8 @@ and copies `dist/` into the `dkj-solutions` plugin's `assets/brandbook/` in the 
 serves that folder at `/brandbook/`. So a change here reaches consumers with the next release, never before.
 
 The app is built for the base `/brandbook/` (`vite.config.ts`): the showcase is its one page, and the "Home" crumb
-goes to the real Repository on `/`. It drew a Repository specimen and previews of other repos' Repositories until #3274; the hub's form
+goes to the origin's own `/`: the product port's root page here, a repo's Repository wherever the plugin serves the
+build. It drew a Repository specimen and previews of other repos' Repositories until #3274; the hub's form
 is the house-style README's, with its two stylesheet-only patterns.
 
 ## Work on it

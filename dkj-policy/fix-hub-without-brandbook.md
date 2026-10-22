@@ -41,6 +41,7 @@
 
 The owner: the brand book showed on the repo port (4870) and belongs on the product port (5173) alone.
 Chosen from a menu: the hub's home keeps only the DKJ repos link, and /brandbook on the hub is a 404.
+Then: the product port starts at the root, with a page that links the brand book (resolves #3286).
 
 ### CREATE
 
@@ -48,10 +49,13 @@ Chosen from a menu: the hub's home keeps only the DKJ repos link, and /brandbook
 - [x] `dev-pages-lib.ps1`: the home page's section becomes DKJ-Solutions with DKJ repos only; drop `Format-BrandbookStatusHtml` and the dkj-solutions lib's dot-source
 - [x] `general-pages-lib.ps1`: a card with no server rows says nothing about the general pages server
 - [x] Docstrings and `brandbook/README.md` name the product port as the one place
+- [x] `brandbook/root.html` + `productRoot` in `vite.config.ts`: the dev server answers `/` with a page linking `/brandbook/`, serves the two house files beside it, and sends `/brandbook` on to `/brandbook/`
+- [x] `Get-DevPreview`: the product's `Path` is `/`, so the hook hands out the root
 
 ### TEST
 
 - [x] `dev-pages.tests.ps1` (284 passed) and `connector-dashboard.tests.ps1` (196 passed)
+- [x] `npm run gate` in `brandbook/` green; on the running dev server `/`, `/house-style.css`, `/house-theme.js` and `/brandbook/` answer 200, `/brandbook` 303
 
 ### DEPLOY: fix/hub-without-brandbook
 
@@ -59,7 +63,10 @@ This repo's Repository (the hub on port 4870) no longer shows the brand book: it
 link, its section is now called DKJ-Solutions and holds the DKJ repos page alone, and `/brandbook` is a 404
 there. The hub had served a build of the `brandbook/` app at `/brandbook/` since #3210, rebuilding it with npm
 on a stale visit; since #3283 the same app runs as this repo's product on a port of its own, from the tree, so
-one brand book was visible on two ports. The product port is now the one place. The shared General card, in
+one brand book was visible on two ports. The product port is now the one place, and it starts at the root:
+in dev, `/` is a page of its own (`brandbook/root.html`) linking the brand book at `/brandbook/`, and the
+dev-preview hook hands out that root. The brand book's Home crumb, which pointed at a `/` the Vite server did not
+answer, now lands on it (#3286). The shared General card, in
 dkj-policy's `general-pages-lib.ps1`, no longer says the general pages server is not running when it is
 handed no server rows, since it links nothing of that server. Every other DKJ-Solutions repo still gets the
 brand book from the dkj-solutions plugin, unchanged.
@@ -74,5 +81,5 @@ N/A: the source repo's own hub; no consumer's hub or brand book changes.
 
 #### Pull Request
 
-The Repository no longer serves or lists the brand book; it lives on the product port alone
+The brand book lives on the product port alone, which starts at a root page linking it
 
