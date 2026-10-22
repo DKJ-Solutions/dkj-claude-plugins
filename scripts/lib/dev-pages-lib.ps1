@@ -128,7 +128,7 @@ function Format-RepoAboutBodyHtml {
     <#
         What was the About this repo page (#3270) and is the home page's body since October 22, 2026: the Pages
         block (the 'This repo' card linking the repo's own pages, then the General card, on one .grid-2 row under
-        one h2) and this repo's facts. -Pages is Get-RepositoryPages' shape; -SourceCommit is the short sha the
+        one h2) and this repo's facts, one card titled by its own h3. -Pages is Get-RepositoryPages' shape; -SourceCommit is the short sha the
         server reads, or empty; -GeneralPagesUrl is the general pages server's base url when it answers, or
         empty (the General card then says it is not running).
     #>
@@ -159,10 +159,10 @@ function Format-RepoAboutBodyHtml {
     [void]$sb.Append((Format-GeneralPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $row -SameOrigin))
     if ($row) { [void]$sb.AppendLine('</div>') }
 
-    # Facts: its h2 stands outside the card in a grid__head, as Pages' does; the card spans both columns.
-    [void]$sb.AppendLine('<div class="grid-2">')
-    [void]$sb.AppendLine('<div class="grid__head"><h2>Facts</h2><p class="card__sub">What this repo is, and the commit this hub is served from</p></div>')
-    [void]$sb.AppendLine('<section class="card grid__full">')
+    # Facts: one card with its own title, an h3 in its head (owner, October 22, 2026). Never an h2: that stands
+    # above a card, not in one (#3175).
+    [void]$sb.AppendLine('<section class="card">')
+    [void]$sb.AppendLine('<div class="card__head"><h3 class="card__title">Facts</h3><p class="card__sub">What this repo is, and the commit this hub is served from</p></div>')
     [void]$sb.AppendLine('<dl class="facts">')
     [void]$sb.AppendLine('<div><dt>Marketplace</dt><dd>dkj-claude-plugins</dd></div>')
     [void]$sb.AppendLine('<div><dt>Trunk</dt><dd>main</dd></div>')
@@ -171,7 +171,6 @@ function Format-RepoAboutBodyHtml {
     if ($SourceCommit) { [void]$sb.AppendLine('<div><dt>Source at</dt><dd><code>' + (& $e $SourceCommit) + '</code></dd></div>') }
     [void]$sb.AppendLine('</dl>')
     [void]$sb.AppendLine('</section>')
-    [void]$sb.AppendLine('</div>')
 
     return $sb.ToString()
 }
