@@ -39,19 +39,35 @@
 
 ### PLAN
 
+#### Status
+
+A visible result: parked for the owner's eye, with no pull request until they have looked.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-GeneralPageHtml` writes `Format-RepoHubBanner` under the intro, above the page's own blocks, so every page drawn through that shell carries it
+- [x] `Format-ReleaseNotesDevPage` writes it under the bar, in a page column of its own, outside the template's own layout
+- [x] `Format-RepoHubBanner`'s docstring names every place it now appears
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: the banner appears once, in place, on a shell page and on the release notes. The SessionStart page's "no warning" assert ignores the banner's own hidden warning line (294 passed)
+- [x] `open-pr.ps1 -GatesOnly` before the park
+
 ### DEPLOY: feat/3297-hub-banner-every-page
 
-**Score:**
+The hub's general banner ([#3297](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3297)), with the
+countdown to the next full hour and the airsquats box, was on the home page only. It now stands on every hub page:
+under the intro of every page `Format-GeneralPageHtml` draws (Artifacts, Issues, SessionStart, the Brandbook
+page, and this repo's own pages), and under the bar of the release notes.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every page of a repo's hub shows the airsquats countdown, so it stays in view whichever page is open.
+
+**Score:** 2
 
 #### Pull Request
 
