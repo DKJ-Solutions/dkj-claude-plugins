@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Maikel wants two links at session start: one for the repo's product, one for the repo itself (October
+22, 2026). Since #3245 a repo without `OwnHub` already gets both; this branch gives the `OwnHub` shape
+a product too, and states the brand book as this repo's product.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `ConvertTo-DevPreviewConfig`: a nested `Product`, only with `OwnHub = $true`, held to the server's rules, its ports clear of the hub's
+- [x] The hook: starts or reuses the product beside the own hub, waits for both in one loop, prints both, and writes the product into the state file
+- [x] This repo's `Get-DevPreview`: the brand book's Vite dev server as the product
+- [x] The hub README and the hook's header: the new seam field and the new line
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: the seam's new rules, and the hook end to end with an own hub plus a product, reused, and with a product that cannot start (308 passed)
+
 ### DEPLOY: feat/3283-ownhub-product
 
-**Score:**
+A repo that serves its own Repo hub (`OwnHub = $true` in `Get-DevPreview`) can now also state a
+product beside it, as a nested `Product = @{ Command; Ports; Path; Requires; WaitSeconds }` (#3283).
+The dev-preview hook starts or reuses both and hands out both links on its one line:
+`Repo hub: http://localhost:4870/ (started) -- product: http://localhost:5173/brandbook/ (started)`.
+A product that cannot start is named beside the hub's link and costs nothing else. A `Product` without
+`OwnHub`, or one whose ports overlap the hub's, is refused with the reason. This repo now states the
+brand book's Vite dev server as its product, next to the connector dashboard.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo that runs its own hub no longer has to choose between that hub and a link to its product at
+session start: one `Product` block in `scripts/repo-config.ps1` adds the second link.
+
+**Score:** 3
 
 #### Pull Request
 

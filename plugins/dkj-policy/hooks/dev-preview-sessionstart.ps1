@@ -51,6 +51,11 @@
       with a product  Repo hub: <hub> -- product: <url> (started|already running[, LISTENING ON ALL INTERFACES ...])
       product failed  Repo hub: <hub> -- product not started: <why>
       OwnHub          Repo hub: <repo's own url> (started|already running[...])   -- as before #3245
+      OwnHub+Product  Repo hub: <repo's own url> (...) -- product: <url> (started|already running) | product not started: <why>
+
+    A PRODUCT BESIDE THE OWN HUB (#3283): a repo that states OwnHub = $true may also state Product = @{...},
+    a second server with the same fields. It is started (or reused) and waited for exactly like the first,
+    with its own log (dev-preview-product-<repo>-<hash>.log), and the state file's product names it.
 
     BIND TO 127.0.0.1 IN THE COMMAND. The hook cannot know what a server exposes, so where the repo serves
     something private (etf-tracker its ledger, life-hub its Brains/), its own Command says so -- e.g.
@@ -249,20 +254,21 @@ function Start-DevPreviewHub($Listeners, $Processes) {
     return $r
 }
 
-# The repo's own server, reused or started (the ownership and start rules are unchanged since #2967). Returns
+# A server the repo states -- its own, or the Product beside its own hub (#3283) -- reused or started (the
+# ownership and start rules are unchanged since #2967), each with a log of its own. Returns
 # @{ Action = 'reuse'|'start'|'failed'; Port; Url; Detail; NotStarted; Exposed; Proc; Log }: Detail is the
 # reason where it failed, and NotStarted says whether it reads "not started: <Detail>" or stands on its own.
-function Start-DevPreviewProduct($Listeners, $Processes) {
+function Start-DevPreviewProduct($Listeners, $Processes, $Cfg, [string]$LogName = 'dev-preview') {
     $r = @{ Action = 'failed'; Port = 0; Url = ''; Detail = ''; NotStarted = $true; Exposed = ''; Proc = $null; Log = '' }
-    $pick = Select-DevPreviewPort -Ports $cfg.Ports -Listeners $Listeners -Processes $Processes -Root $root
+    $pick = Select-DevPreviewPort -Ports $Cfg.Ports -Listeners $Listeners -Processes $Processes -Root $root
     if ($pick.Action -eq 'reuse') {
         $r.Action = 'reuse'
         $r.Port = [int]$pick.Port
-        $r.Url = Get-DevPreviewUrl -Port $pick.Port -Path $cfg.Path
+        $r.Url = Get-DevPreviewUrl -Port $pick.Port -Path $Cfg.Path
         # A REUSED server may not be the one the Command starts (#3041): one started by hand binds wherever
         # its default says. Where the repo asked for loopback and got every interface, the line says so; the
         # restart stays the owner's call.
-        if ((Test-DevPreviewCommandIsLoopback $cfg.Command) -and (Test-DevPreviewListensOnAll -Port $pick.Port -Listeners $Listeners)) {
+        if ((Test-DevPreviewCommandIsLoopback $Cfg.Command) -and (Test-DevPreviewListensOnAll -Port $pick.Port -Listeners $Listeners)) {
             $r.Exposed = ', LISTENING ON ALL INTERFACES -- not started by the loopback Command; restart it to bind 127.0.0.1'
         }
         return $r
@@ -270,11 +276,11 @@ function Start-DevPreviewProduct($Listeners, $Processes) {
     if ($pick.Action -eq 'none') {
         # THE LINE NAMES THE HOLDER (#3244): with one pinned port, stopping it is the owner's only remedy, and
         # the process table is already read.
-        $holders = Format-DevPreviewPortHolders -Ports $cfg.Ports -Listeners $Listeners -Processes $Processes
-        $r.Detail = (Format-DevPreviewPorts -Ports $cfg.Ports) + ' taken by other processes' + $(if ($holders) { ": $holders" } else { '' })
+        $holders = Format-DevPreviewPortHolders -Ports $Cfg.Ports -Listeners $Listeners -Processes $Processes
+        $r.Detail = (Format-DevPreviewPorts -Ports $Cfg.Ports) + ' taken by other processes' + $(if ($holders) { ": $holders" } else { '' })
         return $r
     }
-    foreach ($rel in $cfg.Requires) {
+    foreach ($rel in $Cfg.Requires) {
         if (-not (Test-Path -LiteralPath (Join-Path $root $rel))) {
             $r.Detail = "'$rel' is missing (set it up, then start a new session)"
             return $r
@@ -286,17 +292,20 @@ function Start-DevPreviewProduct($Listeners, $Processes) {
         $r.Detail = 'the repo path holds a ''%'' or ''^'', which cmd.exe would rewrite'
         return $r
     }
-    $r.Log = Get-DevPreviewLogPath -Root $root
+    $r.Log = Get-DevPreviewLogPath -Root $root -Name $LogName
     $r.Port = [int]$pick.Port
     $r.Proc = Start-Process -FilePath 'cmd.exe' -WorkingDirectory $root -WindowStyle Hidden -PassThru `
-        -ArgumentList (Get-DevPreviewStartLine -Root $root -Command $cfg.Command -Port $r.Port -LogPath $r.Log)
+        -ArgumentList (Get-DevPreviewStartLine -Root $root -Command $Cfg.Command -Port $r.Port -LogPath $r.Log)
     $r.Action = 'start'
-    $r.Url = Get-DevPreviewUrl -Port $r.Port -Path $cfg.Path
+    $r.Url = Get-DevPreviewUrl -Port $r.Port -Path $Cfg.Path
     return $r
 }
 
 $ports = @(Get-GeneralPagesPortRange)
 if ($cfg) { $ports += @($cfg.Ports) }
+# The product beside the repo's own hub (#3283): only under OwnHub, where ConvertTo-DevPreviewConfig allows one.
+$extraCfg = if ($cfg -and $mode -eq 'ownhub') { $cfg.Product } else { $null }
+if ($extraCfg) { $ports += @($extraCfg.Ports) }
 $listeners = @(Get-DevPreviewListeners $ports)
 $processes = if ($listeners.Count) { Get-DevPreviewProcesses } else { @{} }
 
@@ -306,9 +315,17 @@ $hub = Start-DevPreviewHub -Listeners $listeners -Processes $processes
 # file must survive it.
 $prod = $null
 if ($cfg) {
-    try { $prod = Start-DevPreviewProduct -Listeners $listeners -Processes $processes }
+    try { $prod = Start-DevPreviewProduct -Listeners $listeners -Processes $processes -Cfg $cfg }
     catch {
         $prod = @{ Action = 'failed'; Port = 0; Url = ''; Detail = ('could not be started: ' + ((([string]$_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', '')); NotStarted = $true; Exposed = ''; Proc = $null; Log = '' }
+    }
+}
+# And the same for the product beside the own hub, whose failure costs neither the hub nor its line.
+$extra = $null
+if ($extraCfg) {
+    try { $extra = Start-DevPreviewProduct -Listeners $listeners -Processes $processes -Cfg $extraCfg -LogName 'dev-preview-product' }
+    catch {
+        $extra = @{ Action = 'failed'; Port = 0; Url = ''; Detail = ('could not be started: ' + ((([string]$_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', '')); NotStarted = $true; Exposed = ''; Proc = $null; Log = '' }
     }
 }
 
@@ -319,6 +336,7 @@ $hubWait = 12
 if ([string]$env:DKJ_DEV_PREVIEW_HUB_WAIT -match '^[0-9]{1,2}$') { $hubWait = [int]$env:DKJ_DEV_PREVIEW_HUB_WAIT }
 if ($hub.Action -eq 'start') { $targets += @{ Name = 'hub'; Port = $hub.Port; Proc = $hub.Proc; Deadline = (Get-Date).AddSeconds($hubWait); Done = $false; Ok = $false; Fail = '' } }
 if ($prod -and $prod.Action -eq 'start') { $targets += @{ Name = 'product'; Port = $prod.Port; Proc = $prod.Proc; Deadline = (Get-Date).AddSeconds($cfg.WaitSeconds); Done = $false; Ok = $false; Fail = '' } }
+if ($extra -and $extra.Action -eq 'start') { $targets += @{ Name = 'extra'; Port = $extra.Port; Proc = $extra.Proc; Deadline = (Get-Date).AddSeconds($extraCfg.WaitSeconds); Done = $false; Ok = $false; Fail = '' } }
 
 # The state file goes in before the wait, so a hub that answers early already knows what the repo states, and
 # again after it where a wait failed, so it never names a server that did not come up.
@@ -328,6 +346,10 @@ function Save-DevPreviewState {
         $pagesUrl = if ($hub.Base -and -not (@($targets | Where-Object { $_.Name -eq 'hub' -and $_.Fail -eq 'exited' }).Count)) { $hub.Base } else { '' }
         $productUrl = if ($prod -and $prod.Url -and -not (@($targets | Where-Object { $_.Name -eq 'product' -and $_.Done -and -not $_.Ok }).Count)) { $prod.Url } else { '' }
         $hubUrl = if ($mode -eq 'ownhub') { $productUrl } elseif ($pagesUrl) { "$pagesUrl/" } else { '' }
+        # Under OwnHub the own server is the hub, so 'product' names the product beside it, or nothing (#3283).
+        if ($mode -eq 'ownhub') {
+            $productUrl = if ($extra -and $extra.Url -and -not (@($targets | Where-Object { $_.Name -eq 'extra' -and $_.Done -and -not $_.Ok }).Count)) { $extra.Url } else { '' }
+        }
         Write-RepoHubState -Root $root -Hub $hubUrl -Pages $pagesUrl -Product $productUrl -Mode $mode
     } catch { }
 }
@@ -370,20 +392,34 @@ elseif ($hub.Action -eq 'start') {
     else { $hubReason = "the hub on port $($hub.Port) is not listening after ${hubWait}s -- see $(Get-DevPreviewLogPath -Root $root -Name 'dev-preview-general')" }
 }
 
-# The product's part: what it is and how it stands, or why it is not.
-$prodUrl = ''
-$prodWord = ''
-$prodFail = ''
-if ($prod) {
-    if ($prod.Action -eq 'reuse') { $prodUrl = $prod.Url; $prodWord = 'already running' }
-    elseif ($prod.Action -eq 'start') {
-        if ($prodT.Ok) { $prodUrl = $prod.Url; $prodWord = 'started' }
-        elseif ($prodT.Fail -eq 'exited') { $prodFail = "the server on port $($prod.Port) exited at start -- see $($prod.Log)" }
-        else { $prodFail = "starting on $($prod.Url) but not listening after $($cfg.WaitSeconds)s -- see $($prod.Log)" }
+# A server's part: what it is and how it stands, or why it is not. Returns @{ Url; Word; Fail }.
+function Get-DevPreviewServerPart($P, $T, $Cfg) {
+    $r = @{ Url = ''; Word = ''; Fail = '' }
+    if (-not $P) { return $r }
+    if ($P.Action -eq 'reuse') { $r.Url = $P.Url; $r.Word = 'already running' }
+    elseif ($P.Action -eq 'start') {
+        if ($T.Ok) { $r.Url = $P.Url; $r.Word = 'started' }
+        elseif ($T.Fail -eq 'exited') { $r.Fail = "the server on port $($P.Port) exited at start -- see $($P.Log)" }
+        else { $r.Fail = "starting on $($P.Url) but not listening after $($Cfg.WaitSeconds)s -- see $($P.Log)" }
     }
-    elseif ($prod.NotStarted) { $prodFail = "not started: $($prod.Detail)" }
-    else { $prodFail = $prod.Detail }
+    elseif ($P.NotStarted) { $r.Fail = "not started: $($P.Detail)" }
+    else { $r.Fail = $P.Detail }
+    return $r
 }
+
+# The product's clause on the line, from its part: 'product: <url> (<word>)', or why there is none.
+function Format-DevPreviewProductClause($Part, $P) {
+    if ($Part.Url) { return "product: $($Part.Url) ($($Part.Word)$(if ($P.Action -eq 'reuse') { $P.Exposed }))" }
+    if ($Part.Fail -like 'not started: *') { return "product $($Part.Fail)" }
+    return "product: $($Part.Fail)"
+}
+
+$part = Get-DevPreviewServerPart $prod $prodT $cfg
+$prodUrl = $part.Url
+$prodWord = $part.Word
+$prodFail = $part.Fail
+$extraT = @($targets | Where-Object { $_.Name -eq 'extra' }) | Select-Object -First 1
+$extraClause = if ($extra) { ' -- ' + (Format-DevPreviewProductClause (Get-DevPreviewServerPart $extra $extraT $extraCfg) $extra) } else { '' }
 
 if ($mode -eq 'ownhub') {
     # The repo's own server IS the hub: the line it always had.
@@ -391,18 +427,16 @@ if ($mode -eq 'ownhub') {
         $script:openInVsCode = $cfg.OpenInVsCode
         $opened = Open-DevPreviewInVsCode $prodUrl
         $exposed = if ($prod.Action -eq 'reuse') { $prod.Exposed } else { '' }
-        Write-DevPreviewLine "$($cfg.Name): $prodUrl ($prodWord$opened$exposed)"
+        Write-DevPreviewLine "$($cfg.Name): $prodUrl ($prodWord$opened$exposed)$extraClause"
     }
-    Write-DevPreviewLine "$($cfg.Name): $(if ($prodFail -like 'not started: *') { 'not started -- ' + $prodFail.Substring(13) } else { $prodFail })"
+    Write-DevPreviewLine "$($cfg.Name): $(if ($prodFail -like 'not started: *') { 'not started -- ' + $prodFail.Substring(13) } else { $prodFail })$extraClause"
 }
 
 $head = if ($hubUrl) { "$script:DevPreviewLabel`: $hubUrl" } else { "$script:DevPreviewLabel`: not started -- $hubReason" }
 
 if ($mode -eq 'product') {
-    $part = if ($prodUrl) { "product: $prodUrl ($prodWord$(if ($prod.Action -eq 'reuse') { $prod.Exposed }))" }
-            elseif ($productProblem) { "product not started: $productProblem" }
-            elseif ($prodFail -like 'not started: *') { "product $prodFail" }
-            else { "product: $prodFail" }
+    $part = if ($productProblem) { "product not started: $productProblem" }
+            else { Format-DevPreviewProductClause $part $prod }
     $opened = ''
     if ($hubUrl) {
         $script:openInVsCode = [bool]($cfg -and $cfg.OpenInVsCode)

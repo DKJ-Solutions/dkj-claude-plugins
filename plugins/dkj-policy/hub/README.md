@@ -70,6 +70,13 @@ still starts beside it and answers `/hub` and `/` with a 303 to that hub. This r
 is such a hub, which relays the general pages from its own origin
 ([#3168](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3168)).
 
+**A repo with its own hub can still state a product** beside it, with a nested `Product = @{ ... }` in
+the same `Get-DevPreview` ([#3283](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3283)). The
+`Product` takes the fields the server itself takes (`Command`, `Ports`, `Path`, `Requires`,
+`WaitSeconds`), under the same rules, and its ports may not overlap the hub's. It is refused without
+`OwnHub = $true`, because there the server itself is already the product. This repo uses it: the
+connector dashboard is the hub, and the brand book's Vite dev server is the product.
+
 ## The dev-preview hook
 
 [`hooks/dev-preview-sessionstart.ps1`](../hooks/dev-preview-sessionstart.ps1) runs at session start
@@ -97,6 +104,7 @@ is such a hub, which relays the general pages from its own origin
 | states a server | `Repo hub: http://localhost:4890/ -- product: http://localhost:4321/dkj-recipes/ (started)`; `(already running)` where it is reused |
 | states a server that cannot start | `Repo hub: http://localhost:4890/ -- product not started: port 3000 taken by other processes: 3000 by dkj-lifehub (pid 19544)` |
 | states `OwnHub = $true` | `Repo hub: http://localhost:4870/ (started)`, as before #3245 |
+| states `OwnHub = $true` and a `Product` | `Repo hub: http://localhost:4870/ (started) -- product: http://localhost:5173/brandbook/ (started)` |
 | and the hub cannot start | `Repo hub: not started -- <why>`, then the product's clause where there is one |
 
 The route hint appears only where the repo states no server and does not route the hub's port; with the

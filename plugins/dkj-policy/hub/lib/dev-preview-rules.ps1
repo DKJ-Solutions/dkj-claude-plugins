@@ -20,6 +20,8 @@
                 WaitSeconds  = 20               # optional: how long to wait for the server to listen (1-45)
                 OpenInVsCode = $false           # optional: also hand the URL to VS Code (see the hook)
                 OwnHub       = $false           # optional: this server IS the repo's hub, so the plugin's is not used (#3245)
+                Product      = @{ ... }         # optional, only with OwnHub = $true: a product beside that hub, stating
+                                                #   Command, Ports, Path, Requires and WaitSeconds as above (#3283)
             }
         }
 
@@ -176,6 +178,38 @@ function ConvertTo-DevPreviewConfig {
         $ownHub = [bool]$Raw['OwnHub']
     }
 
+    # A product BESIDE the repo's own hub (#3283): only where OwnHub is on, because without it the server
+    # itself is already the product. It states the same fields as the server and is held to the same rules,
+    # except the three that belong to the hub alone (OwnHub, OpenInVsCode and a Product of its own).
+    $product = $null
+    if ($null -ne $Raw['Product']) {
+        if (-not $ownHub) {
+            $result.Problem = 'a Product is stated without OwnHub = $true, where the server itself is the product'
+            return $result
+        }
+        if ($Raw['Product'] -isnot [System.Collections.IDictionary]) {
+            $result.Problem = 'the Product must be a hashtable'
+            return $result
+        }
+        foreach ($k in 'OwnHub', 'OpenInVsCode', 'Product') {
+            if ($Raw['Product'].Contains($k)) {
+                $result.Problem = "the Product states $k, which belongs to the hub alone"
+                return $result
+            }
+        }
+        $inner = ConvertTo-DevPreviewConfig -Raw $Raw['Product']
+        if (-not $inner.Ok) {
+            $result.Problem = 'the Product: ' + $(if ($inner.Problem) { $inner.Problem } else { 'it states nothing' })
+            return $result
+        }
+        $shared = @($inner.Config.Ports | Where-Object { $ports -contains $_ })
+        if ($shared.Count) {
+            $result.Problem = "the Product's ports overlap the hub's ($(Format-DevPreviewPorts -Ports $shared))"
+            return $result
+        }
+        $product = $inner.Config
+    }
+
     $result.Ok = $true
     $result.Config = @{
         Command      = $command
@@ -186,6 +220,7 @@ function ConvertTo-DevPreviewConfig {
         WaitSeconds  = $wait
         OpenInVsCode = [bool]$Raw['OpenInVsCode']
         OwnHub       = $ownHub
+        Product      = $product
     }
     return $result
 }

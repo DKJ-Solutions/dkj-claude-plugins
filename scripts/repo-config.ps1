@@ -1485,12 +1485,21 @@ function Get-DevPreview {
        out its localhost link. The plugin serves a hub of its own in every repo (#3245), with the repo's
        server as its product; OwnHub opts this repo out, because its connector dashboard IS its hub and
        relays the general pages from its own origin. The server binds to 127.0.0.1 itself, so the Command
-       needs no bind flag. It runs under cmd.exe, hence the backslashes. #>
+       needs no bind flag. It runs under cmd.exe, hence the backslashes.
+       The Product beside that hub is the brand book (#3283): the brandbook/ app's Vite dev server, bound to
+       127.0.0.1, under the /brandbook/ base its vite.config.ts sets. #>
     @{
         Command     = 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dashboard\serve-connector-dashboard.ps1 -Port {port}'
         Ports       = 4870..4879
         WaitSeconds = 15
         OwnHub      = $true
+        Product     = @{
+            Command     = 'cd brandbook && npm run dev -- --host 127.0.0.1 --port {port} --strictPort'
+            Ports       = 5173..5180
+            Path        = '/brandbook/'
+            Requires    = 'brandbook\node_modules'
+            WaitSeconds = 30
+        }
     }
 }
 
