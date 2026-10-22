@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**1 / 3 minor entries** <!-- pending-tally -->
+**1 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/product-root-cards · 20261022-174227Z
+
+The product's home page (`brandbook/root.html`, on the product port) now has the hub's form: its four pages,
+the brand book, Connectors, Specialists and DKJ repos, are a card each, three to a row, with no headings above
+them, and a footer note says where each comes from.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A: the source repo's own dev server.
+
+**Score:** N/A
+
+#### Pull Request
+
+The product's home page takes the hub's form: only cards, no headings
+
+[PR #3292](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3292)
+
+---
 
 ### DEPLOY: feat/product-connectors-specialists · 20261022-132050Z
 
