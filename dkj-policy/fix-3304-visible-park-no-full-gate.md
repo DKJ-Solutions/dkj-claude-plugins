@@ -39,19 +39,35 @@
 
 ### PLAN
 
+#3304 left two options open. Option 2 (drop the pre-park gate) is taken: the owner already parked
+`fix/3302` that way ("pre-park gate dropped, the ship gates it", 96a1b7cf), and step 6's `ship-pr`
+plus the required CI check gate the branch before any merge.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `sweep-issues` step 4: a visible park runs no `-GatesOnly` either; `ship-pr` in step 6 gates it
 
 ### TEST
 
+- [x] Step 6 was checked to ship through `ship-pr.ps1 -Resolves <n>`, so the gate still runs before
+  the merge; no test pins the old step-4 text, and nothing links to the old heading's anchor
+
 ### DEPLOY: fix/3304-visible-park-no-full-gate
 
-**Score:**
+A sweep that parks a visible result for the owner's look no longer runs `open-pr.ps1 -GatesOnly`
+first. That run covered the whole suite pool, took about ten minutes even for a two-value colour
+change, and was repeated anyway when the approved branch ships: `ship-pr` and the required CI check
+both gate it before the merge.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** 0
 
 #### Pull Request
+
+A visible park in a sweep no longer runs the full gate pool first
 
