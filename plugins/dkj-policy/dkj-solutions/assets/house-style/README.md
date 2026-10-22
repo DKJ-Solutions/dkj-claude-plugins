@@ -593,7 +593,9 @@ page: an app without one keeps the bar as described above.
   the far right the settings button, `DKJTheme.settings` mounted in a plain `#settings` inside the header,
   so nothing floats. The mark is `.site-header__mark`, the organisation's initials on `--paper-1`, until the
   app has a logo of its own; `.site-header__tag` sets a quieter word after the name (`product`).
-- **No eyebrow under it:** the header already names the site, so the intro opens with the `h1`.
+- **No eyebrow under it:** the header already names the site, so the intro opens with the `h1`. **A home page has no
+  intro at all** (owner, October 22, 2026): its `h1` and lead only repeated the header, so `<main>` opens on its first
+  block.
 - **The bar under it leaves the primary to the header:** `.site-header + .breadcrumbs-bar` stands on
   `--paper-1` with a `--paper-3` line under it, and the trail is in the text steps (links `--fg-3`, the
   chevron `--muted`, the current page `--fg-1`). The header scrolls away; the bar still sticks to the top.

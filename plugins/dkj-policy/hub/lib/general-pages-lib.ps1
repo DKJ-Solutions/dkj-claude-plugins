@@ -306,6 +306,7 @@ function Format-RepoHomeHeadHtml {
         crumb, Home; the settings button; and the opening of <main> with the intro, whose h1 is the repo's
         name (-RepoName, escaped by the caller) and whose lead (-Lead, markup the caller escaped) is what the
         repo is for. No eyebrow: the h1 already names the repo. The general banner (#3250) follows the intro.
+        With -Brand the site header stands above the bar and there is no intro: <main> opens on the banner.
         The caller writes the <head> before it and the sections and </main> after it.
     #>
     param([Parameter(Mandatory = $true)][string]$RepoName, [Parameter(Mandatory = $true)][string]$Lead, [AllowEmptyString()][string]$Brand = '',
@@ -318,13 +319,15 @@ function Format-RepoHomeHeadHtml {
     [void]$sb.AppendLine('</ol></nav></div></div>')
     if (-not $Brand) { [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>') }
     [void]$sb.AppendLine('<main class="page-column">')
-    # The intro is a <div>, never a <header>, which the house style lays out as a flex row.
-    [void]$sb.AppendLine('<div>')
-    # Under a site header the h1 would repeat the name the header shows: it stays for the outline, out of sight.
-    $h1 = if ($Brand) { '<h1 class="sr-only">' } else { '<h1>' }
-    [void]$sb.AppendLine($h1 + $RepoName + '</h1>')
-    [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>')
-    [void]$sb.AppendLine('</div>')
+    # Under a site header there is no intro at all (owner, October 22, 2026): the header names the repo, and the
+    # page goes straight to its sections. Without one, the intro is a <div>, never a <header>, which the house
+    # style lays out as a flex row.
+    if (-not $Brand) {
+        [void]$sb.AppendLine('<div>')
+        [void]$sb.AppendLine('<h1>' + $RepoName + '</h1>')
+        [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>')
+        [void]$sb.AppendLine('</div>')
+    }
     [void]$sb.AppendLine((Format-RepositoryBanner))
     return $sb.ToString()
 }
