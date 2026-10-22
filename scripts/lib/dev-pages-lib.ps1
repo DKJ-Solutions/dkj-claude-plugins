@@ -7,8 +7,8 @@
     (scripts/dashboard/serve-connector-dashboard.ps1) measures and reads, and hands the results in, so every rule here is tested without a server.
 
 .DESCRIPTION
-    THE HUB IS ONE PAGE, AND IT DEPARTS FROM THE HOUSE FORM ON PURPOSE (owner, October 22, 2026). The house style's
-    hub is a home page that links an About this repo page (#3270). Here the site header names the repo and
+    THE HUB IS ONE PAGE (owner, October 22, 2026), the house form since #3289, which this hub took first: before
+    it the house hub was a home page linking an About this repo page (#3270). Here the site header names the repo and
     holds the settings button, the bar has its one crumb, Home, and the page goes straight to what About held: the
     Pages block (the 'This repo' card linking the repo's own pages, then the General card), the facts and a
     footer note, so it fits on one screen. This repo is no

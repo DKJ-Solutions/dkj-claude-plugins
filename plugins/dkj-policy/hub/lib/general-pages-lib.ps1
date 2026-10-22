@@ -344,23 +344,6 @@ function Format-RepoHomeHeadHtml {
     return $sb.ToString()
 }
 
-function Format-RepoAboutLinkHtml {
-    <#
-        The home page's About this repo section (#3270): one row to /about, the page that holds everything
-        about the repo itself -- its pages, the general ones and its facts -- so the home page stays a portal.
-    #>
-    $sb = New-Object System.Text.StringBuilder
-    [void]$sb.AppendLine('<div class="grid-2">')
-    [void]$sb.AppendLine('<div class="grid__head"><h2>About this repo</h2><p class="card__sub">The repo itself rather than what it offers</p></div>')
-    [void]$sb.AppendLine('<section class="card grid__full">')
-    [void]$sb.AppendLine('<nav class="menu-list" aria-label="About this repo">')
-    [void]$sb.AppendLine('<a class="menu-item" href="/about"><span class="menu-item__label">About this repo<span class="menu-item__sub">Its pages, the general pages every repo has, and its facts</span></span>' + $script:RepoHubChevron + '</a>')
-    [void]$sb.AppendLine('</nav>')
-    [void]$sb.AppendLine('</section>')
-    [void]$sb.AppendLine('</div>')
-    return $sb.ToString()
-}
-
 function Format-DevTiles {
     <# The house tile row: -Tiles is a list of @{ L = label; V = value (already text) }. #>
     param([Parameter(Mandatory = $true)][object[]]$Tiles)
