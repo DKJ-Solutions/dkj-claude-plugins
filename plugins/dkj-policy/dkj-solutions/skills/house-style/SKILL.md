@@ -63,7 +63,7 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    way it is a copy of the house-style file, never a retyped version. An app that offers a theme choice
    uses `DKJTheme.settings(el)` from that script, the round settings button with the picker inside,
    instead of building its own toggle around `DKJTheme.picker`; the README has its options.
-   **A Repository** (a repo's dev server's home page on `/` and its About this repo page on `/about`, #3270;
+   **The Repository** (a repo's dev server's home page on `/` and its About this repo page on `/about`, #3270;
    the dkj-policy plugin serves one in every repo that does not opt out, with the repo's own server in its
    Products section, #3245) **takes the one form the README lays down under "Page patterns", "The Repo
    hub"**: its blocks and their order, with only the content the repo's own. The home page is a portal:

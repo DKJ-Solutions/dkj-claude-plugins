@@ -35,7 +35,7 @@
 
     THE PLUGIN SERVES THE REPOSITORY IN EVERY REPO (#3245, the owner's decision of October 21, 2026), whether
     or not the repo states Get-DevPreview: the general pages server answers '/' with the hub, and a server
-    the repo states is its PRODUCT, one link on that hub. A repo that wants its own hub keeps that option
+    the repo states is its PRODUCT, one link on that Repository. A repo that wants its own Repository keeps that option
     through OwnHub = $true: its server is then the hub, as it was before. This replaces #3047's placeholder,
     whose own server on 4880-4889 is retired: the hub IS the general pages server.
 

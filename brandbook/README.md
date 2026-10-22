@@ -27,7 +27,7 @@ and copies `dist/` into the `dkj-solutions` plugin's `assets/brandbook/` in the 
 serves that folder at `/brandbook/`. So a change here reaches consumers with the next release, never before.
 
 The app is built for the base `/brandbook/` (`vite.config.ts`): the showcase is its one page, and the "Home" crumb
-goes to the real hub on `/`. It drew a Repository specimen and previews of other repos' hubs until #3274; the hub's form
+goes to the real Repository on `/`. It drew a Repository specimen and previews of other repos' Repositories until #3274; the hub's form
 is the house-style README's, with its two stylesheet-only patterns.
 
 ## Work on it

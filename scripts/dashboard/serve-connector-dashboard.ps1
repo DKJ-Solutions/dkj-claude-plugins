@@ -40,7 +40,7 @@
 
 .DESCRIPTION
     Normally started by the dkj-policy dev-preview SessionStart hook, through this repo's
-    Get-DevPreview in scripts/repo-config.ps1, which states OwnHub = $true (#3245): the plugin serves a Repository
+    Get-DevPreview in scripts/repo-config.ps1, which states OwnHub = $true (#3245): the plugin serves its Repository
     of its own in every other repo, and this repo's connector dashboard is its hub instead; it can be started by hand the same way:
 
         powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dashboard\serve-connector-dashboard.ps1 -Port 4870

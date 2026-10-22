@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    The DKJ-SOLUTIONS pages of a Repository -- the Brandbook, and the hub's "DKJ-Solutions" card that links
+    The DKJ-SOLUTIONS pages of each repo's Repository (its dev server's home page) -- the Brandbook, and the hub's "DKJ-Solutions" card that links
     it (#3132, #3198). No I/O: the general pages server reads the files and hands their paths or text in, so
     every rule here is tested without a server.
 

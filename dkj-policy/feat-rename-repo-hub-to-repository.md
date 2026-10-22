@@ -68,7 +68,9 @@ the new state file name needs nothing done by hand.
 #### What makes this deploy extra special
 
 Every repo running `dkj-policy` sees its session-start line open with `Repository:` instead of
-`Repo hub:`; nothing has to be done for it.
+`Repo hub:`; nothing has to be done for it. A repo that builds its own hub and calls the general banner
+function calls it by its new name, `Format-RepositoryBanner` (it was `Format-RepoHubBanner`); no
+consumer checkout on this machine calls the old one.
 
 **Score:** 2
 

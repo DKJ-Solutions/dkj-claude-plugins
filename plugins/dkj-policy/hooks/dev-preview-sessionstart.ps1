@@ -12,7 +12,7 @@
     pages server (hub/pages/serve-general-pages.ps1: the hub on '/', and Artifacts, Issues, Release notes,
     SessionStart, and the Brandbook in a DKJ-Solutions repo) is the hub, on the first free port of 4890-4899,
     under the ownership rule, with its log in %TEMP%\dev-preview-general-<repo>-<hash>.log. A server the repo
-    states in Get-DevPreview is its PRODUCT, one link on that hub. A repo that wants its own hub states
+    states in Get-DevPreview is its PRODUCT, one link on that Repository. A repo that wants its own Repository states
     OwnHub = $true: its server is then the hub, as before, and the general server still starts beside it and
     sends '/hub' there.
 

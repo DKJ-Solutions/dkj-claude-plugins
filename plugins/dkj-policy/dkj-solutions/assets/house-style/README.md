@@ -680,7 +680,7 @@ a build copies [`patterns/repo-dashboard.html`](patterns/repo-dashboard.html) (t
 [`patterns/repo-about.html`](patterns/repo-about.html) (About this repo), the stylesheet-only reference
 pages: they link `house-style.css` and `house-theme.js` and carry no CSS of their own, and their settings
 button is fixed at the top right of the screen (`theme-settings--floating`). **These two patterns are the only
-reference**: the brand book app no longer draws a Repository specimen or previews of other repos' hubs (owner,
+reference**: the brand book app no longer draws a Repository specimen or previews of other repos' Repositories (owner,
 October 21, 2026, [#3274](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3274)), so a repo with
 React builds the form from the blocks above with its own components.
 

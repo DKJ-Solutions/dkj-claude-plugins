@@ -122,7 +122,7 @@ function Format-PluginRepositoryHtml {
         [void]$sb.AppendLine('        Ports   = 5173..5180')
         [void]$sb.AppendLine('    }')
         [void]$sb.AppendLine('}</code></pre>')
-        [void]$sb.AppendLine('<p class="muted">Every field, and the rules for <code>Command</code>, are in the dkj-policy plugin''s <code>hub/README.md</code>, under &quot;The dev-preview hook&quot;. A repo that serves a Repository of its own adds <code>OwnHub = $true</code>.</p>')
+        [void]$sb.AppendLine('<p class="muted">Every field, and the rules for <code>Command</code>, are in the dkj-policy plugin''s <code>hub/README.md</code>, under &quot;The dev-preview hook&quot;. A repo that serves its own Repository (the home page on <code>/</code>) adds <code>OwnHub = $true</code>.</p>')
         [void]$sb.AppendLine('</div>')
         [void]$sb.AppendLine('</section>')
         [void]$sb.AppendLine('<section class="card grid__full">')
