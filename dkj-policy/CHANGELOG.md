@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**4 / 7 minor entries** <!-- pending-tally -->
+**5 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3294-hub-not-repository · 20261022-193830Z
+
+The hub is called the hub everywhere again, now that "Repository" names the `/repository` page on it: in the
+docs and comments, and in the functions, file and state file behind it (`Format-PluginRepoHubHtml`,
+`hub/lib/repo-hub-page.ps1`, `%TEMP%\dkj-repo-hub-<leaf>-<hash>.json`). A hub server started under the
+previous version is restarted at the next session start, as on any version change, so the state file's
+name needs nothing done by hand.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A repo that builds its own hub and calls the general banner function calls it `Format-RepoHubBanner` again
+(it was `Format-RepositoryBanner` for one release); no consumer checkout on this machine calls either. The
+banner's airsquats tally is kept under its pre-#3285 key again, so a count from before that release returns.
+
+**Score:** 1
+
+#### Pull Request
+
+The hub is the hub again, in prose and in names
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3300](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3300)
+
+---
 
 ### DEPLOY: docs/close-records-at-once · 20261022-192118Z
 
