@@ -1584,7 +1584,7 @@ function Get-AffectedSuiteSelection {
         return $verdict
     }
     $own = @($changed | Where-Object {
-        $_ -match '(^|/)(gate-lib|native-capture-lib|hash-hex-lib|command-probe-lib|git-porcelain-lib|repo-config)\.ps1$' -or
+        $_ -match '(^|/)(gate-lib|native-capture-lib|hash-hex-lib|command-probe-lib|git-porcelain-lib|repo-config|ci-suite-selection-lib|get-pr-suite-selection)\.ps1$' -or
         $_ -match '^\.github/workflows/'
     })
     if ($own.Count -gt 0) {

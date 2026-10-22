@@ -39,21 +39,46 @@
 
 ### PLAN
 
+#3309, lever 2 (Maikel, October 22, 2026): make the required CI check path-aware for a PR that changes
+nothing but static assets. Such a PR runs only the suites that read those assets, and every other PR
+keeps the whole pool. Levers 1 and 3 stay open on the issue.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/ci-suite-selection-lib.ps1`: the asset verdict (CSS, images, fonts) and the
+  selection. It keeps the affected-suite map's matches plus any tree-walking suite that names the
+  extension, and fails closed throughout
+- [x] `scripts/ci/get-pr-suite-selection.ps1`: reads the PR's paths off the merge commit and writes
+  `mode` (full/skip/selected/whole) and `suites` for the job
+- [x] `ci.yml`: the suites shards and the Linux leg read the verdict. An asset-only PR runs its
+  selection in shard 1, and the other shards and the Linux leg skip
+- [x] `Get-AffectedSuiteSelection` treats the two new files as its own, so a change to them runs the
+  whole local pool (source and plugin mirror)
 
 ### TEST
 
+- [x] `ci-suite-selection-lib.tests.ps1`: 32 asserts covering the verdict, the selection and the
+  ci.yml wiring, most of them on the refusing side
+- [x] Measured on the live tree: a `brandbook/src/index.css` change selects 3 of 165 suites, and a
+  `house-style.css` change selects 6 (with `check-house-style` and `house-palette`), where CI ran all of them
+- [x] Code review (Victor): a failed path read in shard 1 now runs the whole pool instead of its own slice, and the script paths use forward slashes for the Linux leg
+- [x] Lint gate: 0 errors
+
 ### DEPLOY: feat/3309-ci-path-aware-suites
 
-**Score:**
+A pull request here that changes only stylesheets, images or fonts no longer waits on every test
+suite in CI. The required check runs just the suites that read those files (3 to 6 of 165 for a CSS
+change, where it used to run all of them over five shards), and the Linux leg skips. Every other pull
+request runs the whole pool as before.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
 Path-aware suite selection on the required CI check
-

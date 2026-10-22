@@ -348,6 +348,21 @@ jobs:
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ci/get-merge-suite-skip.ps1
           exit $LASTEXITCODE
 
+      # A PR THAT CHANGES ONLY STATIC ASSETS RUNS ONLY THE SUITES THAT READ THEM -- issue #3309, Maikel,
+      # October 22, 2026. A one-line CSS fix waited on every suite over five shards. Now, when every changed
+      # path is a stylesheet, image or font, shard 1 runs the suites the affected-suite map (#3223) ties to
+      # those paths, plus any tree-walking suite that names the extension, and the other shards skip. Every
+      # other PR, and every push, runs the whole pool as before. The trade (a suite the map misses is no
+      # longer caught here), the asset set and the fail-closed reads are argued in
+      # scripts/lib/ci-suite-selection-lib.ps1. Step-level rather than a job of its own, for the reason
+      # get-merge-suite-skip.ps1 gives: a skipped `needs:` job skips its dependents.
+      - name: PR suite selection (does this PR change only static assets?)
+        id: pr-suite-selection
+        shell: powershell
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ci/get-pr-suite-selection.ps1 -Shard ${{ matrix.shard }}
+          exit $LASTEXITCODE
+
       # THE SAME SHARED GATE open-pr.ps1 AND cut-release.ps1 RUN, not a third copy of its loop. This step
       # held an inline copy until August 7, 2026 (issue #512), which is how it would have kept running the
       # suites one at a time for days after both local callers were parallelised -- the copy nobody looks
@@ -402,7 +417,17 @@ jobs:
         run: |
           . ./scripts/lib/native-capture-lib.ps1
           if (Test-Path ./scripts/repo-config.ps1) { . ./scripts/repo-config.ps1 }
-          $gateOk = Invoke-TestSuiteGate -TestsDir ./scripts/tests -Context 'CI' -MaxParallel ([Environment]::ProcessorCount) -Shard ${{ matrix.shard }} -ShardCount 5
+          $mode = '${{ steps.pr-suite-selection.outputs.mode }}'
+          $selected = @('${{ steps.pr-suite-selection.outputs.suites }}' -split ',' | Where-Object { $_ })
+          if ($mode -eq 'skip') { Write-Host 'Asset-only PR: shard 1 runs the selected suites (#3309).'; exit 0 }
+          if ($mode -eq 'selected' -and $selected.Count -eq 0) { Write-Host 'Asset-only PR: no suite reads these paths (#3309).'; exit 0 }
+          if ($mode -eq 'selected') {
+            $gateOk = Invoke-TestSuiteGate -TestsDir ./scripts/tests -Context 'CI' -MaxParallel ([Environment]::ProcessorCount) -SuiteNames $selected
+          } elseif ($mode -eq 'whole') {
+            $gateOk = Invoke-TestSuiteGate -TestsDir ./scripts/tests -Context 'CI' -MaxParallel ([Environment]::ProcessorCount)
+          } else {
+            $gateOk = Invoke-TestSuiteGate -TestsDir ./scripts/tests -Context 'CI' -MaxParallel ([Environment]::ProcessorCount) -Shard ${{ matrix.shard }} -ShardCount 5
+          }
           if (-not $gateOk) { exit 1 }
           exit 0
 
@@ -432,7 +457,18 @@ jobs:
         shell: bash
         run: sudo ln -sf "$(command -v pwsh)" /usr/local/bin/powershell
 
+      # AN ASSET-ONLY PR SKIPS THIS LEG -- issue #3309. The leg proves that PowerShell code runs under pwsh
+      # on Linux, and a PR that changes no code cannot change that. Shard 1 of `suites` still runs any of
+      # these suites that read the changed assets, on Windows.
+      - name: PR suite selection (does this PR change only static assets?)
+        id: pr-suite-selection
+        shell: pwsh
+        run: |
+          pwsh -NoProfile -File scripts/ci/get-pr-suite-selection.ps1 -Shard 0
+          exit $LASTEXITCODE
+
       - name: Runner-path suites under pwsh on Linux
+        if: ${{ steps.pr-suite-selection.outputs.mode != 'skip' }}
         shell: pwsh
         run: |
           git config user.name "ci"
