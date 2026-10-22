@@ -419,7 +419,9 @@ $prodUrl = $part.Url
 $prodWord = $part.Word
 $prodFail = $part.Fail
 $extraT = @($targets | Where-Object { $_.Name -eq 'extra' }) | Select-Object -First 1
-$extraClause = if ($extra) { ' -- ' + (Format-DevPreviewProductClause (Get-DevPreviewServerPart $extra $extraT $extraCfg) $extra) } else { '' }
+$extraClause = if ($extra) { ' -- ' + (Format-DevPreviewProductClause (Get-DevPreviewServerPart $extra $extraT $extraCfg) $extra) }
+               elseif ($cfg -and $mode -eq 'ownhub' -and $cfg.ProductProblem) { " -- product not started: $($cfg.ProductProblem) (scripts/repo-config.ps1)" }
+               else { '' }
 
 if ($mode -eq 'ownhub') {
     # The repo's own server IS the hub: the line it always had.
@@ -435,14 +437,14 @@ if ($mode -eq 'ownhub') {
 $head = if ($hubUrl) { "$script:DevPreviewLabel`: $hubUrl" } else { "$script:DevPreviewLabel`: not started -- $hubReason" }
 
 if ($mode -eq 'product') {
-    $part = if ($productProblem) { "product not started: $productProblem" }
-            else { Format-DevPreviewProductClause $part $prod }
+    $clause = if ($productProblem) { "product not started: $productProblem" }
+              else { Format-DevPreviewProductClause $part $prod }
     $opened = ''
     if ($hubUrl) {
         $script:openInVsCode = [bool]($cfg -and $cfg.OpenInVsCode)
         $opened = Open-DevPreviewInVsCode $hubUrl
     }
-    Write-DevPreviewLine ($head + $(if ($opened) { " (opened in VS Code)" } else { '' }) + " -- $part")
+    Write-DevPreviewLine ($head + $(if ($opened) { " (opened in VS Code)" } else { '' }) + " -- $clause")
 }
 
 # No server stated: the hub alone, and -- where the repo has no Simple Browser route for its port -- the one

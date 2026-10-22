@@ -93,15 +93,15 @@ Assert-True ($null -eq (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}';
 $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 3000; Product = @{ Command = 'y {port}'; Ports = 5173 } }
 Assert-True (-not $c.Ok -and $c.Problem -match 'without OwnHub') 'a Product without OwnHub is a problem: the server itself is the product there'
 $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; OwnHub = $true; Product = 'npm run dev' }
-Assert-True (-not $c.Ok -and $c.Problem -match 'must be a hashtable') 'a Product that is not a hashtable is a problem'
+Assert-True ($c.Ok -and $null -eq $c.Config.Product -and $c.Config.ProductProblem -match 'must be a hashtable') 'a Product that is not a hashtable costs the product alone, never the own hub'
 $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; OwnHub = $true; Product = @{ Command = 'y' ; Ports = 5173 } }
-Assert-True (-not $c.Ok -and $c.Problem -match '^the Product: .*\{port\}') 'a Product held to the server''s rules names itself in the problem'
+Assert-True ($c.Ok -and $c.Config.ProductProblem -match '^the Product: .*\{port\}') 'a Product held to the server''s rules names itself in the problem'
 $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870..4872; OwnHub = $true; Product = @{ Command = 'y {port}'; Ports = 4872..4873 } }
-Assert-True (-not $c.Ok -and $c.Problem -match 'overlap the hub''s \(port 4872\)') 'a Product whose ports overlap the hub''s is refused'
+Assert-True ($c.Ok -and $c.Config.ProductProblem -match 'overlap the hub''s \(port 4872\)') 'a Product whose ports overlap the hub''s is refused'
 foreach ($k in 'OwnHub', 'OpenInVsCode', 'Product') {
     $inner = @{ Command = 'y {port}'; Ports = 5173 }; $inner[$k] = $true
     $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; OwnHub = $true; Product = $inner }
-    Assert-True (-not $c.Ok -and $c.Problem -match "states $k") "a Product stating $k, which belongs to the hub alone, is a problem"
+    Assert-True ($c.Ok -and $c.Config.ProductProblem -match "states $k") "a Product stating $k, which belongs to the hub alone, is a problem of the product"
 }
 Assert-Equal 1 @($c.Config.Ports).Count 'one port becomes a list of one'
 $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 5173..5180; Path = 'dashboard.html'; Requires = @('node_modules', 'data\processed') }
@@ -764,6 +764,14 @@ try {
         Assert-True ($m -eq "Repo hub: http://localhost:$port7/ (started) -- product not started: 'brandbook/node_modules' is missing (set it up, then start a new session)") "a product that cannot start is named beside the own hub's link (got '$m')"
         $started += Get-Owners $port7
         Assert-True ((Get-HubState $half).Product -eq '') 'and the state file names no product'
+        # A Product the hook cannot run costs the product alone: the own hub still starts (Victor's review).
+        Use-GeneralPort (New-FreePort)
+        $port9 = New-FreePort
+        $typo = New-Repo 'ownhub-product-typo' ("function Get-DevPreview { @{ Command = '$q'; Ports = $port9; WaitSeconds = 30; OwnHub = " + '$true' + "; Product = @{ Command = 'npm run dev'; Ports = 5173 } } }`n")
+        $r = Invoke-Hook $typo
+        $m = Get-Message $r.Text
+        Assert-True ($m -match "^Repo hub: http://localhost:$port9/ \(started\) -- product not started: the Product: the Command carries no \{port\}") "a Product with a typo is named, and the own hub is still handed out (got '$m')"
+        $started += Get-Owners $port9
 
         # A SERVER THAT DIES AT START: the hook stops waiting for it, not at WaitSeconds, and the hub is still handed out.
         Use-GeneralPort (New-FreePort)
