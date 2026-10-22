@@ -96,91 +96,95 @@ export default function App() {
     if (window.matchMedia(NARROW).matches) setOpen(false)
   }
   return (
-    <div className={cx('dkj-shell', open && 'dkj-shell--open')}>
-      {/* The toggle: half over the panel's edge, shown on hover or keyboard focus (always where there is no hover). */}
-      <button
-        type="button"
-        className="dkj-panel-toggle"
-        aria-label={open ? 'Close contents' : 'Open contents'}
-        aria-controls="dkj-contents"
-        aria-expanded={open}
-        onClick={() => setOpen(!open)}
-      >
-        <Icon name={open ? 'arrow-left' : 'arrow-right'} />
-      </button>
-      {/* Closed, the panel is a strip at the left edge: a click on it opens the panel (the toggle is the accessible
-          control), and its content is inert -- out of the tab order and hidden from a screen reader. */}
-      <aside className="dkj-contents" id="dkj-contents" aria-labelledby="dkj-contents-title" onClick={open ? undefined : () => setOpen(true)}>
-        <div className="dkj-contents-inner" inert={!open}>
-          <h2 className="dkj-contents-title" id="dkj-contents-title">
-            Contents
-          </h2>
-          <p className="dkj-contents-sub">Jump to a section or an app preview</p>
-          <nav className="dkj-nav" aria-labelledby="dkj-contents-title">
-            {/* Group labels, not headings: each names its list (aria-labelledby), so the menu keeps its compact size. */}
-            {NAV.map((g, n) => (
-              <div key={g.group}>
-                <p className="dkj-nav-group" id={`dkj-nav-group-${n}`}>
-                  {g.group}
-                </p>
-                <ul aria-labelledby={`dkj-nav-group-${n}`}>
-                  {g.items.map((i) => (
-                    <li key={i}>
-                      <a href={`#${i}`} onClick={follow}>
-                        {LABELS[i] ?? i}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-            <p className="dkj-nav-group" id="dkj-nav-group-repos">
-              DKJ-Solutions
-            </p>
-            <ul aria-labelledby="dkj-nav-group-repos">
-              {REPOS.map((r) => (
-                <li key={r}>
-                  <a href={`#preview/${r}`} title={r} aria-current={r === previewRepo ? 'page' : undefined} onClick={follow}>
-                    {r}
-                  </a>
-                </li>
+    <>
+      {/* The site header over the whole width, the contents panel included: the panel starts under it (October 22, 2026). */}
+      <SiteHeader home={HUB_PATH} />
+      <div className={cx('dkj-shell', open && 'dkj-shell--open')}>
+        {/* The toggle: half over the panel's edge, shown on hover or keyboard focus (always where there is no hover). */}
+        <button
+          type="button"
+          className="dkj-panel-toggle"
+          aria-label={open ? 'Close contents' : 'Open contents'}
+          aria-controls="dkj-contents"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          <Icon name={open ? 'arrow-left' : 'arrow-right'} />
+        </button>
+        {/* Closed, the panel is a strip at the left edge: a click on it opens the panel (the toggle is the accessible
+            control), and its content is inert -- out of the tab order and hidden from a screen reader. */}
+        <aside className="dkj-contents" id="dkj-contents" aria-labelledby="dkj-contents-title" onClick={open ? undefined : () => setOpen(true)}>
+          <div className="dkj-contents-inner" inert={!open}>
+            <h2 className="dkj-contents-title" id="dkj-contents-title">
+              Contents
+            </h2>
+            <p className="dkj-contents-sub">Jump to a section or an app preview</p>
+            <nav className="dkj-nav" aria-labelledby="dkj-contents-title">
+              {/* Group labels, not headings: each names its list (aria-labelledby), so the menu keeps its compact size. */}
+              {NAV.map((g, n) => (
+                <div key={g.group}>
+                  <p className="dkj-nav-group" id={`dkj-nav-group-${n}`}>
+                    {g.group}
+                  </p>
+                  <ul aria-labelledby={`dkj-nav-group-${n}`}>
+                    {g.items.map((i) => (
+                      <li key={i}>
+                        <a href={`#${i}`} onClick={follow}>
+                          {LABELS[i] ?? i}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ))}
-            </ul>
-          </nav>
-        </div>
-      </aside>
-      {/* The page column: the site header, then the breadcrumb bar, over <main>, beside the panel, which takes the full height. */}
-      <div className="dkj-page">
-        <SiteHeader home={HUB_PATH} />
-        <Breadcrumbs
-          bar
-          items={[
-            { label: 'Home', href: HUB_PATH },
-            ...(previewRepo ? [{ label: 'Brand book', href: SHOWCASE_PATH }, { label: previewRepo }] : [{ label: 'Brand book' }]),
-          ]}
-        />
-        <main className="dkj-main">
-          <div className="dkj-content">
-            {previewRepo ? (
-              <RepoPreview repo={previewRepo} />
-            ) : (
-              <>
-                <Intro />
-                <Foundations />
-                <HouseClasses />
-                <Actions />
-                <Surfaces />
-                <Metrics />
-                <Forms />
-                <Overlays />
-                <Data />
-                <Apps />
-                <Overlap />
-              </>
-            )}
+              <p className="dkj-nav-group" id="dkj-nav-group-repos">
+                DKJ-Solutions
+              </p>
+              <ul aria-labelledby="dkj-nav-group-repos">
+                {REPOS.map((r) => (
+                  <li key={r}>
+                    <a href={`#preview/${r}`} title={r} aria-current={r === previewRepo ? 'page' : undefined} onClick={follow}>
+                      {r}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
           </div>
-        </main>
+        </aside>
+        {/* The page column: the breadcrumb bar over <main>, beside the panel. */}
+        <div className="dkj-page">
+          <Breadcrumbs
+            bar
+            quiet
+            items={[
+              { label: 'Home', href: HUB_PATH },
+              ...(previewRepo ? [{ label: 'Brand book', href: SHOWCASE_PATH }, { label: previewRepo }] : [{ label: 'Brand book' }]),
+            ]}
+          />
+          <main className="dkj-main">
+            <div className="dkj-content">
+              {previewRepo ? (
+                <RepoPreview repo={previewRepo} />
+              ) : (
+                <>
+                  <Intro />
+                  <Foundations />
+                  <HouseClasses />
+                  <Actions />
+                  <Surfaces />
+                  <Metrics />
+                  <Forms />
+                  <Overlays />
+                  <Data />
+                  <Apps />
+                  <Overlap />
+                </>
+              )}
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </>
   )
 }

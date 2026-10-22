@@ -50,6 +50,7 @@ DKJ-Solutions repo). Chosen from a menu: in the plugin, for every repo; and in t
 - [x] The plugin hub's home (`repository-page.ps1`): the header, so the intro goes there too
 - [x] The brand book app: `SiteHeader` (`DKJ brand book`, home `/`) in place of the `Toolbar`, holding the preview settings; its bar under the header on the paper, as the house bar
 - [x] The house-style README: every hub page and the brand book carry the header
+- [x] Then in the app the header above the contents panel too (the owner, same day; not sticky): it spans the whole width and scrolls away, the panel starts under it, and on a narrow screen the open panel lies over the page from under the header down; the bar is `Breadcrumbs quiet`
 
 ### TEST
 
@@ -61,7 +62,7 @@ DKJ-Solutions repo). Chosen from a menu: in the plugin, for every repo; and in t
 The site header now stands on every hub page in every DKJ-Solutions repo, not only on this repo's own pages: the
 dkj-policy hub server draws it on the home page, About, Artifacts, Issues, Release notes and SessionStart, with the
 repo's name and `hub` after it, the settings button in it and no eyebrow or intro under it. The brand book app
-carries it too, as *DKJ brand book*, holding its preview settings.
+carries it too, as *DKJ brand book*, holding its preview settings, across the whole width with the contents panel under it.
 
 **Score:** 3
 

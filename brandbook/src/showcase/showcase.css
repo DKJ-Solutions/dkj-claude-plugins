@@ -99,8 +99,9 @@
 /* The breadcrumb trail above it lines up with it: the same full width and the same side padding, so the trail and
    the content start on one line (on the dashboard pages both are the house column already). */
 .dkj-page > .dkj-breadcrumbs-bar > .container { max-width: none; padding-left: var(--spacing-6); padding-right: var(--spacing-6); }
-/* The site header lines up with them too: the full width and the same side padding. The preview settings sit in it. */
-.dkj-page > .site-header > .container { max-width: none; padding-left: var(--spacing-6); padding-right: var(--spacing-6); }
+/* The site header spans the whole width above the panel and the page column, with the page column's side padding. It
+   scrolls away with the page; the preview settings sit in it. */
+.dkj-site-header > .container { max-width: none; padding-left: var(--spacing-6); padding-right: var(--spacing-6); }
 
 /* The page width from the settings panel (house-theme.js sets <html data-width>). <main> keeps the full width here, so the
    showcase sizes its content itself. Phone width: everything renders in a 360px column, like the source app on the
@@ -212,13 +213,16 @@
   .dkj-main { padding: var(--spacing-4) var(--spacing-4) var(--spacing-8); }
   /* No room to push on a narrow screen: the open panel lies over the page instead; closed, its strip still shows. */
   .dkj-shell, .dkj-shell--open { grid-template-columns: var(--spacing-3) minmax(0, 1fr); }
-  .dkj-contents { position: fixed; top: 0; left: 0; z-index: 5; width: min(230px, calc(100% - 3rem));
+  /* It lies over the page from under the site header down, never over the header: the panel spans the shell, and its
+     list sticks in view as the page scrolls. */
+  .dkj-shell { position: relative; }
+  .dkj-contents { position: absolute; top: 0; bottom: 0; left: 0; height: auto; z-index: 5; width: min(230px, calc(100% - 3rem));
     transform: translateX(calc(-100% + var(--spacing-3))); transition: transform var(--dkj-duration-panel) var(--dkj-ease-out); }
   .dkj-shell--open .dkj-contents { transform: none; box-shadow: var(--shadow-pop); }
-  .dkj-contents-inner { width: 100%; }
+  .dkj-contents-inner { width: 100%; position: sticky; top: 0; height: 100dvh; }
   .dkj-shell--open .dkj-panel-toggle { left: min(230px, calc(100% - 3rem)); }
   .dkj-page > .dkj-breadcrumbs-bar > .container { padding-left: var(--spacing-4); padding-right: var(--spacing-4); }
-  .dkj-page > .site-header > .container { padding-left: var(--spacing-4); padding-right: var(--spacing-4); }
+  .dkj-site-header > .container { padding-left: var(--spacing-4); padding-right: var(--spacing-4); }
 }
 
 /* A tooltip drawn in place, to show how it looks open: the house .tooltip is fixed and hidden until a script shows it. */

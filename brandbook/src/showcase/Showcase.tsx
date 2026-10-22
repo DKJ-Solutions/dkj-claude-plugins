@@ -86,7 +86,7 @@ export function SiteHeader({ home }: { home: string }) {
     })
   }, [])
   return (
-    <header className="site-header">
+    <header className="site-header dkj-site-header">
       <div className="container">
         <a className="site-header__brand" href={home} aria-label="DKJ brand book, home">
           <span className="site-header__mark" aria-hidden="true">

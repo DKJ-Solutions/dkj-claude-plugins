@@ -110,10 +110,10 @@
 .dkj-breadcrumbs-bar { position: sticky; top: 0; z-index: 4; background: var(--primary); }
 .dkj-breadcrumbs-bar > .container { display: flex; align-items: center; height: var(--tap); padding-top: 0; padding-bottom: 0; overflow-x: auto; }
 html:has(.dkj-breadcrumbs-bar) { scroll-padding-top: var(--tap); }
-/* Under the house site header the bar leaves the primary to it, as the house .breadcrumbs-bar does (October 22, 2026):
-   the paper with a subtle line under it, and the trail in the text steps. */
-.site-header + .dkj-breadcrumbs-bar { background: var(--paper-1); border-bottom: 1px solid var(--paper-3); }
-.site-header + .dkj-breadcrumbs-bar .dkj-breadcrumbs a { color: var(--fg-3); }
-.site-header + .dkj-breadcrumbs-bar .dkj-breadcrumbs a:focus-visible { outline-color: var(--muted); }
-.site-header + .dkj-breadcrumbs-bar .dkj-breadcrumbs-sep { color: var(--muted); }
-.site-header + .dkj-breadcrumbs-bar .dkj-breadcrumbs [aria-current='page'] { color: var(--fg-1); }
+/* --quiet: under the house site header the bar leaves the primary to it, as the house .breadcrumbs-bar does (October 22,
+   2026): the paper with a subtle line under it, and the trail in the text steps. */
+.dkj-breadcrumbs-bar--quiet { background: var(--paper-1); border-bottom: 1px solid var(--paper-3); }
+.dkj-breadcrumbs-bar--quiet .dkj-breadcrumbs a { color: var(--fg-3); }
+.dkj-breadcrumbs-bar--quiet .dkj-breadcrumbs a:focus-visible { outline-color: var(--muted); }
+.dkj-breadcrumbs-bar--quiet .dkj-breadcrumbs-sep { color: var(--muted); }
+.dkj-breadcrumbs-bar--quiet .dkj-breadcrumbs [aria-current='page'] { color: var(--fg-1); }

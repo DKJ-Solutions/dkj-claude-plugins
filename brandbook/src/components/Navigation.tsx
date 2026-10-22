@@ -164,9 +164,10 @@ export function PageHeader({ title, asOf, children }: { title: string; asOf?: st
 
 /**
  * Breadcrumbs -- where this page sits: each ancestor a link, the current page last and unlinked (aria-current), a muted
- * chevron between them, on one line. As a `bar` it spans the full screen width on a tinted background and sticks to the top.
+ * chevron between them, on one line. As a `bar` it spans the full screen width on a tinted background and sticks to the top;
+ * `quiet` puts that bar on the paper with a subtle line under it, for a page that opens with the house site header.
  */
-export function Breadcrumbs({ items, bar = false }: { items: readonly { label: string; href?: string }[]; bar?: boolean }) {
+export function Breadcrumbs({ items, bar = false, quiet = false }: { items: readonly { label: string; href?: string }[]; bar?: boolean; quiet?: boolean }) {
   const trail = (
     <nav className="dkj-breadcrumbs" aria-label="Breadcrumb">
       <ol>
@@ -195,7 +196,7 @@ export function Breadcrumbs({ items, bar = false }: { items: readonly { label: s
   )
   // The bar spans the full screen width, so it goes above <main>; its trail aligns with the house page column.
   return bar ? (
-    <div className="dkj-breadcrumbs-bar">
+    <div className={quiet ? 'dkj-breadcrumbs-bar dkj-breadcrumbs-bar--quiet' : 'dkj-breadcrumbs-bar'}>
       <div className="container">{trail}</div>
     </div>
   ) : (
