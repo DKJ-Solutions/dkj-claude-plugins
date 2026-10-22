@@ -39,19 +39,43 @@
 
 ### PLAN
 
+The owner: add the Connectors page, and the Specialists page too, to the product of dkj-claude-plugins. Chosen
+from a menu: move them, like the brand book, so the product port shows them and the hub no longer links them.
+The pages stay built by the hub (they run check-connectors.ps1 and read this tree), and the product's dev server
+relays them. The state file the hook writes could not name the hub on this machine (none was present), so the
+product finds the hub by asking its ports for `/whoami`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Hub: `/whoami` answers `Get-DevPreviewRootHash` of its root, before the restart check
+- [x] Hub: `Get-RepositoryPages` lists Test gate alone; Connectors and Specialists are still served, for the relay
+- [x] `brandbook/vite.config.ts`: find this checkout's hub on 4870-4879 by `/whoami`, relay `/connectors`, `/specialists` and `/refresh?page=connectors`
+- [x] `brandbook/root.html`: a Plugins section linking both pages
+- [x] Docstrings and `brandbook/README.md`
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` (284 passed), `connector-dashboard.tests.ps1` (197 passed, `/whoami` asserted), `npm run gate` green
+- [x] Live: the hub's `/whoami` equals the hash the dev server computes (`b8e66305`); on 5173 `/connectors` and `/specialists` answer 200 with Home on `/`, and the refresh comes back as a 303 to `/connectors` on 5173
+
 ### DEPLOY: feat/product-connectors-specialists
 
-**Score:**
+This repo's product port now carries the Connectors and Specialists pages beside the brand book: its root page
+links all three, and the Repository (the hub) no longer lists the two. The pages are still built by the hub,
+which runs `check-connectors.ps1` and reads this tree; the product's Vite dev server (`productRoot` in
+`brandbook/vite.config.ts`) finds this checkout's hub by asking ports 4870-4879 for a new `/whoami` (the root's
+`Get-DevPreviewRootHash`, as the general server already answers) and relays each request, so the pages, their
+Home crumb and their refresh link all stay on the product's origin. The hub keeps answering both paths, for
+that relay. The dev server computes the same hash in TypeScript, so the two must agree: the live check above
+compared them, and a change to the hash in `dev-preview-rules.ps1` has to land in `vite.config.ts` too.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the source repo's own dev servers; no consumer's hub or product changes.
+
+**Score:** N/A
 
 #### Pull Request
 

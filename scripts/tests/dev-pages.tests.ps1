@@ -59,7 +59,7 @@ Assert-True ($gshell -notmatch 'dkj-claude-plugins') 'and nothing of this repo i
 
 Write-Host '-- the Repository: the home page on / and About this repo on /about (#3270)' -ForegroundColor Cyan
 $pages = @(Get-RepositoryPages)
-Assert-Equal '/connectors,/specialists,/test-gate' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links this repo''s own three pages, in order: the Brandbook is no longer one of them'
+Assert-Equal '/test-gate' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links one page of its own: Connectors and Specialists are the product''s, and the Brandbook too'
 Assert-Equal '/artifacts,/issues,/release-notes,/sessionstart' ((Get-GeneralPages | ForEach-Object { $_.Href }) -join ',') 'the plugin lists the four general pages, in order'
 Assert-Equal '/brandbook' ((Get-DkjSolutionsPages | ForEach-Object { $_.Href }) -join ',') 'and the one page only DKJ-Solutions repos share, the Brandbook'
 $hub = Format-RepositoryHtml
@@ -85,10 +85,10 @@ Assert-True ((Format-GeneralPagesCardHtml -Pages @() -LocalPages @(@{ Href = '/x
 $about = Format-RepoAboutHtml -Pages $pages -SourceCommit 'abc1234' -GeneralPagesUrl 'http://localhost:4890'
 Assert-True ($about -match '<title>dkj-claude-plugins -- About this repo</title>' -and $about -match '<h1>About this repo</h1>' -and $about -match '<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>') 'About this repo is a page under the hub, with the slug as its eyebrow'
 Assert-True ($about -match '<li><a href="/">Home</a></li>' -and $about -match '<span aria-current="page">About this repo</span>') 'its trail is Home, then the page itself'
-Assert-Equal 7 ([regex]::Matches($about, '<a class="menu-item" href="(http://localhost:4890)?/[a-z-]+"><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: label, description, chevron -- this repo''s three and the four general ones'
-Assert-True ($about -match '<nav class="menu-list" aria-label="This repo pages">\r?\n<a class="menu-item"' -and $about -match '</a>\r?\n<a class="menu-item"') 'the rows are direct siblings in the nav, so the house draws the line between them'
+Assert-Equal 5 ([regex]::Matches($about, '<a class="menu-item" href="(http://localhost:4890)?/[a-z-]+"><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: label, description, chevron -- this repo''s one and the four general ones'
+Assert-True ($about -match '<nav class="menu-list" aria-label="General pages">\r?\n<a class="menu-item"' -and $about -match '</a>\r?\n<a class="menu-item"') 'the rows are direct siblings in the nav, so the house draws the line between them'
 Assert-True ($about -match '<div class="grid-2">\r?\n<div class="grid__head"><h2>Pages</h2><p class="card__sub">[^<]+</p></div>\r?\n<section class="card">') 'the row opens with a grid__head carrying the h2 Pages and its sub line'
-Assert-True ($about -match '<h3>This repo</h3>.*\r?\n<nav class="menu-list" aria-label="This repo pages">\r?\n<a class="menu-item" href="/connectors"' -and $about -match '<h3>General</h3>.*\r?\n<nav class="menu-list" aria-label="General pages">\r?\n<a class="menu-item" href="/artifacts"') 'each card''s title is an h3: the repo''s own pages, then the general ones, linked on the hub''s own origin, which relays them (#3168)'
+Assert-True ($about -match '<h3>This repo</h3>.*\r?\n<nav class="menu-list" aria-label="This repo pages">\r?\n<a class="menu-item" href="/test-gate"' -and $about -match '<h3>General</h3>.*\r?\n<nav class="menu-list" aria-label="General pages">\r?\n<a class="menu-item" href="/artifacts"') 'each card''s title is an h3: the repo''s own pages, then the general ones, linked on the hub''s own origin, which relays them (#3168)'
 Assert-True ($about -match '<h3>General</h3><p class="card__sub">[^<]*every repo has them</p>') 'General is what every repo has, whichever organisation it belongs to'
 Assert-True ($about -notmatch 'DKJ-Solutions</h3>' -and $about -notmatch 'href="/brandbook"') 'the Brand book is the home page''s, not About''s'
 Assert-True ($about.IndexOf('href="/test-gate"') -lt $about.IndexOf('<h3>General</h3>') -and $about.IndexOf('href="/issues"') -gt $about.IndexOf('<h3>General</h3>')) 'and no page sits in the other group''s card'

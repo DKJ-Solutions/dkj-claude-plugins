@@ -2,7 +2,8 @@
 .SYNOPSIS
     The Repository of this repo's dev server -- the home page on '/' and About this repo on '/about' (#3270) --
     and its own pages: the test-gate page (the per-suite CI
-    durations, #3097), the Specialists page and the DKJ repos page. No I/O -- the server
+    durations, #3097), the Connectors and Specialists pages (the product's since October 22, 2026: its dev server
+    links and relays them, so the hub lists neither) and the DKJ repos page. No I/O -- the server
     (scripts/dashboard/serve-connector-dashboard.ps1) measures and reads, and hands the results in, so every rule here is tested without a server.
 
 .DESCRIPTION

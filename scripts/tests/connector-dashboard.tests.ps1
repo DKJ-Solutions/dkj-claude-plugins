@@ -331,6 +331,9 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             # The brand book is the product port's alone (October 22, 2026): the hub neither serves nor redirects it.
             Assert-Equal 404 (Get-Status 'GET' '/brandbook' "localhost:$port") '/brandbook is not a page of the hub'
             Assert-Equal 404 (Get-Status 'GET' '/brandbook/' "localhost:$port") 'and neither is /brandbook/, whether or not brandbook/dist is built'
+            # The product's dev server finds this hub by /whoami before it relays /connectors and /specialists here.
+            $who = Get-Raw 'GET' '/whoami' "localhost:$port"
+            Assert-True ($who -match 'HTTP/1.1 200' -and $who.EndsWith("`r`n`r`n" + (Get-DevPreviewRootHash -Root $RepoRoot))) '/whoami answers the hash of this root, as the general server does'
             Assert-Equal 303 (Get-Status 'GET' '/refresh' "localhost:$port") '/refresh redirects to the page'
             Assert-True ((Get-Raw 'GET' '/refresh?page=connectors' "localhost:$port") -match 'Location: /connectors\r') '/refresh?page= goes back to the page that asked'
             Assert-True ((Get-Raw 'GET' '/refresh?page=sessionstart' "localhost:$port") -match 'Location: /\r') 'and a page that moved to the general pages server (#3119) is no page of this one''s'
@@ -427,7 +430,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match '<h1>dkj-claude-plugins</h1>' -and $hub -match '<a class="menu-item" href="/about">') '/ serves the home page, linking About this repo (#3270)'
             Assert-True ($hub -notmatch 'is not running' -and $hub -notmatch 'href="/brandbook' -and $hub -match 'href="/dkj-repos"') 'the home page names no general pages server and no brand book: its DKJ-Solutions section is the DKJ repos page this hub serves'
             $about = if ($up) { Get-Raw 'GET' '/about' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($about -match 'HTTP/1.1 200' -and $about -match '<h1>About this repo</h1>' -and $about -match '<a class="menu-item" href="/connectors">' -and $about -match '<a href="/">Home</a>') '/about serves About this repo, linking the pages below the hub, its trail starting at Home'
+            Assert-True ($about -match 'HTTP/1.1 200' -and $about -match '<h1>About this repo</h1>' -and $about -match '<a class="menu-item" href="/test-gate">' -and $about -notmatch 'href="/connectors"' -and $about -notmatch 'href="/specialists"' -and $about -match '<a href="/">Home</a>') '/about serves About this repo, linking the pages below the hub, its trail starting at Home'
             Assert-True ($about -match 'The general pages server is not running' -and $about -notmatch 'href="http://localhost') 'and its General card says the general pages server is not running too'
             # A state file naming a port nobody answers on is no server.
             Write-RepositoryState -Root $src -Hub "http://localhost:$port3/" -Pages "http://localhost:$genPort3" -Mode 'ownhub'
