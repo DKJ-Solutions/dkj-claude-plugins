@@ -289,7 +289,7 @@ function Format-SiteHeaderHtml {
         The house site header (house-style.css, "Site header"): the app's mark and -Name on the primary, linking -Href
         (home), and the settings button's mount (#settings) on the far right. The mark is a wordmark, the
         organisation's initials, until the app has a logo of its own. -Tag is the quieter word after the name
-        ('repository', 'product'), left out when empty. Both are escaped here.
+        ('hub', 'product'), left out when empty. Both are escaped here.
     #>
     param([Parameter(Mandatory = $true)][string]$Name, [string]$Href = '/', [AllowEmptyString()][string]$Tag = '')
     $e = { param($v) ConvertTo-GeneralPageText $v }

@@ -364,6 +364,12 @@ try {
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }
+            if ($path -eq '/repository') {
+                # The GitHub repo: its facts, Issues and its pages on GitHub (owner, October 22, 2026).
+                $html = Format-RepoGitHubPageHtml -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' }) -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                continue
+            }
             if ($path -eq '/about') {
                 # About this repo is the home page's since October 22, 2026: an old link lands there.
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/' } -Method $method
