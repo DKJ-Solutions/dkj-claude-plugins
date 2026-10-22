@@ -262,7 +262,7 @@ function Format-GeneralPagesCardHtml {
     $rows = @()
     if ($base) { $rows += @(@($Pages) | Where-Object { $_ } | ForEach-Object { @{ Href = $linkBase + $_.Href; Label = $_.Label; Sub = $_.Sub } }) }
     $rows += @(@($LocalPages) | Where-Object { $_ })
-    # A card with no server rows (-Pages @(), the source repo's DKJ-Solutions section) has nothing to say about it.
+    # A card with no server rows (-Pages @()) has nothing to say about the server.
     if (-not $base -and @(@($Pages) | Where-Object { $_ }).Count) {
         [void]$sb.AppendLine('<p class="msg" role="status">The general pages server is not running. It starts at the next session start, and these pages are linked here from then on.</p>')
     }

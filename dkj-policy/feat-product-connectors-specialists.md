@@ -52,20 +52,22 @@ product finds the hub by asking its ports for `/whoami`.
 - [x] `brandbook/vite.config.ts`: find this checkout's hub on 4870-4879 by `/whoami`, relay `/connectors`, `/specialists` and `/refresh?page=connectors`
 - [x] `brandbook/root.html`: a Plugins section linking both pages
 - [x] Docstrings and `brandbook/README.md`
+- [x] Then DKJ repos too (the owner, same day): relayed with its refresh, a DKJ-Solutions section on the product root, and the hub's home keeps About this repo alone (`Get-RepositoryDkjPages` goes)
 
 ### TEST
 
-- [x] `dev-pages.tests.ps1` (284 passed), `connector-dashboard.tests.ps1` (197 passed, `/whoami` asserted), `npm run gate` green
+- [x] `dev-pages.tests.ps1` (283 passed), `connector-dashboard.tests.ps1` (197 passed, `/whoami` asserted), `npm run gate` green
 - [x] Live: the hub's `/whoami` equals the hash the dev server computes (`b8e66305`); on 5173 `/connectors` and `/specialists` answer 200 with Home on `/`, and the refresh comes back as a 303 to `/connectors` on 5173
 
 ### DEPLOY: feat/product-connectors-specialists
 
-This repo's product port now carries the Connectors and Specialists pages beside the brand book: its root page
-links all three, and the Repository (the hub) no longer lists the two. The pages are still built by the hub,
+This repo's product port now carries the Connectors, Specialists and DKJ repos pages beside the brand book: its
+root page links all four, and the Repository (the hub) lists none of the three, so its home page holds About this
+repo alone. The pages are still built by the hub,
 which runs `check-connectors.ps1` and reads this tree; the product's Vite dev server (`productRoot` in
 `brandbook/vite.config.ts`) finds this checkout's hub by asking ports 4870-4879 for a new `/whoami` (the root's
 `Get-DevPreviewRootHash`, as the general server already answers) and relays each request, so the pages, their
-Home crumb and their refresh link all stay on the product's origin. The hub keeps answering both paths, for
+Home crumb and their refresh link all stay on the product's origin. The hub keeps answering the three paths, for
 that relay. The dev server computes the same hash in TypeScript, so the two must agree: the live check above
 compared them, and a change to the hash in `dev-preview-rules.ps1` has to land in `vite.config.ts` too.
 
@@ -79,5 +81,5 @@ N/A: the source repo's own dev servers; no consumer's hub or product changes.
 
 #### Pull Request
 
-The Connectors and Specialists pages move from the Repository to the product port
+The Connectors, Specialists and DKJ repos pages move from the Repository to the product port
 

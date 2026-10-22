@@ -95,16 +95,16 @@ async function relayToHub(req: IncomingMessage, res: ServerResponse, target: str
   up.end()
 }
 
-/** The product's pages the hub builds: each path, and the refresh that re-reads the connectors. */
+/** The product's pages the hub builds: each path, and the refresh that re-reads the connectors or the DKJ repos. */
 function hubTarget(path: string, query: string): string | null {
-  if (path === '/connectors' || path === '/specialists') return path
-  if (path === '/refresh' && /(^|&)page=connectors(&|$)/.test(query)) return '/refresh?page=connectors'
-  return null
+  if (path === '/connectors' || path === '/specialists' || path === '/dkj-repos') return path
+  const page = path === '/refresh' ? /(?:^|&)page=(connectors|dkj-repos)(?:&|$)/.exec(query) : null
+  return page ? `/refresh?page=${page[1]}` : null
 }
 
 /**
- * The product port starts at the root: in dev, '/' is root.html, a page linking the brand book, the connectors and
- * the specialists, and the two house files it loads are served beside it. The two live pages are relayed from the
+ * The product port starts at the root: in dev, '/' is root.html, a page linking the brand book, the connectors, the
+ * specialists and the DKJ repos, and the two house files it loads are served beside it. The three live pages are relayed from the
  * Repository, which builds them. Added before Vite's own middleware, so the base never sees these paths. Not in
  * the build, which is the brand book app alone.
  */

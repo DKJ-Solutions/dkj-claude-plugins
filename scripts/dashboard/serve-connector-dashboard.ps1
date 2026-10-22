@@ -13,10 +13,10 @@
     /brandbook too, so one brand book was visible on two ports; the owner put it on the product port alone
     (October 22, 2026), and /brandbook is a 404 here like any other path this server does not have.
 
-    /connectors AND /specialists ARE THE PRODUCT'S PAGES, BUILT HERE. The owner moved them to the product port
-    too (October 22, 2026): its dev server (productRoot in brandbook/vite.config.ts) links them on its root page
-    and relays each request here, finding this server by /whoami. So this server still answers both, for that
-    relay, and the Repository links neither.
+    /connectors, /specialists AND /dkj-repos ARE THE PRODUCT'S PAGES, BUILT HERE. The owner moved them to the
+    product port too (October 22, 2026): its dev server (productRoot in brandbook/vite.config.ts) links them on
+    its root page and relays each request here, finding this server by /whoami. So this server still answers
+    all three, for that relay, and the Repository links none of them.
 
     THE GENERAL PAGES ARE BUILT ELSEWHERE AND SERVED FROM HERE (#3119, #3168): Artifacts, Issues, Release
     notes and SessionStart belong to every repo, so the dkj-policy plugin builds them in a server of its own

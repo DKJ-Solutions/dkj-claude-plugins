@@ -3,13 +3,13 @@
     The Repository of this repo's dev server -- the home page on '/' and About this repo on '/about' (#3270) --
     and its own pages: the test-gate page (the per-suite CI
     durations, #3097), the Connectors and Specialists pages (the product's since October 22, 2026: its dev server
-    links and relays them, so the hub lists neither) and the DKJ repos page. No I/O -- the server
+    links and relays them, so the hub lists neither) and the DKJ repos page, the product's too. No I/O -- the server
     (scripts/dashboard/serve-connector-dashboard.ps1) measures and reads, and hands the results in, so every rule here is tested without a server.
 
 .DESCRIPTION
     THE HUB TAKES THE ONE FORM THE HOUSE STYLE LAYS DOWN ("The Repository", #3270): the home page is a portal --
     the bar with its one crumb, Home, the settings button, the intro with the repo's name as its h1, one link
-    to About this repo and the DKJ-Solutions section; About this repo holds the Pages block (the 'This repo'
+    to About this repo; About this repo holds the Pages block (the 'This repo'
     card linking the repo's own pages, then the General card), the facts and a footer note. This repo is no
     product and keeps no in-flight lists, so it has no Products section and no lists. The pages it links are Get-RepositoryPages, the
     ones only this repo has. The GENERAL pages -- Artifacts, Issues, Release notes and SessionStart, which
@@ -37,9 +37,9 @@
     measure-suites skill). A suite in scripts/tests that the file does not name is counted, because the
     gate charges it the largest recorded value.
 
-    THE DKJ REPOS PAGE (#3231) is this hub's own, and the one row of the home page's DKJ-Solutions section
-    (Get-RepositoryDkjPages): every DKJ-Solutions repo on GitHub, its checkout beside this repo, and the command
-    that opens Claude Code there. Find-DkjCheckouts is the one function in this file that reads the disk.
+    THE DKJ REPOS PAGE (#3231) is built here and is the product's, like Connectors and Specialists: the product's
+    root page links it and its dev server relays it (October 22, 2026). Every DKJ-Solutions repo on GitHub, its
+    checkout beside this repo, and the command that opens Claude Code there. Find-DkjCheckouts is the one function in this file that reads the disk.
 
     EVERY VALUE THAT REACHES THE PAGE IS ESCAPED, through connector-dashboard-lib's ConvertTo-DashboardText
     here and the plugin lib's own escape there (the two are the same five replacements).
@@ -86,9 +86,9 @@ function Get-RepositoryPages {
 
 function Format-RepositoryHtml {
     <#
-        The repo's home page on '/' (#3270): the repo's name as its h1, one link to About this repo, and the
-        DKJ-Solutions section -- this hub's own DKJ repos page. No brand book: that is the product port's
-        alone. Nothing on it comes from the general pages server, so it does not ask whether that one runs.
+        The repo's home page on '/' (#3270): the repo's name as its h1 and one link to About this repo. The
+        brand book, Connectors, Specialists and DKJ repos are the product port's (October 22, 2026), so they are
+        not here. Nothing on it comes from the general pages server, so it does not ask whether that one runs.
     #>
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')
@@ -105,9 +105,6 @@ function Format-RepositoryHtml {
     [void]$sb.AppendLine('<body>')
     [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName 'dkj-claude-plugins' -Lead 'The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.'))
     [void]$sb.Append((Format-RepoAboutLinkHtml))
-    # DKJ-Solutions: the shared card standing alone, with no server rows -- only the DKJ repos page this hub serves.
-    [void]$sb.Append((Format-GeneralPagesCardHtml -Pages @() -LocalPages @(Get-RepositoryDkjPages) -InRow $false -Heading 'DKJ-Solutions' `
-        -Title 'DKJ-Solutions' -HeadSub 'Every DKJ-Solutions repo, seen from this hub'))
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
     [void]$sb.AppendLine('</body>')
@@ -526,16 +523,6 @@ function Format-SpecialistsPageHtml {
     return Format-DevPageHtml -Title 'Specialists' -Style $script:DevBarStyle -Body $body.ToString() `
         -Lead 'Every specialist the dkj-subagents plugins ship, and how much context each one brings along: what every session pays for it, what it costs when it is called, and what its manual and lens add.' `
         -FooterNote ('Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Bytes are measured (hover a cell); tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.')
-}
-
-function Get-RepositoryDkjPages {
-    <#
-        The DKJ-Solutions pages only this hub has, listed in the hub's DKJ-Solutions card after the plugin's own
-        (#3231): this server answers them, so they are linked whether or not the general pages server runs.
-    #>
-    @(
-        @{ Href = '/dkj-repos'; Label = 'DKJ repos'; Sub = 'Every DKJ-Solutions repo: its checkout on this machine, its open issues, and a session to open there' }
-    )
 }
 
 function Find-DkjCheckouts {

@@ -428,7 +428,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             # suite-durations.json, so the test-gate page takes its failure path, and is still served.
             $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match '<h1>dkj-claude-plugins</h1>' -and $hub -match '<a class="menu-item" href="/about">') '/ serves the home page, linking About this repo (#3270)'
-            Assert-True ($hub -notmatch 'is not running' -and $hub -notmatch 'href="/brandbook' -and $hub -match 'href="/dkj-repos"') 'the home page names no general pages server and no brand book: its DKJ-Solutions section is the DKJ repos page this hub serves'
+            Assert-True ($hub -notmatch 'is not running' -and $hub -notmatch 'href="/brandbook' -and $hub -notmatch 'href="/dkj-repos"') 'the home page names no general pages server, no brand book and no DKJ repos: those are the product''s'
             $about = if ($up) { Get-Raw 'GET' '/about' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($about -match 'HTTP/1.1 200' -and $about -match '<h1>About this repo</h1>' -and $about -match '<a class="menu-item" href="/test-gate">' -and $about -notmatch 'href="/connectors"' -and $about -notmatch 'href="/specialists"' -and $about -match '<a href="/">Home</a>') '/about serves About this repo, linking the pages below the hub, its trail starting at Home'
             Assert-True ($about -match 'The general pages server is not running' -and $about -notmatch 'href="http://localhost') 'and its General card says the general pages server is not running too'
