@@ -131,6 +131,7 @@
                        "guards":  "the CI workflows, the shards, the suite runner and its fixtures, and the scheduled checks on the repo's settings and stranded PRs",
                        "suites":  [
                                       "ci-merge-skip-lib.tests.ps1",
+                                      "ci-suite-selection-lib.tests.ps1",
                                       "ci-shard.tests.ps1",
                                       "fixture-git-lib.tests.ps1",
                                       "fixture-lib-deps.tests.ps1",
@@ -148,7 +149,7 @@
                                     "A suite red under the gate and green alone is evidence about the run first: re-run it alone before hunting the failure.",
                                     "Durations come from CI logs via scripts/maintenance/record-suite-durations.ps1, never from a workstation."
                                 ],
-                       "split":  "the suite runner and its fixtures (test-suite-gate, ci-shard, suite-durations-lib, the three fixture libs), and the CI workflows with their scheduled checks (workflow-concurrency, workflow-timeouts, merge-queue-prereq, ci-merge-skip-lib, repo-settings, stranded and unshipped PRs)."
+                       "split":  "the suite runner and its fixtures (test-suite-gate, ci-shard, suite-durations-lib, the three fixture libs), and the CI workflows with their scheduled checks (workflow-concurrency, workflow-timeouts, merge-queue-prereq, ci-merge-skip-lib, ci-suite-selection-lib, repo-settings, stranded and unshipped PRs)."
                    },
                    {
                        "key":  "hooks",

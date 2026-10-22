@@ -28,6 +28,7 @@
     FAIL-CLOSED: any read that fails, or any event that is not pull_request, answers 'full'. The rules
     themselves are in scripts/lib/ci-suite-selection-lib.ps1.
 #>
+[CmdletBinding()]
 param(
     # 1-based shard of the suites matrix; 0 for a job outside it (the Linux leg).
     [int]$Shard = 0
