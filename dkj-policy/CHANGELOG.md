@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**5 / 6 minor entries** <!-- pending-tally -->
+**6 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3283-ownhub-product · 20261022-081936Z
+
+A repo that serves its own Repo hub (`OwnHub = $true` in `Get-DevPreview`) can now also state a
+product beside it, as a nested `Product = @{ Command; Ports; Path; Requires; WaitSeconds }` (#3283).
+The dev-preview hook starts or reuses both and hands out both links on its one line:
+`Repo hub: http://localhost:4870/ (started) -- product: http://localhost:5173/brandbook/ (started)`.
+A product that cannot start is named beside the hub's link and costs nothing else. A `Product` without
+`OwnHub`, or one whose ports overlap the hub's, is refused with the reason. This repo now states the
+brand book's Vite dev server as its product, next to the connector dashboard.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A repo that runs its own hub no longer has to choose between that hub and a link to its product at
+session start: one `Product` block in `scripts/repo-config.ps1` adds the second link.
+
+**Score:** 3
+
+#### Pull Request
+
+Repo hub: a repo with OwnHub can state a product beside it
+
+Plugins: dkj-policy
+
+[PR #3284](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3284)
+
+---
 
 ### DEPLOY: docs/close-first-recurrence · 20261021-215855Z
 
