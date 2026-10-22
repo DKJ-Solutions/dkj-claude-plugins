@@ -359,6 +359,12 @@ p, p.meta { color: var(--fg-1); }
 .facts > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--spacing-4); padding: var(--spacing-1-5) 0; border-bottom: 1px solid var(--paper-3); }
 .facts dt { min-width: 0; color: var(--fg-1); }
 .facts dd { margin: 0; white-space: nowrap; font-weight: 600; text-align: right; }
+/* .facts--row: the same list as one row on the page, not in a card (owner, October 22, 2026): each fact its label
+   small and muted over its value, no surface and no lines, so it reads as information and never as a link. It wraps. */
+.facts--row { display: flex; flex-wrap: wrap; gap: var(--spacing-3) var(--spacing-8); }
+.facts--row > div { flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: var(--spacing-0-5); padding: 0; border-bottom: 0; }
+.facts--row dt { font-size: var(--text-sm); color: var(--muted); }
+.facts--row dd { text-align: left; }
 
 /* ---- Legend and swatches -------------------------------------------------- */
 /* Set the colour per item with style="--c: var(--cat-1)". */

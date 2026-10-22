@@ -427,7 +427,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             # The Repository on '/' and the pages under it (#3097). The fixture has no
             # suite-durations.json, so the test-gate page takes its failure path, and is still served.
             $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match 'site-header__name">dkj-claude-plugins' -and $hub -match 'Marketplace: dkj-claude-plugins' -and $hub -notmatch 'href="/about"') '/ serves the home page, holding what was About this repo'
+            Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match 'site-header__name">dkj-claude-plugins' -and $hub -match '<dl class="facts facts--row">' -and $hub -notmatch 'href="/about"') '/ serves the home page, holding what was About this repo'
             Assert-True ($hub -match 'The general pages server is not running' -and $hub -notmatch 'href="/brandbook' -and $hub -notmatch 'href="/dkj-repos"') 'its General card says the general pages server is not running while no state file names one, and it links no brand book and no DKJ repos: those are the product''s'
             $about = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($about -match 'HTTP/1.1 200' -and $about -match '<a class="menu-item" href="/test-gate">' -and $about -notmatch 'href="/connectors"' -and $about -notmatch 'href="/specialists"') 'the home page links the pages below the hub: Test gate, and neither of the product''s'

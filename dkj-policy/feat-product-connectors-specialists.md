@@ -65,6 +65,7 @@ product finds the hub by asking its ports for `/whoami`.
 - [x] Then Test gate its own card too (the owner, same day): the This repo card and its h3 go, every page is one card, this repo's first
 - [x] Then no heading above the page cards (the owner, same day): the Pages `grid__head` goes, so the home page carries no `h2`
 - [x] Then the facts as one quiet line (the owner, same day; chosen from a menu): a `footer-note` above the page's own, since every card on the page is a link and the facts are not
+- [x] Then readable after all (the owner, same day; chosen from a menu): `.facts--row` in the house style, each fact its label small over its value, on one wrapping row with no surface, replacing the quiet line; README line and checksum
 
 ### TEST
 
@@ -89,9 +90,9 @@ high on the theme's primary, the DKJ wordmark and the repo's name on the left as
 button on the far right. The breadcrumb bar stands right under it, on the paper with a subtle line, and the
 eyebrow above each `h1` is gone, since the header names the site. The page shell in dkj-policy draws the
 header only for a caller that passes `-Brand`, so every other repo's pages are unchanged, and in the house
-style a breadcrumb bar changes colour only right under a site header. The house style also gains `.grid-3`, `.grid-2`'s group three to a row. The header says `repository` after the name on the hub and`nproduct` on the product port, and both ports open in the same theme (lilac, one theme key).
+style a breadcrumb bar changes colour only right under a site header. The house style also gains `.grid-3`, `.grid-2`'s group three to a row, and `.facts--row`, the facts as one row on the page. The header says `repository` after the name on the hub and`nproduct` on the product port, and both ports open in the same theme (lilac, one theme key).
 
-The house style's largest heading is now 32px: `--text-h1` came down from 48px to `h2`'s size, the hero figure with it, so a page fits more on a 900px-high screen; `h1` stands apart by its capitals and colour. On the two home pages the `h1` repeated the name the header shows, so under a site header the home page has no intro at all: no `h1`, no lead, `<main>` opens on its first block. And the hub is one page now: its home holds everything About this repo held (every page as a card of its own, three to a row and with no heading above them, the facts as one quiet line rather than a card, since every card is a link, the footer note), and `/about` sends an old link on to `/`.
+The house style's largest heading is now 32px: `--text-h1` came down from 48px to `h2`'s size, the hero figure with it, so a page fits more on a 900px-high screen; `h1` stands apart by its capitals and colour. On the two home pages the `h1` repeated the name the header shows, so under a site header the home page has no intro at all: no `h1`, no lead, `<main>` opens on its first block. And the hub is one page now: its home holds everything About this repo held (every page as a card of its own, three to a row and with no heading above them, the facts as one row of label-over-value (`.facts--row`, new in the house style) rather than a card, since every card is a link, the footer note), and `/about` sends an old link on to `/`.
 
 **Score:** 2
 

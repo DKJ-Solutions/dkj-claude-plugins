@@ -465,7 +465,7 @@ the page header (`body > header`, `main > header`, with `.header--accent`) and i
 sortable headers via `.sort`/`.arrow` on `aria-sort`), `.seg` (a segmented switch), `.legend`/`.legend__item` (with
 `--line`), `.swatch`, `.badge` (with `--good`, `--warn`, `--bad`, `--info`, `--neutral`, `--sm`),
 `.badge-row`, `.badge-list` (a `<ul>` of `.badge-row` items), `.meter` (with `--good`, `--warn`, `--bad`, `--info`), `.mini-cards`/`.mini-card` (with
-`--highlight`), `.item-grid`/`.item`, `.notice`, `.note`, `.meta`, `.muted`, `.sub`, `.eyebrow`, `.lead`, `.msg` (with `--warn`), `.facts`, `.fill-primary`, `.fill-inverse`, `.page-column`, `.page-cta`, `.num` (tabular
+`--highlight`), `.item-grid`/`.item`, `.notice`, `.note`, `.meta`, `.muted`, `.sub`, `.eyebrow`, `.lead`, `.msg` (with `--warn`), `.facts` (with `--row`: the facts as one row on the page, label over value, no card), `.fill-primary`, `.fill-inverse`, `.page-column`, `.page-cta`, `.num` (tabular
 numerals), `.delta` (with `--up`/`--down`, aliased `.pos`/`.neg`), `.btn` (with `--primary`, and a `:disabled` state for both), `.info-button`, `.tooltip`
 (with `--explain`, and `--open` for one anchored to a trigger), `.more` (a disclosure), `.moretoggle` (a full-width read-more button), `.chart` (the SVG chart scope),
 `.theme-picker` (with `__row`, `__label`, `__swatches`), `.theme-swatch` (with `--light`, `--dark`) and
