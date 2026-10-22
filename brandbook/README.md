@@ -11,9 +11,9 @@ of its own: it reads the one copy in
 where it lives (`src/main.tsx` imports the stylesheet, `vite.config.ts` inlines the theme script, and
 `scripts/lint/house-path.mjs` names it for the checks). A change to the house style is made there, not here.
 
-## Where to see it: the Repo hub, at `/brandbook/`
+## Where to see it: the Repository, at `/brandbook/`
 
-**This is the one brand book.** The Repo hub (`scripts/dashboard/serve-connector-dashboard.ps1`, started at
+**This is the one brand book.** The Repository (`scripts/dashboard/serve-connector-dashboard.ps1`, started at
 session start) serves this app's build at `http://localhost:<hub port>/brandbook/`; the hub's own PowerShell
 Brandbook page it replaces is gone, and its themes table and class list live here now. Before it serves the page,
 the hub rebuilds the app when anything it is built from is newer than `dist/` -- `src/`, `public/`, the config, or
@@ -27,7 +27,7 @@ and copies `dist/` into the `dkj-solutions` plugin's `assets/brandbook/` in the 
 serves that folder at `/brandbook/`. So a change here reaches consumers with the next release, never before.
 
 The app is built for the base `/brandbook/` (`vite.config.ts`): the showcase is its one page, and the "Home" crumb
-goes to the real hub on `/`. It drew a Repo hub specimen and previews of other repos' hubs until #3274; the hub's form
+goes to the real hub on `/`. It drew a Repository specimen and previews of other repos' hubs until #3274; the hub's form
 is the house-style README's, with its two stylesheet-only patterns.
 
 ## Work on it

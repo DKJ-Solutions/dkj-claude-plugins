@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Serve this repo's dev server on http://localhost:<Port>/ -- the Repo hub on '/', which links the
+    Serve this repo's dev server on http://localhost:<Port>/ -- the Repository on '/', which links the
     pages below it (#3097): /connectors, every repo registered under connectors/ with its plugins, its
     local checkout and what check-connectors.ps1 reports for it on this machine (#2976); /specialists, every
     specialist the dkj-subagents plugins ship and the context each one costs, read from this tree; /test-gate,
@@ -40,7 +40,7 @@
 
 .DESCRIPTION
     Normally started by the dkj-policy dev-preview SessionStart hook, through this repo's
-    Get-DevPreview in scripts/repo-config.ps1, which states OwnHub = $true (#3245): the plugin serves a Repo hub
+    Get-DevPreview in scripts/repo-config.ps1, which states OwnHub = $true (#3245): the plugin serves a Repository
     of its own in every other repo, and this repo's connector dashboard is its hub instead; it can be started by hand the same way:
 
         powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dashboard\serve-connector-dashboard.ps1 -Port 4870
@@ -395,14 +395,14 @@ try {
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html') {
-                $html = Format-RepoHubHtml -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
+                $html = Format-RepositoryHtml -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
                 $body = $utf8.GetBytes($html)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }
             if ($path -eq '/about') {
                 # The repo itself: its pages, the general ones and its facts (#3270).
-                $html = Format-RepoAboutHtml -Pages (Get-RepoHubPages) -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' }) -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
+                $html = Format-RepoAboutHtml -Pages (Get-RepositoryPages) -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' }) -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }

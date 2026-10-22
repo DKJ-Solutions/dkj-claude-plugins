@@ -11,14 +11,14 @@ group: 04
 ## Specific to this repo (claude-code-specialists)
 
 **Cody's domain here is the brand book app, [`brandbook/`](../../../brandbook/README.md)**: the React +
-TypeScript + Vite showcase of the house style. It was first work for him on October 21, 2026, when its Repo hub
+TypeScript + Vite showcase of the house style. It was first work for him on October 21, 2026, when its Repository
 specimen and hub previews were removed ([#3274](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3274)):
 the hub's form lives in the house-style README and its stylesheet-only patterns alone.
 
 - **The app takes no house style of its own.** It reads the one copy in
   `plugins/dkj-policy/dkj-solutions/assets/house-style/`, and a change to a token, a theme or a house class is
   made there (Gwen's domain, [her lens](specialist-04-12-lens.md)), never in the app's `brand-layer.css`.
-- **The app draws no Repo hub.** The hub's form is laid down in that folder's `README.md`, "The Repo hub", and
+- **The app draws no Repository.** The hub's form is laid down in that folder's `README.md`, "The Repository", and
   its two stylesheet-only patterns; a second rendering here is the duplicate #3274 removed.
 - **The gate is `npm run gate`** in `brandbook/` (eslint, CSS syntax, custom properties, colour tokens, build),
   and CI runs it as `brandbook-gate`. Run it before the hand-over: the PowerShell gate does not build the app.

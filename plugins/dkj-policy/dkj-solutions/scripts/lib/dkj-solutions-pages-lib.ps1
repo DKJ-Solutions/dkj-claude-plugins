@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-    The DKJ-SOLUTIONS pages of a Repo hub -- the Brandbook, and the hub's "DKJ-Solutions" card that links
+    The DKJ-SOLUTIONS pages of a Repository -- the Brandbook, and the hub's "DKJ-Solutions" card that links
     it (#3132, #3198). No I/O: the general pages server reads the files and hands their paths or text in, so
     every rule here is tested without a server.
 
 .DESCRIPTION
-    WHY THIS IS NOT IN DKJ-POLICY WITH THE REST. The general pages server, which is every repo's Repo hub
+    WHY THIS IS NOT IN DKJ-POLICY WITH THE REST. The general pages server, which is every repo's Repository
     (#3245), and the dev-preview hook live in dkj-policy, which every repo runs (#3198, the owner's decision of October 20,
     2026). The house style belongs to the DKJ-Solutions repos alone, so its page and its card stay in this
     plugin, and a hub shows them only in a repo that enables dkj-solutions (Test-DkjSolutionsEnabled in
@@ -19,7 +19,7 @@
     built for. So a consumer sees the brand book of the release it runs, and the page is the app's alone.
 
     IT IS LOADED, NOT LOADING. Its callers -- dkj-policy's hub/pages/serve-general-pages.ps1 and
-    hub/lib/repo-hub-page.ps1, and the source repo's scripts/lib/dev-pages-lib.ps1 -- dot-source
+    hub/lib/repository-page.ps1, and the source repo's scripts/lib/dev-pages-lib.ps1 -- dot-source
     dkj-policy's general-pages-lib.ps1 first, and this file then uses its page shell (Format-GeneralPageHtml,
     Format-GeneralPagesCardHtml, ConvertTo-GeneralPageText and $script:DevBarStyle). It dot-sources nothing
     itself: in the plugin cache this plugin's own folder has no dkj-policy beside it.

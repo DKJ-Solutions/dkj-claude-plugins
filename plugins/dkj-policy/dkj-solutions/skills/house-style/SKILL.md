@@ -28,7 +28,7 @@ always pins the release that carries the bytes its checksums name.
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.28.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css` | `78950c55b1c49b7fa364b1da2a76f6631beb0d4138d45a00d151125fef0d237d` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.28.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css` | `c7c278cb99c0ecf33419cb3a061981def60328a865e31045c43fede60939ad9e` |
 | `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.28.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-theme.js` | `24ed94dd5f096274826bbdc47ff63f29932369f6bd55f2b47ab9ece25a09599f` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
@@ -63,7 +63,7 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    way it is a copy of the house-style file, never a retyped version. An app that offers a theme choice
    uses `DKJTheme.settings(el)` from that script, the round settings button with the picker inside,
    instead of building its own toggle around `DKJTheme.picker`; the README has its options.
-   **A Repo hub** (a repo's dev server's home page on `/` and its About this repo page on `/about`, #3270;
+   **A Repository** (a repo's dev server's home page on `/` and its About this repo page on `/about`, #3270;
    the dkj-policy plugin serves one in every repo that does not opt out, with the repo's own server in its
    Products section, #3245) **takes the one form the README lays down under "Page patterns", "The Repo
    hub"**: its blocks and their order, with only the content the repo's own. The home page is a portal:
@@ -147,7 +147,7 @@ DKJ-Solutions app the next time it takes a copy, so the branch stops for the own
 merging.
 
 **There is one canonical copy of the files, and it is that folder.** The source repo's connector dashboard
-and the plugin's own Repo hub (the general pages server, which serves every repo's hub unless the repo opts out with `OwnHub`) both read it in place, so
+and the plugin's own Repository (the general pages server, which serves every repo's hub unless the repo opts out with `OwnHub`) both read it in place, so
 no second copy needs replacing by hand
 ([#2989](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2989),
 [#3047](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3047)). The table above guards two

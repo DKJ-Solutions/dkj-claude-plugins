@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    The GENERAL pages every repo's Repo hub links -- Artifacts, Issues, Release notes and SessionStart --
+    The GENERAL pages every repo's Repository links -- Artifacts, Issues, Release notes and SessionStart --
     and the page shell, formatters and rules behind them (#3119). No I/O: the server
     (hub/pages/serve-general-pages.ps1) measures and reads, and hands the results in, so every rule
     here is tested without a server.
@@ -140,14 +140,14 @@ function Format-GeneralPageHtml {
     return $sb.ToString()
 }
 
-function Format-RepoHubBanner {
+function Format-RepositoryBanner {
     <#
-        The Repo hub's general banner (#3250, Dave, October 21, 2026): a countdown to the next full hour,
+        The Repository's general banner (#3250, Dave, October 21, 2026): a countdown to the next full hour,
         and once an hour has passed a checkbox for '10 airsquats', with a short tone when it comes due.
         The countdown keeps running whether or not the box is ticked, and every hour that passes unticked
         adds another 10, so the box shows the total owed; ticking it clears the total.
 
-        ONE FUNCTION, CALLED BY BOTH HUB INDEXES -- the source repo's Format-RepoHubHtml and the
+        ONE FUNCTION, CALLED BY BOTH HUB INDEXES -- the source repo's Format-RepositoryHtml and the
         placeholder's Format-DevPreviewPlaceholderHtml -- so the two hubs carry the same banner. It sits
         directly under the intro, inside <main>, and uses house classes only (.notice, .msg, .num), because
         the hub restyles nothing.
@@ -168,7 +168,7 @@ function Format-RepoHubBanner {
 (function () {
   var box = document.getElementById("hub-banner");
   if (!box) { return; }
-  var KEY = "dkj-repo-hub-airsquats", HOUR = 3600000, AWAY = 120000, PER = 10;
+  var KEY = "dkj-repository-airsquats", HOUR = 3600000, AWAY = 120000, PER = 10;
   var timer = box.querySelector("[data-hub-timer]"), due = box.querySelector("[data-hub-due]");
   var done = box.querySelector("[data-hub-done]"), count = box.querySelector("[data-hub-count]");
   function load() { try { var s = JSON.parse(localStorage.getItem(KEY)) || {}; return { owed: s.owed | 0, tick: +s.tick || 0 }; } catch (e) { return { owed: 0, tick: 0 }; } }
@@ -202,7 +202,7 @@ function Format-RepoHubBanner {
 }
 
 # The Pages row's chevron, the brand book's own svg (patterns/repo-dashboard.html at v0.3.0).
-$script:RepoHubChevron = '<svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+$script:RepositoryChevron = '<svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 
 function Get-GeneralPages {
     <#
@@ -268,7 +268,7 @@ function Format-GeneralPagesCardHtml {
         [void]$sb.AppendLine('<nav class="menu-list" aria-label="' + (& $e $Heading) + ' pages">')
         foreach ($p in $rows) {
             $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
-            [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e $p.Href) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a>')
+            [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e $p.Href) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepositoryChevron + '</a>')
         }
         [void]$sb.AppendLine('</nav>')
     }
@@ -297,7 +297,7 @@ function Format-RepoHomeHeadHtml {
     [void]$sb.AppendLine('<h1>' + $RepoName + '</h1>')
     [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>')
     [void]$sb.AppendLine('</div>')
-    [void]$sb.AppendLine((Format-RepoHubBanner))
+    [void]$sb.AppendLine((Format-RepositoryBanner))
     return $sb.ToString()
 }
 
@@ -311,7 +311,7 @@ function Format-RepoAboutLinkHtml {
     [void]$sb.AppendLine('<div class="grid__head"><h2>About this repo</h2><p class="card__sub">The repo itself rather than what it offers</p></div>')
     [void]$sb.AppendLine('<section class="card grid__full">')
     [void]$sb.AppendLine('<nav class="menu-list" aria-label="About this repo">')
-    [void]$sb.AppendLine('<a class="menu-item" href="/about"><span class="menu-item__label">About this repo<span class="menu-item__sub">Its pages, the general pages every repo has, and its facts</span></span>' + $script:RepoHubChevron + '</a>')
+    [void]$sb.AppendLine('<a class="menu-item" href="/about"><span class="menu-item__label">About this repo<span class="menu-item__sub">Its pages, the general pages every repo has, and its facts</span></span>' + $script:RepositoryChevron + '</a>')
     [void]$sb.AppendLine('</nav>')
     [void]$sb.AppendLine('</section>')
     [void]$sb.AppendLine('</div>')

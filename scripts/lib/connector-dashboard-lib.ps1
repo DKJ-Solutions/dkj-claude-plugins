@@ -287,7 +287,7 @@ function Format-ConnectorDashboardHtml {
         The whole page. -Connectors is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
         (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Trunk; Subject; When }
         or $null); Notes }. -Meta is @{ GeneratedAt; Seconds; CheckFailed }.
-        It is the Connectors page under the Repo hub on '/' (#3097): a two-crumb trail and its own h1. The
+        It is the Connectors page under the Repository on '/' (#3097): a two-crumb trail and its own h1. The
         facts card belongs to the hub, so this page ends on its footer note.
     #>
     param(
@@ -314,7 +314,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The repo layer: only names the house file does not define (.cd-*), spaced from the house scale.
-    # The page keeps the Repo hub's frame (breadcrumb bar, settings button, intro, page column; #3066), so
+    # The page keeps the Repository's frame (breadcrumb bar, settings button, intro, page column; #3066), so
     # this layer styles only what is inside its cards, never the blocks the house style fixes.
     [void]$sb.AppendLine('<style>')
     # The links take the house highlight (--primary), the tinted head and the lines --paper-3, and the notes --muted.
@@ -343,7 +343,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
-    # The breadcrumb bar: first in <body> on every dev-server page, its trail from the Repo hub to this page.
+    # The breadcrumb bar: first in <body> on every dev-server page, its trail from the Repository to this page.
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
     [void]$sb.AppendLine('<li><a href="/">Home</a></li>')
     [void]$sb.AppendLine('<li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span><span aria-current="page">Connectors</span></li>')

@@ -227,7 +227,7 @@
                    {
                        "key":  "pages",
                        "title":  "The dev server pages",
-                       "guards":  "the Repo hub and its pages, the server that serves them, the hook that starts it and the live issue dashboard",
+                       "guards":  "the Repository and its pages, the server that serves them, the hook that starts it and the live issue dashboard",
                        "suites":  [
                                       "connector-dashboard.tests.ps1",
                                       "dev-pages.tests.ps1",

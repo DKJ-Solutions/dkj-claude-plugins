@@ -224,7 +224,7 @@ function PageRows({ pages, label }: { pages: readonly Page[]; label: string }) {
 }
 
 /**
- * PageLinks -- the Repo hub's Pages block: one link row per page (label, an optional one-line description beneath it, a
+ * PageLinks -- the Repository's Pages block: one link row per page (label, an optional one-line description beneath it, a
  * chevron at the end), a line between rows. It uses the house `.menu-item` rows (house-style.css, loaded globally) and
  * renders nothing without pages.
  * One group only (either): one data card titled "Pages". With both pages and generalPages (the pages every DKJ-Solutions repo serves, #206): the
