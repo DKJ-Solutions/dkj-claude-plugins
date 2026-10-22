@@ -48,6 +48,7 @@ out a step brighter than its red sibling. Take it down to `#2b1f0c` (about 0.015
 
 - [x] Set the dark `--warning-1` to `#2b1f0c` in both dark blocks of `house-style.css` (the OS-following
   one and the forced one)
+- [x] Move the `house-style` skill's sha256 pin for `house-style.css` to the new file
 - [~] The brandbook build under `assets/brandbook/` still carries the old value: it is rebuilt by the
   release (`Get-ReleaseBuilds`), never by hand
 
