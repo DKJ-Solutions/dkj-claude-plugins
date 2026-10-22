@@ -199,7 +199,7 @@ body > header, main > header { display: flex; justify-content: space-between; al
    rhythm. .card, .tiles, .notice and .footer-note carry a margin-top of their own, which would add to the gap, so a
    direct child of the column gives it up. .page-cta is the spacing of a primary button under the lead (a <p> that holds
    the button). */
-.page-column { display: grid; gap: var(--spacing-5); align-content: start; }
+.page-column { display: grid; gap: var(--spacing-5); align-content: start; padding: var(--spacing-4) var(--spacing-4) var(--spacing-12); }
 .page-column > .card, .page-column > .tiles, .page-column > .notice, .page-column > .footer-note { margin-top: 0; }
 /* An in-page anchor in the column lands with room above it, clear of the settings button (#156). */
 .page-column [id] { scroll-margin-top: 5rem; }

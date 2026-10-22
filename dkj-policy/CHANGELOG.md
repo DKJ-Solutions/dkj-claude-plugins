@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**7 / 11 minor entries** <!-- pending-tally -->
+**8 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3303-page-column-padding · 20261022-213405Z
+
+The house style's page column (`.page-column`) sits closer under the header: it takes its own padding
+of `--spacing-4` on top, sides `--spacing-4` and `--spacing-12` at the bottom, where `<main>` gave it
+`--spacing-6` on top (#3303).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions app that takes the new `house-style.css` gets the tighter top on every page built on
+`.page-column` without changing anything of its own.
+
+**Score:** 2
+
+#### Pull Request
+
+The page column sits closer under the header: .page-column takes its own padding
+
+Plugins: dkj-solutions
+
+[PR #3310](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3310)
+
+---
 
 ### DEPLOY: fix/3302-warning-1-darker-on-dark · 20261022-211931Z
 
