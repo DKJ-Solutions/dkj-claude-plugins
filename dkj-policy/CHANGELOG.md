@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**5 / 8 minor entries** <!-- pending-tally -->
+**6 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3301-site-header-mark-hugs-initials · 20261022-200117Z
+
+The site header's mark ([#3301](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3301)) was a fixed
+40px square with 12px initials in it, so most of it was empty space above and below the letters. It now sizes to
+its initials: a thin padding round a `--text-h2` line, which makes the letters, and the mark, larger. The same
+re-pin of [`house-style.css`](../plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css) carries
+[#3299](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3299): two comments that still called the
+hub "the Repository" now say "the hub's".
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Every page with a site header (each repo's hub, the brand book, and any app that uses the pattern) shows a
+larger mark whose edges sit close to its initials. It is noticed when somebody points it out.
+
+**Score:** 2
+
+#### Pull Request
+
+The site header's mark hugs its initials, and is larger
+
+Plugins: dkj-solutions
+
+[PR #3305](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3305)
+
+---
 
 ### DEPLOY: fix/3294-hub-not-repository · 20261022-193830Z
 
