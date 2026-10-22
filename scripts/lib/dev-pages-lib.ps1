@@ -55,9 +55,11 @@
 function Format-DevPageHtml {
     <#
         The whole page around -Body, for this repo's own pages (the Test gate): the plugin's page shell with
-        this repo's eyebrow and title, its theme key (the general pages' own, so a theme picked on one page
+        this repo's site header and title, its theme key (the general pages' own, so a theme picked on one page
         holds on every page this server serves, the general pages it relays included, #3168) and the Repo
-        hub crumb on '/'.
+        hub crumb on '/'. -BrandTag is the word after the name in the header: 'repository' for the hub's own
+        pages, 'product' for the pages the product port relays (Specialists, DKJ repos), so it names the port
+        they are seen on.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Title,
@@ -65,10 +67,11 @@ function Format-DevPageHtml {
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Body,
         [AllowEmptyString()][string]$Style = '',
         [AllowEmptyString()][string]$FooterNote = '',
-        [string]$ThemeKey = 'general-pages'
+        [string]$ThemeKey = 'general-pages',
+        [ValidateSet('repository', 'product')][string]$BrandTag = 'repository'
     )
     return Format-GeneralPageHtml -Title $Title -Lead $Lead -Body $Body -Style $Style -FooterNote $FooterNote -ThemeKey $ThemeKey `
-        -Brand 'dkj-claude-plugins' -SiteName 'dkj-claude-plugins' -HubHref '/'
+        -Brand 'dkj-claude-plugins' -BrandTag $BrandTag -SiteName 'dkj-claude-plugins' -HubHref '/'
 }
 
 function Get-RepositoryPages {
@@ -103,7 +106,7 @@ function Format-RepositoryHtml {
     # row (.grid__full) and a card's margin inside a .grid-2 are the house style's own since #3133.
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
-    [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName 'dkj-claude-plugins' -Brand 'dkj-claude-plugins' -Lead 'The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.'))
+    [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName 'dkj-claude-plugins' -Brand 'dkj-claude-plugins' -BrandTag 'repository' -Lead 'The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.'))
     [void]$sb.Append((Format-RepoAboutLinkHtml))
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
@@ -520,7 +523,7 @@ function Format-SpecialistsPageHtml {
     [void]$body.AppendLine('</section>')
     [void]$body.AppendLine('</div>')
     $factor = $CharsPerToken.ToString('0.00', $inv)
-    return Format-DevPageHtml -Title 'Specialists' -Style $script:DevBarStyle -Body $body.ToString() `
+    return Format-DevPageHtml -Title 'Specialists' -BrandTag 'product' -Style $script:DevBarStyle -Body $body.ToString() `
         -Lead 'Every specialist the dkj-subagents plugins ship, and how much context each one brings along: what every session pays for it, what it costs when it is called, and what its manual and lens add.' `
         -FooterNote ('Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Bytes are measured (hover a cell); tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.')
 }
@@ -703,7 +706,7 @@ function Format-DkjReposPageHtml {
         '.dr-sessions code { flex: 1 1 24ch; font-size: var(--text-xs); overflow-wrap: anywhere; }'
     ) -join "`n"
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
-    return Format-DevPageHtml -Title 'DKJ repos' -Style $style -Body $body.ToString() `
+    return Format-DevPageHtml -Title 'DKJ repos' -BrandTag 'product' -Style $style -Body $body.ToString() `
         -Lead 'Every DKJ-Solutions repo on GitHub, where it is checked out on this machine, and a Claude Code session to open there. Work in a repo runs in that repo, and an issue for it is filed there.' `
         -FooterNote ('Read from GitHub (one <code>gh api graphql</code> call) and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="dr-link" href="/refresh?page=dkj-repos">read again</a>). Nothing here is written to this repo.')
 }

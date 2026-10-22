@@ -238,7 +238,7 @@ $grouped = Format-ConnectorDashboardHtml -Connectors @(
 $iB = $grouped.IndexOf('id="group-bwj"'); $iD = $grouped.IndexOf('id="group-dkj"'); $iO = $grouped.IndexOf('id="group-other"')
 Assert-True ($iB -ge 0 -and $iB -lt $iD -and $iD -lt $iO) 'the groups come BWJ, DKJ, Other -- owner order beats status order'
 Assert-True ($iO -lt $grouped.IndexOf('id="repo-someone-x"')) 'a repo sits under its own group heading'
-Assert-True ($grouped -match '<h1>Connectors</h1>' -and $grouped -match 'site-header__name">dkj-claude-plugins</span>') 'the h1 is Connectors, and the site header names this repo'
+Assert-True ($grouped -match '<h1>Connectors</h1>' -and $grouped -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span></span>') 'the h1 is Connectors, and the site header names this repo''s product, the port that relays the page'
 Assert-Equal 1 ([regex]::Matches($grouped, '<div class="grid-2" id="overview">\r?\n<div class="grid__head"><h2>Connected repos</h2>')).Count 'the overview stays one card, its h2 Connected repos above it (#3175)'
 $oB = $grouped.IndexOf('id="overview-bwj"'); $oD = $grouped.IndexOf('id="overview-dkj"'); $oO = $grouped.IndexOf('id="overview-other"')
 Assert-True ($grouped.IndexOf('<h2>Connected repos</h2>') -lt $oB -and $oB -lt $oD -and $oD -lt $oO -and $oO -lt $iB) 'inside Connected repos a table per group, BWJ, DKJ, Other, before the Status cards'

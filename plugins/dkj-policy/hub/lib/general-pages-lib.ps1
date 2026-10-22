@@ -86,7 +86,7 @@ function Format-GeneralPageHtml {
         answers it itself (#3168). -Style is the page's own layer, names the house file does not define. -Lead and
         -FooterNote are markup the caller has escaped. -Brand opts into the house site header (Format-SiteHeaderHtml):
         the app's name on the primary above the bar, linking -HubHref, with the settings button in it; the eyebrow
-        then goes, since the header already names the site. Without it the page is as it always was.
+        then goes, since the header already names the site. -BrandTag is the word after the name. Without it the page is as it always was.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Title,
@@ -98,7 +98,8 @@ function Format-GeneralPageHtml {
         [AllowEmptyString()][string]$Eyebrow = '',
         [AllowEmptyString()][string]$SiteName = '',
         [string]$HubHref = '/hub',
-        [AllowEmptyString()][string]$Brand = ''
+        [AllowEmptyString()][string]$Brand = '',
+        [AllowEmptyString()][string]$BrandTag = ''
     )
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $site = if ($SiteName) { (& $e $SiteName) + ' -- ' } else { '' }
@@ -123,7 +124,7 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
-    if ($Brand) { [void]$sb.Append((Format-SiteHeaderHtml -Name $Brand -Href $HubHref)) }
+    if ($Brand) { [void]$sb.Append((Format-SiteHeaderHtml -Name $Brand -Href $HubHref -Tag $BrandTag)) }
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
     [void]$sb.AppendLine('<li><a href="' + (& $e $HubHref) + '">Home</a></li>')
     [void]$sb.AppendLine('<li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span><span aria-current="page">' + (& $e $Title) + '</span></li>')
@@ -287,13 +288,16 @@ function Format-SiteHeaderHtml {
     <#
         The house site header (house-style.css, "Site header"): the app's mark and -Name on the primary, linking -Href
         (home), and the settings button's mount (#settings) on the far right. The mark is a wordmark, the
-        organisation's initials, until the app has a logo of its own. -Name is escaped here.
+        organisation's initials, until the app has a logo of its own. -Tag is the quieter word after the name
+        ('repository', 'product'), left out when empty. Both are escaped here.
     #>
-    param([Parameter(Mandatory = $true)][string]$Name, [string]$Href = '/')
+    param([Parameter(Mandatory = $true)][string]$Name, [string]$Href = '/', [AllowEmptyString()][string]$Tag = '')
     $e = { param($v) ConvertTo-GeneralPageText $v }
+    $label = if ($Tag) { "$Name $Tag" } else { $Name }
+    $tagHtml = if ($Tag) { ' <span class="site-header__tag">' + (& $e $Tag) + '</span>' } else { '' }
     return '<header class="site-header"><div class="container"><a class="site-header__brand" href="' + (& $e $Href) + '" aria-label="' +
-        (& $e $Name) + ', home"><span class="site-header__mark" aria-hidden="true">DKJ</span><span class="site-header__name">' + (& $e $Name) +
-        '</span></a><div id="settings"></div></div></header>' + "`n"
+        (& $e $label) + ', home"><span class="site-header__mark" aria-hidden="true">DKJ</span><span class="site-header__name">' + (& $e $Name) +
+        $tagHtml + '</span></a><div id="settings"></div></div></header>' + "`n"
 }
 
 function Format-RepoHomeHeadHtml {
@@ -304,10 +308,11 @@ function Format-RepoHomeHeadHtml {
         repo is for. No eyebrow: the h1 already names the repo. The general banner (#3250) follows the intro.
         The caller writes the <head> before it and the sections and </main> after it.
     #>
-    param([Parameter(Mandatory = $true)][string]$RepoName, [Parameter(Mandatory = $true)][string]$Lead, [AllowEmptyString()][string]$Brand = '')
+    param([Parameter(Mandatory = $true)][string]$RepoName, [Parameter(Mandatory = $true)][string]$Lead, [AllowEmptyString()][string]$Brand = '',
+        [AllowEmptyString()][string]$BrandTag = '')
     $sb = New-Object System.Text.StringBuilder
     # -Brand: the house site header above the bar, as Format-GeneralPageHtml draws it, holding the settings button.
-    if ($Brand) { [void]$sb.Append((Format-SiteHeaderHtml -Name $Brand -Href '/')) }
+    if ($Brand) { [void]$sb.Append((Format-SiteHeaderHtml -Name $Brand -Href '/' -Tag $BrandTag)) }
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
     [void]$sb.AppendLine('<li><span aria-current="page">Home</span></li>')
     [void]$sb.AppendLine('</ol></nav></div></div>')

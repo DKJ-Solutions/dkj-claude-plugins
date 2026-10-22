@@ -55,6 +55,7 @@ product finds the hub by asking its ports for `/whoami`.
 - [x] Then DKJ repos too (the owner, same day): relayed with its refresh, a DKJ-Solutions section on the product root, and the hub's home keeps About this repo alone (`Get-RepositoryDkjPages` goes)
 
 - [x] Then a site header on both ports (the owner, same day; chosen from a menu: header on top, the bar under it on paper with a subtle line, a text wordmark): `.site-header` in `house-style.css` and its README section, `Format-SiteHeaderHtml` and an opt-in `-Brand` in dkj-policy's page shell, every page of the hub and the product root, the eyebrow gone under it, the checksum in the house-style skill
+- [x] Then 'repository' after the name on the hub, as 'product' on the product port (the relayed pages say 'product'), and one theme for both ports: the product root takes the hub's lilac and theme key
 
 ### TEST
 
@@ -79,7 +80,7 @@ high on the theme's primary, the DKJ wordmark and the repo's name on the left as
 button on the far right. The breadcrumb bar stands right under it, on the paper with a subtle line, and the
 eyebrow above each `h1` is gone, since the header names the site. The page shell in dkj-policy draws the
 header only for a caller that passes `-Brand`, so every other repo's pages are unchanged, and in the house
-style a breadcrumb bar changes colour only right under a site header.
+style a breadcrumb bar changes colour only right under a site header. The header says `repository` after the name on the hub and`nproduct` on the product port, and both ports open in the same theme (lilac, one theme key).
 
 **Score:** 2
 
