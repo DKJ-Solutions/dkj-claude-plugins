@@ -127,8 +127,7 @@ function Format-RepositoryHtml {
 function Format-RepoAboutBodyHtml {
     <#
         What was the About this repo page (#3270) and is the home page's body since October 22, 2026: the Pages
-        block (under one h2: the 'This repo' card linking the repo's own pages, then each general page as a card
-        of its own) and this repo's facts, one card titled by its own h3. -Pages is Get-RepositoryPages' shape; -SourceCommit is the short sha the
+        block (under one h2, every page a card of its own: this repo's, then the general ones) and this repo's facts, one card titled by its own h3. -Pages is Get-RepositoryPages' shape; -SourceCommit is the short sha the
         server reads, or empty; -GeneralPagesUrl is the general pages server's base url when it answers, or
         empty (one card then says it is not running).
     #>
@@ -139,32 +138,21 @@ function Format-RepoAboutBodyHtml {
     )
     $e = { param($v) ConvertTo-DashboardText $v }
     $sb = New-Object System.Text.StringBuilder
-    # Pages, under one h2: the 'This repo' card (one menu-item row per page, direct siblings so the house draws the
-    # line between them) across the row, then every general page as a card of its own, three to a row (.grid-3; owner,
-    # October 22, 2026). The general pages are linked by bare path, since this hub relays them (#3168), and only
-    # when a plain loopback server answers -- the rule Format-GeneralPagesCardHtml applies; otherwise one card
-    # says the server is not running.
+    # Pages, under one h2: every page a card of its own, three to a row (.grid-3; owner, October 22, 2026): this
+    # repo's own first, then the general ones. A card holds the page's one menu-item row. The general pages are
+    # linked by bare path, since this hub relays them (#3168), and only when a plain loopback server answers -- the
+    # rule Format-GeneralPagesCardHtml applies; otherwise one card says the server is not running.
+    $pageCard = { param($p)
+        $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
+        '<section class="card"><nav class="menu-list" aria-label="' + (& $e $p.Label) + '"><a class="menu-item" href="' + (& $e $p.Href) +
+            '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepositoryChevron + '</a></nav></section>'
+    }
     $general = $GeneralPagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z'
     [void]$sb.AppendLine('<div class="grid-3">')
     [void]$sb.AppendLine('<div class="grid__head"><h2>Pages</h2><p class="card__sub">This repo''s own pages, and the general ones every repo has</p></div>')
-    $repoRows = @($Pages)
-    if ($repoRows.Count) {
-        [void]$sb.AppendLine('<section class="card grid__full">')
-        [void]$sb.AppendLine('<div class="card__head"><h3>This repo</h3><p class="card__sub">Specific to this repo</p></div>')
-        [void]$sb.AppendLine('<nav class="menu-list" aria-label="This repo pages">')
-        foreach ($p in $repoRows) {
-            $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
-            [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e $p.Href) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepositoryChevron + '</a>')
-        }
-        [void]$sb.AppendLine('</nav>')
-        [void]$sb.AppendLine('</section>')
-    }
+    foreach ($p in @($Pages)) { [void]$sb.AppendLine((& $pageCard $p)) }
     if ($general) {
-        foreach ($p in @(Get-GeneralPages)) {
-            $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
-            [void]$sb.AppendLine('<section class="card"><nav class="menu-list" aria-label="' + (& $e $p.Label) + '">' +
-                '<a class="menu-item" href="' + (& $e $p.Href) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepositoryChevron + '</a></nav></section>')
-        }
+        foreach ($p in @(Get-GeneralPages)) { [void]$sb.AppendLine((& $pageCard $p)) }
     } else {
         [void]$sb.AppendLine('<section class="card grid__full"><p class="msg" role="status">The general pages server is not running. It starts at the next session start, and its pages are linked here from then on.</p></section>')
     }
