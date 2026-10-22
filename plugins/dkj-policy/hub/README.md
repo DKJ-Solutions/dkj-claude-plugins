@@ -59,13 +59,13 @@ Its About this repo page carries the **General** pages, by bare path, the facts,
 serving script.
 
 The page is built per request from the state file below, and the repo's name and the product url, the only
-values from outside, are HTML-escaped. The line the hook prints opens with `Repository:`, and a repo cannot
+values from outside, are HTML-escaped. The line the hook prints opens with `Hub:`, and a repo cannot
 choose another word. A `Name` a repo still states in `Get-DevPreview` is ignored, so delete it at your next
 edit. "dev-preview" names the mechanism, which is why the hook's lines about its own setup (skipped) still
 open with it.
 
 **A repo that wants a hub of its own opts out with `OwnHub = $true`** in `Get-DevPreview`. Its server is
-then the hub, as it was before #3245: the line is `Repository: <its url>`, and the general pages server
+then the hub, as it was before #3245: the line is `Hub: <its url>`, and the general pages server
 still starts beside it and answers `/hub` and `/` with a 303 to that hub. This repo's connector dashboard
 is such a hub, which relays the general pages from its own origin
 ([#3168](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3168)).
@@ -101,12 +101,12 @@ connector dashboard is the hub, and the brand book's Vite dev server is the prod
 
 | The repo | The line |
 |---|---|
-| states no `Get-DevPreview` (or one that answers nothing) | `Repository: http://localhost:4890/ (started) -- this repo states no Get-DevPreview yet; route localhost:4890 to simpleBrowser.open in .vscode/settings.json to open it in VS Code` |
-| states a server | `Repository: http://localhost:4890/ -- product: http://localhost:4321/dkj-recipes/ (started)`; `(already running)` where it is reused |
-| states a server that cannot start | `Repository: http://localhost:4890/ -- product not started: port 3000 taken by other processes: 3000 by dkj-lifehub (pid 19544)` |
-| states `OwnHub = $true` | `Repository: http://localhost:4870/ (started)`, as before #3245 |
-| states `OwnHub = $true` and a `Product` | `Repository: http://localhost:4870/ (started) -- product: http://localhost:5173/brandbook/ (started)` |
-| and the hub cannot start | `Repository: not started -- <why>`, then the product's clause where there is one |
+| states no `Get-DevPreview` (or one that answers nothing) | `Hub: http://localhost:4890/ (started) -- this repo states no Get-DevPreview yet; route localhost:4890 to simpleBrowser.open in .vscode/settings.json to open it in VS Code` |
+| states a server | `Hub: http://localhost:4890/ -- product: http://localhost:4321/dkj-recipes/ (started)`; `(already running)` where it is reused |
+| states a server that cannot start | `Hub: http://localhost:4890/ -- product not started: port 3000 taken by other processes: 3000 by dkj-lifehub (pid 19544)` |
+| states `OwnHub = $true` | `Hub: http://localhost:4870/ (started)`, as before #3245 |
+| states `OwnHub = $true` and a `Product` | `Hub: http://localhost:4870/ (started) -- product: http://localhost:5173/brandbook/ (started)` |
+| and the hub cannot start | `Hub: not started -- <why>`, then the product's clause where there is one |
 
 The route hint appears only where the repo states no server and does not route the hub's port; with the
 route, the hub opens in VS Code by itself. Routing the port is done once in the repo's

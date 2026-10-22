@@ -41,17 +41,27 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `$script:DevPreviewLabel` in `hub/lib/dev-preview-rules.ps1` becomes `Hub`, with its docstring
+- [x] The hook's docstring table and the hub README's line table follow
+- [x] The rest of the 'Repository' prose filed as #3294
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1` asserts `Hub:` on every line shape: 309 passed, 0 failed
+
 ### DEPLOY: fix/session-line-says-hub
 
-**Score:**
+The session-start line opens with `Hub:` instead of `Repository:` (#3285 had renamed it from
+`Repo hub:`). Since #3291 *Repository* is the name of a page on the hub, `/repository`, and the port
+itself is called `hub` in the site header, so the line follows the port.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every repo running `dkj-policy` sees its session-start line open with `Hub:`; nothing has to be done for it.
+
+**Score:** 2
 
 #### Pull Request
 

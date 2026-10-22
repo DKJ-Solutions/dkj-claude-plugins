@@ -25,9 +25,10 @@
             }
         }
 
-    THE PAGE HAS ONE NAME IN EVERY REPO, 'Repository' (INBOUND #3064, the owner's term, October 16, 2026;
-    renamed from 'Repo dashboard' with dkj-brandbook v0.3.0, #3097): the line the hook prints opens with
-    it. A repo once chose its own
+    THE LINE HAS ONE WORD IN EVERY REPO, 'Hub' (INBOUND #3064, October 16, 2026): the line the hook prints
+    opens with it. It read 'Repo dashboard' until dkj-brandbook v0.3.0 (#3097), 'Repo hub' until #3285 and
+    'Repository' until #3291 gave that name to the GitHub repo's own page (/repository) and called the port
+    hub. A repo once chose its own
     word through a Name key, and three repos said Showcase, connector dashboard and dev-preview for the
     same page. A Name a repo still states is ignored rather than refused, so a config that predates this
     keeps working; the word "dev-preview" stays the MECHANISM's, on the hook's lines about its own setup
@@ -65,8 +66,8 @@
 #>
 
 $script:DevPreviewMaxAncestors = 4
-# The word every line about the page opens with, in every repo (#3064).
-$script:DevPreviewLabel = 'Repository'
+# The word the session-start line opens with, in every repo (#3064): 'Hub', since the page called Repository is /repository on it.
+$script:DevPreviewLabel = 'Hub'
 # The general pages server, which is the Repository (#3119, #3245). Fixed, so a .vscode route can name them; ten,
 # so ten checkouts open side by side each get their own. Clear of the ranges the repos measured in #2967 and
 # #2976 use (3000, 4870-4879, 5173-5180, 8765).
