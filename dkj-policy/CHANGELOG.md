@@ -2,7 +2,57 @@
 
 ## [Unreleased]
 
-**6 / 9 minor entries** <!-- pending-tally -->
+**7 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3302-warning-1-darker-on-dark · 20261022-211931Z
+
+The house style's warning background (`--warning-1`) is darker on the dark themes: `#2b1f0c` instead
+of `#3a2a10`, the same lightness as the negative-message background beside it, so a notice no longer
+reads as a lighter patch on a dark page. Light themes are unchanged (#3302).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions app that takes the new `house-style.css` gets the darker notice background on every
+dark theme without changing anything of its own.
+
+**Score:** 2
+
+#### Pull Request
+
+--warning-1 is darker on the dark themes
+
+Plugins: dkj-solutions
+
+[PR #3306](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3306)
+
+---
+
+### DEPLOY: fix/3304-visible-park-no-full-gate · 20261022-201122Z
+
+A sweep that parks a visible result for the owner's look no longer runs `open-pr.ps1 -GatesOnly`
+first. That run covered the whole suite pool, took about ten minutes even for a two-value colour
+change, and was repeated anyway when the approved branch ships: `ship-pr` and the required CI check
+both gate it before the merge.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+A visible park in a sweep no longer runs the full gate pool first
+
+Plugins: dkj-policy
+
+[PR #3307](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3307)
+
+---
 
 ### DEPLOY: fix/3301-site-header-mark-hugs-initials · 20261022-200117Z
 
