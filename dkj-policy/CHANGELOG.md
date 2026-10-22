@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**6 / 9 minor entries** <!-- pending-tally -->
+**6 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3304-visible-park-no-full-gate · 20261022-201122Z
+
+A sweep that parks a visible result for the owner's look no longer runs `open-pr.ps1 -GatesOnly`
+first. That run covered the whole suite pool, took about ten minutes even for a two-value colour
+change, and was repeated anyway when the approved branch ships: `ship-pr` and the required CI check
+both gate it before the merge.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+A visible park in a sweep no longer runs the full gate pool first
+
+Plugins: dkj-policy
+
+[PR #3307](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3307)
+
+---
 
 ### DEPLOY: fix/3301-site-header-mark-hugs-initials · 20261022-200117Z
 
