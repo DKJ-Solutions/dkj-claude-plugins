@@ -53,11 +53,13 @@ Assert-True ($shell -match '<p class="footer-note">note</p>') 'the footer note c
 Write-Host '-- the general page shell (the plugin''s)' -ForegroundColor Cyan
 $gshell = Format-GeneralPageHtml -Title 'An <i>issue' -Lead 'lead' -Body '<p>body</p>' -Eyebrow 'Org/some<repo>' -SiteName 'Org/some<repo>'
 Assert-True ($gshell -match '<li><a href="/hub">Home</a></li>') 'the first crumb goes to /hub on the general server'
-Assert-True ($gshell -match '<title>Org/some&lt;repo&gt; -- An &lt;i&gt;issue</title>' -and $gshell -match '<p class="eyebrow">Org/some&lt;repo&gt;</p>') 'the title and the eyebrow carry the repo''s name, escaped'
+Assert-True ($gshell -match '<title>Org/some&lt;repo&gt; -- An &lt;i&gt;issue</title>' -and $gshell -match 'site-header__name">Org/some&lt;repo&gt; <span class="site-header__tag">hub</span>' -and $gshell -notmatch 'class="eyebrow"') 'the title and the site header carry the repo''s name, escaped, and a named page needs no eyebrow'
 Assert-True ($gshell -match 'data-theme-key="general-pages"') 'the theme key is the general server''s own'
 Assert-True ($gshell -notmatch 'dkj-claude-plugins') 'and nothing of this repo is built into it'
 # THE SITE HEADER (October 22, 2026): only where a caller asks for it with -Brand, so every other repo's pages stay as they were.
-Assert-True ($gshell -notmatch 'site-header' -and $gshell -match 'theme-settings--floating') 'without -Brand the shell draws no site header, and the settings button floats as before'
+$anon = Format-GeneralPageHtml -Title 'T' -Lead 'L' -Body ''
+Assert-True ($anon -notmatch 'site-header' -and $anon -match 'theme-settings--floating') 'a page that names no site draws no site header, and its settings button floats as before'
+Assert-True ((ConvertTo-SiteHeaderName -RepoName 'DKJ-Solutions/dkj-x') -eq 'dkj-x' -and (ConvertTo-SiteHeaderName -RepoName 'a/b<c>') -eq 'a/b<c>') 'a GitHub slug loses its owner in the header; any other name stays whole'
 $bshell = Format-GeneralPageHtml -Title 'T' -Lead 'L' -Body '' -Eyebrow 'Org/r' -Brand 'r<x>' -HubHref '/home'
 Assert-True ($bshell -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/home" aria-label="r&lt;x&gt;, home"><span class="site-header__mark" aria-hidden="true">DKJ</span><span class="site-header__name">r&lt;x&gt;</span></a><div id="settings"></div></div></header>') 'with -Brand the header carries the escaped name, links home, and holds the settings button'
 Assert-True ((Format-SiteHeaderHtml -Name 'n' -Tag 'p<q>') -match 'aria-label="n p&lt;q&gt;, home">.*site-header__name">n <span class="site-header__tag">p&lt;q&gt;</span></span>' -and $bshell -notmatch 'site-header__tag') 'a -Tag follows the name, escaped, and is left out when empty'

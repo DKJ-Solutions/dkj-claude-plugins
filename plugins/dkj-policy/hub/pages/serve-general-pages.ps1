@@ -473,7 +473,7 @@ try {
                     Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("Not built yet: this repo has no dkj-policy/releases/page/release-notes.html, and this server could not build it ($buildError).")) -Method $method
                     continue
                 }
-                $html = Format-ReleaseNotesDevPage -Html ([System.IO.File]::ReadAllText($releaseNotesFile, $utf8))
+                $html = Format-ReleaseNotesDevPage -Html ([System.IO.File]::ReadAllText($releaseNotesFile, $utf8)) -RepoName (Get-RepoIdentity).Name
             }
             if ($null -ne $html) {
                 $body = $utf8.GetBytes($html)
