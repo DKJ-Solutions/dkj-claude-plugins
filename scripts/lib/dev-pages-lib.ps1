@@ -68,7 +68,7 @@ function Format-DevPageHtml {
         [string]$ThemeKey = 'general-pages'
     )
     return Format-GeneralPageHtml -Title $Title -Lead $Lead -Body $Body -Style $Style -FooterNote $FooterNote -ThemeKey $ThemeKey `
-        -Eyebrow 'DKJ-Solutions/dkj-claude-plugins' -SiteName 'dkj-claude-plugins' -HubHref '/'
+        -Brand 'dkj-claude-plugins' -SiteName 'dkj-claude-plugins' -HubHref '/'
 }
 
 function Get-RepositoryPages {
@@ -103,7 +103,7 @@ function Format-RepositoryHtml {
     # row (.grid__full) and a card's margin inside a .grid-2 are the house style's own since #3133.
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
-    [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName 'dkj-claude-plugins' -Lead 'The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.'))
+    [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName 'dkj-claude-plugins' -Brand 'dkj-claude-plugins' -Lead 'The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.'))
     [void]$sb.Append((Format-RepoAboutLinkHtml))
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')

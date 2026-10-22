@@ -649,6 +649,29 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
 html:has(.breadcrumbs-bar) { scroll-padding-top: var(--tap); }
 html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + var(--spacing-3)); }
 
+/* ---- Site header ------------------------------------------------------------------ */
+/* The app's own header above the breadcrumb bar (owner, October 22, 2026): at most --spacing-18 (72px) high, on the
+   theme's colour, the app's mark and name on the left as the way home, the settings button on the far right.
+   <header class="site-header"><div class="container"><a class="site-header__brand" href="/"><span class="site-header__mark"
+   aria-hidden="true">DKJ</span><span class="site-header__name">name</span></a><div id="settings"></div></div></header>,
+   then the .breadcrumbs-bar. It scrolls away; the bar under it still sticks. Under a site header the bar leaves the
+   primary to the header: the paper, a subtle line under it, and the trail in the text steps. A bar with no header
+   above it is unchanged. */
+.site-header { display: block; background: var(--primary); color: var(--paper-1); }
+.site-header > .container { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-3);
+  max-height: var(--spacing-18); padding-top: var(--spacing-3); padding-bottom: var(--spacing-3); }
+.site-header__brand { display: inline-flex; align-items: center; gap: var(--spacing-3); min-width: 0; color: var(--paper-1); text-decoration: none; }
+.site-header__brand:focus-visible { outline: 2px solid var(--paper-1); outline-offset: 4px; }
+.site-header__mark { display: inline-grid; place-items: center; flex: none; width: var(--spacing-10); height: var(--spacing-10);
+  border-radius: var(--spacing-2); background: var(--paper-1); color: var(--primary); font-size: var(--text-sm); font-weight: 800; letter-spacing: 0.04em; }
+.site-header__name { overflow: hidden; font-size: var(--text-lg); font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
+.site-header__tag { font-weight: 400; color: var(--paper-3); }
+.site-header + .breadcrumbs-bar { background: var(--paper-1); border-bottom: 1px solid var(--paper-3); }
+.site-header + .breadcrumbs-bar .breadcrumbs a { color: var(--fg-3); }
+.site-header + .breadcrumbs-bar .breadcrumbs a:focus-visible { outline-color: var(--muted); }
+.site-header + .breadcrumbs-bar .breadcrumbs__sep { color: var(--muted); }
+.site-header + .breadcrumbs-bar .breadcrumbs [aria-current='page'] { color: var(--fg-1); }
+
 /* ---- Menu list and menu item ---------------------------------------------------- */
 /* Settings as rows: <ul class="menu-list"><li class="menu-row"><span class="menu-row__label">..</span>
    <span class="menu-row__value">..</span> an .icon-btn</li></ul>. A line between rows, not above or below. */
