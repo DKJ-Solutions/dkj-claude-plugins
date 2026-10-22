@@ -58,6 +58,7 @@ product finds the hub by asking its ports for `/whoami`.
 - [x] Then 'repository' after the name on the hub, as 'product' on the product port (the relayed pages say 'product'), and one theme for both ports: the product root takes the hub's lilac and theme key
 - [x] Then compact (the owner, same day): no heading above 32px, so `--text-h1` 48 -> 32 in `house-style.css` (the hero figure with it), its README and checksum; the home pages' h1 repeated the header, so it is `.sr-only` there under a site header
 - [x] Then the home pages' whole intro goes (the owner, same day): under a site header `Format-RepoHomeHeadHtml` writes no h1 and no lead, and the product root drops its own
+- [x] Then About this repo onto the home page (the owner, same day): `Format-RepoAboutBodyHtml` (the Pages block and the facts) and the footer note on `/`, `Format-RepoAboutHtml` gone, `/about` a 303 to `/`
 
 ### TEST
 
@@ -84,7 +85,7 @@ eyebrow above each `h1` is gone, since the header names the site. The page shell
 header only for a caller that passes `-Brand`, so every other repo's pages are unchanged, and in the house
 style a breadcrumb bar changes colour only right under a site header. The header says `repository` after the name on the hub and`nproduct` on the product port, and both ports open in the same theme (lilac, one theme key).
 
-The house style's largest heading is now 32px: `--text-h1` came down from 48px to `h2`'s size, the hero figure with it, so a page fits more on a 900px-high screen; `h1` stands apart by its capitals and colour. On the two home pages the `h1` repeated the name the header shows, so under a site header the home page has no intro at all: no `h1`, no lead, `<main>` opens on its first block.
+The house style's largest heading is now 32px: `--text-h1` came down from 48px to `h2`'s size, the hero figure with it, so a page fits more on a 900px-high screen; `h1` stands apart by its capitals and colour. On the two home pages the `h1` repeated the name the header shows, so under a site header the home page has no intro at all: no `h1`, no lead, `<main>` opens on its first block. And the hub is one page now: its home holds everything About this repo held (the Pages block with This repo and General, the facts, the footer note), and `/about` sends an old link on to `/`.
 
 **Score:** 2
 

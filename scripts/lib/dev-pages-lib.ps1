@@ -1,16 +1,17 @@
 <#
 .SYNOPSIS
-    The Repository of this repo's dev server -- the home page on '/' and About this repo on '/about' (#3270) --
-    and its own pages: the test-gate page (the per-suite CI
+    The Repository of this repo's dev server -- the home page on '/', which holds what was About this repo (#3270;
+    '/about' sends there since October 22, 2026) -- and its own pages: the test-gate page (the per-suite CI
     durations, #3097), the Connectors and Specialists pages (the product's since October 22, 2026: its dev server
     links and relays them, so the hub lists neither) and the DKJ repos page, the product's too. No I/O -- the server
     (scripts/dashboard/serve-connector-dashboard.ps1) measures and reads, and hands the results in, so every rule here is tested without a server.
 
 .DESCRIPTION
-    THE HUB TAKES THE ONE FORM THE HOUSE STYLE LAYS DOWN ("The Repository", #3270): the home page is a portal --
-    the bar with its one crumb, Home, the settings button, the intro with the repo's name as its h1, one link
-    to About this repo; About this repo holds the Pages block (the 'This repo'
-    card linking the repo's own pages, then the General card), the facts and a footer note. This repo is no
+    THE HUB IS ONE PAGE, AND IT DEPARTS FROM THE HOUSE FORM ON PURPOSE (owner, October 22, 2026). The house style's
+    Repository is a home page that links an About this repo page (#3270). Here the site header names the repo and
+    holds the settings button, the bar has its one crumb, Home, and the page goes straight to what About held: the
+    Pages block (the 'This repo' card linking the repo's own pages, then the General card), the facts and a
+    footer note, so it fits on one screen. This repo is no
     product and keeps no in-flight lists, so it has no Products section and no lists. The pages it links are Get-RepositoryPages, the
     ones only this repo has. The GENERAL pages -- Artifacts, Issues, Release notes and SessionStart, which
     every repo has -- are no longer built here (#3119): the dkj-policy plugin ships them (since #3198) as
@@ -89,10 +90,16 @@ function Get-RepositoryPages {
 
 function Format-RepositoryHtml {
     <#
-        The repo's home page on '/' (#3270): the repo's name as its h1 and one link to About this repo. The
-        brand book, Connectors, Specialists and DKJ repos are the product port's (October 22, 2026), so they are
-        not here. Nothing on it comes from the general pages server, so it does not ask whether that one runs.
+        The repo's home page on '/' (#3270): under the site header and the bar, everything that was About this
+        repo (Format-RepoAboutBodyHtml: the Pages block and the facts) and its footer note; '/about' now sends
+        here (owner, October 22, 2026). The brand book, Connectors, Specialists and DKJ repos are the product
+        port's, so they are not here. The parameters are Format-RepoAboutBodyHtml's.
     #>
+    param(
+        [AllowEmptyCollection()][object[]]$Pages = @(Get-RepositoryPages),
+        [AllowEmptyString()][string]$SourceCommit = '',
+        [AllowEmptyString()][string]$GeneralPagesUrl = ''
+    )
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')
     [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">')
@@ -107,7 +114,9 @@ function Format-RepositoryHtml {
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
     [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName 'dkj-claude-plugins' -Brand 'dkj-claude-plugins' -BrandTag 'repository' -Lead 'The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.'))
-    [void]$sb.Append((Format-RepoAboutLinkHtml))
+    # Everything that was About this repo, on the home page itself (owner, October 22, 2026).
+    [void]$sb.Append((Format-RepoAboutBodyHtml -Pages $Pages -SourceCommit $SourceCommit -GeneralPagesUrl $GeneralPagesUrl))
+    [void]$sb.AppendLine('<p class="footer-note">The facts are this repo''s own, and each page names its own source. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
     [void]$sb.AppendLine('</body>')
@@ -115,13 +124,13 @@ function Format-RepositoryHtml {
     return $sb.ToString()
 }
 
-function Format-RepoAboutHtml {
+function Format-RepoAboutBodyHtml {
     <#
-        The About this repo page on '/about' (#3270): everything about the repo itself. The Pages block (the
-        'This repo' card linking the repo's own pages, then the General card, on one .grid-2 row under one h2),
-        this repo's facts and a footer note. -Pages is Get-RepositoryPages' shape; -SourceCommit is the short sha
-        the server reads, or empty; -GeneralPagesUrl is the general pages server's base url when it answers,
-        or empty (the General card then says it is not running).
+        What was the About this repo page (#3270) and is the home page's body since October 22, 2026: the Pages
+        block (the 'This repo' card linking the repo's own pages, then the General card, on one .grid-2 row under
+        one h2) and this repo's facts. -Pages is Get-RepositoryPages' shape; -SourceCommit is the short sha the
+        server reads, or empty; -GeneralPagesUrl is the general pages server's base url when it answers, or
+        empty (the General card then says it is not running).
     #>
     param(
         [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Pages,
@@ -164,10 +173,9 @@ function Format-RepoAboutHtml {
     [void]$sb.AppendLine('</section>')
     [void]$sb.AppendLine('</div>')
 
-    return Format-DevPageHtml -Title 'About this repo' -Body $sb.ToString() `
-        -Lead 'Everything about the repo itself rather than what it offers: its own pages, the general pages every repo has, and its facts.' `
-        -FooterNote 'The facts are this repo''s own, and each page names its own source. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.'
+    return $sb.ToString()
 }
+
 
 function ConvertFrom-SuiteDurations {
     <#
