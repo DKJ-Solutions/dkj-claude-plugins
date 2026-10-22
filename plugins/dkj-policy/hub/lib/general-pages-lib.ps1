@@ -231,7 +231,8 @@ function Format-GeneralPagesCardHtml {
         DKJ-Solutions card (dkj-solutions-pages-lib.ps1) be the same card with other rows. -LocalPages are
         pages the hub serves ITSELF (the source repo's DKJ repos page, #3231): linked by their bare path after
         the server's rows, and drawn whether or not the general pages server answers. -Title is the h2 of a
-        card standing alone, '<Heading> pages' when not given (the home page's Brand book section, #3270).
+        card standing alone, '<Heading> pages' when not given (the home page's Brand book section, #3270). With
+        no -Pages the card never names the server, since it links nothing of it.
     #>
     param(
         [AllowEmptyString()][string]$PagesUrl = '',
@@ -261,7 +262,8 @@ function Format-GeneralPagesCardHtml {
     $rows = @()
     if ($base) { $rows += @(@($Pages) | Where-Object { $_ } | ForEach-Object { @{ Href = $linkBase + $_.Href; Label = $_.Label; Sub = $_.Sub } }) }
     $rows += @(@($LocalPages) | Where-Object { $_ })
-    if (-not $base) {
+    # A card with no server rows (-Pages @(), the source repo's DKJ-Solutions section) has nothing to say about it.
+    if (-not $base -and @(@($Pages) | Where-Object { $_ }).Count) {
         [void]$sb.AppendLine('<p class="msg" role="status">The general pages server is not running. It starts at the next session start, and these pages are linked here from then on.</p>')
     }
     if ($rows.Count) {

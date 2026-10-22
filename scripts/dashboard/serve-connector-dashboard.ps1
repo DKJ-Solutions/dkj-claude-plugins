@@ -5,23 +5,13 @@
     local checkout and what check-connectors.ps1 reports for it on this machine (#2976); /specialists, every
     specialist the dkj-subagents plugins ship and the context each one costs, read from this tree; /test-gate,
     the per-suite CI durations, grouped by the workflow step each suite guards (scripts/tests/suite-groups.json);
-    /dkj-repos, every DKJ-Solutions repo on GitHub with its checkout here and a session to open there (#3231);
-    and /brandbook/, the brand book: the build of the brandbook/ React app, which
-    shows the house style's tokens, themes and every component. The rules of the hub and of each page are in
-    scripts/lib/dev-pages-lib.ps1.
+    and /dkj-repos, every DKJ-Solutions repo on GitHub with its checkout here and a session to open there
+    (#3231). The rules of the hub and of each page are in scripts/lib/dev-pages-lib.ps1.
 
-    /brandbook IS LISTED IN THE HUB'S DKJ-Solutions CARD, and in every other DKJ-Solutions repo the plugin's
-    general server serves it: the build of this same app, which the cut copies into the dkj-solutions plugin
-    (#3210). Here it is answered, not relayed, and from this tree's own build, so a change to the app or the house
-    style shows here before it is released.
-
-    ONE BRAND BOOK. The hub had a PowerShell page of its own at /brandbook (#3132) beside the brandbook/ app
-    (#3131): two brand books. The app is the one that stays, and the hub serves its build (brandbook/dist,
-    built for the base /brandbook/). A request for the brand book's page first checks whether the build is
-    older than anything it is built from -- brandbook/'s sources and config, and the house style -- and if so
-    runs 'npm run build' there (and 'npm ci' first when node_modules is missing), so the hub always shows
-    the tree. That request waits for the build, a few seconds; the files it then loads do not check again.
-    -NoBrandbookBuild serves only what is already built, which is how the tests run it.
+    NO /brandbook HERE. The brand book is this repo's product: the brandbook/ app's Vite dev server, which the
+    dev-preview hook starts on a port of its own (#3283). This server built and served the same app at
+    /brandbook too, so one brand book was visible on two ports; the owner put it on the product port alone
+    (October 22, 2026), and /brandbook is a 404 here like any other path this server does not have.
 
     THE GENERAL PAGES ARE BUILT ELSEWHERE AND SERVED FROM HERE (#3119, #3168): Artifacts, Issues, Release
     notes and SessionStart belong to every repo, so the dkj-policy plugin builds them in a server of its own
@@ -89,9 +79,6 @@
 .PARAMETER MinRefreshSeconds
     The shortest interval between two re-runs that /refresh can cause.
 
-.PARAMETER NoBrandbookBuild
-    Never run npm: serve brandbook/dist as it is, or a page saying it is not built.
-
 .PARAMETER RepoRootOverride
     (For tests) The repo root instead of the one this script sits in.
 #>
@@ -101,7 +88,6 @@ param(
     [ValidateRange(0, 86400)][int]$CacheSeconds = 60,
     [ValidateRange(100, 60000)][int]$ReadTimeoutMs = 1000,
     [ValidateRange(0, 3600)][int]$MinRefreshSeconds = 10,
-    [switch]$NoBrandbookBuild,
     [string]$RepoRootOverride
 )
 
@@ -284,40 +270,6 @@ function Get-SpecialistsModel {
     return @{ Rows = $rows; Error = ($errs -join ', '); CharsPerToken = $factor }
 }
 
-function Update-BrandbookBuild {
-    <#
-        Makes brandbook/dist current before the brand book's page is served: returns @{ Ok; Message; Detail }.
-        The build is stale when dist/index.html is missing or older than any file it is built from. npm runs
-        under cmd.exe (npm is a .cmd on Windows), and a failure hands back its last lines for the page.
-    #>
-    $app = Join-Path $root 'brandbook'
-    if (-not (Test-Path -LiteralPath (Join-Path $app 'package.json') -PathType Leaf)) {
-        return @{ Ok = $false; Message = 'There is no brandbook/ app in this checkout, so there is no brand book to serve.'; Detail = '' }
-    }
-    $index = Join-Path $app 'dist\index.html'
-    $built = if (Test-Path -LiteralPath $index -PathType Leaf) { (Get-Item -LiteralPath $index).LastWriteTimeUtc } else { $null }
-    if ($NoBrandbookBuild) {
-        if ($built) { return @{ Ok = $true; Message = ''; Detail = '' } }
-        return @{ Ok = $false; Message = 'The brand book is not built, and this server does not build it: run npm run build in brandbook/.'; Detail = '' }
-    }
-    if ($built) {
-        $inputs = @(Get-ChildItem -LiteralPath (Join-Path $app 'src'), (Join-Path $app 'public'), $styleDir -Recurse -File -ErrorAction SilentlyContinue) +
-            @('index.html', 'vite.config.ts', 'package.json', 'package-lock.json' | ForEach-Object { Join-Path $app $_ } |
-                Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | ForEach-Object { Get-Item -LiteralPath $_ })
-        if (-not @($inputs | Where-Object { $_.LastWriteTimeUtc -gt $built }).Count) { return @{ Ok = $true; Message = ''; Detail = '' } }
-    }
-    $steps = @()
-    if (-not (Test-Path -LiteralPath (Join-Path $app 'node_modules') -PathType Container)) { $steps += 'npm ci' }
-    $steps += 'npm run build'
-    foreach ($step in $steps) {
-        $out = @(& cmd.exe /d /c "cd /d `"$app`" && $step 2>&1")
-        if ($LASTEXITCODE -ne 0) {
-            return @{ Ok = $false; Message = "The brand book could not be built: '$step' in brandbook/ exited $LASTEXITCODE."; Detail = (($out | Select-Object -Last 20) -join "`n") }
-        }
-    }
-    return @{ Ok = $true; Message = ''; Detail = '' }
-}
-
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $Port)
 $listener.Start()
@@ -395,7 +347,7 @@ try {
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html') {
-                $html = Format-RepositoryHtml -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
+                $html = Format-RepositoryHtml
                 $body = $utf8.GetBytes($html)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
@@ -433,30 +385,6 @@ try {
                 $html = Format-SpecialistsPageHtml -Rows $sp.Rows -ReadError $sp.Error -CharsPerToken $sp.CharsPerToken
                 $body = $utf8.GetBytes($html)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
-                continue
-            }
-            if ($path -eq '/brandbook') {
-                # The app is built for the base /brandbook/, so its own routes are read under the slash.
-                Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/brandbook/' } -Method $method
-                continue
-            }
-            if ($path.StartsWith('/brandbook/')) {
-                # The same resolver the general server uses for the shipped build (#3210), here on this tree's own.
-                $bbf = Resolve-BrandbookFile -Path $path -BuildDir (Join-Path $root 'brandbook\dist')
-                $rel = if ($bbf) { $bbf.Rel } else { $null }
-                $file = if ($bbf) { $bbf.File } else { $null }
-                if ($rel -eq 'index.html') {
-                    $bb = Update-BrandbookBuild
-                    if (-not $bb.Ok) {
-                        Send-LoopbackResponse $stream 503 'Service Unavailable' 'text/html; charset=utf-8' ($utf8.GetBytes((Format-BrandbookStatusHtml -Message $bb.Message -Detail $bb.Detail))) -Method $method
-                        continue
-                    }
-                }
-                if ($file -and (Test-Path -LiteralPath $file -PathType Leaf)) {
-                    Send-LoopbackResponse $stream 200 'OK' (Get-BrandbookContentType -RelPath $rel) ([System.IO.File]::ReadAllBytes($file)) -Method $method
-                } else {
-                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
-                }
                 continue
             }
             if ($generalRoutes -contains $path) {

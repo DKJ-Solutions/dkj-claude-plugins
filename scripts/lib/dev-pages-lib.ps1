@@ -2,24 +2,28 @@
 .SYNOPSIS
     The Repository of this repo's dev server -- the home page on '/' and About this repo on '/about' (#3270) --
     and its own pages: the test-gate page (the per-suite CI
-    durations, #3097), the Specialists page, and the status page /brandbook/ answers with when the brandbook/ app's
-    build cannot be served (its paths and content types are dkj-solutions-pages-lib's, #3210). No I/O -- the server
+    durations, #3097), the Specialists page and the DKJ repos page. No I/O -- the server
     (scripts/dashboard/serve-connector-dashboard.ps1) measures and reads, and hands the results in, so every rule here is tested without a server.
 
 .DESCRIPTION
     THE HUB TAKES THE ONE FORM THE HOUSE STYLE LAYS DOWN ("The Repository", #3270): the home page is a portal --
     the bar with its one crumb, Home, the settings button, the intro with the repo's name as its h1, one link
-    to About this repo and the Brand book section; About this repo holds the Pages block (the 'This repo'
+    to About this repo and the DKJ-Solutions section; About this repo holds the Pages block (the 'This repo'
     card linking the repo's own pages, then the General card), the facts and a footer note. This repo is no
     product and keeps no in-flight lists, so it has no Products section and no lists. The pages it links are Get-RepositoryPages, the
     ones only this repo has. The GENERAL pages -- Artifacts, Issues, Release notes and SessionStart, which
     every repo has -- are no longer built here (#3119): the dkj-policy plugin ships them (since #3198) as
     a server of its own, and the hub's second card, General, links that server, through the plugin's
     shared Format-GeneralPagesCardHtml, so a page that is this repo's own is never read as one every repo
-    has. The Brandbook went the same way: the house style is every DKJ-Solutions repo's, so it is the
-    dkj-solutions plugin's page, in the hub's third card, DKJ-Solutions. This server still answers /brandbook itself,
-    from this tree, so a house-style change shows here before it is released. This file dot-sources the plugin's general-pages-lib.ps1 for the page shell, the number formats and
+    has. This file dot-sources the plugin's general-pages-lib.ps1 for the page shell, the number formats and
     the tile and bar helpers the Test gate page shares with those pages, so nothing is written twice.
+
+    NO BRAND BOOK HERE. The brand book is this repo's product: the brandbook/ app's Vite dev server, which
+    the dev-preview hook starts beside this hub on a port of its own (#3283) and which shows the tree as it
+    is edited. The hub served a build of the same app at /brandbook and linked it from its home page, so
+    one brand book was visible on two ports; the owner put it on the product port alone (October 22, 2026).
+    So the hub neither links nor serves it. Every other DKJ-Solutions repo still gets it from the
+    dkj-solutions plugin, through the general server.
 
     ONE SHELL FOR EVERY PAGE BELOW THE HUB. Each page opens with the house breadcrumb bar, its trail
     starting at the Repository on '/' and ending at the page itself, unlinked ("Every page: the breadcrumb
@@ -32,7 +36,7 @@
     measure-suites skill). A suite in scripts/tests that the file does not name is counted, because the
     gate charges it the largest recorded value.
 
-    THE DKJ REPOS PAGE (#3231) is this hub's own, listed in the DKJ-Solutions card after the plugin's pages
+    THE DKJ REPOS PAGE (#3231) is this hub's own, and the one row of the home page's DKJ-Solutions section
     (Get-RepositoryDkjPages): every DKJ-Solutions repo on GitHub, its checkout beside this repo, and the command
     that opens Claude Code there. Find-DkjCheckouts is the one function in this file that reads the disk.
 
@@ -43,10 +47,9 @@
 #>
 
 . (Join-Path $PSScriptRoot 'connector-dashboard-lib.ps1')
-# The plugins' libs: this repo is their source, so it reads them from its own tree -- dkj-policy's page shell and
-# General card, then dkj-solutions' DKJ-Solutions card, which builds on that shell (#3198).
+# The plugin's lib: this repo is its source, so it reads it from its own tree -- dkj-policy's page shell and
+# General card (#3198).
 . (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\general-pages-lib.ps1')
-. (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\dkj-solutions\scripts\lib\dkj-solutions-pages-lib.ps1')
 
 function Format-DevPageHtml {
     <#
@@ -83,11 +86,9 @@ function Get-RepositoryPages {
 function Format-RepositoryHtml {
     <#
         The repo's home page on '/' (#3270): the repo's name as its h1, one link to About this repo, and the
-        Brand book section -- the DKJ-Solutions card, with this hub's own DKJ repos page. This repo is no
-        product, so it has no Products section. -GeneralPagesUrl is the general pages server's base url when
-        it answers, or empty (the Brand book card then says it is not running).
+        DKJ-Solutions section -- this hub's own DKJ repos page. No brand book: that is the product port's
+        alone. Nothing on it comes from the general pages server, so it does not ask whether that one runs.
     #>
-    param([AllowEmptyString()][string]$GeneralPagesUrl = '')
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')
     [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">')
@@ -103,8 +104,9 @@ function Format-RepositoryHtml {
     [void]$sb.AppendLine('<body>')
     [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName 'dkj-claude-plugins' -Lead 'The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.'))
     [void]$sb.Append((Format-RepoAboutLinkHtml))
-    # Brand book: the plugin's DKJ-Solutions card standing alone, with the DKJ repos page this hub serves itself.
-    [void]$sb.Append((Format-DkjSolutionsPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $false -SameOrigin -LocalPages @(Get-RepositoryDkjPages)))
+    # DKJ-Solutions: the shared card standing alone, with no server rows -- only the DKJ repos page this hub serves.
+    [void]$sb.Append((Format-GeneralPagesCardHtml -Pages @() -LocalPages @(Get-RepositoryDkjPages) -InRow $false -Heading 'DKJ-Solutions' `
+        -Title 'DKJ-Solutions' -HeadSub 'Every DKJ-Solutions repo, seen from this hub'))
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
     [void]$sb.AppendLine('</body>')
@@ -372,20 +374,6 @@ function Format-TestGatePageHtml {
     return Format-DevPageHtml -Title 'Test gate' -Style $style -Body $body.ToString() `
         -Lead 'What each test suite costs on CI, grouped by the workflow step it guards. No suite is optional: the required CI check runs every one on every PR, while open-pr runs locally only those the branch can affect. A group says what breaks when its suites go red, not when they run. Measured on CI runners, never on a workstation: a local reading does not convert.' `
         -FooterNote 'Read from <code>scripts/tests/suite-durations.json</code>, grouped by <code>scripts/tests/suite-groups.json</code>. Refreshed by <code>scripts/maintenance/record-suite-durations.ps1</code>; the <code>measure-suites</code> skill compares two sets of runs.'
-}
-
-function Format-BrandbookStatusHtml {
-    <#
-        The page /brandbook answers with when there is no build to serve: brandbook/ is missing, the build
-        is switched off, or it failed. -Message says which, -Detail carries the build's last output lines.
-    #>
-    param([Parameter(Mandatory = $true)][string]$Message, [AllowEmptyString()][string]$Detail = '')
-    $e = { param($v) ConvertTo-DashboardText $v }
-    $body = '<p class="msg msg--warn" role="alert">' + (& $e $Message) + '</p>'
-    if ($Detail) { $body += "`n" + '<pre class="note">' + (& $e $Detail) + '</pre>' }
-    return Format-DevPageHtml -Title 'Brandbook' -Style $script:DevBarStyle -Body $body `
-        -Lead 'The DKJ-Solutions brand book: the house style''s tokens, themes and components, built from brandbook/ in this checkout.' `
-        -FooterNote 'Built with <code>npm run build</code> in <code>brandbook/</code>; the hub rebuilds it when its sources or the house style change.'
 }
 
 function ConvertTo-SpecialistRow {

@@ -1487,7 +1487,8 @@ function Get-DevPreview {
        relays the general pages from its own origin. The server binds to 127.0.0.1 itself, so the Command
        needs no bind flag. It runs under cmd.exe, hence the backslashes.
        The Product beside that hub is the brand book (#3283): the brandbook/ app's Vite dev server, bound to
-       127.0.0.1, under the /brandbook/ base its vite.config.ts sets. #>
+       127.0.0.1. It starts at the root, a page linking the brand book under the /brandbook/ base its
+       vite.config.ts sets (productRoot there, October 22, 2026). #>
     @{
         Command     = 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dashboard\serve-connector-dashboard.ps1 -Port {port}'
         Ports       = 4870..4879
@@ -1496,7 +1497,7 @@ function Get-DevPreview {
         Product     = @{
             Command     = 'cd brandbook && npm run dev -- --host 127.0.0.1 --port {port} --strictPort'
             Ports       = 5173..5180
-            Path        = '/brandbook/'
+            Path        = '/'
             Requires    = 'brandbook\node_modules'
             WaitSeconds = 30
         }
