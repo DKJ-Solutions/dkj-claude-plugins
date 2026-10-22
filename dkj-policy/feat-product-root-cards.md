@@ -39,19 +39,29 @@
 
 ### PLAN
 
+The owner: make the product's home page exactly like the hub's, only cards and no headings.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `brandbook/root.html`: the three headed sections become four cards in one `.grid-3` (Brandbook, Connectors, Specialists, DKJ repos), plus a footer note, as the hub's home has
 
 ### TEST
 
+- [x] Live on 5173: no `h2`, four cards, the `.grid-3`; the hub's airsquats banner is the hub's own and not copied
+
 ### DEPLOY: feat/product-root-cards
 
-**Score:**
+The product's home page (`brandbook/root.html`, on the product port) now has the hub's form: its four pages,
+the brand book, Connectors, Specialists and DKJ repos, are a card each, three to a row, with no headings above
+them, and a footer note says where each comes from.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the source repo's own dev server.
+
+**Score:** N/A
 
 #### Pull Request
 
