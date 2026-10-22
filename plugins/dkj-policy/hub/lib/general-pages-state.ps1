@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     The I/O half of the state-file contract between a checkout's two servers (#3119): read and write
-    %TEMP%\dkj-repo-hub-<leaf>-<hash>.json, and ask whether the general pages server named in it answers.
+    %TEMP%\dkj-repository-<leaf>-<hash>.json, and ask whether the general pages server named in it answers.
 
 .DESCRIPTION
     The rules -- the path, the shape, what is believed -- are in dev-preview-rules.ps1 (no I/O), which this
@@ -17,19 +17,19 @@
 
 . (Join-Path $PSScriptRoot 'dev-preview-rules.ps1')
 
-function Read-RepoHubState {
+function Read-RepositoryState {
     <# @{ Hub; Pages; Product; Mode } for the checkout at -Root: every url '' and Mode 'none' when the file is absent, unreadable or not this root's. #>
     param([Parameter(Mandatory = $true)][string]$Root)
-    $path = Get-RepoHubStatePath -Root $Root
+    $path = Get-RepositoryStatePath -Root $Root
     try {
         if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return @{ Hub = ''; Pages = ''; Product = ''; Mode = 'none' } }
-        return (ConvertFrom-RepoHubState -Text ([System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)) -Root $Root)
+        return (ConvertFrom-RepositoryState -Text ([System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)) -Root $Root)
     } catch {
         return @{ Hub = ''; Pages = ''; Product = ''; Mode = 'none' }
     }
 }
 
-function Write-RepoHubState {
+function Write-RepositoryState {
     <# Writes the state file for -Root. Throws on a write failure; the hook wraps it, since it never fails a session. #>
     param(
         [Parameter(Mandatory = $true)][string]$Root,
@@ -38,8 +38,8 @@ function Write-RepoHubState {
         [AllowEmptyString()][string]$Product = '',
         [ValidateSet('none', 'product', 'ownhub')][string]$Mode = 'none'
     )
-    $text = Format-RepoHubState -Root $Root -Hub $Hub -Pages $Pages -Product $Product -Mode $Mode
-    [System.IO.File]::WriteAllText((Get-RepoHubStatePath -Root $Root), $text, (New-Object System.Text.UTF8Encoding($false)))
+    $text = Format-RepositoryState -Root $Root -Hub $Hub -Pages $Pages -Product $Product -Mode $Mode
+    [System.IO.File]::WriteAllText((Get-RepositoryStatePath -Root $Root), $text, (New-Object System.Text.UTF8Encoding($false)))
 }
 
 function Get-LoopbackWhoami {
@@ -86,7 +86,7 @@ function Get-GeneralPagesUrl {
         checkout's server has taken since.
     #>
     param([Parameter(Mandatory = $true)][string]$Root, [int]$TimeoutMs = 500)
-    $state = Read-RepoHubState -Root $Root
+    $state = Read-RepositoryState -Root $Root
     if (-not $state.Pages) { return '' }
     $port = ([uri]$state.Pages).Port
     if ((Get-LoopbackWhoami -Port $port -TimeoutMs $TimeoutMs) -eq (Get-DevPreviewRootHash -Root $Root)) { return $state.Pages }

@@ -1,17 +1,17 @@
 <#
 .SYNOPSIS
-    The Repo hub of this repo's dev server -- the home page on '/' and About this repo on '/about' (#3270) --
+    The Repository of this repo's dev server -- the home page on '/' and About this repo on '/about' (#3270) --
     and its own pages: the test-gate page (the per-suite CI
     durations, #3097), the Specialists page, and the status page /brandbook/ answers with when the brandbook/ app's
     build cannot be served (its paths and content types are dkj-solutions-pages-lib's, #3210). No I/O -- the server
     (scripts/dashboard/serve-connector-dashboard.ps1) measures and reads, and hands the results in, so every rule here is tested without a server.
 
 .DESCRIPTION
-    THE HUB TAKES THE ONE FORM THE HOUSE STYLE LAYS DOWN ("The Repo hub", #3270): the home page is a portal --
+    THE HUB TAKES THE ONE FORM THE HOUSE STYLE LAYS DOWN ("The Repository", #3270): the home page is a portal --
     the bar with its one crumb, Home, the settings button, the intro with the repo's name as its h1, one link
     to About this repo and the Brand book section; About this repo holds the Pages block (the 'This repo'
     card linking the repo's own pages, then the General card), the facts and a footer note. This repo is no
-    product and keeps no in-flight lists, so it has no Products section and no lists. The pages it links are Get-RepoHubPages, the
+    product and keeps no in-flight lists, so it has no Products section and no lists. The pages it links are Get-RepositoryPages, the
     ones only this repo has. The GENERAL pages -- Artifacts, Issues, Release notes and SessionStart, which
     every repo has -- are no longer built here (#3119): the dkj-policy plugin ships them (since #3198) as
     a server of its own, and the hub's second card, General, links that server, through the plugin's
@@ -22,7 +22,7 @@
     the tile and bar helpers the Test gate page shares with those pages, so nothing is written twice.
 
     ONE SHELL FOR EVERY PAGE BELOW THE HUB. Each page opens with the house breadcrumb bar, its trail
-    starting at the Repo hub on '/' and ending at the page itself, unlinked ("Every page: the breadcrumb
+    starting at the Repository on '/' and ending at the page itself, unlinked ("Every page: the breadcrumb
     bar"); then the settings button, an intro (eyebrow, h1, lead), the page's own blocks and a footer
     note naming where the data comes from. Format-DevPageHtml is this repo's call of the plugin's
     Format-GeneralPageHtml.
@@ -33,7 +33,7 @@
     gate charges it the largest recorded value.
 
     THE DKJ REPOS PAGE (#3231) is this hub's own, listed in the DKJ-Solutions card after the plugin's pages
-    (Get-RepoHubDkjPages): every DKJ-Solutions repo on GitHub, its checkout beside this repo, and the command
+    (Get-RepositoryDkjPages): every DKJ-Solutions repo on GitHub, its checkout beside this repo, and the command
     that opens Claude Code there. Find-DkjCheckouts is the one function in this file that reads the disk.
 
     EVERY VALUE THAT REACHES THE PAGE IS ESCAPED, through connector-dashboard-lib's ConvertTo-DashboardText
@@ -67,9 +67,9 @@ function Format-DevPageHtml {
         -Eyebrow 'DKJ-Solutions/dkj-claude-plugins' -SiteName 'dkj-claude-plugins' -HubHref '/'
 }
 
-function Get-RepoHubPages {
+function Get-RepositoryPages {
     <#
-        The pages the Repo hub links in its "This repo" card, in the order it lists them: each a route on this
+        The pages the Repository links in its "This repo" card, in the order it lists them: each a route on this
         server, its label the page's own name as its breadcrumb reads it, and one line on what it shows. The
         general pages are the plugin's (Get-GeneralPages), on a server of their own.
     #>
@@ -80,7 +80,7 @@ function Get-RepoHubPages {
     )
 }
 
-function Format-RepoHubHtml {
+function Format-RepositoryHtml {
     <#
         The repo's home page on '/' (#3270): the repo's name as its h1, one link to About this repo, and the
         Brand book section -- the DKJ-Solutions card, with this hub's own DKJ repos page. This repo is no
@@ -104,7 +104,7 @@ function Format-RepoHubHtml {
     [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName 'dkj-claude-plugins' -Lead 'The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.'))
     [void]$sb.Append((Format-RepoAboutLinkHtml))
     # Brand book: the plugin's DKJ-Solutions card standing alone, with the DKJ repos page this hub serves itself.
-    [void]$sb.Append((Format-DkjSolutionsPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $false -SameOrigin -LocalPages @(Get-RepoHubDkjPages)))
+    [void]$sb.Append((Format-DkjSolutionsPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $false -SameOrigin -LocalPages @(Get-RepositoryDkjPages)))
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
     [void]$sb.AppendLine('</body>')
@@ -116,7 +116,7 @@ function Format-RepoAboutHtml {
     <#
         The About this repo page on '/about' (#3270): everything about the repo itself. The Pages block (the
         'This repo' card linking the repo's own pages, then the General card, on one .grid-2 row under one h2),
-        this repo's facts and a footer note. -Pages is Get-RepoHubPages' shape; -SourceCommit is the short sha
+        this repo's facts and a footer note. -Pages is Get-RepositoryPages' shape; -SourceCommit is the short sha
         the server reads, or empty; -GeneralPagesUrl is the general pages server's base url when it answers,
         or empty (the General card then says it is not running).
     #>
@@ -139,7 +139,7 @@ function Format-RepoAboutHtml {
         [void]$sb.AppendLine('<nav class="menu-list" aria-label="This repo pages">')
         foreach ($p in $repoRows) {
             $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
-            [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e $p.Href) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a>')
+            [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e $p.Href) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepositoryChevron + '</a>')
         }
         [void]$sb.AppendLine('</nav>')
         [void]$sb.AppendLine('</section>')
@@ -539,7 +539,7 @@ function Format-SpecialistsPageHtml {
         -FooterNote ('Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Bytes are measured (hover a cell); tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.')
 }
 
-function Get-RepoHubDkjPages {
+function Get-RepositoryDkjPages {
     <#
         The DKJ-Solutions pages only this hub has, listed in the hub's DKJ-Solutions card after the plugin's own
         (#3231): this server answers them, so they are linked whether or not the general pages server runs.

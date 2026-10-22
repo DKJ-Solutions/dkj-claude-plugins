@@ -24,7 +24,7 @@ function houseTheme(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
-  // The Repo hub (scripts/dashboard/serve-connector-dashboard.ps1) serves the build under /brandbook/; the dev server
+  // The Repository (scripts/dashboard/serve-connector-dashboard.ps1) serves the build under /brandbook/; the dev server
   // uses the same base, so a link means the same thing in both.
   base: '/brandbook/',
   plugins: [react(), houseTheme()],

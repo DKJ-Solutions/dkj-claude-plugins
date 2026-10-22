@@ -173,7 +173,7 @@ export function Overlays() {
         </Demo>
       </Section>
 
-      <Section id="PageLinks" title="PageLinks" intro="The Repo hub's Pages block: a data card titled Pages around a list of link rows, each with a label, an optional one-line description and a chevron. It is the house .menu-item as a link, so a row tints on hover; it renders nothing for an empty list. With generalPages too (Issues, Release notes: the pages every DKJ-Solutions repo serves) the h2 stands above two cards side by side, This repo and General.">
+      <Section id="PageLinks" title="PageLinks" intro="The Repository's Pages block: a data card titled Pages around a list of link rows, each with a label, an optional one-line description and a chevron. It is the house .menu-item as a link, so a row tints on hover; it renders nothing for an empty list. With generalPages too (Issues, Release notes: the pages every DKJ-Solutions repo serves) the h2 stands above two cards side by side, This repo and General.">
         <Demo label="Two pages, one with a description">
           <PageLinks
             pages={[

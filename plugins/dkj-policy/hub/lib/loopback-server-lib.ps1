@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    What the plugin's general pages server (hub/pages/serve-general-pages.ps1, the Repo hub since #3245)
+    What the plugin's general pages server (hub/pages/serve-general-pages.ps1, the Repository since #3245)
     and the source repo's own hub server share: reading one request head off a TcpClient, writing one
     response, and the two refusals every request meets first (a Host that is not loopback, a browser
     request from another site). One copy, so a fix to either rule lands in both servers (#3119). The
@@ -14,7 +14,7 @@
     A SAME-SITE REQUEST IS NOT ALWAYS FOREIGN. Browsers do not count the port toward "site", so the hub
     on localhost:4876 and the general pages on localhost:4890 are the same site, and a user clicking the
     hub's General link sends Sec-Fetch-Site: same-site -- as does the 303 hop from the repo server's
-    /issues to the general server, and the "Repo hub" crumb back. That is a top-level navigation, a GET the
+    /issues to the general server, and the "Repository" crumb back. That is a top-level navigation, a GET the
     user made, and it is served. What stays refused is cross-site always, and same-site for anything that
     is not a navigation (a fetch, an image, a form post): the loop is single-threaded, and a page on
     another port of this machine must not be able to keep it busy. A missing header (curl, an old browser)

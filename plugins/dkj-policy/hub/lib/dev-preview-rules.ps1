@@ -25,7 +25,7 @@
             }
         }
 
-    THE PAGE HAS ONE NAME IN EVERY REPO, 'Repo hub' (INBOUND #3064, the owner's term, October 16, 2026;
+    THE PAGE HAS ONE NAME IN EVERY REPO, 'Repository' (INBOUND #3064, the owner's term, October 16, 2026;
     renamed from 'Repo dashboard' with dkj-brandbook v0.3.0, #3097): the line the hook prints opens with
     it. A repo once chose its own
     word through a Name key, and three repos said Showcase, connector dashboard and dev-preview for the
@@ -33,9 +33,9 @@
     keeps working; the word "dev-preview" stays the MECHANISM's, on the hook's lines about its own setup
     (skipped, config unreadable, a config it cannot run), which are printed before any config is read.
 
-    THE PLUGIN SERVES THE REPO HUB IN EVERY REPO (#3245, the owner's decision of October 21, 2026), whether
+    THE PLUGIN SERVES THE REPOSITORY IN EVERY REPO (#3245, the owner's decision of October 21, 2026), whether
     or not the repo states Get-DevPreview: the general pages server answers '/' with the hub, and a server
-    the repo states is its PRODUCT, one link on that hub. A repo that wants its own hub keeps that option
+    the repo states is its PRODUCT, one link on that Repository. A repo that wants its own Repository keeps that option
     through OwnHub = $true: its server is then the hub, as it was before. This replaces #3047's placeholder,
     whose own server on 4880-4889 is retired: the hub IS the general pages server.
 
@@ -53,10 +53,10 @@
     THE GENERAL PAGES SERVER AND THE STATE FILE (#3119). Beside the repo's own server the hook starts the
     plugin's general pages server (hub/pages/serve-general-pages.ps1: Artifacts, Issues, Release notes,
     SessionStart), on the first free port of 4890-4899 under the same ownership rule. The two servers learn
-    of each other through ONE file per checkout, %TEMP%\dkj-repo-hub-<leaf>-<hash>.json, which the hook
-    writes at every session start: { root, hub, pages, product, mode }, the repo hub's url, the general
-    server's base url, the repo's own server url and what the repo states (#3245). Get-RepoHubStatePath names
-    it, Format-RepoHubState writes it, ConvertFrom-RepoHubState reads it and believes it only when it names
+    of each other through ONE file per checkout, %TEMP%\dkj-repository-<leaf>-<hash>.json, which the hook
+    writes at every session start: { root, hub, pages, product, mode }, the Repository's url, the general
+    server's base url, the repo's own server url and what the repo states (#3245). Get-RepositoryStatePath names
+    it, Format-RepositoryState writes it, ConvertFrom-RepositoryState reads it and believes it only when it names
     this root and carries plain loopback urls. The hash is the one the hook's
     log paths use (Get-DevPreviewRootHash), so a checkout's files sit together in %TEMP%.
 
@@ -66,8 +66,8 @@
 
 $script:DevPreviewMaxAncestors = 4
 # The word every line about the page opens with, in every repo (#3064).
-$script:DevPreviewLabel = 'Repo hub'
-# The general pages server, which is the Repo hub (#3119, #3245). Fixed, so a .vscode route can name them; ten,
+$script:DevPreviewLabel = 'Repository'
+# The general pages server, which is the Repository (#3119, #3245). Fixed, so a .vscode route can name them; ten,
 # so ten checkouts open side by side each get their own. Clear of the ranges the repos measured in #2967 and
 # #2976 use (3000, 4870-4879, 5173-5180, 8765).
 $script:GeneralPagesPorts = 4890..4899
@@ -475,11 +475,11 @@ function Get-DevPreviewLogPath {
     return Join-Path ([System.IO.Path]::GetTempPath()) ("$Name-$leaf-$(Get-DevPreviewRootHash -Root $Root).log")
 }
 
-function Get-RepoHubStatePath {
-    <# %TEMP%\dkj-repo-hub-<leaf>-<hash>.json: where the two servers of one checkout find each other (#3119). #>
+function Get-RepositoryStatePath {
+    <# %TEMP%\dkj-repository-<leaf>-<hash>.json: where the two servers of one checkout find each other (#3119). #>
     param([Parameter(Mandatory = $true)][string]$Root)
     $leaf = Split-Path -Leaf $Root
-    return Join-Path ([System.IO.Path]::GetTempPath()) ("dkj-repo-hub-$leaf-$(Get-DevPreviewRootHash -Root $Root).json")
+    return Join-Path ([System.IO.Path]::GetTempPath()) ("dkj-repository-$leaf-$(Get-DevPreviewRootHash -Root $Root).json")
 }
 
 function ConvertTo-DevPreviewRootKey {
@@ -489,7 +489,7 @@ function ConvertTo-DevPreviewRootKey {
     return $Root.Replace('/', '\').TrimEnd('\').ToLowerInvariant()
 }
 
-function Test-RepoHubLocalUrl {
+function Test-RepositoryLocalUrl {
     <#
         True when -Url is a plain loopback url: http://localhost:<port> and an optional path of the characters
         Get-DevPreview's Path allows, at most 240 characters, the port 1024-65535, the path not opening with '//'. The one believe-rule for a state-file url that is
@@ -504,9 +504,9 @@ function Test-RepoHubLocalUrl {
     return -not ([string]$Matches[2]).StartsWith('//')
 }
 
-function Format-RepoHubState {
+function Format-RepositoryState {
     <#
-        The state file's text (#3245). -Hub is the repo hub's url: the general server's own base plus '/' where
+        The state file's text (#3245). -Hub is the Repository's url: the general server's own base plus '/' where
         the plugin serves the hub, the repo's own server where the repo opted out. -Pages is the general
         server's base url, '' where none is running. -Product is the repo's own server url, or ''. -Mode is
         what the repo states: 'none' (no Get-DevPreview, so the hub carries the setup cards), 'product' (a
@@ -523,12 +523,12 @@ function Format-RepoHubState {
     return ([ordered]@{ root = $Root; hub = $Hub; pages = $Pages; product = $Product; mode = $Mode } | ConvertTo-Json -Compress)
 }
 
-function ConvertFrom-RepoHubState {
+function ConvertFrom-RepositoryState {
     <#
         @{ Hub; Pages; Product; Mode } from the state file's -Text, each '' (Mode 'none') unless it can be
         believed: the file is JSON, its root is -Root (compared the way paths are), and each url is a plain
         loopback url -- the hub's and the product's with an optional path of the characters Get-DevPreview's
-        Path allows (Test-RepoHubLocalUrl), the pages' a bare base on one of the general pages ports
+        Path allows (Test-RepositoryLocalUrl), the pages' a bare base on one of the general pages ports
         (Get-GeneralPagesPortRange), so a file another process can write cannot point a hub's links at any
         other local service. The urls are redirect targets and link hrefs, so a state file that names anything
         else is ignored. Mode is believed only as one of its three words; a file written before #3245 has
@@ -544,8 +544,8 @@ function ConvertFrom-RepoHubState {
     $p = if ($s.PSObject.Properties['pages']) { [string]$s.pages } else { '' }
     $q = if ($s.PSObject.Properties['product']) { [string]$s.product } else { '' }
     $m = if ($s.PSObject.Properties['mode']) { [string]$s.mode } else { '' }
-    if (Test-RepoHubLocalUrl $h) { $state.Hub = $h }
-    if (Test-RepoHubLocalUrl $q) { $state.Product = $q }
+    if (Test-RepositoryLocalUrl $h) { $state.Hub = $h }
+    if (Test-RepositoryLocalUrl $q) { $state.Product = $q }
     if ($p -cmatch '^http://localhost:([0-9]{4,5})/?\z' -and (@(Get-GeneralPagesPortRange) -contains [int]$Matches[1])) { $state.Pages = $p.TrimEnd('/') }
     if ($m -cmatch '^(none|product|ownhub)\z') { $state.Mode = $m }
     return $state
