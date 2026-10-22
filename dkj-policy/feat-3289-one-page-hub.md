@@ -39,19 +39,42 @@
 
 ### PLAN
 
+#### Status
+
+A visible result: parked for the owner's eye, with no pull request until they have looked. It builds the
+decision recorded on #3289: the house form follows this repo's hub, so every repo's hub becomes one page.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-PluginRepoHubHtml` carries what `Format-PluginRepoAboutHtml` did, and takes `-Folder`: the General pages, the Facts and the footer note, after Products and before the Brand book; `Format-PluginRepoAboutHtml` and `Format-RepoAboutLinkHtml` are gone
+- [x] `serve-general-pages.ps1` answers `/about` with a 303 to `/`
+- [x] The house-style README's "The hub" becomes one table for one page; `patterns/repo-dashboard.html` takes `repo-about.html`'s blocks under a site header, and `repo-about.html` is removed
+- [x] The hub README, the `house-style` skill and `dev-pages-lib.ps1`'s header follow
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: About's asserts run against the home page, plus the block order and the `/about` redirect on a live server (308 passed)
+- [x] `open-pr.ps1 -GatesOnly` before the park
+
 ### DEPLOY: feat/3289-one-page-hub
 
-**Score:**
+The hub ([#3289](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3289)) is one page in every repo
+now, not a home page that links an About this repo page. The plugin's hub home page holds the Products section
+(or the setup cards), the General pages, the facts, the Brand book in a DKJ-Solutions repo, and a footer note.
+`/about` answers 303 to `/`, so an old link still lands. The house-style README's "The hub" lays the one page
+down as one table, and its stylesheet-only reference is the single
+[`patterns/repo-dashboard.html`](../plugins/dkj-policy/dkj-solutions/assets/house-style/patterns/repo-dashboard.html),
+under a site header. `repo-about.html` is gone.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The hub that every repo's session start links is one page: the General pages and the facts are on it, so they
+no longer sit one click away on About this repo. A repo that copied the two stylesheet-only patterns now has one
+pattern to follow.
+
+**Score:** 3
 
 #### Pull Request
 

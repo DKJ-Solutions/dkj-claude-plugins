@@ -46,17 +46,17 @@ link on that hub, not the hub itself.
 **The hub has one form, in every repo** (the owner's decision, October 16, 2026,
 [#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)): the one laid down in
 [`dkj-solutions/assets/house-style/README.md`](../dkj-solutions/assets/house-style/README.md), section
-"The hub": two pages, the home page on `/` and About this repo on `/about` (#3270). The blocks and their
-order are fixed. The plugin's home page carries the repo's name as its `h1`, and under the lead:
+"The hub": one page on `/`, under the site header (#3289, which ended #3270's separate About this repo
+page; an old link to `/about` is sent to `/`). The blocks and their order are fixed. The site header names
+the repo, and under the breadcrumb bar and the banner the page carries:
 
 - a **Products** section, where the repo states a server: its link, or a line saying it is not running;
 - two **setup cards** in its place, only where the repo states no `Get-DevPreview` at all: how to add one,
   and which port to route to VS Code's Simple Browser;
-- **About this repo**, one link to `/about`;
-- the **Brand book** section, where the repo enables `dkj-solutions`, linking its pages by bare path.
-
-Its About this repo page carries the **General** pages, by bare path, the facts, and a footer naming the
-serving script.
+- the **General** pages, by bare path;
+- the **Facts**: the folder, the dev preview, where it is stated and who serves the hub;
+- the **Brand book** section, where the repo enables `dkj-solutions`, linking its pages by bare path;
+- a footer naming the serving script.
 
 The page is built per request from the state file below, and the repo's name and the product url, the only
 values from outside, are HTML-escaped. The line the hook prints opens with `Hub:`, and a repo cannot
@@ -188,7 +188,7 @@ under `/brandbook/`. The PowerShell Brandbook page it replaces is retired, so th
 
 | Page | Reads, from the repo it was started in | When it is absent |
 |---|---|---|
-| `/`, `/index.html`, `/hub`, `/about` | The state file below, on every request: the home page of this plugin's hub, and on `/about` its About this repo page. Under `OwnHub` a 303 to the repo's own hub instead | Under `OwnHub` with no hub known, a short 404 text |
+| `/`, `/index.html`, `/hub` | The state file below, on every request: the home page of this plugin's hub; `/about` answers 303 to `/` (#3289). Under `OwnHub` a 303 to the repo's own hub instead | Under `OwnHub` with no hub known, a short 404 text |
 | `/artifacts` | `scripts/dashboard/artifacts.json`, on every request | The page says the file is not there |
 | `/brandbook/` | Only where the repo enables `dkj-solutions`: the brand book app's build in the `dkj-solutions/assets/brandbook/` this server runs from, its own routes answered with its `index.html`; `/brandbook` is a 303 to it | A plain 404 in a repo without `dkj-solutions`; a plugin copy that ships no build gets a page saying so |
 | `/issues` | `gh issue list`, three calls (the open issues, and those opened and closed in the last 28 days), for `--repo <owner/name>` taken from the `origin` remote when it is on github.com, else for the repo `gh` finds in the working directory; kept for five minutes | A `gh` that fails or is missing is a warning on the page |

@@ -402,10 +402,14 @@ try {
                 Send-LoopbackResponse $stream 200 'OK' $s.Type $body -Method $method
                 continue
             }
-            if ($path -eq '/' -or $path -eq '/index.html' -or $path -eq '/hub' -or $path -eq '/about') {
+            if ($path -eq '/about') {
+                # The hub is one page (#3289): an old link to About this repo goes on to the home page, which holds it.
+                Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/' } -Method $method
+                continue
+            }
+            if ($path -eq '/' -or $path -eq '/index.html' -or $path -eq '/hub') {
                 # THE HUB IS THIS SERVER'S (#3245), built per request from the state file: unless the repo opted
                 # out with OwnHub, in which case its own server is the hub and this one sends the visitor there.
-                # '/' is the repo's home page, '/about' its About this repo page (#3270).
                 $state = Read-RepoHubState -Root $root
                 if ($state.Mode -eq 'ownhub') {
                     if ($state.Hub) {
@@ -416,11 +420,7 @@ try {
                     continue
                 }
                 $hubMode = if ($state.Mode -eq 'product') { 'product' } else { 'none' }
-                $hubHtml = if ($path -eq '/about') {
-                    Format-PluginRepoAboutHtml -RepoName (Get-RepoIdentity).Name -Folder (Split-Path -Leaf $root) -Mode $hubMode -ProductUrl $state.Product -PagesUrl "http://localhost:$Port"
-                } else {
-                    Format-PluginRepoHubHtml -RepoName (Get-RepoIdentity).Name -Mode $hubMode -ProductUrl $state.Product -PagesUrl "http://localhost:$Port" -DkjSolutions:$dkjSolutions
-                }
+                $hubHtml = Format-PluginRepoHubHtml -RepoName (Get-RepoIdentity).Name -Folder (Split-Path -Leaf $root) -Mode $hubMode -ProductUrl $state.Product -PagesUrl "http://localhost:$Port" -DkjSolutions:$dkjSolutions
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($hubHtml)) -Method $method
                 continue
             }
