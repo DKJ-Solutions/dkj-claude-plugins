@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    SessionStart hook: start (or reuse) the plugin's Repository and, where the repo states one, its own local
+    SessionStart hook: start (or reuse) the plugin's hub and, where the repo states one, its own local
     dev server (the product), and hand the session both localhost links in one line.
 
 .DESCRIPTION
@@ -12,7 +12,7 @@
     pages server (hub/pages/serve-general-pages.ps1: the hub on '/', and Artifacts, Issues, Release notes,
     SessionStart, and the Brandbook in a DKJ-Solutions repo) is the hub, on the first free port of 4890-4899,
     under the ownership rule, with its log in %TEMP%\dev-preview-general-<repo>-<hash>.log. A server the repo
-    states in Get-DevPreview is its PRODUCT, one link on that Repository. A repo that wants its own Repository states
+    states in Get-DevPreview is its PRODUCT, one link on that hub. A repo that wants its own hub states
     OwnHub = $true: its server is then the hub, as before, and the general server still starts beside it and
     sends '/hub' there.
 
@@ -32,7 +32,7 @@
     common case costs the longer of the two, never their sum. The hub has its own short deadline (12 s); the
     product has the repo's WaitSeconds.
 
-    THE STATE FILE (%TEMP%\dkj-repository-<repo>-<hash>.json: root, hub, pages, product, mode) is written
+    THE STATE FILE (%TEMP%\dkj-repo-hub-<repo>-<hash>.json: root, hub, pages, product, mode) is written
     every session, from whatever the hook found, because it is the one contract by which the servers and
     hubs find each other. It is written before the wait and again after it where a wait failed, so it never
     names a server that did not come up. mode is what the repo states: 'none' (no Get-DevPreview, so the hub
@@ -42,7 +42,7 @@
     states no server, so it gets the hub's line like one with no seam at all. Nothing is silent but a
     non-Windows host and a missing rules library.
 
-    IN DKJ-POLICY SINCE #3198 (the owner's decision of October 20, 2026): the Repository and its General pages
+    IN DKJ-POLICY SINCE #3198 (the owner's decision of October 20, 2026): the hub and its General pages
     are what every repo has, so the hook ships with the plugin every repo runs, BWJ-Development's included.
 
     THE OUTPUT is SessionStart JSON with BOTH systemMessage (shown to the owner, so the links are clickable
@@ -208,7 +208,7 @@ function Start-DevPreviewHub($Listeners, $Processes) {
         $ports = @(Get-GeneralPagesPortRange)
         $pluginRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
         $server = Join-Path $pluginRoot 'hub\pages\serve-general-pages.ps1'
-        if (-not (Get-Command Write-RepositoryState -ErrorAction SilentlyContinue) -or -not (Test-Path -LiteralPath $server -PathType Leaf)) {
+        if (-not (Get-Command Write-RepoHubState -ErrorAction SilentlyContinue) -or -not (Test-Path -LiteralPath $server -PathType Leaf)) {
             $r.Reason = 'the plugin lacks the hub server or its libraries -- reinstall or update the dkj-policy plugin'
             return $r
         }
@@ -342,7 +342,7 @@ if ($extra -and $extra.Action -eq 'start') { $targets += @{ Name = 'extra'; Port
 # again after it where a wait failed, so it never names a server that did not come up.
 function Save-DevPreviewState {
     try {
-        if (-not (Get-Command Write-RepositoryState -ErrorAction SilentlyContinue)) { return }
+        if (-not (Get-Command Write-RepoHubState -ErrorAction SilentlyContinue)) { return }
         $pagesUrl = if ($hub.Base -and -not (@($targets | Where-Object { $_.Name -eq 'hub' -and $_.Fail -eq 'exited' }).Count)) { $hub.Base } else { '' }
         $productUrl = if ($prod -and $prod.Url -and -not (@($targets | Where-Object { $_.Name -eq 'product' -and $_.Done -and -not $_.Ok }).Count)) { $prod.Url } else { '' }
         $hubUrl = if ($mode -eq 'ownhub') { $productUrl } elseif ($pagesUrl) { "$pagesUrl/" } else { '' }
@@ -350,7 +350,7 @@ function Save-DevPreviewState {
         if ($mode -eq 'ownhub') {
             $productUrl = if ($extra -and $extra.Url -and -not (@($targets | Where-Object { $_.Name -eq 'extra' -and $_.Done -and -not $_.Ok }).Count)) { $extra.Url } else { '' }
         }
-        Write-RepositoryState -Root $root -Hub $hubUrl -Pages $pagesUrl -Product $productUrl -Mode $mode
+        Write-RepoHubState -Root $root -Hub $hubUrl -Pages $pagesUrl -Product $productUrl -Mode $mode
     } catch { }
 }
 Save-DevPreviewState

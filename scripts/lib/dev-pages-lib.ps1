@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    The Repository of this repo's dev server -- the home page on '/', which holds what was About this repo (#3270;
+    The hub of this repo's dev server -- the home page on '/', which holds what was About this repo (#3270;
     '/about' sends there since October 22, 2026) -- and its own pages: the test-gate page (the per-suite CI
     durations, #3097), the Connectors and Specialists pages (the product's since October 22, 2026: its dev server
     links and relays them, so the hub lists neither) and the DKJ repos page, the product's too. No I/O -- the server
@@ -8,11 +8,11 @@
 
 .DESCRIPTION
     THE HUB IS ONE PAGE, AND IT DEPARTS FROM THE HOUSE FORM ON PURPOSE (owner, October 22, 2026). The house style's
-    Repository is a home page that links an About this repo page (#3270). Here the site header names the repo and
+    hub is a home page that links an About this repo page (#3270). Here the site header names the repo and
     holds the settings button, the bar has its one crumb, Home, and the page goes straight to what About held: the
     Pages block (the 'This repo' card linking the repo's own pages, then the General card), the facts and a
     footer note, so it fits on one screen. This repo is no
-    product and keeps no in-flight lists, so it has no Products section and no lists. The pages it links are Get-RepositoryPages, the
+    product and keeps no in-flight lists, so it has no Products section and no lists. The pages it links are Get-RepoHubPages, the
     ones only this repo has. The GENERAL pages -- Artifacts, Issues, Release notes and SessionStart, which
     every repo has -- are no longer built here (#3119): the dkj-policy plugin ships them (since #3198) as
     a server of its own, and the hub's second card, General, links that server, through the plugin's
@@ -28,7 +28,7 @@
     dkj-solutions plugin, through the general server.
 
     ONE SHELL FOR EVERY PAGE BELOW THE HUB. Each page opens with the house breadcrumb bar, its trail
-    starting at the Repository on '/' and ending at the page itself, unlinked ("Every page: the breadcrumb
+    starting at the hub on '/' and ending at the page itself, unlinked ("Every page: the breadcrumb
     bar"); then the settings button, an intro (eyebrow, h1, lead), the page's own blocks and a footer
     note naming where the data comes from. Format-DevPageHtml is this repo's call of the plugin's
     Format-GeneralPageHtml.
@@ -75,9 +75,9 @@ function Format-DevPageHtml {
         -Brand 'dkj-claude-plugins' -BrandTag $BrandTag -SiteName 'dkj-claude-plugins' -HubHref '/'
 }
 
-function Get-RepositoryPages {
+function Get-RepoHubPages {
     <#
-        The pages the Repository links in its "This repo" card, in the order it lists them: each a route on this
+        The pages the hub links in its "This repo" card, in the order it lists them: each a route on this
         server, its label the page's own name as its breadcrumb reads it, and one line on what it shows. The
         general pages are the plugin's (Get-GeneralPages), on a server of their own. Connectors and Specialists
         are built here and are the product's pages (October 22, 2026): its root page links them, so they are
@@ -111,7 +111,7 @@ function Format-RepoGitHubPageHtml {
     [void]$sb.AppendLine('</dl>')
     $card = { param($href, $label, $sub)
         '<section class="card"><nav class="menu-list" aria-label="' + $label + '"><a class="menu-item" href="' + $href +
-            '"><span class="menu-item__label">' + $label + '<span class="menu-item__sub">' + $sub + '</span></span>' + $script:RepositoryChevron + '</a></nav></section>'
+            '"><span class="menu-item__label">' + $label + '<span class="menu-item__sub">' + $sub + '</span></span>' + $script:RepoHubChevron + '</a></nav></section>'
     }
     [void]$sb.AppendLine('<div class="grid-3">')
     if ($GeneralPagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z') {
@@ -126,7 +126,7 @@ function Format-RepoGitHubPageHtml {
         -Lead 'The GitHub repo this hub serves: its facts, its open issues and its pull requests.' `
         -FooterNote 'The facts are this repo''s own; Issues is the dkj-policy general pages server''s page, relayed here.'
 }
-function Format-RepositoryHtml {
+function Format-RepoHubHtml {
     <#
         The repo's home page on '/' (#3270): under the site header and the bar, everything that was About this
         repo (Format-RepoAboutBodyHtml: the Pages block and the facts) and its footer note; '/about' now sends
@@ -134,7 +134,7 @@ function Format-RepositoryHtml {
         port's, so they are not here. The parameters are Format-RepoAboutBodyHtml's.
     #>
     param(
-        [AllowEmptyCollection()][object[]]$Pages = @(Get-RepositoryPages),
+        [AllowEmptyCollection()][object[]]$Pages = @(Get-RepoHubPages),
         [AllowEmptyString()][string]$SourceCommit = '',
         [AllowEmptyString()][string]$GeneralPagesUrl = ''
     )
@@ -167,7 +167,7 @@ function Format-RepoAboutBodyHtml {
         What was the About this repo page (#3270) and is the home page's body since October 22, 2026: the Pages
         block: every page a card of its own, this repo's then the general ones but Issues, with no heading above
         them. The facts and Issues are the Repository page's (Format-RepoGitHubPageHtml). -Pages is
-        Get-RepositoryPages' shape; -SourceCommit is unused here and kept for the callers; -GeneralPagesUrl is the general pages server's base url when it answers, or
+        Get-RepoHubPages' shape; -SourceCommit is unused here and kept for the callers; -GeneralPagesUrl is the general pages server's base url when it answers, or
         empty (one card then says it is not running).
     #>
     param(
@@ -184,7 +184,7 @@ function Format-RepoAboutBodyHtml {
     $pageCard = { param($p)
         $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
         '<section class="card"><nav class="menu-list" aria-label="' + (& $e $p.Label) + '"><a class="menu-item" href="' + (& $e $p.Href) +
-            '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepositoryChevron + '</a></nav></section>'
+            '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a></nav></section>'
     }
     $general = $GeneralPagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z'
     [void]$sb.AppendLine('<div class="grid-3">')

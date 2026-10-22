@@ -1507,7 +1507,7 @@ builds it. This repo's answers:
 | `Get-ReleasePageTitle` | `Claude Specialists` — the **product's** name, not the repository's; it is the masthead eyebrow and half the window title (the heading is the template's own *Release notes*) |
 | `Get-ReleasePageWorkerName` | `''` — hosted nowhere (below) |
 | where the output lands | `dkj-policy/releases/page/`, derived from `Get-ReleaseNoteRoot` rather than configured |
-| where it is read | the dkj-policy general pages server serves it at `http://localhost:<port>/release-notes` (a port from 4890 to 4899; the Repository the session start prints links it from its General card, and the repo's own server redirects `/release-notes` there), which opens in VS Code's Simple Browser |
+| where it is read | the dkj-policy general pages server serves it at `http://localhost:<port>/release-notes` (a port from 4890 to 4899; the hub the session start prints links it from its General card, and the repo's own server redirects `/release-notes` there), which opens in VS Code's Simple Browser |
 | what is committed | **nothing from that directory.** The page is a derivative of the tracked documents, and a 400 KB file changing every release would dirty the tree `cut-release.ps1` refuses to run on |
 
 **Only BWJ-Development hosts its release notes on Cloudflare** (Maikel, October 17, 2026,

@@ -2,7 +2,63 @@
 
 ## [Unreleased]
 
-**4 / 7 minor entries** <!-- pending-tally -->
+**6 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3301-site-header-mark-hugs-initials · 20261022-200117Z
+
+The site header's mark ([#3301](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3301)) was a fixed
+40px square with 12px initials in it, so most of it was empty space above and below the letters. It now sizes to
+its initials: a thin padding round a `--text-h2` line, which makes the letters, and the mark, larger. The same
+re-pin of [`house-style.css`](../plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css) carries
+[#3299](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3299): two comments that still called the
+hub "the Repository" now say "the hub's".
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Every page with a site header (each repo's hub, the brand book, and any app that uses the pattern) shows a
+larger mark whose edges sit close to its initials. It is noticed when somebody points it out.
+
+**Score:** 2
+
+#### Pull Request
+
+The site header's mark hugs its initials, and is larger
+
+Plugins: dkj-solutions
+
+[PR #3305](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3305)
+
+---
+
+### DEPLOY: fix/3294-hub-not-repository · 20261022-193830Z
+
+The hub is called the hub everywhere again, now that "Repository" names the `/repository` page on it: in the
+docs and comments, and in the functions, file and state file behind it (`Format-PluginRepoHubHtml`,
+`hub/lib/repo-hub-page.ps1`, `%TEMP%\dkj-repo-hub-<leaf>-<hash>.json`). A hub server started under the
+previous version is restarted at the next session start, as on any version change, so the state file's
+name needs nothing done by hand.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A repo that builds its own hub and calls the general banner function calls it `Format-RepoHubBanner` again
+(it was `Format-RepositoryBanner` for one release); no consumer checkout on this machine calls either. The
+banner's airsquats tally is kept under its pre-#3285 key again, so a count from before that release returns.
+
+**Score:** 1
+
+#### Pull Request
+
+The hub is the hub again, in prose and in names
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3300](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3300)
+
+---
 
 ### DEPLOY: docs/close-records-at-once · 20261022-192118Z
 

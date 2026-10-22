@@ -593,7 +593,7 @@ every general page of every repo, with the repo's name and `hub` after it, and t
   over the full width. On the left the app's mark and name, `a.site-header__brand` linking home (`/`); on
   the far right the settings button, `DKJTheme.settings` mounted in a plain `#settings` inside the header,
   so nothing floats. The mark is `.site-header__mark`, the organisation's initials on `--paper-1`, until the
-  app has a logo of its own; `.site-header__tag` sets a quieter word after the name (`product`).
+  app has a logo of its own: set at `--text-h2` with a thin padding, so the edges hug the letters (#3301); `.site-header__tag` sets a quieter word after the name (`product`).
 - **No eyebrow under it:** the header already names the site, so the intro opens with the `h1`. **A home page has no
   intro at all** (owner, October 22, 2026): its `h1` and lead only repeated the header, so `<main>` opens on its first
   block.
@@ -612,11 +612,11 @@ every general page of every repo, with the repo's name and `hub` after it, and t
 **What this changes for an app that takes the update:** nothing, unless it adds a `.site-header`; the
 bar's own colours change only right under one.
 
-### The Repository
+### The hub
 
 It is called a hub, not a dashboard (owner's call, October 17, 2026, [#199](https://github.com/DKJ-Solutions/dkj-brandbook/issues/199)): its job is to get you to the page you want quickly, while a dashboard is a page that shows how something stands, and the pages below it can be dashboards.
 
-**Every DKJ-Solutions repo's Repository has this one form, and only its content differs** (owner's
+**Every DKJ-Solutions repo's hub has this one form, and only its content differs** (owner's
 decision, October 16, 2026, [#139](https://github.com/DKJ-Solutions/dkj-brandbook/issues/139)). Where a repo
 states no dev server, or has not opted out of it (`OwnHub` in `Get-DevPreview`), the hub is the dkj-policy
 plugin's own hub server, and the repo's server is its product
@@ -638,7 +638,7 @@ itself is one click away.
 | 2 | The intro, wrapping 3 and 4: a `<div>`, never a `<header>` (below) | a plain `<div>` | fixed |
 | 3 | `h1`: **the repo's name**. No eyebrow: the `h1` already names the repo | `h1` | the repo's own name |
 | 4 | Lead: one paragraph on what the repo is for | `.lead` | the repo's own text |
-| 5 | The general banner: a countdown to the next full hour, and once an hour has passed a tone and a **10 airsquats** checkbox that shows the total owed ([#3250](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3250)) | a `.notice` holding two `.msg` lines, the second `.msg--warn`, written by `Format-RepositoryBanner` in `dkj-policy`'s `hub/lib/general-pages-lib.ps1` | fixed: a hub a repo builds itself carries it only if it calls that function |
+| 5 | The general banner: a countdown to the next full hour, and once an hour has passed a tone and a **10 airsquats** checkbox that shows the total owed ([#3250](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3250)) | a `.notice` holding two `.msg` lines, the second `.msg--warn`, written by `Format-RepoHubBanner` in `dkj-policy`'s `hub/lib/general-pages-lib.ps1` | fixed: a hub a repo builds itself carries it only if it calls that function |
 | 6 | **Products**: every product the repo offers, one row each, linking its own route. The product is never the page on `/` | a `.grid-2` with a `.grid__head` (`h2` + `.card__sub`) above one `.card.grid__full` holding a `<nav class="menu-list">` of `<a class="menu-item">` rows | product repos only; the products, their labels and descriptions are the repo's own. The plugin's hub shows, in a repo that states no product, the two **Set up a product** cards in this place |
 | 7 | **About this repo**: one row, linking `/about` | the same section form, one `.menu-item` | fixed |
 | 8 | **Brand book**: the pages every DKJ-Solutions repo shares (the Brandbook first) | the same section form | only in a repo under the DKJ brand, i.e. one that enables `dkj-solutions`. A repo may add DKJ-Solutions pages it serves itself |
@@ -712,7 +712,7 @@ a build copies [`patterns/repo-dashboard.html`](patterns/repo-dashboard.html) (t
 [`patterns/repo-about.html`](patterns/repo-about.html) (About this repo), the stylesheet-only reference
 pages: they link `house-style.css` and `house-theme.js` and carry no CSS of their own, and their settings
 button is fixed at the top right of the screen (`theme-settings--floating`). **These two patterns are the only
-reference**: the brand book app no longer draws a Repository specimen or previews of other repos' Repositories (owner,
+reference**: the brand book app no longer draws a hub specimen or previews of other repos' hubs (owner,
 October 21, 2026, [#3274](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3274)), so a repo with
 React builds the form from the blocks above with its own components.
 

@@ -25,7 +25,7 @@ function houseTheme(): Plugin {
 }
 
 /**
- * The Repository's ports: Get-DevPreview's Ports in scripts/repo-config.ps1. The hub is
+ * The hub's ports: Get-DevPreview's Ports in scripts/repo-config.ps1. The hub is
  * scripts/dashboard/serve-connector-dashboard.ps1, and it builds the product's two live pages.
  */
 const HUB_PORTS = Array.from({ length: 10 }, (_, i) => 4870 + i)
@@ -79,7 +79,7 @@ async function relayToHub(req: IncomingMessage, res: ServerResponse, target: str
   if (port === null) {
     res.statusCode = 503
     res.setHeader('Content-Type', 'text/plain; charset=utf-8')
-    return res.end('This page is built by the Repository (scripts/dashboard/serve-connector-dashboard.ps1), which is not running for this checkout: the dev-preview hook starts it at the next session start.')
+    return res.end('This page is built by the hub (scripts/dashboard/serve-connector-dashboard.ps1), which is not running for this checkout: the dev-preview hook starts it at the next session start.')
   }
   const method = req.method === 'HEAD' ? 'HEAD' : 'GET'
   const up = request({ host: '127.0.0.1', port, path: target, method, headers: { host: `localhost:${port}` } }, (answer) => {
@@ -90,7 +90,7 @@ async function relayToHub(req: IncomingMessage, res: ServerResponse, target: str
     if (res.headersSent) return res.destroy()
     res.statusCode = 502
     res.setHeader('Content-Type', 'text/plain; charset=utf-8')
-    res.end('The Repository did not answer this request. Reload the page in a moment.')
+    res.end('The hub did not answer this request. Reload the page in a moment.')
   })
   up.end()
 }
@@ -105,7 +105,7 @@ function hubTarget(path: string, query: string): string | null {
 /**
  * The product port starts at the root: in dev, '/' is root.html, a page linking the brand book, the connectors, the
  * specialists and the DKJ repos, and the two house files it loads are served beside it. The three live pages are relayed from the
- * Repository, which builds them. Added before Vite's own middleware, so the base never sees these paths. Not in
+ * hub, which builds them. Added before Vite's own middleware, so the base never sees these paths. Not in
  * the build, which is the brand book app alone.
  */
 function productRoot(): Plugin {
