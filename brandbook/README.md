@@ -17,8 +17,10 @@ where it lives (`src/main.tsx` imports the stylesheet, `vite.config.ts` inlines 
 this app's Vite dev server at session start, beside the Repository (`Get-DevPreview`'s `Product` in
 `scripts/repo-config.ps1`, [#3283](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3283)), and hands
 out its url: `http://localhost:<product port>/`. **The product starts at the root**: in dev, `/` is
-[`root.html`](root.html), a page linking the brand book at `/brandbook/` (`productRoot` in `vite.config.ts`; the
-build is the app alone). It shows the tree as it is edited, with no build. The
+[`root.html`](root.html), a page linking the brand book at `/brandbook/` and the Connectors, Specialists and DKJ repos pages
+(`productRoot` in `vite.config.ts`; the build is the app alone). Those three are live pages the Repository builds:
+the dev server finds this checkout's hub by its `/whoami` (ports 4870-4879) and relays each request there, so they
+show on this port and the hub no longer links them. It shows the tree as it is edited, with no build. The
 hub's own PowerShell Brandbook page it replaced is gone, and its themes table and class list live here now.
 **The Repository neither links nor serves it** (October 22, 2026): it used to serve a build of this app at
 `/brandbook/` too, so one brand book was visible on two ports.

@@ -39,6 +39,9 @@
     change one, run the other.
 #>
 
+# The plugin's page shell, for the house site header (Format-SiteHeaderHtml): this repo is its source, so it is read here.
+. (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\general-pages-lib.ps1')
+
 function ConvertFrom-ConnectorCheckOutput {
     <#
         Splits check-connectors.ps1's text report into @{ <repo> = @{ Signals = list; Drift } }. Each
@@ -343,17 +346,17 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
-    # The breadcrumb bar: first in <body> on every dev-server page, its trail from the Repository to this page.
+    # The house site header, holding the settings button, then the breadcrumb bar under it: its trail from Home to this page.
+    # 'product': the product port links and relays this page.
+    [void]$sb.Append((Format-SiteHeaderHtml -Name 'dkj-claude-plugins' -Href '/' -Tag 'product'))
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
     [void]$sb.AppendLine('<li><a href="/">Home</a></li>')
     [void]$sb.AppendLine('<li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span><span aria-current="page">Connectors</span></li>')
     [void]$sb.AppendLine('</ol></nav></div></div>')
-    # The settings button sits outside <main>.
-    [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>')
     [void]$sb.AppendLine('<main class="page-column">')
+
     # The intro is a <div>, never a <header>, which the house style lays out as a flex row.
     [void]$sb.AppendLine('<div>')
-    [void]$sb.AppendLine('<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>')
     [void]$sb.AppendLine('<h1>' + $pageName + '</h1>')
     [void]$sb.AppendLine('<p class="lead">Every repo registered under <code>connectors/</code>, as <code>check-connectors.ps1</code> reports it on this machine.</p>')
     [void]$sb.AppendLine('</div>')

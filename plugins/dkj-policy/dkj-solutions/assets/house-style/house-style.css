@@ -121,7 +121,9 @@
      h1 stands clearly above h2; and the library's 24px h3 is retired and every level below moved
      up one, so h3 stands clearly below h2 and there is no h6 (owner's decision, October 20, 2026).
      Headings take the heading token of their own level; body text is --text-base. Same in both modes. */
-  --text-h1: 48px; --text-h2: 32px; --text-h3: 22px;
+  /* No heading above 32px (owner, October 22, 2026): a page shows as much content as it can on a 900px-high screen,
+     so h1 is h2's size and stands apart by its capitals and the theme's colour. The hero figure takes it too. */
+  --text-h1: 32px; --text-h2: 32px; --text-h3: 22px;
   --text-h4: 18px; --text-h5: 16px;
   --text-lg: 18px; --text-base: 14px; --text-sm: 12px; --text-xs: 11px;
   /* the serif h1 and h2 are set in; a component whose title keeps that face at another level takes it from here */
@@ -203,9 +205,12 @@ body > header, main > header { display: flex; justify-content: space-between; al
 .page-column [id] { scroll-margin-top: 5rem; }
 .page-cta { margin: var(--spacing-4) 0 0; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-4); }
+/* .grid-3: the same group three to a row (owner, October 22, 2026), for short cards such as one link each; it takes
+   .grid__head and .grid__full as .grid-2 does, and steps down to two columns, then one. */
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-4); }
 /* The grid's gap is the spacing between its rows, so a direct .card, .tiles or .notice gives up its own top
    margin here too, as in .page-column (#207). */
-.grid-2 > .card, .grid-2 > .tiles, .grid-2 > .notice { margin-top: 0; }
+:is(.grid-2, .grid-3) > :is(.card, .tiles, .notice) { margin-top: 0; }
 /* A block's heading above its card(s), NEVER inside them (#206, a hard rule since #3175): <div class="grid-2"><div
    class="grid__head"><h2>Title</h2><p class="card__sub">Sub line</p></div> then the card(s)</div>. An h2 heads a group of
    cards, so it stands above the group and every card under it is titled with an h3 or not at all. The head spans every
@@ -217,11 +222,12 @@ body > header, main > header { display: flex; justify-content: space-between; al
 .grid__head > h2 { margin: 0; }
 /* In the page column a headed group takes extra room above its h2 (#3175), so the h2 sits clearly closer to its own cards
    (the grid's --spacing-4) than to the group before it (the column's --spacing-5 plus this): the h2s group the page. */
-.page-column > .grid-2:has(> .grid__head):not(:first-child) { margin-top: var(--spacing-5); }
+.page-column > :is(.grid-2, .grid-3):has(> .grid__head):not(:first-child) { margin-top: var(--spacing-5); }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--spacing-3); margin-top: var(--spacing-4); }
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); column-gap: var(--spacing-4); }
 .mini-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--spacing-2-5); margin-top: var(--spacing-3); }
-@media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } .hero .value { font-size: var(--text-h1); } }
+@media (max-width: 1000px) { .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } .hero .value { font-size: var(--text-h1); } }
 
 /* ---- Typography ----------------------------------------------------------- */
 /* Headings set in a serif so they stand off from the sans body text. System fonts only (no
@@ -353,6 +359,12 @@ p, p.meta { color: var(--fg-1); }
 .facts > div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--spacing-4); padding: var(--spacing-1-5) 0; border-bottom: 1px solid var(--paper-3); }
 .facts dt { min-width: 0; color: var(--fg-1); }
 .facts dd { margin: 0; white-space: nowrap; font-weight: 600; text-align: right; }
+/* .facts--row: the same list as one row on the page, not in a card (owner, October 22, 2026): each fact its label
+   small and muted over its value, no surface and no lines, so it reads as information and never as a link. It wraps. */
+.facts--row { display: flex; flex-wrap: wrap; gap: var(--spacing-3) var(--spacing-8); }
+.facts--row > div { flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: var(--spacing-0-5); padding: 0; border-bottom: 0; }
+.facts--row dt { font-size: var(--text-sm); color: var(--muted); }
+.facts--row dd { text-align: left; }
 
 /* ---- Legend and swatches -------------------------------------------------- */
 /* Set the colour per item with style="--c: var(--cat-1)". */
@@ -648,6 +660,29 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
 /* Under the bar: an anchor lands below it, and the floating settings button moves down by its height. */
 html:has(.breadcrumbs-bar) { scroll-padding-top: var(--tap); }
 html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + var(--spacing-3)); }
+
+/* ---- Site header ------------------------------------------------------------------ */
+/* The app's own header above the breadcrumb bar (owner, October 22, 2026): at most --spacing-18 (72px) high, on the
+   theme's colour, the app's mark and name on the left as the way home, the settings button on the far right.
+   <header class="site-header"><div class="container"><a class="site-header__brand" href="/"><span class="site-header__mark"
+   aria-hidden="true">DKJ</span><span class="site-header__name">name</span></a><div id="settings"></div></div></header>,
+   then the .breadcrumbs-bar. It scrolls away; the bar under it still sticks. Under a site header the bar leaves the
+   primary to the header: the paper, a subtle line under it, and the trail in the text steps. A bar with no header
+   above it is unchanged. */
+.site-header { display: block; background: var(--primary); color: var(--paper-1); }
+.site-header > .container { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-3);
+  max-height: var(--spacing-18); padding-top: var(--spacing-3); padding-bottom: var(--spacing-3); }
+.site-header__brand { display: inline-flex; align-items: center; gap: var(--spacing-3); min-width: 0; color: var(--paper-1); text-decoration: none; }
+.site-header__brand:focus-visible { outline: 2px solid var(--paper-1); outline-offset: 4px; }
+.site-header__mark { display: inline-grid; place-items: center; flex: none; width: var(--spacing-10); height: var(--spacing-10);
+  border-radius: var(--spacing-2); background: var(--paper-1); color: var(--primary); font-size: var(--text-sm); font-weight: 800; letter-spacing: 0.04em; }
+.site-header__name { overflow: hidden; font-size: var(--text-lg); font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
+.site-header__tag { font-weight: 400; color: var(--paper-3); }
+.site-header + .breadcrumbs-bar { background: var(--paper-1); border-bottom: 1px solid var(--paper-3); }
+.site-header + .breadcrumbs-bar .breadcrumbs a { color: var(--fg-3); }
+.site-header + .breadcrumbs-bar .breadcrumbs a:focus-visible { outline-color: var(--muted); }
+.site-header + .breadcrumbs-bar .breadcrumbs__sep { color: var(--muted); }
+.site-header + .breadcrumbs-bar .breadcrumbs [aria-current='page'] { color: var(--fg-1); }
 
 /* ---- Menu list and menu item ---------------------------------------------------- */
 /* Settings as rows: <ul class="menu-list"><li class="menu-row"><span class="menu-row__label">..</span>

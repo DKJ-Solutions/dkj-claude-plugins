@@ -1,8 +1,9 @@
 <!doctype html>
 <!-- The product port's root page: the dev server answers '/' with this file (productRoot in vite.config.ts), so the
-     product starts at the root and the brand book is one link below it. Same origin and theme key as the app, so a
-     theme picked here holds there. Dev only: the build is the app alone, served under /brandbook/. -->
-<html lang="en" data-theme-default="blue" data-width-default="full">
+     product starts at the root and its pages are one link below it: the brand book, and the three live pages the
+     Repository builds and the dev server relays. Its theme is the Repository's (lilac, theme key general-pages), so
+     both ports open alike and a theme picked here holds on the relayed pages. The brand book app keeps its own. Dev only: the build is the app alone, served under /brandbook/. -->
+<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -11,20 +12,33 @@
 <script src="/house-theme.js"></script>
 </head>
 <body>
+<header class="site-header"><div class="container"><a class="site-header__brand" href="/" aria-label="dkj-claude-plugins product, home"><span class="site-header__mark" aria-hidden="true">DKJ</span><span class="site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span></span></a><div id="settings"></div></div></header>
 <div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>
 <li><span aria-current="page">Home</span></li>
 </ol></nav></div></div>
-<div id="settings" class="theme-settings--floating"></div>
 <main class="page-column">
-<div>
-<h1>dkj-claude-plugins</h1>
-<p class="lead">What this repo makes, as it stands in the tree.</p>
-</div>
 <div class="grid-2">
 <div class="grid__head"><h2>Brand book</h2><p class="card__sub">The house style every DKJ-Solutions repo is built from</p></div>
 <section class="card grid__full">
 <nav class="menu-list" aria-label="Brand book">
 <a class="menu-item" href="/brandbook/"><span class="menu-item__label">Brandbook<span class="menu-item__sub">Its tokens, its twelve themes and its components, with their variants and states</span></span><svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+</nav>
+</section>
+</div>
+<div class="grid-2">
+<div class="grid__head"><h2>Plugins</h2><p class="card__sub">What the marketplace ships, and where it is installed</p></div>
+<section class="card grid__full">
+<nav class="menu-list" aria-label="Plugins">
+<a class="menu-item" href="/connectors"><span class="menu-item__label">Connectors<span class="menu-item__sub">Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine</span></span><svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+<a class="menu-item" href="/specialists"><span class="menu-item__label">Specialists<span class="menu-item__sub">Every specialist the plugins ship, and how much context each one costs</span></span><svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+</nav>
+</section>
+</div>
+<div class="grid-2">
+<div class="grid__head"><h2>DKJ-Solutions</h2><p class="card__sub">Every DKJ-Solutions repo, seen from this checkout</p></div>
+<section class="card grid__full">
+<nav class="menu-list" aria-label="DKJ-Solutions">
+<a class="menu-item" href="/dkj-repos"><span class="menu-item__label">DKJ repos<span class="menu-item__sub">Every DKJ-Solutions repo: its checkout on this machine, its open issues, and a session to open there</span></span><svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
 </nav>
 </section>
 </div>

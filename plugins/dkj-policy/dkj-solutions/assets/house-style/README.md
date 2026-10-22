@@ -55,7 +55,7 @@ URLs, with `<tag>` the release tag the skill pins, which the release cut writes 
 | Text | `--fg-1` … `--fg-4` | what sits **on** the paper: four colours near black on light (near white on dark), in **very small** steps, so `fg-4` is still very dark, only a little less so than `fg-1` (owner, #3235). `fg-1` is **all text**, every paragraph and everything else: labels, table heads, legends, quiet icons, the text on a tinted surface, and the ground of an inverted surface; `fg-2` is `h2` and `.meta` on a span; `fg-3` is `h3`–`h5`; `fg-4` has no role yet (the breadcrumb's current page took it until the bar turned `--primary`, #3235). On a fill the text switches to the paper ([Fills](#fills-the-text-switches-with-the-ground)) |
 | Elevation | `--shadow-pop` | tooltips |
 | Spacing | `--spacing-0-5` … `--spacing-96` | the spacing scale, same in both modes: `--spacing-N` is N × 4px, a half step (`-0-5`, `-1-5`, …) adds 2px. Every gap, margin and padding uses one, and a repo layer spaces its own components from the same scale |
-| Type | `--text-h1` … `--text-h5`, `--text-lg`, `--text-base`, `--text-sm`, `--text-xs`, `--font-serif` | the type scale, same in both modes: 48/32/22/18/16 for the headings, 18/14/12/11 for running text. `h1`–`h5` each take the token of their own level, body text is `--text-base`. There is no `--text-h0`: it was retired and `h1` took its 48px, because at 40px `h1` stood too close to `h2` (owner's decision, October 20, 2026); the hero figure is set at `--text-h1`. There is no `h6` either: the 24px `h3` was retired the same day, because it stood too close to `h2`, and every level below moved up one ([below](#the-heading-shift-of-october-20-2026)). The one exception is a section label (`GroupHeading`): it stays a heading for the document outline, but every level renders at `--text-base`, uppercase and muted (owner's decision, October 15, 2026). `--font-serif` is the face of `h1` and `h2`, for a title that keeps it at another level |
+| Type | `--text-h1` … `--text-h5`, `--text-lg`, `--text-base`, `--text-sm`, `--text-xs`, `--font-serif` | the type scale, same in both modes: 32/32/22/18/16 for the headings, 18/14/12/11 for running text. `h1`–`h5` each take the token of their own level, body text is `--text-base`. No heading is larger than 32px (owner's decision, October 22, 2026: as much content as possible on a 900px-high screen), so `h1` is `h2`'s size and stands apart by its capitals and colour; it was 48px from October 20, when `--text-h0` was retired. The hero figure is set at `--text-h1`. There is no `h6` either: the 24px `h3` was retired the same day, because it stood too close to `h2`, and every level below moved up one ([below](#the-heading-shift-of-october-20-2026)). The one exception is a section label (`GroupHeading`): it stays a heading for the document outline, but every level renders at `--text-base`, uppercase and muted (owner's decision, October 15, 2026). `--font-serif` is the face of `h1` and `h2`, for a title that keeps it at another level |
 | App shell | `--control-h`, `--tap`, `--topbar-h`, `--column-narrow` | sizes for a mobile-first app, same in both modes: 38px for a value field and the button beside it, 44px as the smallest touch target, 56px for the top bar, 512px for the narrow app column |
 
 `--gain` was removed (October 14, 2026). A gain in a chart is `--positive-3` (owner's decision, October 15, 2026, #131); before that it was `--cat-1`.
@@ -227,8 +227,10 @@ scale did not, so taking it over changed sizes: body 15 → 14, `h2` 29 → 32, 
 small text → 12, a mini-card value 20 → 18, the info button's mark 10 → 11 (Maikel, October 12, 2026).
 Two departures from the library followed on October 20, 2026: its `h0` was retired with `h1` taking the 48px,
 and its 24px `h3` was retired with every level below it moving up one.
-**The `h1` is set in capitals** (`text-transform: uppercase`, tracking opened to `0.02em`), so it stands further
-apart from the `h2` than size alone made it (owner's decision, October 21, 2026,
+**No heading is larger than 32px** (owner's decision, October 22, 2026): every pixel of a 900px-high screen goes to content,
+so `h1` came down from 48px to `h2`'s 32px, and the hero figure with it.
+**The `h1` is set in capitals** (`text-transform: uppercase`, tracking opened to `0.02em`), so it stands
+apart from the `h2` by more than size (owner's decision, October 21, 2026,
 [#3247](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3247)). The markup keeps its ordinary case.
 
 ### The heading shift of October 20, 2026
@@ -459,11 +461,11 @@ the headings take its tint (through `:where()`, so a heading inside a coloured c
 
 **The complete list of reserved names**, so a repo layer knows what not to redefine:
 the page header (`body > header`, `main > header`, with `.header--accent`) and its `.controls` row, `main`/`.container`,
-`.hero`, `.tiles`/`.tile` (with `--accent`), `.card` (with `--accent`, and the head parts `__head`, `__title` (an `h3`), `__sub`, with a `.badge` before the title text, or a plain `h3`), `.grid-2` (with `.grid__head`, which holds a group's `h2`, and `.grid__full`), `.table-wrap`/`.table` (with `--accent`, `.row-total`, and
+`.hero`, `.tiles`/`.tile` (with `--accent`), `.card` (with `--accent`, and the head parts `__head`, `__title` (an `h3`), `__sub`, with a `.badge` before the title text, or a plain `h3`), `.grid-2` (and `.grid-3`, the same three to a row, two below 1000px, one below 760px) (with `.grid__head`, which holds a group's `h2`, and `.grid__full`), `.table-wrap`/`.table` (with `--accent`, `.row-total`, and
 sortable headers via `.sort`/`.arrow` on `aria-sort`), `.seg` (a segmented switch), `.legend`/`.legend__item` (with
 `--line`), `.swatch`, `.badge` (with `--good`, `--warn`, `--bad`, `--info`, `--neutral`, `--sm`),
 `.badge-row`, `.badge-list` (a `<ul>` of `.badge-row` items), `.meter` (with `--good`, `--warn`, `--bad`, `--info`), `.mini-cards`/`.mini-card` (with
-`--highlight`), `.item-grid`/`.item`, `.notice`, `.note`, `.meta`, `.muted`, `.sub`, `.eyebrow`, `.lead`, `.msg` (with `--warn`), `.facts`, `.fill-primary`, `.fill-inverse`, `.page-column`, `.page-cta`, `.num` (tabular
+`--highlight`), `.item-grid`/`.item`, `.notice`, `.note`, `.meta`, `.muted`, `.sub`, `.eyebrow`, `.lead`, `.msg` (with `--warn`), `.facts` (with `--row`: the facts as one row on the page, label over value, no card), `.fill-primary`, `.fill-inverse`, `.page-column`, `.page-cta`, `.num` (tabular
 numerals), `.delta` (with `--up`/`--down`, aliased `.pos`/`.neg`), `.btn` (with `--primary`, and a `:disabled` state for both), `.info-button`, `.tooltip`
 (with `--explain`, and `--open` for one anchored to a trigger), `.more` (a disclosure), `.moretoggle` (a full-width read-more button), `.chart` (the SVG chart scope),
 `.theme-picker` (with `__row`, `__label`, `__swatches`), `.theme-swatch` (with `--light`, `--dark`) and
@@ -579,6 +581,35 @@ its own.
 without the bar does not break, but it does not follow the house style until it has one. An app with its
 own sticky element at `top: 0` (a sidebar, a toolbar) moves it to `top: var(--tap)` when it adds the bar,
 or the bar covers it.
+
+### The site header, above the bar
+
+**An app may open with a site header, and the breadcrumb bar then stands right under it** (owner, October
+22, 2026; the source repo's Repository and product carry it). It is an option, not yet the rule for every
+page: an app without one keeps the bar as described above.
+
+- **The header:** `header.site-header` > `.container`, at most `--spacing-18` (72px) high, on `--primary`
+  over the full width. On the left the app's mark and name, `a.site-header__brand` linking home (`/`); on
+  the far right the settings button, `DKJTheme.settings` mounted in a plain `#settings` inside the header,
+  so nothing floats. The mark is `.site-header__mark`, the organisation's initials on `--paper-1`, until the
+  app has a logo of its own; `.site-header__tag` sets a quieter word after the name (`product`).
+- **No eyebrow under it:** the header already names the site, so the intro opens with the `h1`. **A home page has no
+  intro at all** (owner, October 22, 2026): its `h1` and lead only repeated the header, so `<main>` opens on its first
+  block.
+- **The bar under it leaves the primary to the header:** `.site-header + .breadcrumbs-bar` stands on
+  `--paper-1` with a `--paper-3` line under it, and the trail is in the text steps (links `--fg-3`, the
+  chevron `--muted`, the current page `--fg-1`). The header scrolls away; the bar still sticks to the top.
+
+```html
+<header class="site-header"><div class="container">
+  <a class="site-header__brand" href="/" aria-label="my-app, home"><span class="site-header__mark" aria-hidden="true">DKJ</span><span class="site-header__name">my-app</span></a>
+  <div id="settings"></div>
+</div></header>
+<div class="breadcrumbs-bar">...</div>
+```
+
+**What this changes for an app that takes the update:** nothing, unless it adds a `.site-header`; the
+bar's own colours change only right under one.
 
 ### The Repository
 

@@ -218,13 +218,13 @@ Assert-True ($html -match 'not on this machine') 'an absent checkout says so'
 Assert-True ($html.IndexOf('id="repo-org-beta"') -lt $html.IndexOf('id="repo-org-gamma"')) 'a repo that needs action comes before a skipped one'
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'the page loads the house style from its own server'
 Assert-True ($html -match 'DKJTheme\.settings\(' -and $html -notmatch 'DKJTheme\.picker\(') 'the theme choice is the house settings button, not a hand-built picker card'
-Assert-True ($html -match '<div id="settings" class="theme-settings--floating">') 'the settings button floats fixed top right, outside the header'
+Assert-True ($html -match '<div id="settings"></div></div></header>' -and $html -notmatch 'theme-settings--floating') 'the settings button sits at the far right of the site header'
 Assert-True (([regex]::Matches($html, 'var\(--(primary|muted|fg-|paper-)')).Count -ge 6 -and $html -match 'class="cd-link"') 'the chosen theme reaches the page beyond its buttons, through the repo layer''s own theme-colour accents'
-Assert-True ($html -match '<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>' -and $html -match '<h1>Connectors</h1>' -and $html -match '<main class="page-column">') 'the page keeps the Repository frame: the slug as eyebrow, its own h1, the page column (#3066, #3097)'
-Assert-True ($html -match '<body>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep" aria-hidden="true"><svg\ viewBox="0\ 0\ 24\ 24"><path\ fill="currentColor"\ fill-rule="evenodd"\ d="M9\.793\ 16\.707a1\ 1\ 0\ 0\ 1\ 0-1\.414L13\.086\ 12\ 9\.793\ 8\.707a1\ 1\ 0\ 0\ 1\ 1\.414-1\.414l4\ 4a1\ 1\ 0\ 0\ 1\ 0\ 1\.414l-4\ 4a1\ 1\ 0\ 0\ 1-1\.414\ 0"\ clip-rule="evenodd"/></svg></span><span aria-current="page">Connectors</span></li>') 'the breadcrumb bar opens <body>, its trail from the Repository to Connectors (#3090, #3097)'
-Assert-True ($html -notmatch '<header' -and $html -notmatch 'cd-band|cd-accent') 'and its intro is no <header>, and no decoration the form does not carry'
+Assert-True ($html -notmatch 'class="eyebrow"' -and $html -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/"' -and $html -match '<h1>Connectors</h1>' -and $html -match '<main class="page-column">') 'the page keeps the Repository frame: the site header in place of the eyebrow, its own h1, the page column'
+Assert-True ($html -match '<body>\s*<header class="site-header">.*</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep" aria-hidden="true"><svg\ viewBox="0\ 0\ 24\ 24"><path\ fill="currentColor"\ fill-rule="evenodd"\ d="M9\.793\ 16\.707a1\ 1\ 0\ 0\ 1\ 0-1\.414L13\.086\ 12\ 9\.793\ 8\.707a1\ 1\ 0\ 0\ 1\ 1\.414-1\.414l4\ 4a1\ 1\ 0\ 0\ 1\ 0\ 1\.414l-4\ 4a1\ 1\ 0\ 0\ 1-1\.414\ 0"\ clip-rule="evenodd"/></svg></span><span aria-current="page">Connectors</span></li>') 'the breadcrumb bar opens <body>, its trail from the Repository to Connectors (#3090, #3097)'
+Assert-True (([regex]::Matches($html, '<header')).Count -eq 1 -and $html -notmatch 'cd-band|cd-accent') 'and its intro is no <header> (the one is the site header), and no decoration the form does not carry'
 Assert-True ($html -notmatch 'About this repo</h2>' -and $html -match 'href="#overview">Back to overview') 'the facts card is the hub''s, and the card the overview links down to carries the way back'
-$ix = @('class="eyebrow"', 'class="tiles"', 'Connected repos</h2>', 'Issues</h2>', 'class="footer-note"') | ForEach-Object { $html.IndexOf($_) }
+$ix = @('class="site-header"', 'class="breadcrumbs-bar"', '<h1>', 'class="tiles"', 'Connected repos</h2>', 'Issues</h2>', 'class="footer-note"') | ForEach-Object { $html.IndexOf($_) }
 Assert-True ((@($ix | Where-Object { $_ -lt 0 }).Count -eq 0) -and ((($ix | Sort-Object) -join ',') -eq ($ix -join ','))) 'and its blocks stand in the form''s order'
 Assert-True ($html -match '1\.3s|1\.2s') 'the run time is printed with an invariant decimal point'
 Assert-Equal 'bwj' (Get-ConnectorOwnerGroup 'BWJ-Development/shop') 'a BWJ-Development repo is in the BWJ group'
@@ -238,7 +238,7 @@ $grouped = Format-ConnectorDashboardHtml -Connectors @(
 $iB = $grouped.IndexOf('id="group-bwj"'); $iD = $grouped.IndexOf('id="group-dkj"'); $iO = $grouped.IndexOf('id="group-other"')
 Assert-True ($iB -ge 0 -and $iB -lt $iD -and $iD -lt $iO) 'the groups come BWJ, DKJ, Other -- owner order beats status order'
 Assert-True ($iO -lt $grouped.IndexOf('id="repo-someone-x"')) 'a repo sits under its own group heading'
-Assert-True ($grouped -match '<h1>Connectors</h1>' -and $grouped -match '<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>') 'the h1 is Connectors, and the eyebrow this repo''s slug (#3066, #3097)'
+Assert-True ($grouped -match '<h1>Connectors</h1>' -and $grouped -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span></span>') 'the h1 is Connectors, and the site header names this repo''s product, the port that relays the page'
 Assert-Equal 1 ([regex]::Matches($grouped, '<div class="grid-2" id="overview">\r?\n<div class="grid__head"><h2>Connected repos</h2>')).Count 'the overview stays one card, its h2 Connected repos above it (#3175)'
 $oB = $grouped.IndexOf('id="overview-bwj"'); $oD = $grouped.IndexOf('id="overview-dkj"'); $oO = $grouped.IndexOf('id="overview-other"')
 Assert-True ($grouped.IndexOf('<h2>Connected repos</h2>') -lt $oB -and $oB -lt $oD -and $oD -lt $oO -and $oO -lt $iB) 'inside Connected repos a table per group, BWJ, DKJ, Other, before the Status cards'
@@ -331,6 +331,9 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             # The brand book is the product port's alone (October 22, 2026): the hub neither serves nor redirects it.
             Assert-Equal 404 (Get-Status 'GET' '/brandbook' "localhost:$port") '/brandbook is not a page of the hub'
             Assert-Equal 404 (Get-Status 'GET' '/brandbook/' "localhost:$port") 'and neither is /brandbook/, whether or not brandbook/dist is built'
+            # The product's dev server finds this hub by /whoami before it relays /connectors and /specialists here.
+            $who = Get-Raw 'GET' '/whoami' "localhost:$port"
+            Assert-True ($who -match 'HTTP/1.1 200' -and $who.EndsWith("`r`n`r`n" + (Get-DevPreviewRootHash -Root $RepoRoot))) '/whoami answers the hash of this root, as the general server does'
             Assert-Equal 303 (Get-Status 'GET' '/refresh' "localhost:$port") '/refresh redirects to the page'
             Assert-True ((Get-Raw 'GET' '/refresh?page=connectors' "localhost:$port") -match 'Location: /connectors\r') '/refresh?page= goes back to the page that asked'
             Assert-True ((Get-Raw 'GET' '/refresh?page=sessionstart' "localhost:$port") -match 'Location: /\r') 'and a page that moved to the general pages server (#3119) is no page of this one''s'
@@ -424,10 +427,11 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             # The Repository on '/' and the pages under it (#3097). The fixture has no
             # suite-durations.json, so the test-gate page takes its failure path, and is still served.
             $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match '<h1>dkj-claude-plugins</h1>' -and $hub -match '<a class="menu-item" href="/about">') '/ serves the home page, linking About this repo (#3270)'
-            Assert-True ($hub -notmatch 'is not running' -and $hub -notmatch 'href="/brandbook' -and $hub -match 'href="/dkj-repos"') 'the home page names no general pages server and no brand book: its DKJ-Solutions section is the DKJ repos page this hub serves'
-            $about = if ($up) { Get-Raw 'GET' '/about' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($about -match 'HTTP/1.1 200' -and $about -match '<h1>About this repo</h1>' -and $about -match '<a class="menu-item" href="/connectors">' -and $about -match '<a href="/">Home</a>') '/about serves About this repo, linking the pages below the hub, its trail starting at Home'
+            Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match 'site-header__name">dkj-claude-plugins' -and $hub -match '<a class="menu-item" href="/repository">' -and $hub -notmatch 'href="/about"') '/ serves the home page, linking the Repository page'
+            Assert-True ($hub -match 'The general pages server is not running' -and $hub -notmatch 'href="/brandbook' -and $hub -notmatch 'href="/dkj-repos"') 'its General card says the general pages server is not running while no state file names one, and it links no brand book and no DKJ repos: those are the product''s'
+            $about = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($about -match 'HTTP/1.1 200' -and $about -match '<a class="menu-item" href="/test-gate">' -and $about -notmatch 'href="/connectors"' -and $about -notmatch 'href="/specialists"') 'the home page links the pages below the hub: Test gate, and neither of the product''s'
+            Assert-True ((Get-Raw 'GET' '/about' "localhost:$port3" '' $port3) -match 'HTTP/1.1 303[\s\S]*Location: /\r') '/about sends an old link on to the home page, which holds what it held'
             Assert-True ($about -match 'The general pages server is not running' -and $about -notmatch 'href="http://localhost') 'and its General card says the general pages server is not running too'
             # A state file naming a port nobody answers on is no server.
             Write-RepositoryState -Root $src -Hub "http://localhost:$port3/" -Pages "http://localhost:$genPort3" -Mode 'ownhub'
@@ -460,7 +464,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
                 $r = Get-Raw 'GET' '/artifacts' "localhost:$port3" $nav $port3
                 Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Artifacts</h1>') 'a same-site navigation to a relayed route on this server is served, not refused'
                 $r = Get-Raw 'GET' '/' "localhost:$port3" $nav $port3
-                Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>dkj-claude-plugins</h1>') 'and the hub itself, reached by the crumb back from the general pages, is served'
+                Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<title>dkj-claude-plugins -- Home</title>') 'and the hub itself, reached by the crumb back from the general pages, is served'
                 $r = Get-Raw 'GET' '/connectors' "localhost:$port3" "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: cors`r`n" $port3
                 Assert-True ($r -match 'HTTP/1.1 403') 'a same-site fetch is still refused'
                 $r = Get-Raw 'GET' '/' "localhost:$port3" "Sec-Fetch-Site: cross-site`r`nSec-Fetch-Mode: navigate`r`n" $port3
@@ -471,13 +475,13 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
                 Assert-True ($r -match 'HTTP/1.1 303' -and $r -match ('Location: http://localhost:' + $port3 + '/\r')) 'and sends the crumb''s /hub on to the Repository'
                 $r = Get-Raw 'GET' '/artifacts' "localhost:$genPort3" "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: no-cors`r`n" $genPort3
                 Assert-True ($r -match 'HTTP/1.1 403') 'while a same-site subresource request to it is refused'
-                $hubUp = if ($up) { Get-Raw 'GET' '/about' "localhost:$port3" '' $port3 } else { '' }
-                Assert-True ($hubUp -match '<a class="menu-item" href="/issues">' -and $hubUp -match 'href="/release-notes"' -and $hubUp -notmatch 'href="http://localhost' -and $hubUp -notmatch 'is not running') 'the General card links the pages on this origin, when the server the state file names answers as this checkout''s (#3168)'
+                $hubUp = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
+                Assert-True ((Get-Raw 'GET' '/repository' "localhost:$port3" '' $port3) -match '<a class="menu-item" href="/issues">' -and $hubUp -match 'href="/release-notes"' -and $hubUp -notmatch 'href="http://localhost' -and $hubUp -notmatch 'is not running') 'the General card links the pages on this origin, when the server the state file names answers as this checkout''s (#3168)'
             } finally {
                 if (-not $gen3.HasExited) { Stop-Process -Id $gen3.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
                 $gen3.WaitForExit(5000) | Out-Null
             }
-            $hubDown = if ($up) { Get-Raw 'GET' '/about' "localhost:$port3" '' $port3 } else { '' }
+            $hubDown = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($hubDown -match 'HTTP/1.1 200' -and $hubDown -match 'The general pages server is not running') 'and the General card is back to not running once nothing answers there'
             Remove-Item -LiteralPath $srcState -Force -ErrorAction SilentlyContinue
             Assert-True ($page -match 'HTTP/1.1 200' -and $page -match '<h1>Connectors</h1>' -and $page -match '<a href="/">Home</a>') '/connectors serves the overview as a page under the Repository'
@@ -528,7 +532,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $fixture4 'scripts\dashboard\serve-connector-dashboard.ps1')`"", '-Port', $port4)
         $up = Wait-ServerUp $port4
         Assert-True $up 'the group-4 server listens on the port it was given'
-        $hub = if ($up) { Get-Raw 'GET' '/about' "localhost:$port4" '' $port4 } else { '' }
+        $hub = if ($up) { Get-Raw 'GET' '/repository' "localhost:$port4" '' $port4 } else { '' }
         Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match "<code>$($first.Substring(0, 8))</code>") '"Source at" names the commit the server loaded'
         # Measured October 19, 2026: a server started before #3130 moved the house style threw on the file it
         # could no longer find, and the browser saw a dropped connection instead of a stylesheet.
@@ -544,7 +548,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         Assert-True ($proc4.WaitForExit(15000)) 'and the old server exits'
         $up = Wait-ServerUp $port4
         Assert-True $up 'its successor listens on the same port'
-        $hub = if ($up) { Get-Raw 'GET' '/about' "localhost:$port4" '' $port4 } else { '' }
+        $hub = if ($up) { Get-Raw 'GET' '/repository' "localhost:$port4" '' $port4 } else { '' }
         Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match "<code>$($second.Substring(0, 8))</code>") 'and serves the new commit'
         $succ = @(Get-NetTCPConnection -State Listen -LocalPort $port4 -ErrorAction SilentlyContinue | ForEach-Object { $_.OwningProcess })
         & git -C $fixture4 -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m 'third' 2>$null

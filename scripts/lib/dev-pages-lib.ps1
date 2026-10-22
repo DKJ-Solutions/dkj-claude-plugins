@@ -1,15 +1,17 @@
 <#
 .SYNOPSIS
-    The Repository of this repo's dev server -- the home page on '/' and About this repo on '/about' (#3270) --
-    and its own pages: the test-gate page (the per-suite CI
-    durations, #3097), the Specialists page and the DKJ repos page. No I/O -- the server
+    The Repository of this repo's dev server -- the home page on '/', which holds what was About this repo (#3270;
+    '/about' sends there since October 22, 2026) -- and its own pages: the test-gate page (the per-suite CI
+    durations, #3097), the Connectors and Specialists pages (the product's since October 22, 2026: its dev server
+    links and relays them, so the hub lists neither) and the DKJ repos page, the product's too. No I/O -- the server
     (scripts/dashboard/serve-connector-dashboard.ps1) measures and reads, and hands the results in, so every rule here is tested without a server.
 
 .DESCRIPTION
-    THE HUB TAKES THE ONE FORM THE HOUSE STYLE LAYS DOWN ("The Repository", #3270): the home page is a portal --
-    the bar with its one crumb, Home, the settings button, the intro with the repo's name as its h1, one link
-    to About this repo and the DKJ-Solutions section; About this repo holds the Pages block (the 'This repo'
-    card linking the repo's own pages, then the General card), the facts and a footer note. This repo is no
+    THE HUB IS ONE PAGE, AND IT DEPARTS FROM THE HOUSE FORM ON PURPOSE (owner, October 22, 2026). The house style's
+    Repository is a home page that links an About this repo page (#3270). Here the site header names the repo and
+    holds the settings button, the bar has its one crumb, Home, and the page goes straight to what About held: the
+    Pages block (the 'This repo' card linking the repo's own pages, then the General card), the facts and a
+    footer note, so it fits on one screen. This repo is no
     product and keeps no in-flight lists, so it has no Products section and no lists. The pages it links are Get-RepositoryPages, the
     ones only this repo has. The GENERAL pages -- Artifacts, Issues, Release notes and SessionStart, which
     every repo has -- are no longer built here (#3119): the dkj-policy plugin ships them (since #3198) as
@@ -36,9 +38,9 @@
     measure-suites skill). A suite in scripts/tests that the file does not name is counted, because the
     gate charges it the largest recorded value.
 
-    THE DKJ REPOS PAGE (#3231) is this hub's own, and the one row of the home page's DKJ-Solutions section
-    (Get-RepositoryDkjPages): every DKJ-Solutions repo on GitHub, its checkout beside this repo, and the command
-    that opens Claude Code there. Find-DkjCheckouts is the one function in this file that reads the disk.
+    THE DKJ REPOS PAGE (#3231) is built here and is the product's, like Connectors and Specialists: the product's
+    root page links it and its dev server relays it (October 22, 2026). Every DKJ-Solutions repo on GitHub, its
+    checkout beside this repo, and the command that opens Claude Code there. Find-DkjCheckouts is the one function in this file that reads the disk.
 
     EVERY VALUE THAT REACHES THE PAGE IS ESCAPED, through connector-dashboard-lib's ConvertTo-DashboardText
     here and the plugin lib's own escape there (the two are the same five replacements).
@@ -54,9 +56,11 @@
 function Format-DevPageHtml {
     <#
         The whole page around -Body, for this repo's own pages (the Test gate): the plugin's page shell with
-        this repo's eyebrow and title, its theme key (the general pages' own, so a theme picked on one page
+        this repo's site header and title, its theme key (the general pages' own, so a theme picked on one page
         holds on every page this server serves, the general pages it relays included, #3168) and the Repo
-        hub crumb on '/'.
+        hub crumb on '/'. -BrandTag is the word after the name in the header: 'hub' for the hub's own
+        pages, 'product' for the pages the product port relays (Specialists, DKJ repos), so it names the port
+        they are seen on.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Title,
@@ -64,31 +68,76 @@ function Format-DevPageHtml {
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Body,
         [AllowEmptyString()][string]$Style = '',
         [AllowEmptyString()][string]$FooterNote = '',
-        [string]$ThemeKey = 'general-pages'
+        [string]$ThemeKey = 'general-pages',
+        [ValidateSet('hub', 'product')][string]$BrandTag = 'hub'
     )
     return Format-GeneralPageHtml -Title $Title -Lead $Lead -Body $Body -Style $Style -FooterNote $FooterNote -ThemeKey $ThemeKey `
-        -Eyebrow 'DKJ-Solutions/dkj-claude-plugins' -SiteName 'dkj-claude-plugins' -HubHref '/'
+        -Brand 'dkj-claude-plugins' -BrandTag $BrandTag -SiteName 'dkj-claude-plugins' -HubHref '/'
 }
 
 function Get-RepositoryPages {
     <#
         The pages the Repository links in its "This repo" card, in the order it lists them: each a route on this
         server, its label the page's own name as its breadcrumb reads it, and one line on what it shows. The
-        general pages are the plugin's (Get-GeneralPages), on a server of their own.
+        general pages are the plugin's (Get-GeneralPages), on a server of their own. Connectors and Specialists
+        are built here and are the product's pages (October 22, 2026): its root page links them, so they are
+        not listed here.
     #>
     @(
-        @{ Href = '/connectors';  Label = 'Connectors';  Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine' },
-        @{ Href = '/specialists'; Label = 'Specialists'; Sub = 'Every specialist the plugins ship, and how much context each one costs' },
-        @{ Href = '/test-gate';   Label = 'Test gate';   Sub = 'What each test suite costs on CI' }
+        @{ Href = '/test-gate';   Label = 'Test gate';   Sub = 'What each test suite costs on CI' },
+        @{ Href = '/repository';  Label = 'Repository';  Sub = 'The GitHub repo: its facts, its open issues and its pull requests' }
     )
 }
 
+function Format-RepoGitHubPageHtml {
+    <#
+        The Repository page on '/repository' (owner, October 22, 2026): everything about the GitHub repo. Its facts, as
+        a .facts--row (label over value, no card, since the cards on these pages are links), then its pages on GitHub
+        and the Issues page, a card each. -SourceCommit is the short sha the server reads, or empty;
+        -GeneralPagesUrl is the general pages server's base url when it answers, or empty: Issues is that server's
+        page, relayed by bare path (#3168), so without one a card says it is not running.
+    #>
+    param([AllowEmptyString()][string]$SourceCommit = '', [AllowEmptyString()][string]$GeneralPagesUrl = '')
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $gh = 'https://github.com/DKJ-Solutions/dkj-claude-plugins'
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine('<dl class="facts facts--row">')
+    [void]$sb.AppendLine('<div><dt>GitHub</dt><dd><a href="' + $gh + '">DKJ-Solutions/dkj-claude-plugins</a></dd></div>')
+    [void]$sb.AppendLine('<div><dt>Marketplace</dt><dd>dkj-claude-plugins</dd></div>')
+    [void]$sb.AppendLine('<div><dt>Trunk</dt><dd>main</dd></div>')
+    [void]$sb.AppendLine('<div><dt>Visibility</dt><dd>public</dd></div>')
+    [void]$sb.AppendLine('<div><dt>Required check</dt><dd>lint-en-tests</dd></div>')
+    if ($SourceCommit) { [void]$sb.AppendLine('<div><dt>Source at</dt><dd><code>' + (& $e $SourceCommit) + '</code></dd></div>') }
+    [void]$sb.AppendLine('</dl>')
+    $card = { param($href, $label, $sub)
+        '<section class="card"><nav class="menu-list" aria-label="' + $label + '"><a class="menu-item" href="' + $href +
+            '"><span class="menu-item__label">' + $label + '<span class="menu-item__sub">' + $sub + '</span></span>' + $script:RepositoryChevron + '</a></nav></section>'
+    }
+    [void]$sb.AppendLine('<div class="grid-3">')
+    if ($GeneralPagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z') {
+        [void]$sb.AppendLine((& $card '/issues' 'Issues' 'The open issues, grouped by what they wait on'))
+    } else {
+        [void]$sb.AppendLine('<section class="card"><p class="msg" role="status">Issues is a general page, and the general pages server is not running. It starts at the next session start.</p></section>')
+    }
+    [void]$sb.AppendLine((& $card "$gh/pulls" 'Pull requests' 'On GitHub'))
+    [void]$sb.AppendLine((& $card "$gh/actions" 'Actions' 'The CI runs, on GitHub'))
+    [void]$sb.AppendLine('</div>')
+    return Format-DevPageHtml -Title 'Repository' -Body $sb.ToString() `
+        -Lead 'The GitHub repo this hub serves: its facts, its open issues and its pull requests.' `
+        -FooterNote 'The facts are this repo''s own; Issues is the dkj-policy general pages server''s page, relayed here.'
+}
 function Format-RepositoryHtml {
     <#
-        The repo's home page on '/' (#3270): the repo's name as its h1, one link to About this repo, and the
-        DKJ-Solutions section -- this hub's own DKJ repos page. No brand book: that is the product port's
-        alone. Nothing on it comes from the general pages server, so it does not ask whether that one runs.
+        The repo's home page on '/' (#3270): under the site header and the bar, everything that was About this
+        repo (Format-RepoAboutBodyHtml: the Pages block and the facts) and its footer note; '/about' now sends
+        here (owner, October 22, 2026). The brand book, Connectors, Specialists and DKJ repos are the product
+        port's, so they are not here. The parameters are Format-RepoAboutBodyHtml's.
     #>
+    param(
+        [AllowEmptyCollection()][object[]]$Pages = @(Get-RepositoryPages),
+        [AllowEmptyString()][string]$SourceCommit = '',
+        [AllowEmptyString()][string]$GeneralPagesUrl = ''
+    )
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')
     [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">')
@@ -102,11 +151,10 @@ function Format-RepositoryHtml {
     # row (.grid__full) and a card's margin inside a .grid-2 are the house style's own since #3133.
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
-    [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName 'dkj-claude-plugins' -Lead 'The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.'))
-    [void]$sb.Append((Format-RepoAboutLinkHtml))
-    # DKJ-Solutions: the shared card standing alone, with no server rows -- only the DKJ repos page this hub serves.
-    [void]$sb.Append((Format-GeneralPagesCardHtml -Pages @() -LocalPages @(Get-RepositoryDkjPages) -InRow $false -Heading 'DKJ-Solutions' `
-        -Title 'DKJ-Solutions' -HeadSub 'Every DKJ-Solutions repo, seen from this hub'))
+    [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName 'dkj-claude-plugins' -Brand 'dkj-claude-plugins' -BrandTag 'hub' -Lead 'The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.'))
+    # Everything that was About this repo, on the home page itself (owner, October 22, 2026).
+    [void]$sb.Append((Format-RepoAboutBodyHtml -Pages $Pages -SourceCommit $SourceCommit -GeneralPagesUrl $GeneralPagesUrl))
+    [void]$sb.AppendLine('<p class="footer-note">Each page names its own source. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
     [void]$sb.AppendLine('</body>')
@@ -114,13 +162,13 @@ function Format-RepositoryHtml {
     return $sb.ToString()
 }
 
-function Format-RepoAboutHtml {
+function Format-RepoAboutBodyHtml {
     <#
-        The About this repo page on '/about' (#3270): everything about the repo itself. The Pages block (the
-        'This repo' card linking the repo's own pages, then the General card, on one .grid-2 row under one h2),
-        this repo's facts and a footer note. -Pages is Get-RepositoryPages' shape; -SourceCommit is the short sha
-        the server reads, or empty; -GeneralPagesUrl is the general pages server's base url when it answers,
-        or empty (the General card then says it is not running).
+        What was the About this repo page (#3270) and is the home page's body since October 22, 2026: the Pages
+        block: every page a card of its own, this repo's then the general ones but Issues, with no heading above
+        them. The facts and Issues are the Repository page's (Format-RepoGitHubPageHtml). -Pages is
+        Get-RepositoryPages' shape; -SourceCommit is unused here and kept for the callers; -GeneralPagesUrl is the general pages server's base url when it answers, or
+        empty (one card then says it is not running).
     #>
     param(
         [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Pages,
@@ -129,44 +177,28 @@ function Format-RepoAboutHtml {
     )
     $e = { param($v) ConvertTo-DashboardText $v }
     $sb = New-Object System.Text.StringBuilder
-    # Pages: one menu-item row per page, direct siblings so the house draws the line between them. One card
-    # alone still has its h2 above the card, never inside it (#3175).
-    $repoRows = @($Pages)
-    $row = $repoRows.Count -gt 0
-    if ($row) {
-        [void]$sb.AppendLine('<div class="grid-2">')
-        [void]$sb.AppendLine('<div class="grid__head"><h2>Pages</h2><p class="card__sub">This repo''s own pages, and the general ones beside them</p></div>')
-        [void]$sb.AppendLine('<section class="card">')
-        [void]$sb.AppendLine('<div class="card__head"><h3>This repo</h3><p class="card__sub">Specific to this repo</p></div>')
-        [void]$sb.AppendLine('<nav class="menu-list" aria-label="This repo pages">')
-        foreach ($p in $repoRows) {
-            $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
-            [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e $p.Href) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepositoryChevron + '</a>')
-        }
-        [void]$sb.AppendLine('</nav>')
-        [void]$sb.AppendLine('</section>')
+    # Pages: every page a card of its own, three to a row (.grid-3), with no heading above them (owner, October 22,
+    # 2026): this repo's own first, then the general ones. A card holds the page's one menu-item row. The general pages are
+    # linked by bare path, since this hub relays them (#3168), and only when a plain loopback server answers -- the
+    # rule Format-GeneralPagesCardHtml applies; otherwise one card says the server is not running.
+    $pageCard = { param($p)
+        $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
+        '<section class="card"><nav class="menu-list" aria-label="' + (& $e $p.Label) + '"><a class="menu-item" href="' + (& $e $p.Href) +
+            '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepositoryChevron + '</a></nav></section>'
     }
-    [void]$sb.Append((Format-GeneralPagesCardHtml -PagesUrl $GeneralPagesUrl -InRow $row -SameOrigin))
-    if ($row) { [void]$sb.AppendLine('</div>') }
-
-    # Facts: its h2 stands outside the card in a grid__head, as Pages' does; the card spans both columns.
-    [void]$sb.AppendLine('<div class="grid-2">')
-    [void]$sb.AppendLine('<div class="grid__head"><h2>Facts</h2><p class="card__sub">What this repo is, and the commit this hub is served from</p></div>')
-    [void]$sb.AppendLine('<section class="card grid__full">')
-    [void]$sb.AppendLine('<dl class="facts">')
-    [void]$sb.AppendLine('<div><dt>Marketplace</dt><dd>dkj-claude-plugins</dd></div>')
-    [void]$sb.AppendLine('<div><dt>Trunk</dt><dd>main</dd></div>')
-    [void]$sb.AppendLine('<div><dt>Visibility</dt><dd>public</dd></div>')
-    [void]$sb.AppendLine('<div><dt>Required check</dt><dd>lint-en-tests</dd></div>')
-    if ($SourceCommit) { [void]$sb.AppendLine('<div><dt>Source at</dt><dd><code>' + (& $e $SourceCommit) + '</code></dd></div>') }
-    [void]$sb.AppendLine('</dl>')
-    [void]$sb.AppendLine('</section>')
+    $general = $GeneralPagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z'
+    [void]$sb.AppendLine('<div class="grid-3">')
+    foreach ($p in @($Pages)) { [void]$sb.AppendLine((& $pageCard $p)) }
+    if ($general) {
+        # Issues is the Repository page's (owner, October 22, 2026), so the home page links the other three.
+        foreach ($p in @(Get-GeneralPages | Where-Object { $_.Href -ne '/issues' })) { [void]$sb.AppendLine((& $pageCard $p)) }
+    } else {
+        [void]$sb.AppendLine('<section class="card grid__full"><p class="msg" role="status">The general pages server is not running. It starts at the next session start, and its pages are linked here from then on.</p></section>')
+    }
     [void]$sb.AppendLine('</div>')
-
-    return Format-DevPageHtml -Title 'About this repo' -Body $sb.ToString() `
-        -Lead 'Everything about the repo itself rather than what it offers: its own pages, the general pages every repo has, and its facts.' `
-        -FooterNote 'The facts are this repo''s own, and each page names its own source. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.'
+    return $sb.ToString()
 }
+
 
 function ConvertFrom-SuiteDurations {
     <#
@@ -522,19 +554,9 @@ function Format-SpecialistsPageHtml {
     [void]$body.AppendLine('</section>')
     [void]$body.AppendLine('</div>')
     $factor = $CharsPerToken.ToString('0.00', $inv)
-    return Format-DevPageHtml -Title 'Specialists' -Style $script:DevBarStyle -Body $body.ToString() `
+    return Format-DevPageHtml -Title 'Specialists' -BrandTag 'product' -Style $script:DevBarStyle -Body $body.ToString() `
         -Lead 'Every specialist the dkj-subagents plugins ship, and how much context each one brings along: what every session pays for it, what it costs when it is called, and what its manual and lens add.' `
         -FooterNote ('Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Bytes are measured (hover a cell); tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.')
-}
-
-function Get-RepositoryDkjPages {
-    <#
-        The DKJ-Solutions pages only this hub has, listed in the hub's DKJ-Solutions card after the plugin's own
-        (#3231): this server answers them, so they are linked whether or not the general pages server runs.
-    #>
-    @(
-        @{ Href = '/dkj-repos'; Label = 'DKJ repos'; Sub = 'Every DKJ-Solutions repo: its checkout on this machine, its open issues, and a session to open there' }
-    )
 }
 
 function Find-DkjCheckouts {
@@ -715,7 +737,7 @@ function Format-DkjReposPageHtml {
         '.dr-sessions code { flex: 1 1 24ch; font-size: var(--text-xs); overflow-wrap: anywhere; }'
     ) -join "`n"
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
-    return Format-DevPageHtml -Title 'DKJ repos' -Style $style -Body $body.ToString() `
+    return Format-DevPageHtml -Title 'DKJ repos' -BrandTag 'product' -Style $style -Body $body.ToString() `
         -Lead 'Every DKJ-Solutions repo on GitHub, where it is checked out on this machine, and a Claude Code session to open there. Work in a repo runs in that repo, and an issue for it is filed there.' `
         -FooterNote ('Read from GitHub (one <code>gh api graphql</code> call) and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="dr-link" href="/refresh?page=dkj-repos">read again</a>). Nothing here is written to this repo.')
 }
