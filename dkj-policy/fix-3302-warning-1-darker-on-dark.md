@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Issue #3302: `--warning-1` reads too light on the dark themes. Its dark value `#3a2a10` has a relative
+luminance of about 0.026, against 0.015 for `--negative-1` (`#3a1414`), so the warning background stood
+out a step brighter than its red sibling. Take it down to `#2b1f0c` (about 0.015), the same lightness as
+`--negative-1`, in the same hue. The light value is untouched.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Set the dark `--warning-1` to `#2b1f0c` in both dark blocks of `house-style.css` (the OS-following
+  one and the forced one)
+- [~] The brandbook build under `assets/brandbook/` still carries the old value: it is rebuilt by the
+  release (`Get-ReleaseBuilds`), never by hand
 
 ### TEST
 
+- [ ] `open-pr.ps1 -GatesOnly` green before the park
+- [ ] The owner looks at a notice on a dark theme (awaiting-review-dev)
+
 ### DEPLOY: fix/3302-warning-1-darker-on-dark
 
-**Score:**
+The house style's warning background (`--warning-1`) is darker on the dark themes: `#2b1f0c` instead
+of `#3a2a10`, the same lightness as the negative-message background beside it, so a notice no longer
+reads as a lighter patch on a dark page. Light themes are unchanged (#3302).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions app that takes the new `house-style.css` gets the darker notice background on every
+dark theme without changing anything of its own.
+
+**Score:** 2
 
 #### Pull Request
 
