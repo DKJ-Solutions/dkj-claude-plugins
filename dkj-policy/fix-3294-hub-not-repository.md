@@ -43,17 +43,39 @@ Prose that calls the hub 'the Repository' says hub; the #3285 identifiers, file 
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The identifiers #3285 renamed go back to `RepoHub`: `Format-PluginRepoHubHtml`, `ConvertTo-PluginRepoHubName`,
+  `Format-RepoHubBanner`, `Get-/Format-/ConvertFrom-/Read-/Write-RepoHubState(Path)`, `Test-RepoHubLocalUrl`,
+  `$script:RepoHubChevron`, the source repo's `Format-RepoHubHtml` and `Get-RepoHubPages`, the file
+  `hub/lib/repo-hub-page.ps1`, the state file `%TEMP%\dkj-repo-hub-<leaf>-<hash>.json` and the banner's
+  `dkj-repo-hub-airsquats` key.
+- [x] Prose that meant the hub says hub: the hook, `hub/README.md`, the hub libs, the dkj-solutions README,
+  skill, patterns and manifest description, the brand book app's comments, three lenses, the source repo's
+  dev server and tests. "Repository" stays only where it names the `/repository` page (its label, title and
+  tests) and in the history lines that say the name moved.
+- [~] `house-style.css`'s two comments: the file is sha256-pinned, so a comment edit forces a re-pin. Filed as #3299.
 
 ### TEST
 
+- [x] `check-plugin-integrity.ps1`: 0 errors.
+- [x] `dev-pages` 292/0, `dev-preview-sessionstart` 309/0, `connector-dashboard` 198/0.
+
 ### DEPLOY: fix/3294-hub-not-repository
 
-**Score:**
+The hub is called the hub everywhere again, now that "Repository" names the `/repository` page on it: in the
+docs and comments, and in the functions, file and state file behind it (`Format-PluginRepoHubHtml`,
+`hub/lib/repo-hub-page.ps1`, `%TEMP%\dkj-repo-hub-<leaf>-<hash>.json`). A hub server started under the
+previous version is restarted at the next session start, as on any version change, so the state file's
+name needs nothing done by hand.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo that builds its own hub and calls the general banner function calls it `Format-RepoHubBanner` again
+(it was `Format-RepositoryBanner` for one release); no consumer checkout on this machine calls either. The
+banner's airsquats tally is kept under its pre-#3285 key again, so a count from before that release returns.
+
+**Score:** 1
 
 #### Pull Request
 

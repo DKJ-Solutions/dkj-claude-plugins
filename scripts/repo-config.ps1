@@ -1480,7 +1480,7 @@ function Get-DeclinedAdoptions {
 # --- The dev-preview seam (dkj-policy since #3198, #2967; this repo's answer since #2976) ---------------
 
 function Get-DevPreview {
-    <# This repo's own Repository (the label the plugin fixes, #3064, #3097), which links the connector
+    <# This repo's own hub (the label the plugin fixes, #3064, #3097), which links the connector
        dashboard: the dkj-policy dev-preview hook starts it (or reuses it) at session start and hands
        out its localhost link. The plugin serves a hub of its own in every repo (#3245), with the repo's
        server as its product; OwnHub opts this repo out, because its connector dashboard IS its hub and

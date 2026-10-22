@@ -1,6 +1,6 @@
-# The Repository — the dev-preview hook and the general pages server
+# The hub — the dev-preview hook and the general pages server
 
-**Every repo that runs `dkj-policy` gets a Repository at session start**, served by the plugin, with the
+**Every repo that runs `dkj-policy` gets a hub at session start**, served by the plugin, with the
 General pages linked from it: Artifacts, Issues, Release notes and SessionStart. That covers
 BWJ-Development's repos too. Until [#3198](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3198)
 (the owner's decision, October 20, 2026) all of this shipped with `dkj-solutions`, which BWJ-Development
@@ -12,7 +12,7 @@ its Brandbook stay in [`dkj-solutions`](../dkj-solutions/README.md).
 |---|---|
 | The SessionStart hook | [`../hooks/dev-preview-sessionstart.ps1`](../hooks/dev-preview-sessionstart.ps1) |
 | Its rules (the seam, the ports, the ownership rule, the state file) | [`lib/dev-preview-rules.ps1`](lib/dev-preview-rules.ps1), [`lib/general-pages-state.ps1`](lib/general-pages-state.ps1) |
-| The general pages server, which is the hub | [`pages/serve-general-pages.ps1`](pages/serve-general-pages.ps1), its pages in [`lib/general-pages-lib.ps1`](lib/general-pages-lib.ps1), the hub's page in [`lib/repository-page.ps1`](lib/repository-page.ps1) |
+| The general pages server, which is the hub | [`pages/serve-general-pages.ps1`](pages/serve-general-pages.ps1), its pages in [`lib/general-pages-lib.ps1`](lib/general-pages-lib.ps1), the hub's page in [`lib/repo-hub-page.ps1`](lib/repo-hub-page.ps1) |
 | The request rules the servers share | [`lib/loopback-server-lib.ps1`](lib/loopback-server-lib.ps1) |
 
 These are plugin-only files, like [`../worker/`](../worker/): no root copy in the source repo mirrors
@@ -35,7 +35,7 @@ when each server starts. Without it, `/brandbook` is a plain 404 and the home pa
 
 ## The hub and the product
 
-**The plugin serves the Repository in every repo, whether or not the repo states `Get-DevPreview`** (the
+**The plugin serves the hub in every repo, whether or not the repo states `Get-DevPreview`** (the
 owner's decision, October 21, 2026,
 [#3245](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3245), replacing the placeholder of
 [#3047](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3047)). The hub is the general pages
@@ -46,7 +46,7 @@ link on that hub, not the hub itself.
 **The hub has one form, in every repo** (the owner's decision, October 16, 2026,
 [#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)): the one laid down in
 [`dkj-solutions/assets/house-style/README.md`](../dkj-solutions/assets/house-style/README.md), section
-"The Repository": two pages, the home page on `/` and About this repo on `/about` (#3270). The blocks and their
+"The hub": two pages, the home page on `/` and About this repo on `/about` (#3270). The blocks and their
 order are fixed. The plugin's home page carries the repo's name as its `h1`, and under the lead:
 
 - a **Products** section, where the repo states a server: its link, or a line saying it is not running;
@@ -188,7 +188,7 @@ under `/brandbook/`. The PowerShell Brandbook page it replaces is retired, so th
 
 | Page | Reads, from the repo it was started in | When it is absent |
 |---|---|---|
-| `/`, `/index.html`, `/hub`, `/about` | The state file below, on every request: the home page of this plugin's Repository, and on `/about` its About this repo page. Under `OwnHub` a 303 to the repo's own hub instead | Under `OwnHub` with no hub known, a short 404 text |
+| `/`, `/index.html`, `/hub`, `/about` | The state file below, on every request: the home page of this plugin's hub, and on `/about` its About this repo page. Under `OwnHub` a 303 to the repo's own hub instead | Under `OwnHub` with no hub known, a short 404 text |
 | `/artifacts` | `scripts/dashboard/artifacts.json`, on every request | The page says the file is not there |
 | `/brandbook/` | Only where the repo enables `dkj-solutions`: the brand book app's build in the `dkj-solutions/assets/brandbook/` this server runs from, its own routes answered with its `index.html`; `/brandbook` is a 303 to it | A plain 404 in a repo without `dkj-solutions`; a plugin copy that ships no build gets a page saying so |
 | `/issues` | `gh issue list`, three calls (the open issues, and those opened and closed in the last 28 days), for `--repo <owner/name>` taken from the `origin` remote when it is on github.com, else for the repo `gh` finds in the working directory; kept for five minutes | A `gh` that fails or is missing is a warning on the page |
@@ -213,7 +213,7 @@ carry the repo's name, `owner/name` from the `origin` remote, else the folder's.
 `url` `gh` returned for it, and only when that is a GitHub issue link.
 
 **How the servers find each other: one state file per checkout**,
-`%TEMP%\dkj-repository-<folder>-<hash>.json`, which the hook writes at every session start, whatever it found:
+`%TEMP%\dkj-repo-hub-<folder>-<hash>.json`, which the hook writes at every session start, whatever it found:
 
 ```json
 { "root": "<repo root>", "hub": "<url>", "pages": "<http://localhost:489x, or empty>", "product": "<url, or empty>", "mode": "none|product|ownhub" }
@@ -249,7 +249,7 @@ the machine) once. And a product's `Ports` must not overlap 4890-4899, which the
 
 ## In the source repo
 
-This repo's `Get-DevPreview` states `OwnHub = $true`: its own `Repository`, whose pages are the **connector
+This repo's `Get-DevPreview` states `OwnHub = $true`: its own hub, whose pages are the **connector
 dashboard** (every repo registered under `connectors/` and what `check-connectors.ps1` reports for it), the
 specialists and their context cost and the test-gate durations, is served on `127.0.0.1` by
 `scripts/dashboard/serve-connector-dashboard.ps1` with the house style from this tree. The General pages

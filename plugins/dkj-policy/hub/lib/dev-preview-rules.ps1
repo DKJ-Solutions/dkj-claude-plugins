@@ -54,10 +54,10 @@
     THE GENERAL PAGES SERVER AND THE STATE FILE (#3119). Beside the repo's own server the hook starts the
     plugin's general pages server (hub/pages/serve-general-pages.ps1: Artifacts, Issues, Release notes,
     SessionStart), on the first free port of 4890-4899 under the same ownership rule. The two servers learn
-    of each other through ONE file per checkout, %TEMP%\dkj-repository-<leaf>-<hash>.json, which the hook
+    of each other through ONE file per checkout, %TEMP%\dkj-repo-hub-<leaf>-<hash>.json, which the hook
     writes at every session start: { root, hub, pages, product, mode }, the Repository's url, the general
-    server's base url, the repo's own server url and what the repo states (#3245). Get-RepositoryStatePath names
-    it, Format-RepositoryState writes it, ConvertFrom-RepositoryState reads it and believes it only when it names
+    server's base url, the repo's own server url and what the repo states (#3245). Get-RepoHubStatePath names
+    it, Format-RepoHubState writes it, ConvertFrom-RepoHubState reads it and believes it only when it names
     this root and carries plain loopback urls. The hash is the one the hook's
     log paths use (Get-DevPreviewRootHash), so a checkout's files sit together in %TEMP%.
 
@@ -476,11 +476,11 @@ function Get-DevPreviewLogPath {
     return Join-Path ([System.IO.Path]::GetTempPath()) ("$Name-$leaf-$(Get-DevPreviewRootHash -Root $Root).log")
 }
 
-function Get-RepositoryStatePath {
-    <# %TEMP%\dkj-repository-<leaf>-<hash>.json: where the two servers of one checkout find each other (#3119). #>
+function Get-RepoHubStatePath {
+    <# %TEMP%\dkj-repo-hub-<leaf>-<hash>.json: where the two servers of one checkout find each other (#3119). #>
     param([Parameter(Mandatory = $true)][string]$Root)
     $leaf = Split-Path -Leaf $Root
-    return Join-Path ([System.IO.Path]::GetTempPath()) ("dkj-repository-$leaf-$(Get-DevPreviewRootHash -Root $Root).json")
+    return Join-Path ([System.IO.Path]::GetTempPath()) ("dkj-repo-hub-$leaf-$(Get-DevPreviewRootHash -Root $Root).json")
 }
 
 function ConvertTo-DevPreviewRootKey {
@@ -490,7 +490,7 @@ function ConvertTo-DevPreviewRootKey {
     return $Root.Replace('/', '\').TrimEnd('\').ToLowerInvariant()
 }
 
-function Test-RepositoryLocalUrl {
+function Test-RepoHubLocalUrl {
     <#
         True when -Url is a plain loopback url: http://localhost:<port> and an optional path of the characters
         Get-DevPreview's Path allows, at most 240 characters, the port 1024-65535, the path not opening with '//'. The one believe-rule for a state-file url that is
@@ -505,7 +505,7 @@ function Test-RepositoryLocalUrl {
     return -not ([string]$Matches[2]).StartsWith('//')
 }
 
-function Format-RepositoryState {
+function Format-RepoHubState {
     <#
         The state file's text (#3245). -Hub is the Repository's url: the general server's own base plus '/' where
         the plugin serves the hub, the repo's own server where the repo opted out. -Pages is the general
@@ -524,12 +524,12 @@ function Format-RepositoryState {
     return ([ordered]@{ root = $Root; hub = $Hub; pages = $Pages; product = $Product; mode = $Mode } | ConvertTo-Json -Compress)
 }
 
-function ConvertFrom-RepositoryState {
+function ConvertFrom-RepoHubState {
     <#
         @{ Hub; Pages; Product; Mode } from the state file's -Text, each '' (Mode 'none') unless it can be
         believed: the file is JSON, its root is -Root (compared the way paths are), and each url is a plain
         loopback url -- the hub's and the product's with an optional path of the characters Get-DevPreview's
-        Path allows (Test-RepositoryLocalUrl), the pages' a bare base on one of the general pages ports
+        Path allows (Test-RepoHubLocalUrl), the pages' a bare base on one of the general pages ports
         (Get-GeneralPagesPortRange), so a file another process can write cannot point a hub's links at any
         other local service. The urls are redirect targets and link hrefs, so a state file that names anything
         else is ignored. Mode is believed only as one of its three words; a file written before #3245 has
@@ -545,8 +545,8 @@ function ConvertFrom-RepositoryState {
     $p = if ($s.PSObject.Properties['pages']) { [string]$s.pages } else { '' }
     $q = if ($s.PSObject.Properties['product']) { [string]$s.product } else { '' }
     $m = if ($s.PSObject.Properties['mode']) { [string]$s.mode } else { '' }
-    if (Test-RepositoryLocalUrl $h) { $state.Hub = $h }
-    if (Test-RepositoryLocalUrl $q) { $state.Product = $q }
+    if (Test-RepoHubLocalUrl $h) { $state.Hub = $h }
+    if (Test-RepoHubLocalUrl $q) { $state.Product = $q }
     if ($p -cmatch '^http://localhost:([0-9]{4,5})/?\z' -and (@(Get-GeneralPagesPortRange) -contains [int]$Matches[1])) { $state.Pages = $p.TrimEnd('/') }
     if ($m -cmatch '^(none|product|ownhub)\z') { $state.Mode = $m }
     return $state

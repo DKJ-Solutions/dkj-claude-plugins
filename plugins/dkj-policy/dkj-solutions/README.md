@@ -47,9 +47,9 @@ The gate itself, its allowlist and the CI caller are on the
 [`house-style` skill page](skills/house-style/SKILL.md#the-gate-check-house-style)
 ([#3035](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3035)).
 
-## The Repository's DKJ-Solutions card and the Brandbook
+## The hub's DKJ-Solutions card and the Brandbook
 
-**The dev-preview hook, the Repository and the general pages server are `dkj-policy`'s**, since
+**The dev-preview hook, the hub and the general pages server are `dkj-policy`'s**, since
 [#3198](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3198) (the owner's decision, October
 20, 2026): "General" means what every repo has, whichever organisation it belongs to, and BWJ-Development
 never enables this plugin. They are documented in
@@ -95,7 +95,7 @@ session start ([#2697](https://github.com/DKJ-Solutions/dkj-claude-plugins/issue
 The plugin is enabled here since October 13, 2026
 ([#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976)), first for the dev-preview hook
 and, since that moved to `dkj-policy` (#3198), for the house-style session check and the hub's
-DKJ-Solutions card. This repo's Repository is described in [`dkj-policy`'s `hub/README.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/hub/README.md#in-the-source-repo).
+DKJ-Solutions card. This repo's hub is described in [`dkj-policy`'s `hub/README.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/hub/README.md#in-the-source-repo).
 Its server answers `/brandbook` itself, with this tree's own build of the `brandbook/` app, so a change
 shows here before the release that ships it.
 
