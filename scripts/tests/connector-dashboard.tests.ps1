@@ -427,7 +427,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             # The Repository on '/' and the pages under it (#3097). The fixture has no
             # suite-durations.json, so the test-gate page takes its failure path, and is still served.
             $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match '<h1>dkj-claude-plugins</h1>' -and $hub -match '<a class="menu-item" href="/about">') '/ serves the home page, linking About this repo (#3270)'
+            Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match '<h1 class="sr-only">dkj-claude-plugins</h1>' -and $hub -match '<a class="menu-item" href="/about">') '/ serves the home page, linking About this repo (#3270)'
             Assert-True ($hub -notmatch 'is not running' -and $hub -notmatch 'href="/brandbook' -and $hub -notmatch 'href="/dkj-repos"') 'the home page names no general pages server, no brand book and no DKJ repos: those are the product''s'
             $about = if ($up) { Get-Raw 'GET' '/about' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($about -match 'HTTP/1.1 200' -and $about -match '<h1>About this repo</h1>' -and $about -match '<a class="menu-item" href="/test-gate">' -and $about -notmatch 'href="/connectors"' -and $about -notmatch 'href="/specialists"' -and $about -match '<a href="/">Home</a>') '/about serves About this repo, linking the pages below the hub, its trail starting at Home'
@@ -463,7 +463,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
                 $r = Get-Raw 'GET' '/artifacts' "localhost:$port3" $nav $port3
                 Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Artifacts</h1>') 'a same-site navigation to a relayed route on this server is served, not refused'
                 $r = Get-Raw 'GET' '/' "localhost:$port3" $nav $port3
-                Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>dkj-claude-plugins</h1>') 'and the hub itself, reached by the crumb back from the general pages, is served'
+                Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1 class="sr-only">dkj-claude-plugins</h1>') 'and the hub itself, reached by the crumb back from the general pages, is served'
                 $r = Get-Raw 'GET' '/connectors' "localhost:$port3" "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: cors`r`n" $port3
                 Assert-True ($r -match 'HTTP/1.1 403') 'a same-site fetch is still refused'
                 $r = Get-Raw 'GET' '/' "localhost:$port3" "Sec-Fetch-Site: cross-site`r`nSec-Fetch-Mode: navigate`r`n" $port3

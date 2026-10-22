@@ -62,6 +62,7 @@ $bshell = Format-GeneralPageHtml -Title 'T' -Lead 'L' -Body '' -Eyebrow 'Org/r' 
 Assert-True ($bshell -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/home" aria-label="r&lt;x&gt;, home"><span class="site-header__mark" aria-hidden="true">DKJ</span><span class="site-header__name">r&lt;x&gt;</span></a><div id="settings"></div></div></header>') 'with -Brand the header carries the escaped name, links home, and holds the settings button'
 Assert-True ((Format-SiteHeaderHtml -Name 'n' -Tag 'p<q>') -match 'aria-label="n p&lt;q&gt;, home">.*site-header__name">n <span class="site-header__tag">p&lt;q&gt;</span></span>' -and $bshell -notmatch 'site-header__tag') 'a -Tag follows the name, escaped, and is left out when empty'
 Assert-True ((Format-RepositoryHtml) -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">repository</span>' -and (Format-RepoAboutHtml -Pages @()) -match '>repository</span>' -and (Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3) -match '>product</span>') 'the hub''s pages say repository, the pages the product relays say product'
+Assert-True ((Format-RepoHomeHeadHtml -RepoName 'r' -Lead 'l') -match '<h1>r</h1>') 'without a site header the home page''s h1 stays in sight, as in every other repo'
 Assert-True ($bshell -notmatch 'class="eyebrow"' -and $bshell -notmatch 'theme-settings--floating' -and $bshell.IndexOf('class="site-header"') -lt $bshell.IndexOf('class="breadcrumbs-bar"')) 'and it stands above the bar, with no eyebrow and no floating button'
 
 Write-Host '-- the Repository: the home page on / and About this repo on /about (#3270)' -ForegroundColor Cyan
@@ -70,7 +71,7 @@ Assert-Equal '/test-gate' (($pages | ForEach-Object { $_.Href }) -join ',') 'the
 Assert-Equal '/artifacts,/issues,/release-notes,/sessionstart' ((Get-GeneralPages | ForEach-Object { $_.Href }) -join ',') 'the plugin lists the four general pages, in order'
 Assert-Equal '/brandbook' ((Get-DkjSolutionsPages | ForEach-Object { $_.Href }) -join ',') 'and the one page only DKJ-Solutions repos share, the Brandbook'
 $hub = Format-RepositoryHtml
-Assert-True ($hub -match '<title>dkj-claude-plugins -- Home</title>' -and $hub -match '<h1>dkj-claude-plugins</h1>' -and $hub -notmatch '<h1>Repository</h1>') 'the home page''s h1 is the repo''s name, and its title says Home'
+Assert-True ($hub -match '<title>dkj-claude-plugins -- Home</title>' -and $hub -match '<h1 class="sr-only">dkj-claude-plugins</h1>' -and $hub -notmatch '<h1>Repository</h1>') 'the home page''s h1 is the repo''s name, kept for the outline but out of sight under the site header, and its title says Home'
 Assert-True ($hub -match '<body>\s*<header class="site-header">.*</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Home</span></li>\s*</ol>') 'the site header opens <body>, the bar right under it, its trail the one crumb Home'
 Assert-True ($hub -notmatch 'class="eyebrow"' -and ([regex]::Matches($hub, '<header')).Count -eq 1 -and $hub -notmatch 'btn--primary' -and $hub -notmatch 'theme-settings--floating' -and $hub -match '<div id="settings"></div></div></header>') 'no eyebrow, no <header> but the site header, which holds the settings button, and no product button'
 Assert-True ($hub -match '<div class="grid__head"><h2>About this repo</h2><p class="card__sub">[^<]+</p></div>\r?\n<section class="card grid__full">\r?\n<nav class="menu-list" aria-label="About this repo">\r?\n<a class="menu-item" href="/about">') 'About this repo is one link, to /about'
@@ -79,7 +80,7 @@ Assert-True ($hub -notmatch 'brandbook' -and $hub -notmatch 'Brand book' -and $h
 Assert-True ($hub -notmatch '<dl class="facts">' -and $hub -notmatch '<h3>General</h3>' -and $hub -notmatch 'href="/connectors"' -and $hub -notmatch 'class="footer-note"') 'and nothing about the repo itself: no facts, no General card, none of its own pages'
 # THE GENERAL BANNER (#3250): under the intro, above the sections, in house classes only, and its state in this browser.
 $hubBanner = $hub.IndexOf('<div class="notice" id="hub-banner"')
-Assert-True ($hubBanner -gt $hub.IndexOf('<h1>dkj-claude-plugins</h1>') -and $hubBanner -lt $hub.IndexOf('<h2>About this repo</h2>')) 'the airsquats banner sits directly under the intro, above the sections'
+Assert-True ($hubBanner -gt $hub.IndexOf('<h1 class="sr-only">dkj-claude-plugins</h1>') -and $hubBanner -lt $hub.IndexOf('<h2>About this repo</h2>')) 'the airsquats banner sits directly under the intro, above the sections'
 Assert-True ($hub.Contains('data-hub-timer') -and $hub.Contains('<input type="checkbox" data-hub-done> <span data-hub-count>10</span> airsquats') -and $hub.Contains('data-hub-due hidden')) 'it counts down to the hour, and its "10 airsquats" box stays hidden until an hour has passed'
 $bannerJs = Format-RepositoryBanner
 Assert-True ($bannerJs -match 'localStorage' -and $bannerJs -notmatch 'fetch\(|XMLHttpRequest|WebSocket|sendBeacon|eval\(|new Function|document\.cookie') 'its script keeps its state in localStorage and makes no request'

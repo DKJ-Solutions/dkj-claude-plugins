@@ -320,7 +320,9 @@ function Format-RepoHomeHeadHtml {
     [void]$sb.AppendLine('<main class="page-column">')
     # The intro is a <div>, never a <header>, which the house style lays out as a flex row.
     [void]$sb.AppendLine('<div>')
-    [void]$sb.AppendLine('<h1>' + $RepoName + '</h1>')
+    # Under a site header the h1 would repeat the name the header shows: it stays for the outline, out of sight.
+    $h1 = if ($Brand) { '<h1 class="sr-only">' } else { '<h1>' }
+    [void]$sb.AppendLine($h1 + $RepoName + '</h1>')
     [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>')
     [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine((Format-RepositoryBanner))
