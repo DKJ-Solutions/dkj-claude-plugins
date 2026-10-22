@@ -127,7 +127,7 @@ function Format-RepositoryHtml {
 function Format-RepoAboutBodyHtml {
     <#
         What was the About this repo page (#3270) and is the home page's body since October 22, 2026: the Pages
-        block (every page a card of its own, this repo's then the general ones, with no heading above them) and this repo's facts, one card titled by its own h3. -Pages is Get-RepositoryPages' shape; -SourceCommit is the short sha the
+        block (every page a card of its own, this repo's then the general ones, with no heading above them) and this repo's facts, one quiet line rather than a card. -Pages is Get-RepositoryPages' shape; -SourceCommit is the short sha the
         server reads, or empty; -GeneralPagesUrl is the general pages server's base url when it answers, or
         empty (one card then says it is not running).
     #>
@@ -156,19 +156,11 @@ function Format-RepoAboutBodyHtml {
         [void]$sb.AppendLine('<section class="card grid__full"><p class="msg" role="status">The general pages server is not running. It starts at the next session start, and its pages are linked here from then on.</p></section>')
     }
     [void]$sb.AppendLine('</div>')
-    # Facts: one card with its own title, an h3 in its head (owner, October 22, 2026). Never an h2: that stands
-    # above a card, not in one (#3175).
-    [void]$sb.AppendLine('<section class="card">')
-    [void]$sb.AppendLine('<div class="card__head"><h3 class="card__title">Facts</h3><p class="card__sub">What this repo is, and the commit this hub is served from</p></div>')
-    [void]$sb.AppendLine('<dl class="facts">')
-    [void]$sb.AppendLine('<div><dt>Marketplace</dt><dd>dkj-claude-plugins</dd></div>')
-    [void]$sb.AppendLine('<div><dt>Trunk</dt><dd>main</dd></div>')
-    [void]$sb.AppendLine('<div><dt>Visibility</dt><dd>public</dd></div>')
-    [void]$sb.AppendLine('<div><dt>Required check</dt><dd>lint-en-tests</dd></div>')
-    if ($SourceCommit) { [void]$sb.AppendLine('<div><dt>Source at</dt><dd><code>' + (& $e $SourceCommit) + '</code></dd></div>') }
-    [void]$sb.AppendLine('</dl>')
-    [void]$sb.AppendLine('</section>')
-
+    # Facts: one quiet line, not a card (owner, October 22, 2026): every card on this page is a link, and the facts
+    # are not, so they stand as a footer-note -- no surface, no border -- right above the page's own footer note.
+    $facts = @('Marketplace: dkj-claude-plugins', 'Trunk: main', 'Visibility: public', 'Required check: lint-en-tests')
+    if ($SourceCommit) { $facts += 'Source at: <code>' + (& $e $SourceCommit) + '</code>' }
+    [void]$sb.AppendLine('<p class="footer-note">' + ($facts -join ' &#183; ') + '</p>')
     return $sb.ToString()
 }
 

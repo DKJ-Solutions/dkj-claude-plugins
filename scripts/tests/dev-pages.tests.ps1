@@ -75,9 +75,9 @@ Assert-True ($hub -match '<title>dkj-claude-plugins -- Home</title>' -and $hub -
 Assert-True ($hub -match '<body>\s*<header class="site-header">.*</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Home</span></li>\s*</ol>') 'the site header opens <body>, the bar right under it, its trail the one crumb Home'
 Assert-True ($hub -notmatch 'class="eyebrow"' -and ([regex]::Matches($hub, '<header')).Count -eq 1 -and $hub -notmatch 'btn--primary' -and $hub -notmatch 'theme-settings--floating' -and $hub -match '<div id="settings"></div></div></header>') 'no eyebrow, no <header> but the site header, which holds the settings button, and no product button'
 Assert-True ($hub -notmatch 'href="/about"' -and $hub -notmatch '<h2>About this repo</h2>') 'no About this repo link: what it held is on the home page itself'
-Assert-True (([regex]::Matches($hub, '<h2[ >]')).Count -eq 0 -and $hub -notmatch 'href="/(dkj-repos|connectors|specialists|brandbook)') 'the home page has no h2: the pages are cards, Facts its own card: DKJ repos, Connectors, Specialists and the brand book are the product''s'
+Assert-True (([regex]::Matches($hub, '<h2[ >]')).Count -eq 0 -and $hub -notmatch 'href="/(dkj-repos|connectors|specialists|brandbook)') 'the home page has no h2: the pages are cards, the facts a line: DKJ repos, Connectors, Specialists and the brand book are the product''s'
 Assert-True ($hub -notmatch 'brandbook' -and $hub -notmatch 'Brand book') 'and no brand book, which is the product port''s alone'
-Assert-True ($hub -match 'class="grid-3"' -and $hub -match 'href="/test-gate"' -and $hub -match '<dl class="facts">' -and $hub -match 'class="footer-note"') 'and everything About held: the Pages block, the facts and the footer note'
+Assert-True ($hub -match 'class="grid-3"' -and $hub -match 'href="/test-gate"' -and $hub -match 'Marketplace: dkj-claude-plugins' -and $hub -match 'class="footer-note"') 'and everything About held: the Pages block, the facts and the footer note'
 # THE GENERAL BANNER (#3250): under the intro, above the sections, in house classes only, and its state in this browser.
 $hubBanner = $hub.IndexOf('<div class="notice" id="hub-banner"')
 Assert-True ($hubBanner -gt $hub.IndexOf('class="breadcrumbs-bar"') -and $hubBanner -lt $hub.IndexOf('class="grid-3"')) 'the airsquats banner sits directly under the bar, above the sections'
@@ -98,8 +98,8 @@ Assert-True ($about -match '<div class="grid-3">\r?\n<section class="card"><nav 
 Assert-Equal 5 ([regex]::Matches($about, '<section class="card"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="/[a-z-]+"')).Count 'every page is a card of its own, this repo''s and the general ones alike, with no group card or h3 around them'
 Assert-True ($about -notmatch 'grid__head') 'and no group heading anywhere on the page'
 Assert-True ($about -notmatch 'DKJ-Solutions</h3>' -and $about -notmatch 'href="/brandbook"') 'the Brand book is the home page''s, not About''s'
-Assert-True ($about.IndexOf('href="/test-gate"') -lt $about.IndexOf('href="/artifacts"') -and $about.IndexOf('href="/sessionstart"') -lt $about.IndexOf('Facts</h3>')) 'this repo''s page first, then the general pages, then the facts'
-Assert-True ($about -match '</div>\r?\n<section class="card">\r?\n<div class="card__head"><h3 class="card__title">Facts</h3><p class="card__sub">[^<]+</p></div>\r?\n<dl class="facts">' -and $about -notmatch '<h2>Facts</h2>') 'the facts are one card, titled by its own h3, never an h2 inside it (#3175)'
+Assert-True ($about.IndexOf('href="/test-gate"') -lt $about.IndexOf('href="/artifacts"') -and $about.IndexOf('href="/sessionstart"') -lt $about.IndexOf('Marketplace:')) 'this repo''s page first, then the general pages, then the facts'
+Assert-True ($about -match '<p class="footer-note">Marketplace: dkj-claude-plugins &#183; Trunk: main &#183; Visibility: public &#183; Required check: lint-en-tests &#183; Source at: <code>abc1234</code></p>' -and $about -notmatch 'class="facts"' -and $about -notmatch 'Facts</h') 'the facts are one quiet line, a footer-note, not a card: every card on the page is a link and the facts are not'
 Assert-Equal ([regex]::Matches($about, '<h2[ >]')).Count ([regex]::Matches($about, '</h2><p class="card__sub">[^<]+</p>')).Count 'every h2 on About carries a sub line'
 $down = Format-RepositoryHtml -Pages $pages
 Assert-True ($down -match '<section class="card grid__full"><p class="msg" role="status">The general pages server is not running' -and $down -notmatch 'href="http://localhost' -and $down -notmatch 'href="/artifacts"') 'with no general server one card says it is not running, and nothing is linked'
@@ -109,9 +109,9 @@ Assert-True ((Format-GeneralPagesCardHtml -PagesUrl 'http://localhost:4890' -Sam
 Assert-True ((Format-GeneralPagesCardHtml -InRow $false -Title 'X <y>') -match '<h2>X &lt;y&gt;</h2>' -and (Format-GeneralPagesCardHtml -InRow $false) -match '<h2>General pages</h2>') 'a card standing alone takes -Title as its h2, escaped, and "<Heading> pages" without one'
 $alone = Format-RepositoryHtml -Pages @() -GeneralPagesUrl 'http://localhost:4890'
 Assert-True ($alone -match 'class="grid-3"' -and $alone -notmatch 'href="/test-gate"' -and $alone -match 'href="/issues"') 'with no page of its own, Pages holds the general cards alone'
-Assert-True ($about -match '<dt>Source at</dt><dd><code>abc1234</code></dd>') 'the facts name the commit it serves from'
+Assert-True ($about -match 'Source at: <code>abc1234</code>') 'the facts name the commit it serves from'
 Assert-True ((Format-RepositoryHtml -Pages $pages) -notmatch 'Source at') 'and leave the row out when the commit could not be read'
-$ix = @('class="site-header"', 'id="settings"', 'class="breadcrumbs-bar"', 'id="hub-banner"', 'class="grid-3"', 'Facts</h3>', 'class="footer-note"') | ForEach-Object { $about.IndexOf($_) }
+$ix = @('class="site-header"', 'id="settings"', 'class="breadcrumbs-bar"', 'id="hub-banner"', 'class="grid-3"', 'Marketplace:', 'The facts are this repo') | ForEach-Object { $about.IndexOf($_) }
 Assert-True ((@($ix | Where-Object { $_ -lt 0 }).Count -eq 0) -and ((($ix | Sort-Object) -join ',') -eq ($ix -join ','))) 'the blocks stand in the form''s order'
 $evil = Format-RepositoryHtml -Pages @(@{ Href = '/x"><script>'; Label = '<b>'; Sub = '' })
 Assert-True ($evil -notmatch 'x"><script>' -and $evil -match 'href="/x&quot;&gt;&lt;script&gt;"' -and $evil -notmatch '<b>') 'every value is escaped'

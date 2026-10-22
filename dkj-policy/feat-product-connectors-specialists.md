@@ -64,6 +64,7 @@ product finds the hub by asking its ports for `/whoami`.
 - [x] Then three to a row (the owner, same day): `.grid-3` in the house style beside `.grid-2` (same head, full-row and spacing rules, two columns below 1000px, one below 760px), its README line and checksum, and Pages on the hub uses it
 - [x] Then Test gate its own card too (the owner, same day): the This repo card and its h3 go, every page is one card, this repo's first
 - [x] Then no heading above the page cards (the owner, same day): the Pages `grid__head` goes, so the home page carries no `h2`
+- [x] Then the facts as one quiet line (the owner, same day; chosen from a menu): a `footer-note` above the page's own, since every card on the page is a link and the facts are not
 
 ### TEST
 
@@ -90,7 +91,7 @@ eyebrow above each `h1` is gone, since the header names the site. The page shell
 header only for a caller that passes `-Brand`, so every other repo's pages are unchanged, and in the house
 style a breadcrumb bar changes colour only right under a site header. The house style also gains `.grid-3`, `.grid-2`'s group three to a row. The header says `repository` after the name on the hub and`nproduct` on the product port, and both ports open in the same theme (lilac, one theme key).
 
-The house style's largest heading is now 32px: `--text-h1` came down from 48px to `h2`'s size, the hero figure with it, so a page fits more on a 900px-high screen; `h1` stands apart by its capitals and colour. On the two home pages the `h1` repeated the name the header shows, so under a site header the home page has no intro at all: no `h1`, no lead, `<main>` opens on its first block. And the hub is one page now: its home holds everything About this repo held (every page as a card of its own, three to a row and with no heading above them, the facts as one card titled by its own `h3`, the footer note), and `/about` sends an old link on to `/`.
+The house style's largest heading is now 32px: `--text-h1` came down from 48px to `h2`'s size, the hero figure with it, so a page fits more on a 900px-high screen; `h1` stands apart by its capitals and colour. On the two home pages the `h1` repeated the name the header shows, so under a site header the home page has no intro at all: no `h1`, no lead, `<main>` opens on its first block. And the hub is one page now: its home holds everything About this repo held (every page as a card of its own, three to a row and with no heading above them, the facts as one quiet line rather than a card, since every card is a link, the footer note), and `/about` sends an old link on to `/`.
 
 **Score:** 2
 
