@@ -5,7 +5,7 @@ import './brand-layer.css'
 import './index.css'
 import App from './App.tsx'
 
-/** The brand book is the app's one page; any path under its base lands there (#3274: the Repository specimen and its previews are gone). */
+/** The brand book is the app's one page; any path under its base lands there (#3274: the hub specimen and its previews are gone). */
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

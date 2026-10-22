@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Serve this repo's dev server on http://localhost:<Port>/ -- the Repository on '/', which links the
+    Serve this repo's dev server on http://localhost:<Port>/ -- the hub on '/', which links the
     pages below it (#3097): /connectors, every repo registered under connectors/ with its plugins, its
     local checkout and what check-connectors.ps1 reports for it on this machine (#2976); /specialists, every
     specialist the dkj-subagents plugins ship and the context each one costs, read from this tree; /test-gate,
@@ -16,7 +16,7 @@
     /connectors, /specialists AND /dkj-repos ARE THE PRODUCT'S PAGES, BUILT HERE. The owner moved them to the
     product port too (October 22, 2026): its dev server (productRoot in brandbook/vite.config.ts) links them on
     its root page and relays each request here, finding this server by /whoami. So this server still answers
-    all three, for that relay, and the Repository links none of them.
+    all three, for that relay, and the hub links none of them.
 
     THE GENERAL PAGES ARE BUILT ELSEWHERE AND SERVED FROM HERE (#3119, #3168): Artifacts, Issues, Release
     notes and SessionStart belong to every repo, so the dkj-policy plugin builds them in a server of its own
@@ -35,7 +35,7 @@
 
 .DESCRIPTION
     Normally started by the dkj-policy dev-preview SessionStart hook, through this repo's
-    Get-DevPreview in scripts/repo-config.ps1, which states OwnHub = $true (#3245): the plugin serves its Repository
+    Get-DevPreview in scripts/repo-config.ps1, which states OwnHub = $true (#3245): the plugin serves its hub
     of its own in every other repo, and this repo's connector dashboard is its hub instead; it can be started by hand the same way:
 
         powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dashboard\serve-connector-dashboard.ps1 -Port 4870
@@ -359,7 +359,7 @@ try {
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html') {
-                $html = Format-RepositoryHtml -Pages (Get-RepositoryPages) -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' }) -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
+                $html = Format-RepoHubHtml -Pages (Get-RepoHubPages) -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' }) -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
                 $body = $utf8.GetBytes($html)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue

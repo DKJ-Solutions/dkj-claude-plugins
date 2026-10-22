@@ -220,8 +220,8 @@ Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/hou
 Assert-True ($html -match 'DKJTheme\.settings\(' -and $html -notmatch 'DKJTheme\.picker\(') 'the theme choice is the house settings button, not a hand-built picker card'
 Assert-True ($html -match '<div id="settings"></div></div></header>' -and $html -notmatch 'theme-settings--floating') 'the settings button sits at the far right of the site header'
 Assert-True (([regex]::Matches($html, 'var\(--(primary|muted|fg-|paper-)')).Count -ge 6 -and $html -match 'class="cd-link"') 'the chosen theme reaches the page beyond its buttons, through the repo layer''s own theme-colour accents'
-Assert-True ($html -notmatch 'class="eyebrow"' -and $html -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/"' -and $html -match '<h1>Connectors</h1>' -and $html -match '<main class="page-column">') 'the page keeps the Repository frame: the site header in place of the eyebrow, its own h1, the page column'
-Assert-True ($html -match '<body>\s*<header class="site-header">.*</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep" aria-hidden="true"><svg\ viewBox="0\ 0\ 24\ 24"><path\ fill="currentColor"\ fill-rule="evenodd"\ d="M9\.793\ 16\.707a1\ 1\ 0\ 0\ 1\ 0-1\.414L13\.086\ 12\ 9\.793\ 8\.707a1\ 1\ 0\ 0\ 1\ 1\.414-1\.414l4\ 4a1\ 1\ 0\ 0\ 1\ 0\ 1\.414l-4\ 4a1\ 1\ 0\ 0\ 1-1\.414\ 0"\ clip-rule="evenodd"/></svg></span><span aria-current="page">Connectors</span></li>') 'the breadcrumb bar opens <body>, its trail from the Repository to Connectors (#3090, #3097)'
+Assert-True ($html -notmatch 'class="eyebrow"' -and $html -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/"' -and $html -match '<h1>Connectors</h1>' -and $html -match '<main class="page-column">') 'the page keeps the hub frame: the site header in place of the eyebrow, its own h1, the page column'
+Assert-True ($html -match '<body>\s*<header class="site-header">.*</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep" aria-hidden="true"><svg\ viewBox="0\ 0\ 24\ 24"><path\ fill="currentColor"\ fill-rule="evenodd"\ d="M9\.793\ 16\.707a1\ 1\ 0\ 0\ 1\ 0-1\.414L13\.086\ 12\ 9\.793\ 8\.707a1\ 1\ 0\ 0\ 1\ 1\.414-1\.414l4\ 4a1\ 1\ 0\ 0\ 1\ 0\ 1\.414l-4\ 4a1\ 1\ 0\ 0\ 1-1\.414\ 0"\ clip-rule="evenodd"/></svg></span><span aria-current="page">Connectors</span></li>') 'the breadcrumb bar opens <body>, its trail from the hub to Connectors (#3090, #3097)'
 Assert-True (([regex]::Matches($html, '<header')).Count -eq 1 -and $html -notmatch 'cd-band|cd-accent') 'and its intro is no <header> (the one is the site header), and no decoration the form does not carry'
 Assert-True ($html -notmatch 'About this repo</h2>' -and $html -match 'href="#overview">Back to overview') 'the facts card is the hub''s, and the card the overview links down to carries the way back'
 $ix = @('class="site-header"', 'class="breadcrumbs-bar"', '<h1>', 'class="tiles"', 'Connected repos</h2>', 'Issues</h2>', 'class="footer-note"') | ForEach-Object { $html.IndexOf($_) }
@@ -423,8 +423,8 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
                 $r = if ($up) { Get-Raw 'GET' $moved "localhost:$port3" '' $port3 } else { '' }
                 Assert-True ($r -match 'HTTP/1.1 404' -and $r -match 'general pages server') "$moved is a 404 text naming the general pages server while no state file names one"
             }
-            $srcState = Get-RepositoryStatePath -Root $src
-            # The Repository on '/' and the pages under it (#3097). The fixture has no
+            $srcState = Get-RepoHubStatePath -Root $src
+            # The hub on '/' and the pages under it (#3097). The fixture has no
             # suite-durations.json, so the test-gate page takes its failure path, and is still served.
             $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match 'site-header__name">dkj-claude-plugins' -and $hub -match '<a class="menu-item" href="/repository">' -and $hub -notmatch 'href="/about"') '/ serves the home page, linking the Repository page'
@@ -434,7 +434,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Assert-True ((Get-Raw 'GET' '/about' "localhost:$port3" '' $port3) -match 'HTTP/1.1 303[\s\S]*Location: /\r') '/about sends an old link on to the home page, which holds what it held'
             Assert-True ($about -match 'The general pages server is not running' -and $about -notmatch 'href="http://localhost') 'and its General card says the general pages server is not running too'
             # A state file naming a port nobody answers on is no server.
-            Write-RepositoryState -Root $src -Hub "http://localhost:$port3/" -Pages "http://localhost:$genPort3" -Mode 'ownhub'
+            Write-RepoHubState -Root $src -Hub "http://localhost:$port3/" -Pages "http://localhost:$genPort3" -Mode 'ownhub'
             $r = if ($up) { Get-Raw 'GET' '/issues' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($r -match 'HTTP/1.1 404') 'a state file naming a port where nothing answers is no server: a 404 text, not a redirect'
             # The real general server for this fixture, which answers /whoami with this root's hash. The fixture is an
@@ -472,7 +472,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
                 $r = Get-Raw 'GET' '/artifacts' "localhost:$genPort3" $nav $genPort3
                 Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Artifacts</h1>') 'the general server serves the click from the hub too'
                 $r = Get-Raw 'GET' '/hub' "localhost:$genPort3" $nav $genPort3
-                Assert-True ($r -match 'HTTP/1.1 303' -and $r -match ('Location: http://localhost:' + $port3 + '/\r')) 'and sends the crumb''s /hub on to the Repository'
+                Assert-True ($r -match 'HTTP/1.1 303' -and $r -match ('Location: http://localhost:' + $port3 + '/\r')) 'and sends the crumb''s /hub on to the hub'
                 $r = Get-Raw 'GET' '/artifacts' "localhost:$genPort3" "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: no-cors`r`n" $genPort3
                 Assert-True ($r -match 'HTTP/1.1 403') 'while a same-site subresource request to it is refused'
                 $hubUp = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
@@ -484,7 +484,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $hubDown = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($hubDown -match 'HTTP/1.1 200' -and $hubDown -match 'The general pages server is not running') 'and the General card is back to not running once nothing answers there'
             Remove-Item -LiteralPath $srcState -Force -ErrorAction SilentlyContinue
-            Assert-True ($page -match 'HTTP/1.1 200' -and $page -match '<h1>Connectors</h1>' -and $page -match '<a href="/">Home</a>') '/connectors serves the overview as a page under the Repository'
+            Assert-True ($page -match 'HTTP/1.1 200' -and $page -match '<h1>Connectors</h1>' -and $page -match '<a href="/">Home</a>') '/connectors serves the overview as a page under the hub'
             $tg = if ($up) { Get-Raw 'GET' '/test-gate' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($tg -match 'HTTP/1.1 200' -and $tg -match 'the file is not there') '/test-gate reports a missing suite-durations.json, rather than failing'
         } finally {

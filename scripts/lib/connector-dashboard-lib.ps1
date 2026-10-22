@@ -290,7 +290,7 @@ function Format-ConnectorDashboardHtml {
         The whole page. -Connectors is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
         (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Trunk; Subject; When }
         or $null); Notes }. -Meta is @{ GeneratedAt; Seconds; CheckFailed }.
-        It is the Connectors page under the Repository on '/' (#3097): a two-crumb trail and its own h1. The
+        It is the Connectors page under the hub on '/' (#3097): a two-crumb trail and its own h1. The
         facts card belongs to the hub, so this page ends on its footer note.
     #>
     param(
@@ -317,7 +317,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The repo layer: only names the house file does not define (.cd-*), spaced from the house scale.
-    # The page keeps the Repository's frame (breadcrumb bar, settings button, intro, page column; #3066), so
+    # The page keeps the hub's frame (breadcrumb bar, settings button, intro, page column; #3066), so
     # this layer styles only what is inside its cards, never the blocks the house style fixes.
     [void]$sb.AppendLine('<style>')
     # The links take the house highlight (--primary), the tinted head and the lines --paper-3, and the notes --muted.

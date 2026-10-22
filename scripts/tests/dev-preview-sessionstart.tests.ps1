@@ -2,7 +2,7 @@
 .SYNOPSIS
     Tests for plugins/dkj-policy/hooks/dev-preview-sessionstart.ps1 and its rules,
     hub/lib/dev-preview-rules.ps1 in the same plugin -- the shared dev-preview hook (#2967), in dkj-policy
-    since #3198, and the Repository the plugin serves in every repo (#3245).
+    since #3198, and the hub the plugin serves in every repo (#3245).
 
 .DESCRIPTION
     Group 1 pins the rules without a server: what Get-DevPreview may state (OwnHub, the opt-out of the
@@ -228,7 +228,7 @@ Write-Host '-- group 1d: the plugin''s Repository page, and the Simple Browser r
 # dkj-solutions extension's, inside dkj-policy's own payload.
 $PluginRoot = Join-Path $RepoRoot 'plugins\dkj-policy'
 $SolutionsRoot = Join-Path $PluginRoot 'dkj-solutions'
-. (Join-Path $PluginRoot 'hub\lib\repository-page.ps1')
+. (Join-Path $PluginRoot 'hub\lib\repo-hub-page.ps1')
 
 # The placeholder is retired (#3245): the hub is the general pages server, so nothing of it ships any more.
 Assert-True (-not (Test-Path -LiteralPath (Join-Path $PluginRoot 'hub\preview\serve-placeholder.ps1'))) 'the placeholder server no longer ships'
@@ -245,11 +245,11 @@ Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText '' -Port 4890)) 'no 
 Assert-True (-not (Test-DevPreviewVsCodeRoute -SettingsText "{`n  // `"localhost:4890`": `"simpleBrowser.open`"`n}" -Port 4890)) 'a route commented out with // is no route'
 
 # A repo that states no Get-DevPreview: the home page, its setup cards, no Products section (#3270).
-$html = Format-PluginRepositoryHtml -RepoName 'dkj-thumbnail-generator' -PagesUrl 'http://localhost:4890'
+$html = Format-PluginRepoHubHtml -RepoName 'dkj-thumbnail-generator' -PagesUrl 'http://localhost:4890'
 Assert-True ($html -match 'site-header__name">dkj-thumbnail-generator <span class="site-header__tag">hub</span>' -and $html -notmatch '<h1' -and $html -notmatch 'class="eyebrow"') 'the site header names the repo, so the home page needs no h1 and no eyebrow (October 22, 2026)'
 Assert-True ($html -match '<main class="page-column">' -and $html -notmatch '<dl class="facts">') 'and takes the home page form: the page column, and no facts card, which is About''s'
 Assert-True ($html -match '<body>\s*<header class="site-header">.*</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Home</span></li>') 'the site header opens <body>, the breadcrumb bar under it, its trail the one crumb Home (#3090, #3270)'
-Assert-True ($html.Contains((Format-RepositoryBanner)) -and $html.IndexOf('id="hub-banner"') -gt $html.IndexOf('class="breadcrumbs-bar"')) 'the plugin hub carries the same airsquats banner, under the bar (#3250)'
+Assert-True ($html.Contains((Format-RepoHubBanner)) -and $html.IndexOf('id="hub-banner"') -gt $html.IndexOf('class="breadcrumbs-bar"')) 'the plugin hub carries the same airsquats banner, under the bar (#3250)'
 Assert-True (([regex]::Matches($html, '<header')).Count -eq 1) 'and its one <header> is the site header: no intro, so none the house style would lay out as a flex row'
 Assert-True ($html -match '<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">') 'with no stored theme it falls back to lilac, and it shares the general pages'' theme key: one origin now'
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'and starts from the house style its own server serves'
@@ -259,7 +259,7 @@ Assert-True ($html -match 'Get-DevPreview' -and $html -match 'scripts/repo-confi
 Assert-True ($html -notmatch '4880') 'and no longer name the retired 4880-4889 range'
 Assert-True ($html -match '<h2>About this repo</h2>' -and $html -match '<a class="menu-item" href="/about">') 'About this repo is one link, to /about'
 Assert-True ($html -notmatch '<h2>General pages</h2>' -and $html -notmatch 'href="/issues"' -and $html -notmatch '<h2>Brand book</h2>') 'the general pages are About''s, and without -DkjSolutions there is no Brand book: a BWJ repo has none (#3198)'
-$dkj = Format-PluginRepositoryHtml -RepoName 'r' -PagesUrl 'http://localhost:4890' -DkjSolutions
+$dkj = Format-PluginRepoHubHtml -RepoName 'r' -PagesUrl 'http://localhost:4890' -DkjSolutions
 Assert-True ($dkj -match '<h2>Brand book</h2>' -and $dkj -match 'href="/brandbook"' -and $dkj -notmatch 'localhost:4890/' -and $dkj.IndexOf('<h2>About this repo</h2>') -lt $dkj.IndexOf('<h2>Brand book</h2>')) 'in a DKJ-Solutions repo the Brand book section follows About this repo, by bare path: one origin (#3245)'
 Assert-True (([regex]::Matches($html, '<h2>')).Count -eq ([regex]::Matches($html, '<div class="grid__head"><h2>')).Count) 'and every h2 stands in a grid__head, above its cards'
 Assert-True ($html -match '<title>dkj-thumbnail-generator -- Home</title>' -and $html -notmatch 'Name\s+=') 'its title says Home, and its example states no Name (#3064)'
@@ -274,32 +274,32 @@ Assert-True ($about -match '<p class="footer-note">[^<]*<code>hub/pages/serve-ge
 Assert-True ((Format-PluginRepoAboutHtml -RepoName 'a<b>&c' -Folder 'f<x>') -match 'site-header__name">a&lt;b&gt;&amp;c <span class="site-header__tag">hub</span>' -and (Format-PluginRepoAboutHtml -RepoName 'a<b>&c' -Folder 'f<x>') -match '<dd>f&lt;x&gt;</dd>') 'the name and the folder are escaped once, not twice'
 
 # A repo that states a server: the Products section, and no setup cards.
-$html = Format-PluginRepositoryHtml -RepoName 'dkj-recipes' -Mode 'product' -ProductUrl 'http://localhost:4321/dkj-recipes/' -PagesUrl 'http://localhost:4890'
+$html = Format-PluginRepoHubHtml -RepoName 'dkj-recipes' -Mode 'product' -ProductUrl 'http://localhost:4321/dkj-recipes/' -PagesUrl 'http://localhost:4890'
 Assert-True ($html -match '<h2>Products</h2>' -and $html -match '<a class="menu-item" href="http://localhost:4321/dkj-recipes/">') 'a stated server is the Products section, linking its url'
 Assert-True ($html.IndexOf('<h2>Products</h2>') -lt $html.IndexOf('<h2>About this repo</h2>')) 'above About this repo'
 Assert-True ($html -notmatch 'Set up a product' -and $html -notmatch 'Add a dev server of your own') 'and the setup cards are only for a repo that states none'
 $about = Format-PluginRepoAboutHtml -RepoName 'dkj-recipes' -Folder 'recipes-checkout' -Mode 'product' -ProductUrl 'http://localhost:4321/dkj-recipes/' -PagesUrl 'http://localhost:4890'
 Assert-True ($about -match '<dt>Folder</dt><dd>recipes-checkout</dd>' -and $about -match '<dt>Dev preview</dt><dd>http://localhost:4321/dkj-recipes/</dd>') 'the facts name the folder and the product'
 Assert-True ($html -match 'site-header__name">dkj-recipes <span') 'the site header names the repo whatever the repo states'
-$html = Format-PluginRepositoryHtml -RepoName 'dkj-recipes' -Mode 'product' -ProductUrl '' -PagesUrl 'http://localhost:4890'
+$html = Format-PluginRepoHubHtml -RepoName 'dkj-recipes' -Mode 'product' -ProductUrl '' -PagesUrl 'http://localhost:4890'
 Assert-True ($html -match '<h2>Products</h2>' -and $html -match 'own server is not running' -and $html -notmatch 'aria-label="Products"' -and (Format-PluginRepoAboutHtml -RepoName 'dkj-recipes' -Mode 'product' -ProductUrl '') -match '<dd>stated, not running</dd>') 'a stated server that is not running says so, with no link'
 foreach ($badProduct in 'http://evil.example/x', 'javascript:alert(1)', 'https://localhost:4321/', 'http://localhost:4321@evil.example/', "http://localhost:4321/a`r`nb", 'http://localhost:99999/', 'http://localhost:4321//evil.example/', 'http://localhost:4321/"><script>x</script>') {
-    $html = Format-PluginRepositoryHtml -RepoName 'r' -Mode 'product' -ProductUrl $badProduct -PagesUrl 'http://localhost:4890'
+    $html = Format-PluginRepoHubHtml -RepoName 'r' -Mode 'product' -ProductUrl $badProduct -PagesUrl 'http://localhost:4890'
     Assert-True ($html -notmatch 'aria-label="Products"' -and $html -notmatch 'evil\.example' -and $html -notmatch '<script>x') "a product url of '$($badProduct -replace '\s', ' ')' is not linked"
 }
 Assert-True ((Format-PluginRepoAboutHtml -RepoName 'r' -PagesUrl '') -match 'The general pages server is not running') 'with no pages url the General card says its server is not running'
 
 # The two values from outside.
-$html = Format-PluginRepositoryHtml -RepoName '<script>x</script>'
+$html = Format-PluginRepoHubHtml -RepoName '<script>x</script>'
 Assert-True ($html -notmatch '<script>x' -and $html -match 'site-header__name">&lt;script&gt;x&lt;/script&gt; <span class="site-header__tag">hub</span>') 'a repo name is HTML-escaped before it reaches the home page'
 $about = Format-PluginRepoAboutHtml -RepoName ('a&amp;b<i>"' + "'q") -Folder '"><b>f</b>'
 $once = 'a&amp;amp;b&lt;i&gt;&quot;&#39;q'
 Assert-True ($about -match ('site-header__name">' + [regex]::Escape($once) + ' <span') -and $about -match ('<title>' + [regex]::Escape($once) + ' -- About this repo</title>')) 'and on About it is escaped exactly once, in the site header and the title alike'
 Assert-True ($about -match '<dd>&quot;&gt;&lt;b&gt;f&lt;/b&gt;</dd>' -and $about -notmatch '<b>f</b>' -and $about -notmatch '<i>"') 'and the folder too, where About shows it'
-$html = Format-PluginRepositoryHtml -RepoName ('n' * 120)
+$html = Format-PluginRepoHubHtml -RepoName ('n' * 120)
 Assert-True ($html -match ('site-header__name">n{80} <span') -and (Format-PluginRepoAboutHtml -RepoName ('n' * 120)) -match ('site-header__name">n{80} <span')) 'and cut at 80 characters, on both pages'
-Assert-True ((Format-PluginRepositoryHtml -RepoName "a`nb") -match 'site-header__name">a b <span') 'with control characters made spaces'
-Assert-True ((Format-PluginRepositoryHtml -RepoName '  ') -match 'site-header__name">this repo <span') 'and a blank name read as this repo'
+Assert-True ((Format-PluginRepoHubHtml -RepoName "a`nb") -match 'site-header__name">a b <span') 'with control characters made spaces'
+Assert-True ((Format-PluginRepoHubHtml -RepoName '  ') -match 'site-header__name">this repo <span') 'and a blank name read as this repo'
 
 # The plugin's canonical copy is held to the house-style skill's table, like the dashboard's (#2989): a
 # repoint that leaves it behind goes red here instead of shipping a stale page to every repo.
@@ -313,31 +313,31 @@ foreach ($file in 'house-style.css', 'house-theme.js') {
 Write-Host '-- group 1e: the state file the two servers share (#3119)' -ForegroundColor Cyan
 
 $stateRoot = 'C:\Users\x\GitHub\repo'
-$statePath = Get-RepositoryStatePath -Root $stateRoot
-Assert-True ($statePath -match '\\dkj-repository-repo-[0-9a-f]{8}\.json$' -and $statePath.StartsWith([System.IO.Path]::GetTempPath())) 'the state file is %TEMP%\dkj-repository-<leaf>-<hash>.json'
-Assert-Equal (Get-RepositoryStatePath -Root $stateRoot) (Get-RepositoryStatePath -Root 'c:\USERS\x\github\REPO') 'the hash is of the lowercased root, so a case difference is one file'
-Assert-True ((Get-RepositoryStatePath -Root $stateRoot) -ne (Get-RepositoryStatePath -Root 'C:\Users\x\GitHub\repo2')) 'and another checkout is another file'
+$statePath = Get-RepoHubStatePath -Root $stateRoot
+Assert-True ($statePath -match '\\dkj-repo-hub-repo-[0-9a-f]{8}\.json$' -and $statePath.StartsWith([System.IO.Path]::GetTempPath())) 'the state file is %TEMP%\dkj-repo-hub-<leaf>-<hash>.json'
+Assert-Equal (Get-RepoHubStatePath -Root $stateRoot) (Get-RepoHubStatePath -Root 'c:\USERS\x\github\REPO') 'the hash is of the lowercased root, so a case difference is one file'
+Assert-True ((Get-RepoHubStatePath -Root $stateRoot) -ne (Get-RepoHubStatePath -Root 'C:\Users\x\GitHub\repo2')) 'and another checkout is another file'
 Assert-Equal ((Get-DevPreviewLogPath -Root $stateRoot) -replace '^.*\\', '') ('dev-preview-repo-' + (Get-DevPreviewRootHash -Root $stateRoot) + '.log') 'the hook''s log carries the same hash'
 Assert-True ((Get-DevPreviewLogPath -Root $stateRoot -Name 'dev-preview-general') -match 'dev-preview-general-repo-[0-9a-f]{8}\.log$') 'and the general server''s log is beside it'
-Assert-Equal '4890 4891 4892 4893 4894 4895 4896 4897 4898 4899' (@($script:GeneralPagesPorts) -join ' ') 'the general pages server takes 4890-4899, clear of the Repository ranges'
-$text = Format-RepositoryState -Root $stateRoot -Hub 'http://localhost:4870/' -Pages 'http://localhost:4890'
-$st = ConvertFrom-RepositoryState -Text $text -Root $stateRoot
+Assert-Equal '4890 4891 4892 4893 4894 4895 4896 4897 4898 4899' (@($script:GeneralPagesPorts) -join ' ') 'the general pages server takes 4890-4899, clear of the hub ranges'
+$text = Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/' -Pages 'http://localhost:4890'
+$st = ConvertFrom-RepoHubState -Text $text -Root $stateRoot
 Assert-True ($st.Hub -eq 'http://localhost:4870/' -and $st.Pages -eq 'http://localhost:4890') 'a state file reads back what was written'
-$st = ConvertFrom-RepositoryState -Text $text -Root 'c:/users/X/GITHUB/repo/'
+$st = ConvertFrom-RepoHubState -Text $text -Root 'c:/users/X/GITHUB/repo/'
 Assert-True ($st.Hub -and $st.Pages) 'for the same root whatever its case, slash or trailing separator'
-$st = ConvertFrom-RepositoryState -Text $text -Root 'C:\Users\x\GitHub\other'
+$st = ConvertFrom-RepoHubState -Text $text -Root 'C:\Users\x\GitHub\other'
 Assert-True (-not $st.Hub -and -not $st.Pages) 'but is nothing for another root'
-Assert-True (-not (ConvertFrom-RepositoryState -Text 'not json {' -Root $stateRoot).Hub -and -not (ConvertFrom-RepositoryState -Text '' -Root $stateRoot).Pages) 'and so is a file that is not JSON, or empty'
-$st = ConvertFrom-RepositoryState -Text (Format-RepositoryState -Root $stateRoot -Hub 'http://localhost:4870/index.html?tab=1' -Pages 'http://localhost:4890/') -Root $stateRoot
+Assert-True (-not (ConvertFrom-RepoHubState -Text 'not json {' -Root $stateRoot).Hub -and -not (ConvertFrom-RepoHubState -Text '' -Root $stateRoot).Pages) 'and so is a file that is not JSON, or empty'
+$st = ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/index.html?tab=1' -Pages 'http://localhost:4890/') -Root $stateRoot
 Assert-True ($st.Hub -eq 'http://localhost:4870/index.html?tab=1' -and $st.Pages -eq 'http://localhost:4890') 'a hub url keeps its path, a pages url is a bare base'
 Assert-Equal '4890 4891 4892 4893 4894 4895 4896 4897 4898 4899' (@(Get-GeneralPagesPortRange) -join ' ') 'with no override the pages url is believed on 4890-4899 only'
 foreach ($bad in 'http://localhost:4889', 'http://localhost:4900', 'http://localhost:8080', 'http://evil.example:4890', 'https://localhost:4890', 'http://localhost:4890/x', 'http://localhost:489', 'http://localhost:4890@evil.example', "http://localhost:4890`r`nSet-Cookie: x", 'javascript:alert(1)') {
-    Assert-Equal '' (ConvertFrom-RepositoryState -Text (Format-RepositoryState -Root $stateRoot -Hub 'http://localhost:4870/' -Pages $bad) -Root $stateRoot).Pages "a pages url of '$($bad -replace '\s', ' ')' is not believed"
+    Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/' -Pages $bad) -Root $stateRoot).Pages "a pages url of '$($bad -replace '\s', ' ')' is not believed"
 }
-Assert-Equal '' (ConvertFrom-RepositoryState -Text (Format-RepositoryState -Root $stateRoot -Hub 'http://evil.example/' -Pages 'http://localhost:4890') -Root $stateRoot).Hub 'nor is a hub url that leaves localhost'
+Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://evil.example/' -Pages 'http://localhost:4890') -Root $stateRoot).Hub 'nor is a hub url that leaves localhost'
 $env:DKJ_GENERAL_PAGES_PORTS = '4955'
-Assert-Equal 'http://localhost:4955' (ConvertFrom-RepositoryState -Text (Format-RepositoryState -Root $stateRoot -Hub 'http://localhost:4870/' -Pages 'http://localhost:4955') -Root $stateRoot).Pages 'the test override moves the believed range'
-Assert-Equal '' (ConvertFrom-RepositoryState -Text (Format-RepositoryState -Root $stateRoot -Hub 'http://localhost:4870/' -Pages 'http://localhost:4890') -Root $stateRoot).Pages 'and then the real range is not believed'
+Assert-Equal 'http://localhost:4955' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/' -Pages 'http://localhost:4955') -Root $stateRoot).Pages 'the test override moves the believed range'
+Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/' -Pages 'http://localhost:4890') -Root $stateRoot).Pages 'and then the real range is not believed'
 $env:DKJ_GENERAL_PAGES_PORTS = 'not a list'
 Assert-Equal 4890 (@(Get-GeneralPagesPortRange)[0]) 'an override that is not a port list is ignored'
 Remove-Item Env:\DKJ_GENERAL_PAGES_PORTS -ErrorAction SilentlyContinue
@@ -365,28 +365,28 @@ Assert-True (Test-LoopbackCrossSite -SecFetchSite 'same-site' -SecFetchMode 'nav
 Assert-True (Test-LoopbackCrossSite -SecFetchSite 'Same-Site') 'a same-site request that names no mode is the old refusal'
 Assert-True (Test-LoopbackCrossSite -SecFetchSite 'cross-site' -SecFetchMode 'navigate' -Method 'GET') 'a cross-site navigation is refused'
 Assert-True ((-not (Test-LoopbackCrossSite -SecFetchSite 'none' -SecFetchMode 'navigate' -Method 'GET')) -and (-not (Test-LoopbackCrossSite -SecFetchSite 'same-origin')) -and (-not (Test-LoopbackCrossSite -SecFetchSite ''))) 'a typed URL, the page itself and no header are served'
-Assert-Equal '' (ConvertFrom-RepositoryState -Text (Format-RepositoryState -Root $stateRoot -Hub 'http://localhost:4870/a b' -Pages '') -Root $stateRoot).Hub 'nor one with a space in its path'
+Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/a b' -Pages '') -Root $stateRoot).Hub 'nor one with a space in its path'
 
 # The product and the mode (#3245).
-$st = ConvertFrom-RepositoryState -Text (Format-RepositoryState -Root $stateRoot -Hub 'http://localhost:4890/' -Pages 'http://localhost:4890' -Product 'http://localhost:4321/dkj-recipes/?tab=1#top' -Mode 'product') -Root $stateRoot
+$st = ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4890/' -Pages 'http://localhost:4890' -Product 'http://localhost:4321/dkj-recipes/?tab=1#top' -Mode 'product') -Root $stateRoot
 Assert-True ($st.Product -eq 'http://localhost:4321/dkj-recipes/?tab=1#top' -and $st.Mode -eq 'product' -and $st.Hub -eq 'http://localhost:4890/') 'a state file reads back the product url and the mode'
-Assert-Equal 'http://localhost:4321' (ConvertFrom-RepositoryState -Text (Format-RepositoryState -Root $stateRoot -Product 'http://localhost:4321') -Root $stateRoot).Product 'a product url may be a bare base'
-Assert-Equal 'ownhub' (ConvertFrom-RepositoryState -Text (Format-RepositoryState -Root $stateRoot -Hub 'http://localhost:4870/' -Mode 'ownhub') -Root $stateRoot).Mode 'ownhub is a mode a reader believes'
+Assert-Equal 'http://localhost:4321' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Product 'http://localhost:4321') -Root $stateRoot).Product 'a product url may be a bare base'
+Assert-Equal 'ownhub' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/' -Mode 'ownhub') -Root $stateRoot).Mode 'ownhub is a mode a reader believes'
 foreach ($badProduct in 'http://evil.example/', 'http://localhost.evil.example:4321/', 'https://localhost:4321/', 'http://localhost:4321@evil.example/', 'http://127.0.0.1:4321/', 'javascript:alert(1)', 'http://localhost:4321/a b', 'http://localhost:4321/"x', "http://localhost:4321/x`r`nSet-Cookie: y", "http://localhost:4321/x`ty", 'http://localhost/', ('http://localhost:4321/' + ('a' * 240))) {
-    Assert-Equal '' (ConvertFrom-RepositoryState -Text (Format-RepositoryState -Root $stateRoot -Hub 'http://localhost:4890/' -Product $badProduct) -Root $stateRoot).Product "a product url of '$(($badProduct -replace '\s', ' ').Substring(0, [Math]::Min(40, $badProduct.Length)))' is not believed"
+    Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4890/' -Product $badProduct) -Root $stateRoot).Product "a product url of '$(($badProduct -replace '\s', ' ').Substring(0, [Math]::Min(40, $badProduct.Length)))' is not believed"
 }
-Assert-True (-not (Test-RepositoryLocalUrl 'http://localhost:99999/') -and -not (Test-RepositoryLocalUrl 'http://localhost:80/') -and (Test-RepositoryLocalUrl 'http://localhost:65535/')) 'a link target''s port is 1024-65535, not any five digits'
-Assert-True (-not (Test-RepositoryLocalUrl 'http://localhost:4321//evil.example/x') -and (Test-RepositoryLocalUrl 'http://localhost:4321/a//b')) 'and its path may not open with //'
-Assert-True ((Test-RepositoryLocalUrl 'http://localhost:4321/x') -and -not (Test-RepositoryLocalUrl '') -and -not (Test-RepositoryLocalUrl $null)) 'the one believe-rule for a link target, empty and null included'
+Assert-True (-not (Test-RepoHubLocalUrl 'http://localhost:99999/') -and -not (Test-RepoHubLocalUrl 'http://localhost:80/') -and (Test-RepoHubLocalUrl 'http://localhost:65535/')) 'a link target''s port is 1024-65535, not any five digits'
+Assert-True (-not (Test-RepoHubLocalUrl 'http://localhost:4321//evil.example/x') -and (Test-RepoHubLocalUrl 'http://localhost:4321/a//b')) 'and its path may not open with //'
+Assert-True ((Test-RepoHubLocalUrl 'http://localhost:4321/x') -and -not (Test-RepoHubLocalUrl '') -and -not (Test-RepoHubLocalUrl $null)) 'the one believe-rule for a link target, empty and null included'
 $legacy = (([ordered]@{ root = $stateRoot; hub = 'http://localhost:4870/'; pages = 'http://localhost:4890' }) | ConvertTo-Json -Compress)
-$st = ConvertFrom-RepositoryState -Text $legacy -Root $stateRoot
+$st = ConvertFrom-RepoHubState -Text $legacy -Root $stateRoot
 Assert-True ($st.Mode -eq 'none' -and $st.Product -eq '' -and $st.Hub -eq 'http://localhost:4870/') 'a file written before #3245 has no mode and no product, and reads as the plugin''s own hub'
-$st = ConvertFrom-RepositoryState -Text ((([ordered]@{ root = $stateRoot; hub = ''; pages = ''; mode = 'bogus' }) | ConvertTo-Json -Compress)) -Root $stateRoot
+$st = ConvertFrom-RepoHubState -Text ((([ordered]@{ root = $stateRoot; hub = ''; pages = ''; mode = 'bogus' }) | ConvertTo-Json -Compress)) -Root $stateRoot
 Assert-Equal 'none' $st.Mode 'a mode that is none of the three words is none'
-$st = ConvertFrom-RepositoryState -Text (Format-RepositoryState -Root $stateRoot -Product 'http://localhost:4321/' -Mode 'product') -Root 'C:\Users\x\GitHub\other'
+$st = ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Product 'http://localhost:4321/' -Mode 'product') -Root 'C:\Users\x\GitHub\other'
 Assert-True ($st.Product -eq '' -and $st.Mode -eq 'none') 'and for another root the product and the mode are nothing too'
 $threw = $false
-try { $null = Format-RepositoryState -Root $stateRoot -Mode 'bogus' } catch { $threw = $true }
+try { $null = Format-RepoHubState -Root $stateRoot -Mode 'bogus' } catch { $threw = $true }
 Assert-True $threw 'the writer refuses a mode that is none of the three words'
 
 # A HEAD answers like the GET would, real Content-Length included, and carries no body (#3161).
@@ -442,9 +442,9 @@ function Get-Owners([int]$Port) {
 }
 function Get-HubState([string]$Repo) {
     $full = [System.IO.Path]::GetFullPath($Repo)
-    $file = Get-RepositoryStatePath -Root $full
+    $file = Get-RepoHubStatePath -Root $full
     if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { return $null }
-    return (ConvertFrom-RepositoryState -Text ([System.IO.File]::ReadAllText($file)) -Root $full)
+    return (ConvertFrom-RepoHubState -Text ([System.IO.File]::ReadAllText($file)) -Root $full)
 }
 $getRaw = {
     param([int]$OnPort, [string]$Path, [string]$HostHeader = '', [string]$Extra = '')
@@ -500,7 +500,7 @@ try {
 
         # THE STATE FILE: the hub, the pages, no product, mode none.
         $noConfigRoot = [System.IO.Path]::GetFullPath($noConfig)
-        $stateFile = Get-RepositoryStatePath -Root $noConfigRoot
+        $stateFile = Get-RepoHubStatePath -Root $noConfigRoot
         Assert-True (Test-Path -LiteralPath $stateFile -PathType Leaf) 'the hook writes the state file'
         $st = Get-HubState $noConfig
         Assert-Equal "http://localhost:$genPort/" $st.Hub 'it names the hub the hook handed out: the general pages server itself'
@@ -510,9 +510,9 @@ try {
         Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2.TrimEnd().EndsWith((Get-DevPreviewRootHash -Root $noConfigRoot))) '/whoami says which checkout''s server it is: the hash of the root it was started in'
         Assert-Equal "http://localhost:$genPort" (Get-GeneralPagesUrl -Root $noConfigRoot) 'a hub that asks gets the pages url only from the server that answers as its own'
         $otherRoot = Join-Path $Fixture 'someone-else'
-        Write-RepositoryState -Root $otherRoot -Hub 'http://localhost:4870/' -Pages "http://localhost:$genPort"
+        Write-RepoHubState -Root $otherRoot -Hub 'http://localhost:4870/' -Pages "http://localhost:$genPort"
         Assert-Equal '' (Get-GeneralPagesUrl -Root $otherRoot) 'while a state file that names another checkout''s server (a stale one, or a port race lost) gets the not-running form'
-        Remove-Item -LiteralPath (Get-RepositoryStatePath -Root $otherRoot) -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath (Get-RepoHubStatePath -Root $otherRoot) -Force -ErrorAction SilentlyContinue
 
         # THE BROWSER'S OWN HEADERS (#3119): the hub's link to the pages and the crumb back to /hub all arrive
         # same-site as top-level navigations; now they are the same origin as well.
@@ -524,7 +524,7 @@ try {
         Assert-True ((& $getRaw $genPort '/artifacts' '' "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: no-cors`r`n") -match 'HTTP/1.1 403') 'a same-site subresource request is refused'
         Assert-True ((& $getRaw $genPort '/artifacts' '' "Sec-Fetch-Site: cross-site`r`nSec-Fetch-Mode: navigate`r`n") -match 'HTTP/1.1 403') 'and a cross-site navigation'
         $r2 = & $getRaw $genPort '/'
-        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match 'site-header__name">no-config <span') '/ renders the hub too, not a redirect: there is no Repository to send the visitor to'
+        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match 'site-header__name">no-config <span') '/ renders the hub too, not a redirect: there is no hub to send the visitor to'
         Assert-True ((& $getRaw $genPort '/index.html') -match 'HTTP/1.1 200') 'and so does /index.html'
         Assert-True ((& $getRaw $genPort '/hub' 'evil.example') -match 'HTTP/1.1 403') 'a foreign Host is refused'
         $r2 = & $getRaw $genPort '/artifacts'
@@ -634,7 +634,7 @@ try {
         $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
         $requiresRepo = New-Repo 'requires' "function Get-DevPreview { @{ Command = 'x {port}'; Ports = $port; Requires = 'node_modules' } }`n"
         $requiresRoot = [System.IO.Path]::GetFullPath($requiresRepo)
-        Write-RepositoryState -Root $requiresRoot -Hub 'http://localhost:4870/' -Pages "http://localhost:$g" -Product 'http://localhost:4870/' -Mode 'ownhub'
+        Write-RepoHubState -Root $requiresRoot -Hub 'http://localhost:4870/' -Pages "http://localhost:$g" -Product 'http://localhost:4870/' -Mode 'ownhub'
         $r = Invoke-Hook $requiresRepo
         $m = Get-Message $r.Text
         Assert-True ($m -match "^Hub: http://localhost:$g/ -- product not started: 'node_modules' is missing") "a missing prerequisite is named, nothing of the product is started and the hub is handed out (got '$m')"
@@ -807,7 +807,7 @@ try {
     Start-Sleep -Milliseconds 500
     Remove-Item Env:\DKJ_GENERAL_PAGES_PORTS -ErrorAction SilentlyContinue
     foreach ($rp in $repos) {
-        Remove-Item -LiteralPath (Get-RepositoryStatePath -Root $rp), (Get-DevPreviewLogPath -Root $rp), (Get-DevPreviewLogPath -Root $rp -Name 'dev-preview-general') -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath (Get-RepoHubStatePath -Root $rp), (Get-DevPreviewLogPath -Root $rp), (Get-DevPreviewLogPath -Root $rp -Name 'dev-preview-general') -Force -ErrorAction SilentlyContinue
     }
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }
 }
