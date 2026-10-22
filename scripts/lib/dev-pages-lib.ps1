@@ -74,11 +74,11 @@ function Get-RepositoryPages {
     <#
         The pages the Repository links in its "This repo" card, in the order it lists them: each a route on this
         server, its label the page's own name as its breadcrumb reads it, and one line on what it shows. The
-        general pages are the plugin's (Get-GeneralPages), on a server of their own.
+        general pages are the plugin's (Get-GeneralPages), on a server of their own. Connectors and Specialists
+        are built here and are the product's pages (October 22, 2026): its root page links them, so they are
+        not listed here.
     #>
     @(
-        @{ Href = '/connectors';  Label = 'Connectors';  Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine' },
-        @{ Href = '/specialists'; Label = 'Specialists'; Sub = 'Every specialist the plugins ship, and how much context each one costs' },
         @{ Href = '/test-gate';   Label = 'Test gate';   Sub = 'What each test suite costs on CI' }
     )
 }

@@ -13,6 +13,11 @@
     /brandbook too, so one brand book was visible on two ports; the owner put it on the product port alone
     (October 22, 2026), and /brandbook is a 404 here like any other path this server does not have.
 
+    /connectors AND /specialists ARE THE PRODUCT'S PAGES, BUILT HERE. The owner moved them to the product port
+    too (October 22, 2026): its dev server (productRoot in brandbook/vite.config.ts) links them on its root page
+    and relays each request here, finding this server by /whoami. So this server still answers both, for that
+    relay, and the Repository links neither.
+
     THE GENERAL PAGES ARE BUILT ELSEWHERE AND SERVED FROM HERE (#3119, #3168): Artifacts, Issues, Release
     notes and SessionStart belong to every repo, so the dkj-policy plugin builds them in a server of its own
     (hub/pages/serve-general-pages.ps1; dkj-solutions' until #3198), which the dev-preview hook starts beside
@@ -304,6 +309,13 @@ try {
             }
             if ($method -ne 'GET' -and $method -ne 'HEAD') {
                 Send-LoopbackResponse $stream 405 'Method Not Allowed' 'text/plain; charset=utf-8' ($utf8.GetBytes('GET only.')) @{ Allow = 'GET, HEAD' } -Method $method
+                continue
+            }
+            if ($path -eq '/whoami') {
+                # Whose server this is, as the general server answers it: the hash of this root. The product's dev
+                # server asks before it relays /connectors and /specialists here, so it never relays another
+                # checkout's hub. Before the restart check, so a probe never restarts the server.
+                Send-LoopbackResponse $stream 200 'OK' 'text/plain; charset=utf-8' ($utf8.GetBytes((Get-DevPreviewRootHash -Root $root))) -Method $method
                 continue
             }
             # A static file skips the restart check while it is there: a 503 handed to a <link> would leave the
