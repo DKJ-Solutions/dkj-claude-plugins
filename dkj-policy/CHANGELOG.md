@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**3 / 6 minor entries** <!-- pending-tally -->
+**4 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/close-records-at-once · 20261022-192118Z
+
+A record (`awaiting-recurrences`) may now be closed as `not_planned` the moment it gets its label,
+filing included, instead of only once it has gone quiet. A record is never ready work, so leaving it open
+only crowds the issue list. The label and the `[RECORD]` prefix stay on, and the search before filing
+already reads closed issues for that label, so a closed record is still found and reopened on its next
+instance (Dave, October 22, 2026).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer's issue list can drop its records straight away. The rule is permissive, so nothing has to be
+changed and no existing issue is affected.
+
+**Score:** 2
+
+#### Pull Request
+
+Let a record be closed as not planned the moment it gets its label
+
+Plugins: dkj-policy
+
+[PR #3296](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3296)
+
+---
 
 ### DEPLOY: fix/session-line-says-hub · 20261022-190822Z
 
