@@ -213,10 +213,12 @@ label's name moved. Six things follow from being a record:
   that repair, so a reader of the thread can see which of its instances the repair explains. Because
   `open-pr` refuses to close it, even that PR ships with `-NoResolves`, and the record is closed by hand
   after the merge.
-- **While it waits, it may be closed as `not_planned`, with its label and `[RECORD]` prefix kept**
-  ([#2904](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2904), October 9, 2026), so a record
-  that has gone quiet does not crowd the open list. A new instance is then a comment on the record and a
-  **reopen**. The two closing reasons keep their meanings apart: *completed* says the root cause is
+- **It may be closed as `not_planned` at once, the moment it gets the label, filing included, with its
+  label and `[RECORD]` prefix kept** ([#2904](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2904),
+  October 9, 2026; made immediate by Dave, October 22, 2026). There is no need to wait for it to go
+  quiet first: a record waits on its next instance or its root cause, so it is never ready work, and
+  left open it only crowds the list. The label is what keeps it findable once closed. A new instance is
+  then a comment on the record and a **reopen**. The two closing reasons keep their meanings apart: *completed* says the root cause is
   repaired, *not planned* says only that nothing is being built until the next instance. Because a closed
   record drops out of the default issue list, the search before filing reads closed issues too (below).
 - **A record is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,

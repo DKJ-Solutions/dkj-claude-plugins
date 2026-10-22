@@ -41,17 +41,28 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `CONTRIBUTING-portable.md`: a record may be closed as `not_planned` the moment it gets the label, filing included
 
 ### TEST
 
+- [x] Copy edit of the changed bullet
+
 ### DEPLOY: docs/close-records-at-once
 
-**Score:**
+A record (`awaiting-recurrences`) may now be closed as `not_planned` the moment it gets its label,
+filing included, instead of only once it has gone quiet. A record is never ready work, so leaving it open
+only crowds the issue list. The label and the `[RECORD]` prefix stay on, and the search before filing
+already reads closed issues for that label, so a closed record is still found and reopened on its next
+instance (Dave, October 22, 2026).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer's issue list can drop its records straight away. The rule is permissive, so nothing has to be
+changed and no existing issue is affected.
+
+**Score:** 2
 
 #### Pull Request
 
