@@ -140,12 +140,12 @@ function Format-RepoAboutBodyHtml {
     $e = { param($v) ConvertTo-DashboardText $v }
     $sb = New-Object System.Text.StringBuilder
     # Pages, under one h2: the 'This repo' card (one menu-item row per page, direct siblings so the house draws the
-    # line between them) across the row, then every general page as a card of its own, two to a row (owner,
+    # line between them) across the row, then every general page as a card of its own, three to a row (.grid-3; owner,
     # October 22, 2026). The general pages are linked by bare path, since this hub relays them (#3168), and only
     # when a plain loopback server answers -- the rule Format-GeneralPagesCardHtml applies; otherwise one card
     # says the server is not running.
     $general = $GeneralPagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z'
-    [void]$sb.AppendLine('<div class="grid-2">')
+    [void]$sb.AppendLine('<div class="grid-3">')
     [void]$sb.AppendLine('<div class="grid__head"><h2>Pages</h2><p class="card__sub">This repo''s own pages, and the general ones every repo has</p></div>')
     $repoRows = @($Pages)
     if ($repoRows.Count) {

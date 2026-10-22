@@ -205,9 +205,12 @@ body > header, main > header { display: flex; justify-content: space-between; al
 .page-column [id] { scroll-margin-top: 5rem; }
 .page-cta { margin: var(--spacing-4) 0 0; }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-4); }
+/* .grid-3: the same group three to a row (owner, October 22, 2026), for short cards such as one link each; it takes
+   .grid__head and .grid__full as .grid-2 does, and steps down to two columns, then one. */
+.grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-4); }
 /* The grid's gap is the spacing between its rows, so a direct .card, .tiles or .notice gives up its own top
    margin here too, as in .page-column (#207). */
-.grid-2 > .card, .grid-2 > .tiles, .grid-2 > .notice { margin-top: 0; }
+:is(.grid-2, .grid-3) > :is(.card, .tiles, .notice) { margin-top: 0; }
 /* A block's heading above its card(s), NEVER inside them (#206, a hard rule since #3175): <div class="grid-2"><div
    class="grid__head"><h2>Title</h2><p class="card__sub">Sub line</p></div> then the card(s)</div>. An h2 heads a group of
    cards, so it stands above the group and every card under it is titled with an h3 or not at all. The head spans every
@@ -219,11 +222,12 @@ body > header, main > header { display: flex; justify-content: space-between; al
 .grid__head > h2 { margin: 0; }
 /* In the page column a headed group takes extra room above its h2 (#3175), so the h2 sits clearly closer to its own cards
    (the grid's --spacing-4) than to the group before it (the column's --spacing-5 plus this): the h2s group the page. */
-.page-column > .grid-2:has(> .grid__head):not(:first-child) { margin-top: var(--spacing-5); }
+.page-column > :is(.grid-2, .grid-3):has(> .grid__head):not(:first-child) { margin-top: var(--spacing-5); }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--spacing-3); margin-top: var(--spacing-4); }
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); column-gap: var(--spacing-4); }
 .mini-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--spacing-2-5); margin-top: var(--spacing-3); }
-@media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } .hero .value { font-size: var(--text-h1); } }
+@media (max-width: 1000px) { .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } .hero .value { font-size: var(--text-h1); } }
 
 /* ---- Typography ----------------------------------------------------------- */
 /* Headings set in a serif so they stand off from the sans body text. System fonts only (no
