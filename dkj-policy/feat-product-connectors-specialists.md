@@ -54,9 +54,12 @@ product finds the hub by asking its ports for `/whoami`.
 - [x] Docstrings and `brandbook/README.md`
 - [x] Then DKJ repos too (the owner, same day): relayed with its refresh, a DKJ-Solutions section on the product root, and the hub's home keeps About this repo alone (`Get-RepositoryDkjPages` goes)
 
+- [x] Then a site header on both ports (the owner, same day; chosen from a menu: header on top, the bar under it on paper with a subtle line, a text wordmark): `.site-header` in `house-style.css` and its README section, `Format-SiteHeaderHtml` and an opt-in `-Brand` in dkj-policy's page shell, every page of the hub and the product root, the eyebrow gone under it, the checksum in the house-style skill
+
 ### TEST
 
 - [x] `dev-pages.tests.ps1` (283 passed), `connector-dashboard.tests.ps1` (197 passed, `/whoami` asserted), `npm run gate` green
+- [x] After the header: `dev-pages` (286), `connector-dashboard` (197), `dev-preview-sessionstart` (309), `check-house-style` (88) all green, `npm run gate` green, the gate itself OK; every page on both ports carries the header and no eyebrow or floating button, looked at in the browser
 - [x] Live: the hub's `/whoami` equals the hash the dev server computes (`b8e66305`); on 5173 `/connectors` and `/specialists` answer 200 with Home on `/`, and the refresh comes back as a 303 to `/connectors` on 5173
 
 ### DEPLOY: feat/product-connectors-specialists
@@ -70,6 +73,13 @@ which runs `check-connectors.ps1` and reads this tree; the product's Vite dev se
 Home crumb and their refresh link all stay on the product's origin. The hub keeps answering the three paths, for
 that relay. The dev server computes the same hash in TypeScript, so the two must agree: the live check above
 compared them, and a change to the hash in `dev-preview-rules.ps1` has to land in `vite.config.ts` too.
+
+Both ports also open with a **site header** now, a new house-style pattern (`.site-header`): at most 72px
+high on the theme's primary, the DKJ wordmark and the repo's name on the left as the way home, the settings
+button on the far right. The breadcrumb bar stands right under it, on the paper with a subtle line, and the
+eyebrow above each `h1` is gone, since the header names the site. The page shell in dkj-policy draws the
+header only for a caller that passes `-Brand`, so every other repo's pages are unchanged, and in the house
+style a breadcrumb bar changes colour only right under a site header.
 
 **Score:** 2
 

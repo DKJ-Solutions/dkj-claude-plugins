@@ -56,6 +56,11 @@ Assert-True ($gshell -match '<li><a href="/hub">Home</a></li>') 'the first crumb
 Assert-True ($gshell -match '<title>Org/some&lt;repo&gt; -- An &lt;i&gt;issue</title>' -and $gshell -match '<p class="eyebrow">Org/some&lt;repo&gt;</p>') 'the title and the eyebrow carry the repo''s name, escaped'
 Assert-True ($gshell -match 'data-theme-key="general-pages"') 'the theme key is the general server''s own'
 Assert-True ($gshell -notmatch 'dkj-claude-plugins') 'and nothing of this repo is built into it'
+# THE SITE HEADER (October 22, 2026): only where a caller asks for it with -Brand, so every other repo's pages stay as they were.
+Assert-True ($gshell -notmatch 'site-header' -and $gshell -match 'theme-settings--floating') 'without -Brand the shell draws no site header, and the settings button floats as before'
+$bshell = Format-GeneralPageHtml -Title 'T' -Lead 'L' -Body '' -Eyebrow 'Org/r' -Brand 'r<x>' -HubHref '/home'
+Assert-True ($bshell -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/home" aria-label="r&lt;x&gt;, home"><span class="site-header__mark" aria-hidden="true">DKJ</span><span class="site-header__name">r&lt;x&gt;</span></a><div id="settings"></div></div></header>') 'with -Brand the header carries the escaped name, links home, and holds the settings button'
+Assert-True ($bshell -notmatch 'class="eyebrow"' -and $bshell -notmatch 'theme-settings--floating' -and $bshell.IndexOf('class="site-header"') -lt $bshell.IndexOf('class="breadcrumbs-bar"')) 'and it stands above the bar, with no eyebrow and no floating button'
 
 Write-Host '-- the Repository: the home page on / and About this repo on /about (#3270)' -ForegroundColor Cyan
 $pages = @(Get-RepositoryPages)
@@ -64,8 +69,8 @@ Assert-Equal '/artifacts,/issues,/release-notes,/sessionstart' ((Get-GeneralPage
 Assert-Equal '/brandbook' ((Get-DkjSolutionsPages | ForEach-Object { $_.Href }) -join ',') 'and the one page only DKJ-Solutions repos share, the Brandbook'
 $hub = Format-RepositoryHtml
 Assert-True ($hub -match '<title>dkj-claude-plugins -- Home</title>' -and $hub -match '<h1>dkj-claude-plugins</h1>' -and $hub -notmatch '<h1>Repository</h1>') 'the home page''s h1 is the repo''s name, and its title says Home'
-Assert-True ($hub -match '<body>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Home</span></li>\s*</ol>') 'the bar opens <body>, its trail the one crumb Home'
-Assert-True ($hub -notmatch 'class="eyebrow"' -and $hub -notmatch '<header' -and $hub -notmatch 'btn--primary') 'no eyebrow (the h1 names the repo), no <header>, and no product button'
+Assert-True ($hub -match '<body>\s*<header class="site-header">.*</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Home</span></li>\s*</ol>') 'the site header opens <body>, the bar right under it, its trail the one crumb Home'
+Assert-True ($hub -notmatch 'class="eyebrow"' -and ([regex]::Matches($hub, '<header')).Count -eq 1 -and $hub -notmatch 'btn--primary' -and $hub -notmatch 'theme-settings--floating' -and $hub -match '<div id="settings"></div></div></header>') 'no eyebrow, no <header> but the site header, which holds the settings button, and no product button'
 Assert-True ($hub -match '<div class="grid__head"><h2>About this repo</h2><p class="card__sub">[^<]+</p></div>\r?\n<section class="card grid__full">\r?\n<nav class="menu-list" aria-label="About this repo">\r?\n<a class="menu-item" href="/about">') 'About this repo is one link, to /about'
 Assert-True (([regex]::Matches($hub, '<h2[ >]')).Count -eq 1 -and $hub -notmatch 'href="/(dkj-repos|connectors|specialists|brandbook)') 'About this repo is the home page''s one section: DKJ repos, Connectors, Specialists and the brand book are the product''s'
 Assert-True ($hub -notmatch 'brandbook' -and $hub -notmatch 'Brand book' -and $hub -notmatch 'is not running') 'and no brand book, which is the product port''s alone, and no word on the general pages server, which it links nothing of'
@@ -82,7 +87,7 @@ Assert-Equal ([regex]::Matches($hub, '<h2[ >]')).Count ([regex]::Matches($hub, '
 Assert-True ((Format-GeneralPagesCardHtml -Pages @() -LocalPages @(@{ Href = '/x'; Label = 'X' })) -notmatch 'is not running') 'a card with no server rows says nothing about the server'
 
 $about = Format-RepoAboutHtml -Pages $pages -SourceCommit 'abc1234' -GeneralPagesUrl 'http://localhost:4890'
-Assert-True ($about -match '<title>dkj-claude-plugins -- About this repo</title>' -and $about -match '<h1>About this repo</h1>' -and $about -match '<p class="eyebrow">DKJ-Solutions/dkj-claude-plugins</p>') 'About this repo is a page under the hub, with the slug as its eyebrow'
+Assert-True ($about -match '<title>dkj-claude-plugins -- About this repo</title>' -and $about -match '<h1>About this repo</h1>' -and $about -notmatch 'class="eyebrow"' -and $about -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/"') 'About this repo is a page under the hub: the site header names the repo and goes home, so no eyebrow'
 Assert-True ($about -match '<li><a href="/">Home</a></li>' -and $about -match '<span aria-current="page">About this repo</span>') 'its trail is Home, then the page itself'
 Assert-Equal 5 ([regex]::Matches($about, '<a class="menu-item" href="(http://localhost:4890)?/[a-z-]+"><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: label, description, chevron -- this repo''s one and the four general ones'
 Assert-True ($about -match '<nav class="menu-list" aria-label="General pages">\r?\n<a class="menu-item"' -and $about -match '</a>\r?\n<a class="menu-item"') 'the rows are direct siblings in the nav, so the house draws the line between them'
@@ -103,7 +108,7 @@ $alone = Format-RepoAboutHtml -Pages @() -GeneralPagesUrl 'http://localhost:4890
 Assert-True ($alone -notmatch '<h2>Pages</h2>' -and $alone -notmatch '<h3>' -and $alone -match '<div class="grid__head"><h2>General pages</h2>[^\r\n]*\r?\n<section class="card grid__full">') 'with no page of its own, About has the General card alone, its h2 above the card (#3175)'
 Assert-True ($about -match '<dt>Source at</dt><dd><code>abc1234</code></dd>') 'the facts name the commit it serves from'
 Assert-True ((Format-RepoAboutHtml -Pages $pages) -notmatch 'Source at') 'and leave the row out when the commit could not be read'
-$ix = @('class="breadcrumbs-bar"', 'id="settings"', 'class="eyebrow"', 'Pages</h2>', 'Facts</h2>', 'class="footer-note"') | ForEach-Object { $about.IndexOf($_) }
+$ix = @('class="site-header"', 'id="settings"', 'class="breadcrumbs-bar"', '<h1>', 'Pages</h2>', 'Facts</h2>', 'class="footer-note"') | ForEach-Object { $about.IndexOf($_) }
 Assert-True ((@($ix | Where-Object { $_ -lt 0 }).Count -eq 0) -and ((($ix | Sort-Object) -join ',') -eq ($ix -join ','))) 'the blocks stand in the form''s order'
 $evil = Format-RepoAboutHtml -Pages @(@{ Href = '/x"><script>'; Label = '<b>'; Sub = '' })
 Assert-True ($evil -notmatch 'x"><script>' -and $evil -match 'href="/x&quot;&gt;&lt;script&gt;"' -and $evil -notmatch '<b>') 'every value is escaped'
