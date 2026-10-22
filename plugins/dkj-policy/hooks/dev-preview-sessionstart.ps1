@@ -47,11 +47,11 @@
 
     THE OUTPUT is SessionStart JSON with BOTH systemMessage (shown to the owner, so the links are clickable
     in the terminal) and additionalContext (the session knows the URLs too), ONE line, in one of these forms:
-      no product      Repository: <hub> (started|already running) -- this repo states no Get-DevPreview yet[; route ...]
-      with a product  Repository: <hub> -- product: <url> (started|already running[, LISTENING ON ALL INTERFACES ...])
-      product failed  Repository: <hub> -- product not started: <why>
-      OwnHub          Repository: <repo's own url> (started|already running[...])   -- as before #3245
-      OwnHub+Product  Repository: <repo's own url> (...) -- product: <url> (started|already running) | product not started: <why>
+      no product      Hub: <hub> (started|already running) -- this repo states no Get-DevPreview yet[; route ...]
+      with a product  Hub: <hub> -- product: <url> (started|already running[, LISTENING ON ALL INTERFACES ...])
+      product failed  Hub: <hub> -- product not started: <why>
+      OwnHub          Hub: <repo's own url> (started|already running[...])   -- as before #3245
+      OwnHub+Product  Hub: <repo's own url> (...) -- product: <url> (started|already running) | product not started: <why>
 
     A PRODUCT BESIDE THE OWN HUB (#3283): a repo that states OwnHub = $true may also state Product = @{...},
     a second server with the same fields. It is started (or reused) and waited for exactly like the first,
