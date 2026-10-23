@@ -727,21 +727,47 @@ function Get-CiTestCertificate {
         may read InFlight as "waiting is not patience here, it is waiting for the answer to exactly the
         question I was about to spend the pool on".
 
-        NOT REGISTERED IS DELIBERATELY NOT IN FLIGHT, and that asymmetry is the whole safety of the
+        NOT REGISTERED IS NOT IN FLIGHT ON ITS OWN, and that asymmetry is the whole safety of the
         state. A check absent from the payload is indistinguishable from one this trunk will never run
         on this commit, so a caller that waited on it would wait out its entire bound and then run the
         suites anyway. Absent stays a plain refusal, exactly as it was for the certificate.
+
+        UNLESS OTHER CHECKS ON THIS EXACT COMMIT ARE STILL RUNNING (#3344). The named check can be an
+        aggregator that registers only once the jobs it waits on are done: measured on PR #3345,
+        'lint-en-tests' registered at 12:40:14 after five suite shards that ran from 12:32:16, and for
+        those eight minutes `--required` answered "no required checks reported". So with -AllChecksJson
+        (every check on the head) holding a pending record, an absent named check reads as in flight.
+        The wait it starts ends on its own once nothing is pending: the next read either finds the named
+        check or finds it still absent with nothing left running, which is then the plain refusal.
     #>
     param(
         [string]$HeadSha,
         [string]$PrHeadSha,
         [string]$RequiredChecksJson,
-        [string]$CheckName
+        [string]$CheckName,
+        [string]$AllChecksJson
     )
 
     # $InFlight defaults to $false, so every refusal already written below keeps its exact shape and
-    # only the one call that has established both a commit match and a pending bucket passes $true.
+    # only the calls that have established a commit match and something still pending pass $true.
     $refuse = { param([string]$Why, [bool]$InFlight = $false) [pscustomobject]@{ Certified = $false; Note = $Why; InFlight = $InFlight } }
+    # How many checks on the head are still pending, from -AllChecksJson; 0 when it is absent or unreadable.
+    $othersPending = {
+        if (-not $AllChecksJson -or -not $AllChecksJson.Trim()) { return 0 }
+        try { $all = $AllChecksJson | ConvertFrom-Json } catch { return 0 }
+        return @(@($all) | Where-Object {
+            $_ -and $_.PSObject.Properties['bucket'] -and ([string]$_.bucket).Trim().ToLowerInvariant() -eq 'pending'
+        }).Count
+    }
+    # The refusal for a named check that has not registered: in flight while anything else still runs.
+    $unregistered = {
+        param([string]$Why)
+        $pendingCount = & $othersPending
+        if ($pendingCount -gt 0) {
+            return (& $refuse ("'{0}' has not registered on this exact commit ({1}) yet, while {2} other check(s) on it are still running" -f $wanted, (& $short $head), $pendingCount) $true)
+        }
+        return (& $refuse $Why)
+    }
     # Eight characters is what git itself abbreviates to here, and a reader asked to compare two
     # 40-character hashes by eye is being asked to do the job this line exists to have done for them.
     $short = { param([string]$Sha) $Sha.Substring(0, [Math]::Min(8, $Sha.Length)) }
@@ -763,8 +789,10 @@ function Get-CiTestCertificate {
         return (& $refuse ("the PR head ({0}) is not this HEAD ({1}) -- the certificate is about a different commit" -f (& $short $prHead), (& $short $head)))
     }
 
+    # `gh pr checks --required` prints nothing while no required check has registered, so an empty read
+    # is that state as often as it is a failed one -- the other checks decide which (#3344).
     if (-not $RequiredChecksJson -or -not $RequiredChecksJson.Trim()) {
-        return (& $refuse 'the required checks could not be read')
+        return (& $unregistered 'the required checks could not be read')
     }
     try { $parsed = $RequiredChecksJson | ConvertFrom-Json } catch {
         return (& $refuse 'the required checks could not be parsed')
@@ -774,7 +802,7 @@ function Get-CiTestCertificate {
     # same trap Get-RequiredCheckContexts and Get-MergeQueueVerdict each document beside their parse.
     $records = @(@($parsed) | Where-Object { $_ -and $_.PSObject.Properties['name'] })
     if ($records.Count -eq 0) {
-        return (& $refuse ("'{0}' has not registered on this commit yet -- no required check has" -f $wanted))
+        return (& $unregistered ("'{0}' has not registered on this commit yet -- no required check has" -f $wanted))
     }
 
     # COMPARED RAW, PRINTED SANITISED (#3157). Comparing after Get-DisplayRef let a look-alike certify:
@@ -790,7 +818,7 @@ function Get-CiTestCertificate {
         if ($lookAlike.Count -gt 0) {
             return (& $refuse ("a required check prints as '{0}' but is not that name character for character -- a look-alike does not certify" -f $wanted))
         }
-        return (& $refuse ("'{0}' is not among this trunk's required checks on this commit (found: {1})" -f $wanted, ($present -join ', ')))
+        return (& $unregistered ("'{0}' is not among this trunk's required checks on this commit (found: {1})" -f $wanted, ($present -join ', ')))
     }
 
     # THE BUCKETS ARE READ ONCE AND KEPT, because two questions are asked of them now: is the named
@@ -890,8 +918,8 @@ function Wait-CiTestCertificate {
         The check context whose green proves the suites, exactly as Get-CiTestCertificate takes it.
 
     .PARAMETER Reader
-        Scriptblock returning an object with PrHeadSha and RequiredChecksJson, or $null when the read
-        failed. Called once per lap.
+        Scriptblock returning an object with PrHeadSha and RequiredChecksJson, and optionally
+        AllChecksJson (#3344), or $null when the read failed. Called once per lap.
 
     .PARAMETER Sleeper
         Scriptblock called once per lap BEFORE the read -- the caller has just read, so reading again
@@ -958,7 +986,8 @@ function Wait-CiTestCertificate {
         $lapCert = Get-CiTestCertificate -HeadSha $HeadSha `
                                          -PrHeadSha ([string]$lapReading.PrHeadSha) `
                                          -RequiredChecksJson ([string]$lapReading.RequiredChecksJson) `
-                                         -CheckName $CheckName
+                                         -CheckName $CheckName `
+                                         -AllChecksJson $(if ($lapReading.PSObject.Properties['AllChecksJson']) { [string]$lapReading.AllChecksJson } else { '' })
         if ($lapCert.Certified) {
             return [pscustomobject]@{
                 Certified     = $true

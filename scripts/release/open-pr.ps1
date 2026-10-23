@@ -2452,6 +2452,9 @@ if ($existingPr -and -not $SkipTests) {
     $headShaCapture = (Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'rev-parse', 'HEAD') -DiscardStderr)
     $prHead  = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'view', "$($existingPr.number)", '--json', 'headRefOid', '--jq', '.headRefOid', '--repo', $repo) -DiscardStderr
     $reqJson = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'checks', "$($existingPr.number)", '--required', '--json', 'name,bucket', '--repo', $repo) -DiscardStderr
+    # EVERY check as well (#3344): the named one can be an aggregator that registers only after the jobs
+    # it waits on, and while those run this is what says CI is busy on the head rather than absent.
+    $allJson = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'checks', "$($existingPr.number)", '--json', 'name,bucket', '--repo', $repo) -DiscardStderr
     # `gh pr checks` EXITS NON-ZERO WHEN ANY CHECK IS FAILING OR STILL PENDING -- that is documented
     # behaviour and not an error, so the payload is judged on its own rather than on the exit code.
     # A red required check simply lands in the not-passing list below and refuses the skip.
@@ -2461,7 +2464,8 @@ if ($existingPr -and -not $SkipTests) {
     $cert = Get-CiTestCertificate -HeadSha ($headShaCapture.Output -join '') `
                                   -PrHeadSha ($prHead.Output -join '') `
                                   -RequiredChecksJson ($reqJson.Output -join "`n") `
-                                  -CheckName $ciCheckName
+                                  -CheckName $ciCheckName `
+                                  -AllChecksJson ($allJson.Output -join "`n")
     if ($cert.Certified) {
         $testsProvedByCi = $cert.Note
     } elseif ($cert.InFlight -and -not $NoCiWait) {
@@ -2497,9 +2501,11 @@ if ($existingPr -and -not $SkipTests) {
                                              # come back as 'settled' and run the pool.
                                              $lapHead = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'view', "$($existingPr.number)", '--json', 'headRefOid', '--jq', '.headRefOid', '--repo', $repo) -DiscardStderr
                                              $lapJson = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'checks', "$($existingPr.number)", '--required', '--json', 'name,bucket', '--repo', $repo) -DiscardStderr
+                                             $lapAll  = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'checks', "$($existingPr.number)", '--json', 'name,bucket', '--repo', $repo) -DiscardStderr
                                              [pscustomobject]@{
                                                  PrHeadSha          = ($lapHead.Output -join '')
                                                  RequiredChecksJson = ($lapJson.Output -join "`n")
+                                                 AllChecksJson      = ($lapAll.Output -join "`n")
                                              }
                                          }
         if ($waited.Certified) {
