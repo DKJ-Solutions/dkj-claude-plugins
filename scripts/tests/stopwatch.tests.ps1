@@ -166,7 +166,12 @@ Assert-True ($page -match '<h2>Measurements</h2>' -and $page.IndexOf('<h2>Measur
 Assert-True ($page -match 'querySelectorAll\("\[data-start\]"\)') 'the clock script ticks every [data-start] element, the card''s going-now span included'
 Assert-Equal 3 ([regex]::Matches($page, '<section class="card card--link">')).Count 'one card per label: CSS comment, Docs and the one only going now'
 Assert-True ($page -match 'href="/stopwatch/css-comment"><span class="menu-item__label">CSS comment<span class="menu-item__sub">3 run\(s\) - latest 4:10 - 50.0s slower than the run before</span>') 'a card gives the label, the runs, the latest time and its change, and links the label page'
-Assert-True ($page -match 'href="/stopwatch/docs"><span class="menu-item__label">Docs<span class="menu-item__sub">1 run\(s\) - latest 8:20 - first run<') 'a label with one run says first run'
+$docsGroup = @($m.Groups | Where-Object { $_.Label -eq 'Docs' })[0]
+$docsStamp = $docsGroup.Rows[0].Run.Start.ToLocalTime().ToString('yyyy-MM-dd-HHmm', [Globalization.CultureInfo]::InvariantCulture)
+Assert-True ($page -match ('href="/stopwatch/' + $docsStamp + '"><span class="menu-item__label">Docs<span class="menu-item__sub">1 run\(s\) - latest 8:20 - first run<')) 'a label with one run says first run, and is linked by its run''s start'
+Assert-True ((Find-StopwatchGroup -Model $m -Slug $docsStamp).Label -eq 'Docs' -and (Find-StopwatchGroup -Model $m -Slug 'docs').Label -eq 'Docs') 'its page answers on the start and on the label''s own slug, so an older link still arrives'
+$twin = ConvertTo-StopwatchModel -Runs @((& $mk 'One' 0 10), (& $mk 'Two' 5 20))
+Assert-True (@($twin.Groups | Where-Object { $_.PageSlug -eq $_.Slug }).Count -eq 2) 'two one-run labels started in the same minute keep their label slugs'
 Assert-True ($page -match 'href="/stopwatch/live"><span class="menu-item__label">Live<span class="menu-item__sub">0 run\(s\) - going now <span class="num" data-start="2026-10-23T11:23:20.000Z">1:05</span>') 'the label going now carries its live clock on its card'
 Assert-True ($page -notmatch 'Against the run before</th>') 'the overview holds no table of runs; they are on the label page'
 Assert-True ($page -notmatch '<section class="card[^"]*">\s*<h2') 'no h2 stands inside a card'
@@ -177,7 +182,7 @@ $idle = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk
 Assert-True ($idle -notmatch 'going now' -and $idle -notmatch 'data-start=') 'with nothing running no card carries a clock'
 Assert-True ((Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's') -match 'No run yet') 'with no run at all it says so, with no card'
 $evil = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk '<script>x</script>' 0 10))) -StorePath 's'
-Assert-True ($evil -notmatch '<script>x</script>' -and $evil -match '&lt;script&gt;x&lt;/script&gt;' -and $evil -match 'href="/stopwatch/script-x-script"') 'a label is escaped wherever it is shown, and its slug is URL-safe'
+Assert-True ($evil -notmatch '<script>x</script>' -and $evil -match '&lt;script&gt;x&lt;/script&gt;' -and $evil -match 'href="/stopwatch/[0-9-]+"' -and (ConvertTo-StopwatchModel -Runs @((& $mk '<script>x</script>' 0 10))).Groups[0].Slug -eq 'script-x-script') 'a label is escaped wherever it is shown, and its slugs are URL-safe'
 $broken = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -ReadError 'it is not valid JSON' -StorePath 's'
 Assert-True ($broken -match 'could not be read') 'a store that does not read says so'
 
@@ -286,11 +291,23 @@ try {
     $twoDoc = Get-Content -LiteralPath $twoPath -Raw | ConvertFrom-Json
     Assert-True ($null -ne $twoDoc.rb -and $null -ne $twoDoc.ra -and $twoDoc.ra.end -eq (Format-StopwatchStamp $w0.AddSeconds(340))) 'a write for one label keeps the other label''s cached phases'
 
-    $cell = Format-StopwatchTranscriptCell $first.r1 330
-    Assert-True ($cell -match 'Waiting on you <span class="num">1:41</span> <span class="note">31%</span>') 'the cell gives each phase its time and its share of the run'
-    Assert-True ((Format-StopwatchTranscriptCell @{ Sessions = 0; Phases = @() } 60) -match 'no session') 'a run no session saw says so'
+    $card = Format-StopwatchPhaseCard $first.r1 330 -Title 'T'
+    Assert-True ($card -match '<tr><td class="sw-left">Waiting on you</td><td class="num">1:41</td><td class="num">31%</td>') 'a phase card gives each phase a row of its own, with its time and its share of the run'
+    Assert-True ($card -match 'class="sw-bar" role="img" aria-label="31%"><span style="width: 31%">') 'and a bar as wide as its share'
+    $secs = @([regex]::Matches($card, '<tr><td class="sw-left">[^<]+</td><td class="num">([^<]+)</td>') | ForEach-Object { $_.Groups[1].Value })
+    Assert-Equal 5 $secs.Count 'every phase of the run has a row'
+    Assert-Equal '2:50' $secs[0] 'the longest phase comes first'
+    Assert-True ((Format-StopwatchPhaseCard @{ Sessions = 0; Phases = @() } 60 -Title 'T') -match 'No session of this repo') 'a run no session saw says so'
+    Assert-True ((Format-StopwatchPhaseCard @{ Sessions = 1; Phases = @() } 60 -Title 'T') -match 'No phases read' -and (Format-StopwatchPhaseCard @{ Sessions = 1; Phases = @() } 60 -Title 'T') -notmatch '<table') 'a run with a session but no phases gets a line, not an empty table'
+    Assert-True ((Format-StopwatchPhaseCard @{ Sessions = 2; Phases = @(@{ Name = 'x'; Seconds = 1 }) } 60 -Title 'T') -match '<div class="card__head"><h3 class="card__title">T</h3><p class="card__sub">2 sessions</p></div>') 'the card heading follows the house card head, with the sessions under the title'
+    Assert-True ((Format-StopwatchPhaseCard $null 60 -Title '<b>') -match 'No phases read' -and (Format-StopwatchPhaseCard $null 60 -Title '<b>') -notmatch '<b>') 'a run with no phases yet says so, and the title is escaped'
     $tm = ConvertTo-StopwatchModel -Runs @($run)
-    Assert-True ((Format-StopwatchLabelPageHtml -Group $tm.Groups[0] -StorePath 's' -Transcript $first) -match 'From the transcripts</th>[\s\S]*Ship: CI wait, merge, fold <span class="num">2:50') 'a label page shows the transcript phases of each run'
+    $tp = Format-StopwatchLabelPageHtml -Group $tm.Groups[0] -StorePath 's' -Transcript $first
+    Assert-True ($tp -match '<h2>Phases</h2>[\s\S]*<section class="card"><div class="card__head"><h3 class="card__title">[^<]+</h3>[\s\S]*Ship: CI wait, merge, fold</td><td class="num">2:50') 'a label page shows each run''s phases in a card of their own, under the Phases heading'
+    Assert-True ($tp -notmatch 'From the transcripts') 'and the runs table no longer crams them into one cell'
+    Assert-True ($tp -notmatch '<h2>Runs</h2>' -and $tp -notmatch 'Against the run before' -and $tp -match '<h3 class="card__title">Time</h3>[\s\S]*class="sw-clock num">5:30</p>') 'a label with one run shows its time on a card, with no Runs heading and no comparison table'
+    $startText = (& $at 0).ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
+    Assert-True ($tp -match ('<h2>' + [regex]::Escape($startText) + '</h2><p class="card__sub">CSS comment</p>') -and $tp -match ('<span aria-current="page">' + [regex]::Escape($startText) + '</span>')) 'a label with one run is titled with its start, in the heading and the crumb, the label beneath'
 
     # A SHIP SPLIT BY ITS STEP MARKS (#3338). The ship above runs 30-200; ship-pr marks its gates at 40, its CI
     # wait at 60, its merge at 180 and its fold at 190.
