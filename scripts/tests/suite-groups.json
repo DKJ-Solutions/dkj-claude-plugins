@@ -236,7 +236,8 @@
                                       "dev-pages.tests.ps1",
                                       "dev-preview-sessionstart.tests.ps1",
                                       "issue-dashboard.tests.ps1",
-                                      "stopwatch.tests.ps1"
+                                      "stopwatch.tests.ps1",
+                                      "stopwatch-sync.tests.ps1"
                                   ],
                        "tips":  [
                                     "The hub restarts itself when HEAD moves, so a commit shows on the page within seconds; a page that looks stale is usually mid-restart."
