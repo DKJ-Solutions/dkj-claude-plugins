@@ -39,19 +39,39 @@
 
 ### PLAN
 
+#### The reason, verified before the repair
+
+The installed Claude Code (2.1.309) wraps every paste in the prompt as `<pasted_content id="hhhh">`, a
+newline, the pasted text, a newline and `</pasted_content id="hhhh">` (four lowercase hex), read off the
+binary's own string table. A prompt that is nothing but a paste therefore opens with that wrapper line,
+and `Get-StopwatchPromptMarker` anchors on the first line. Not measured: the UserPromptSubmit payload of a
+real pasted prompt. The repair is harmless if that payload turns out to be unwrapped, since it only skips
+a leading wrapper line.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-StopwatchPromptMarker` skips one leading `<pasted_content id="hhhh">` line before it reads the marker
+- [x] the hook script's synopsis names it
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1`: a pasted marker is read, a later-line marker inside a paste is still not one, and only Claude Code's own wrapper as the first line is skipped (111 passed, 0 failed)
+
 ### DEPLOY: fix/3336-stopwatch-pasted-prompt
 
-**Score:**
+The Stopwatch now starts a run when the prompt is a paste whose first line is `stopwatch: <label>`
+([#3336](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3336)). Claude Code wraps pasted text
+in a `<pasted_content id="hhhh">` line, so the marker was never on the prompt's first line and the run
+silently never started. `Get-StopwatchPromptMarker` in `scripts/lib/stopwatch-lib.ps1` now skips that one
+opening line. A marker further down the paste still does not count.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the Stopwatch is this repo's own dev-server page and reaches no consumer.
+
+**Score:** N/A
 
 #### Pull Request
 
