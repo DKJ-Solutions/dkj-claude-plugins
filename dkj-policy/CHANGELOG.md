@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**2 / 5 minor entries** <!-- pending-tally -->
+**2 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/stopwatch-one-card-per-run · 20261023-165610Z
+
+The Stopwatch overview now gives every run its own card, also when runs share a label. Each card is named by the
+run's start and leads to that run's page. Before this, runs with the same label were merged into one card.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A: the Stopwatch is this repo's own hub tooling under `scripts/`, and no plugin ships it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The Stopwatch gives every run a card and a page of its own, also when two runs share a label
+
+Plugins: dkj-policy
+
+[PR #3363](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3363)
+
+---
 
 ### DEPLOY: fix/3353-release-build-held-files · 20261023-155717Z
 
