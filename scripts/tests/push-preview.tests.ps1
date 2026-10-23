@@ -251,6 +251,22 @@ Assert-Match (Get-ThrownMessage { Get-ThemeDuplicateArgs -Store 'x' -SourceTheme
 # the theme list.
 Assert-Equal '999888777' (Get-ThemeIdFromPushOutput -Output '{"theme":{"id":999888777,"name":"cc-fix-x","role":"unpublished","shop":"a-store.myshopify.com"}}') 'the duplicate''s --json yields the NEW theme''s id'
 Assert-Equal '' (Get-ThemeIdFromPushOutput -Output '{"message":"The theme ''Live'' could not be duplicated due to errors","errors":["x"],"requestId":"r"}') 'and a failed duplicate yields none'
+
+Write-Host ""
+Write-Host "Get-DuplicateMissingIdVerdict -- no id is NOT 'created' when the list answered (#3322)" -ForegroundColor Cyan
+# Measured in a consumer at the theme ceiling: the duplicate exited 0 with no id, the list answered with
+# 20 themes and none by the name, and the old message said the copy WAS created and to re-run.
+$full = Get-DuplicateMissingIdVerdict -ThemeName 'dkj-feat-414-x' -ListAnswered $true -ThemeCount 20 -CliLines @('', 'A shop may only have 20 themes.')
+Assert-Equal 'no' $full.Created 'an answered list without the name means the copy was NOT created'
+Assert-Match ($full.Lines -join "`n") 'NOT created' 'and it says so'
+Assert-False (($full.Lines -join "`n") -match 'WAS created') 'never the old assertion'
+Assert-Match ($full.Lines -join "`n") 'holds 20 theme' 'the count from that same list is reported'
+Assert-Match ($full.Lines -join "`n") 'A shop may only have 20 themes' 'the CLI''s own words come through'
+$quiet = Get-DuplicateMissingIdVerdict -ThemeName 'n' -ListAnswered $true -ThemeCount 3
+Assert-False (($quiet.Lines -join "`n") -match 'What the CLI said') 'no CLI block where the CLI said nothing'
+$unknown = Get-DuplicateMissingIdVerdict -ThemeName 'n' -ListAnswered $false
+Assert-Equal 'unknown' $unknown.Created 'an unreadable list leaves the outcome unknown'
+Assert-Match ($unknown.Lines -join "`n") 'Re-run' 'and only there is a re-run the remedy'
 $dupFlags = @(Get-ThemeDuplicateFlags)
 Assert-Equal 10 $dupFlags.Count 'ten long-form flags, measured 2026-09-23 against CLI 4.8.0'
 Assert-Equal 0 (@($dupA | Where-Object { $_ -like '--*' -and $dupFlags -notcontains $_ })).Count 'every flag the call uses is in the measured set'
