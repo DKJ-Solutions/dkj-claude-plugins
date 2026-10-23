@@ -156,8 +156,10 @@ foreach ($g in @($m.Groups)) { Assert-Equal $g.Label (Find-StopwatchGroup -Model
 
 Write-Host '-- the page' -ForegroundColor Cyan
 $page = Format-StopwatchPageHtml -Model $m -StorePath 'C:\x\stopwatch.json' -Now (& $at 5065)
-Assert-True ($page -match '<h1>Stopwatch</h1>' -and $page -match '<li><a href="/">Home</a></li>') 'the page has the house shell and its crumb back to the hub'
-Assert-True ($page -match 'class="sw-clock num" data-start="2026-10-23T11:23:20.000Z">1:05<') 'a running run shows its label and its clock on top, from the stored start'
+Assert-True ($page -match 'aria-current="page">Stopwatch</span>' -and $page -match '<li><a href="/">Home</a></li>') 'the page has the house shell and its crumb back to the hub'
+Assert-True ($page -notmatch '<h1|class="lead"|hub-banner|Runs recorded|id="now"|class="sw-clock') 'the overview is bare: no h1, lead, airsquats banner, tiles or Now section above the cards'
+Assert-True ($page -match '<h2>Measurements</h2>' -and $page.IndexOf('<h2>Measurements</h2>') -lt $page.IndexOf('card--link')) 'it opens on the Measurements heading, then the cards'
+Assert-True ($page -match 'querySelectorAll\("\[data-start\]"\)') 'the clock script ticks every [data-start] element, the card''s going-now span included'
 Assert-Equal 3 ([regex]::Matches($page, '<section class="card card--link">')).Count 'one card per label: CSS comment, Docs and the one only going now'
 Assert-True ($page -match 'href="/stopwatch/css-comment"><span class="menu-item__label">CSS comment<span class="menu-item__sub">3 run\(s\) - latest 4:10 - 50.0s slower than the run before</span>') 'a card gives the label, the runs, the latest time and its change, and links the label page'
 Assert-True ($page -match 'href="/stopwatch/docs"><span class="menu-item__label">Docs<span class="menu-item__sub">1 run\(s\) - latest 8:20 - first run<') 'a label with one run says first run'
@@ -168,7 +170,7 @@ Assert-True ($page -match 'C:\\x\\stopwatch.json') 'the footer names where the r
 Assert-True ($page -notmatch '<form|<button|<textarea|data-sw=|data-action=|fetch\(|method: "POST"|sw-form') 'the page is read-only: no form, button, textarea or POST script of its own (the hub shell banner checkbox is not the page)'
 Assert-True ($page -match 'stopwatch:') 'the page says how a run starts'
 $idle = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk 'Docs' 0 10))) -StorePath 's'
-Assert-True ($idle -match 'No run is going' -and $idle -notmatch 'class="sw-clock' -and $idle -notmatch 'going now') 'with nothing running it says so'
+Assert-True ($idle -notmatch 'going now' -and $idle -notmatch 'data-start=') 'with nothing running no card carries a clock'
 Assert-True ((Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's') -match 'No run yet') 'with no run at all it says so, with no card'
 $evil = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk '<script>x</script>' 0 10))) -StorePath 's'
 Assert-True ($evil -notmatch '<script>x</script>' -and $evil -match '&lt;script&gt;x&lt;/script&gt;' -and $evil -match 'href="/stopwatch/script-x-script"') 'a label is escaped wherever it is shown, and its slug is URL-safe'
@@ -178,7 +180,8 @@ Assert-True ($broken -match 'could not be read') 'a store that does not read say
 Write-Host '-- the label page (#3323)' -ForegroundColor Cyan
 $cssGroup = Find-StopwatchGroup -Model $m -Slug 'css-comment'
 $lp = Format-StopwatchLabelPageHtml -Group $cssGroup -StorePath 's'
-Assert-True ($lp -match '<h1>CSS comment</h1>' -and $lp -match '<a href="/stopwatch">Back to the Stopwatch</a>') 'the label page is named for the label and links back to the overview'
+Assert-True ($lp -match '<h2>CSS comment</h2>' -and $lp -match '<a href="/stopwatch">Back to the Stopwatch</a>' -and $lp -notmatch '<h1|hub-banner') 'the label page is named for the label, links back to the overview and carries no banner'
+Assert-True ($lp -match '<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">CSS comment</span></li>') 'the trail reads Home, Stopwatch (linking /stopwatch), then the label'
 Assert-True ($lp -match 'badge--good">1:40 faster<' -and $lp -match 'badge--bad">50.0s slower<' -and $lp -match 'first run') 'each run says faster or slower than the one before'
 Assert-Equal 3 ([regex]::Matches($lp, '<tr><td')).Count 'every run of the label has a row'
 Assert-True ($lp -match '4:10</td>[\s\S]*3:20</td>[\s\S]*5:00</td>') 'the rows run newest first'

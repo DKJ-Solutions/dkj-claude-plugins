@@ -88,10 +88,15 @@ function Format-GeneralPageHtml {
         the app's name on the primary above the bar, linking -HubHref, with the settings button in it; the eyebrow
         then goes, since the header already names the site. -BrandTag is the word after the name. A page that
         names -SiteName and no -Brand gets the header anyway (ConvertTo-SiteHeaderName), since October 22, 2026. Without it the page is as it always was.
+        -Bare (a page's own choice, default off) leaves out everything above -Body: the h1, the lead and the general
+        banner, so the page opens on its own content; the crumbs and the site header stay, and -Title still names the
+        crumb and the <title>. -Lead may then be empty.
+        -ParentCrumbs are the crumbs between Home and the page, in order, each @{ Label; Href }: a page nested under
+        another (the Stopwatch's label pages) names its parent so the trail reads Home > parent > the page.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Title,
-        [Parameter(Mandatory = $true)][string]$Lead,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Lead,
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Body,
         [AllowEmptyString()][string]$Style = '',
         [AllowEmptyString()][string]$FooterNote = '',
@@ -100,7 +105,9 @@ function Format-GeneralPageHtml {
         [AllowEmptyString()][string]$SiteName = '',
         [string]$HubHref = '/hub',
         [AllowEmptyString()][string]$Brand = '',
-        [AllowEmptyString()][string]$BrandTag = ''
+        [AllowEmptyString()][string]$BrandTag = '',
+        [switch]$Bare,
+        [AllowEmptyCollection()][object[]]$ParentCrumbs = @()
     )
     # EVERY NAMED PAGE CARRIES THE SITE HEADER (owner, October 22, 2026): a caller that names its site and passes no
     # -Brand gets the repo's short name in it, with 'hub' after it, since these are the hub's pages.
@@ -131,17 +138,21 @@ function Format-GeneralPageHtml {
     if ($Brand) { [void]$sb.Append((Format-SiteHeaderHtml -Name $Brand -Href $HubHref -Tag $BrandTag)) }
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
     [void]$sb.AppendLine('<li><a href="' + (& $e $HubHref) + '">Home</a></li>')
-    [void]$sb.AppendLine('<li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span><span aria-current="page">' + (& $e $Title) + '</span></li>')
+    $sep = '<span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span>'
+    foreach ($c in @($ParentCrumbs)) { if ($c) { [void]$sb.AppendLine('<li>' + $sep + '<a href="' + (& $e $c.Href) + '">' + (& $e $c.Label) + '</a></li>') } }
+    [void]$sb.AppendLine('<li>' + $sep + '<span aria-current="page">' + (& $e $Title) + '</span></li>')
     [void]$sb.AppendLine('</ol></nav></div></div>')
     if (-not $Brand) { [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>') }
     [void]$sb.AppendLine('<main class="page-column">')
-    [void]$sb.AppendLine('<div>')
-    if ($Eyebrow -and -not $Brand) { [void]$sb.AppendLine('<p class="eyebrow">' + (& $e $Eyebrow) + '</p>') }
-    [void]$sb.AppendLine('<h1>' + (& $e $Title) + '</h1>')
-    [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>')
-    [void]$sb.AppendLine('</div>')
-    # The general banner on every page, not only the home page (#3297): under the intro, above the page's own blocks.
-    [void]$sb.AppendLine((Format-RepoHubBanner))
+    if (-not $Bare) {
+        [void]$sb.AppendLine('<div>')
+        if ($Eyebrow -and -not $Brand) { [void]$sb.AppendLine('<p class="eyebrow">' + (& $e $Eyebrow) + '</p>') }
+        [void]$sb.AppendLine('<h1>' + (& $e $Title) + '</h1>')
+        [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>')
+        [void]$sb.AppendLine('</div>')
+        # The general banner on every page, not only the home page (#3297): under the intro, above the page's own blocks.
+        [void]$sb.AppendLine((Format-RepoHubBanner))
+    }
     [void]$sb.Append($Body)
     if ($FooterNote) { [void]$sb.AppendLine('<p class="footer-note">' + $FooterNote + '</p>') }
     [void]$sb.AppendLine('</main>')

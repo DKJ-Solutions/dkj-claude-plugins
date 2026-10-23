@@ -19,7 +19,8 @@
         turn's end. A turn that only answers leaves HEAD where it was, and a branch parked for the owner's eye is
         not on the trunk, so the run keeps going in both.
 
-    TWO PAGES, BOTH READ-ONLY. '/stopwatch' is an overview of cards, one per measurement label (the label's number
+    TWO PAGES, BOTH READ-ONLY AND BARE (no h1, lead, tiles or the hub's airsquats banner above their content; the
+    plugin's Format-GeneralPageHtml -Bare). '/stopwatch' is an overview of cards, one per measurement label (the label's number
     of runs, its latest run's time and change against the run before, and the run going now with its live clock),
     in the hub's own card markup; each card links to '/stopwatch/<slug>', the label's page: every run, newest
     first, with its start, time, change and transcript phases. A slug is made of the label alone
@@ -521,9 +522,11 @@ function Format-StopwatchPageShell {
 
 function Format-StopwatchPageHtml {
     <#
-        The overview on '/stopwatch', read-only: the run going now, and one card per measurement label with its
-        number of runs, its latest run's time, that run's change against the run before it and a link to the
-        label's own page (Format-StopwatchLabelPageHtml), in the hub's card markup. -ReadError is set when the
+        The overview on '/stopwatch', read-only, and bare (no h1, lead, tiles or general banner): it opens on the
+        Measurements heading and one card per measurement label with its number of runs, its latest run's time,
+        that run's change against the run before it and a link to the label's own page
+        (Format-StopwatchLabelPageHtml), in the hub's card markup. A label going now shows its live clock on its
+        card. -ReadError is set when the
         store could not be read. -StorePath is named in the footer, so a run can be read and evaluated outside
         the page.
     #>
@@ -535,15 +538,7 @@ function Format-StopwatchPageHtml {
         [datetime]$Now = [datetime]::UtcNow
     )
     $e = { param($v) ConvertTo-DashboardText $v }
-    $local = { param($t) (& $e ($t.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))) }
     $body = New-Object System.Text.StringBuilder
-    $last = if (@($Model.Groups | Where-Object { @($_.Rows).Count }).Count) { @($Model.Groups | Where-Object { @($_.Rows).Count })[0].Rows[0] } else { $null }
-    [void]$body.Append((Format-DevTiles @(
-        @{ L = 'Runs recorded'; V = $Model.Count },
-        @{ L = 'Labels'; V = @($Model.Groups).Count },
-        @{ L = 'Last run'; V = (Format-DevSeconds $(if ($last) { $last.Seconds } else { $null })) },
-        @{ L = 'Against the run before'; V = $(if (-not $last -or $null -eq $last.DeltaSeconds) { '--' } elseif ([Math]::Abs($last.DeltaSeconds) -lt 0.5) { 'same' }
-                else { $(if ($last.DeltaSeconds -lt 0) { '-' } else { '+' }) + (Format-DevSeconds ([Math]::Abs($last.DeltaSeconds))) }) })))
     if ($ReadError) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The store could not be read: ' + (& $e $ReadError) + '. Nothing is written over it until it reads again, so no new run is recorded.</p>')
     }
@@ -551,22 +546,8 @@ function Format-StopwatchPageHtml {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">' + $Skipped + ' run(s) in the store could not be read and are not shown. The next write by a hook drops them; the file as it was is kept beside the store as a .bak.</p>')
     }
 
-    [void]$body.AppendLine('<div class="grid-2" id="now">')
-    [void]$body.AppendLine('<div class="grid__head"><h2>Now</h2><p class="card__sub">Begin a prompt to Claude with stopwatch: and a label to time it</p></div>')
-    [void]$body.AppendLine('<section class="card grid__full">')
-    $r = $Model.Running
-    if ($r) {
-        [void]$body.AppendLine('<h3>' + (& $e $r.Label) + '</h3>')
-        [void]$body.AppendLine('<p class="sw-clock num" data-start="' + (Format-StopwatchStamp $r.Start) + '">' + (Format-DevSeconds ($Now - $r.Start).TotalSeconds) + '</p>')
-        [void]$body.AppendLine('<p class="note">Started ' + (& $local $r.Start) + '. It stops by itself when Claude is back on the trunk, clean, with HEAD moved since the start.</p>')
-    } else {
-        [void]$body.AppendLine('<p class="note">No run is going.</p>')
-    }
-    [void]$body.AppendLine('</section>')
-    [void]$body.AppendLine('</div>')
-
+    [void]$body.AppendLine('<div class="grid__head"><h2>Measurements</h2><p class="card__sub">One card per label, newest first. Begin a prompt to Claude with stopwatch: and a label to time it.</p></div>')
     if (@($Model.Groups).Count) {
-        [void]$body.AppendLine('<div class="grid__head"><h2>Measurements</h2><p class="card__sub">One card per label, newest first</p></div>')
         [void]$body.AppendLine('<div class="grid-3">')
         foreach ($g in @($Model.Groups)) {
             $parts = @()
@@ -590,8 +571,7 @@ function Format-StopwatchPageHtml {
         'A prompt whose first line begins with <code>stopwatch:</code> starts a run in a session of this checkout, labelled with the rest of that line, and discards a run still going; ' +
         'a Stop hook ends it once Claude is back on the trunk, clean, with HEAD moved since the start (that suggests the work landed; it does not prove it). Both are <code>scripts/dashboard/stopwatch-hook.ps1</code>. ' +
         'Built by <code>scripts/lib/stopwatch-lib.ps1</code>.'
-    return Format-DevPageHtml -Title 'Stopwatch' -Style $shell.Style -Body ($body.ToString() + $shell.Script) `
-        -Lead 'How long an assignment takes, from the moment it is given to the moment Claude is back on the trunk. Begin a prompt with stopwatch: and a label to time it; each label has a card, and a card opens that label''s runs.' `
+    return Format-DevPageHtml -Title 'Stopwatch' -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare `
         -FooterNote $note
 }
 
@@ -611,6 +591,7 @@ function Format-StopwatchLabelPageHtml {
     $e = { param($v) ConvertTo-DashboardText $v }
     $local = { param($t) (& $e ($t.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))) }
     $body = New-Object System.Text.StringBuilder
+    [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $Group.Label) + '</h2><p class="card__sub"><a href="/stopwatch">Back to the Stopwatch</a></p></div>')
     if ($Group.Running) {
         [void]$body.AppendLine('<section class="card"><h3>Going now</h3>')
         [void]$body.AppendLine('<p class="sw-clock num" data-start="' + (Format-StopwatchStamp $Group.Running.Start) + '">' + (Format-DevSeconds ($Now - $Group.Running.Start).TotalSeconds) + '</p>')
@@ -632,7 +613,6 @@ function Format-StopwatchLabelPageHtml {
     $note = 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout. ' +
         'The transcript column splits a run into phases read from this repo''s Claude Code session transcripts once a run has stopped: each second goes to the first phase going at that moment, ' +
         'so a ship running in the background counts as the ship, and a second in which no session was busy is time spent waiting on you. Built by <code>scripts/lib/stopwatch-lib.ps1</code>.'
-    return Format-DevPageHtml -Title ([string]$Group.Label) -Style $shell.Style -Body ($body.ToString() + $shell.Script) `
-        -Lead ('Every run of this label. <a href="/stopwatch">Back to the Stopwatch</a>.') `
+    return Format-DevPageHtml -Title ([string]$Group.Label) -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare -ParentCrumbs @(@{ Label = 'Stopwatch'; Href = '/stopwatch' }) `
         -FooterNote $note
 }

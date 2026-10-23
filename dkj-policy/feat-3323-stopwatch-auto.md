@@ -70,7 +70,11 @@ page only shows the measurements (owner, October 23, 2026).
   and the transcript phases (time and share), and a link back. A slug is the lower-cased label with other runs of
   characters as one dash (40 characters at most, `run` when nothing is left); labels that would share a slug each
   get a hash suffix of the SHA-1 of the lower-cased label, so they never merge and the slug does not depend on
-  the order of the runs; an unknown slug is a 404. Every form
+  the order of the runs; an unknown slug is a 404. The overview opens straight on its Measurements heading: no h1, lead, tiles, Now section or the hub's
+  airsquats banner (the page's own opt-out, `-Bare`, on the plugin's `Format-GeneralPageHtml` and this repo's
+  `Format-DevPageHtml`, default off, so no other page changes); a going run shows on its card with its live
+  clock. The label page is bare too and its trail reads Home, Stopwatch, label (a new `-ParentCrumbs` parameter
+  on the same two functions). Every form
   and button is gone, and so are the POST script, the `POST /stopwatch/<action>` route of the server (the
   server takes no POST at all now, so its general 405 answers one), `Invoke-StopwatchAction`, the query parser,
   the arm feature (armed state, `arm` and `disarm`, the armed-prompt rule), manual laps and the laps column, notes
@@ -120,7 +124,9 @@ A running hub must be restarted to pick up this code: an old server would write 
 
 #### What makes this deploy extra special
 
-The hub is this repo's own dev server, so nothing a consumer takes changes.
+The hub is this repo's own dev server, so nothing a consumer sees changes. `dkj-policy`'s
+`general-pages-lib.ps1` gains two opt-in parameters (`-Bare`, `-ParentCrumbs`) that only the Stopwatch passes; every
+page that does not pass them renders byte for byte as before.
 
 **Score:** N/A
 

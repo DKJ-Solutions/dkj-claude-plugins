@@ -64,15 +64,18 @@ function Format-DevPageHtml {
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Title,
-        [Parameter(Mandatory = $true)][string]$Lead,
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Lead,
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Body,
         [AllowEmptyString()][string]$Style = '',
         [AllowEmptyString()][string]$FooterNote = '',
         [string]$ThemeKey = 'general-pages',
-        [ValidateSet('hub', 'product')][string]$BrandTag = 'hub'
+        [ValidateSet('hub', 'product')][string]$BrandTag = 'hub',
+        [switch]$Bare,
+        [AllowEmptyCollection()][object[]]$ParentCrumbs = @()
     )
+    # -Bare: no h1, lead or general banner above the body (Format-GeneralPageHtml's own switch), for a page that opens on its content.
     return Format-GeneralPageHtml -Title $Title -Lead $Lead -Body $Body -Style $Style -FooterNote $FooterNote -ThemeKey $ThemeKey `
-        -Brand 'dkj-claude-plugins' -BrandTag $BrandTag -SiteName 'dkj-claude-plugins' -HubHref '/'
+        -Brand 'dkj-claude-plugins' -BrandTag $BrandTag -SiteName 'dkj-claude-plugins' -HubHref '/' -Bare:$Bare -ParentCrumbs $ParentCrumbs
 }
 
 function Get-RepoHubPages {
