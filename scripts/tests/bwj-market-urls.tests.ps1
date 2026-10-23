@@ -405,6 +405,28 @@ Assert-Equal '' (Get-MarketRowField -Row ([pscustomobject]@{ Market = 'NL' }) -N
 Assert-Equal '' (Get-MarketRowField -Row @{ Market = 'NL' } -Name 'PathPrefix') '...and the same on a hashtable row'
 
 Write-Host ''
+Write-Host 'GoLive -- a market kept out of the go-live block and out of nothing else (#3327)' -ForegroundColor Cyan
+
+# xoxowildhearts' shape: the GB rows exist and are previewed, but the go-live block does not list them.
+$XOXOGB = @(
+    @{ Market = 'NL';    Domain = 'www.xoxowildhearts.com' }
+    @{ Market = 'EN';    Domain = 'www.xoxowildhearts.com'; PathPrefix = '/en' }
+    @{ Market = 'NL-GB'; Domain = 'www.xoxowildhearts.com'; PathPrefix = '/nl-gb'; GoLive = $false }
+    [pscustomobject]@{ Market = 'EN-GB'; Domain = 'www.xoxowildhearts.com'; PathPrefix = '/en-gb'; GoLive = $false }
+)
+Assert-Equal 'True' (@(Get-MarketTable -Markets $XOXO))[0].GoLive 'a row that leaves GoLive off is in the go-live list -- every existing table is unchanged'
+$gbLive = @(Get-MarketUrls -Path '/products/x' -Markets $XOXOGB -GoLiveOnly)
+Assert-Equal 'NL,EN' (($gbLive | ForEach-Object { $_.Market }) -join ',') '-GoLiveOnly drops the GoLive = $false rows, hashtable and object alike, in the store''s order'
+Assert-Equal 4 @(Get-MarketUrls -Path '/products/x' -Markets $XOXOGB).Count 'without the switch every market is listed, so the preview URLs keep the GB rows'
+Assert-Equal 4 @(Get-MarketPreviewUrls -ThemeId 1 -Path '/products/x' -Markets $XOXOGB).Count '...and Get-MarketPreviewUrls never reads the field'
+Assert-Equal 'NL,EN' ((@(Get-MarketUrls -Path '/products/x|NL-GB=/products/y' -Markets $XOXOGB -GoLiveOnly) | ForEach-Object { $_.Market }) -join ',') `
+    'a per-market override naming a dropped market is accepted, so the preview''s -Path works unchanged'
+Assert-Throws { Get-MarketUrls -Markets @(@{ Market = 'NL'; Domain = 'a.nl'; GoLive = $false }) -GoLiveOnly } `
+    'a table with no go-live market left is refused, rather than an empty list under named pages' '*every market has GoLive*'
+Assert-Throws { Get-MarketTable -Markets @(@{ Market = 'NL'; Domain = 'a.nl'; GoLive = 'false' }) } `
+    'a quoted GoLive is refused -- the string ''false'' is truthy and would keep the market in' '*not a boolean*'
+
+Write-Host ''
 Write-Host 'The seam -- the table is the store''s, the mechanism is the plugin''s' -ForegroundColor Cyan
 
 $noSeam = Invoke-Probe -Body 'try { Get-MarketTable } catch { Write-Host $_.Exception.Message }'
