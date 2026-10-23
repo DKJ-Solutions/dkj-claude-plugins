@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**9 / 13 minor entries** <!-- pending-tally -->
+**9 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3309-ci-path-aware-suites · 20261023-003225Z
+
+A pull request here that changes only stylesheets, images or fonts no longer waits on every test
+suite in CI. The required check runs just the suites that read those files (3 to 6 of 165 for a CSS
+change, where it used to run all of them over five shards), and the Linux leg skips. Every other pull
+request runs the whole pool as before.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+Path-aware suite selection on the required CI check
+
+Plugins: dkj-policy
+
+[PR #3311](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3311)
+
+---
 
 ### DEPLOY: feat/3289-one-page-hub · 20261022-214353Z
 
