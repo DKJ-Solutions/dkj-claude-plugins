@@ -2,9 +2,8 @@
 .SYNOPSIS
     Serve this repo's dev server on http://localhost:<Port>/ -- the hub on '/', which links the hub's own
     pages (#3097): /test-gate, the per-suite CI durations, grouped by the workflow step each suite guards
-    (scripts/tests/suite-groups.json); and /stopwatch, assignments timed by hand from the moment they are
-    given to the moment they are done (#3315), the one page that takes a POST (its buttons,
-    /stopwatch/<action>). It also builds three pages the product relays, which the hub does not link (below):
+    (scripts/tests/suite-groups.json); and /stopwatch, how long each assignment took: a read-only overview of cards, one per
+    label, and /stopwatch/<slug>, each label's runs, from the runs the hooks of scripts/dashboard/stopwatch-hook.ps1 record (#3315, #3323). The server takes no POST at all. It also builds three pages the product relays, which the hub does not link (below):
     /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
     check-connectors.ps1 reports for it on this machine (#2976); /specialists, every specialist the
     dkj-subagents plugins ship and the context each one costs, read from this tree; and /dkj-repos, every
@@ -68,8 +67,7 @@
     finds HEAD somewhere else is answered with a 503 that reloads in three seconds, after which the server
     stops listening and starts its successor on the same port -- under a cmd.exe that changes into the
     root first, as the hook's own start line does, so the hook still recognises it as this checkout's.
-    The hub's "Source at" names that loaded commit, not the live one. Static files skip the check, and so
-    do the Stopwatch's POST buttons, so a Stop pressed during a merge or a fold lands (#3315).
+    The hub's "Source at" names that loaded commit, not the live one. Static files skip the check.
     A successor that dies at start (a broken commit) leaves the port empty, with the reason in
     %TEMP%\serve-connector-dashboard-<Port>-<guid>.log; the next session's hook starts a server again. A root
     holding '%' or '"', which cmd.exe would rewrite, gets the notice but no restart.
@@ -387,36 +385,6 @@ try {
                 Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.')) -Method $method
                 continue
             }
-            if ($method -eq 'POST' -and $path -match '^/stopwatch/(start|lap|stop|discard|note|delete)$') {
-                # A Stopwatch button (#3315), with its values in the query. Answered BEFORE the restart check: the
-                # workflow a run times moves HEAD at every merge and fold, and a Stop pressed at that moment must
-                # land rather than be lost to the 503. It writes only the store, so the old code serves it fine.
-                $action = $Matches[1]
-                # Only the page's own fetch writes: the general refusal lets a request without Sec-Fetch-Site through,
-                # which a browser too old to send it would do for a form another site posts here (Sebastian, #3315).
-                if (([string]$request.SecFetchSite).Trim().ToLowerInvariant() -ne 'same-origin') {
-                    Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: only the Stopwatch page itself may press its buttons.')) -Method $method
-                    continue
-                }
-                $store = Read-StopwatchStore -Path $StopwatchPath
-                if ($store.Error) {
-                    Send-LoopbackResponse $stream 503 'Service Unavailable' 'text/plain; charset=utf-8' ($utf8.GetBytes("The store could not be read ($($store.Error)), so nothing was written over it.")) -Method $method
-                    continue
-                }
-                $result = Invoke-StopwatchAction -Runs $store.Runs -Action $action -Query (ConvertFrom-StopwatchQuery -Target $target) -Now ([datetime]::UtcNow)
-                if ($result.Error) {
-                    Send-LoopbackResponse $stream 409 'Conflict' 'text/plain; charset=utf-8' ($utf8.GetBytes($result.Error)) -Method $method
-                    continue
-                }
-                # A run that did not parse is dropped by this write, so the file as it was is kept beside it first.
-                if ($store.Skipped) { Copy-Item -LiteralPath $StopwatchPath -Destination "$StopwatchPath.bak" -Force -ErrorAction SilentlyContinue }
-                try { Save-StopwatchStore -Path $StopwatchPath -Runs $result.Runs } catch {
-                    Send-LoopbackResponse $stream 500 'Internal Server Error' 'text/plain; charset=utf-8' ($utf8.GetBytes('The store could not be written: ' + $_.Exception.Message)) -Method $method
-                    continue
-                }
-                Send-LoopbackResponse $stream 200 'OK' 'text/plain; charset=utf-8' ($utf8.GetBytes('ok')) -Method $method
-                continue
-            }
             if ($method -ne 'GET' -and $method -ne 'HEAD') {
                 Send-LoopbackResponse $stream 405 'Method Not Allowed' 'text/plain; charset=utf-8' ($utf8.GetBytes('GET only.')) @{ Allow = 'GET, HEAD' } -Method $method
                 continue
@@ -509,8 +477,26 @@ try {
             }
             if ($path -eq '/stopwatch') {
                 $store = Read-StopwatchStore -Path $StopwatchPath
-                $phases = Get-StopwatchTranscriptCache -Runs $store.Runs -CachePath $StopwatchPhasesPath -TranscriptDir $TranscriptDir
-                $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs $store.Runs) -ReadError $store.Error -Skipped $store.Skipped -StorePath $StopwatchPath -Transcript $phases
+                $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs $store.Runs) -ReadError $store.Error -Skipped $store.Skipped -StorePath $StopwatchPath
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                continue
+            }
+            if ($path -match '^/stopwatch/([a-z0-9-]{1,60})$') {
+                # One label's page (#3323). A slug no label has is a 404, like any other path.
+                $store = Read-StopwatchStore -Path $StopwatchPath
+                if ($store.Error) {
+                    # The same read error the overview shows, not a bare 404 for a page that may well exist.
+                    $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -ReadError $store.Error -StorePath $StopwatchPath
+                    Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                    continue
+                }
+                $group = Find-StopwatchGroup -Model (ConvertTo-StopwatchModel -Runs $store.Runs) -Slug $Matches[1]
+                if (-not $group) {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
+                    continue
+                }
+                $phases = Get-StopwatchTranscriptCache -Runs @($group.Rows | ForEach-Object { $_.Run }) -CachePath $StopwatchPhasesPath -TranscriptDir $TranscriptDir
+                $html = Format-StopwatchLabelPageHtml -Group $group -StorePath $StopwatchPath -Transcript $phases
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }

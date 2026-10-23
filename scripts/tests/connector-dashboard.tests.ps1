@@ -285,8 +285,13 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
     # general pages server it would relay to it (#3168). A port nobody answers on keeps it out of the run.
     $probe = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
     $probe.Start(); $env:DKJ_GENERAL_PAGES_PORTS = [string]$probe.LocalEndpoint.Port; $probe.Stop()
+    # The Stopwatch's store, a fixture of its own so the label page has a run to show (#3323).
+    $swDir = Join-Path ([System.IO.Path]::GetTempPath()) ('hub-stopwatch-' + [guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $swDir | Out-Null
+    $swStore = Join-Path $swDir 'stopwatch.json'
+    [System.IO.File]::WriteAllText($swStore, '{ "runs": [ { "id": "s1", "label": "Server fixture", "start": "2026-10-23T10:00:00.000Z", "end": "2026-10-23T10:05:00.000Z", "auto": true, "startHead": "a" } ] }')
     $proc = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
-        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$Server`"", '-Port', $port)
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$Server`"", '-Port', $port, '-StopwatchPath', "`"$swStore`"")
     try {
         # THE TWO WINDOWS BELOW ARE WIDE ON PURPOSE (#3038). Both groups failed on a loaded CI shard and
         # passed on a rerun. Measured unloaded: the server is up in ~0.6s, a request behind a silent
@@ -327,6 +332,12 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             Assert-Equal 200 (Get-Status 'GET' '/house-theme.js' "127.0.0.1:$port") 'the theme script is served'
             Assert-Equal 403 (Get-Status 'GET' '/house-style.css' "evil.example:$port") 'a foreign Host is refused'
             Assert-Equal 405 (Get-Status 'POST' '/' "localhost:$port") 'a POST is refused'
+            Assert-Equal 405 (Get-Status 'POST' '/stopwatch/start?label=x' "localhost:$port" "Sec-Fetch-Site: same-origin`r`n") 'the Stopwatch takes no POST any more (#3323)'
+            $swOverview = Get-Raw 'GET' '/stopwatch' "localhost:$port"
+            Assert-True ($swOverview -match 'HTTP/1.1 200' -and $swOverview -match 'href="/stopwatch/server-fixture"') 'the Stopwatch overview has a card for the fixture label, linking its page (#3323)'
+            $swLabel = Get-Raw 'GET' '/stopwatch/server-fixture' "localhost:$port"
+            Assert-True ($swLabel -match 'HTTP/1.1 200' -and $swLabel -match 'Server fixture' -and $swLabel -match 'href="/stopwatch"') 'a label''s page shows its runs and links back'
+            Assert-Equal 404 (Get-Status 'GET' '/stopwatch/no-such-label' "localhost:$port") 'an unknown Stopwatch slug is not found'
             Assert-Equal 404 (Get-Status 'GET' '/../connectors/x.json' "localhost:$port") 'a path outside the routes is not found'
             # The brand book is the product port's alone (October 22, 2026): the hub neither serves nor redirects it.
             Assert-Equal 404 (Get-Status 'GET' '/brandbook' "localhost:$port") '/brandbook is not a page of the hub'
@@ -365,6 +376,7 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
         }
     } finally {
         if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
+        Remove-Item -LiteralPath $swDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 

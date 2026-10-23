@@ -2,7 +2,68 @@
 
 ## [Unreleased]
 
-**13 / 23 minor entries** <!-- pending-tally -->
+**14 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3323-stopwatch-auto · 20261023-103640Z
+
+The hub's Stopwatch now times Claude's work without anybody pressing Start or Stop. Begin a prompt to Claude with
+`stopwatch: <label>` and the clock starts right there (a run still going is discarded); it stops when Claude is
+back on the trunk with a clean checkout and HEAD moved since the start, a sign the work landed rather than a
+proof of it. A turn that only answers a question, or a branch parked for your look, keeps the clock going. The
+`/stopwatch` page only shows the measurements now: the running clock and one card per label (runs, latest time,
+change against the run before), and each card opens that label's page with every run, its comparison with the
+run before and where its time went. The buttons are gone.
+
+A running hub must be restarted to pick up this code: an old server would write the old shape of the store back.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The hub is this repo's own dev server, so nothing a consumer sees changes. `dkj-policy`'s
+`general-pages-lib.ps1` gains two opt-in parameters (`-Bare`, `-ParentCrumbs`) that only the Stopwatch passes; every
+page that does not pass them renders byte for byte as before.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch: a stopwatch: prompt starts a run, the page only shows the measurements
+
+Plugins: dkj-policy
+
+[PR #3332](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3332)
+
+---
+
+### DEPLOY: feat/3327-golive-market-optout · 20261023-101214Z
+
+A store can now leave a market out of the go-live block's live URL list without removing it from its
+previews ([#3327](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3327)). A row in
+`Get-StorefrontMarkets` takes an optional `GoLive = $false`, and `build-golive-block` drops that market
+from `WHEN IT GOES LIVE`. The preview URLs and the handover cards still carry it, and so does the
+`-Path` a session already gives the preview, a per-market override of that market included. A row
+without the field is listed as before. A quoted `'false'` is refused, because PowerShell reads it as
+true. A table where every market is marked `$false` is refused too.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store that previews a market but does not want it in the message to the requester sets one field on
+that row. Before, deleting the row also took it out of the preview handover.
+
+**Score:** 2
+
+#### Pull Request
+
+build-golive-block: let a store keep a market out of the go-live block's live URL list
+
+Plugins: bwj-development
+
+[PR #3330](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3330)
+
+---
 
 ### DEPLOY: fix/3288-live-listener-outlives-suite · 20261023-094719Z
 
