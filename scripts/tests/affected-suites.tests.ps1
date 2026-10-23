@@ -158,6 +158,29 @@ $list = @('c-tool.ps1', 'docs/data.json')
     Assert-True (-not $walkFixture.Walks) 'a walk over a fixture is not a walk over the live tree'
     $walkMarked = Get-SuiteReferenceSet -Text "# gate-selection: always`nexit 0`n"
     Assert-True $walkMarked.Walks "a suite can declare its walk with '# gate-selection: always'"
+    # OPEN WALKS (#3316, ported from PR #3313): a walk is open unless a constant in a filtering position names a type.
+    Assert-True $walkMarked.WalksOpen 'and a declared walk is OPEN, since nobody can read what it returns'
+    Assert-True (-not $walkDirect.WalksOpen) 'a recursive walk with -Filter is narrowed to a type, so not open'
+    Assert-True $walkDerived.WalksOpen 'a recursive walk with no filter at all is open'
+    Assert-True (-not $walkGit.WalksOpen) 'a git ls-files with a typed pathspec is not open'
+    Assert-True (Get-SuiteReferenceSet -Text "& git -C `$RepoRoot ls-files`n").WalksOpen 'and one with no pathspec lists every type, so it is'
+    Assert-True (Get-SuiteReferenceSet -Text "gci `$RepoRoot -r`n").WalksOpen 'an alias and an abbreviated -Recurse are read the same'
+    Assert-True (-not (Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot '*.md' -Recurse`n").WalksOpen) 'a positional wildcard naming a type is a filter'
+    Assert-True (Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot -Recurse -Exclude '*.tmp'`n").WalksOpen 'but a type handed to -Exclude narrows nothing'
+    Assert-True (Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot -File`n").WalksOpen 'a walk that does not recurse is still open: it lists every type at the top'
+    Assert-True (Get-SuiteReferenceSet -Text "& git -C `$RepoRoot grep -n 'a.*b'`n").WalksOpen 'a regex with a star is no pathspec, so a git grep without -- stays open'
+    Assert-True (-not (Get-SuiteReferenceSet -Text "& git -C `$RepoRoot grep -n 'a.*b' -- '*.ps1'`n").WalksOpen) 'and a pathspec after -- narrows it'
+    Assert-True (Get-SuiteReferenceSet -Text "`$f = [System.IO.Directory]::EnumerateFiles(`$RepoRoot, '*', 'AllDirectories')`n").WalksOpen 'a .NET file listing with a typeless pattern is open'
+    Assert-True (-not (Get-SuiteReferenceSet -Text "`$f = [System.IO.Directory]::GetFiles(`$RepoRoot, '*.md')`n").WalksOpen) 'and one with a typed pattern is not'
+    Assert-True (Get-SuiteReferenceSet -Text "Copy-Item `$RepoRoot `$tmp -Recurse`n").WalksOpen 'copying the whole tree is open'
+    Assert-True (Get-SuiteReferenceSet -Text "Get-ChildItem (Join-Path `$RepoRoot 'plugins/*/skills') -Recurse`n").WalksOpen 'a star in a DIRECTORY segment names no type'
+    Assert-True (Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot -Recurse -Filter `$pattern`n").WalksOpen 'a filter held in a variable is not provable, so the walk stays open'
+    Assert-True (-not (Get-SuiteReferenceSet -Text "Get-ChildItem -LiteralPath `$RepoRoot -Recurse -Filter 'hooks.json'`n").WalksOpen) 'a named manifest narrows to its type'
+    Assert-True (-not (Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot -Recurse -Include @('*.ps1', '*.md')`n").WalksOpen) 'and so does an -Include list'
+    Assert-True (Get-SuiteReferenceSet -Text "& git.exe -C `$RepoRoot ls-files`n").WalksOpen "the command name 'git.exe' is not read as a type"
+    Assert-True (-not (Get-SuiteReferenceSet -Text "Get-ChildItem -LiteralPath `$RepoRoot -Directory`n").WalksOpen) 'a -Directory listing returns no file, so it is not open'
+    Assert-True (Get-SuiteReferenceSet -Text "Get-ChildItem -LiteralPath `$RepoRoot -Depth 1`n").WalksOpen "and -Depth is not read as -Directory"
+    Assert-True (-not $walkFixture.WalksOpen) 'and an unfiltered walk over a fixture is no walk of the live tree at all'
     $scopedSet = Get-SuiteReferenceSet -Text "# gate-selection: walks *.PS1 plugins\x\plugin.json`n# gate-selection: walks *.ps1`nexit 0`n"
     Assert-True $scopedSet.Walks "a '# gate-selection: walks' line declares a walk on its own (#3309)"
     Assert-Equal '*.ps1|plugins/x/plugin.json' (@($scopedSet.Scope) -join '|') 'and its patterns are the scope: lower case, forward slashes, every line, each once'
@@ -210,6 +233,7 @@ $list = @('c-tool.ps1', 'docs/data.json')
     Assert-Equal 5 $sel.PoolCount 'the pool is the five suites'
     Assert-Equal 'a,walk' (Get-SelectedNames $sel) 'a lib reached TRANSITIVELY selects its suite, plus the live-tree walker'
     Assert-Equal 'walk' ((@($sel.Always | ForEach-Object { ($_ -split '/')[-1] -replace '\.tests\.ps1$', '' })) -join ',') 'and the walker is reported as one that always runs'
+    Assert-Equal 'walk' ((@($sel.Open | ForEach-Object { ($_ -split '/')[-1] -replace '\.tests\.ps1$', '' })) -join ',') 'and as OPEN, its unfiltered walk returning every type -- CI never drops it by type (#3316)'
 
     $sel = Get-AffectedSuiteSelection -RepoRoot $r4 -ChangedPaths @('scripts/task/c-tool.ps1')
     Assert-Equal 'c,walk' (Get-SelectedNames $sel) 'a tool selects the suite that RUNS it, and not the one whose lib only lists it'

@@ -101,6 +101,9 @@ function Get-StaticAssetSuiteSelection {
     $pattern = '(?i)\b(' + ($tokens -join '|') + ')\b'
     $kept = New-Object System.Collections.ArrayList
     foreach ($suite in @($selection.Walkers)) {
+        # An OPEN walker is never dropped by type (#3316): its walk can return a file of any type, so its
+        # text need not name the changed extension for the walk to read it.
+        if (@($selection.Open) -contains $suite) { [void]$kept.Add($suite); continue }
         $full = Join-Path $RepoRoot $suite
         # An unreadable suite is kept: the guard only ever drops a suite it has read.
         $text = $null

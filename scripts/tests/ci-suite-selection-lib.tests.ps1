@@ -65,6 +65,7 @@ try {
     Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\matched.tests.ps1') -Value 'x' -Encoding ASCII
     Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\declared-css.tests.ps1') -Value "# gate-selection: walks *.ps1`nGet-ChildItem -Filter '*.css'" -Encoding ASCII
     Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\scoped.tests.ps1') -Value "# gate-selection: walks brandbook/*" -Encoding ASCII
+    Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\walks-open.tests.ps1') -Value "Get-ChildItem `$RepoRoot -Recurse" -Encoding ASCII
 
     $script:stub = $null
     function Get-AffectedSuiteSelection { param($RepoRoot, $ChangedPaths) return $script:stub }
@@ -75,7 +76,8 @@ try {
         Always = @('scripts/tests/walks-ps1.tests.ps1', 'scripts/tests/walks-css.tests.ps1', 'scripts/tests/gone.tests.ps1')
         Scoped = @('scripts/tests/scoped.tests.ps1')
         Walkers = @('scripts/tests/walks-ps1.tests.ps1', 'scripts/tests/walks-css.tests.ps1', 'scripts/tests/gone.tests.ps1',
-                    'scripts/tests/declared-css.tests.ps1', 'scripts/tests/scoped.tests.ps1')
+                    'scripts/tests/declared-css.tests.ps1', 'scripts/tests/scoped.tests.ps1', 'scripts/tests/walks-open.tests.ps1')
+        Open = @('scripts/tests/walks-open.tests.ps1')
     }
     $s = Get-StaticAssetSuiteSelection -RepoRoot $fixture -ChangedPaths @('brandbook/src/index.css')
     Assert-True $s.Proven 'an asset-only change over a proven map is a proven selection'
@@ -88,6 +90,7 @@ try {
     # still judges it by its own text -- the declaration narrows the local gate, never this one.
     Assert-True ($s.Suites -contains 'scripts/tests/declared-css.tests.ps1') 'a declared walker outside Always that names the extension still runs on CI'
     Assert-True ($s.Suites -contains 'scripts/tests/scoped.tests.ps1') 'and a walker whose declared scope the change falls in runs, named extension or not'
+    Assert-True ($s.Suites -contains 'scripts/tests/walks-open.tests.ps1' -and $s.KeptAlways -contains 'scripts/tests/walks-open.tests.ps1') 'an OPEN walker runs although its text never names css: its walk returns every type (#3316)'
 
     $s = Get-StaticAssetSuiteSelection -RepoRoot $fixture -ChangedPaths @('assets/logo.png')
     Assert-True ($s.Suites -notcontains 'scripts/tests/walks-css.tests.ps1') 'the extension guard is per change: a PNG does not keep the walk that names css'
