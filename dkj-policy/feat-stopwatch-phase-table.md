@@ -47,6 +47,7 @@ The transcript phases were crammed into one table cell per run; give each run it
 - [x] The runs table drops its transcript column
 - [x] A label with one run shows its time on a card of its own, with no Runs heading or comparison table; the table returns from the second run on (owner's look)
 - [x] Such a page is titled with the run's start (heading, tab and crumb), the label beneath it (owner's look)
+- [x] And reached at that start, `/stopwatch/yyyy-MM-dd-HHmm`; the label's own slug keeps answering, and two one-run labels started in the same minute keep their label slugs (owner's look)
 - [x] Review by Victor (house card head, a run with a session but no phases) and Edith (the docstrings), applied
 
 ### TEST
@@ -57,8 +58,8 @@ The transcript phases were crammed into one table cell per run; give each run it
 ### DEPLOY: feat/stopwatch-phase-table
 
 The Stopwatch label page no longer packs a run's phases into one table cell. Under its own Phases heading, each
-run has a card with a row per phase, longest first, with its time, its share of the run and a bar of that share. A label with one run is titled with that run's start and shows its time on a
-card of its own; the label title and the comparison table appear from the second run on.
+run has a card with a row per phase, longest first, with its time, its share of the run and a bar of that share. A label with one run is titled with that run's start, is reached at that start
+(`/stopwatch/2026-10-23-1238`, the label's own address still answering) and shows its time on a card of its own; the label title and the comparison table appear from the second run on.
 
 **Score:** 2
 

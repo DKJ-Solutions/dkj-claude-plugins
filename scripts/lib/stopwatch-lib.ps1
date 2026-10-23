@@ -226,7 +226,9 @@ function Get-StopwatchSlugs {
 function ConvertTo-StopwatchModel {
     <#
         What the pages show: the running run, if any, and the labels as Groups (newest activity first), one per
-        label compared case-insensitively. A group carries its Label, its Slug (Get-StopwatchSlugs), its finished
+        label compared case-insensitively. A group carries its Label, its Slug (Get-StopwatchSlugs), its PageSlug (the
+        address its page is linked by: the start of its one run as yyyy-MM-dd-HHmm while it has one finished run and
+        none going and no other such label started in that minute, else its Slug), its finished
         runs as Rows (newest first; each with Seconds and its DeltaSeconds against the run of the same label before
         it, $null for the first), Best, Latest (the start of its newest run, going or not) and Running: the run
         going now when it is this label's, else $null. A label whose only run is still going is a group with no Rows.
@@ -246,9 +248,17 @@ function ConvertTo-StopwatchModel {
         $best = if ($rows.Count) { ($rows | ForEach-Object { $_.Seconds } | Measure-Object -Minimum).Minimum } else { $null }
         [array]::Reverse($rows)
         $newest = @($g.Group | Sort-Object { $_.Start })[-1]
-        $groups += @{ Label = $newest.Label; Slug = $slugs[$g.Name]; Rows = $rows; Best = $best; Latest = $newest.Start
+        $groups += @{ Label = $newest.Label; Slug = $slugs[$g.Name]; PageSlug = $slugs[$g.Name]; Rows = $rows; Best = $best; Latest = $newest.Start
             Running = $(if ($running -and $running.Id -eq (@($g.Group | Where-Object { -not $_.End }) | Select-Object -Last 1).Id) { $running } else { $null }) }
     }
+    # A label with one finished run and none going is reached by that run's start, as its page is titled; two such
+    # labels started in the same minute both keep their label's slug, so a page address never names two runs.
+    $stamps = @{}
+    foreach ($grp in @($groups | Where-Object { @($_.Rows).Count -eq 1 -and -not $_.Running })) {
+        $grp.StampSlug = $grp.Rows[0].Run.Start.ToLocalTime().ToString('yyyy-MM-dd-HHmm', [Globalization.CultureInfo]::InvariantCulture)
+        $stamps[$grp.StampSlug] = 1 + [int]$stamps[$grp.StampSlug]
+    }
+    foreach ($grp in @($groups | Where-Object { $_.StampSlug -and $stamps[$_.StampSlug] -eq 1 })) { $grp.PageSlug = $grp.StampSlug }
     return @{
         Running = $running
         Groups  = @($groups | Sort-Object { $_.Latest } -Descending)
@@ -257,8 +267,14 @@ function ConvertTo-StopwatchModel {
 }
 
 function Find-StopwatchGroup {
-    <# The group of -Model whose Slug is -Slug, or $null: the label page's lookup, so an unknown slug is a 404. #>
+    <#
+        The group of -Model whose PageSlug, or else whose Slug, is -Slug, or $null: the label page's lookup, so an
+        unknown slug is a 404. The label's own slug keeps answering, so a link made before a second run moved the
+        page to its label still arrives.
+    #>
     param([Parameter(Mandatory = $true)][hashtable]$Model, [AllowEmptyString()][string]$Slug = '')
+    $hit = @($Model.Groups | Where-Object { $_.PageSlug -ceq $Slug }) | Select-Object -First 1
+    if ($hit) { return $hit }
     return (@($Model.Groups | Where-Object { $_.Slug -ceq $Slug }) | Select-Object -First 1)
 }
 
@@ -570,7 +586,7 @@ function Format-StopwatchPageHtml {
                 $sub += ' - going now <span class="num" data-start="' + (Format-StopwatchStamp $g.Running.Start) + '">' + (Format-DevSeconds ($Now - $g.Running.Start).TotalSeconds) + '</span>'
             }
             $label = & $e $g.Label
-            [void]$body.AppendLine('<section class="card card--link"><nav class="menu-list" aria-label="' + $label + '"><a class="menu-item" href="/stopwatch/' + (& $e $g.Slug) +
+            [void]$body.AppendLine('<section class="card card--link"><nav class="menu-list" aria-label="' + $label + '"><a class="menu-item" href="/stopwatch/' + (& $e $g.PageSlug) +
                 '"><span class="menu-item__label">' + $label + '<span class="menu-item__sub">' + $sub + '</span></span>' + $script:RepoHubChevron + '</a></nav></section>')
         }
         [void]$body.AppendLine('</div>')

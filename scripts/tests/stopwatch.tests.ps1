@@ -162,7 +162,12 @@ Assert-True ($page -match '<h2>Measurements</h2>' -and $page.IndexOf('<h2>Measur
 Assert-True ($page -match 'querySelectorAll\("\[data-start\]"\)') 'the clock script ticks every [data-start] element, the card''s going-now span included'
 Assert-Equal 3 ([regex]::Matches($page, '<section class="card card--link">')).Count 'one card per label: CSS comment, Docs and the one only going now'
 Assert-True ($page -match 'href="/stopwatch/css-comment"><span class="menu-item__label">CSS comment<span class="menu-item__sub">3 run\(s\) - latest 4:10 - 50.0s slower than the run before</span>') 'a card gives the label, the runs, the latest time and its change, and links the label page'
-Assert-True ($page -match 'href="/stopwatch/docs"><span class="menu-item__label">Docs<span class="menu-item__sub">1 run\(s\) - latest 8:20 - first run<') 'a label with one run says first run'
+$docsGroup = @($m.Groups | Where-Object { $_.Label -eq 'Docs' })[0]
+$docsStamp = $docsGroup.Rows[0].Run.Start.ToLocalTime().ToString('yyyy-MM-dd-HHmm', [Globalization.CultureInfo]::InvariantCulture)
+Assert-True ($page -match ('href="/stopwatch/' + $docsStamp + '"><span class="menu-item__label">Docs<span class="menu-item__sub">1 run\(s\) - latest 8:20 - first run<')) 'a label with one run says first run, and is linked by its run''s start'
+Assert-True ((Find-StopwatchGroup -Model $m -Slug $docsStamp).Label -eq 'Docs' -and (Find-StopwatchGroup -Model $m -Slug 'docs').Label -eq 'Docs') 'its page answers on the start and on the label''s own slug, so an older link still arrives'
+$twin = ConvertTo-StopwatchModel -Runs @((& $mk 'One' 0 10), (& $mk 'Two' 5 20))
+Assert-True (@($twin.Groups | Where-Object { $_.PageSlug -eq $_.Slug }).Count -eq 2) 'two one-run labels started in the same minute keep their label slugs'
 Assert-True ($page -match 'href="/stopwatch/live"><span class="menu-item__label">Live<span class="menu-item__sub">0 run\(s\) - going now <span class="num" data-start="2026-10-23T11:23:20.000Z">1:05</span>') 'the label going now carries its live clock on its card'
 Assert-True ($page -notmatch 'Against the run before</th>') 'the overview holds no table of runs; they are on the label page'
 Assert-True ($page -notmatch '<section class="card[^"]*">\s*<h2') 'no h2 stands inside a card'
@@ -173,7 +178,7 @@ $idle = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk
 Assert-True ($idle -notmatch 'going now' -and $idle -notmatch 'data-start=') 'with nothing running no card carries a clock'
 Assert-True ((Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's') -match 'No run yet') 'with no run at all it says so, with no card'
 $evil = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk '<script>x</script>' 0 10))) -StorePath 's'
-Assert-True ($evil -notmatch '<script>x</script>' -and $evil -match '&lt;script&gt;x&lt;/script&gt;' -and $evil -match 'href="/stopwatch/script-x-script"') 'a label is escaped wherever it is shown, and its slug is URL-safe'
+Assert-True ($evil -notmatch '<script>x</script>' -and $evil -match '&lt;script&gt;x&lt;/script&gt;' -and $evil -match 'href="/stopwatch/[0-9-]+"' -and (ConvertTo-StopwatchModel -Runs @((& $mk '<script>x</script>' 0 10))).Groups[0].Slug -eq 'script-x-script') 'a label is escaped wherever it is shown, and its slugs are URL-safe'
 $broken = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -ReadError 'it is not valid JSON' -StorePath 's'
 Assert-True ($broken -match 'could not be read') 'a store that does not read says so'
 
