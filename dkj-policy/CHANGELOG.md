@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**16 / 31 minor entries** <!-- pending-tally -->
+**16 / 32 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3338-ship-step-phases · 20261023-123724Z
+
+The Stopwatch's transcript phases now split a ship-pr call into its own steps
+([#3338](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3338)): the checks before the PR,
+the local gates and opening the PR, the CI wait, a forwarded head's re-certification, the merge, and the
+fold. A whole ship used to be one phase, so 92% of a measured run sat under one row that hid 13 minutes of
+local gates and two CI waits. `ship-pr.ps1` marks each step in a step log that `run-progress-lib.ps1`
+keeps only when `DKJ_RUN_STEP_LOG` is set, which this repo's `.claude/settings.json` does. A ship with no
+marks, from before this change, stays one phase.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the marks are written only where `DKJ_RUN_STEP_LOG` is set, and no consumer sets it, so a consumer's
+ship-pr behaves exactly as before.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch: a ship-pr call is split into its gates, CI waits, merge and fold
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #3342](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3342)
+
+---
 
 ### DEPLOY: feat/stopwatch-phase-table · 20261023-121336Z
 
