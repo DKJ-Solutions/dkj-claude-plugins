@@ -58,9 +58,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    and the closed line: the intro every completed close shares
    (`GitHub issue [<owner>/<repo>#<n>](<issue url>) is now **closed**: this Asana task is now in review.`),
    then *"It can be reopened anytime when something is still not working as expected."* -- or, without
-   `-LiveSince`, *"It becomes visible with the release named below, and can be reopened anytime ..."*,
-   with `<!-- asana-paste-block-kind: after-release -->` beside the marker so the closed message says
-   the same ([#3069](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3069)). Both are fixed and
+   `-LiveSince`, the intro alone, because `WHEN IT GOES LIVE` and the ask's *"reopened for a new round"*
+   already say both halves of what used to stand there
+   ([#3328](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3328)), with
+   `<!-- asana-paste-block-kind: after-release -->` beside the marker so the closed message does the
+   same ([#3069](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3069)). Both are fixed and
    English on every board, then five fixed
    headings (`TE BEKIJKEN OP` / `WAT ER NU ANDERS IS` / `WANNEER HET LIVE KOMT` / `WAT ER BEWUST NIET IN ZIT`
    / `WAT WE VAN JE VRAGEN`, where-to-look first, [#2700](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2700);
@@ -203,7 +205,7 @@ without reopening. Either way the answer goes to the requester by the terminal r
 
 | Did something change, in this round? | The close | Under the intro |
 |---|---|---|
-| Yes, and it can be seen | completed, go-live block (`-LiveSince` once live) | *"It can be reopened anytime ..."*, or that it becomes visible with the release, then the go-live headings |
+| Yes, and it can be seen | completed, go-live block (`-LiveSince` once live) | *"It can be reopened anytime ..."* once live, nothing before the release (#3328), then the go-live headings |
 | Yes, but nothing shows on the storefront | completed, go-live block with `-NoStorefrontResult` | *"It can be reopened anytime ..."*, then the go-live headings, where-to-look saying nothing changes for customers |
 | No, but we learned something useful | completed, `-Research` | *"Nothing has changed. Read the outcome below."*, then OUTCOME |
 | No, because an earlier release had already fixed it (verified) | completed, `-AlreadyFixed` | *"Nothing was changed for this ticket: it was already fixed by an earlier release. Check below that it holds for you."*, then when it was fixed and where to look |
