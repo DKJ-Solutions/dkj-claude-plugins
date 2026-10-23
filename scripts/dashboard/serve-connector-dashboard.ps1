@@ -2,9 +2,10 @@
 .SYNOPSIS
     Serve this repo's dev server on http://localhost:<Port>/ -- the hub on '/', which links the hub's own
     pages (#3097): /test-gate, the per-suite CI durations, grouped by the workflow step each suite guards
-    (scripts/tests/suite-groups.json); and /stopwatch, assignments timed by hand from the moment they are
-    given to the moment they are done (#3315), the one page that takes a POST (its buttons,
-    /stopwatch/<action>). It also builds three pages the product relays, which the hub does not link (below):
+    (scripts/tests/suite-groups.json); and /stopwatch, assignments timed from the moment they are given to
+    the moment they are done, by hand or armed on the page so the hooks of scripts/dashboard/stopwatch-hook.ps1
+    start and stop the clock (#3315, #3323), the one page that takes a POST (its buttons, /stopwatch/<action>,
+    arm and disarm among them). It also builds three pages the product relays, which the hub does not link (below):
     /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
     check-connectors.ps1 reports for it on this machine (#2976); /specialists, every specialist the
     dkj-subagents plugins ship and the context each one costs, read from this tree; and /dkj-repos, every
@@ -387,7 +388,7 @@ try {
                 Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.')) -Method $method
                 continue
             }
-            if ($method -eq 'POST' -and $path -match '^/stopwatch/(start|lap|stop|discard|note|delete)$') {
+            if ($method -eq 'POST' -and $path -match '^/stopwatch/(start|lap|stop|discard|note|delete|arm|disarm)$') {
                 # A Stopwatch button (#3315), with its values in the query. Answered BEFORE the restart check: the
                 # workflow a run times moves HEAD at every merge and fold, and a Stop pressed at that moment must
                 # land rather than be lost to the 503. It writes only the store, so the old code serves it fine.
@@ -403,14 +404,14 @@ try {
                     Send-LoopbackResponse $stream 503 'Service Unavailable' 'text/plain; charset=utf-8' ($utf8.GetBytes("The store could not be read ($($store.Error)), so nothing was written over it.")) -Method $method
                     continue
                 }
-                $result = Invoke-StopwatchAction -Runs $store.Runs -Action $action -Query (ConvertFrom-StopwatchQuery -Target $target) -Now ([datetime]::UtcNow)
+                $result = Invoke-StopwatchAction -Runs $store.Runs -Action $action -Query (ConvertFrom-StopwatchQuery -Target $target) -Now ([datetime]::UtcNow) -Armed $store.Armed
                 if ($result.Error) {
                     Send-LoopbackResponse $stream 409 'Conflict' 'text/plain; charset=utf-8' ($utf8.GetBytes($result.Error)) -Method $method
                     continue
                 }
                 # A run that did not parse is dropped by this write, so the file as it was is kept beside it first.
                 if ($store.Skipped) { Copy-Item -LiteralPath $StopwatchPath -Destination "$StopwatchPath.bak" -Force -ErrorAction SilentlyContinue }
-                try { Save-StopwatchStore -Path $StopwatchPath -Runs $result.Runs } catch {
+                try { Save-StopwatchStore -Path $StopwatchPath -Runs $result.Runs -Armed $result.Armed } catch {
                     Send-LoopbackResponse $stream 500 'Internal Server Error' 'text/plain; charset=utf-8' ($utf8.GetBytes('The store could not be written: ' + $_.Exception.Message)) -Method $method
                     continue
                 }
@@ -510,7 +511,7 @@ try {
             if ($path -eq '/stopwatch') {
                 $store = Read-StopwatchStore -Path $StopwatchPath
                 $phases = Get-StopwatchTranscriptCache -Runs $store.Runs -CachePath $StopwatchPhasesPath -TranscriptDir $TranscriptDir
-                $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs $store.Runs) -ReadError $store.Error -Skipped $store.Skipped -StorePath $StopwatchPath -Transcript $phases
+                $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs $store.Runs -Armed $store.Armed) -ReadError $store.Error -Skipped $store.Skipped -StorePath $StopwatchPath -Transcript $phases
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }

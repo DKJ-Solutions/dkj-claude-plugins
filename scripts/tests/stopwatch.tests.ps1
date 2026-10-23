@@ -66,6 +66,44 @@ Assert-Equal 1 @((Invoke-StopwatchAction -Runs $going -Action 'discard' -Now (& 
 Assert-Equal 0 @((Invoke-StopwatchAction -Runs $runs -Action 'delete' -Query @{ id = $id } -Now (& $at 201)).Runs).Count 'delete drops a finished run'
 Assert-True ((Invoke-StopwatchAction -Runs $runs -Action 'reset' -Now (& $at 201)).Error -match 'Unknown action') 'an unknown action is refused'
 
+Write-Host '-- arm and disarm (#3323)' -ForegroundColor Cyan
+$ra = Invoke-StopwatchAction -Runs @() -Action 'arm' -Query @{ label = '  CSS comment  ' } -Now (& $at 0)
+Assert-True (-not $ra.Error -and $ra.Armed.Label -eq 'CSS comment' -and $ra.Armed.At -eq (& $at 0) -and @($ra.Runs).Count -eq 0) 'arm stores the trimmed label and starts no clock'
+$armed = $ra.Armed
+Assert-Equal 'Docs' (Invoke-StopwatchAction -Runs @() -Action 'arm' -Query @{ label = 'Docs' } -Now (& $at 5) -Armed $armed).Armed.Label 'arming again replaces the armed label'
+Assert-True ((Invoke-StopwatchAction -Runs @() -Action 'arm' -Query @{ label = ' ' } -Now (& $at 5) -Armed $armed).Error -match 'needs a label') 'arm without a label is refused'
+$refused = Invoke-StopwatchAction -Runs $going -Action 'arm' -Query @{ label = 'x' } -Now (& $at 5) -Armed $armed
+Assert-True ($refused.Error -match 'already going' -and $refused.Armed.Label -eq 'CSS comment') 'arm while a run is going is refused, and the old arming stays'
+Assert-True ($null -eq (Invoke-StopwatchAction -Runs @() -Action 'disarm' -Now (& $at 6) -Armed $armed).Armed) 'disarm clears the armed label'
+Assert-True (-not (Invoke-StopwatchAction -Runs @() -Action 'disarm' -Now (& $at 6)).Error) 'disarm with nothing armed is not an error'
+Assert-Equal 'CSS comment' (Invoke-StopwatchAction -Runs $going -Action 'lap' -Now (& $at 6) -Armed $armed).Armed.Label 'a lap leaves the arming alone'
+Assert-True ($null -eq (Invoke-StopwatchAction -Runs @() -Action 'start' -Query @{ label = 'b' } -Now (& $at 6) -Armed $armed).Armed) 'a manual start while armed clears the arming'
+Assert-True (-not (Invoke-StopwatchAction -Runs @() -Action 'start' -Query @{ label = 'b' } -Now (& $at 6)).Runs[0].Auto) 'a run started by hand is not Auto'
+
+Write-Host '-- the hook rules (#3323)' -ForegroundColor Cyan
+$arm = @{ Label = 'Feature'; At = (& $at 0) }
+$h = Invoke-StopwatchHookEvent -Hook Prompt -Runs @() -Armed $arm -Now (& $at 10) -Head 'aaa'
+Assert-True ($h.Changed -and $null -eq $h.Armed -and @($h.Runs).Count -eq 1 -and $h.Runs[0].Auto -and $h.Runs[0].Label -eq 'Feature' -and $h.Runs[0].Start -eq (& $at 10) -and $h.Runs[0].StartHead -eq 'aaa' -and -not $h.Runs[0].End) 'a prompt starts the armed run now, Auto, at the current HEAD, and clears the arming'
+$h = Invoke-StopwatchHookEvent -Hook Prompt -Runs @() -Armed $arm -Now (& $at 10) -Head ''
+Assert-True (-not $h.Changed -and $h.Armed.Label -eq 'Feature' -and @($h.Runs).Count -eq 0) 'a prompt with an unknown HEAD starts nothing and keeps the arming'
+Assert-True (-not (Invoke-StopwatchHookEvent -Hook Prompt -Runs @() -Armed $null -Now (& $at 10) -Head 'aaa').Changed) 'a prompt with nothing armed does nothing'
+$manual = (Invoke-StopwatchAction -Runs @() -Action 'start' -Query @{ label = 'by hand' } -Now (& $at 0)).Runs
+$h = Invoke-StopwatchHookEvent -Hook Prompt -Runs $manual -Armed $arm -Now (& $at 10) -Head 'aaa'
+Assert-True (-not $h.Changed -and $h.Armed.Label -eq 'Feature' -and @($h.Runs).Count -eq 1) 'a prompt while a run is going starts nothing and keeps the arming'
+$auto = @((Invoke-StopwatchHookEvent -Hook Prompt -Runs @() -Armed $arm -Now (& $at 10) -Head 'aaa').Runs)
+$stop = { param($b, $c, $hd, $rs) Invoke-StopwatchHookEvent -Hook Stop -Runs $rs -Armed $null -Now (& $at 500) -Branch $b -Clean $c -Head $hd }
+$h = & $stop 'main' $true 'bbb' $auto
+Assert-True ($h.Changed -and $h.Runs[0].End -eq (& $at 500)) 'a Stop on the trunk, clean, with HEAD moved ends the Auto run'
+Assert-True (-not (& $stop 'main' $true 'aaa' $auto).Changed) 'a turn that left HEAD where it was keeps the run going'
+Assert-True (-not (& $stop 'feat/x' $true 'bbb' $auto).Changed) 'a branch parked off the trunk keeps the run going'
+Assert-True (-not (& $stop 'main' $false 'bbb' $auto).Changed) 'a dirty checkout keeps the run going'
+Assert-True (-not (& $stop 'main' $true '' $auto).Changed) 'an unknown HEAD keeps the run going'
+Assert-True (-not (& $stop 'main' $true 'bbb' $manual).Changed) 'a run started by hand is never stopped by the hook'
+$noHeadRun = $auto[0].Clone(); $noHeadRun.StartHead = ''
+Assert-True (-not (& $stop 'main' $true 'bbb' @($noHeadRun)).Changed) 'an Auto run with no StartHead is never stopped by the hook'
+Assert-True ((Invoke-StopwatchHookEvent -Hook Stop -Runs $auto -Armed $null -Now (& $at 500) -Branch 'master' -Clean $true -Head 'bbb' -Trunk 'master').Changed) 'the trunk name is a parameter'
+Assert-True (-not (Invoke-StopwatchHookEvent -Hook Stop -Runs @() -Armed $arm -Now (& $at 500) -Branch 'main' -Clean $true -Head 'bbb').Changed) 'a Stop with no run going does nothing'
+
 Write-Host '-- the store' -ForegroundColor Cyan
 $dir = Join-Path ([System.IO.Path]::GetTempPath()) ('stopwatch-tests-' + [guid]::NewGuid().ToString('N'))
 $store = Join-Path $dir 'sub\stopwatch.json'
@@ -82,8 +120,30 @@ try {
     [System.IO.File]::WriteAllText($store, '{ "runs": [ { "id": "x1", "label": "ok", "start": "2026-10-23T10:00:00.000Z" }, { "id": "bad id!", "label": "x", "start": "2026" }, { "id": "x2\n", "label": "x", "start": "2026-10-23T10:00:00.000Z" } ] }')
     $mixed = Read-StopwatchStore -Path $store
     Assert-True (@($mixed.Runs).Count -eq 1 -and $mixed.Skipped -eq 2) 'a run that does not parse is skipped and counted, an id with a trailing newline too'
+    Assert-True ($null -eq $mixed.Armed) 'a store with no armed entry reads as not armed'
+    Save-StopwatchStore -Path $store -Runs $auto -Armed $armed
+    $auto2 = Read-StopwatchStore -Path $store
+    Assert-True ($auto2.Armed.Label -eq 'CSS comment' -and $auto2.Armed.At -eq (& $at 0) -and $auto2.Runs[0].Auto -and $auto2.Runs[0].StartHead -eq 'aaa') 'armed, Auto and StartHead survive the round trip'
+    Save-StopwatchStore -Path $store -Runs $manual
+    $plain = Read-StopwatchStore -Path $store
+    Assert-True ($null -eq $plain.Armed -and -not $plain.Runs[0].Auto -and $plain.Runs[0].StartHead -eq '') 'a store saved without them reads back not armed and not Auto'
+    [System.IO.File]::WriteAllText($store, '{ "runs": [], "armed": { "label": " ", "at": "x" } }')
+    Assert-True ($null -eq (Read-StopwatchStore -Path $store).Armed) 'an armed entry that does not parse is not armed'
     [System.IO.File]::WriteAllText($store, '{ not json')
     Assert-Equal 'it is not valid JSON' (Read-StopwatchStore -Path $store).Error 'a store that is not JSON is an error, so nothing writes over it'
+    # The hook script itself, against a store of its own: silent, exit 0, and the same decisions.
+    $hookScript = Join-Path $RepoRoot 'scripts\dashboard\stopwatch-hook.ps1'
+    $hookStore = Join-Path $dir 'hook\stopwatch.json'
+    Save-StopwatchStore -Path $hookStore -Runs @() -Armed @{ Label = 'Hooked'; At = (& $at 0) }
+    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $hookScript -Hook Prompt -StorePath $hookStore 2>&1
+    Assert-True ($LASTEXITCODE -eq 0 -and -not $out) 'the hook script exits 0 and prints nothing'
+    $hs = Read-StopwatchStore -Path $hookStore
+    Assert-True ($null -eq $hs.Armed -and @($hs.Runs).Count -eq 1 -and $hs.Runs[0].Auto -and $hs.Runs[0].Label -eq 'Hooked' -and $hs.Runs[0].StartHead -match '^[0-9a-f]{40}$') 'the Prompt hook starts the armed run with this checkout''s HEAD'
+    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $hookScript -Hook Stop -StorePath $hookStore 2>&1
+    Assert-True ($LASTEXITCODE -eq 0 -and -not $out -and -not (Read-StopwatchStore -Path $hookStore).Runs[0].End) 'a Stop with HEAD where the run started leaves it going'
+    [System.IO.File]::WriteAllText($hookStore, '{ not json')
+    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $hookScript -Hook Prompt -StorePath $hookStore 2>&1
+    Assert-True ($LASTEXITCODE -eq 0 -and -not $out -and (Get-Content -LiteralPath $hookStore -Raw) -eq '{ not json') 'the hook never writes over a store that does not read'
 } finally {
     Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
 }
@@ -115,6 +175,12 @@ $evil = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk
 Assert-True ($evil -notmatch '<script>x</script>' -and $evil -match '&lt;script&gt;x&lt;/script&gt;') 'a label is escaped wherever it is shown'
 $broken = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -ReadError 'it is not valid JSON' -StorePath 's'
 Assert-True ($broken -match 'could not be read' -and $broken -match 'type="submit" disabled') 'a store that does not read says so, and turns the buttons off'
+Assert-True ($idle -match 'data-action="arm"' -and $idle -notmatch 'data-sw="disarm"' -and $idle -notmatch 'Armed:') 'with nothing running it offers Arm beside Start, and no Disarm until something is armed'
+$armedPage = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @() -Armed @{ Label = '<b>Feature</b>'; At = (& $at 0) }) -StorePath 's'
+Assert-True ($armedPage -match 'Armed: <strong>&lt;b&gt;Feature&lt;/b&gt;</strong> -- starts on your next prompt to Claude' -and $armedPage -match 'data-sw="disarm"') 'an armed label is shown, escaped, with Disarm'
+$autoRun = @{ Id = 'au'; Label = 'Auto'; Start = (& $at 0); End = (& $at 60); Laps = @(); Note = ''; Auto = $true; StartHead = 'a' }
+$autoPage = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @($autoRun, (& $mk 'Hand' 100 160))) -StorePath 's'
+Assert-Equal 1 ([regex]::Matches($autoPage, 'badge--info">auto<')).Count 'only an auto-started run carries the auto tag'
 
 Write-Host '-- the transcript phases' -ForegroundColor Cyan
 Assert-Equal (Join-Path $HOME '.claude\projects\C--Users-x-my-repo') (Get-StopwatchTranscriptDir -RepoRoot 'C:\Users\x\my.repo\') 'the transcripts are under the root with every non-alphanumeric a dash'

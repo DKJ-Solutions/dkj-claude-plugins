@@ -51,7 +51,7 @@ Claude's work without anybody pressing Start or Stop.
 - **The stop is "HEAD moved and the checkout is back on the trunk", not "a branch was seen".** A Stop hook fires
   only at the end of a turn, and a whole ship (branch, PR, merge, fold) usually happens inside one turn, so a
   branch is never observed at a turn's end. The `Stop` hook ends a running Auto run only when the checkout is on
-  the trunk, `git status --porcelain` is empty AND HEAD differs from `StartHead`. A turn that only answers a
+  the trunk, `git --no-optional-locks status --porcelain` is empty AND HEAD differs from `StartHead`. A turn that only answers a
   question leaves HEAD alone and the run keeps going; a branch parked for the owner's eye is not on the trunk, so
   it keeps going too. A run started by hand is never touched.
 - **The rules are pure, the hook only gathers.** `Invoke-StopwatchHookEvent` takes runs, armed, branch, clean,
@@ -77,7 +77,8 @@ Claude's work without anybody pressing Start or Stop.
 - [x] `serve-connector-dashboard.ps1`: the POST route takes `arm` and `disarm` and passes the armed state
   through; `dev-pages-lib.ps1`: the card subtitle no longer says "by hand"
 - [ ] `.claude/settings.json`: the two hook entries (a session cannot write a settings file, so the owner or
-  the orchestrator pastes the block; tick this once it is in)
+  the orchestrator pastes the block; tick this once it is in). The command is
+  `powershell -NoProfile -ExecutionPolicy Bypass -File "$CLAUDE_PROJECT_DIR/scripts/dashboard/stopwatch-hook.ps1" -Hook Prompt|Stop`
 
 ### TEST
 
@@ -92,9 +93,12 @@ Claude's work without anybody pressing Start or Stop.
 
 The hub's Stopwatch can now time Claude's work without anybody pressing Start or Stop. Arm a label on the page,
 and the clock starts at the next prompt you give Claude in a session of this checkout; it stops when Claude is back
-on the trunk with a clean checkout and the work landed. A turn that only answers a question, or a branch parked
+on the trunk with a clean checkout and HEAD moved since the start (a sign the work landed, not a proof of it). A turn that only answers a question, or a branch parked
 for your look, keeps the clock going. A run started by hand behaves as before, and auto-started runs carry an
 `auto` tag.
+
+A running hub must be restarted to pick up the new store fields: an old server would drop `armed`, `auto` and
+`startHead` on its next write. A manual Start while a label is armed clears the arming.
 
 **Score:** 2
 

@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
     The Stopwatch page of this repo's dev server (#3315): time an assignment from the moment it is given to
-    the moment it is done, by hand, and compare each run with the previous run of the same label, so the
-    slow steps of the workflow show and every next run can be made shorter.
+    the moment it is done, by hand or armed to start and stop by itself (#3323), and compare each run with the
+    previous run of the same label, so the slow steps of the workflow show and every next run can be made shorter.
 
 .DESCRIPTION
     THE CLOCK IS THE SERVER'S, NOT THE PAGE'S. Start, Lap and Stop each write a timestamp to the store,
@@ -14,6 +14,16 @@
     A file in the checkout would dirty it in the middle of the workflow being measured, and the scripts
     that ship a branch refuse a dirty tree. So the runs are this machine's, like the session transcripts the
     transcript phases read (below).
+
+    ARMED RUNS START AND STOP THEMSELVES (#3323). Arm stores a label as `armed` (top level of the store, beside
+    the runs); no clock runs yet. scripts/dashboard/stopwatch-hook.ps1, wired in .claude/settings.json as a
+    UserPromptSubmit and a Stop hook, calls Invoke-StopwatchHookEvent: the next prompt submitted in a session of
+    this checkout starts the armed run (Auto, with the checkout's HEAD as StartHead) and clears the arming, and a
+    Stop hook ends a running Auto run once the checkout is on the trunk, clean, with HEAD moved off StartHead (a
+    sign the work landed, not a proof of it). The HEAD test is the reason no branch needs to be seen: a whole ship (branch, PR, merge, fold) usually happens
+    inside one turn, and the Stop hook fires only at a turn's end. A turn that only answers leaves HEAD where it
+    was, and a branch parked for the owner's eye is not on the trunk, so the run keeps going in both. A run
+    started by hand is never touched by the hooks.
 
     A STORE THAT DOES NOT READ IS NEVER WRITTEN OVER. Read-StopwatchStore returns an Error for a file that
     is not valid JSON, and every write refuses while it is set, so one bad edit by hand loses nothing.
@@ -63,21 +73,23 @@ function ConvertTo-StopwatchRun {
             $at = ConvertTo-StopwatchTime $l.at
             if ($at) { @{ Name = [string]$l.name; At = $at } }
         })
-    return @{ Id = $id; Label = $label.Trim(); Start = $start; End = (ConvertTo-StopwatchTime $Raw.end); Laps = $laps; Note = [string]$Raw.note }
+    return @{ Id = $id; Label = $label.Trim(); Start = $start; End = (ConvertTo-StopwatchTime $Raw.end); Laps = $laps; Note = [string]$Raw.note
+        Auto = [bool]$Raw.auto; StartHead = [string]$Raw.startHead }
 }
 
 function Read-StopwatchStore {
     <#
-        The runs in the store at -Path, oldest first, and an Error that is empty when it read. A missing file is
-        an empty store, not an error. A run that does not parse is skipped and counted in Skipped.
+        The runs in the store at -Path, oldest first, the Armed state (@{ Label; At }, or $null) and an Error that
+        is empty when it read. A missing file is an empty store, not an error. A run that does not parse is skipped
+        and counted in Skipped; an armed entry that does not parse is simply not armed.
     #>
     param([Parameter(Mandatory = $true)][string]$Path)
-    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return @{ Runs = @(); Error = ''; Skipped = 0 } }
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return @{ Runs = @(); Armed = $null; Error = ''; Skipped = 0 } }
     try {
         $text = [System.IO.File]::ReadAllText($Path, (New-Object System.Text.UTF8Encoding($false)))
         $json = if ($text.Trim()) { $text | ConvertFrom-Json } else { $null }
     } catch {
-        return @{ Runs = @(); Error = 'it is not valid JSON'; Skipped = 0 }
+        return @{ Runs = @(); Armed = $null; Error = 'it is not valid JSON'; Skipped = 0 }
     }
     $runs = @(); $skipped = 0
     foreach ($r in @($(if ($json) { $json.runs } else { @() }))) {
@@ -85,12 +97,17 @@ function Read-StopwatchStore {
         $run = ConvertTo-StopwatchRun $r
         if ($run) { $runs += $run } else { $skipped++ }
     }
-    return @{ Runs = @($runs | Sort-Object { $_.Start }); Error = ''; Skipped = $skipped }
+    $armed = $null
+    if ($json -and $json.armed) {
+        $al = ([string]$json.armed.label).Trim(); $aAt = ConvertTo-StopwatchTime $json.armed.at
+        if ($al -and $aAt) { $armed = @{ Label = $al; At = $aAt } }
+    }
+    return @{ Runs = @($runs | Sort-Object { $_.Start }); Armed = $armed; Error = ''; Skipped = $skipped }
 }
 
 function Save-StopwatchStore {
-    <# Writes -Runs to -Path through a file beside it, so a failed write never leaves half a store. #>
-    param([Parameter(Mandatory = $true)][string]$Path, [AllowEmptyCollection()][object[]]$Runs = @())
+    <# Writes -Runs and -Armed (@{ Label; At }, or $null) to -Path through a file beside it, so a failed write never leaves half a store. #>
+    param([Parameter(Mandatory = $true)][string]$Path, [AllowEmptyCollection()][object[]]$Runs = @(), [hashtable]$Armed = $null)
     $dir = Split-Path -Parent $Path
     if (-not (Test-Path -LiteralPath $dir -PathType Container)) { [void](New-Item -ItemType Directory -Path $dir -Force) }
     $out = @{ runs = @(foreach ($r in @($Runs)) {
@@ -101,8 +118,11 @@ function Save-StopwatchStore {
                     end   = $(if ($r.End) { Format-StopwatchStamp $r.End } else { $null })
                     laps  = @(foreach ($l in @($r.Laps)) { [ordered]@{ name = $l.Name; at = (Format-StopwatchStamp $l.At) } })
                     note  = $r.Note
+                    auto  = [bool]$r.Auto
+                    startHead = [string]$r.StartHead
                 }
-            }) }
+            })
+        armed = $(if ($Armed) { [ordered]@{ label = $Armed.Label; at = (Format-StopwatchStamp $Armed.At) } } else { $null }) }
     $tmp = "$Path.tmp"
     [System.IO.File]::WriteAllText($tmp, ($out | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
     Move-Item -LiteralPath $tmp -Destination $Path -Force
@@ -122,21 +142,37 @@ function ConvertFrom-StopwatchQuery {
     return $q
 }
 
+function New-StopwatchRunId {
+    <# A run's id: the start time plus four hex. #>
+    param([Parameter(Mandatory = $true)][datetime]$Now)
+    return $Now.ToUniversalTime().ToString('yyyyMMdd-HHmmss', [Globalization.CultureInfo]::InvariantCulture) + '-' + ([guid]::NewGuid().ToString('N').Substring(0, 4))
+}
+
+function New-StopwatchRun {
+    <# A run that starts now. -Auto marks one a hook started; -StartHead is the checkout's HEAD then (#3323). #>
+    param([Parameter(Mandatory = $true)][string]$Label, [Parameter(Mandatory = $true)][datetime]$Now, [switch]$Auto, [string]$StartHead = '')
+    return @{ Id = (New-StopwatchRunId -Now $Now); Label = $Label; Start = $Now.ToUniversalTime(); End = $null; Laps = @(); Note = ''; Auto = [bool]$Auto; StartHead = $StartHead }
+}
+
 function Invoke-StopwatchAction {
     <#
         One button press against -Runs: start, lap, stop, discard (the running run), note or delete (a finished
-        run, by -Id). Returns the new runs and an Error; on an error the runs come back unchanged. -Now is the
-        server's clock, passed in so every rule is tested without one.
+        run, by -Id), and arm or disarm (-Armed, the stored armed label, #3323; a start clears it). Returns the new runs, the new
+        Armed (the one passed in unless arm or disarm changed it) and an Error; on an error the runs and Armed
+        come back unchanged. Arm is refused while a run is going and replaces an earlier armed label. -Now is
+        the server's clock, passed in so every rule is tested without one.
     #>
     param(
         [AllowEmptyCollection()][object[]]$Runs = @(),
         [Parameter(Mandatory = $true)][string]$Action,
         [hashtable]$Query = @{},
-        [Parameter(Mandatory = $true)][datetime]$Now
+        [Parameter(Mandatory = $true)][datetime]$Now,
+        [hashtable]$Armed = $null
     )
     $runs = @($Runs | Where-Object { $_ })
     $running = @($runs | Where-Object { -not $_.End }) | Select-Object -Last 1
-    $fail = { param($m) return @{ Runs = $runs; Error = $m } }
+    $fail = { param($m) return @{ Runs = $runs; Armed = $Armed; Error = $m } }
+    $ok = { param($r, $a) return @{ Runs = @($r); Armed = $a; Error = '' } }
     # A control character becomes a space; -Lines keeps a note's line breaks and tabs (Victor, #3315).
     $text = { param($k, $max, [switch]$Lines) $cc = if ($Lines) { '[\x00-\x08\x0b-\x1f\x7f]' } else { '[\x00-\x1f\x7f]' }
         $v = ([string]$Query[$k] -replace "`r`n", "`n") -replace $cc, ' '; $v = $v.Trim(); if ($v.Length -gt $max) { $v = $v.Substring(0, $max) }; $v }
@@ -146,12 +182,19 @@ function Invoke-StopwatchAction {
             if ($running) { return (& $fail "A run is already going: '$($running.Label)'. Stop or discard it first.") }
             $label = & $text 'label' $script:StopwatchLabelMax
             if (-not $label) { return (& $fail 'A run needs a label, such as "CSS comment".') }
-            $id = $now.ToString('yyyyMMdd-HHmmss', [Globalization.CultureInfo]::InvariantCulture) + '-' + ([guid]::NewGuid().ToString('N').Substring(0, 4))
-            return @{ Runs = @($runs + @(@{ Id = $id; Label = $label; Start = $now; End = $null; Laps = @(); Note = '' })); Error = '' }
+            # A manual start while armed clears the arming, so no auto run follows it.
+            return (& $ok @($runs + @(New-StopwatchRun -Label $label -Now $now)) $null)
         }
+        'arm' {
+            if ($running) { return (& $fail "A run is already going: '$($running.Label)'. Stop or discard it before arming.") }
+            $label = & $text 'label' $script:StopwatchLabelMax
+            if (-not $label) { return (& $fail 'An armed run needs a label, such as "CSS comment".') }
+            return (& $ok $runs @{ Label = $label; At = $now })
+        }
+        'disarm' { return (& $ok $runs $null) }
         { $_ -in 'lap', 'stop', 'discard' } {
             if (-not $running) { return (& $fail 'No run is going.') }
-            if ($Action -eq 'discard') { return @{ Runs = @($runs | Where-Object { $_.Id -ne $running.Id }); Error = '' } }
+            if ($Action -eq 'discard') { return (& $ok @($runs | Where-Object { $_.Id -ne $running.Id }) $Armed) }
             $copy = $running.Clone()
             if ($Action -eq 'lap') {
                 if (@($copy.Laps).Count -ge $script:StopwatchLapMax) { return (& $fail "A run holds at most $($script:StopwatchLapMax) laps.") }
@@ -161,19 +204,53 @@ function Invoke-StopwatchAction {
             } else {
                 $copy.End = $now
             }
-            return @{ Runs = @($runs | ForEach-Object { if ($_.Id -eq $copy.Id) { $copy } else { $_ } }); Error = '' }
+            return (& $ok @($runs | ForEach-Object { if ($_.Id -eq $copy.Id) { $copy } else { $_ } }) $Armed)
         }
         { $_ -in 'note', 'delete' } {
             $id = [string]$Query['id']
             $target = @($runs | Where-Object { $_.Id -ceq $id -and $_.End }) | Select-Object -First 1
             if (-not $target) { return (& $fail 'That run is not in the store, or it is still going.') }
-            if ($Action -eq 'delete') { return @{ Runs = @($runs | Where-Object { $_.Id -cne $id }); Error = '' } }
+            if ($Action -eq 'delete') { return (& $ok @($runs | Where-Object { $_.Id -cne $id }) $Armed) }
             $copy = $target.Clone()
             $copy.Note = & $text 'text' $script:StopwatchNoteMax -Lines
-            return @{ Runs = @($runs | ForEach-Object { if ($_.Id -ceq $id) { $copy } else { $_ } }); Error = '' }
+            return (& $ok @($runs | ForEach-Object { if ($_.Id -ceq $id) { $copy } else { $_ } }) $Armed)
         }
         default { return (& $fail "Unknown action '$Action'.") }
     }
+}
+
+function Invoke-StopwatchHookEvent {
+    <#
+        What a Claude Code hook does to the store (#3323), decided without git or a clock so every rule is tested.
+        -Hook Prompt: with an armed label and no run going, start an Auto run at -Now under that label, with -Head
+        as its StartHead, and clear the arming; otherwise nothing. -Hook Stop: a running Auto run ends at -Now
+        only when -Branch is -Trunk, -Clean (git status --porcelain was empty) and -Head is not the run's
+        StartHead, taken as work that landed (it proves HEAD moved, not that anything was merged); otherwise nothing.
+        A Prompt with an empty -Head starts nothing and keeps the arming, since a run without a StartHead could
+        never stop by itself. A run without a StartHead never stops
+        this way, and a run started by hand is never touched. Returns Runs, Armed and Changed (write only when set).
+    #>
+    param(
+        [Parameter(Mandatory = $true)][ValidateSet('Prompt', 'Stop')][string]$Hook,
+        [AllowEmptyCollection()][object[]]$Runs = @(),
+        [hashtable]$Armed = $null,
+        [Parameter(Mandatory = $true)][datetime]$Now,
+        [string]$Branch = '',
+        [bool]$Clean = $false,
+        [string]$Head = '',
+        [string]$Trunk = 'main'
+    )
+    $runs = @($Runs | Where-Object { $_ })
+    $running = @($runs | Where-Object { -not $_.End }) | Select-Object -Last 1
+    $same = @{ Runs = $runs; Armed = $Armed; Changed = $false }
+    if ($Hook -eq 'Prompt') {
+        if (-not $Armed -or $running -or -not $Head) { return $same }
+        return @{ Runs = @($runs + @(New-StopwatchRun -Label $Armed.Label -Now $Now -Auto -StartHead $Head)); Armed = $null; Changed = $true }
+    }
+    if (-not $running -or -not $running.Auto -or -not $running.StartHead) { return $same }
+    if ($Branch -cne $Trunk -or -not $Clean -or -not $Head -or $Head -ceq $running.StartHead) { return $same }
+    $copy = $running.Clone(); $copy.End = $Now.ToUniversalTime()
+    return @{ Runs = @($runs | ForEach-Object { if ($_.Id -eq $copy.Id) { $copy } else { $_ } }); Armed = $Armed; Changed = $true }
 }
 
 function Get-StopwatchPhases {
@@ -193,8 +270,9 @@ function ConvertTo-StopwatchModel {
         What the page shows: the running run, if any, and the finished runs grouped by label (the groups in the
         order of their latest run, newest first; each group's runs newest first). Each finished run carries its
         Seconds and its DeltaSeconds against the run of the same label before it ($null for the first).
+        -Armed (the stored armed label) is carried through for the page.
     #>
-    param([AllowEmptyCollection()][object[]]$Runs = @())
+    param([AllowEmptyCollection()][object[]]$Runs = @(), [hashtable]$Armed = $null)
     $all = @($Runs | Where-Object { $_ } | Sort-Object { $_.Start })
     $running = @($all | Where-Object { -not $_.End }) | Select-Object -Last 1
     $groups = @()
@@ -211,6 +289,7 @@ function ConvertTo-StopwatchModel {
     }
     return @{
         Running = $running
+        Armed   = $Armed
         Groups  = @($groups | Sort-Object { $_.Latest } -Descending)
         Labels  = @($groups | ForEach-Object { $_.Label } | Sort-Object)
         Count   = @($all | Where-Object { $_.End }).Count
@@ -477,14 +556,14 @@ function Format-StopwatchPageHtml {
     [void]$body.AppendLine('<p class="msg msg--warn" role="alert" id="sw-error" hidden></p>')
 
     [void]$body.AppendLine('<div class="grid-2" id="now">')
-    [void]$body.AppendLine('<div class="grid__head"><h2>Now</h2><p class="card__sub">Start when you give the assignment, stop when it is done</p></div>')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Now</h2><p class="card__sub">Arm it and it starts on your next prompt and stops when Claude is back on the trunk; or start and stop by hand</p></div>')
     [void]$body.AppendLine('<section class="card grid__full">')
     $r = $Model.Running
     if ($r) {
         $startIso = Format-StopwatchStamp $r.Start
         [void]$body.AppendLine('<h3>' + (& $e $r.Label) + '</h3>')
         [void]$body.AppendLine('<p class="sw-clock num" data-start="' + $startIso + '">' + (Format-DevSeconds ($Now - $r.Start).TotalSeconds) + '</p>')
-        [void]$body.AppendLine('<p class="note">Started ' + (& $local $r.Start) + '.</p>')
+        [void]$body.AppendLine('<p class="note">Started ' + (& $local $r.Start) + '.' + $(if ($r.Auto) { ' <span class="badge badge--sm badge--info">auto</span> Stops by itself when Claude is back on the trunk, clean, with HEAD moved since the start.' }) + '</p>')
         if (@($r.Laps).Count) {
             [void]$body.AppendLine('<ol class="sw-laps">')
             foreach ($p in @(Get-StopwatchPhases -Run $r)) { [void]$body.AppendLine('<li>' + (& $e $p.Name) + ' <span class="num">' + (Format-DevSeconds $p.Seconds) + '</span></li>') }
@@ -496,6 +575,12 @@ function Format-StopwatchPageHtml {
         [void]$body.AppendLine('<form class="sw-form" data-action="start"><label class="field"><span>Label</span><input name="label" list="sw-labels" maxlength="' + $script:StopwatchLabelMax + '" placeholder="e.g. CSS comment" required autocomplete="off"></label>')
         [void]$body.AppendLine('<datalist id="sw-labels">' + ((@($Model.Labels) | ForEach-Object { '<option value="' + (& $e $_) + '">' }) -join '') + '</datalist>')
         [void]$body.AppendLine('<div class="action-row"><button class="btn btn--primary" type="submit"' + $off + '>Start</button></div></form>')
+        if ($Model.Armed) {
+            [void]$body.AppendLine('<p class="msg" role="status">Armed: <strong>' + (& $e $Model.Armed.Label) + '</strong> -- starts on your next prompt to Claude. Armed ' + (& $local $Model.Armed.At) + '.</p>')
+            [void]$body.AppendLine('<div class="action-row"><button class="btn" type="button" data-sw="disarm"' + $off + '>Disarm</button></div>')
+        }
+        [void]$body.AppendLine('<form class="sw-form" data-action="arm"><label class="field"><span>Arm a label</span><input name="label" list="sw-labels" maxlength="' + $script:StopwatchLabelMax + '" placeholder="e.g. CSS comment" required autocomplete="off"></label>')
+        [void]$body.AppendLine('<div class="action-row"><button class="btn" type="submit"' + $off + '>Arm</button></div></form>')
     }
     [void]$body.AppendLine('</section>')
     [void]$body.AppendLine('</div>')
@@ -507,7 +592,7 @@ function Format-StopwatchPageHtml {
         foreach ($row in @($g.Rows)) {
             $phases = if (@($row.Phases).Count) { (@($row.Phases) | ForEach-Object { (& $e $_.Name) + ' <span class="num">' + (Format-DevSeconds $_.Seconds) + '</span>' }) -join '<br>' } else { '<span class="note">--</span>' }
             $id = & $e $row.Run.Id
-            [void]$body.AppendLine('<tr><td class="sw-left">' + (& $local $row.Run.Start) + '</td><td class="num">' + (Format-DevSeconds $row.Seconds) + '</td><td>' + (Format-StopwatchDelta $row.DeltaSeconds) + '</td><td class="sw-left">' + $phases + '</td><td class="sw-left">' + (Format-StopwatchTranscriptCell $Transcript[$row.Run.Id] $row.Seconds) + '</td>' +
+            [void]$body.AppendLine('<tr><td class="sw-left">' + (& $local $row.Run.Start) + $(if ($row.Run.Auto) { ' <span class="badge badge--sm badge--info">auto</span>' }) + '</td><td class="num">' + (Format-DevSeconds $row.Seconds) + '</td><td>' + (Format-StopwatchDelta $row.DeltaSeconds) + '</td><td class="sw-left">' + $phases + '</td><td class="sw-left">' + (Format-StopwatchTranscriptCell $Transcript[$row.Run.Id] $row.Seconds) + '</td>' +
                 '<td class="sw-left"><form class="sw-form sw-note" data-action="note"><input type="hidden" name="id" value="' + $id + '"><textarea name="text" rows="2" maxlength="' + $script:StopwatchNoteMax + '" aria-label="What to improve next time">' + (& $e $row.Run.Note) + '</textarea>' +
                 '<div class="action-row"><button class="btn" type="submit"' + $off + '>Save note</button><button class="btn" type="button" data-sw="delete" data-id="' + $id + '" data-confirm="Click again to delete"' + $off + '>Delete</button></div></form></td></tr>')
         }
@@ -558,9 +643,10 @@ function Format-StopwatchPageHtml {
 })();</script>
 '@
     $note = 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout, so a run never dirties the tree it is timing. ' +
+        'An armed label starts a run on the next prompt of a session in this checkout and stops it once Claude is back on the trunk, clean, with HEAD moved since the start (that suggests the work landed; it does not prove it) (<code>scripts/dashboard/stopwatch-hook.ps1</code>); a run started by hand is never stopped by a hook. ' +
         'The transcript column splits a run into phases read from this repo''s Claude Code session transcripts once a run has stopped: each second goes to the first phase going at that moment, ' +
         'so a ship running in the background counts as the ship, and a second in which no session was busy is time spent waiting on you. Built by <code>scripts/lib/stopwatch-lib.ps1</code>.'
     return Format-DevPageHtml -Title 'Stopwatch' -Style $style -Body ($body.ToString() + $script) `
-        -Lead 'How long an assignment takes, from the moment it is given to the moment it is done. Give each run a label, mark its steps with Lap, and note after each run what to improve, so the next run of the same label is shorter.' `
+        -Lead 'How long an assignment takes, from the moment it is given to the moment it is done. Give each run a label (arm it to start on your next prompt, or start it yourself), mark its steps with Lap, and note after each run what to improve, so the next run of the same label is shorter.' `
         -FooterNote $note
 }
