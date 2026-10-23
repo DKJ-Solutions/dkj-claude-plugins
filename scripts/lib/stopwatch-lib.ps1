@@ -15,6 +15,11 @@
     that ship a branch refuse a dirty tree. So the runs are this machine's, like the session transcripts the
     transcript phases read (below).
 
+    A RUN CAN START ITSELF FROM THE TERMINAL (#3323): a prompt whose first line begins with `stopwatch:` (any case,
+    leading whitespace allowed) starts an Auto run at once, labelled with the rest of that line (Get-StopwatchPromptMarker;
+    "Assignment" when it is empty). That is the main route; it needs no page. A marked prompt while a run is going
+    does nothing, and a marked prompt wins over an armed label and clears the arming.
+
     ARMED RUNS START AND STOP THEMSELVES (#3323). Arm stores a label as `armed` (top level of the store, beside
     the runs); no clock runs yet. scripts/dashboard/stopwatch-hook.ps1, wired in .claude/settings.json as a
     UserPromptSubmit and a Stop hook, calls Invoke-StopwatchHookEvent: the next prompt submitted in a session of
@@ -219,11 +224,28 @@ function Invoke-StopwatchAction {
     }
 }
 
+function Get-StopwatchPromptMarker {
+    <#
+        The label a prompt asks a run under, or $null when it carries no marker (#3323): the first line of -Prompt
+        begins, after any leading whitespace, with `stopwatch:` in any case. The label is the rest of that line,
+        control characters as spaces, trimmed and cut to the label maximum; empty becomes "Assignment".
+    #>
+    param([AllowEmptyString()][string]$Prompt = '')
+    $m = [regex]::Match($Prompt.TrimStart(), '^stopwatch:([^' + [char]13 + [char]10 + ']*)', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if (-not $m.Success) { return $null }
+    $label = ($m.Groups[1].Value -replace ('[' + [char]0 + '-' + [char]31 + [char]127 + ']'), ' ').Trim()
+    if ($label.Length -gt $script:StopwatchLabelMax) { $label = $label.Substring(0, $script:StopwatchLabelMax).Trim() }
+    if (-not $label) { $label = 'Assignment' }
+    return $label
+}
+
 function Invoke-StopwatchHookEvent {
     <#
         What a Claude Code hook does to the store (#3323), decided without git or a clock so every rule is tested.
-        -Hook Prompt: with an armed label and no run going, start an Auto run at -Now under that label, with -Head
-        as its StartHead, and clear the arming; otherwise nothing. -Hook Stop: a running Auto run ends at -Now
+        -Hook Prompt: a -Prompt marked `stopwatch:` (Get-StopwatchPromptMarker) with no run going starts an Auto
+        run under its label and clears any arming (the marker wins); a marked prompt while a run is going does
+        nothing. An unmarked prompt with an armed label and no run going starts an Auto run under that label.
+        Either way -Head is the run's StartHead and the arming is cleared; otherwise nothing. -Hook Stop: a running Auto run ends at -Now
         only when -Branch is -Trunk, -Clean (git status --porcelain was empty) and -Head is not the run's
         StartHead, taken as work that landed (it proves HEAD moved, not that anything was merged); otherwise nothing.
         A Prompt with an empty -Head starts nothing and keeps the arming, since a run without a StartHead could
@@ -238,14 +260,17 @@ function Invoke-StopwatchHookEvent {
         [string]$Branch = '',
         [bool]$Clean = $false,
         [string]$Head = '',
-        [string]$Trunk = 'main'
+        [string]$Trunk = 'main',
+        [AllowEmptyString()][string]$Prompt = ''
     )
     $runs = @($Runs | Where-Object { $_ })
     $running = @($runs | Where-Object { -not $_.End }) | Select-Object -Last 1
     $same = @{ Runs = $runs; Armed = $Armed; Changed = $false }
     if ($Hook -eq 'Prompt') {
-        if (-not $Armed -or $running -or -not $Head) { return $same }
-        return @{ Runs = @($runs + @(New-StopwatchRun -Label $Armed.Label -Now $Now -Auto -StartHead $Head)); Armed = $null; Changed = $true }
+        $marked = Get-StopwatchPromptMarker -Prompt $Prompt
+        if ($running -or -not $Head -or (-not $Armed -and $null -eq $marked)) { return $same }
+        $label = if ($null -ne $marked) { $marked } else { $Armed.Label }
+        return @{ Runs = @($runs + @(New-StopwatchRun -Label $label -Now $Now -Auto -StartHead $Head)); Armed = $null; Changed = $true }
     }
     if (-not $running -or -not $running.Auto -or -not $running.StartHead) { return $same }
     if ($Branch -cne $Trunk -or -not $Clean -or -not $Head -or $Head -ceq $running.StartHead) { return $same }
@@ -556,7 +581,7 @@ function Format-StopwatchPageHtml {
     [void]$body.AppendLine('<p class="msg msg--warn" role="alert" id="sw-error" hidden></p>')
 
     [void]$body.AppendLine('<div class="grid-2" id="now">')
-    [void]$body.AppendLine('<div class="grid__head"><h2>Now</h2><p class="card__sub">Arm it and it starts on your next prompt and stops when Claude is back on the trunk; or start and stop by hand</p></div>')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Now</h2><p class="card__sub">Begin a prompt with stopwatch: and it starts there and stops when Claude is back on the trunk; or arm a label here, or start and stop by hand</p></div>')
     [void]$body.AppendLine('<section class="card grid__full">')
     $r = $Model.Running
     if ($r) {
@@ -643,10 +668,10 @@ function Format-StopwatchPageHtml {
 })();</script>
 '@
     $note = 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout, so a run never dirties the tree it is timing. ' +
-        'An armed label starts a run on the next prompt of a session in this checkout and stops it once Claude is back on the trunk, clean, with HEAD moved since the start (that suggests the work landed; it does not prove it) (<code>scripts/dashboard/stopwatch-hook.ps1</code>); a run started by hand is never stopped by a hook. ' +
+        'A prompt whose first line begins with <code>stopwatch:</code> starts a run, labelled with the rest of that line, and an armed label starts one on the next prompt; either of a session in this checkout starts it, and it stops once Claude is back on the trunk, clean, with HEAD moved since the start (that suggests the work landed; it does not prove it) (<code>scripts/dashboard/stopwatch-hook.ps1</code>); a run started by hand is never stopped by a hook. ' +
         'The transcript column splits a run into phases read from this repo''s Claude Code session transcripts once a run has stopped: each second goes to the first phase going at that moment, ' +
         'so a ship running in the background counts as the ship, and a second in which no session was busy is time spent waiting on you. Built by <code>scripts/lib/stopwatch-lib.ps1</code>.'
     return Format-DevPageHtml -Title 'Stopwatch' -Style $style -Body ($body.ToString() + $script) `
-        -Lead 'How long an assignment takes, from the moment it is given to the moment it is done. Give each run a label (arm it to start on your next prompt, or start it yourself), mark its steps with Lap, and note after each run what to improve, so the next run of the same label is shorter.' `
+        -Lead 'How long an assignment takes, from the moment it is given to the moment it is done. Give each run a label (begin a prompt with stopwatch: to start it from the terminal, arm it here, or start it yourself), mark its steps with Lap, and note after each run what to improve, so the next run of the same label is shorter.' `
         -FooterNote $note
 }

@@ -1,12 +1,17 @@
 <#
 .SYNOPSIS
-    The Claude Code hook behind the Stopwatch's armed runs (#3323): start the armed run when a prompt is
-    submitted, stop it when Claude is back on the trunk with the work landed.
+    The Claude Code hook behind the Stopwatch's automatic runs (#3323): start a run when a prompt begins with
+    `stopwatch:` (or the armed run when any prompt is submitted), stop it when Claude is back on the trunk, clean,
+    with HEAD moved since the start.
 
 .DESCRIPTION
     Wired up in .claude/settings.json as a UserPromptSubmit hook (-Hook Prompt) and a Stop hook (-Hook Stop):
 
         powershell -NoProfile -ExecutionPolicy Bypass -File "scripts/dashboard/stopwatch-hook.ps1" -Hook Prompt
+
+    THE MAIN ROUTE IS THE MARKER: the Prompt hook reads the UserPromptSubmit JSON from stdin (only parses its `prompt`
+    field, never prints it) and a prompt whose first line begins with `stopwatch:` starts an Auto run labelled with
+    the rest of that line (Get-StopwatchPromptMarker). The armed label set on the page is the second route.
 
     The rules are Invoke-StopwatchHookEvent's in scripts/lib/stopwatch-lib.ps1 (pure, tested by
     scripts/tests/stopwatch.tests.ps1); this script only gathers what they need (the store, the checkout's
@@ -40,8 +45,15 @@ try {
     $store = Read-StopwatchStore -Path $StorePath
     if ($store.Error) { exit 0 }
     $running = @($store.Runs | Where-Object { -not $_.End }) | Select-Object -Last 1
-    # Nothing to decide, so no git: a Prompt needs an armed label and no run going, a Stop an Auto run going.
-    if ($Hook -eq 'Prompt' -and (-not $store.Armed -or $running)) { exit 0 }
+    # The UserPromptSubmit payload is JSON on stdin with the prompt in `prompt`. It is only parsed, never printed.
+    $prompt = ''
+    if ($Hook -eq 'Prompt' -and [Console]::IsInputRedirected) {
+        $reader = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), (New-Object System.Text.UTF8Encoding($false)))
+        $raw = $reader.ReadToEnd()
+        if ($raw.Trim()) { try { $prompt = [string]($raw | ConvertFrom-Json).prompt } catch { $prompt = '' } }
+    }
+    # Nothing to decide, so no git: a Prompt needs a marker or an armed label, and no run going; a Stop an Auto run going.
+    if ($Hook -eq 'Prompt' -and ($running -or (-not $store.Armed -and $null -eq (Get-StopwatchPromptMarker -Prompt $prompt)))) { exit 0 }
     if ($Hook -eq 'Stop' -and (-not $running -or -not $running.Auto)) { exit 0 }
 
     $trunk = 'main'
@@ -63,7 +75,7 @@ try {
         $clean = ($LASTEXITCODE -eq 0) -and ($porcelain.Count -eq 0)
     }
     $ErrorActionPreference = 'Stop'
-    $r = Invoke-StopwatchHookEvent -Hook $Hook -Runs $store.Runs -Armed $store.Armed -Now ([datetime]::UtcNow) -Branch $branch -Clean $clean -Head $head -Trunk $trunk
+    $r = Invoke-StopwatchHookEvent -Hook $Hook -Runs $store.Runs -Armed $store.Armed -Now ([datetime]::UtcNow) -Branch $branch -Clean $clean -Head $head -Trunk $trunk -Prompt $prompt
     if ($r.Changed) { Save-StopwatchStore -Path $StorePath -Runs $r.Runs -Armed $r.Armed }
 } catch { }
 exit 0

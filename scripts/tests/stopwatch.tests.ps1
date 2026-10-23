@@ -104,6 +104,26 @@ Assert-True (-not (& $stop 'main' $true 'bbb' @($noHeadRun)).Changed) 'an Auto r
 Assert-True ((Invoke-StopwatchHookEvent -Hook Stop -Runs $auto -Armed $null -Now (& $at 500) -Branch 'master' -Clean $true -Head 'bbb' -Trunk 'master').Changed) 'the trunk name is a parameter'
 Assert-True (-not (Invoke-StopwatchHookEvent -Hook Stop -Runs @() -Armed $arm -Now (& $at 500) -Branch 'main' -Clean $true -Head 'bbb').Changed) 'a Stop with no run going does nothing'
 
+Write-Host '-- the stopwatch: marker (#3323)' -ForegroundColor Cyan
+Assert-Equal 'CSS comment' (Get-StopwatchPromptMarker -Prompt "  StopWatch:  CSS comment  `nthe rest of the prompt") 'the marker is case-insensitive, leading whitespace is fine, and the label is the rest of the first line trimmed'
+Assert-Equal 'Assignment' (Get-StopwatchPromptMarker -Prompt "stopwatch:   `nsomething") 'an empty label falls back to Assignment'
+Assert-Equal 80 (Get-StopwatchPromptMarker -Prompt ('stopwatch: ' + ('a' * 200))).Length 'the label is cut at the label maximum'
+Assert-True ($null -eq (Get-StopwatchPromptMarker -Prompt "fix this`nstopwatch: x")) 'a marker on a later line is not a marker'
+Assert-True ($null -eq (Get-StopwatchPromptMarker -Prompt 'please stopwatch: x') -and $null -eq (Get-StopwatchPromptMarker -Prompt '')) 'a prompt that does not begin with the marker, and an empty one, carry none'
+$h = Invoke-StopwatchHookEvent -Hook Prompt -Runs @() -Armed $null -Now (& $at 10) -Head 'aaa' -Prompt "stopwatch: Docs fix`nplease do it"
+Assert-True ($h.Changed -and @($h.Runs).Count -eq 1 -and $h.Runs[0].Auto -and $h.Runs[0].Label -eq 'Docs fix' -and $h.Runs[0].StartHead -eq 'aaa' -and $h.Runs[0].Start -eq (& $at 10)) 'a marked prompt starts an Auto run under its label with nothing armed'
+$h = Invoke-StopwatchHookEvent -Hook Prompt -Runs @() -Armed $null -Now (& $at 10) -Head 'aaa' -Prompt 'stopwatch:'
+Assert-Equal 'Assignment' $h.Runs[0].Label 'a marker with an empty label starts a run called Assignment'
+$h = Invoke-StopwatchHookEvent -Hook Prompt -Runs $manual -Armed $arm -Now (& $at 10) -Head 'aaa' -Prompt 'stopwatch: other'
+Assert-True (-not $h.Changed -and @($h.Runs).Count -eq 1 -and $h.Runs[0].Label -eq 'by hand' -and $h.Armed.Label -eq 'Feature') 'a marked prompt while a run is going does nothing, and the arming stays'
+$h = Invoke-StopwatchHookEvent -Hook Prompt -Runs @() -Armed $arm -Now (& $at 10) -Head 'aaa' -Prompt 'stopwatch: Marked'
+Assert-True ($h.Changed -and $h.Runs[0].Label -eq 'Marked' -and $null -eq $h.Armed) 'a marked prompt wins over an armed label and clears the arming'
+$h = Invoke-StopwatchHookEvent -Hook Prompt -Runs @() -Armed $arm -Now (& $at 10) -Head 'aaa' -Prompt 'just a question'
+Assert-True ($h.Changed -and $h.Runs[0].Label -eq 'Feature') 'an unmarked prompt still starts the armed run'
+$h = Invoke-StopwatchHookEvent -Hook Prompt -Runs @() -Armed $null -Now (& $at 10) -Head '' -Prompt 'stopwatch: x'
+Assert-True (-not $h.Changed -and @($h.Runs).Count -eq 0) 'a marked prompt with an unknown HEAD starts nothing'
+Assert-True (-not (Invoke-StopwatchHookEvent -Hook Prompt -Runs @() -Armed $null -Now (& $at 10) -Head 'aaa' -Prompt 'just a question').Changed) 'an unmarked prompt with nothing armed does nothing'
+
 Write-Host '-- the store' -ForegroundColor Cyan
 $dir = Join-Path ([System.IO.Path]::GetTempPath()) ('stopwatch-tests-' + [guid]::NewGuid().ToString('N'))
 $store = Join-Path $dir 'sub\stopwatch.json'
@@ -135,14 +155,21 @@ try {
     $hookScript = Join-Path $RepoRoot 'scripts\dashboard\stopwatch-hook.ps1'
     $hookStore = Join-Path $dir 'hook\stopwatch.json'
     Save-StopwatchStore -Path $hookStore -Runs @() -Armed @{ Label = 'Hooked'; At = (& $at 0) }
-    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $hookScript -Hook Prompt -StorePath $hookStore 2>&1
+    $out = '{"prompt":"hello"}' | & powershell -NoProfile -ExecutionPolicy Bypass -File $hookScript -Hook Prompt -StorePath $hookStore 2>&1
     Assert-True ($LASTEXITCODE -eq 0 -and -not $out) 'the hook script exits 0 and prints nothing'
     $hs = Read-StopwatchStore -Path $hookStore
     Assert-True ($null -eq $hs.Armed -and @($hs.Runs).Count -eq 1 -and $hs.Runs[0].Auto -and $hs.Runs[0].Label -eq 'Hooked' -and $hs.Runs[0].StartHead -match '^[0-9a-f]{40}$') 'the Prompt hook starts the armed run with this checkout''s HEAD'
     $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $hookScript -Hook Stop -StorePath $hookStore 2>&1
     Assert-True ($LASTEXITCODE -eq 0 -and -not $out -and -not (Read-StopwatchStore -Path $hookStore).Runs[0].End) 'a Stop with HEAD where the run started leaves it going'
+    # The marker route: the prompt arrives as JSON on stdin, nothing is armed, and the run starts under its label.
+    $markStore = Join-Path $dir 'hook\marker.json'
+    $out = '{"session_id":"s","prompt":"  Stopwatch: From the terminal\nand the rest"}' | & powershell -NoProfile -ExecutionPolicy Bypass -File $hookScript -Hook Prompt -StorePath $markStore 2>&1
+    $ms = Read-StopwatchStore -Path $markStore
+    Assert-True ($LASTEXITCODE -eq 0 -and -not $out -and @($ms.Runs).Count -eq 1 -and $ms.Runs[0].Auto -and $ms.Runs[0].Label -eq 'From the terminal' -and $ms.Runs[0].StartHead -match '^[0-9a-f]{40}$') 'the hook script reads the prompt from stdin and a marked one starts an Auto run, silently'
+    $out = '{"prompt":"stopwatch: again"}' | & powershell -NoProfile -ExecutionPolicy Bypass -File $hookScript -Hook Prompt -StorePath $markStore 2>&1
+    Assert-True ($LASTEXITCODE -eq 0 -and -not $out -and @((Read-StopwatchStore -Path $markStore).Runs).Count -eq 1) 'a second marked prompt while the run goes starts nothing'
     [System.IO.File]::WriteAllText($hookStore, '{ not json')
-    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $hookScript -Hook Prompt -StorePath $hookStore 2>&1
+    $out = '{"prompt":"stopwatch: x"}' | & powershell -NoProfile -ExecutionPolicy Bypass -File $hookScript -Hook Prompt -StorePath $hookStore 2>&1
     Assert-True ($LASTEXITCODE -eq 0 -and -not $out -and (Get-Content -LiteralPath $hookStore -Raw) -eq '{ not json') 'the hook never writes over a store that does not read'
 } finally {
     Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue

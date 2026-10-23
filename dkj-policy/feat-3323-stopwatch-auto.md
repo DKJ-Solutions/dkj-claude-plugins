@@ -44,7 +44,13 @@ Claude's work without anybody pressing Start or Stop.
 
 #### Design
 
-- **Arm, then a hook starts it.** `/stopwatch` gets an Arm form beside Start: a label is stored as `armed`
+- **The main route is a marker in the prompt (owner, later the same day).** A prompt whose first line begins with
+  `stopwatch:` (any case, leading whitespace allowed) starts an Auto run at once, labelled with the rest of that
+  line (cut to the label maximum; "Assignment" when empty), so a run starts from the terminal without the page.
+  The `UserPromptSubmit` hook reads its JSON payload from stdin and only parses the `prompt` field, never prints
+  it. A marked prompt while a run is going does nothing and leaves any arming alone; a marked prompt wins over an
+  armed label and clears the arming; an unmarked prompt behaves as below. The empty-HEAD guard applies to both.
+- **Arm, then a hook starts it** (the second route, kept as it is). `/stopwatch` gets an Arm form beside Start: a label is stored as `armed`
   (top level of the store, beside the runs) and no clock runs. Arming while a run is going is refused, arming
   again replaces the label, Disarm clears it. A `UserPromptSubmit` hook starts the armed run at the moment the
   next prompt is submitted (`Auto`, label = the armed label, `StartHead` = the checkout's HEAD) and clears the arming.
@@ -73,7 +79,8 @@ Claude's work without anybody pressing Start or Stop.
 
 - [x] `stopwatch-lib.ps1`: `armed` in the store, `Auto` and `StartHead` on a run, the `arm` and `disarm`
   actions, `New-StopwatchRun`, `Invoke-StopwatchHookEvent`, and the page's Armed line, Arm form and auto tag
-- [x] `scripts/dashboard/stopwatch-hook.ps1`: the hook script for `UserPromptSubmit` and `Stop`
+- [x] `scripts/dashboard/stopwatch-hook.ps1`: the hook script for `UserPromptSubmit` and `Stop`, reading the
+  prompt from stdin; `Get-StopwatchPromptMarker` and the `-Prompt` rule in `Invoke-StopwatchHookEvent`
 - [x] `serve-connector-dashboard.ps1`: the POST route takes `arm` and `disarm` and passes the armed state
   through; `dev-pages-lib.ps1`: the card subtitle no longer says "by hand"
 - [x] `.claude/settings.json`: the two hook entries (a session cannot write a settings file, so the owner or
@@ -85,14 +92,16 @@ Claude's work without anybody pressing Start or Stop.
 - [x] `stopwatch.tests.ps1`: arm and disarm rules, the hook's decisions (start, no start with a run going or
   nothing armed, stop only on the trunk, clean and moved; not for a manual run, a missing StartHead or an unknown
   HEAD), the store round trip of `armed`, `Auto` and `StartHead`, the hook script run for real against a store of
-  its own (silent, exit 0, never writes over an unreadable store), and the page (100 green)
+  its own (silent, exit 0, never writes over an unreadable store), and the page; the `stopwatch:` marker (label, empty label, while running, over an armed label, unknown HEAD) and
+  the hook script reading the prompt from stdin against a temp store (116 green)
 - [x] `dev-pages.tests.ps1` and `connector-dashboard.tests.ps1` green (310 and 198)
 - [x] `check-plugin-integrity.ps1`: 0 errors
 
 ### DEPLOY: feat/3323-stopwatch-auto
 
-The hub's Stopwatch can now time Claude's work without anybody pressing Start or Stop. Arm a label on the page,
-and the clock starts at the next prompt you give Claude in a session of this checkout; it stops when Claude is back
+The hub's Stopwatch can now time Claude's work without anybody pressing Start or Stop. Begin a prompt to Claude
+with `stopwatch: <label>` and the clock starts right there; or arm a label on the page, and it starts at the
+next prompt you give Claude in a session of this checkout. Either way it stops when Claude is back
 on the trunk with a clean checkout and HEAD moved since the start (a sign the work landed, not a proof of it). A turn that only answers a question, or a branch parked
 for your look, keeps the clock going. A run started by hand behaves as before, and auto-started runs carry an
 `auto` tag.
