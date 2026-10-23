@@ -100,5 +100,5 @@ if (-not $selection.Proven) {
     exit 0
 }
 $names = @($selection.Suites | ForEach-Object { ($_ -split '/')[-1] })
-Write-SelectionVerdict -Mode 'selected' -Suites $names -Reason ("asset-only ({0}): {1} of {2} suites -- {3} reached by a changed path, {4} tree walk(s) that name the extension" -f ($assets.Extensions -join ', '), $names.Count, $selection.PoolCount, @($selection.Matched).Count, @($selection.KeptAlways).Count)
+Write-SelectionVerdict -Mode 'selected' -Suites $names -Reason ("asset-only ({0}): {1} of {2} suites -- {3} reached by a changed path, {4} tree walk(s) that can read that type" -f ($assets.Extensions -join ', '), $names.Count, $selection.PoolCount, @($selection.Matched).Count, @($selection.KeptAlways).Count)
 exit 0

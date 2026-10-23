@@ -155,6 +155,19 @@ $list = @('c-tool.ps1', 'docs/data.json')
     Assert-True (-not $walkFixture.Walks) 'a walk over a fixture is not a walk over the live tree'
     $walkMarked = Get-SuiteReferenceSet -Text "# gate-selection: always`nexit 0`n"
     Assert-True $walkMarked.Walks "a suite can declare its walk with '# gate-selection: always'"
+    Assert-True $walkMarked.WalksOpen 'and a declared walk is OPEN, since nobody can read what it returns (#3309)'
+
+    # WHICH WALKS ARE OPEN (#3309) -- a walk that can return any file type is never narrowed by type.
+    Assert-True (-not $walkDirect.WalksOpen) 'a recursive walk with -Filter is narrowed to a type, so not open'
+    Assert-True $walkDerived.WalksOpen 'a recursive walk with no filter at all is open'
+    Assert-True (-not $walkGit.WalksOpen) 'a git ls-files with a wildcard pathspec is not open'
+    Assert-True (Get-SuiteReferenceSet -Text "& git -C `$RepoRoot ls-files`n").WalksOpen 'and one with no pathspec lists every type, so it is'
+    Assert-True (Get-SuiteReferenceSet -Text "gci `$RepoRoot -r`n").WalksOpen 'an abbreviated -Recurse is still a recursion'
+    Assert-True (-not (Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot '*.md' -Recurse`n").WalksOpen) 'a positional wildcard is a filter'
+    Assert-True (Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot -Recurse -Exclude '*.tmp'`n").WalksOpen 'but a wildcard handed to -Exclude narrows nothing'
+    Assert-True (-not (Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot -File`n").WalksOpen) 'a walk that does not recurse is not open'
+    Assert-True (-not $walkFixture.WalksOpen) 'and an unfiltered walk over a fixture is no walk of the live tree at all'
+
     $broken = Get-SuiteReferenceSet -Text "function Broken {`n"
     Assert-True (-not $broken.Parsed) 'a file that does not parse is reported as unparsed, never as empty'
 
@@ -211,6 +224,35 @@ $list = @('c-tool.ps1', 'docs/data.json')
     Assert-Equal 4 $sel.PoolCount 'a suite deleted from disk is not in the pool (Victor)'
     Assert-True ((Get-SelectedNames $sel) -notmatch 'plain') 'and is never selected'
     Set-FixtureFile $r4 'scripts/tests/plain.tests.ps1' "exit 0`n"
+
+    # --- 4b. the walks narrowed to the changed file types (#3309, lever 1) -------------------------------
+    Write-Host "`n== 4b. narrowing the walks by file type ==" -ForegroundColor Cyan
+    $r4b = New-SelectionFixture
+    $walkHead = "`$RepoRoot = (Resolve-Path (Join-Path `$PSScriptRoot '..\..')).Path`n"
+    Set-FixtureFile $r4b 'scripts/tests/walkps1.tests.ps1' ($walkHead + "`$s = Get-ChildItem -LiteralPath `$RepoRoot -Recurse -Filter '*.ps1'`nexit 0`n")
+    Set-FixtureFile $r4b 'scripts/tests/walkcss.tests.ps1' ($walkHead + "`$s = Get-ChildItem -LiteralPath `$RepoRoot -Recurse -Filter '*.css'`nexit 0`n")
+    Set-FixtureFile $r4b 'scripts/tests/walkmd.tests.ps1' (". (Join-Path `$PSScriptRoot '..\lib\registry-lib.ps1')`n" + $walkHead + "`$s = Get-ChildItem -LiteralPath `$RepoRoot -Recurse -Filter '*.md'`nexit 0`n")
+    Invoke-FixtureGit -Dir $r4b 'add' '-A'
+    Invoke-FixtureGit -Dir $r4b 'commit' '-qm' 'walkers'
+
+    $sel = Get-AffectedSuiteSelection -RepoRoot $r4b -ChangedPaths @('assets/site.css')
+    Assert-True $sel.Proven 'a stylesheet change is a proven selection'
+    Assert-Equal 'walk,walkcss' (Get-SelectedNames $sel) 'a stylesheet keeps the walk that names css and the OPEN walk, nothing else'
+    Assert-Equal 'walkmd,walkps1' ((@($sel.Unread | ForEach-Object { ($_ -split '/')[-1] -replace '\.tests\.ps1$', '' }) | Sort-Object) -join ',') 'and reports the walks it left out as Unread'
+
+    $sel = Get-AffectedSuiteSelection -RepoRoot $r4b -ChangedPaths @('scripts/task/new-tool.ps1')
+    Assert-True ((Get-SelectedNames $sel) -match 'walkps1') 'a script change keeps the walk that names ps1'
+    Assert-True ((Get-SelectedNames $sel) -notmatch 'walkcss') 'and drops the one that only walks stylesheets'
+
+    $sel = Get-AffectedSuiteSelection -RepoRoot $r4b -ChangedPaths @('docs/data.json')
+    Assert-True ((Get-SelectedNames $sel) -match 'walkmd') 'a walk narrowed away still runs when its suite REACHES the changed file -- the ordinary match'
+    Assert-True (@($sel.Matched) -contains 'scripts/tests/walkmd.tests.ps1') 'and it is reported as matched, not as a walk'
+
+    $sel = Get-AffectedSuiteSelection -RepoRoot $r4b -ChangedPaths @('LICENSE')
+    Assert-Equal 'walk,walkcss,walkmd,walkps1' (Get-SelectedNames $sel) 'a changed path with no extension keeps every walk, since no source can name its type'
+
+    $sel = Get-AffectedSuiteSelection -RepoRoot $r4b -ChangedPaths @('assets/site.css', 'notes/x.md')
+    Assert-True ((Get-SelectedNames $sel) -match 'walkmd' -and (Get-SelectedNames $sel) -match 'walkcss') 'a mixed change keeps the walks of every type it touches'
 
     # --- 5. the per-blob cache ------------------------------------------------------------------------
     Write-Host "`n== 5. the reference cache ==" -ForegroundColor Cyan

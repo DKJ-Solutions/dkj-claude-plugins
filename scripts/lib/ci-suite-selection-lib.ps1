@@ -15,12 +15,14 @@
     WHAT IS KEPT FOR AN ASSET-ONLY PR, and why each half:
       - MATCHED: every suite Get-AffectedSuiteSelection (gate-lib.ps1) maps the changed paths to. That is
         the same reference graph the local gate trusts, so a suite that names the stylesheet runs.
-      - KEPT-ALWAYS: of the suites that walk the live tree (the selection's Always set, 40 on
-        October 22, 2026), the ones whose source mentions a changed path's extension (`css`, `svg`, ...).
-        Every walk measured that day filters on `*.ps1`, `*.md`, `*.json`, `*.yml` or a named manifest, so
-        none of them can enumerate a stylesheet. A future walk that does has to name the extension
-        to filter on it, and naming it keeps the suite in. The guard is crude on purpose: it errs
-        toward running a suite, never toward skipping one.
+      - KEPT-ALWAYS: the selection's Always set, which Get-AffectedSuiteSelection has already narrowed to
+        the tree walks that can return a changed path's type -- a walk whose source names the extension
+        (`css`, `svg`, ...), or an OPEN walk that can return any type at all (a recursive Get-ChildItem or
+        a git ls-files with no filter, or a '# gate-selection: always' line). That narrowing lived here
+        until the local gate took it over (#3309's lever 1), and it was blind to an open walk: a later
+        suite walking the tree unfiltered without naming `css` would have been dropped. Every walk measured
+        on October 22, 2026 filters on `*.ps1`, `*.md`, `*.json`, `*.yml` or a named manifest, so none of
+        them can enumerate a stylesheet. The guard errs toward running a suite, never toward skipping one.
 
     WHAT A MISS COSTS IS DIFFERENT FROM THE LOCAL GATE, and that is the trade the owner accepted. Locally a
     missed suite costs a red CI run. Here nothing runs behind the selection, so a missed suite is an ungated
@@ -92,20 +94,9 @@ function Get-StaticAssetSuiteSelection {
     $result.PoolCount = $selection.PoolCount
     if (-not $selection.Proven) { $result.Reason = $selection.Reason; return $result }
 
-    # The extension without its dot, as a whole word: 'css' matches '*.css' and "'.css'" alike.
-    $tokens = @($assets.Extensions | ForEach-Object { [regex]::Escape($_.TrimStart('.')) })
-    $pattern = '(?i)\b(' + ($tokens -join '|') + ')\b'
-    $kept = New-Object System.Collections.ArrayList
-    foreach ($suite in @($selection.Always)) {
-        $full = Join-Path $RepoRoot $suite
-        # An unreadable suite is kept: the guard only ever drops a suite it has read.
-        $text = $null
-        try { $text = [System.IO.File]::ReadAllText($full) } catch { }
-        if ($null -eq $text -or $text -match $pattern) { [void]$kept.Add($suite) }
-    }
     $result.Matched = @($selection.Matched)
-    $result.KeptAlways = @($kept)
-    $result.Suites = @(@($selection.Matched) + @($kept) | Sort-Object -Unique)
+    $result.KeptAlways = @($selection.Always)
+    $result.Suites = @(@($selection.Matched) + @($selection.Always) | Sort-Object -Unique)
     $result.Proven = $true
     return $result
 }

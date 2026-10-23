@@ -67,21 +67,25 @@ try {
     $script:stub = $null
     function Get-AffectedSuiteSelection { param($RepoRoot, $ChangedPaths) return $script:stub }
 
+    # The map's Always is already narrowed to the walks that can read the changed type (#3309, lever 1;
+    # affected-suites.tests.ps1 proves that), so this lib takes it as it stands and drops nothing itself.
     $script:stub = [pscustomobject]@{
         Proven = $true; PoolCount = 164
         Matched = @('scripts/tests/matched.tests.ps1')
-        Always = @('scripts/tests/walks-ps1.tests.ps1', 'scripts/tests/walks-css.tests.ps1', 'scripts/tests/gone.tests.ps1')
+        Always = @('scripts/tests/walks-css.tests.ps1', 'scripts/tests/gone.tests.ps1')
+        Unread = @('scripts/tests/walks-ps1.tests.ps1')
     }
     $s = Get-StaticAssetSuiteSelection -RepoRoot $fixture -ChangedPaths @('brandbook/src/index.css')
     Assert-True $s.Proven 'an asset-only change over a proven map is a proven selection'
     Assert-True ($s.Suites -contains 'scripts/tests/matched.tests.ps1') 'a suite the map ties to the changed path runs'
-    Assert-True ($s.Suites -contains 'scripts/tests/walks-css.tests.ps1') 'a tree walk that names the extension runs'
-    Assert-True ($s.Suites -notcontains 'scripts/tests/walks-ps1.tests.ps1') 'a tree walk that only names *.ps1 is dropped -- the saving'
-    Assert-True ($s.Suites -contains 'scripts/tests/gone.tests.ps1') 'an unreadable suite is kept, because the guard only drops a suite it has read'
+    Assert-True ($s.Suites -contains 'scripts/tests/walks-css.tests.ps1') 'a tree walk the map kept runs'
+    Assert-True ($s.Suites -contains 'scripts/tests/gone.tests.ps1') 'even one this lib cannot read -- the map decided, not this lib'
+    Assert-True ($s.Suites -notcontains 'scripts/tests/walks-ps1.tests.ps1') 'a walk the map left out does not run -- the saving'
+    Assert-Equal 'scripts/tests/gone.tests.ps1,scripts/tests/walks-css.tests.ps1' ((@($s.KeptAlways) | Sort-Object) -join ',') 'and KeptAlways is the map''s Always, unfiltered'
     Assert-Equal 164 $s.PoolCount 'and the pool size is the map''s'
 
-    $s = Get-StaticAssetSuiteSelection -RepoRoot $fixture -ChangedPaths @('assets/logo.png')
-    Assert-True ($s.Suites -notcontains 'scripts/tests/walks-css.tests.ps1') 'the extension guard is per change: a PNG does not keep the walk that names css'
+    $lib = [System.IO.File]::ReadAllText($LibPath)
+    Assert-True ($lib -notmatch 'ReadAllText') 'this lib reads no suite source: a second, blinder type filter here would drop an OPEN walk the map kept'
 
     $script:stub = [pscustomobject]@{ Proven = $false; PoolCount = 164; Matched = @(); Always = @(); Reason = 'git could not list the tree' }
     $s = Get-StaticAssetSuiteSelection -RepoRoot $fixture -ChangedPaths @('brandbook/src/index.css')

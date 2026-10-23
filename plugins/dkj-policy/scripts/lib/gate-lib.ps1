@@ -1304,6 +1304,11 @@ function Get-SuiteReferenceSet {
           - Walks : whether it ENUMERATES the live repo -- a Get-ChildItem, git ls-files/grep, a
                     recursive copy or a directory listing on a path built from $RepoRoot -- or says so
                     itself with a '# gate-selection: always' line.
+          - WalksOpen : whether one of those walks can return a file of ANY type -- a recursive
+                    Get-ChildItem over the live tree with no -Filter, no -Include and no wildcard
+                    argument, or the '# gate-selection: always' line, whose walk nobody can read. Such a
+                    suite is never narrowed by file type (issue #3309): the narrowing reads the suite's
+                    source for the changed extension, and an open walk reads a type it never names.
 
         COMMENTS ARE NOT REFERENCES, AND THAT IS MEASURED. Counting every file name a script's text
         mentions selected all 162 suites for every change, because these scripts' docstrings name
@@ -1319,14 +1324,14 @@ function Get-SuiteReferenceSet {
 
     $run = New-Object 'System.Collections.Generic.HashSet[string]'
     $read = New-Object 'System.Collections.Generic.HashSet[string]'
-    $result = [pscustomobject]@{ Parsed = $false; Run = $run; Read = $read; Walks = $false }
+    $result = [pscustomobject]@{ Parsed = $false; Run = $run; Read = $read; Walks = $false; WalksOpen = $false }
 
     $tokens = $null
     $errors = $null
     $ast = [System.Management.Automation.Language.Parser]::ParseInput($Text, [ref]$tokens, [ref]$errors)
     if ($errors -and $errors.Count -gt 0) { return $result }
     $result.Parsed = $true
-    if ($Text -match '(?m)^\s*#\s*gate-selection:\s*always\s*$') { $result.Walks = $true }
+    if ($Text -match '(?m)^\s*#\s*gate-selection:\s*always\s*$') { $result.Walks = $true; $result.WalksOpen = $true }
 
     # ONE WALK OVER THE TREE, and every later question answered by climbing a node's PARENT chain
     # rather than by searching the tree again. Both choices are measured: FindAll with a script-block
@@ -1345,6 +1350,7 @@ function Get-SuiteReferenceSet {
     # The commands first: which of them RUN a file, and which WALK a directory.
     $runCommands = New-Object 'System.Collections.Generic.HashSet[object]'
     $walkNodes = New-Object 'System.Collections.Generic.HashSet[object]'
+    $openWalkNodes = New-Object 'System.Collections.Generic.HashSet[object]'
     foreach ($n in $nodes) {
         if ($n -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
             $member = "$($n.Member)".ToLowerInvariant()
@@ -1368,6 +1374,35 @@ function Get-SuiteReferenceSet {
             ($name -eq 'copy-item' -and $flags -contains 'recurse') -or
             ($name -in @('git', 'git.exe') -and (($words -contains 'ls-files') -or ($words -contains 'grep')))) {
             [void]$walkNodes.Add($n)
+        }
+        # AN OPEN WALK: a recursive Get-ChildItem that nothing narrows to a file type at the source -- no
+        # -Filter or -Include (or a prefix of either), and no wildcard among its plain arguments, which is
+        # where a positional filter sits. A wildcard handed to -Exclude narrows nothing, so it is skipped.
+        # A walk narrowed only AFTER the fact (| Where-Object Extension -eq '.ps1') counts as open here;
+        # that costs a suite kept, never one dropped.
+        if ($name -in @('get-childitem', 'gci', 'dir', 'ls')) {
+            $recurses = $false
+            $narrowed = $false
+            $previous = ''
+            foreach ($e in $n.CommandElements) {
+                if ($e -is [System.Management.Automation.Language.CommandParameterAst]) {
+                    $p = $e.ParameterName.ToLowerInvariant()
+                    if ($p -and ('recurse'.StartsWith($p) -or $p -eq 'depth')) { $recurses = $true }
+                    if ($p.Length -ge 2 -and ('filter'.StartsWith($p) -or 'include'.StartsWith($p))) { $narrowed = $true }
+                    $previous = $p
+                    continue
+                }
+                if ($e -is [System.Management.Automation.Language.StringConstantExpressionAst] -and
+                    $e.Value.Contains('*') -and -not ($previous.Length -ge 2 -and 'exclude'.StartsWith($previous))) { $narrowed = $true }
+                $previous = ''
+            }
+            if ($recurses -and -not $narrowed) { [void]$openWalkNodes.Add($n) }
+        }
+        # The same for git: an ls-files or grep with no wildcard pathspec lists or searches every tracked
+        # file, whatever its type.
+        if ($name -in @('git', 'git.exe') -and (($words -contains 'ls-files') -or ($words -contains 'grep')) -and
+            -not @($words | Where-Object { $_.Contains('*') }).Count) {
+            [void]$openWalkNodes.Add($n)
         }
         $op = $n.InvocationOperator
         if (($op -eq [System.Management.Automation.Language.TokenKind]::Dot) -or
@@ -1430,6 +1465,7 @@ function Get-SuiteReferenceSet {
                 if ($isString) { [void]$run.Add($ref) } else { [void]$varUses.Add(@('run', $varName)) }
             }
             if ($isVar -and $walkNodes.Contains($parent)) { [void]$varUses.Add(@('walk', $varName)) }
+            if ($isVar -and $openWalkNodes.Contains($parent)) { [void]$varUses.Add(@('openwalk', $varName)) }
             $parent = $parent.Parent
         }
     }
@@ -1451,6 +1487,7 @@ function Get-SuiteReferenceSet {
 
     foreach ($use in $varUses) {
         if ($use[0] -eq 'walk' -and $rootVars.Contains($use[1])) { $result.Walks = $true }
+        if ($use[0] -eq 'openwalk' -and $rootVars.Contains($use[1])) { $result.WalksOpen = $true }
         if ($use[0] -eq 'run' -and $assignedRefs.ContainsKey($use[1])) {
             foreach ($r in $assignedRefs[$use[1]]) { [void]$run.Add($r) }
         }
@@ -1522,9 +1559,10 @@ function Get-AffectedSuiteSelection {
     <#
         Which test suites a set of changed paths can affect -- the local half of issue #3223, where
         open-pr runs those and leaves the whole pool to the required CI check. Returns {Proven, Suites,
-        Always, Matched, PoolCount, Reason}: Suites is what to run (Always plus Matched), Always the
-        suites that run in every selection, and Proven is $false -- with the Reason -- whenever the
-        mapping could not be made, in which case the caller runs every suite.
+        Always, Matched, Unread, PoolCount, Reason}: Suites is what to run (Always plus Matched), Always
+        the tree walks that can read a changed path's type, Unread the tree walks that cannot and so do
+        not run, and Proven is $false -- with the Reason -- whenever the mapping could not be made, in
+        which case the caller runs every suite.
 
         THE MAP IS A REFERENCE GRAPH, READ OFF THE SYNTAX TREE. A suite affects a path when the path is
         the suite itself, a file the suite reaches by EXECUTING it (dot-source, &, -File, transitively),
@@ -1545,6 +1583,19 @@ function Get-AffectedSuiteSelection {
         '# gate-selection: always' line. KNOWN GAPS, each costing a red CI run rather than an ungated
         merge: a file name assembled at run time ("x-" + "lib.ps1"), Import-Module, and a script run
         through Invoke-Expression or [scriptblock]::Create are not followed.
+
+        ...UNLESS NOTHING THE CHANGE TOUCHES IS A TYPE THE WALK CAN RETURN (issue #3309, lever 1). A CSS
+        fix selected all ~40 walks, and nearly every one of them filters on *.ps1, *.md, *.json or a named
+        manifest. So a walk now keeps its suite only when the walking file's source names one of the
+        changed paths' extensions as a whole word ('css' in "*.css" or "'.css'"), or when the walk is
+        OPEN -- it can return any type (Get-SuiteReferenceSet's WalksOpen), and an open walk reads a
+        type it never names. A changed path with no extension keeps every walk, because no source can
+        name its type. A walk narrowed away does not exempt its suite from the ordinary match: a suite
+        that walks *.ps1 still runs when it reaches the changed file. Measured October 23, 2026: a CSS
+        change in brandbook/ selects 3 suites where it selected 40, a README 58 where it selected 67,
+        and a .ps1 change all 40 walks, as before. The miss costs what any miss here costs, a red CI
+        run -- except on an asset-only PR, where CI selects with this same function
+        (ci-suite-selection-lib.ps1) and a miss is the ungated merge that trade accepted.
 
         WHY THIS IS NOT THE PER-SUITE PROOF #2323 DECLINED. That proposal would have RECORDED a suite as
         proved without running it, with nothing behind the record to catch a wrong one. This records
@@ -1575,7 +1626,7 @@ function Get-AffectedSuiteSelection {
         [string]$TestsDir = 'scripts/tests'
     )
     $testsPrefix = ($TestsDir.Replace('\', '/').Trim('/')).ToLowerInvariant() + '/'
-    $verdict = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Matched = @(); PoolCount = 0; Reason = '' }
+    $verdict = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Matched = @(); Unread = @(); PoolCount = 0; Reason = '' }
 
     $changed = @($ChangedPaths | ForEach-Object { "$_".Trim().Replace('\', '/') } | Where-Object { $_ })
     $quoted = @($changed | Where-Object { $_.StartsWith('"') })
@@ -1632,7 +1683,7 @@ function Get-AffectedSuiteSelection {
     # THE CACHE, keyed by the extractor's own source so a change to how references are read can never be
     # answered from a cache written under the old rules. Best-effort in both directions: an unreadable or
     # malformed file is an empty cache, and an unwritable one costs the next run its parse.
-    $extractor = Get-Sha256Hex -Text ("v1`n" + ${function:ConvertTo-SuiteReference}.ToString() + ${function:Get-SuiteReferenceSet}.ToString())
+    $extractor = Get-Sha256Hex -Text ("v2`n" + ${function:ConvertTo-SuiteReference}.ToString() + ${function:Get-SuiteReferenceSet}.ToString())
     $cachePath = Get-SuiteReferenceCachePath -RepoRoot $RepoRoot
     $stored = @{}
     if ($cachePath -and (Test-Path -LiteralPath $cachePath -PathType Leaf)) {
@@ -1650,17 +1701,17 @@ function Get-AffectedSuiteSelection {
     $refsOf = {
         param([string]$Path)
         if ($refs.ContainsKey($Path)) { return $refs[$Path] }
-        $r = [pscustomobject]@{ Parsed = $true; Run = @(); Read = @(); Walks = $false }
+        $r = [pscustomobject]@{ Parsed = $true; Run = @(); Read = @(); Walks = $false; WalksOpen = $false }
         $full = Join-Path $RepoRoot $Path
         if ($Path -like '*.ps1' -and (Test-Path -LiteralPath $full -PathType Leaf)) {
             $blob = if ($blobOf.ContainsKey($Path)) { $blobOf[$Path] } else { '' }
             if ($blob -and $stored.ContainsKey($blob)) {
                 $e = $stored[$blob]
-                $r = [pscustomobject]@{ Parsed = [bool]$e.p; Run = @($e.r); Read = @($e.d); Walks = [bool]$e.w }
+                $r = [pscustomobject]@{ Parsed = [bool]$e.p; Run = @($e.r); Read = @($e.d); Walks = [bool]$e.w; WalksOpen = [bool]$e.o }
             } else {
                 $r = Get-SuiteReferenceSet -Text ([System.IO.File]::ReadAllText($full))
                 if ($blob) {
-                    $stored[$blob] = [pscustomobject]@{ p = [int]$r.Parsed; r = @($r.Run); d = @($r.Read); w = [int]$r.Walks }
+                    $stored[$blob] = [pscustomobject]@{ p = [int]$r.Parsed; r = @($r.Run); d = @($r.Read); w = [int]$r.Walks; o = [int]$r.WalksOpen }
                     $cacheState.Dirty = $true
                 }
             }
@@ -1688,20 +1739,41 @@ function Get-AffectedSuiteSelection {
         return $out
     }
 
+    # WHICH FILE TYPES THE CHANGE TOUCHES, for narrowing the tree walks (issue #3309): a walk keeps its
+    # suite only where it could return one of them. $null -- keep every walk -- when any changed path has
+    # no extension, since no source can be read for a type that has no name.
+    $typePattern = $null
+    $typeTokens = @($changed | ForEach-Object { [System.IO.Path]::GetExtension($_).TrimStart('.') } | Sort-Object -Unique)
+    if ($typeTokens.Count -gt 0 -and -not @($typeTokens | Where-Object { -not $_ }).Count) {
+        $typePattern = '(?i)\b(' + (@($typeTokens | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')\b'
+    }
+    $walkReadsChange = {
+        param($Walker)
+        if ($null -eq $typePattern -or $Walker.Open) { return $true }
+        # An unreadable walker is kept: a walk is only ever dropped by a source that has been read.
+        try { return ([System.IO.File]::ReadAllText((Join-Path $RepoRoot $Walker.Path)) -match $typePattern) } catch { return $true }
+    }
+
     $selected = New-Object System.Collections.ArrayList
     $always = New-Object System.Collections.ArrayList
     $matched = New-Object System.Collections.ArrayList
+    $unread = New-Object System.Collections.ArrayList
     foreach ($s in $suites) {
         $reached = New-Object 'System.Collections.Generic.HashSet[string]'
         $named = New-Object 'System.Collections.Generic.HashSet[string]'
         $queue = New-Object System.Collections.Queue
         $queue.Enqueue($s); [void]$reached.Add($s)
         $runAlways = $false
+        $walkers = New-Object System.Collections.ArrayList
         while ($queue.Count -gt 0) {
             $p = $queue.Dequeue()
             $r = & $refsOf $p
             $testOwned = $p.ToLowerInvariant().StartsWith($testsPrefix, [StringComparison]::Ordinal)
-            if (-not $r.Parsed -or ($testOwned -and $r.Walks)) { $runAlways = $true; break }
+            if (-not $r.Parsed) { $runAlways = $true; [void]$walkers.Add([pscustomobject]@{ Path = $p; Open = $true }); break }
+            # THE WHOLE GRAPH IS FOLLOWED NOW, NOT CUT OFF AT THE FIRST WALK: a walk that the change's file
+            # types narrow away leaves the suite to the ordinary match below, and that match needs every
+            # file the suite reaches.
+            if ($testOwned -and $r.Walks) { $runAlways = $true; [void]$walkers.Add([pscustomobject]@{ Path = $p; Open = [bool]$r.WalksOpen }) }
             $follow = @($r.Run)
             if ($testOwned) { $follow += @($r.Read) }
             foreach ($ref in @($r.Read)) {
@@ -1714,7 +1786,7 @@ function Get-AffectedSuiteSelection {
                 }
             }
         }
-        if ($runAlways) { [void]$always.Add($s); [void]$selected.Add($s); continue }
+        if ($runAlways -and @($walkers | Where-Object { & $walkReadsChange $_ }).Count) { [void]$always.Add($s); [void]$selected.Add($s); continue }
         $hit = $false
         foreach ($c in $changed) {
             foreach ($rp in $reached) { if ($rp.ToLowerInvariant() -eq $c) { $hit = $true; break } }
@@ -1722,10 +1794,12 @@ function Get-AffectedSuiteSelection {
             if ($hit) { break }
         }
         if ($hit) { [void]$selected.Add($s); [void]$matched.Add($s) }
+        elseif ($runAlways) { [void]$unread.Add($s) }
     }
     $verdict.Suites = @($selected)
     $verdict.Always = @($always)
     $verdict.Matched = @($matched)
+    $verdict.Unread = @($unread)
     $verdict.Proven = $true
 
     # Written only when something new was parsed or something stale can be dropped, and then holding
@@ -2128,7 +2202,7 @@ function Invoke-WorkflowGates {
                 # THE SELECTED RUN (issue #3223). What it prints is the argument, as above: how many suites
                 # the changes reach, how many run regardless, and who runs the rest.
                 $selectedNames = @($gateSelection.Suites | ForEach-Object { ($_ -split '/')[-1] })
-                Write-Host ("test gate: {0} of {1} suites selected for this branch's changes -- {2} reached by a changed path, {3} that walk the live tree and always run. CI ({4}) runs all {1}; -AllSuites runs them here (#3223)." -f $selectedNames.Count, $gateSelection.PoolCount, $gateSelection.Matched.Count, $gateSelection.Always.Count, $ciCheck) -ForegroundColor Cyan
+                Write-Host ("test gate: {0} of {1} suites selected for this branch's changes -- {2} reached by a changed path, {3} tree walk(s) that can read a changed file's type ({5} that cannot are left out). CI ({4}) runs all {1}; -AllSuites runs them here (#3223, #3309)." -f $selectedNames.Count, $gateSelection.PoolCount, $gateSelection.Matched.Count, $gateSelection.Always.Count, $ciCheck, @($gateSelection.Unread).Count) -ForegroundColor Cyan
                 if ($selectedNames.Count -eq 0) {
                     Write-Host "test gate: no suite is affected by these changes -- none run here." -ForegroundColor DarkGray
                 } elseif (-not (Invoke-TestSuiteGate -TestsDir (Join-Path $RepoRoot 'scripts\tests') -Context $Context -MaxParallel $MaxParallel -SuiteNames $selectedNames)) {

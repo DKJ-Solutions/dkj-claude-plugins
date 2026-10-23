@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Lever 1 of #3309 (lever 2 shipped in #3311). The ~40 suites that walk the live tree ran on every
+local selection; narrow them to the walks that can return a changed path's type, and fold in the
+review note's guard: a walk that can return ANY type (unfiltered) is never narrowed.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-SuiteReferenceSet` reports `WalksOpen`: a recursive Get-ChildItem with no -Filter/-Include/wildcard, a git ls-files/grep with no wildcard pathspec, or the `# gate-selection: always` line
+- [x] The reference cache carries the new flag (extractor key v2)
+- [x] `Get-AffectedSuiteSelection` keeps a walk only when it is open or its source names a changed extension; a path with no extension keeps every walk; a narrowed walk still goes through the ordinary match; dropped walks reported as `Unread`
+- [x] `ci-suite-selection-lib.ps1` takes the map's narrowed `Always` instead of its own text filter, which was blind to an open walk
+- [x] The gate's console line names the walks left out
+- [x] Mirror `plugins/dkj-policy/scripts/lib/gate-lib.ps1` byte-identical
 
 ### TEST
 
+- [x] `affected-suites.tests.ps1`: open-walk detection (8 shapes) and a new section 4b on the narrowing -- 96 pass
+- [x] `ci-suite-selection-lib.tests.ps1` reshaped to the map deciding -- 33 pass
+- [x] Measured against `origin/main` in a temp worktree: brandbook CSS 40 -> 3 suites, house-style CSS 44 -> 7, README 67 -> 58, App.tsx 41 -> 1, a `.ps1` lib 87 -> 87
+
 ### DEPLOY: feat/3309-local-always-narrowing
 
-**Score:**
+A change that touches no PowerShell now skips the test suites that walk the repo for other file
+types, in the local `open-pr` gate. A CSS fix in `brandbook/` runs 3 suites where it ran 40, a
+`.tsx` change 1 where it ran 41, a README 58 where it ran 67; a script change still runs all of
+them. A walk that can return any file type is never skipped, which also closes the gap the lever-2
+review found in the CI selection for asset-only pull requests (#3309).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo running this workflow waits on fewer suites in `open-pr` for a change to stylesheets, front-end
+sources or docs, because the shared gate library ships with the plugin.
+
+**Score:** 3
 
 #### Pull Request
 
