@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**10 / 15 minor entries** <!-- pending-tally -->
+**11 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3309-scoped-tree-walks · 20261023-073540Z
+
+The local test gate in `open-pr` no longer runs every suite that walks the live tree. A suite can now
+declare what its walk reads with a `# gate-selection: walks <pattern> ...` line, and it runs only when a
+changed path falls inside that scope. In this repo 37 of those 40 suites declare one and two more inherit a
+scope from a helper they reach, so only one still runs every time and a CSS change runs 5 suites locally
+where it ran 44. The selection's own suite checks that each declared scope covers the
+filters the suite's own walks use. The required CI check is unchanged.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo that takes this release can declare the same line in its own tree-walking suites and stop waiting on
+them for changes outside what they read. Nothing changes until it does: a suite with no declaration still
+runs every time.
+
+**Score:** 2
+
+#### Pull Request
+
+Tree-walking suites declare their scope, so a change outside it selects none of them locally
+
+Plugins: dkj-policy
+
+[PR #3314](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3314)
+
+---
 
 ### DEPLOY: feat/3297-hub-banner-every-page · 20261023-072310Z
 
