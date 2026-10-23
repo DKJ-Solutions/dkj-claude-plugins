@@ -324,6 +324,7 @@ function Add-RunStepMark {
         $at = if ($NowUtc -is [datetime]) { ([datetime]$NowUtc).ToUniversalTime() } else { (Get-Date).ToUniversalTime() }
         $line = ([ordered]@{ at = $at.ToString('o'); run = $Run; step = $Step; pid = $PID; workspace = "$ws" } | ConvertTo-Json -Compress)
         $utf8 = New-Object System.Text.UTF8Encoding($false)
+        # Not atomic: two ships crossing the cap at once can lose a line, which costs a timing aid one mark at worst.
         if ((Test-Path -LiteralPath $file -PathType Leaf) -and (Get-Item -LiteralPath $file).Length -gt $script:RunStepLogMaxBytes) {
             $keep = @([System.IO.File]::ReadAllLines($file, $utf8) | Select-Object -Last $script:RunStepLogKeepLines)
             [System.IO.File]::WriteAllLines($file, [string[]]$keep, $utf8)

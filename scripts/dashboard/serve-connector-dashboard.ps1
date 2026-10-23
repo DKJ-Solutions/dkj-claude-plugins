@@ -119,8 +119,8 @@ $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride
 if (-not $StopwatchPath) { $StopwatchPath = Get-StopwatchStorePath }
 if (-not $TranscriptDir) { $TranscriptDir = Get-StopwatchTranscriptDir -RepoRoot $root }
 $StopwatchPhasesPath = Join-Path (Split-Path -Parent $StopwatchPath) 'stopwatch-phases.json'
-# ship-pr's step marks (#3338), in the step log Get-RunStepLogPath names, which sits beside the default store.
-$StopwatchStepLogPath = Join-Path (Split-Path -Parent $StopwatchPath) 'run-steps.jsonl'
+# ship-pr's step marks (#3338): the writer's own path, from the lib stopwatch-lib.ps1 loads beside itself.
+$StopwatchStepLogPath = if (Get-Command Get-RunStepLogPath -ErrorAction SilentlyContinue) { Get-RunStepLogPath } else { '' }
 # The test gate's own selection and CI's, so /test-gate shows what they decide for this checkout (#3309).
 # GUARDED, unlike the libs above: they serve one section of one page, and gate-lib.ps1 loads a chain of its
 # own, so a tree without them (this script's own test fixtures) still serves every page, and the section

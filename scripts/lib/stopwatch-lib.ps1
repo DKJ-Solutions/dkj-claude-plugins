@@ -499,7 +499,9 @@ function Get-StopwatchTranscriptCache {
     $events = @(foreach ($f in $files) { Read-StopwatchTranscriptEvents -Path $f.FullName -From $from -To $to })
     $marks = @()
     if ($StepLogPath -and (Get-Command Read-RunStepMarks -ErrorAction SilentlyContinue)) {
-        $marks = @(Read-RunStepMarks -Path $StepLogPath -From $from.AddHours(-1) -To $to | Where-Object {
+        # From the earliest ship call's start, which the events read up to an hour before $from: a mark before it cuts nothing.
+        $markFrom = (@($events | ForEach-Object { $_.Tools } | Where-Object { $_ -and $_.Start } | ForEach-Object { $_.Start }) + @($from) | Measure-Object -Minimum).Minimum
+        $marks = @(Read-RunStepMarks -Path $StepLogPath -From $markFrom -To $to | Where-Object {
                 $_.Run -eq 'ship-pr' -and (-not $RepoRoot -or (Test-RunProgressInWorkspace -RecordWorkspace $_.Workspace -SessionWorkspace $RepoRoot)) })
     }
     foreach ($r in $missing) {
