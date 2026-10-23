@@ -1548,7 +1548,9 @@ Assert-True ($idxLoopHead -ge 0 -and $idxLoopHead -lt $idxWatchCall) 'the watch 
 # the CALL rather than on the field list -- the field list itself moved into that function, which sits
 # above step 3, and asserting on it here would pass on a definition instead of on a read. The field list
 # is still asserted separately above, where the claim is that ship-pr asks for `link` at all.
-$idxFacts     = Get-ShipIdx -Needle 'Get-CheckFactsNow -Pr' -In 'Step 3:' -Code
+# -From THE WATCH CALL, because step 3a (the early forward) reads the same payload before the watch, in its
+# own poll -- the first occurrence in the region is that one, not the per-attempt read this is about.
+$idxFacts     = Get-ShipIdx -Needle 'Get-CheckFactsNow -Pr' -In 'Step 3:' -From $idxWatchCall -Code
 Assert-True ($idxFacts -gt $idxWatchCall -and $idxFacts -lt $idxLost) 'and the check facts are re-read per attempt, which is what the decision is made from'
 # AND THE FUNCTION IS DEFINED ONCE AND CALLED TWICE -- step 3's per-attempt read and step 3b's forward
 # lap. Its own docstring says it was lifted out of step 3, and a caller left hand-written there would
@@ -3135,8 +3137,10 @@ Assert-True ($shipText -like '*seam-lib.ps1*') 'and seam-lib is dot-sourced, sin
 # FAILS CLOSED: a diff that will not read leaves the commit counted, and an unresolved seam exempts
 # nothing at all.
 Assert-True ($shipText -like '*if ($diffRead.ExitCode -ne 0) { continue }*') 'a diff that will not read leaves that commit counted -- it is never exempted by default'
-Assert-True ($shipText -like '*if ($changelogForFold -and $entryDirForFold) {*') 'and an unresolved seam skips the whole classification rather than guessing at it'
-Assert-True ($shipText -like '*if ($newMainCommits.Count -gt 0) {*') 'nothing is read at all when the trunk has not moved'
+# THE CLASSIFICATION IS Get-FoldExemptCommits SINCE STEP 3A SHARED IT, so the two guards are its early
+# returns -- the same two conditions, read the other way round.
+Assert-True ($shipText -like '*if (-not ($changelogForFold -and $entryDirForFold)) { return $exempt }*') 'and an unresolved seam skips the whole classification rather than guessing at it'
+Assert-True ($shipText -like '*if (@($Commits).Count -eq 0) { return $exempt }*') 'nothing is read at all when the trunk has not moved'
 
 # The verdict is handed both lists, and what was discounted is said out loud -- in the dim line and in
 # the refusal, because the operator's next move is to look at the trunk and count for themselves.

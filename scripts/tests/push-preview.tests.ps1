@@ -203,6 +203,16 @@ Assert-Match (Get-ThemePreviewUrl -Store 'https://a-store.myshopify.com/' -Theme
 Assert-Match (Get-ThemePreviewUrl -Store 'a-store.myshopify.com' -ThemeId '123' -Path 'products/x') '^https://a-store\.myshopify\.com/products/x\?' 'a path without its leading slash is still placed correctly'
 
 Write-Host ""
+Write-Host "Get-PreviewPathRefusal -- a git-bash-mangled -Path is refused (inbound #3355)" -ForegroundColor Cyan
+# The measured shape: MSYS rewrote '/products/...' before powershell.exe saw it, the push succeeded, and
+# only the printed URL 404'd -- so the refusal is the only signal the run gives.
+Assert-Match (Get-PreviewPathRefusal -Path 'C:/Program Files/Git/products/x') 'MSYS_NO_PATHCONV=1' 'the measured mangled path is refused, naming the remedy'
+Assert-Match (Get-PreviewPathRefusal -Path 'C:\Program Files\Git\products\x') 'MSYS_NO_PATHCONV=1' '...in either slash direction'
+Assert-Equal $null (Get-PreviewPathRefusal -Path '/products/x') 'a real storefront path is not refused'
+Assert-Equal $null (Get-PreviewPathRefusal -Path 'products/x') '...nor a relative one, which Get-ThemePreviewUrl prefixes'
+Assert-Equal $null (Get-PreviewPathRefusal -Path '/') '...nor the default home page'
+
+Write-Host ""
 Write-Host "Get-PreviewHandoverNote -- a list of URLs is not a handover (inbound #1873)" -ForegroundColor Cyan
 # THE COUNT IS THE TRIGGER, and the boundary is the whole assert: one URL in a terminal genuinely is a
 # usable handover, so a single-market repo must see nothing new at all. Two is where a reader has to

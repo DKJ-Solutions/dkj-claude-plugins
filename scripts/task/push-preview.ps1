@@ -118,6 +118,14 @@ if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCo
 
 . (Join-Path $PSScriptRoot '..\lib\preview-theme.ps1')
 
+# A GIT-BASH-MANGLED -Path IS REFUSED FIRST (inbound #3355), before any CLI call: the push would succeed
+# and only the printed URL would be wrong, so this is the one place a refusal costs nothing.
+$pathRefusal = Get-PreviewPathRefusal -Path $Path
+if ($pathRefusal) {
+    Write-Host "REFUSED: $pathRefusal" -ForegroundColor Red
+    exit 1
+}
+
 # THE RESERVED NAMESPACE (inbound #1965). Unguarded, like the CLI wrapper below and unlike the
 # source-repo guard above: a copy of this script without the lib must fail at load rather than create a
 # theme under a name the sweep cannot recognise, which would leave an orphan on a finite estate.
