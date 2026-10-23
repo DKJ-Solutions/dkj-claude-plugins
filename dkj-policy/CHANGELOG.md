@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**12 / 20 minor entries** <!-- pending-tally -->
+**12 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3316-open-walks-never-dropped · 20261023-091344Z
+
+CI's asset-only selection ([#3316](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3316)) kept a
+tree-walking suite only when the suite's text named the changed extension. A walk that can return any file type
+was dropped, and nothing ran behind it, so the merge went ungated. `Get-SuiteReferenceSet` now reports `WalksOpen`
+for every live-tree walk that no constant narrows to a type. `Get-AffectedSuiteSelection` reports those suites as
+`Open`, and the CI selection never drops an `Open` suite by type. The issue said no suite walked this way. On
+October 23, 2026 this tree had four: three unfiltered at the source, and one reaching a file that does not parse.
+For a CSS-only change CI now keeps 6 of 41 walkers, where it kept 3.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+CI's asset-only selection never drops a suite whose live-tree walk can return any file type
+
+Plugins: dkj-policy
+
+[PR #3319](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3319)
+
+---
 
 ### DEPLOY: feat/3315-stopwatch-phases · 20261023-090447Z
 
