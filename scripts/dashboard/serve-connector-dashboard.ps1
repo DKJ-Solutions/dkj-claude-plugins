@@ -102,6 +102,15 @@ $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride
         else { (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path }
 . (Join-Path $root 'scripts\lib\connector-dashboard-lib.ps1')
 . (Join-Path $root 'scripts\lib\dev-pages-lib.ps1')
+# The test gate's own selection and CI's, so /test-gate shows what they decide for this checkout (#3309).
+# GUARDED, unlike the libs above: they serve one section of one page, and gate-lib.ps1 loads a chain of its
+# own, so a tree without them (this script's own test fixtures) still serves every page, and the section
+# says why it is empty.
+$gateLibError = ''
+try {
+    . (Join-Path $root 'scripts\lib\gate-lib.ps1')
+    . (Join-Path $root 'scripts\lib\ci-suite-selection-lib.ps1')
+} catch { $gateLibError = $_.Exception.Message }
 # The state file the hook writes, and the probe of the general pages server (#3119): the plugin's, read from
 # this repo's own tree because this repo is the plugin's source.
 . (Join-Path $root 'plugins\dkj-policy\hub\lib\general-pages-state.ps1')
@@ -236,7 +245,52 @@ function Get-TestGateModel {
     $g = & $read 'suite-groups.json'
     $groups = if ($g.Json) { $g.Json.groups } else { $null }
     if (-not $g.Error -and -not @($groups | Where-Object { $_ }).Count) { $g.Error = 'it holds no groups' }
-    return @{ Model = (ConvertFrom-SuiteDurations -Durations $d.Json -SuiteFiles $files -Groups $groups); Error = $d.Error; GroupsError = $g.Error }
+    # What each suite protects, off its own header (#3309, lever 3): ~165 small reads.
+    $synopses = @{}
+    foreach ($f in $files) {
+        try { $synopses[$f] = Get-SuiteSynopsis -Text ([System.IO.File]::ReadAllText((Join-Path $testsDir $f))) } catch { }
+    }
+    return @{ Model = (ConvertFrom-SuiteDurations -Durations $d.Json -SuiteFiles $files -Groups $groups -Synopses $synopses); Error = $d.Error; GroupsError = $g.Error
+              Selection = (Get-TestGateSelection) }
+}
+
+function Get-TestGateSelection {
+    <#
+        What this checkout's change selects, locally and on CI (#3309, lever 3), from the functions open-pr
+        and the CI check run themselves -- Get-GateChangedPaths and Get-AffectedSuiteSelection in
+        gate-lib.ps1, Get-StaticAssetVerdict in ci-suite-selection-lib.ps1 -- so the page cannot disagree
+        with the gate. A warm run takes about 2 s (the gate's own per-blob cache in the git directory), a
+        cold one about 25 s, so the answer is kept until HEAD or the working copy changes, or -CacheSeconds
+        pass. A failure is a sentence on the page, never a failed page.
+    #>
+    # 'Continue', as Invoke-DashboardGit does: the gate's git reads must not turn stderr into a terminating error.
+    $ErrorActionPreference = 'Continue'
+    $key = (@(Invoke-DashboardGit $root @('rev-parse', 'HEAD')) + @(Invoke-DashboardGit $root @('status', '--porcelain'))) -join '|'
+    if ($script:selectionCache -and $script:selectionCache.Key -eq $key -and ((Get-Date) - $script:selectionCache.At).TotalSeconds -lt $CacheSeconds) {
+        return $script:selectionCache.Value
+    }
+    $value = @{ Base = ''; Changed = @(); Proven = $false; Reason = ''; Selected = @(); Why = @{}; PoolCount = 0; CiText = '' }
+    if ($gateLibError) { $value.Reason = "The test gate's selection could not be loaded: $gateLibError"; return $value }
+    try {
+        $changes = Get-GateChangedPaths -RepoRoot $root
+        $value.Base = $changes.Base
+        if (-not $changes.Known) { $value.Reason = $changes.Reason }
+        elseif (-not @($changes.Paths).Count) { $value.Reason = "Nothing differs from $($changes.Base), so nothing is selected" }
+        else {
+            $value.Changed = @($changes.Paths)
+            $sel = Get-AffectedSuiteSelection -RepoRoot $root -ChangedPaths $value.Changed
+            $value.Proven = [bool]$sel.Proven; $value.Reason = $sel.Reason; $value.PoolCount = $sel.PoolCount
+            $value.Selected = @($sel.Suites); $value.Why = $(if ($sel.Why) { $sel.Why } else { @{} })
+            $assets = Get-StaticAssetVerdict -ChangedPaths $value.Changed
+            $value.CiText = if ($assets.AssetOnly) {
+                $ci = Get-StaticAssetSuiteSelection -RepoRoot $root -ChangedPaths $value.Changed
+                if ($ci.Proven) { "only stylesheets, images or fonts change, so the required check runs $(@($ci.Suites).Count) of $($ci.PoolCount) suites" }
+                else { "every suite -- $($ci.Reason)" }
+            } else { "every suite, because $($assets.Reason)" }
+        }
+    } catch { $value.Reason = "the selection failed: $($_.Exception.Message)" }
+    $script:selectionCache = @{ Key = $key; At = Get-Date; Value = $value }
+    return $value
 }
 
 function Get-SpecialistsModel {
@@ -392,7 +446,7 @@ try {
             }
             if ($path -eq '/test-gate') {
                 $tg = Get-TestGateModel
-                $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error -GroupsError $tg.GroupsError
+                $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error -GroupsError $tg.GroupsError -Selection $tg.Selection
                 $body = $utf8.GetBytes($html)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue

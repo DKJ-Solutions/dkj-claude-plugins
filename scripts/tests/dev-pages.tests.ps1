@@ -209,6 +209,29 @@ Assert-True (@('groups', 'ungrouped', 'recorded' | Where-Object { (& $sectionOf 
 $gf = Format-TestGatePageHtml -Model $m -GroupsError 'the file is not there'
 Assert-True ($gf -match 'suite-groups.json could not be read: the file is not there, so the suites are listed ungrouped' -and $gf -match 'id="suites"') 'without the groups file the page falls back to one table, and says why'
 
+Write-Host '-- what a suite protects, and why this change selects it (#3309, lever 3)' -ForegroundColor Cyan
+$header = "<#`r`n.SYNOPSIS`r`n    Tests for x-lib.ps1 -- the thing`r`n    it pins.`r`n`r`n.DESCRIPTION`r`n    Long.`r`n#>`r`nexit 0"
+Assert-Equal 'Tests for x-lib.ps1 -- the thing it pins.' (Get-SuiteSynopsis -Text $header) 'the synopsis is the paragraph under .SYNOPSIS, on one line'
+Assert-Equal 'Short.' (Get-SuiteSynopsis -Text "<#`n.SYNOPSIS`n    Short.`n#>") 'a synopsis that runs into the closing of the header ends there'
+Assert-Equal '' (Get-SuiteSynopsis -Text "exit 0") 'a file with no synopsis has none'
+Assert-Equal 20 (Get-SuiteSynopsis -Text ("<#`n.SYNOPSIS`n" + ('w ' * 40) + "`n`n#>") -Max 20).Length 'and a long one is capped'
+$sm = ConvertFrom-SuiteDurations -Durations $json -SuiteFiles @('a.tests.ps1', 'b.tests.ps1') -Synopses @{ 'a.tests.ps1' = 'Pins <the> fold' }
+$sp = Format-TestGatePageHtml -Model $sm
+Assert-True ($sp -match '<code>a.tests.ps1</code><br><span class="note">Pins &lt;the&gt; fold</span>') 'each suite says what it protects under its name, escaped'
+Assert-True ($sp -notmatch 'id="selection"') 'without a selection the page has no change section'
+$selection = @{ Base = 'origin/main'; Changed = @('brandbook/src/<x>.css'); Proven = $true; Reason = ''; PoolCount = 165
+                Selected = @('scripts/tests/a.tests.ps1', 'scripts/tests/b.tests.ps1'); Why = @{ 'scripts/tests/a.tests.ps1' = 'it reaches <lib>'; 'scripts/tests/b.tests.ps1' = 'its walk scope covers it' }
+                CiText = 'only stylesheets change' }
+$sel = Format-TestGatePageHtml -Model $sm -Selection $selection
+Assert-True ($sel.IndexOf('id="selection"') -ge 0 -and $sel.IndexOf('id="selection"') -lt $sel.IndexOf('id="suites"')) 'the change section comes before the suite tables'
+Assert-True ($sel -match '<dt>Locally</dt><dd>2 of 165 suites</dd>' -and $sel -match '<dt>On CI</dt><dd>only stylesheets change</dd>') 'it says what runs locally and on CI'
+Assert-True ($sel -match 'brandbook/src/&lt;x&gt;.css' -and $sel -match 'it reaches &lt;lib&gt;' -and $sel -notmatch '<lib>') 'the changed paths and the reasons are escaped'
+Assert-True ($sel.IndexOf('>b.tests.ps1<') -lt $sel.IndexOf('>a.tests.ps1<', $sel.IndexOf('id="selection"'))) 'the selected suites are listed slowest first'
+$none = Format-TestGatePageHtml -Model $sm -Selection @{ Base = 'origin/main'; Changed = @(); Proven = $false; Reason = 'Nothing differs from origin/main, so nothing is selected'; Selected = @(); Why = @{}; PoolCount = 0; CiText = '' }
+Assert-True ($none -match 'id="selection"' -and $none -match 'Nothing differs from origin/main, so nothing is selected\.') 'a clean checkout says there is nothing to select'
+$whole = Format-TestGatePageHtml -Model $sm -Selection @{ Base = 'origin/main'; Changed = @('scripts/lib/gate-lib.ps1'); Proven = $false; Reason = 'the change touches the selection'; Selected = @(); Why = @{}; PoolCount = 165; CiText = '' }
+Assert-True ($whole -match '<dt>Locally</dt><dd>every suite -- the change touches the selection</dd>' -and $whole -notmatch 'Why it runs') 'an unproven selection says every suite runs, and why, with no table'
+
 Write-Host '-- suite-groups.json against the tree' -ForegroundColor Cyan
 # The file is a reading aid and nothing selects suites by it, so the only way it goes wrong is by going
 # stale: a suite added without a group, or a group still naming a suite that was removed or renamed.

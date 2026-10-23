@@ -210,6 +210,10 @@ $list = @('c-tool.ps1', 'docs/data.json')
     Assert-Equal 5 $sel.PoolCount 'the pool is the five suites'
     Assert-Equal 'a,walk' (Get-SelectedNames $sel) 'a lib reached TRANSITIVELY selects its suite, plus the live-tree walker'
     Assert-Equal 'walk' ((@($sel.Always | ForEach-Object { ($_ -split '/')[-1] -replace '\.tests\.ps1$', '' })) -join ',') 'and the walker is reported as one that always runs'
+    # WHY, for the /test-gate page (#3309, lever 3): one sentence per selected suite, and none for the rest.
+    Assert-Equal 'it reaches scripts/lib/b-lib.ps1' $sel.Why['scripts/tests/a.tests.ps1'] 'a reached lib is named as the reason'
+    Assert-True ($sel.Why['scripts/tests/walk.tests.ps1'] -match 'walks the live tree and declares no scope') 'an unscoped walker says it runs for every change'
+    Assert-Equal 2 $sel.Why.Count 'and a suite that is not selected has no reason'
 
     $sel = Get-AffectedSuiteSelection -RepoRoot $r4 -ChangedPaths @('scripts/task/c-tool.ps1')
     Assert-Equal 'c,walk' (Get-SelectedNames $sel) 'a tool selects the suite that RUNS it, and not the one whose lib only lists it'
@@ -260,6 +264,7 @@ $list = @('c-tool.ps1', 'docs/data.json')
     $sel = Get-AffectedSuiteSelection -RepoRoot $r4 -ChangedPaths @('README.md')
     Assert-Equal 'scoped,walk' (Get-SelectedNames $sel) 'a change inside a declared scope selects that walker'
     Assert-Equal 'scoped' ((@($sel.Scoped | ForEach-Object { ($_ -split '/')[-1] -replace '\.tests\.ps1$', '' })) -join ',') 'and reports it as scoped in, not as always'
+    Assert-Equal "its walk scope '*.md' covers readme.md" $sel.Why['scripts/tests/scoped.tests.ps1'] 'and its reason names the scope and the path it covers (#3309, lever 3)'
     $sel = Get-AffectedSuiteSelection -RepoRoot $r4 -ChangedPaths @('docs/data.json')
     Assert-True ((Get-SelectedNames $sel) -match 'uses-helper') "a suite inherits the declared scope of a helper it reaches"
     Remove-Item -LiteralPath (Join-Path $r4 'scripts/tests/scoped.tests.ps1'), (Join-Path $r4 'scripts/tests/walk-helper.ps1'), (Join-Path $r4 'scripts/tests/uses-helper.tests.ps1')
