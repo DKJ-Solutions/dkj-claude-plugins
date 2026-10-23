@@ -44,7 +44,8 @@
 ### CREATE
 
 - [x] `Get-CancelledCheckRunIds` in `forward-lane-lib.ps1` (and its mirror)
-- [x] `Wait-ForwardedCertificate` adds a cancelled renewal's run id to the ignored set and keeps waiting (and the mirror)
+- [x] `Wait-ForwardedCertificate` does not return while a required check reads cancelled (and the mirror)
+- [x] Victor's review: resetting the renewal flag flapped when another required check's id was new -- the flag stays set, and a cancelled id is logged once
 
 ### TEST
 
@@ -55,9 +56,9 @@
 `ship-pr`'s forward lap no longer refuses a merge as "the required check went RED on the forwarded head"
 when the run it saw was only a cancelled duplicate. After a forward, two `pull_request` runs can start on
 the same head seconds apart, and the concurrency group cancels the first. That run counted as the renewed
-certificate, and a cancellation reads as a failure. The wait now puts a cancelled run's id beside the old
-green run it already ignores, and keeps waiting for the run that superseded it. A real `failure` still
-ends the run as red (#3331).
+certificate, and a cancellation reads as a failure. The wait now does not return while a required check
+reads cancelled, and keeps waiting for the run that superseded it. A real `failure` still ends the run as
+red (#3331).
 
 **Score:** 3
 

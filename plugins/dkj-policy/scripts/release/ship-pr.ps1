@@ -1698,6 +1698,12 @@ function Wait-ForwardedCertificate {
         A RED CHECK IS NOT THIS FUNCTION'S REFUSAL. It returns the facts it read and lets the caller put
         them through Get-MergeBlockVerdict, which is the one place in this script that decides what a
         check payload means. Splitting that decision would give the run two answers to "is CI green".
+
+        A CANCELLED RUN IS NOT AN ANSWER AT ALL, so it is not handed back (#3331). A duplicate run on the
+        forwarded head, cancelled by the concurrency group, is a new id that finishes at once; while any
+        required record reads cancelled (Get-CancelledCheckRunIds) the wait goes on for the run that
+        superseded it.
+        A run cancelled with nothing to replace it ends in the timeout, which says what happened.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Pr,
@@ -1744,7 +1750,23 @@ function Wait-ForwardedCertificate {
             # Timing out instead says what actually happened.
             $unfinished = $null
             try { $unfinished = @((Get-MergeBlockVerdict -RequiredChecksJson $facts.Required -ChecksJson $facts.Checks).UnfinishedRequired) } catch { $unfinished = $null }
-            if ($null -ne $unfinished -and $facts.Checks -and $facts.Required -and $unfinished.Count -eq 0) { return $facts }
+            if ($null -ne $unfinished -and $facts.Checks -and $facts.Required -and $unfinished.Count -eq 0) {
+                # A CANCELLED RUN IS NOT THE CERTIFICATE (#3331). A duplicate `pull_request` run on the
+                # forwarded head is cancelled by the concurrency group and completes at once, so it can be
+                # the "renewal" this loop saw. While ANY required record still reads cancelled the wait goes
+                # on -- the caller's verdict reads that same record, and would refuse it as RED -- until
+                # the superseding run's check replaces it in gh's one-record-per-name answer. $renewed is
+                # deliberately left set: the cancelled record alone is what holds the return back, and
+                # resetting it would flap on every poll where another required check's id is new.
+                $cancelledIds = @()
+                try { $cancelledIds = @(Get-CancelledCheckRunIds -ChecksJson $facts.Checks -Names $RequiredNames) } catch { $cancelledIds = @() }
+                if ($cancelledIds.Count -eq 0) { return $facts }
+                $newlyCancelled = @($cancelledIds | Where-Object { @($PreviousRunIds) -notcontains $_ })
+                if ($newlyCancelled.Count -gt 0) {
+                    $PreviousRunIds = @(@($PreviousRunIds) + $newlyCancelled)
+                    Write-Host "  run $($newlyCancelled -join ', ') was cancelled -- waiting for the run that superseded it." -ForegroundColor DarkGray
+                }
+            }
         }
 
         $elapsed = [int][math]::Round(((Get-Date) - $began).TotalSeconds)
