@@ -2,7 +2,54 @@
 
 ## [Unreleased]
 
-**16 / 28 minor entries** <!-- pending-tally -->
+**16 / 30 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3336-stopwatch-pasted-prompt · 20261023-115411Z
+
+The Stopwatch now starts a run when the prompt is a paste whose first line is `stopwatch: <label>`
+([#3336](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3336)). Claude Code wraps pasted text
+in a `<pasted_content id="hhhh">` line, so the marker was never on the prompt's first line and the run
+silently never started. `Get-StopwatchPromptMarker` in `scripts/lib/stopwatch-lib.ps1` now skips that one
+opening line. A marker further down the paste still does not count.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the Stopwatch is this repo's own dev-server page and reaches no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch: a pasted prompt starting with 'stopwatch:' starts no run
+
+[PR #3340](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3340)
+
+---
+
+### DEPLOY: fix/3335-green-age-assert-clock · 20261023-114209Z
+
+The `unshipped-pr-gate` suite no longer fails `and how long it has been green` when it runs slow. The
+case read a fixture stamped when the suite loaded, and the check floors the age, so a minute or more
+between the two printed `green for 31 minute(s)` against an exact-30 assert (measured on PR #3334's
+forwarded head, a 166.6s shard). The case now stamps its own fixture right before the check runs (#3335).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing reaches a user of the plugins: the change is in this repo's own test suite.
+
+**Score:** N/A
+
+#### Pull Request
+
+unshipped-pr-gate test: stamp the green fixture at the case that reads its age
+
+[PR #3339](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3339)
+
+---
 
 ### DEPLOY: docs/stopwatch-css-comment · 20261023-112048Z
 

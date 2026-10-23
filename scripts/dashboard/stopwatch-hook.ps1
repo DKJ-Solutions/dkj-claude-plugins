@@ -10,7 +10,8 @@
 
     THE MARKER IS THE ONLY WAY A RUN STARTS: the Prompt hook reads the UserPromptSubmit JSON from stdin (only parses
     its `prompt` field, never prints it) and a prompt whose first line begins with `stopwatch:` starts an Auto run
-    labelled with the rest of that line (Get-StopwatchPromptMarker), discarding a run still going. The page is
+    labelled with the rest of that line (Get-StopwatchPromptMarker, which reads a pasted prompt past its
+    `<pasted_content>` wrapper, #3336), discarding a run still going. The page is
     read-only.
 
     The rules are Invoke-StopwatchHookEvent's in scripts/lib/stopwatch-lib.ps1 (pure, tested by

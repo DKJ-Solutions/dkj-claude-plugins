@@ -35,6 +35,10 @@ Assert-Equal 'Assignment' (Get-StopwatchPromptMarker -Prompt "stopwatch:   `nsom
 Assert-Equal 80 (Get-StopwatchPromptMarker -Prompt ('stopwatch: ' + ('a' * 200))).Length 'the label is cut at the label maximum'
 Assert-True ($null -eq (Get-StopwatchPromptMarker -Prompt "fix this`nstopwatch: x")) 'a marker on a later line is not a marker'
 Assert-True ($null -eq (Get-StopwatchPromptMarker -Prompt 'please stopwatch: x') -and $null -eq (Get-StopwatchPromptMarker -Prompt '')) 'a prompt that does not begin with the marker, and an empty one, carry none'
+Write-Host '-- a pasted prompt (#3336)' -ForegroundColor Cyan
+Assert-Equal 'CSS comment change' (Get-StopwatchPromptMarker -Prompt "<pasted_content id=`"3f0a`">`r`nstopwatch: CSS comment change`r`nthe rest`r`n</pasted_content id=`"3f0a`">") 'a prompt that is nothing but a paste is read from the pasted text''s first line'
+Assert-True ($null -eq (Get-StopwatchPromptMarker -Prompt "<pasted_content id=`"3f0a`">`nfix this`nstopwatch: x`n</pasted_content id=`"3f0a`">")) 'inside a paste, a marker on a later line is still not a marker'
+Assert-True ($null -eq (Get-StopwatchPromptMarker -Prompt "<pasted_content id=`"nothex`">`nstopwatch: x") -and $null -eq (Get-StopwatchPromptMarker -Prompt "fix this`n<pasted_content id=`"3f0a`">`nstopwatch: x")) 'only Claude Code''s own wrapper, as the first line, is skipped'
 
 Write-Host '-- the hook rules (#3323)' -ForegroundColor Cyan
 $h = Invoke-StopwatchHookEvent -Hook Prompt -Runs @() -Now (& $at 10) -Head 'aaa' -Prompt "stopwatch: Docs fix`nplease do it"
