@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Inbound #3322: at the theme ceiling, `push-preview.ps1`'s duplicate of live exits 0 with no id, the theme
+list answers without the name, and the script still says the copy "WAS created" and to re-run. Verified in
+the script: the "WAS created" message fired whether or not the list answered. Repair: tell the two cases
+apart, report the count from that same list (the ceiling is plan-dependent, #1965), keep stderr on the
+duplicate so the CLI's own limit line comes through, and clear `previewFill` where nothing was created.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-DuplicateMissingIdVerdict` in `preview-theme.ps1`: `no` when the list answered without the name, `unknown` only when it could not be read
+- [x] `push-preview.ps1` step 4: duplicate keeps stderr, the list counts as answered only once parsed, `previewFill` is cleared on a failed or absent copy
+- [x] Root mirrors of both files synced byte-identical
 
 ### TEST
 
+- [x] `push-preview.tests.ps1`: ten new asserts on the verdict, 141 green; `push-preview.ps1` parses clean
+
 ### DEPLOY: fix/3322-preview-copy-not-created
 
-**Score:**
+When a preview copy of live is not created, `push-preview` now says so instead of saying it WAS created
+([#3322](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3322)). With no id returned and the theme
+list answering without the name, it reports NOT created, the store's theme count from that list and whatever
+the CLI said, and clears the branch's `previewFill=pending`. Only when the list itself could not be read does
+it still say the outcome is unknown and to re-run. The duplicate call now keeps stderr, so the CLI's
+"A shop may only have N themes" line reaches the operator.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store at its theme limit no longer sends you into a re-run loop: `push-preview` says the copy was not
+created, how many themes the store holds, and that a spent preview has to go first.
+
+**Score:** 2
 
 #### Pull Request
 

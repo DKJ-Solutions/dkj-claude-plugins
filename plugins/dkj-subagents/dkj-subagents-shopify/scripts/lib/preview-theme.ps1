@@ -296,6 +296,49 @@ function Get-ThemeIdFromPushOutput {
     return ''
 }
 
+function Get-DuplicateMissingIdVerdict {
+    <# What a 'theme duplicate' that handed back no id actually did, and what to say about it. Pure values in,
+       object out: { Created = 'no' | 'unknown'; Lines = <string[]> }.
+
+       ITS OWN FUNCTION BECAUSE THE OLD SENTENCE ASSERTED WHAT NOTHING MEASURED (inbound #3322). With no id
+       in the output, push-preview asks the theme list for the name, and it said the copy "WAS created"
+       whatever the list answered. Measured in a consumer at the theme ceiling: the CLI exited 0, the list
+       answered with 20 themes and none by that name, and the message sent the operator into a re-run loop
+       that duplicated, failed and said the same thing again. "No id AND an answered list without the name"
+       is the signature of a create that did not happen, so that case says NOT created; only a list that
+       could not be read leaves the outcome unknown, and only there is a re-run the remedy.
+
+       THE COUNT IS REPORTED, THE CEILING IS NOT: it is plan-dependent (inbound #1965), so the CLI's own
+       words are passed through where it gave any, and the count stands beside them for the operator to read. #>
+    param(
+        [Parameter(Mandatory = $true)][string]$ThemeName,
+        [Parameter(Mandatory = $true)][bool]$ListAnswered,
+        [int]$ThemeCount = -1,
+        [AllowEmptyCollection()][string[]]$CliLines = @()
+    )
+    $said = @($CliLines | Where-Object { "$_".Trim() })
+    if (-not $ListAnswered) {
+        return [pscustomobject]@{
+            Created = 'unknown'
+            Lines   = @("The duplicate of live returned no id for '$ThemeName', and the theme list could not be read to " +
+                        "check for it, so whether the copy exists is unknown. Nothing was pushed. Re-run this script: " +
+                        "it finds the theme by name if it exists and, because the copy is recorded as pending, waits " +
+                        "for it to fill before pushing.")
+        }
+    }
+    $lines = @("The copy '$ThemeName' was NOT created: the duplicate returned no id, and the theme list does not " +
+               "hold that name. Nothing was pushed, and re-running will not help until the cause is gone.")
+    if ($ThemeCount -ge 0) {
+        $lines += ("The store holds $ThemeCount theme(s). If that is its plan's ceiling, the estate is full: archive " +
+                   "and remove a spent preview theme first.")
+    }
+    if ($said.Count -gt 0) {
+        $lines += 'What the CLI said:'
+        $lines += @($said | ForEach-Object { "  $_" })
+    }
+    return [pscustomobject]@{ Created = 'no'; Lines = $lines }
+}
+
 function Get-ThemePushProblems {
     <# Whether a 'theme push' run REJECTED something although it exited 0, and what it said. Pure lines in,
        object out: { Failed = <bool>; Messages = <string[]> }.
