@@ -39,19 +39,37 @@
 
 ### PLAN
 
+#### Status
+
+A visible result: parked for the owner's eye, with no pull request until they have looked.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css` gains `.card--link`: a card around one link, whose area stretches over the whole card (a positioned card, the link's `::after` at `inset: 0`). The card tints on hover instead of the row alone
+- [x] This repo's hub puts it on every one-link card: the page cards on the home page and the cards on the Repository page (`dev-pages-lib.ps1`)
+- [x] The house-style README's Pages block names the class; the `house-style` skill's checksum is re-pinned
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: the card markup asserts carry `card--link`, every page card is one, and the house file holds the stretch rule (296 passed)
+- [x] `open-pr.ps1 -GatesOnly` before the park
+
 ### DEPLOY: feat/3298-whole-card-clickable
 
-**Score:**
+A hub card that holds one link ([#3298](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3298)) used
+to respond only on its row, so a click on the card's padding did nothing. The house style now has
+`.card--link`: the card's one link stretches over the whole card, and the card tints on hover. This repo's hub
+uses it on the page cards of its home page and on the cards of its Repository page, and the house-style README
+names it in the Pages block.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A page that builds on the house style can make a one-link card clickable over its whole area with one class,
+`.card--link`, without any CSS of its own.
+
+**Score:** 2
 
 #### Pull Request
 
