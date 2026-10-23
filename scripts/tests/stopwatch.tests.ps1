@@ -57,6 +57,9 @@ $id = $runs[0].Id
 $r = Invoke-StopwatchAction -Runs $runs -Action 'note' -Query @{ id = $id; text = 'run the gate once' } -Now (& $at 102)
 Assert-True (-not $r.Error -and $r.Runs[0].Note -eq 'run the gate once') 'a note lands on a finished run'
 Assert-True ((Invoke-StopwatchAction -Runs $runs -Action 'note' -Query @{ id = 'nope'; text = 'x' } -Now (& $at 102)).Error -match 'not in the store') 'a note for an unknown id is refused'
+Assert-Equal "- one`n- two`tb" (Invoke-StopwatchAction -Runs $runs -Action 'note' -Query @{ id = $id; text = "- one`r`n- two`tb`a" } -Now (& $at 102)).Runs[0].Note 'a note keeps its line breaks and tabs, and loses any other control character'
+$full = @{ Id = 'f'; Label = 'F'; Start = (& $at 0); End = $null; Laps = @(1..100 | ForEach-Object { @{ Name = "l$_"; At = (& $at $_) } }); Note = '' }
+Assert-True ((Invoke-StopwatchAction -Runs @($full) -Action 'lap' -Now (& $at 200)).Error -match 'at most 100 laps') 'a run holds at most 100 laps'
 $going = (Invoke-StopwatchAction -Runs $runs -Action 'start' -Query @{ label = 'b' } -Now (& $at 200)).Runs
 Assert-True ((Invoke-StopwatchAction -Runs $going -Action 'note' -Query @{ id = $going[1].Id; text = 'x' } -Now (& $at 201)).Error -match 'still going') 'a note for the running run is refused'
 Assert-Equal 1 @((Invoke-StopwatchAction -Runs $going -Action 'discard' -Now (& $at 201)).Runs).Count 'discard drops the running run and keeps the rest'
@@ -76,9 +79,9 @@ try {
     Assert-True (-not (Test-Path -LiteralPath "$store.tmp")) 'and no temp file is left beside it'
     Save-StopwatchStore -Path $store -Runs @()
     Assert-True ((Get-Content -LiteralPath $store -Raw) -match '"runs":\s*\[\s*\]') 'an empty store is written as an empty list'
-    [System.IO.File]::WriteAllText($store, '{ "runs": [ { "id": "x1", "label": "ok", "start": "2026-10-23T10:00:00.000Z" }, { "id": "bad id!", "label": "x", "start": "2026" } ] }')
+    [System.IO.File]::WriteAllText($store, '{ "runs": [ { "id": "x1", "label": "ok", "start": "2026-10-23T10:00:00.000Z" }, { "id": "bad id!", "label": "x", "start": "2026" }, { "id": "x2\n", "label": "x", "start": "2026-10-23T10:00:00.000Z" } ] }')
     $mixed = Read-StopwatchStore -Path $store
-    Assert-True (@($mixed.Runs).Count -eq 1 -and $mixed.Skipped -eq 1) 'a run that does not parse is skipped and counted'
+    Assert-True (@($mixed.Runs).Count -eq 1 -and $mixed.Skipped -eq 2) 'a run that does not parse is skipped and counted, an id with a trailing newline too'
     [System.IO.File]::WriteAllText($store, '{ not json')
     Assert-Equal 'it is not valid JSON' (Read-StopwatchStore -Path $store).Error 'a store that is not JSON is an error, so nothing writes over it'
 } finally {

@@ -2,7 +2,7 @@
 .SYNOPSIS
     The hub of this repo's dev server -- the home page on '/', which holds what was About this repo (#3270;
     '/about' sends there since October 22, 2026) -- and its own pages: the test-gate page (the per-suite CI
-    durations, #3097), the Connectors and Specialists pages (the product's since October 22, 2026: its dev server
+    durations, #3097), the Stopwatch link (its page is scripts/lib/stopwatch-lib.ps1's, #3315), the Connectors and Specialists pages (the product's since October 22, 2026: its dev server
     links and relays them, so the hub lists neither) and the DKJ repos page, the product's too. No I/O -- the server
     (scripts/dashboard/serve-connector-dashboard.ps1) measures and reads, and hands the results in, so every rule here is tested without a server.
 
@@ -85,7 +85,7 @@ function Get-RepoHubPages {
     #>
     @(
         @{ Href = '/test-gate';   Label = 'Test gate';   Sub = 'What each test suite costs on CI' },
-        @{ Href = '/stopwatch';   Label = 'Stopwatch';   Sub = 'How long an assignment takes, from the moment it is given to done' },
+        @{ Href = '/stopwatch';   Label = 'Stopwatch';   Sub = 'How long an assignment takes, timed by hand, with laps and notes' },
         @{ Href = '/repository';  Label = 'Repository';  Sub = 'The GitHub repo: its facts, its open issues and its pull requests' }
     )
 }

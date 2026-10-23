@@ -12,8 +12,8 @@
 
     THE STORE IS OUTSIDE THE TREE: %LOCALAPPDATA%\dkj-claude-plugins\stopwatch.json (Get-StopwatchStorePath).
     A file in the checkout would dirty it in the middle of the workflow being measured, and the scripts
-    that ship a branch refuse a dirty tree. So the runs are this machine's, like the session transcripts the
-    second step (#3315's transcript phases) reads.
+    that ship a branch refuse a dirty tree. So the runs are this machine's, like the session transcripts that the
+    transcript phases of #3315's second PR will read.
 
     A STORE THAT DOES NOT READ IS NEVER WRITTEN OVER. Read-StopwatchStore returns an Error for a file that
     is not valid JSON, and every write refuses while it is set, so one bad edit by hand loses nothing.
@@ -25,6 +25,7 @@
 
 $script:StopwatchLabelMax = 80
 $script:StopwatchNoteMax = 2000
+$script:StopwatchLapMax = 100
 
 function Get-StopwatchStorePath {
     <# The store's path on this machine: under LOCALAPPDATA, else TEMP where that is not set. #>
@@ -54,7 +55,7 @@ function ConvertTo-StopwatchRun {
     if ($null -eq $Raw) { return $null }
     $id = [string]$Raw.id; $label = [string]$Raw.label
     $start = ConvertTo-StopwatchTime $Raw.start
-    if ($id -notmatch '^[0-9A-Za-z-]{1,40}$' -or -not $label.Trim() -or -not $start) { return $null }
+    if ($id -cnotmatch '^[0-9A-Za-z-]{1,40}\z' -or -not $label.Trim() -or -not $start) { return $null }
     $laps = @(foreach ($l in @($Raw.laps)) {
             if ($null -eq $l) { continue }
             $at = ConvertTo-StopwatchTime $l.at
@@ -134,7 +135,9 @@ function Invoke-StopwatchAction {
     $runs = @($Runs | Where-Object { $_ })
     $running = @($runs | Where-Object { -not $_.End }) | Select-Object -Last 1
     $fail = { param($m) return @{ Runs = $runs; Error = $m } }
-    $text = { param($k, $max) $v = ([string]$Query[$k]) -replace '[\x00-\x1f\x7f]', ' '; $v = $v.Trim(); if ($v.Length -gt $max) { $v = $v.Substring(0, $max) }; $v }
+    # A control character becomes a space; -Lines keeps a note's line breaks and tabs (Victor, #3315).
+    $text = { param($k, $max, [switch]$Lines) $cc = if ($Lines) { '[\x00-\x08\x0b-\x1f\x7f]' } else { '[\x00-\x1f\x7f]' }
+        $v = ([string]$Query[$k] -replace "`r`n", "`n") -replace $cc, ' '; $v = $v.Trim(); if ($v.Length -gt $max) { $v = $v.Substring(0, $max) }; $v }
     $now = $Now.ToUniversalTime()
     switch ($Action) {
         'start' {
@@ -149,6 +152,7 @@ function Invoke-StopwatchAction {
             if ($Action -eq 'discard') { return @{ Runs = @($runs | Where-Object { $_.Id -ne $running.Id }); Error = '' } }
             $copy = $running.Clone()
             if ($Action -eq 'lap') {
+                if (@($copy.Laps).Count -ge $script:StopwatchLapMax) { return (& $fail "A run holds at most $($script:StopwatchLapMax) laps.") }
                 $name = & $text 'name' $script:StopwatchLabelMax
                 if (-not $name) { $name = 'Lap ' + (@($copy.Laps).Count + 1) }
                 $copy.Laps = @(@($copy.Laps) + @(@{ Name = $name; At = $now }))
@@ -163,7 +167,7 @@ function Invoke-StopwatchAction {
             if (-not $target) { return (& $fail 'That run is not in the store, or it is still going.') }
             if ($Action -eq 'delete') { return @{ Runs = @($runs | Where-Object { $_.Id -cne $id }); Error = '' } }
             $copy = $target.Clone()
-            $copy.Note = & $text 'text' $script:StopwatchNoteMax
+            $copy.Note = & $text 'text' $script:StopwatchNoteMax -Lines
             return @{ Runs = @($runs | ForEach-Object { if ($_.Id -ceq $id) { $copy } else { $_ } }); Error = '' }
         }
         default { return (& $fail "Unknown action '$Action'.") }
@@ -172,7 +176,7 @@ function Invoke-StopwatchAction {
 
 function Get-StopwatchPhases {
     <# A run's laps as phases: each from the previous mark (the start, then each lap) to its own, and the last up to the end. #>
-    param([Parameter(Mandatory = $true)][hashtable]$Run, [datetime]$Now = [datetime]::UtcNow)
+    param([Parameter(Mandatory = $true)][hashtable]$Run)
     $phases = @(); $from = $Run.Start
     foreach ($l in @($Run.Laps)) {
         $phases += @{ Name = $l.Name; Seconds = ($l.At - $from).TotalSeconds }
@@ -188,7 +192,7 @@ function ConvertTo-StopwatchModel {
         order of their latest run, newest first; each group's runs newest first). Each finished run carries its
         Seconds and its DeltaSeconds against the run of the same label before it ($null for the first).
     #>
-    param([AllowEmptyCollection()][object[]]$Runs = @(), [datetime]$Now = [datetime]::UtcNow)
+    param([AllowEmptyCollection()][object[]]$Runs = @())
     $all = @($Runs | Where-Object { $_ } | Sort-Object { $_.Start })
     $running = @($all | Where-Object { -not $_.End }) | Select-Object -Last 1
     $groups = @()
@@ -242,12 +246,13 @@ function Format-StopwatchPageHtml {
         @{ L = 'Runs recorded'; V = $Model.Count },
         @{ L = 'Labels'; V = @($Model.Labels).Count },
         @{ L = 'Last run'; V = (Format-DevSeconds $(if ($last) { $last.Seconds } else { $null })) },
-        @{ L = 'Against the run before'; V = $(if ($last -and $null -ne $last.DeltaSeconds) { $(if ($last.DeltaSeconds -le 0) { '-' } else { '+' }) + (Format-DevSeconds ([Math]::Abs($last.DeltaSeconds))) } else { '--' }) })))
+        @{ L = 'Against the run before'; V = $(if (-not $last -or $null -eq $last.DeltaSeconds) { '--' } elseif ([Math]::Abs($last.DeltaSeconds) -lt 0.5) { 'same' }
+                else { $(if ($last.DeltaSeconds -lt 0) { '-' } else { '+' }) + (Format-DevSeconds ([Math]::Abs($last.DeltaSeconds))) }) })))
     if ($ReadError) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The store could not be read: ' + (& $e $ReadError) + '. Nothing is written over it until it reads again, so the buttons are off.</p>')
     }
     if ($Skipped) {
-        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">' + $Skipped + ' run(s) in the store could not be read and are not shown. The next button press keeps only the runs shown here.</p>')
+        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">' + $Skipped + ' run(s) in the store could not be read and are not shown. The next button press writes the store without them.</p>')
     }
     [void]$body.AppendLine('<p class="msg msg--warn" role="alert" id="sw-error" hidden></p>')
 
@@ -301,13 +306,17 @@ function Format-StopwatchPageHtml {
     # Every press is a POST to /stopwatch/<action> with its values in the query; the page reloads on success.
     $script = @'
 <script>(function () {
-  function fmt(s) { s = Math.max(0, Math.floor(s)); var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
-    function p(n) { return (n < 10 ? "0" : "") + n; } return h ? h + ":" + p(m) + ":" + p(x) : (m ? m + ":" + p(x) : x + ".0s"); }
+  // Format-DevSeconds' own form: one decimal under a minute, then m:ss, then h:mm:ss.
+  function fmt(s) { s = Math.max(0, s); if (s < 59.95) return s.toFixed(1) + "s"; s = Math.round(s);
+    var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+    function p(n) { return (n < 10 ? "0" : "") + n; } return h ? h + ":" + p(m) + ":" + p(x) : m + ":" + p(x); }
   var clock = document.querySelector(".sw-clock[data-start]");
   if (clock) { var t0 = Date.parse(clock.getAttribute("data-start")); setInterval(function () { clock.textContent = fmt((Date.now() - t0) / 1000); }, 250); }
   var err = document.getElementById("sw-error");
   function send(action, values) {
     var q = Object.keys(values).map(function (k) { return encodeURIComponent(k) + "=" + encodeURIComponent(values[k]); }).join("&");
+    // The values travel in the request head, which the server reads up to 8 KB.
+    if (q.length > 7000) { err.textContent = "That is too long to send: shorten the note."; err.hidden = false; return; }
     fetch("/stopwatch/" + action + (q ? "?" + q : ""), { method: "POST" }).then(function (r) {
       if (r.ok) { location.reload(); return; }
       return r.text().then(function (t) { err.textContent = t || ("The server answered " + r.status + "."); err.hidden = false; });

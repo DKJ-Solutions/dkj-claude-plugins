@@ -54,7 +54,14 @@ the session transcripts in a second one.
 - The store is outside the tree (`%LOCALAPPDATA%\dkj-claude-plugins\stopwatch.json`): a file in the
   checkout would dirty it in the middle of the workflow it times.
 - A button is a same-origin POST to `/stopwatch/<action>` with its values in the query, answered before the
-  restart check so a Stop pressed during a fold is not lost to the 503.
+  restart check so a Stop pressed during a fold is not lost to the 503. It is refused unless the request
+  says `Sec-Fetch-Site: same-origin`, so only the page's own fetch writes.
+
+#### Accepted risk
+
+The hub relays the general pages (Issues among them) on its own origin, so a script injected into one of
+those would pass the same-origin check and could change Stopwatch runs (Sebastian's review). Accepted:
+the data is timer runs and notes on one machine, and those pages escape what they render.
 
 ### CREATE
 
@@ -64,7 +71,10 @@ the session transcripts in a second one.
 
 ### TEST
 
-- [x] `scripts/tests/stopwatch.tests.ps1` (42 asserts), in the `pages` group of `suite-groups.json`
+- [x] `scripts/tests/stopwatch.tests.ps1`, in the `pages` group of `suite-groups.json`
+- [x] Review: Victor, Sebastian and Edith. Applied: same-origin-only POST, a `.bak` before a write that
+  drops an unreadable run, a 100-lap cap, a client-side length check on the 8 KB request head, notes keep
+  their line breaks, and the browser clock and the tile read like `Format-DevSeconds`
 - [x] `dev-pages.tests.ps1` updated for the hub's third page of its own (294 green)
 - [x] Smoke test on a throwaway server: start, a refused second start (409), lap, stop, the page and the
   hub card; a cross-site POST is 403, a POST to another route 405
