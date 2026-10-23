@@ -39,19 +39,49 @@
 
 ### PLAN
 
+#### Why the printed lines were not enough
+
+The issue's first repair option, reading ship-pr's own step lines out of its output, cannot place a step in
+time: neither the tool result of a foreground call nor the output file of a backgrounded one carries a
+timestamp per line. So ship-pr writes a mark per step instead. It is a shared script, so the mark goes into
+an opt-in log: `Add-RunStepMark` in `run-progress-lib.ps1` writes nothing unless `DKJ_RUN_STEP_LOG` is set,
+and only this repo's `.claude/settings.json` sets it. A consumer's ship is unchanged.
+
+The open `feat/stopwatch-phase-table` branch (the label page's phase cards) touches `stopwatch-lib.ps1`
+too, in its rendering half; this branch touches the transcript half, so the two do not depend on each other.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `run-progress-lib.ps1`: `Get-RunStepLogPath`, `Add-RunStepMark` (opt-in, never throws, capped at 1 MB) and `Read-RunStepMarks`
+- [x] `ship-pr.ps1`: a guarded mark at `gates`, `ci-wait`, `forward` (a forwarded head's re-certification), `merge` and `fold`
+- [x] `stopwatch-lib.ps1`: `Split-StopwatchShipTool` cuts a ship call at its marks; `Get-StopwatchTranscriptPhases -ShipMarks`; the cache reads this checkout's marks
+- [x] the dev server passes the step log beside the store; `.claude/settings.json` sets `DKJ_RUN_STEP_LOG`
+- [x] the plugin mirrors regenerated (`build-shared-scripts.ps1`)
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1`: a ship cut at its marks, a mark outside the call, an unknown step, a non-ship call, the cache reading only this checkout's marks (116 passed, 0 failed)
+- [x] `run-progress.tests.ps1`: the log off writes nothing, a mark round-trips, a torn line and a mark outside the window are skipped (84 passed)
+
 ### DEPLOY: feat/3338-ship-step-phases
 
-**Score:**
+The Stopwatch's transcript phases now split a ship-pr call into its own steps
+([#3338](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3338)): the checks before the PR,
+the local gates and opening the PR, the CI wait, a forwarded head's re-certification, the merge, and the
+fold. A whole ship used to be one phase, so 92% of a measured run sat under one row that hid 13 minutes of
+local gates and two CI waits. `ship-pr.ps1` marks each step in a step log that `run-progress-lib.ps1`
+keeps only when `DKJ_RUN_STEP_LOG` is set, which this repo's `.claude/settings.json` does. A ship with no
+marks, from before this change, stays one phase.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the marks are written only where `DKJ_RUN_STEP_LOG` is set, and no consumer sets it, so a consumer's
+ship-pr behaves exactly as before.
+
+**Score:** N/A
 
 #### Pull Request
 
+Stopwatch: a ship-pr call is split into its gates, CI waits, merge and fold
