@@ -58,6 +58,8 @@ one-line comment stamped with the run's date and time, and nothing renders diffe
 
 #### What makes this deploy extra special
 
+Nothing reaches a user of the plugins: the comment sits in the brand book's source and changes no output.
+
 **Score:** N/A
 
 #### Pull Request
