@@ -2,7 +2,28 @@
 
 ## [Unreleased]
 
-**2 / 2 minor entries** <!-- pending-tally -->
+**2 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/stopwatch-css-comment-v2 · 20261023-153701Z
+
+A timing run of the full workflow, branch to fold: the stopwatch test-run comment at the top of the brand
+book's showcase stylesheet carries this run's date and time, and nothing renders differently.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A: a comment in this repo's own brand book source reaches no user of what the plugins ship.
+
+**Score:** N/A
+
+#### Pull Request
+
+A stopwatch test-run comment at the top of showcase.css
+
+[PR #3361](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3361)
+
+---
 
 ### DEPLOY: fix/3355-push-preview-mangled-path · 20261023-151437Z
 
