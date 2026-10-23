@@ -276,6 +276,88 @@ function Complete-RunProgress {
     return $false
 }
 
+# THE STEP LOG -- issue #3338. A progress record is deleted the moment its run ends, so it cannot say
+# afterwards what a run spent its time on. The step log can: one line per step a long run enters, kept.
+# It is OPT-IN through this environment variable, because the scripts that write it are shared and a
+# consumer that never asked for a log on its machine must not get one. Set it to any non-empty value
+# (this repo does, in its own .claude/settings.json, for the dev server's Stopwatch page).
+$script:RunStepLogEnv = 'DKJ_RUN_STEP_LOG'
+# Past this size the log keeps only its newest lines: a few lines per run, so the cap is years of runs.
+$script:RunStepLogMaxBytes = 1MB
+$script:RunStepLogKeepLines = 4000
+
+function Get-RunStepLogPath {
+    <# Where the step log lives: beside the progress records' directory, as dkj-claude-plugins\run-steps.jsonl. -Override is for the suite. #>
+    param([string]$Override = '')
+    if ($Override) { return $Override }
+    return (Join-Path (Split-Path -Parent (Get-RunProgressRoot)) 'dkj-claude-plugins\run-steps.jsonl')
+}
+
+function Add-RunStepMark {
+    <#
+        Append one step mark -- "-Run entered -Step now" -- to the step log, when the log is switched on.
+
+        A NO-OP UNLESS DKJ_RUN_STEP_LOG IS SET (or -Path names a log, which only the suite does). A mark
+        carries its UTC time, the run and step names, the writer's pid and its checkout (the current
+        directory, as Write-RunProgress names it), so a reader can keep one checkout's runs apart from
+        another's. A step lasts until the run's next mark or until the run ends; the reader knows the end.
+
+        IT NEVER THROWS, for Write-RunProgress's reason: a log line must cost the run it describes nothing.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Run,
+        [Parameter(Mandatory = $true)][string]$Step,
+        [string]$Path = '',
+        [AllowNull()][object]$NowUtc = $null,
+        [string]$Workspace = ''
+    )
+    if (-not $Path -and -not [Environment]::GetEnvironmentVariable($script:RunStepLogEnv)) { return $false }
+    try {
+        $file = Get-RunStepLogPath -Override $Path
+        $dir = Split-Path -Parent $file
+        if (-not (Test-Path -LiteralPath $dir -PathType Container)) { New-Item -ItemType Directory -Path $dir -Force -ErrorAction Stop | Out-Null }
+        $ws = $Workspace
+        if (-not $ws) {
+            $loc = Get-Location
+            if ($loc -and $loc.Provider -and $loc.Provider.Name -eq 'FileSystem') { $ws = $loc.ProviderPath }
+        }
+        $at = if ($NowUtc -is [datetime]) { ([datetime]$NowUtc).ToUniversalTime() } else { (Get-Date).ToUniversalTime() }
+        $line = ([ordered]@{ at = $at.ToString('o'); run = $Run; step = $Step; pid = $PID; workspace = "$ws" } | ConvertTo-Json -Compress)
+        $utf8 = New-Object System.Text.UTF8Encoding($false)
+        # Not atomic: two ships crossing the cap at once can lose a line, which costs a timing aid one mark at worst.
+        if ((Test-Path -LiteralPath $file -PathType Leaf) -and (Get-Item -LiteralPath $file).Length -gt $script:RunStepLogMaxBytes) {
+            $keep = @([System.IO.File]::ReadAllLines($file, $utf8) | Select-Object -Last $script:RunStepLogKeepLines)
+            [System.IO.File]::WriteAllLines($file, [string[]]$keep, $utf8)
+        }
+        [System.IO.File]::AppendAllText($file, $line + "`n", $utf8)
+        return $true
+    } catch {
+        return $false
+    }
+}
+
+function Read-RunStepMarks {
+    <#
+        The marks in the step log at -Path between -From and -To (UTC), oldest first, as
+        @{ At; Run; Step; Workspace }. A missing log is no marks; a line that does not parse is skipped.
+    #>
+    param([string]$Path = '', [Parameter(Mandatory = $true)][datetime]$From, [Parameter(Mandatory = $true)][datetime]$To)
+    $file = Get-RunStepLogPath -Override $Path
+    if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { return @() }
+    $marks = @()
+    try { $lines = [System.IO.File]::ReadAllLines($file, (New-Object System.Text.UTF8Encoding($false))) } catch { return @() }
+    foreach ($l in $lines) {
+        if (-not $l.Trim()) { continue }
+        try { $r = $l | ConvertFrom-Json } catch { continue }
+        $t = [datetime]::MinValue
+        if (-not [datetime]::TryParse("$($r.at)", [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind, [ref]$t)) { continue }
+        $t = $t.ToUniversalTime()
+        if ($t -lt $From.ToUniversalTime() -or $t -gt $To.ToUniversalTime()) { continue }
+        $marks += @{ At = $t; Run = "$($r.run)"; Step = "$($r.step)"; Workspace = "$($r.workspace)" }
+    }
+    return @($marks | Sort-Object { $_.At })
+}
+
 function Test-RunProgressWriterAlive {
     <#
         Is the process that published this record still there?

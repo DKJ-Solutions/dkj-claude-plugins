@@ -1,4 +1,7 @@
 {
+  "env": {
+    "DKJ_RUN_STEP_LOG": "1"
+  },
   "hooks": {
     "UserPromptSubmit": [
       {

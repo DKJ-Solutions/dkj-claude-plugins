@@ -308,6 +308,27 @@ try {
     Assert-True ($tp -notmatch '<h2>Runs</h2>' -and $tp -notmatch 'Against the run before' -and $tp -match '<h3 class="card__title">Time</h3>[\s\S]*class="sw-clock num">5:30</p>') 'a label with one run shows its time on a card, with no Runs heading and no comparison table'
     $startText = (& $at 0).ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
     Assert-True ($tp -match ('<h2>' + [regex]::Escape($startText) + '</h2><p class="card__sub">CSS comment</p>') -and $tp -match ('<span aria-current="page">' + [regex]::Escape($startText) + '</span>')) 'a label with one run is titled with its start, in the heading and the crumb, the label beneath'
+
+    # A SHIP SPLIT BY ITS STEP MARKS (#3338). The ship above runs 30-200; ship-pr marks its gates at 40, its CI
+    # wait at 60, its merge at 180 and its fold at 190.
+    $sm = { param([double]$s, $step, $ws = 'C:\repo') @{ At = (& $at $s); Run = 'ship-pr'; Step = $step; Workspace = $ws } }
+    $shipMarks = @((& $sm 40 'gates'), (& $sm 60 'ci-wait'), (& $sm 180 'merge'), (& $sm 190 'fold'))
+    $split = Get-StopwatchTranscriptPhases -Events @($ev) -From (& $at 0) -To (& $at 330) -ShipMarks $shipMarks
+    Assert-Equal 'Ship: checks before the PR=10;Ship: local gates and opening the PR=20;Ship: CI wait=120;Ship: merge=10;Ship: fold and close-out=10;Branch and claim=10;Other tool calls=1;Claude thinking and writing=48;Waiting on you=101' ((@($split.Phases) | ForEach-Object { "$($_.Name)=$([Math]::Round($_.Seconds))" }) -join ';') 'a ship call is cut at its step marks, each step lasting until the next mark or the call''s end'
+    $segs = Split-StopwatchShipTool -Tool @{ Phase = 'Ship: CI wait, merge, fold'; Start = (& $at 0); End = (& $at 100) } -Marks @((& $sm 50 'forward'), (& $sm 70 'something-new'), (& $sm 150 'merge'))
+    Assert-Equal 'Ship: checks before the PR,Ship: forwarded head, re-certified,Ship: CI wait, merge, fold' (($segs | ForEach-Object { $_.Phase }) -join ',') 'a mark outside the call is not its, and a step the page does not know keeps the ship''s own phase'
+    Assert-Equal 1 @(Split-StopwatchShipTool -Tool @{ Phase = 'Branch and claim'; Start = (& $at 0); End = (& $at 100) } -Marks $shipMarks).Count 'a call that is not a ship is never cut'
+    Assert-Equal 'Ship: CI wait, merge, fold' (@(Split-StopwatchShipTool -Tool @{ Phase = 'Ship: CI wait, merge, fold'; Start = (& $at 0); End = (& $at 20) } -Marks $shipMarks))[0].Phase 'a ship with no mark inside it stays one phase'
+
+    # The cache reads the marks from the step log, and only this checkout's. The transcript was emptied above, so it is written again.
+    [System.IO.File]::WriteAllText($tfile, ($lines -join "`n"), (New-Object System.Text.UTF8Encoding($false)))
+    (Get-Item -LiteralPath $tfile).LastWriteTimeUtc = (& $at 330)
+    $stepLog = Join-Path $tdir 'steps\run-steps.jsonl'
+    foreach ($mk2 in @($shipMarks + @((& $sm 100 'merge' 'C:\other-checkout')))) {
+        [void](Add-RunStepMark -Run $mk2.Run -Step $mk2.Step -Path $stepLog -NowUtc $mk2.At -Workspace $mk2.Workspace)
+    }
+    $stepped = Get-StopwatchTranscriptCache -Runs @($run) -CachePath (Join-Path $tdir 'stepped\stopwatch-phases.json') -TranscriptDir $tdir -StepLogPath $stepLog -RepoRoot 'C:\repo'
+    Assert-Equal '120' ([string][Math]::Round((@($stepped.r1.Phases | Where-Object { $_.Name -eq 'Ship: CI wait' })[0]).Seconds)) 'the cache cuts a ship at this checkout''s marks, and another checkout''s mark at 100 does not cut it'
 } finally {
     Remove-Item -LiteralPath $tdir -Recurse -Force -ErrorAction SilentlyContinue
 }

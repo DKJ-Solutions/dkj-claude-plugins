@@ -468,6 +468,29 @@ Assert-True ($defaultRec.writerStartTicks -gt 0) 'the default record does carry 
 Assert-True ($otherRec.writerStartTicks -ne $defaultRec.writerStartTicks) `
     'and the foreign record did NOT borrow this process ticks -- the pid and the ticks come from the same place'
 
+# --- the step log (issue #3338) ------------------------------------------------------------------
+# OPT-IN, and the off arm is the one a consumer runs: with DKJ_RUN_STEP_LOG unset and no -Path, nothing is
+# written anywhere. The variable is cleared for the assert and put back, so a session that sets it (this
+# repo's own .claude/settings.json does) does not turn the assert into a write to the real log.
+$savedStepEnv = [Environment]::GetEnvironmentVariable('DKJ_RUN_STEP_LOG')
+try {
+    [Environment]::SetEnvironmentVariable('DKJ_RUN_STEP_LOG', $null)
+    Assert-True (-not (Add-RunStepMark -Run 'ship-pr' -Step 'gates')) 'Add-RunStepMark: with the log off it writes nothing and says so'
+} finally {
+    [Environment]::SetEnvironmentVariable('DKJ_RUN_STEP_LOG', $savedStepEnv)
+}
+$stepRoot = New-Root -Label 'steps'
+$stepLog = Join-Path $stepRoot 'sub\run-steps.jsonl'
+$t0 = [datetime]::new(2026, 10, 23, 11, 0, 0, [DateTimeKind]::Utc)
+Assert-True (Add-RunStepMark -Run 'ship-pr' -Step 'gates' -Path $stepLog -NowUtc $t0 -Workspace 'C:\repo') 'Add-RunStepMark: a mark is written, its folder made on the way'
+[void](Add-RunStepMark -Run 'ship-pr' -Step 'ci-wait' -Path $stepLog -NowUtc $t0.AddMinutes(13) -Workspace 'C:\repo')
+[System.IO.File]::AppendAllText($stepLog, "{ cut off`n")
+[void](Add-RunStepMark -Run 'ship-pr' -Step 'merge' -Path $stepLog -NowUtc $t0.AddHours(2) -Workspace 'C:\repo')
+$read = @(Read-RunStepMarks -Path $stepLog -From $t0 -To $t0.AddHours(1))
+Assert-Equal 'gates,ci-wait' (($read | ForEach-Object { $_.Step }) -join ',') 'Read-RunStepMarks: the marks inside the window, oldest first; a torn line and a mark outside it are not'
+Assert-True ($read[1].At -eq $t0.AddMinutes(13) -and $read[0].Workspace -eq 'C:\repo' -and $read[0].Run -eq 'ship-pr') 'Read-RunStepMarks: each mark keeps its time, run and checkout'
+Assert-Equal 0 @(Read-RunStepMarks -Path (Join-Path $stepRoot 'none.jsonl') -From $t0 -To $t0.AddHours(1)).Count 'Read-RunStepMarks: a missing log is no marks'
+
 # --- teardown ------------------------------------------------------------------------------------
 foreach ($tree in $script:trees) {
     try { Remove-Item -LiteralPath $tree -Recurse -Force -ErrorAction SilentlyContinue } catch { }
