@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**2 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3324-general-pages-probe · 20261023-154805Z
+
+The ownhub routing assert in `dev-preview-sessionstart.tests.ps1` now probes the general pages with
+`/artifacts` rather than `/issues`, so it no longer runs git and gh inside the fixture server's
+single-threaded loop. That probe went unanswered for 30 s on loaded CI shards seven times in one day, which
+blocked every PR, while answering locally in 0 s
+([#3324](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3324)). The cause is not established.
+On a miss the assert now also reports what `/whoami` answers, which tells a held loop from a dead server.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A: a test of this repo's own suite, which no consumer runs.
+
+**Score:** N/A
+
+#### Pull Request
+
+dev-preview-sessionstart: probe the general pages with /artifacts, which spawns nothing
+
+[PR #3362](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3362)
+
+---
 
 ### DEPLOY: docs/stopwatch-css-comment-v2 · 20261023-153701Z
 
