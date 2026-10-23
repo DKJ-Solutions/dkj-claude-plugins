@@ -1,5 +1,6 @@
 /* Definition list, data, bill, comparison and calculation tables. Origin: see src/components/sources.ts. */
 
+/* ---------- Number alignment and tone utilities ---------- */
 .dkj-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .dkj-tone-negative { color: var(--negative-5); }
 .dkj-tone-positive { color: var(--positive-5); }
