@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**14 / 24 minor entries** <!-- pending-tally -->
+**14 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3323-stopwatch-auto · 20261023-103640Z
+
+The hub's Stopwatch now times Claude's work without anybody pressing Start or Stop. Begin a prompt to Claude with
+`stopwatch: <label>` and the clock starts right there (a run still going is discarded); it stops when Claude is
+back on the trunk with a clean checkout and HEAD moved since the start, a sign the work landed rather than a
+proof of it. A turn that only answers a question, or a branch parked for your look, keeps the clock going. The
+`/stopwatch` page only shows the measurements now: the running clock and one card per label (runs, latest time,
+change against the run before), and each card opens that label's page with every run, its comparison with the
+run before and where its time went. The buttons are gone.
+
+A running hub must be restarted to pick up this code: an old server would write the old shape of the store back.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The hub is this repo's own dev server, so nothing a consumer sees changes. `dkj-policy`'s
+`general-pages-lib.ps1` gains two opt-in parameters (`-Bare`, `-ParentCrumbs`) that only the Stopwatch passes; every
+page that does not pass them renders byte for byte as before.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch: a stopwatch: prompt starts a run, the page only shows the measurements
+
+Plugins: dkj-policy
+
+[PR #3332](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3332)
+
+---
 
 ### DEPLOY: feat/3327-golive-market-optout · 20261023-101214Z
 
