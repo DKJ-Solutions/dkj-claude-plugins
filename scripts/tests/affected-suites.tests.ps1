@@ -248,6 +248,16 @@ $list = @('c-tool.ps1', 'docs/data.json')
     $sel = Get-AffectedSuiteSelection -RepoRoot $r4 -ChangedPaths @('README.md')
     Assert-Equal 'walk' (Get-SelectedNames $sel) "but a BARE name in a library is a seam value, not a dependency"
 
+    # THE SEAM CONFIG NAMES DATA, NOT DEPENDENCIES (#3343): a path with a directory in repo-config.ps1's
+    # tables selects only the suites that name or reach it themselves, not every suite that loads the seam.
+    $r4s = New-SelectionFixture
+    Set-FixtureFile $r4s 'scripts/repo-config.ps1' "function Get-HouseStyleAllowlist { @(@{ Path = 'docs/style.css'; Name = '.tip'; Reason = 'a fixture' }) }`n"
+    Set-FixtureFile $r4s 'docs/style.css' "/* fixture */`n"
+    Set-FixtureFile $r4s 'scripts/tests/seam.tests.ps1' ". (Join-Path `$PSScriptRoot '..\repo-config.ps1')`nexit 0`n"
+    Set-FixtureFile $r4s 'scripts/tests/named.tests.ps1' "`$css = Join-Path `$PSScriptRoot '..\..\docs\style.css'`nexit 0`n"
+    $sel = Get-AffectedSuiteSelection -RepoRoot $r4s -ChangedPaths @('docs/style.css')
+    Assert-Equal 'named,walk' (Get-SelectedNames $sel) "a path in repo-config.ps1's data does not select the suites that load the seam"
+
     $sel = Get-AffectedSuiteSelection -RepoRoot $r4 -ChangedPaths @('scripts/tests/plain.tests.ps1')
     Assert-Equal 'plain,walk' (Get-SelectedNames $sel) 'a changed suite selects itself'
 
