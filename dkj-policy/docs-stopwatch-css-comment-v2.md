@@ -1,4 +1,4 @@
-## docs/stopwatch-css-comment
+## docs/stopwatch-css-comment-v2
 
 > **How this file is read.** A step is `- [ ]` until it is resolved -- `- [x]` done, or
 > `- [~]` dropped with the reason, which exists so nobody ticks a box for work they did not do.
@@ -49,7 +49,7 @@ Measure the full workflow with an invisible change: one CSS comment stamped with
 
 - [x] A comment only: nothing renders differently, and the gates run in open-pr.
 
-### DEPLOY: docs/stopwatch-css-comment
+### DEPLOY: docs/stopwatch-css-comment-v2
 
 A timing run of the full workflow, branch to fold: the stopwatch test-run comment at the top of the brand
 book's showcase stylesheet carries this run's date and time, and nothing renders differently.
