@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**12 / 17 minor entries** <!-- pending-tally -->
+**12 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3309-suite-overview · 20261023-081214Z
+
+The dev server's test-gate page now opens with this checkout's change: which suites the local gate
+runs for it, what CI runs, and one line per suite saying why it is in (the file it reaches, the walk
+scope that covers it, or an unscoped walk) and what it costs. Every suite also shows what it protects,
+taken from its own header (#3309).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A: the page belongs to this repo's dev server and ships to no consumer. `Get-AffectedSuiteSelection`
+gains a `Why` field that a consumer's gate does not read.
+
+**Score:** N/A
+
+#### Pull Request
+
+The test-gate page says what each suite protects and why this checkout's change selects it
+
+Plugins: dkj-policy
+
+[PR #3318](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3318)
+
+---
 
 ### DEPLOY: feat/3298-whole-card-clickable · 20261023-074622Z
 
