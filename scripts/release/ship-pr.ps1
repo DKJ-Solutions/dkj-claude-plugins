@@ -1013,6 +1013,10 @@ if ($NoResolves) { $openArgs += '-NoResolves' }
 # the same redirection -TrustedRoot performs here; forwarding it is what makes the whole child chain
 # read the trusted tree instead of the branch, not only this script's own dot-source above.
 if ($TrustedRoot) { $openArgs += @('-SeamRoot', $TrustedRoot) }
+# THE STEP MARKS (issue #3338): one line per step this run enters, in the opt-in step log run-progress-lib.ps1
+# keeps (DKJ_RUN_STEP_LOG), so a timing read afterwards can tell the local gates, the CI wait, a forwarded
+# head's re-certification and the merge and fold apart. A no-op where the log is off or the lib is absent.
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'ship-pr' -Step 'gates') }
 Write-Host "ship-pr: opening the PR..." -ForegroundColor Cyan
 # ONE CHAIN, ONE RECEIPT (issue #1884). open-pr.ps1 is a chain ENDING when somebody runs it, and a link
 # in the middle when this script runs it -- so the conductor claims the receipt and the child says
@@ -1896,6 +1900,7 @@ if (Test-FunctionDefined 'Write-RunProgress') {
             -Label "ship-pr: CI on PR #$pr" -StartedUtc $waitBegan.ToUniversalTime())
     } catch { }
 }
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'ship-pr' -Step 'ci-wait') }
 Write-Host "ship-pr: waiting for the CI check(s) on PR #$pr..." -ForegroundColor Cyan
 Write-Host "  Nothing here needs YOU -- background this run and the wait costs nothing." -ForegroundColor DarkGray
 Write-Host "  It does need this session's process: the merge and the fold are still owed, and both run from here (#1428)." -ForegroundColor DarkGray
@@ -2805,6 +2810,7 @@ certificate anyway.
                 if ($lap.Forward) {
                     $forwardLapsUsed++
                     Write-Host "ship-pr: the certificate is stale -- bringing '$branchShown' up to date with 'main' and re-certifying (lap $forwardLapsUsed of $MaxForwardLaps, issue #2087)." -ForegroundColor Cyan
+                    if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'ship-pr' -Step 'forward') }
 
                     # THE FORWARD ITSELF. `update-branch` merges the base into the head ON GITHUB, so it
                     # needs no checkout, no clean tree and no opinion about where HEAD is standing -- the
@@ -2963,6 +2969,8 @@ $($lap.Note)
         }
     }
 }
+
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'ship-pr' -Step 'merge') }
 
 # --- Step 4: merge (no --admin: never bypass the CI gate) ----------------------------------------
 #
@@ -3461,6 +3469,8 @@ Write-Host "ship-pr: PR #$pr merged (--$mergeMethod)." -ForegroundColor Green
 # Everything that refuses from here on refuses with the merge already landed, which is the opposite state
 # from everything above -- and the two are indistinguishable in an error record.
 $shipMergeLanded = $true
+
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'ship-pr' -Step 'fold') }
 
 # --- Step 5: main + fold + commit + push ---------------------------------------------------------
 #
