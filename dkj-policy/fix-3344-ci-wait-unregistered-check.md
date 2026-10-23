@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Issue #3344. The measured cause differs from the stated one (comment on the issue): `lint-en-tests`
+registers only after the suite shards it waits on, so `gh pr checks --required` reads empty for the whole
+suite run. The certificate read that as "not registered", which is never in flight, and the #2317 wait
+never started.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-CiTestCertificate -AllChecksJson`: an unregistered named check is in flight while another check on the same head is pending
+- [x] `Wait-CiTestCertificate` passes the reader's `AllChecksJson` through; open-pr reads every check at both call sites
+- [x] plugin mirrors of `gate-lib.ps1` and `open-pr.ps1` byte-identical again
 
 ### TEST
 
+- [x] `gate-lib.tests.ps1` section 18b: busy versus idle head, another commit, an unparseable payload, a red check, and the wait loop's certified and settled exits (316 pass)
+- [x] the cause measured live on PR #3345: `--required` answered "no required checks reported" from 12:32 to 12:40, while `suites (1..5)` ran
+
 ### DEPLOY: fix/3344-ci-wait-unregistered-check
 
-**Score:**
+A re-ship no longer runs the local suites while CI is still running them
+([#3344](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3344)). The required check
+`lint-en-tests` registers only after the suite shards it waits on have finished. For the whole suite run,
+`gh pr checks --required` answers "no required checks reported", so open-pr read that state as "no
+certificate" and ran the pool: 447s on PR #3334. `Get-CiTestCertificate` in `scripts/lib/gate-lib.ps1`
+now also reads every check on the head. A named check that has not registered counts as in flight while
+another check on that exact commit is still pending, so open-pr waits for it (#2317). Once nothing is
+pending and the check is still absent, the local suites run as before.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo running `dkj-policy` whose required check also waits on other jobs (`needs:`) takes the same
+wait through the mirrored `open-pr.ps1`. A re-ship there waits for CI instead of re-running every suite
+locally.
+
+**Score:** 2
 
 #### Pull Request
 
