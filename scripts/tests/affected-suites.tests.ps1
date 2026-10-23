@@ -165,7 +165,17 @@ $list = @('c-tool.ps1', 'docs/data.json')
     Assert-True (Get-SuiteReferenceSet -Text "gci `$RepoRoot -r`n").WalksOpen 'an abbreviated -Recurse is still a recursion'
     Assert-True (-not (Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot '*.md' -Recurse`n").WalksOpen) 'a positional wildcard is a filter'
     Assert-True (Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot -Recurse -Exclude '*.tmp'`n").WalksOpen 'but a wildcard handed to -Exclude narrows nothing'
-    Assert-True (-not (Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot -File`n").WalksOpen) 'a walk that does not recurse is not open'
+    Assert-True (Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot -File`n").WalksOpen 'a walk that does not recurse is still open: it lists every type at the top (Victor)'
+    Assert-True (Get-SuiteReferenceSet -Text "& git -C `$RepoRoot grep -n 'a.*b'`n").WalksOpen 'a regex with a star is no pathspec, so a git grep without -- stays open (Victor)'
+    Assert-True (-not (Get-SuiteReferenceSet -Text "& git -C `$RepoRoot grep -n 'a.*b' -- '*.ps1'`n").WalksOpen) 'and a pathspec after -- narrows it'
+    Assert-True (Get-SuiteReferenceSet -Text "`$f = [System.IO.Directory]::EnumerateFiles(`$RepoRoot, '*', 'AllDirectories')`n").WalksOpen 'a .NET file listing with a typeless pattern is open (Victor)'
+    Assert-True (-not (Get-SuiteReferenceSet -Text "`$f = [System.IO.Directory]::GetFiles(`$RepoRoot, '*.md')`n").WalksOpen) 'and one with a typed pattern is not'
+    Assert-True (Get-SuiteReferenceSet -Text "Copy-Item `$RepoRoot `$tmp -Recurse`n").WalksOpen 'copying the whole tree is open (Victor)'
+    Assert-True (Get-SuiteReferenceSet -Text "Get-ChildItem (Join-Path `$RepoRoot 'plugins/*/skills') -Recurse`n").WalksOpen 'a star in a DIRECTORY segment names no type (Victor)'
+    Assert-True (Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot -Recurse -Filter `$pattern`n").WalksOpen 'a filter held in a variable is not provable, so the walk stays open (Victor)'
+    Assert-True (-not (Get-SuiteReferenceSet -Text "Get-ChildItem -LiteralPath `$RepoRoot -Recurse -Filter 'hooks.json'`n").WalksOpen) 'a named manifest narrows to its type'
+    Assert-True (-not (Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot -Recurse -Include @('*.ps1', '*.md')`n").WalksOpen) 'and so does an -Include list'
+    Assert-True (Get-SuiteReferenceSet -Text "& git.exe -C `$RepoRoot ls-files`n").WalksOpen "the command name 'git.exe' is not read as a type"
     Assert-True (-not $walkFixture.WalksOpen) 'and an unfiltered walk over a fixture is no walk of the live tree at all'
 
     $broken = Get-SuiteReferenceSet -Text "function Broken {`n"

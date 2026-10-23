@@ -1304,9 +1304,9 @@ function Get-SuiteReferenceSet {
           - Walks : whether it ENUMERATES the live repo -- a Get-ChildItem, git ls-files/grep, a
                     recursive copy or a directory listing on a path built from $RepoRoot -- or says so
                     itself with a '# gate-selection: always' line.
-          - WalksOpen : whether one of those walks can return a file of ANY type -- a recursive
-                    Get-ChildItem over the live tree with no -Filter, no -Include and no wildcard
-                    argument, or the '# gate-selection: always' line, whose walk nobody can read. Such a
+          - WalksOpen : whether one of those walks can return a file of ANY type -- every walk of the
+                    live tree that no constant in its own arguments narrows to a type (the rule is at the
+                    walk detection below), or the '# gate-selection: always' line, whose walk nobody can read. Such a
                     suite is never narrowed by file type (issue #3309): the narrowing reads the suite's
                     source for the changed extension, and an open walk reads a type it never names.
 
@@ -1351,10 +1351,21 @@ function Get-SuiteReferenceSet {
     $runCommands = New-Object 'System.Collections.Generic.HashSet[object]'
     $walkNodes = New-Object 'System.Collections.Generic.HashSet[object]'
     $openWalkNodes = New-Object 'System.Collections.Generic.HashSet[object]'
+    # Whether a constant names a file type in its last path segment: '*.ps1', 'hooks.json'. '*.*' and a
+    # bare directory name do not.
+    $namesType = { param($v) return (("$v" -split '[\\/]')[-1] -match '\.[A-Za-z0-9]+$') }
     foreach ($n in $nodes) {
         if ($n -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
             $member = "$($n.Member)".ToLowerInvariant()
-            if ($member -in @('enumeratefiles', 'getfiles', 'enumeratedirectories', 'getdirectories', 'enumeratefilesystementries')) { [void]$walkNodes.Add($n) }
+            if ($member -in @('enumeratefiles', 'getfiles', 'enumeratedirectories', 'getdirectories', 'enumeratefilesystementries')) {
+                [void]$walkNodes.Add($n)
+                # A FILE listing is open unless one of its constant arguments names a type (the search
+                # pattern); a directory listing returns no file at all.
+                if ($member -notin @('enumeratedirectories', 'getdirectories') -and
+                    -not @(@($n.Arguments) | Where-Object { $_ -is [System.Management.Automation.Language.StringConstantExpressionAst] -and (& $namesType $_.Value) }).Count) {
+                    [void]$openWalkNodes.Add($n)
+                }
+            }
             continue
         }
         if ($n -isnot [System.Management.Automation.Language.CommandAst]) { continue }
@@ -1375,34 +1386,41 @@ function Get-SuiteReferenceSet {
             ($name -in @('git', 'git.exe') -and (($words -contains 'ls-files') -or ($words -contains 'grep')))) {
             [void]$walkNodes.Add($n)
         }
-        # AN OPEN WALK: a recursive Get-ChildItem that nothing narrows to a file type at the source -- no
-        # -Filter or -Include (or a prefix of either), and no wildcard among its plain arguments, which is
-        # where a positional filter sits. A wildcard handed to -Exclude narrows nothing, so it is skipped.
-        # A walk narrowed only AFTER the fact (| Where-Object Extension -eq '.ps1') counts as open here;
-        # that costs a suite kept, never one dropped.
-        if ($name -in @('get-childitem', 'gci', 'dir', 'ls')) {
-            $recurses = $false
+        # AN OPEN WALK IS EVERY WALK NOT PROVABLY NARROWED TO A FILE TYPE AT THE SOURCE (#3309) -- open is
+        # the default, because getting it wrong in that direction costs a suite kept, never one dropped.
+        # Narrowed means a CONSTANT in the walk's own arguments whose last segment names a type
+        # ('*.ps1', 'hooks.json'), in a position that filters:
+        #   - Get-ChildItem: the value of -Filter or -Include, or a positional constant (the path or the
+        #     positional filter). Never the value of -Exclude, which narrows nothing. A filter held in a
+        #     variable is not provable, so the walk stays open.
+        #   - Copy-Item -Recurse: a constant source naming a type.
+        #   - git ls-files: a pathspec naming a type. git grep: only a pathspec after '--', because before
+        #     it a '*' is a regex (Victor measured "a.*b" reading as a filter).
+        # A walk narrowed only AFTER the fact (| Where-Object Extension -eq '.ps1') is open here. The lib
+        # functions above are typed enumerations (mirrored scripts, specialist and always-on documents,
+        # workflow records, plugin roots) and are not open: what a suite then walks under a root they
+        # return is a walk of its own, read here like any other.
+        if ($walkNodes.Contains($n) -and $name -in @('get-childitem', 'gci', 'dir', 'ls', 'copy-item', 'git', 'git.exe')) {
             $narrowed = $false
             $previous = ''
-            foreach ($e in $n.CommandElements) {
+            $afterDashes = $false
+            # Element 0 is the command name itself, and 'git.exe' would read as a type.
+            foreach ($e in @($n.CommandElements | Select-Object -Skip 1)) {
                 if ($e -is [System.Management.Automation.Language.CommandParameterAst]) {
-                    $p = $e.ParameterName.ToLowerInvariant()
-                    if ($p -and ('recurse'.StartsWith($p) -or $p -eq 'depth')) { $recurses = $true }
-                    if ($p.Length -ge 2 -and ('filter'.StartsWith($p) -or 'include'.StartsWith($p))) { $narrowed = $true }
-                    $previous = $p
+                    if ($e.Extent.Text -eq '--') { $afterDashes = $true }
+                    $previous = $e.ParameterName.ToLowerInvariant()
                     continue
                 }
-                if ($e -is [System.Management.Automation.Language.StringConstantExpressionAst] -and
-                    $e.Value.Contains('*') -and -not ($previous.Length -ge 2 -and 'exclude'.StartsWith($previous))) { $narrowed = $true }
+                $consts = @($e.FindAll({ param($x) $x -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true) |
+                    Where-Object { $_.Parent -isnot [System.Management.Automation.Language.ExpandableStringExpressionAst] })
+                $byType = @($consts | Where-Object { & $namesType $_.Value }).Count -gt 0
+                $isExclude = $previous.Length -ge 2 -and 'exclude'.StartsWith($previous)
+                if ($name -in @('git', 'git.exe')) {
+                    if ($byType -and (($words -contains 'ls-files') -or $afterDashes)) { $narrowed = $true }
+                } elseif ($byType -and -not $isExclude) { $narrowed = $true }
                 $previous = ''
             }
-            if ($recurses -and -not $narrowed) { [void]$openWalkNodes.Add($n) }
-        }
-        # The same for git: an ls-files or grep with no wildcard pathspec lists or searches every tracked
-        # file, whatever its type.
-        if ($name -in @('git', 'git.exe') -and (($words -contains 'ls-files') -or ($words -contains 'grep')) -and
-            -not @($words | Where-Object { $_.Contains('*') }).Count) {
-            [void]$openWalkNodes.Add($n)
+            if (-not $narrowed) { [void]$openWalkNodes.Add($n) }
         }
         $op = $n.InvocationOperator
         if (($op -eq [System.Management.Automation.Language.TokenKind]::Dot) -or
@@ -1592,8 +1610,8 @@ function Get-AffectedSuiteSelection {
         type it never names. A changed path with no extension keeps every walk, because no source can
         name its type. A walk narrowed away does not exempt its suite from the ordinary match: a suite
         that walks *.ps1 still runs when it reaches the changed file. Measured October 23, 2026: a CSS
-        change in brandbook/ selects 3 suites where it selected 40, a README 58 where it selected 67,
-        and a .ps1 change all 40 walks, as before. The miss costs what any miss here costs, a red CI
+        change in brandbook/ selects 7 suites where it selected 40, a .tsx change 5 where it selected
+        41, a README 59 where it selected 67, and a .ps1 change all 40 walks, as before. The miss costs what any miss here costs, a red CI
         run -- except on an asset-only PR, where CI selects with this same function
         (ci-suite-selection-lib.ps1) and a miss is the ungated merge that trade accepted.
 
@@ -1747,11 +1765,18 @@ function Get-AffectedSuiteSelection {
     if ($typeTokens.Count -gt 0 -and -not @($typeTokens | Where-Object { -not $_ }).Count) {
         $typePattern = '(?i)\b(' + (@($typeTokens | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')\b'
     }
+    # Answered once per walking file: a few fixture builders are reached by many suites.
+    $walkerAnswer = @{}
     $walkReadsChange = {
         param($Walker)
         if ($null -eq $typePattern -or $Walker.Open) { return $true }
-        # An unreadable walker is kept: a walk is only ever dropped by a source that has been read.
-        try { return ([System.IO.File]::ReadAllText((Join-Path $RepoRoot $Walker.Path)) -match $typePattern) } catch { return $true }
+        if (-not $walkerAnswer.ContainsKey($Walker.Path)) {
+            # An unreadable walker is kept: a walk is only ever dropped by a source that has been read.
+            $answer = $true
+            try { $answer = [System.IO.File]::ReadAllText((Join-Path $RepoRoot $Walker.Path)) -match $typePattern } catch { }
+            $walkerAnswer[$Walker.Path] = $answer
+        }
+        return $walkerAnswer[$Walker.Path]
     }
 
     $selected = New-Object System.Collections.ArrayList
