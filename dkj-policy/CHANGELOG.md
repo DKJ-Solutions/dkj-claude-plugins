@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**12 / 21 minor entries** <!-- pending-tally -->
+**13 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3322-preview-copy-not-created · 20261023-093625Z
+
+When a preview copy of live is not created, `push-preview` now says so instead of saying it WAS created
+([#3322](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3322)). With no id returned and the theme
+list answering without the name, it reports NOT created, the store's theme count from that list and whatever
+the CLI said, and clears the branch's `previewFill=pending`. Only when the list itself could not be read does
+it still say the outcome is unknown and to re-run. The duplicate call now keeps stderr, so the CLI's
+"A shop may only have N themes" line reaches the operator.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store at its theme limit no longer sends you into a re-run loop: `push-preview` says the copy was not
+created, how many themes the store holds, and that a spent preview has to go first.
+
+**Score:** 2
+
+#### Pull Request
+
+push-preview no longer says a copy of live WAS created when nothing was
+
+Plugins: dkj-subagents-shopify
+
+[PR #3325](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3325)
+
+---
 
 ### DEPLOY: fix/3316-open-walks-never-dropped · 20261023-091344Z
 
