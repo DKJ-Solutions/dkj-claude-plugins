@@ -180,7 +180,7 @@ Assert-True ($broken -match 'could not be read') 'a store that does not read say
 Write-Host '-- the label page (#3323)' -ForegroundColor Cyan
 $cssGroup = Find-StopwatchGroup -Model $m -Slug 'css-comment'
 $lp = Format-StopwatchLabelPageHtml -Group $cssGroup -StorePath 's'
-Assert-True ($lp -match '<h2>CSS comment</h2>' -and $lp -match '<a href="/stopwatch">Back to the Stopwatch</a>' -and $lp -notmatch '<h1|hub-banner') 'the label page is named for the label, links back to the overview and carries no banner'
+Assert-True ($lp -match '<h2>CSS comment</h2>' -and $lp -notmatch 'Back to the Stopwatch' -and $lp -notmatch '<h1|hub-banner') 'the label page is named for the label, leaves the way back to the crumbs and carries no banner'
 Assert-True ($lp -match '<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">CSS comment</span></li>') 'the trail reads Home, Stopwatch (linking /stopwatch), then the label'
 Assert-True ($lp -match 'badge--good">1:40 faster<' -and $lp -match 'badge--bad">50.0s slower<' -and $lp -match 'first run') 'each run says faster or slower than the one before'
 Assert-Equal 3 ([regex]::Matches($lp, '<tr><td')).Count 'every run of the label has a row'

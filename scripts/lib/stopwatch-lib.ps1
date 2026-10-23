@@ -580,7 +580,7 @@ function Format-StopwatchLabelPageHtml {
         One label's page on '/stopwatch/<slug>' (#3323): every finished run of -Group (a group of
         ConvertTo-StopwatchModel), newest first, each with its start, its time, its change against the run before
         and its transcript phases with their share (-Transcript, by run id, from Get-StopwatchTranscriptCache; a run
-        it lacks shows '--'), and the run going now on top. A link leads back to '/stopwatch'.
+        it lacks shows '--'), and the run going now on top. The crumbs lead back to '/stopwatch'.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Group,
@@ -591,7 +591,7 @@ function Format-StopwatchLabelPageHtml {
     $e = { param($v) ConvertTo-DashboardText $v }
     $local = { param($t) (& $e ($t.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))) }
     $body = New-Object System.Text.StringBuilder
-    [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $Group.Label) + '</h2><p class="card__sub"><a href="/stopwatch">Back to the Stopwatch</a></p></div>')
+    [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $Group.Label) + '</h2></div>')
     if ($Group.Running) {
         [void]$body.AppendLine('<section class="card"><h3>Going now</h3>')
         [void]$body.AppendLine('<p class="sw-clock num" data-start="' + (Format-StopwatchStamp $Group.Running.Start) + '">' + (Format-DevSeconds ($Now - $Group.Running.Start).TotalSeconds) + '</p>')
