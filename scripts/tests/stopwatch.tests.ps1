@@ -272,22 +272,49 @@ try {
     $again = Get-StopwatchTranscriptCache -Runs @($run) -CachePath $cachePath -TranscriptDir $tdir
     Assert-Equal 5 @($again.r1.Phases).Count 'the cache is read back instead of the transcripts'
     $moved = $run.Clone(); $moved.End = (& $at 331)
-    Assert-Equal 0 (Get-StopwatchTranscriptCache -Runs @($moved) -CachePath $cachePath -TranscriptDir $tdir).r1.Sessions 'a run whose end changed is read again'
+    $gone = Get-StopwatchTranscriptCache -Runs @($moved) -CachePath $cachePath -TranscriptDir $tdir
+    Assert-True (-not $gone.ContainsKey('r1')) 'a run whose end changed is read again, and with no transcript covering it any more it is left out, not filed as all waiting (#3350)'
+    Assert-True (@((Get-Content -LiteralPath $cachePath -Raw | ConvertFrom-Json).PSObject.Properties.Name) -notcontains 'r1') 'and its stale entry leaves the cache file'
+    [System.IO.File]::WriteAllText($tfile, ($lines -join "`n"), (New-Object System.Text.UTF8Encoding($false)))
+    (Get-Item -LiteralPath $tfile).LastWriteTimeUtc = (& $at 330)
     [System.IO.File]::WriteAllText($cachePath, '{ not json')
     Assert-True ((Get-StopwatchTranscriptCache -Runs @($run) -CachePath $cachePath -TranscriptDir $tdir).ContainsKey('r1')) 'a cache that does not read is recomputed'
     $nowhere = Join-Path $tdir 'nowhere\stopwatch-phases.json'
     $blind = Get-StopwatchTranscriptCache -Runs @($run) -CachePath $nowhere -TranscriptDir (Join-Path $tdir 'no-such-dir')
-    Assert-True ($blind.r1.Sessions -eq 0 -and -not (Test-Path -LiteralPath $nowhere)) 'with no transcript to read nothing is cached, so a wrong folder is not filed for good'
+    Assert-True (-not $blind.ContainsKey('r1') -and -not (Test-Path -LiteralPath $nowhere)) 'with no transcript to read nothing is cached, so a wrong folder is not filed for good'
+
+    # A RUN WHOSE TRANSCRIPTS WERE PRUNED (#3350): a newer transcript still exists, but none spans the run's start.
+    $pdir = Join-Path $tdir 'pruned'
+    [void](New-Item -ItemType Directory -Path $pdir -Force)
+    $newer = Join-Path $pdir 'newer.jsonl'
+    [System.IO.File]::WriteAllText($newer, (& $rec 1000 'user' 'a later session'))
+    (Get-Item -LiteralPath $newer).LastWriteTimeUtc = (& $at 1000)
+    $prunedPath = Join-Path $pdir 'cache\stopwatch-phases.json'
+    $pruned = Get-StopwatchTranscriptCache -Runs @($run) -CachePath $prunedPath -TranscriptDir $pdir
+    Assert-True (-not $pruned.ContainsKey('r1') -and -not (Test-Path -LiteralPath $prunedPath)) 'a run no transcript covers is neither returned nor cached, though a newer transcript was there to read'
+    $legacyPath = Join-Path $pdir 'legacy\stopwatch-phases.json'
+    [void](New-Item -ItemType Directory -Path (Split-Path -Parent $legacyPath) -Force)
+    [System.IO.File]::WriteAllText($legacyPath, ('{"r1":{"end":"' + (& $stamp 330) + '","sessions":0,"phases":[{"name":"Waiting on you","seconds":330}]}}'))
+    $legacy = Get-StopwatchTranscriptCache -Runs @($run) -CachePath $legacyPath -TranscriptDir $pdir
+    Assert-True (-not $legacy.ContainsKey('r1') -and @((Get-Content -LiteralPath $legacyPath -Raw | ConvertFrom-Json).PSObject.Properties.Name) -notcontains 'r1') 'a run cached as all waiting before #3350 is judged again, and dropped when nothing covers it'
+    $late = Join-Path $pdir 'late.jsonl'
+    [System.IO.File]::WriteAllText($late, ((& $rec 30 'user' 'time this'), (& $rec 40 'assistant' @(@{ type = 'text'; text = 'ok' }))) -join "`n")
+    (Get-Item -LiteralPath $late).LastWriteTimeUtc = (& $at 330)
+    $covered = Get-StopwatchTranscriptCache -Runs @($run) -CachePath $legacyPath -TranscriptDir $pdir
+    Assert-Equal 1 $covered.r1.Sessions 'a transcript whose first record lands within a minute of the start covers the run (the prompt hook stamps the start first)'
 
     # One label's page asks for its own runs only, and the file is written whole: the others must survive it.
     $twoPath = Join-Path $tdir 'two\stopwatch-phases.json'
-    # Windows from an hour ago to now, so the transcript files just written are inside them whatever the clock says.
+    # Windows from an hour ago to now, covered by a transcript of their own, whatever the clock says.
     $w0 = [datetime]::UtcNow.AddHours(-1)
+    $twoDir = Join-Path $tdir 'two-transcripts'
+    [void](New-Item -ItemType Directory -Path $twoDir -Force)
+    [System.IO.File]::WriteAllText((Join-Path $twoDir 'now.jsonl'), ('{"parentUuid":"p","type":"user","isSidechain":false,"message":{"role":"user","content":"go"},"timestamp":"' + (Format-StopwatchStamp $w0) + '"}'))
     $runA = @{ Id = 'ra'; Label = 'A'; Start = $w0; End = $w0.AddSeconds(330); Auto = $true; StartHead = 'a' }
     $runB = @{ Id = 'rb'; Label = 'B'; Start = $w0; End = $w0.AddSeconds(330); Auto = $true; StartHead = 'a' }
-    [void](Get-StopwatchTranscriptCache -Runs @($runA, $runB) -CachePath $twoPath -TranscriptDir $tdir)
+    [void](Get-StopwatchTranscriptCache -Runs @($runA, $runB) -CachePath $twoPath -TranscriptDir $twoDir)
     $runA2 = @{ Id = 'ra'; Label = 'A'; Start = $w0; End = $w0.AddSeconds(340); Auto = $true; StartHead = 'a' }
-    [void](Get-StopwatchTranscriptCache -Runs @($runA2) -CachePath $twoPath -TranscriptDir $tdir)
+    [void](Get-StopwatchTranscriptCache -Runs @($runA2) -CachePath $twoPath -TranscriptDir $twoDir)
     $twoDoc = Get-Content -LiteralPath $twoPath -Raw | ConvertFrom-Json
     Assert-True ($null -ne $twoDoc.rb -and $null -ne $twoDoc.ra -and $twoDoc.ra.end -eq (Format-StopwatchStamp $w0.AddSeconds(340))) 'a write for one label keeps the other label''s cached phases'
 
