@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Measured on stopwatch run `20261023-131652-e081` (PR #3348, 19m15s): another PR merged 12s after CI
+started, the first CI run took 8m19s, and only then did step 3b lap and start a second 8m03s run. The
+first run was 43% of the assignment, and the gate was always going to discard it. Target: the next
+measurement at least 5% faster.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `forward-lane-lib.ps1`: `Get-EarlyForwardAction` (poll / forward / watch) and `Get-UnfinishedRequiredCount` (ruleset names against the full payload, so an unregistered aggregator counts as unfinished)
+- [x] `ship-pr.ps1`: step 3a polls between the first registration wait and the wait on the required check, and forwards at once on a stale reading, failing open to the existing flow
+- [x] `ship-pr.ps1`: `Get-FoldExemptCommits` and `Complete-ForwardLap` extracted from step 3b and shared with 3a; the lap budget is shared
+- [x] Plugin mirrors synced byte-for-byte
 
 ### TEST
 
+- [x] `forward-lane-lib.tests.ps1`: unit cases for both new functions, plus structural asserts on step 3a's place, the shared budget and the shared helpers (107 pass)
+- [x] Every suite that reads `ship-pr.ps1` re-run locally
+
 ### DEPLOY: feat/ship-pr-early-forward-lap
 
-**Score:**
+When the trunk gains a commit while a PR's CI is still running, `ship-pr` now brings the branch up to
+date at once and waits for the fresh run, instead of first sitting out a run whose certificate step 3b
+was always going to refuse. The gate is unchanged: the same staleness predicate, the same fold discount
+and the same `-MaxForwardLaps` budget, which the early forward shares. Anything the early phase cannot
+read hands over to the existing wait, so its worst case is the old behaviour. On PR #3348 this would
+have saved about 8 of 19 minutes.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer running `ship-pr` on a busy trunk gets its pull request merged one CI run sooner whenever
+another merge lands during its CI wait. Nothing to configure, and `-MaxForwardLaps 0` still switches
+every lap off.
+
+**Score:** 3
 
 #### Pull Request
 
