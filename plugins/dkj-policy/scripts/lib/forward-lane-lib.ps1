@@ -336,3 +336,64 @@ function Test-CertificateRenewed {
     # with the old certificate.
     return $false
 }
+
+function Get-CancelledCheckRunIds {
+    <#
+    .SYNOPSIS
+        The run ids behind the NAMED checks whose record says CANCELLED, read from a `gh pr checks --json`
+        payload. Empty when none of them was cancelled.
+
+    .DESCRIPTION
+        A CANCELLED RUN IS A RUN THAT DID NOT ANSWER, NOT ONE THAT ANSWERED NO (issue #3331). After a
+        forward, two `pull_request` runs can start on the same head seconds apart, and the concurrency group
+        cancels the first. That cancelled run is a new run id, so Test-CertificateRenewed reads it as the
+        renewal. It completes at once, and Get-CheckOutcome counts `cancel` as `fail`, which is correct for
+        a merge gate. The forward wait therefore returned it, and ship-pr refused with "the required check
+        went RED on the forwarded head" while the run that superseded it was still going. Measured on
+        PR #3329, October 23, 2026: run 39937451203 cancelled at 10:12:33Z, run 39937456209 in progress.
+
+        So the wait asks this function before it believes a finished renewal. The ids it returns join the
+        set the wait already ignores, the way it ignores the old green run, and the poll goes on until a
+        run that actually ran has answered. Only a `failure` ends the run as red.
+
+        BUCKET FIRST AND STATE AS THE FALLBACK, the order Get-CheckOutcome reads them in, so the two cannot
+        disagree about what one record says. A record with no resolvable run link is skipped, as in
+        Get-RequiredCheckRunIds: without an id there is nothing to add to the ignored set.
+
+    .PARAMETER ChecksJson
+        `gh pr checks <pr> --json name,bucket,state,link` output; other fields may ride along.
+
+    .PARAMETER Names
+        The check names to look at -- the required ones.
+    #>
+    param(
+        [string]$ChecksJson,
+        [AllowEmptyCollection()][AllowNull()][string[]]$Names = @()
+    )
+
+    $wanted = @(@($Names) | Where-Object { $_ -and "$_".Trim() })
+    if ($wanted.Count -eq 0) { return @() }
+    if (-not $ChecksJson -or -not $ChecksJson.Trim()) { return @() }
+
+    try { $parsed = $ChecksJson | ConvertFrom-Json } catch { return @() }
+    # Assign first, wrap second -- 5.1 hands a parsed JSON array to the pipeline as ONE object.
+    $records = @(@($parsed) | Where-Object { $_ -and $_.name -and ($wanted -contains [string]$_.name) })
+
+    $ids = New-Object System.Collections.Generic.List[string]
+    foreach ($r in $records) {
+        $bucket = ''
+        if ($r.PSObject.Properties['bucket']) { $bucket = ([string]$r.bucket).Trim().ToLowerInvariant() }
+        $cancelled = if ($bucket) {
+            $bucket -eq 'cancel'
+        } elseif ($r.PSObject.Properties['state']) {
+            ([string]$r.state).Trim().ToUpperInvariant() -eq 'CANCELLED'
+        } else { $false }
+        if (-not $cancelled) { continue }
+
+        if (-not $r.PSObject.Properties['link']) { continue }
+        if ([string]$r.link -notmatch '/actions/runs/(\d+)') { continue }
+        $runId = $Matches[1]
+        if (-not $ids.Contains($runId)) { $ids.Add($runId) | Out-Null }
+    }
+    return @($ids)
+}

@@ -179,6 +179,32 @@ Assert-Equal $false (Test-CertificateRenewed -Before @() -After @()) '...but not
 Assert-Equal $false (Test-CertificateRenewed -Before @('111') -After @(' 111 ')) 'a padded id is the same id'
 
 Write-Host ''
+Write-Host 'Get-CancelledCheckRunIds -- a cancelled duplicate run is not the certificate (#3331)' -ForegroundColor Cyan
+
+$link = { param($id) "https://github.com/o/r/actions/runs/$id/job/9" }
+$cancelledPayload = @(
+    [pscustomobject]@{ name = 'lint-en-tests'; bucket = 'cancel'; state = 'CANCELLED'; link = (& $link '39937451203') },
+    [pscustomobject]@{ name = 'claude-review'; bucket = 'cancel'; state = 'CANCELLED'; link = (& $link '555') }
+) | ConvertTo-Json
+Assert-Equal '39937451203' ((Get-CancelledCheckRunIds -ChecksJson $cancelledPayload -Names @('lint-en-tests')) -join ',') 'the measured case: a cancelled required run is returned'
+Assert-Equal '' ((Get-CancelledCheckRunIds -ChecksJson $cancelledPayload -Names @('other')) -join ',') '...and a cancelled check that is not named is not'
+
+# A FAILURE IS AN ANSWER, and it must still reach the caller as RED -- the half of the gate this repair
+# must not soften.
+$failedPayload = ConvertTo-Json -InputObject @([pscustomobject]@{ name = 'lint-en-tests'; bucket = 'fail'; state = 'FAILURE'; link = (& $link '777') })
+Assert-Equal '' ((Get-CancelledCheckRunIds -ChecksJson $failedPayload -Names @('lint-en-tests')) -join ',') 'a failed run is not read as cancelled'
+$passPayload = ConvertTo-Json -InputObject @([pscustomobject]@{ name = 'lint-en-tests'; bucket = 'pass'; state = 'SUCCESS'; link = (& $link '888') })
+Assert-Equal '' ((Get-CancelledCheckRunIds -ChecksJson $passPayload -Names @('lint-en-tests')) -join ',') '...nor is a green one'
+
+# BUCKET FIRST, STATE AS THE FALLBACK -- Get-CheckOutcome's order.
+$stateOnly = ConvertTo-Json -InputObject @([pscustomobject]@{ name = 'lint-en-tests'; state = 'CANCELLED'; link = (& $link '999') })
+Assert-Equal '999' ((Get-CancelledCheckRunIds -ChecksJson $stateOnly -Names @('lint-en-tests')) -join ',') 'state CANCELLED is read when no bucket was asked for'
+$noLink = ConvertTo-Json -InputObject @([pscustomobject]@{ name = 'lint-en-tests'; bucket = 'cancel'; link = 'https://ci.example/x' })
+Assert-Equal '' ((Get-CancelledCheckRunIds -ChecksJson $noLink -Names @('lint-en-tests')) -join ',') 'a link naming no Actions run yields no id'
+Assert-Equal '' ((Get-CancelledCheckRunIds -ChecksJson 'not json' -Names @('lint-en-tests')) -join ',') 'an unparseable payload yields nothing rather than throwing'
+Assert-Equal '' ((Get-CancelledCheckRunIds -ChecksJson '' -Names @('lint-en-tests')) -join ',') '...and so does an empty one'
+
+Write-Host ''
 Write-Host 'The structural half -- ship-pr.ps1 laps on these decisions' -ForegroundColor Cyan
 
 $ship = Get-Content -LiteralPath $ShipPath -Raw
@@ -216,6 +242,8 @@ Assert-True ($ship -match '(?s)bringing the branch forward, not retrying the sam
 # A RED CHECK ON THE FORWARDED HEAD ENDS THE RUN. This is the case the gate exists to catch, arriving
 # the way it was always meant to -- lapping there would re-run a suite that has just answered.
 Assert-True ($ship -match 'The required check went RED on the forwarded head') 'a red check after the forward refuses rather than lapping'
+# ...but a CANCELLED one is not red: the forward wait skips it and waits for the run that superseded it.
+Assert-True ($ship -match '(?s)function Wait-ForwardedCertificate.*?Get-CancelledCheckRunIds -ChecksJson \$facts\.Checks.*?if \(\$cancelledIds\.Count -eq 0\) \{ return \$facts \}') 'the forward wait returns only once no required record reads cancelled (#3331)'
 
 # AND SO DOES A FAILED CATCH-UP OF THE LOCAL REF. Merging while refs/heads/<branch> and the PR head
 # disagree would gate the merge on a document the PR does not contain, which nothing downstream reports.

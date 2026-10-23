@@ -412,9 +412,10 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   [#3069](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3069)): every completed close sends
   it on to review, so every one opens with *"GitHub issue <owner>/<repo>#<n> is now **closed**: this
   Asana task is now in review."*, and only the line under it differs -- the invitation to reopen for a
-  visible change, the same with *"It becomes visible with the release named below"* where the block
-  names a planned release day rather than `-LiveSince`, and *"Nothing has changed. Read the outcome
-  below."* for research.
+  visible change that is live, no line at all where the block names a planned release day rather than
+  `-LiveSince` (its `WHEN IT GOES LIVE` and its ask already say when, and that a *no* reopens it,
+  [#3328](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3328)), and *"Nothing has changed.
+  Read the outcome below."* for research.
 - **A task told "visible with the release" hears again once that release is live** (Maikel, October 16,
   2026, [#3070](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3070)). The closed message
   posts before the release, and nothing automated knows when the live push has been made, so a person

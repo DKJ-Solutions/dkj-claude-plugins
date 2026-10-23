@@ -4,7 +4,7 @@ description: >-
   Tell the Asana task of every issue a store release carried that its work is now live -- run right
   after the live push (or the promotion merge) and the cut, as the release-day runbook's step after the
   cut. It finds the PRs merged in the release's tag range, the issues they closed, and tells only those
-  whose closed message said the result "becomes visible with the release": a -LiveSince issue was told
+  whose closed message named a planned release (the after-release marker): a -LiveSince issue was told
   at the close and a research issue changed nothing. A dry run by default; -Post sends one comment per
   task and marks the issue so nobody is told twice. Use it when a release has just gone live.
 ---
@@ -12,8 +12,9 @@ description: >-
 # notify-live -- the message after the release
 
 An issue that is built but only visible after a release closes at the PR step, and its closed message
-says the result *"becomes visible with the release named below"*
-([#3069](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3069)). Until this skill nothing
+names the planned release under `WHEN IT GOES LIVE`, with the after-release marker on its block
+([#3069](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3069); until #3328 the line under
+its intro said *"becomes visible with the release named below"* as well). Until this skill nothing
 told the task when that release had actually gone out, so the requester had to work out for themselves
 whether the release day's release carried their work
 ([#3070](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3070)).

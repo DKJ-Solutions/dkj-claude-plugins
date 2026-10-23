@@ -43,8 +43,9 @@
         the issue (build-golive-block.ps1). That block is the "new form": TE BEKIJKEN OP, WAT ER NU
         ANDERS IS, WANNEER HET LIVE KOMT, WAT ER BEWUST NIET IN ZIT, WAT WE VAN JE VRAGEN. Where the
         block names a PLANNED release day rather than -LiveSince, it carries Get-AsanaReleaseBlockMarker
-        beside its own, and the line under the intro says the result becomes visible with that release
-        (#3069) -- the same message, not a separate kind.
+        beside its own (#3069), and the intro stands alone, with no reopen line under it: the sections
+        say when it goes live and that a 'no' reopens the issue (#3328) -- the same message, not a
+        separate kind.
       - A close as completed whose newest block is a RESEARCH block (build-golive-block.ps1 -Research,
         #3004): Maikel's general form (#3017) -- the header, the intro, 'Nothing has changed. Read the
         outcome below.' (#3069), the block's OUTCOME section as a
@@ -286,8 +287,9 @@ function Get-ClosedMessageSecondLine {
     <#
         Pure: the line under the intro of a close as completed -- the one line that tells the forms
         apart (#3069). A result invites a reopen (#2700). A result that only becomes visible with the
-        release (-AfterRelease, a block without -LiveSince) says so, and stays the same message: it is
-        not a fourth kind. A research block says that nothing changed and points at the outcome below
+        release (-AfterRelease, a block without -LiveSince) gets NO line, '' (#3328): its sections say
+        when it goes live and that a 'no' reopens the issue, and 'it becomes visible with the release
+        named below, and can be reopened anytime' said both again (xoxowildhearts#414). A research block says that nothing changed and points at the outcome below
         it, replacing #3017's 'the Asana task is ready for review. Read the outcome below.', which did
         not say that nothing changed, so a research form used for a change that went live read as
         plausible (smartwatchbanden#395). -Research wins over -AfterRelease: a research block has no
@@ -301,7 +303,7 @@ function Get-ClosedMessageSecondLine {
     if ($Measure) { return 'Nothing changes visibly on the storefront. You can take a new measurement yourself, as described below.' }
     if ($AlreadyFixed) { return 'Nothing was changed for this ticket: it was already fixed by an earlier release. Check below that it holds for you.' }
     if ($Research) { return 'Nothing has changed. Read the outcome below.' }
-    if ($AfterRelease) { return 'It becomes visible with the release named below, and can be reopened anytime when something is still not working as expected.' }
+    if ($AfterRelease) { return '' }
     return 'It can be reopened anytime when something is still not working as expected.'
 }
 
@@ -358,7 +360,8 @@ function New-ClosedMessage {
         [switch]$Measure,
         [switch]$AlreadyFixed
     )
-    return (@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is now closed$(Get-ClosedMessageIntroTail)", (Get-ClosedMessageSecondLine -Research:$Research -AfterRelease:$AfterRelease -Measure:$Measure -AlreadyFixed:$AlreadyFixed)) -join "`n")
+    $second = Get-ClosedMessageSecondLine -Research:$Research -AfterRelease:$AfterRelease -Measure:$Measure -AlreadyFixed:$AlreadyFixed
+    return ((@((Get-ClosedMessageHeader), '', "GitHub issue $IssueRef is now closed$(Get-ClosedMessageIntroTail)") + @($second | Where-Object { $_ })) -join "`n")
 }
 
 function Get-PasteBlockSections {
@@ -488,7 +491,7 @@ function New-ClosedMessageHtml {
         the line under the intro says nothing changed instead of inviting a reopen, the outcome's bullets
         become a list, and the closing ask follows them, naming -DoneSection where one was found
         (Get-ClosedMessageAsk). -AfterRelease (#3069): the block names a planned release day rather than
-        -LiveSince, so the line under the intro says the result becomes visible with that release. Both
+        -LiveSince, so the intro stands alone and the sections say when it goes live (#3328). Both
         are meaningful only beside sections: a close that carries no block gets the result form, because
         nothing it could say about the outcome or the release is known.
 
@@ -521,7 +524,7 @@ function New-ClosedMessageHtml {
     $research = $Research -and [bool]$BlockSections -and -not $measure -and -not $fixed
     $after    = $AfterRelease -and [bool]$BlockSections -and -not $measure -and -not $fixed
     $second   = Get-ClosedMessageSecondLine -Research:$research -AfterRelease:$after -Measure:$measure -AlreadyFixed:$fixed
-    $html     = "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is now <strong>closed</strong>$(& $esc (Get-ClosedMessageIntroTail))`n$(& $esc $second)"
+    $html     = "<body>$(& $esc (Get-ClosedMessageHeader))`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is now <strong>closed</strong>$(& $esc (Get-ClosedMessageIntroTail))$(if ($second) { "`n$(& $esc $second)" })"
     if ($measure) {
         $html += "`n`n" + (ConvertTo-AsanaStoryHtml -Markdown $BlockSections -Lists) + "`n" + (& $esc (Get-ClosedMessageMeasureAsk -DoneSection $DoneSection))
     } elseif ($fixed) {
