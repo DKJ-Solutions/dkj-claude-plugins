@@ -39,21 +39,31 @@
 
 ### PLAN
 
+A stopwatch measurement run: one CSS comment, timed from the prompt to the trunk.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Add a section-header comment above the ungrouped number and tone utilities in `brandbook/src/components/tables.css`
 
 ### TEST
 
+- [x] Comment only: no selector or declaration changed, so nothing renders differently
+
 ### DEPLOY: docs/tables-css-comment
 
-**Score:**
+The brandbook's `tables.css` now names its first block, the number alignment and tone utilities, with
+the same section-header comment every other block in that file carries. It is a comment only, so nothing
+renders differently.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: a source comment in the brandbook app. No consumer of the released plugins sees it.
+
+**Score:** N/A
 
 #### Pull Request
 
-Name the table classes' section in the brandbook tables stylesheet
+Name the number and tone utilities' section in the brandbook tables stylesheet
 
