@@ -679,7 +679,9 @@ try {
         # THE REAL START: a loopback listener that holds the port for a minute, started by the hook.
         Use-GeneralPort (New-FreePort)
         $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
-        $listen = "powershell -NoProfile -Command `"`$l = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), {port}; `$l.Start(); Start-Sleep 60`""
+        # 600 s, not 60 (#3288): the last assert below still needs the first server listening, and on a loaded
+        # CI shard that assert comes about 67 s after the start. Every one is stopped in the finally anyway.
+        $listen = "powershell -NoProfile -Command `"`$l = New-Object System.Net.Sockets.TcpListener ([System.Net.IPAddress]::Loopback), {port}; `$l.Start(); Start-Sleep 600`""
         $cfg = "function Get-DevPreview { @{ Command = '" + $listen.Replace("'", "''") + "'; Ports = $port; Path = '/index.html'; WaitSeconds = 30 } }`n"
         $live = New-Repo 'live' $cfg
         $r = Invoke-Hook $live
@@ -719,7 +721,10 @@ try {
         $r2 = & $getRaw $g '/hub'
         Assert-True ($r2 -match 'HTTP/1.1 303' -and $r2 -match "Location: http://localhost:$port3/index.html\r") '/hub on the general server goes to the repo''s own hub, as the state file names it, instead of rendering one'
         Assert-True ((& $getRaw $g '/') -match 'HTTP/1.1 303' -and (& $getRaw $g '/index.html') -match 'HTTP/1.1 303') 'and so do / and /index.html'
-        Assert-True ((& $getRaw $g '/issues') -match 'HTTP/1.1 200') 'while the general pages answer as ever'
+        $t1 = Get-Date
+        $issues = & $getRaw $g '/issues'
+        $first = if ($issues) { ($issues -split "`r?`n")[0] } else { '(no answer)' }
+        Assert-True ($issues -match 'HTTP/1.1 200') "while the general pages answer as ever (got '$first' after $([int]((Get-Date) - $t1).TotalSeconds) s)"
         $r = Invoke-Hook $own
         Assert-Equal "Hub: http://localhost:$port3/index.html (already running)" (Get-Message $r.Text) 'a second start reuses it, in the old words'
         # An opted-out repo whose server cannot start has no hub to send to: a plain 404 text, as before.
@@ -784,7 +789,8 @@ try {
         $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
         $other = New-Repo 'other' $cfg
         $r = Invoke-Hook $other
-        Assert-True ((Get-Message $r.Text) -match "product not started: port $port taken") 'another checkout does not mistake that server for its own'
+        $m = Get-Message $r.Text
+        Assert-True ($m -match "product not started: port $port taken") "another checkout does not mistake that server for its own (got '$m')"
     } else {
         Write-Host '  [SKIP] the Windows-only cases: not on Windows' -ForegroundColor Yellow
         $r = Invoke-Hook (New-Repo 'bad-seam' "function Get-DevPreview { @{ Command = 'x' } }`n")

@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#### Status
+
+A test suite only: the gates prove it, so it ships without an intermediate stop.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The fixture listener in `dev-preview-sessionstart.tests.ps1` sleeps 600 s, not 60. The `finally` stops every one of them
+- [x] The two asserts that failed on CI print what they got: the hook's line, and `/issues`'s status line with the elapsed seconds
 
 ### TEST
 
+- [x] Cause reproduced: with a 30 s listener the suite fails locally on exactly `another checkout does not mistake that server for its own`, with `other` starting its own server on the freed port (307/1)
+- [x] The repaired suite passes locally (308/0)
+- [~] The `/issues` co-failure is not explained by this cause. Filed as #3324, with the new output in place for its next recurrence
+
 ### DEPLOY: fix/3288-live-listener-outlives-suite
 
-**Score:**
+`dev-preview-sessionstart.tests.ps1` failed on CI with `another checkout does not mistake that server for its own`
+([#3288](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3288), five times). The fixture server that
+assert depends on was a listener that ran for 60 s, and on a slow shard the assert came about 67 s after that
+listener started. By then the port was free, so the second checkout started its own server. The listener now
+runs for 600 s and is stopped in the suite's `finally`. The assert also prints the line it got. With a 30 s
+listener the failure reproduces locally.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
+A CI-flaky dev-preview assert: its fixture server no longer stops before the last scenario
