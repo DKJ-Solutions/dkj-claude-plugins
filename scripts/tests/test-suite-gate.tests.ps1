@@ -627,7 +627,13 @@ try {
         return $n
     }
 
-    $par = Invoke-Gate -TestsDir $slow
+    # THE MEMORY READING IS STATED, NOT INHERITED -- issue #2987. Left to the real read, this nested
+    # gate's memory floor (#2317, case 7c) consults the free memory of whatever machine runs this
+    # suite, and under the outer gate's own pressure it held every lane start after the first: the six
+    # suites queued and 0 of 15 pairs overlapped, twice, each time green standalone seconds later.
+    # 65536 MB is room for every lane, so the floor never fires and what is asserted is the gate's
+    # parallelism rather than the box's free memory. The lane COUNT still comes from the real cores.
+    $par = Invoke-Gate -TestsDir $slow -AvailableMemoryMB 65536
     Assert-True ($par.Text -match 'GATE-RESULT: True') 'all six slow suites pass'
     Assert-Equal 6 (@($par.Lines | Where-Object { $_ -match '^SLEPT-\d$' }).Count) 'and all six actually ran'
     Assert-Equal 6 (@(Get-ChildItem -Path $stamps -Filter '*.txt' -File).Count) 'and all six stamped their own lifetime'

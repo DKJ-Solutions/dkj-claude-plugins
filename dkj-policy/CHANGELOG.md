@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**18 / 34 minor entries** <!-- pending-tally -->
+**18 / 35 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/2987-overlap-memory-floor · 20261023-131857Z
+
+The overlap case in `test-suite-gate.tests.ps1` no longer fails a full gate run under memory
+pressure: its nested gate now runs on a stated memory reading instead of the machine's, so the
+lane-start memory floor (#2317) cannot serialise the six suites it measures for overlap (#2987,
+measured twice, each time green standalone).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a test-only repair; nothing a consumer runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+test-suite-gate overlap case reads the machine's free memory
+
+[PR #3346](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3346)
+
+---
 
 ### DEPLOY: fix/3344-ci-wait-unregistered-check · 20261023-130121Z
 
