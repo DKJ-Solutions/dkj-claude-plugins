@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**12 / 19 minor entries** <!-- pending-tally -->
+**12 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3315-stopwatch-phases · 20261023-090447Z
+
+A finished Stopwatch run now shows where its time went, read from this repo's session transcripts: the ship
+(CI wait, merge and fold), the local gates and tests, subagents, branch and claim, other tool calls, Claude's
+own thinking and writing, and the time it waited on you, each with its share of the run. Every second counts
+once, so the phases add up to the run. The hand-set laps stay beside them, in a column now called Laps.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The hub is this repo's own dev server, so nothing a consumer takes changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch phases read from the session transcripts
+
+[PR #3321](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3321)
+
+---
 
 ### DEPLOY: feat/3315-hub-stopwatch · 20261023-083234Z
 
