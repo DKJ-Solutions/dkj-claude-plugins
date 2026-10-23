@@ -121,6 +121,27 @@ if (-not $TranscriptDir) { $TranscriptDir = Get-StopwatchTranscriptDir -RepoRoot
 $StopwatchPhasesPath = Join-Path (Split-Path -Parent $StopwatchPath) 'stopwatch-phases.json'
 # ship-pr's step marks (#3338): the writer's own path, from the lib stopwatch-lib.ps1 loads beside itself.
 $StopwatchStepLogPath = if ($script:StopwatchStepLogAvailable) { Get-RunStepLogPath } else { '' }
+# The other machines' runs (#3349), read from refs/stopwatch-origin/* and refreshed in the background at most every
+# few minutes. Only for the real store: a test that passes a store of its own must neither read this checkout's
+# refs nor reach the network. GUARDED like the test gate's libs below, so a tree without it serves this machine's runs.
+$swSyncLib = Join-Path $root 'scripts\lib\stopwatch-sync-lib.ps1'
+$StopwatchShared = (-not $PSBoundParameters.ContainsKey('StopwatchPath')) -and (Test-Path -LiteralPath $swSyncLib -PathType Leaf)
+if ($StopwatchShared) { . $swSyncLib }
+$StopwatchMachineId = if ($StopwatchShared) { Get-StopwatchMachineId -StoreDir (Split-Path -Parent $StopwatchPath) } else { '' }
+function Get-StopwatchPageRuns {
+    <# This machine's store, and when shared, the other machines' runs merged in (Merge-StopwatchRuns) with their phases; starts a background sync when one is due. #>
+    $store = Read-StopwatchStore -Path $StopwatchPath
+    $shared = @{ Runs = @(); Phases = @{}; Machines = 0 }
+    if (-not $StopwatchShared) { return @{ Store = $store; Runs = $store.Runs; Shared = $shared } }
+    $stamp = Join-Path (Split-Path -Parent $StopwatchPath) 'stopwatch-sync.stamp'
+    if (Test-StopwatchSyncDue -StampPath $stamp) {
+        # Stamped here as well as by the sync itself, so the loads before it starts do not start more.
+        try { [System.IO.File]::WriteAllText($stamp, (Format-StopwatchStamp ([datetime]::UtcNow))) } catch { }
+        [void](Start-StopwatchSync -RepoRoot $root)
+    }
+    $shared = Read-StopwatchShared -RepoRoot $root -MachineId $StopwatchMachineId
+    return @{ Store = $store; Runs = (Merge-StopwatchRuns -Local $store.Runs -Shared $shared.Runs); Shared = $shared }
+}
 # The test gate's own selection and CI's, so /test-gate shows what they decide for this checkout (#3309).
 # GUARDED, unlike the libs above: they serve one section of one page, and gate-lib.ps1 loads a chain of its
 # own, so a tree without them (this script's own test fixtures) still serves every page, and the section
@@ -478,26 +499,28 @@ try {
                 continue
             }
             if ($path -eq '/stopwatch') {
-                $store = Read-StopwatchStore -Path $StopwatchPath
-                $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs $store.Runs) -ReadError $store.Error -Skipped $store.Skipped -StorePath $StopwatchPath
+                $sw = Get-StopwatchPageRuns; $store = $sw.Store
+                $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs $sw.Runs) -ReadError $store.Error -Skipped $store.Skipped -StorePath $StopwatchPath -SharedMachines $sw.Shared.Machines
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
             if ($path -match '^/stopwatch/([a-z0-9-]{1,60})$') {
                 # One label's page (#3323). A slug no label has is a 404, like any other path.
-                $store = Read-StopwatchStore -Path $StopwatchPath
+                $sw = Get-StopwatchPageRuns; $store = $sw.Store
                 if ($store.Error) {
                     # The same read error the overview shows, not a bare 404 for a page that may well exist.
                     $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -ReadError $store.Error -StorePath $StopwatchPath
                     Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                     continue
                 }
-                $group = Find-StopwatchGroup -Model (ConvertTo-StopwatchModel -Runs $store.Runs) -Slug $Matches[1]
+                $group = Find-StopwatchGroup -Model (ConvertTo-StopwatchModel -Runs $sw.Runs) -Slug $Matches[1]
                 if (-not $group) {
                     Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
                     continue
                 }
-                $phases = Get-StopwatchTranscriptCache -Runs @($group.Rows | ForEach-Object { $_.Run }) -CachePath $StopwatchPhasesPath -TranscriptDir $TranscriptDir -StepLogPath $StopwatchStepLogPath -RepoRoot $root
+                # Only this machine's runs are read from its transcripts; another machine's carry the phases it read from its own.
+                $phases = Get-StopwatchTranscriptCache -Runs @($group.Rows | ForEach-Object { $_.Run } | Where-Object { -not $_.Machine }) -CachePath $StopwatchPhasesPath -TranscriptDir $TranscriptDir -StepLogPath $StopwatchStepLogPath -RepoRoot $root
+                foreach ($k in $sw.Shared.Phases.Keys) { if (-not $phases.ContainsKey($k)) { $phases[$k] = $sw.Shared.Phases[$k] } }
                 $html = Format-StopwatchLabelPageHtml -Group $group -StorePath $StopwatchPath -Transcript $phases
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue

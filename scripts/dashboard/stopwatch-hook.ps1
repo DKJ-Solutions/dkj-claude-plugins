@@ -20,8 +20,9 @@
 
     IT ALWAYS EXITS 0, PRINTS NOTHING AND NEVER BLOCKS. A UserPromptSubmit hook's stdout is injected into the
     session's context and a Stop hook that fails or prints can hold a turn open, so every error is swallowed:
-    a timing aid must never cost the owner a turn. There is no network and no gh call, only local git, and git is
-    asked only when a decision needs it (an unmarked Prompt, or a Stop with no Auto run going, never shells out). A store that does not read is left alone, as everywhere (Read-StopwatchStore).
+    a timing aid must never cost the owner a turn. There is no network and no gh call in this process, only local
+    git: a Stop that ended a run starts scripts/dashboard/stopwatch-sync.ps1 as a process of its own to share it
+    (#3349) and does not wait for it. Git is asked only when a decision needs it (an unmarked Prompt, or a Stop with no Auto run going, never shells out). A store that does not read is left alone, as everywhere (Read-StopwatchStore).
 
     The store is outside the tree (Get-StopwatchStorePath), so a hook writing it dirties nothing. The hub only
     reads it. A store holding a run that does not parse is copied to a .bak beside it before the write drops it.
@@ -84,6 +85,12 @@ try {
     if ($r.Changed) {
         if ($store.Skipped) { Copy-Item -LiteralPath $StorePath -Destination "$StorePath.bak" -Force -ErrorAction SilentlyContinue }
         Save-StopwatchStore -Path $StorePath -Runs $r.Runs
+        # A run that ended is shared with the other machines (#3349), in a process of its own so the turn never
+        # waits on the network. Not when the tests pass a store of their own: a test must never push.
+        if ($Hook -eq 'Stop' -and -not $PSBoundParameters.ContainsKey('StorePath')) {
+            . (Join-Path $root 'scripts\lib\stopwatch-sync-lib.ps1')
+            [void](Start-StopwatchSync -RepoRoot $root)
+        }
     }
 } catch { }
 exit 0

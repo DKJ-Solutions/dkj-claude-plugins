@@ -34,8 +34,10 @@
 
     THE STORE IS OUTSIDE THE TREE: %LOCALAPPDATA%\dkj-claude-plugins\stopwatch.json (Get-StopwatchStorePath).
     A file in the checkout would dirty it in the middle of the workflow being measured, and the scripts
-    that ship a branch refuse a dirty tree. So the runs are this machine's, like the session transcripts the
-    transcript phases read (below).
+    that ship a branch refuse a dirty tree. So the store is this machine's, like the session transcripts the
+    transcript phases read (below). ITS FINISHED RUNS ARE SHARED (#3349): each machine publishes them, with the phases
+    it read for them, to a ref of its own on origin, and the pages show every other machine's beside this one's
+    (scripts/lib/stopwatch-sync-lib.ps1). A run from another machine carries a Machine field; this machine's do not.
 
     OLD STORES STILL READ. Earlier versions of the page also kept laps, notes and an armed label, written by
     buttons that are gone. A field this file does not know is ignored on read and is not written back, so the
@@ -565,6 +567,8 @@ function Get-StopwatchTranscriptCache {
         $doc = [ordered]@{}
         # The file is written whole, so every entry it was loaded with is carried over, not only the runs asked for
         # now: the label pages ask for one label's runs at a time, and one label's visit must not wipe another's.
+        # Two writers at once (the hub and the background sync) can still drop each other's new entries; such an
+        # entry is only read from the transcripts again on the next load, so the cost is a read, never a wrong phase.
         $keep = @{}
         foreach ($id in $cache.Keys) { $keep[$id] = $cache[$id] }
         foreach ($id in $out.Keys) { $keep[$id] = $out[$id] }
@@ -574,8 +578,10 @@ function Get-StopwatchTranscriptCache {
         try {
             $dir = Split-Path -Parent $CachePath
             if (-not (Test-Path -LiteralPath $dir -PathType Container)) { [void](New-Item -ItemType Directory -Path $dir -Force) }
-            [System.IO.File]::WriteAllText("$CachePath.tmp", ($doc | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
-            Move-Item -LiteralPath "$CachePath.tmp" -Destination $CachePath -Force
+            # A temporary file of this call's own: the hub and the background sync (#3349) can both write the cache.
+            $tmp = $CachePath + '.' + [guid]::NewGuid().ToString('N') + '.tmp'
+            [System.IO.File]::WriteAllText($tmp, ($doc | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
+            Move-Item -LiteralPath $tmp -Destination $CachePath -Force
         } catch { }
     }
     return $out
@@ -658,6 +664,7 @@ function Format-StopwatchPageHtml {
         [AllowEmptyString()][string]$ReadError = '',
         [int]$Skipped = 0,
         [AllowEmptyString()][string]$StorePath = '',
+        [int]$SharedMachines = 0,
         [datetime]$Now = [datetime]::UtcNow
     )
     $e = { param($v) ConvertTo-DashboardText $v }
@@ -691,6 +698,8 @@ function Format-StopwatchPageHtml {
 
     $shell = Format-StopwatchPageShell
     $note = 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout, so a run never dirties the tree it is timing. ' +
+        'Every finished run is also shared through a ref of this machine''s own on origin, <code>refs/stopwatch/&lt;machine&gt;</code> (<code>scripts/lib/stopwatch-sync-lib.ps1</code>), ' +
+        $(if ($SharedMachines -eq 1) { 'and the runs of one other machine are shown with these. ' } elseif ($SharedMachines -gt 1) { 'and the runs of ' + $SharedMachines + ' other machines are shown with these. ' } else { 'and no other machine has shared a run yet. ' }) +
         'A prompt whose first line begins with <code>stopwatch:</code> starts a run in a session of this checkout, labelled with the rest of that line, and discards a run still going; ' +
         'a Stop hook ends it once Claude is back on the trunk, clean, with HEAD moved since the start (that suggests the work landed; it does not prove it). Both are <code>scripts/dashboard/stopwatch-hook.ps1</code>. ' +
         'Built by <code>scripts/lib/stopwatch-lib.ps1</code>.'
@@ -745,7 +754,7 @@ function Format-StopwatchLabelPageHtml {
         [void]$body.AppendLine('<div class="grid-2">')
         [void]$body.AppendLine('<div class="grid__head"><h2>Phases</h2><p class="card__sub">Each run split into phases from the session transcripts, longest first</p></div>')
         foreach ($row in @($Group.Rows)) {
-            $title = (& $local $row.Run.Start) + ' - ' + (Format-DevSeconds $row.Seconds)
+            $title = (& $local $row.Run.Start) + ' - ' + (Format-DevSeconds $row.Seconds) + $(if ($row.Run.Machine) { ' - another machine' } else { '' })
             [void]$body.AppendLine((Format-StopwatchPhaseCard $Transcript[$row.Run.Id] $row.Seconds -Title $title))
         }
         [void]$body.AppendLine('</div>')
@@ -753,7 +762,7 @@ function Format-StopwatchLabelPageHtml {
         [void]$body.AppendLine('<p class="note">No finished run of this label yet.</p>')
     }
     $shell = Format-StopwatchPageShell
-    $note = 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout. ' +
+    $note = 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout, and shared with the other machines through <code>refs/stopwatch/&lt;machine&gt;</code> on origin. ' +
         'The phases are read from this repo''s Claude Code session transcripts once a run has stopped: each second goes to the first phase going at that moment, ' +
         'so a ship running in the background counts as the ship, and a second in which no session was busy is time spent waiting on you. Built by <code>scripts/lib/stopwatch-lib.ps1</code>.'
     return Format-DevPageHtml -Title ([string]$pageTitle) -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare -ParentCrumbs @(@{ Label = 'Stopwatch'; Href = '/stopwatch' }) `

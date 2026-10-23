@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**18 / 36 minor entries** <!-- pending-tally -->
+**18 / 37 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3349-stopwatch-shared-runs · 20261023-135138Z
+
+Stopwatch runs are now shared between machines
+([#3349](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3349)). Each machine publishes its finished
+runs, with the transcript phases it read for them, to a ref of its own on origin, `refs/stopwatch/<machine id>`.
+It does that with git plumbing only, so the checkout's index, working tree and branches are never touched, and
+in a background process, so no turn and no page load waits on the network. The Stop hook starts that process
+once a run has ended. The hub starts it at most every five minutes while a Stopwatch page is open, and it shows
+every other machine's runs beside this machine's own, and a label page marks each of them as "another machine". The machine id is
+random, so no computer name reaches this public repo. The labels, times and phase names become public.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the Stopwatch, its hook and the hub are this repo's own tooling under `scripts/`, and no plugin ships them.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch: share the runs across machines through a ref on origin
+
+[PR #3351](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3351)
+
+---
 
 ### DEPLOY: docs/tables-css-comment · 20261023-133538Z
 
