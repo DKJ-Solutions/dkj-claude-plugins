@@ -56,6 +56,8 @@ Assert-True ($gshell -match '<li><a href="/hub">Home</a></li>') 'the first crumb
 Assert-True ($gshell -match '<title>Org/some&lt;repo&gt; -- An &lt;i&gt;issue</title>' -and $gshell -match 'site-header__name">Org/some&lt;repo&gt; <span class="site-header__tag">hub</span>' -and $gshell -notmatch 'class="eyebrow"') 'the title and the site header carry the repo''s name, escaped, and a named page needs no eyebrow'
 Assert-True ($gshell -match 'data-theme-key="general-pages"') 'the theme key is the general server''s own'
 Assert-True ($gshell -notmatch 'dkj-claude-plugins') 'and nothing of this repo is built into it'
+$gIntroEnd = $gshell.IndexOf('<p class="lead">lead</p>')
+Assert-True ($gshell.Contains((Format-RepoHubBanner)) -and $gshell.IndexOf('id="hub-banner"') -gt $gIntroEnd -and $gshell.IndexOf('id="hub-banner"') -lt $gshell.IndexOf('<p>body</p>') -and ([regex]::Matches($gshell, 'id="hub-banner"')).Count -eq 1) 'every page carries the general banner once, under its intro and above its own blocks (#3297)'
 # THE SITE HEADER (October 22, 2026): only where a caller asks for it with -Brand, so every other repo's pages stay as they were.
 $anon = Format-GeneralPageHtml -Title 'T' -Lead 'L' -Body ''
 Assert-True ($anon -notmatch 'site-header' -and $anon -match 'theme-settings--floating') 'a page that names no site draws no site header, and its settings button floats as before'
@@ -236,7 +238,7 @@ Assert-True ($ss -match 'Headroom \(B\)</div><div class="v num">3,000') 'inside 
 Assert-True ($ss.IndexOf('~/persona.md') -lt $ss.IndexOf('<code>CLAUDE.md</code></td>')) 'the documents are listed largest first'
 Assert-True ($ss -match '~/persona.md</code></td><td class="num">900</td>.*?<td>90.0%</td><td class="dp-left">from the baseline') 'a carried document says so'
 Assert-True ($ss -match 'role="status">Not counted.*lost.md') 'an unmeasured document is named, not counted as zero'
-Assert-True ($ss -notmatch 'msg--warn') 'no warning inside the budget'
+Assert-True ($ss.Replace((Format-RepoHubBanner), '') -notmatch 'msg--warn') 'no warning inside the budget (the general banner''s own hidden line aside, #3297)'
 $ssModel.Total = 5000; $ssModel.Ok = $false; $ssModel.State = 'over-growing'
 $over = Format-SessionStartPageHtml -Model $ssModel
 Assert-True ($over -match 'Over the budget \(B\)</div><div class="v num">1,000') 'over the budget: by how much'
@@ -387,6 +389,7 @@ Write-Host '-- the release-notes page, as the dev server serves it (#3108)' -For
 $tpl = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\release\release-notes-page-template.html'))
 $rn = Format-ReleaseNotesDevPage -Html $tpl
 Assert-True ($rn -ne $tpl) 'the template has the shape the dressing needs'
+Assert-True ($rn.Contains((Format-RepoHubBanner)) -and $rn.IndexOf('id="hub-banner"') -gt $rn.IndexOf('class="breadcrumbs-bar"') -and ([regex]::Matches($rn, 'id="hub-banner"')).Count -eq 1) 'the release notes carry the general banner once, under the bar (#3297)'
 Assert-True ($rn -match '<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">') 'it takes the theme key and the lilac default every other page of the general server uses (#3162)'
 Assert-True ((Format-ReleaseNotesDevPage -Html $tpl -ThemeKey 'k"x' -HubHref '/') -match 'data-theme-key="k&quot;x"' -and (Format-ReleaseNotesDevPage -Html $tpl -HubHref '/') -match '<li><a href="/">Home</a></li>') 'a caller may name the theme key and the hub crumb''s target, both escaped'
 $tplStyleEnd = $rn.IndexOf('</style>')

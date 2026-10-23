@@ -140,6 +140,8 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine('<h1>' + (& $e $Title) + '</h1>')
     [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>')
     [void]$sb.AppendLine('</div>')
+    # The general banner on every page, not only the home page (#3297): under the intro, above the page's own blocks.
+    [void]$sb.AppendLine((Format-RepoHubBanner))
     [void]$sb.Append($Body)
     if ($FooterNote) { [void]$sb.AppendLine('<p class="footer-note">' + $FooterNote + '</p>') }
     [void]$sb.AppendLine('</main>')
@@ -156,10 +158,10 @@ function Format-RepoHubBanner {
         The countdown keeps running whether or not the box is ticked, and every hour that passes unticked
         adds another 10, so the box shows the total owed; ticking it clears the total.
 
-        ONE FUNCTION, CALLED BY BOTH HUB INDEXES -- the source repo's Format-RepoHubHtml and the
-        placeholder's Format-DevPreviewPlaceholderHtml -- so the two hubs carry the same banner. It sits
-        directly under the intro, inside <main>, and uses house classes only (.notice, .msg, .num), because
-        the hub restyles nothing.
+        ONE FUNCTION, ON EVERY HUB PAGE (#3297): both home pages (through Format-RepoHomeHeadHtml), every page
+        Format-GeneralPageHtml draws, and the release notes (Format-ReleaseNotesDevPage), so the hubs carry the
+        same banner wherever the visitor is. It sits directly under the intro, inside <main>, and uses house
+        classes only (.notice, .msg, .num), because the hub restyles nothing.
 
         THE STATE IS THE BROWSER'S, in localStorage under one key: the total owed and the last time a page
         ticked. An hour counts only while a hub page is open -- the tick of the previous second, or a reload
@@ -1090,6 +1092,9 @@ function Format-ReleaseNotesDevPage {
     # The site header above the bar, holding the settings button, when the repo is named; else the button floats.
     $bar = if ($RepoName) { (Format-SiteHeaderHtml -Name (ConvertTo-SiteHeaderName -RepoName $RepoName) -Href $HubHref -Tag 'hub') + $bar }
             else { $bar + "`n" + '<div id="settings" class="theme-settings--floating"></div>' }
+    # The general banner under the bar, as on every other hub page (#3297), in a page column of its own: the
+    # template's layout is its own, so the banner does not reach into it.
+    $bar += "`n" + '<div class="page-column">' + "`n" + (Format-RepoHubBanner) + '</div>'
     $settings = '<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>'
 
     # Back to front, so each index still points where it was read.
