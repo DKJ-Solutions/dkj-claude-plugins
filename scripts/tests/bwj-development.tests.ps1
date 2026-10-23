@@ -839,6 +839,17 @@ try {
     Assert-True ($glPmText.Contains('https://a.example/collections/bandjes')) 'per-market -Path: NL lists its own handle'
     Assert-True ($glPmText.Contains('https://b.example/collections/straps')) 'per-market -Path: UK falls back to the default'
     Assert-True (-not $glPmText.Contains('https://a.example/collections/straps')) 'per-market -Path: the default is not printed on the overridden market'
+
+    # A MARKET MARKED GoLive = $false IS NOT IN THE BLOCK'S LIST (#3327), through the driver as the skill runs it.
+    [System.IO.File]::WriteAllText((Join-Path $glRoot 'scripts\repo-config.ps1'),
+        "function Get-StorefrontMarkets { @(@{ Market = 'NL'; Domain = 'a.example' }, @{ Market = 'NL-GB'; Domain = 'a.example'; PathPrefix = '/nl-gb'; GoLive = `$false }) }`r`n",
+        (New-Object System.Text.UTF8Encoding $false))
+    & powershell -NoProfile -ExecutionPolicy Bypass -File $glDriver -Issue 7 -Repo 'o/r' -Version '1.0.0' `
+        -Path '/products/p' -RootOverride $glRoot -OutFile $glOutFile 2>&1 | Out-Null
+    Assert-Equal 0 $LASTEXITCODE 'the driver run with a GoLive = $false market exits 0'
+    $glGbText = [System.IO.File]::ReadAllText($glOutFile, [System.Text.Encoding]::UTF8)
+    Assert-True ($glGbText.Contains('https://a.example/products/p')) 'GoLive: the go-live market is listed'
+    Assert-True (-not $glGbText.Contains('/nl-gb/')) 'GoLive: the market marked $false is not'
     [System.IO.File]::WriteAllText((Join-Path $glRoot 'scripts\repo-config.ps1'), $glCfgKeep, (New-Object System.Text.UTF8Encoding $false))
 
     # THE SESSION'S PROSE, IN THE COLLEAGUE'S LANGUAGE, SURVIVES THE ROUND TRIP (#2507): in through a UTF-8

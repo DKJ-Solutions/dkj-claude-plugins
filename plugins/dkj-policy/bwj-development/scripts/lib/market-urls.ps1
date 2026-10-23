@@ -102,6 +102,11 @@ function Get-MarketTable {
           Domain      the host, with no scheme and no trailing slash. Required.
           PathPrefix  '' for a market served at the domain root, otherwise a leading-slash prefix with
                       no trailing slash. Optional; '' is the default.
+          GoLive      $false keeps the market out of the go-live block's live URL list, and out of
+                      nothing else: the preview URLs and the handover still carry it. Optional; $true
+                      is the default, and anything but a boolean is refused (#3327, xoxowildhearts'
+                      four GB rows -- deleting them from the table was the only lever, and it took
+                      them out of the preview handover too, which nobody asked for).
 
         ORDER IS THE STORE'S AND IS PRESERVED -- it is the display order of every function below, and
         the first row is the primary market.
@@ -147,8 +152,16 @@ function Get-MarketTable {
         $market = [string](Get-MarketRowField -Row $row -Name 'Market')
         $domain = [string](Get-MarketRowField -Row $row -Name 'Domain')
         $prefix = [string](Get-MarketRowField -Row $row -Name 'PathPrefix')
+        $goLive = Get-MarketRowField -Row $row -Name 'GoLive'
 
         if (-not $market) { throw "market-urls: a market row has no Market label." }
+        # A boolean and nothing else: the string 'false' is truthy in PowerShell, so a quoted value would
+        # silently keep the market IN the list it was written to leave.
+        if ("$goLive" -eq '') { $goLive = $true }
+        elseif ($goLive -isnot [bool]) {
+            throw ("market-urls: market '$market' has GoLive '$goLive', which is not a boolean. " +
+                   "Write `$false to keep it out of the go-live block, or leave the field off.")
+        }
         if (-not $domain) { throw "market-urls: market '$market' has no Domain." }
         if ($domain -match '^[a-zA-Z][a-zA-Z0-9+.-]*://') {
             throw ("market-urls: market '$market' has Domain '$domain', which carries a scheme. " +
@@ -169,7 +182,7 @@ function Get-MarketTable {
             $prefix = $prefix.TrimEnd('/')
         }
 
-        [pscustomobject]@{ Market = $market; Domain = $domain; PathPrefix = $prefix }
+        [pscustomobject]@{ Market = $market; Domain = $domain; PathPrefix = $prefix; GoLive = $goLive }
     }
     return @($out)
 }
@@ -383,14 +396,28 @@ function Get-PageSpecs {
 function Get-MarketUrls {
     <# Full storefront URLs, one per market PER PATH -- the LIVE pages, with no preview parameters.
        -Path defaults to the home page and accepts more than one page, and a page may name a different
-       path per market; Get-PageSpecs has the forms it takes. #>
+       path per market; Get-PageSpecs has the forms it takes.
+
+       -GoLiveOnly drops the rows whose GoLive is $false -- the go-live block's list, and only that
+       (#3327). The pages are still parsed against the WHOLE table, so the -Path a session gave the
+       preview handover is accepted here unchanged, a per-market override of a dropped market included.
+       It throws when no row is left: pages were named, and an empty list would read as a block whose
+       URLs went missing. #>
     param(
         [string[]]$Path = @('/'),
-        [object[]]$Markets = $null
+        [object[]]$Markets = $null,
+        [switch]$GoLiveOnly
     )
     # The table is resolved ONCE and before the pages, so the page parse can check labels against it.
     $table = @(Get-MarketTable -Markets $Markets)
     $pages = Get-PageSpecs -Path $Path -MarketLabels @($table | ForEach-Object { $_.Market })
+    if ($GoLiveOnly) {
+        $table = @($table | Where-Object { $_.GoLive })
+        if ($table.Count -eq 0) {
+            throw ("market-urls: every market has GoLive = `$false, so the go-live block has no live URL " +
+                   "to list. Keep at least one market in it, or give no -Path.")
+        }
+    }
     # Market outer, page inner: the reader picks one market and then looks at its pages, so the market
     # label is what they scan down.
     $out = foreach ($row in $table) {

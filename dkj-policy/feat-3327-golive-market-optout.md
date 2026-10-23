@@ -39,21 +39,44 @@
 
 ### PLAN
 
+#### Inbound #3327, checked against the tree
+
+`build-golive-block` builds its live list with `Get-MarketUrls`, which reads every row of the store's
+`Get-StorefrontMarkets` table. There is no per-row switch, so deleting the rows was the only lever, and
+that would also have taken the GB markets out of the preview handover. The issue left one choice to the
+maintainers: should the preview paths drop the rows too? They do not. The request named only the go-live
+block, and the field is read only where `-GoLiveOnly` is passed.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `market-urls.ps1`: `Get-MarketTable` reads an optional boolean `GoLive` (default `$true`, a quoted value refused) and carries it on each row
+- [x] `Get-MarketUrls -GoLiveOnly` drops the `GoLive = $false` rows after the pages are parsed against the whole table, and refuses when no row is left
+- [x] `build-golive-block.ps1` passes `-GoLiveOnly`; its synopsis and the `golive-block` skill say so
 
 ### TEST
 
+- [x] `bwj-market-urls.tests.ps1`: default, the filter on hashtable and object rows, the preview paths unchanged, a per-market override of a dropped market, an empty result refused, a quoted value refused (167 pass, 0 fail)
+- [x] `bwj-development.tests.ps1`: the driver run through `-File` leaves a `GoLive = $false` market out of the block
+
 ### DEPLOY: feat/3327-golive-market-optout
 
-**Score:**
+A store can now leave a market out of the go-live block's live URL list without removing it from its
+previews ([#3327](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3327)). A row in
+`Get-StorefrontMarkets` takes an optional `GoLive = $false`, and `build-golive-block` drops that market
+from `WHEN IT GOES LIVE`. The preview URLs and the handover cards still carry it, and so does the
+`-Path` a session already gives the preview, a per-market override of that market included. A row
+without the field is listed as before. A quoted `'false'` is refused, because PowerShell reads it as
+true. A table where every market is marked `$false` is refused too.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A store that previews a market but does not want it in the message to the requester sets one field on
+that row. Before, deleting the row also took it out of the preview handover.
+
+**Score:** 2
 
 #### Pull Request
 
 build-golive-block: let a store keep a market out of the go-live block's live URL list
-

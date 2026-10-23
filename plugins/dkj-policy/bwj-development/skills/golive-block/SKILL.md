@@ -44,7 +44,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    the label tells the requester to open them in a private window until the release. They are **not**
    pinned to the live theme id: `?preview_theme_id=<live id>` is a true comparison, but to a colleague
    it reads as a preview link under a label saying *live*, and the owner rejected a block for exactly
-   that ([#2619](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2619)).
+   that ([#2619](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2619)). **A market the
+   store's `Get-StorefrontMarkets` row marks `GoLive = $false` is left out of this list**, and out of
+   nothing else: its preview URLs and its handover card stay. Pass the same `-Path` as for the preview;
+   a per-market override naming that market is accepted and simply not listed
+   ([#3327](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3327)).
 5. **The ask** -- where a `-Link` was given, a closing section asking the requester to look at the
    result themselves: an approval ticks off the task, a rejection names what is not right AND what
    should change and reopens the issue, and the release happens either way
