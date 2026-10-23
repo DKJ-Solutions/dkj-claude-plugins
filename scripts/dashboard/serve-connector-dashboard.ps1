@@ -484,6 +484,12 @@ try {
             if ($path -match '^/stopwatch/([a-z0-9-]{1,60})$') {
                 # One label's page (#3323). A slug no label has is a 404, like any other path.
                 $store = Read-StopwatchStore -Path $StopwatchPath
+                if ($store.Error) {
+                    # The same read error the overview shows, not a bare 404 for a page that may well exist.
+                    $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -ReadError $store.Error -StorePath $StopwatchPath
+                    Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                    continue
+                }
                 $group = Find-StopwatchGroup -Model (ConvertTo-StopwatchModel -Runs $store.Runs) -Slug $Matches[1]
                 if (-not $group) {
                     Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method

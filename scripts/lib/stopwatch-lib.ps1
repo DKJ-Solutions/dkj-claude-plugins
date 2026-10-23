@@ -251,7 +251,6 @@ function ConvertTo-StopwatchModel {
     return @{
         Running = $running
         Groups  = @($groups | Sort-Object { $_.Latest } -Descending)
-        Labels  = @($groups | ForEach-Object { $_.Label } | Sort-Object)
         Count   = @($all | Where-Object { $_.End }).Count
     }
 }
@@ -452,8 +451,13 @@ function Get-StopwatchTranscriptCache {
     }
     if ($files.Count) {
         $doc = [ordered]@{}
-        foreach ($id in @($out.Keys | Sort-Object)) {
-            $doc[$id] = [ordered]@{ end = $out[$id].End; sessions = $out[$id].Sessions; phases = @(foreach ($x in @($out[$id].Phases)) { [ordered]@{ name = $x.Name; seconds = [Math]::Round($x.Seconds, 3) } }) }
+        # The file is written whole, so every entry it was loaded with is carried over, not only the runs asked for
+        # now: the label pages ask for one label's runs at a time, and one label's visit must not wipe another's.
+        $keep = @{}
+        foreach ($id in $cache.Keys) { $keep[$id] = $cache[$id] }
+        foreach ($id in $out.Keys) { $keep[$id] = $out[$id] }
+        foreach ($id in @($keep.Keys | Sort-Object)) {
+            $doc[$id] = [ordered]@{ end = $keep[$id].End; sessions = $keep[$id].Sessions; phases = @(foreach ($x in @($keep[$id].Phases)) { [ordered]@{ name = $x.Name; seconds = [Math]::Round($x.Seconds, 3) } }) }
         }
         try {
             $dir = Split-Path -Parent $CachePath

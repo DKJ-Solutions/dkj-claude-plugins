@@ -37,19 +37,25 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 try {
+    # The UserPromptSubmit payload is JSON on stdin with the prompt in `prompt`. It is only parsed, never printed.
+    # It is read first, and a payload that does not contain the marker anywhere ends the hook before the lib is
+    # even loaded: nearly every prompt is unmarked, so that is the cheap path.
+    $prompt = ''
+    if ($Hook -eq 'Prompt') {
+        $raw = ''
+        if ([Console]::IsInputRedirected) {
+            $reader = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), (New-Object System.Text.UTF8Encoding($false)))
+            $raw = $reader.ReadToEnd()
+        }
+        if ($raw -notmatch 'stopwatch:') { exit 0 }
+    }
     $root = if ($RepoRoot) { $RepoRoot } else { (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path }
     . (Join-Path $root 'scripts\lib\stopwatch-lib.ps1')
     if (-not $StorePath) { $StorePath = Get-StopwatchStorePath }
     $store = Read-StopwatchStore -Path $StorePath
     if ($store.Error) { exit 0 }
     $running = @($store.Runs | Where-Object { -not $_.End }) | Select-Object -Last 1
-    # The UserPromptSubmit payload is JSON on stdin with the prompt in `prompt`. It is only parsed, never printed.
-    $prompt = ''
-    if ($Hook -eq 'Prompt' -and [Console]::IsInputRedirected) {
-        $reader = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), (New-Object System.Text.UTF8Encoding($false)))
-        $raw = $reader.ReadToEnd()
-        if ($raw.Trim()) { try { $prompt = [string]($raw | ConvertFrom-Json).prompt } catch { $prompt = '' } }
-    }
+    if ($Hook -eq 'Prompt' -and $raw.Trim()) { try { $prompt = [string]($raw | ConvertFrom-Json).prompt } catch { $prompt = '' } }
     # Nothing to decide, so no git: a Prompt needs the marker; a Stop an Auto run going.
     if ($Hook -eq 'Prompt' -and $null -eq (Get-StopwatchPromptMarker -Prompt $prompt)) { exit 0 }
     if ($Hook -eq 'Stop' -and (-not $running -or -not $running.Auto)) { exit 0 }

@@ -101,6 +101,10 @@ try {
     $out = '{"prompt":"just a question"}' | & powershell -NoProfile -ExecutionPolicy Bypass -File $hookScript -Hook Prompt -StorePath $hookStore 2>&1
     $exit = $LASTEXITCODE
     Assert-True ($exit -eq 0 -and -not $out -and @((Read-StopwatchStore -Path $hookStore).Runs).Count -eq 1 -and (Read-StopwatchStore -Path $hookStore).Runs[0].Id -eq $firstId) 'an unmarked prompt leaves the store alone'
+    $cheapStore = Join-Path $dir 'hook\cheap.json'
+    $out = '{"prompt":"an ordinary prompt"}' | & powershell -NoProfile -ExecutionPolicy Bypass -File $hookScript -Hook Prompt -StorePath $cheapStore 2>&1
+    $exit = $LASTEXITCODE
+    Assert-True ($exit -eq 0 -and -not $out -and -not (Test-Path -LiteralPath $cheapStore)) 'a payload without the marker ends the hook before it loads anything: exit 0, no output, nothing written'
     $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $hookScript -Hook Stop -StorePath $hookStore 2>&1
     $exit = $LASTEXITCODE
     Assert-True ($exit -eq 0 -and -not $out -and -not (Read-StopwatchStore -Path $hookStore).Runs[0].End) 'a Stop with HEAD where the run started leaves it going'
@@ -262,6 +266,18 @@ try {
     $nowhere = Join-Path $tdir 'nowhere\stopwatch-phases.json'
     $blind = Get-StopwatchTranscriptCache -Runs @($run) -CachePath $nowhere -TranscriptDir (Join-Path $tdir 'no-such-dir')
     Assert-True ($blind.r1.Sessions -eq 0 -and -not (Test-Path -LiteralPath $nowhere)) 'with no transcript to read nothing is cached, so a wrong folder is not filed for good'
+
+    # One label's page asks for its own runs only, and the file is written whole: the others must survive it.
+    $twoPath = Join-Path $tdir 'two\stopwatch-phases.json'
+    # Windows from an hour ago to now, so the transcript files just written are inside them whatever the clock says.
+    $w0 = [datetime]::UtcNow.AddHours(-1)
+    $runA = @{ Id = 'ra'; Label = 'A'; Start = $w0; End = $w0.AddSeconds(330); Auto = $true; StartHead = 'a' }
+    $runB = @{ Id = 'rb'; Label = 'B'; Start = $w0; End = $w0.AddSeconds(330); Auto = $true; StartHead = 'a' }
+    [void](Get-StopwatchTranscriptCache -Runs @($runA, $runB) -CachePath $twoPath -TranscriptDir $tdir)
+    $runA2 = @{ Id = 'ra'; Label = 'A'; Start = $w0; End = $w0.AddSeconds(340); Auto = $true; StartHead = 'a' }
+    [void](Get-StopwatchTranscriptCache -Runs @($runA2) -CachePath $twoPath -TranscriptDir $tdir)
+    $twoDoc = Get-Content -LiteralPath $twoPath -Raw | ConvertFrom-Json
+    Assert-True ($null -ne $twoDoc.rb -and $null -ne $twoDoc.ra -and $twoDoc.ra.end -eq (Format-StopwatchStamp $w0.AddSeconds(340))) 'a write for one label keeps the other label''s cached phases'
 
     $cell = Format-StopwatchTranscriptCell $first.r1 330
     Assert-True ($cell -match 'Waiting on you <span class="num">1:41</span> <span class="note">31%</span>') 'the cell gives each phase its time and its share of the run'
