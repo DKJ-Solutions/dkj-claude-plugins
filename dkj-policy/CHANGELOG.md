@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**13 / 22 minor entries** <!-- pending-tally -->
+**13 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3288-live-listener-outlives-suite · 20261023-094719Z
+
+`dev-preview-sessionstart.tests.ps1` failed on CI with `another checkout does not mistake that server for its own`
+([#3288](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3288), five times). The fixture server that
+assert depends on was a listener that ran for 60 s, and on a slow shard the assert came about 67 s after that
+listener started. By then the port was free, so the second checkout started its own server. The listener now
+runs for 600 s and is stopped in the suite's `finally`. The assert also prints the line it got. With a 30 s
+listener the failure reproduces locally.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+A CI-flaky dev-preview assert: its fixture server no longer stops before the last scenario
+
+[PR #3326](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3326)
+
+---
 
 ### DEPLOY: fix/3322-preview-copy-not-created · 20261023-093625Z
 
