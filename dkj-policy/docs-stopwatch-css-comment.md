@@ -39,19 +39,28 @@
 
 ### PLAN
 
+Measure the full workflow with an invisible change: one CSS comment stamped with the run's date and time.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Replace the first line of `brandbook/src/showcase/showcase.css` with `/* stopwatch test run 2026-10-23 17:23 */`
 
 ### TEST
 
+- [x] A comment only: nothing renders differently, and the gates run in open-pr.
+
 ### DEPLOY: docs/stopwatch-css-comment
 
-**Score:**
+A timing run of the full workflow, branch to fold: the stopwatch test-run comment at the top of the brand
+book's showcase stylesheet carries this run's date and time, and nothing renders differently.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: a comment in this repo's own brand book source reaches no user of what the plugins ship.
+
+**Score:** N/A
 
 #### Pull Request
 
