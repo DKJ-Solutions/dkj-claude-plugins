@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**18 / 35 minor entries** <!-- pending-tally -->
+**18 / 36 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/tables-css-comment · 20261023-133538Z
+
+The brandbook's `tables.css` now names its first block, the number alignment and tone utilities, with
+the same section-header comment every other block in that file carries. It is a comment only, so nothing
+renders differently.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A: a source comment in the brandbook app. No consumer of the released plugins sees it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Name the number and tone utilities' section in the brandbook tables stylesheet
+
+[PR #3348](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3348)
+
+---
 
 ### DEPLOY: fix/2987-overlap-memory-floor · 20261023-131857Z
 
