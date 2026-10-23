@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**2 / 6 minor entries** <!-- pending-tally -->
+**2 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3350-stopwatch-uncovered-run-cache · 20261023-170553Z
+
+The Stopwatch no longer files a run as 100% "Waiting on you" when the transcripts that covered it are gone
+([#3350](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3350)). It used to cache a finished
+run's phases as soon as any transcript was read, so an old run whose transcripts had been pruned was
+computed from nothing and kept that way. Now a run is read and cached only when a transcript spans its
+start. A run with no such transcript shows "No phases read for this run yet", and an entry already cached
+with no session is checked again and dropped when nothing covers it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the Stopwatch is this repo's own dev page, and no consumer runs it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch: a run no transcript covers is no longer cached as all waiting
+
+[PR #3352](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3352)
+
+---
 
 ### DEPLOY: fix/stopwatch-one-card-per-run · 20261023-165610Z
 
