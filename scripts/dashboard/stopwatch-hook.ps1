@@ -1,17 +1,17 @@
 <#
 .SYNOPSIS
-    The Claude Code hook behind the Stopwatch's automatic runs (#3323): start a run when a prompt begins with
-    `stopwatch:` (or the armed run when any prompt is submitted), stop it when Claude is back on the trunk, clean,
-    with HEAD moved since the start.
+    The Claude Code hook behind the Stopwatch (#3323): start a run when a prompt begins with `stopwatch:`, stop it
+    when Claude is back on the trunk, clean, with HEAD moved since the start.
 
 .DESCRIPTION
     Wired up in .claude/settings.json as a UserPromptSubmit hook (-Hook Prompt) and a Stop hook (-Hook Stop):
 
         powershell -NoProfile -ExecutionPolicy Bypass -File "scripts/dashboard/stopwatch-hook.ps1" -Hook Prompt
 
-    THE MAIN ROUTE IS THE MARKER: the Prompt hook reads the UserPromptSubmit JSON from stdin (only parses its `prompt`
-    field, never prints it) and a prompt whose first line begins with `stopwatch:` starts an Auto run labelled with
-    the rest of that line (Get-StopwatchPromptMarker). The armed label set on the page is the second route.
+    THE MARKER IS THE ONLY WAY A RUN STARTS: the Prompt hook reads the UserPromptSubmit JSON from stdin (only parses
+    its `prompt` field, never prints it) and a prompt whose first line begins with `stopwatch:` starts an Auto run
+    labelled with the rest of that line (Get-StopwatchPromptMarker), discarding a run still going. The page is
+    read-only.
 
     The rules are Invoke-StopwatchHookEvent's in scripts/lib/stopwatch-lib.ps1 (pure, tested by
     scripts/tests/stopwatch.tests.ps1); this script only gathers what they need (the store, the checkout's
@@ -20,12 +20,10 @@
     IT ALWAYS EXITS 0, PRINTS NOTHING AND NEVER BLOCKS. A UserPromptSubmit hook's stdout is injected into the
     session's context and a Stop hook that fails or prints can hold a turn open, so every error is swallowed:
     a timing aid must never cost the owner a turn. There is no network and no gh call, only local git, and git is
-    asked only when a decision needs it (a Prompt with nothing armed, or a Stop with no Auto run going, never
-    shells out). A store that does not read is left alone, as everywhere (Read-StopwatchStore).
+    asked only when a decision needs it (an unmarked Prompt, or a Stop with no Auto run going, never shells out). A store that does not read is left alone, as everywhere (Read-StopwatchStore).
 
-    The store is outside the tree (Get-StopwatchStorePath), so a hook writing it dirties nothing. The hub server
-    writes the same file on a button press; the two writes are a read and a rename apart, which is acceptable for
-    a human's button against a turn boundary.
+    The store is outside the tree (Get-StopwatchStorePath), so a hook writing it dirties nothing. The hub only
+    reads it. A store holding a run that does not parse is copied to a .bak beside it before the write drops it.
 
     -StorePath and -RepoRoot are for the tests; settings.json passes neither.
 
@@ -52,8 +50,8 @@ try {
         $raw = $reader.ReadToEnd()
         if ($raw.Trim()) { try { $prompt = [string]($raw | ConvertFrom-Json).prompt } catch { $prompt = '' } }
     }
-    # Nothing to decide, so no git: a Prompt needs a marker or an armed label, and no run going; a Stop an Auto run going.
-    if ($Hook -eq 'Prompt' -and ($running -or (-not $store.Armed -and $null -eq (Get-StopwatchPromptMarker -Prompt $prompt)))) { exit 0 }
+    # Nothing to decide, so no git: a Prompt needs the marker; a Stop an Auto run going.
+    if ($Hook -eq 'Prompt' -and $null -eq (Get-StopwatchPromptMarker -Prompt $prompt)) { exit 0 }
     if ($Hook -eq 'Stop' -and (-not $running -or -not $running.Auto)) { exit 0 }
 
     $trunk = 'main'
@@ -75,7 +73,10 @@ try {
         $clean = ($LASTEXITCODE -eq 0) -and ($porcelain.Count -eq 0)
     }
     $ErrorActionPreference = 'Stop'
-    $r = Invoke-StopwatchHookEvent -Hook $Hook -Runs $store.Runs -Armed $store.Armed -Now ([datetime]::UtcNow) -Branch $branch -Clean $clean -Head $head -Trunk $trunk -Prompt $prompt
-    if ($r.Changed) { Save-StopwatchStore -Path $StorePath -Runs $r.Runs -Armed $r.Armed }
+    $r = Invoke-StopwatchHookEvent -Hook $Hook -Runs $store.Runs -Now ([datetime]::UtcNow) -Branch $branch -Clean $clean -Head $head -Trunk $trunk -Prompt $prompt
+    if ($r.Changed) {
+        if ($store.Skipped) { Copy-Item -LiteralPath $StorePath -Destination "$StorePath.bak" -Force -ErrorAction SilentlyContinue }
+        Save-StopwatchStore -Path $StorePath -Runs $r.Runs
+    }
 } catch { }
 exit 0

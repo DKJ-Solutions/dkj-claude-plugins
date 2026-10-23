@@ -85,7 +85,7 @@ function Get-RepoHubPages {
     #>
     @(
         @{ Href = '/test-gate';   Label = 'Test gate';   Sub = 'What each test suite costs on CI' },
-        @{ Href = '/stopwatch';   Label = 'Stopwatch';   Sub = 'How long an assignment takes, timed automatically once armed, with laps and notes' },
+        @{ Href = '/stopwatch';   Label = 'Stopwatch';   Sub = 'How long an assignment takes, timed from a stopwatch: prompt to back on the trunk, with the transcript phases' },
         @{ Href = '/repository';  Label = 'Repository';  Sub = 'The GitHub repo: its facts, its open issues and its pull requests' }
     )
 }

@@ -63,8 +63,14 @@ page only shows the measurements (owner, October 23, 2026).
   nothing and always exits 0. It never writes over a store that does not read, and keeps a `.bak` of a store that
   holds a run it cannot parse. The trunk name comes from `Get-TrunkBranchName` in `scripts/repo-config.ps1`
   where this repo defines one, else `main`.
-- **The page is read-only.** It shows the running run (label and live clock) and, per label, the finished runs:
-  start, duration, the comparison with the previous run of the same label and the transcript phases. Every form
+- **The pages are read-only, an overview of cards and a page per label.** `/stopwatch` shows the running run
+  (label and live clock) and one card per measurement label, in the hub's own card markup: the label, its number
+  of runs, the latest run's time, its change against the run before and, for the label going now, its live clock.
+  A card links `/stopwatch/<slug>`, the label's page: every run, newest first, with start, duration, the change
+  and the transcript phases (time and share), and a link back. A slug is the lower-cased label with other runs of
+  characters as one dash (40 characters at most, `run` when nothing is left); labels that would share a slug each
+  get a hash suffix of the SHA-1 of the lower-cased label, so they never merge and the slug does not depend on
+  the order of the runs; an unknown slug is a 404. Every form
   and button is gone, and so are the POST script, the `POST /stopwatch/<action>` route of the server (the
   server takes no POST at all now, so its general 405 answers one), `Invoke-StopwatchAction`, the query parser,
   the arm feature (armed state, `arm` and `disarm`, the armed-prompt rule), manual laps and the laps column, notes
@@ -92,8 +98,9 @@ page only shows the measurements (owner, October 23, 2026).
   prompt starts a run, discards one going, does nothing without a HEAD; an unmarked prompt does nothing; the stop
   only on the trunk, clean and moved, never for an old hand-started run or one without a StartHead), the store
   round trip and an older store, the hook script run for real against stores of its own (prompt on stdin, silent,
-  exit 0, a second marker discards, never writes over an unreadable store, a `.bak` for a dropped run), and the
-  read-only page
+  exit 0, a second marker discards, never writes over an unreadable store, a `.bak` for a dropped run), the
+  slugs (round trip, collisions, order independence), the overview cards, the label page and the read-only page;
+  `connector-dashboard.tests.ps1` runs the real server for the overview, a label page, an unknown slug (404) and a POST (405)
 - [x] `dev-pages.tests.ps1` and `connector-dashboard.tests.ps1` green
 - [x] `check-plugin-integrity.ps1`: 0 errors
 
@@ -103,8 +110,9 @@ The hub's Stopwatch now times Claude's work without anybody pressing Start or St
 `stopwatch: <label>` and the clock starts right there (a run still going is discarded); it stops when Claude is
 back on the trunk with a clean checkout and HEAD moved since the start, a sign the work landed rather than a
 proof of it. A turn that only answers a question, or a branch parked for your look, keeps the clock going. The
-`/stopwatch` page only shows the measurements now: the running clock, each run's time, its comparison with the
-previous run of the same label and where its time went. Its buttons are gone.
+`/stopwatch` page only shows the measurements now: the running clock and one card per label (runs, latest time,
+change against the run before), and each card opens that label's page with every run, its comparison with the
+run before and where its time went. The buttons are gone.
 
 A running hub must be restarted to pick up this code: an old server would write the old shape of the store back.
 
