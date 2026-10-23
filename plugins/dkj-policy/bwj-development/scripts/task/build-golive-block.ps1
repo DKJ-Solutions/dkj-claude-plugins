@@ -27,7 +27,8 @@
                    raise it, and a colleague quotes the block back as a fact. The tally is read, not
                    re-derived -- the tier parser lives in dkj-policy's libs, out of this plugin's reach.
       the URLs     Get-MarketUrls over the pages -Path names, from the same market table a preview
-                   pair is built from -- BARE, with a private-window caveat in the label (#2619): a
+                   pair is built from, less any market the table marks GoLive = $false (#3327) --
+                   BARE, with a private-window caveat in the label (#2619): a
                    bare URL renders the preview in any browser that opened the result link first
                    (#2477), and a URL pinned to the live id reads as a preview link to a colleague.
 
@@ -637,7 +638,8 @@ if (-not $ResearchArg -and -not $MeasureArg -and -not $ByHandArg -and -not $Alre
     $liveUrls = @()
     if ($PathArg -and @($PathArg).Count -gt 0) {
         . (Join-Path $PSScriptRoot '..\lib\market-urls.ps1')
-        $liveUrls = @(Get-MarketUrls -Path $PathArg)
+        # -GoLiveOnly: a market the store marked GoLive = $false stays in its previews and out of this list (#3327).
+        $liveUrls = @(Get-MarketUrls -Path $PathArg -GoLiveOnly)
         Write-Host "  live urls: $($liveUrls.Count) ($(@($PathArg).Count) page(s) x markets), bare" -ForegroundColor DarkGray
     } else {
         Write-Host "  live urls: none -- no -Path given" -ForegroundColor DarkGray
