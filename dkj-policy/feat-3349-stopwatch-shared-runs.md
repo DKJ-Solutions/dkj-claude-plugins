@@ -39,19 +39,51 @@
 
 ### PLAN
 
+The owner wants every machine to see every Stopwatch measurement (#3349). They picked a data ref on origin
+from three routes: the store cannot become a tracked file, because it would dirty the workflow it times.
+
+#### Measured before building
+
+- GitHub accepts a push to `refs/stopwatch/<id>` and its deletion (a probe ref, pushed and removed again).
+- Piping text into a native git call from Windows PowerShell 5.1 prepends a BOM (`git mktree` refused
+  `﻿100644 blob ...`), so the lib hashes the blob from a file and writes the tree through a throwaway
+  `GIT_INDEX_FILE` instead of feeding `mktree` on stdin.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/stopwatch-sync-lib.ps1`: the machine id, the ASCII payload, merge, interval, fetch, read, publish
+- [x] `scripts/dashboard/stopwatch-sync.ps1`: fetch, compute this machine's phases, publish; logs its last outcome
+- [x] The Stop hook starts the sync in a process of its own once a run has ended, except when a test passes a store
+- [x] The hub merges the other machines' runs into both Stopwatch pages, uses their own phases, and starts a throttled sync
+- [x] The docstrings and the page footers no longer say the runs stay on this machine
 
 ### TEST
 
+- [x] `scripts/tests/stopwatch-sync.tests.ps1` (new, 34 asserts, in the pages group): a publish and a read between
+  two clones of a bare origin, an accent through git, the fast-forward, and an untouched index, tree and HEAD
+- [x] `stopwatch.tests.ps1` 127/0 and `connector-dashboard.tests.ps1` 202/0, the latter after guarding the sync lib's load
+- [x] A real run on this machine: `stopwatch-sync.ps1` pushed `refs/stopwatch/9a3c5423`, and the checkout stayed clean
+
 ### DEPLOY: feat/3349-stopwatch-shared-runs
 
-**Score:**
+Stopwatch runs are now shared between machines
+([#3349](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3349)). Each machine publishes its finished
+runs, with the transcript phases it read for them, to a ref of its own on origin, `refs/stopwatch/<machine id>`.
+It does that with git plumbing only, so the checkout's index, working tree and branches are never touched, and
+in a background process, so no turn and no page load waits on the network. The Stop hook starts that process
+once a run has ended. The hub starts it at most every five minutes while a Stopwatch page is open, and it shows
+every other machine's runs beside this machine's own, marking them as "another machine". The machine id is
+random, so no computer name reaches this public repo. The labels, times and phase names become public.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the Stopwatch, its hook and the hub are this repo's own tooling under `scripts/`, and no plugin ships them.
+
+**Score:** N/A
 
 #### Pull Request
+
+Stopwatch: share the runs across machines through a ref on origin
 
