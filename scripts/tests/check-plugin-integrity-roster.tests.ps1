@@ -14,6 +14,9 @@
 
     Pure ASCII (repo convention for .ps1).
 #>
+
+# What this suite's live-tree walks read (#3309): the lint launchers under scripts/ and the workflows.
+# gate-selection: walks scripts/*.ps1 scripts/*.yml .github/workflows/*
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path $PSScriptRoot 'check-plugin-integrity-fixture.ps1')

@@ -39,6 +39,9 @@
     consistency, not because its language is what is under test here.
 #>
 
+# What this suite's live-tree walks read (#3309): every plugin manifest.
+# gate-selection: walks plugin.json
+
 # Test-FunctionDefined (issue #1729): the seam probes below read the function table directly rather
 # than through Get-Command, which parses the name as a wildcard pattern and pays a full PATH scan on
 # every miss -- and a miss is the normal case for an optional seam. $PSScriptRoot-relative, so it

@@ -37,6 +37,9 @@
         the hook is tested end-to-end against the REAL check script rather than a stub, but always via
         the override path, not the plugin-root default.
 #>
+
+# What this suite's live-tree walks read (#3309): the shared-script registry, plus what check-script-contract reads when it is pointed at this checkout.
+# gate-selection: walks *.ps1 *.json *.md *.yml
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot      = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path

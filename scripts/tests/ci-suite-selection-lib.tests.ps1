@@ -63,6 +63,8 @@ try {
     Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\walks-ps1.tests.ps1') -Value "Get-ChildItem -Filter '*.ps1'" -Encoding ASCII
     Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\walks-css.tests.ps1') -Value "Get-ChildItem -Filter '*.css'" -Encoding ASCII
     Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\matched.tests.ps1') -Value 'x' -Encoding ASCII
+    Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\declared-css.tests.ps1') -Value "# gate-selection: walks *.ps1`nGet-ChildItem -Filter '*.css'" -Encoding ASCII
+    Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\scoped.tests.ps1') -Value "# gate-selection: walks brandbook/*" -Encoding ASCII
 
     $script:stub = $null
     function Get-AffectedSuiteSelection { param($RepoRoot, $ChangedPaths) return $script:stub }
@@ -71,6 +73,9 @@ try {
         Proven = $true; PoolCount = 164
         Matched = @('scripts/tests/matched.tests.ps1')
         Always = @('scripts/tests/walks-ps1.tests.ps1', 'scripts/tests/walks-css.tests.ps1', 'scripts/tests/gone.tests.ps1')
+        Scoped = @('scripts/tests/scoped.tests.ps1')
+        Walkers = @('scripts/tests/walks-ps1.tests.ps1', 'scripts/tests/walks-css.tests.ps1', 'scripts/tests/gone.tests.ps1',
+                    'scripts/tests/declared-css.tests.ps1', 'scripts/tests/scoped.tests.ps1')
     }
     $s = Get-StaticAssetSuiteSelection -RepoRoot $fixture -ChangedPaths @('brandbook/src/index.css')
     Assert-True $s.Proven 'an asset-only change over a proven map is a proven selection'
@@ -79,11 +84,15 @@ try {
     Assert-True ($s.Suites -notcontains 'scripts/tests/walks-ps1.tests.ps1') 'a tree walk that only names *.ps1 is dropped -- the saving'
     Assert-True ($s.Suites -contains 'scripts/tests/gone.tests.ps1') 'an unreadable suite is kept, because the guard only drops a suite it has read'
     Assert-Equal 164 $s.PoolCount 'and the pool size is the map''s'
+    # #3309: a walker whose declared scope leaves the change out is NOT in the local Always set, and CI
+    # still judges it by its own text -- the declaration narrows the local gate, never this one.
+    Assert-True ($s.Suites -contains 'scripts/tests/declared-css.tests.ps1') 'a declared walker outside Always that names the extension still runs on CI'
+    Assert-True ($s.Suites -contains 'scripts/tests/scoped.tests.ps1') 'and a walker whose declared scope the change falls in runs, named extension or not'
 
     $s = Get-StaticAssetSuiteSelection -RepoRoot $fixture -ChangedPaths @('assets/logo.png')
     Assert-True ($s.Suites -notcontains 'scripts/tests/walks-css.tests.ps1') 'the extension guard is per change: a PNG does not keep the walk that names css'
 
-    $script:stub = [pscustomobject]@{ Proven = $false; PoolCount = 164; Matched = @(); Always = @(); Reason = 'git could not list the tree' }
+    $script:stub = [pscustomobject]@{ Proven = $false; PoolCount = 164; Matched = @(); Always = @(); Scoped = @(); Walkers = @(); Reason = 'git could not list the tree' }
     $s = Get-StaticAssetSuiteSelection -RepoRoot $fixture -ChangedPaths @('brandbook/src/index.css')
     Assert-True (-not $s.Proven) 'an unproven map is an unproven selection, so the caller runs the whole pool'
     Assert-Equal 'git could not list the tree' $s.Reason 'and the map''s reason is passed through'

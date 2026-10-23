@@ -35,6 +35,9 @@
 
     Pure ASCII (repo convention for .ps1).
 #>
+
+# What this suite's live-tree walks read (#3309): the templates under plugins/.
+# gate-selection: walks plugins/*.ps1
 $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 

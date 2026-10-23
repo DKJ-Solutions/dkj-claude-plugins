@@ -36,6 +36,9 @@
     codepoints. The fixture deliberately contains a multi-byte character, because a byte count that is
     secretly a character count agrees with the truth for pure ASCII and diverges the moment it does not.
 #>
+
+# What this suite's live-tree walks read (#3309): the always-on path: CLAUDE.md, everything it imports, and the rules floor.
+# gate-selection: walks *.md
 $ErrorActionPreference = 'Stop'
 
 # THE REPO ROOT, judged and ANCHORED (#1917). -From pins the git call to this file's own directory

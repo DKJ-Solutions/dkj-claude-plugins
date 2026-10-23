@@ -348,7 +348,7 @@ in 620s, and the two suites that read the changed files were the ones that matte
 check runs every suite before anything merges, so the local gate no longer has to:
 
 ```text
-test gate: 43 of 162 suites selected for this branch's changes -- 4 reached by a changed path, 39 that walk the live tree and always run. CI (lint-en-tests) runs all 162; -AllSuites runs them here (#3223).
+test gate: 5 of 165 suites selected for this branch's changes -- 4 reached by a changed path, 1 that walk the live tree and always run, 0 whose declared walk scope a changed path falls in. CI (lint-en-tests) runs all 165; -AllSuites runs them here (#3223, #3309).
 ```
 
 **How a suite is selected.** The changed paths are everything that differs from the merge-base with
@@ -360,7 +360,21 @@ dependency. A library is followed only through what it **runs**, never through w
 everything. **Suites that enumerate the live tree** (a `Get-ChildItem`, `git ls-files` or recursive copy
 over a path built from `$RepoRoot` or `$PSScriptRoot`, or the live root handed to a lib function that
 enumerates it, such as `Get-SharedScriptPairs`) read files no name points at, so they run every time. A suite whose walk the reading
-cannot see says so with a `# gate-selection: always` line. Each file's references are cached in the git
+cannot see says so with a `# gate-selection: always` line.
+
+**Unless the walk declares its scope**
+([#3309](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3309)). A suite or test helper that
+carries `# gate-selection: walks <pattern> ...` runs only when a changed path falls inside one of the
+patterns, so `# gate-selection: walks scripts/*.ps1 hooks.json` keeps a walk over the scripts out of a CSS
+fix. A pattern with a `/` is matched against the whole path, one without against the file name, and `*`
+crosses folders. The declaration covers everything the walk reads, a script the suite runs against the live
+tree included; a wrong one costs a red CI run. The selection's own suite holds every declared scope to the
+literal `-Filter`/`-Include` values of the file's live walks, so a new walk over another kind of file fails
+there first. That guard checks the kind of file, not the folder, and it cannot see a walk done inside a lib
+the suite calls, so the folder half of a declaration is the author's to get right. On October 23, 2026 the declarations took a CSS change from 44 suites to 5. CI's asset-only
+selection does not trust them: it still judges every walker by its own text.
+
+Each file's references are cached in the git
 directory by blob id, so after the first run only changed files are parsed.
 
 **Every suite runs, and the line says why, whenever the mapping is not proven**: the repo names no

@@ -16,6 +16,9 @@
 
     Pure ASCII (repo convention for .ps1).
 #>
+
+# What this suite's live-tree walks read (#3309): the core-team payload, copied whole into its fixtures, and its persona pages.
+# gate-selection: walks plugins/dkj-subagents/*
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot   = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path

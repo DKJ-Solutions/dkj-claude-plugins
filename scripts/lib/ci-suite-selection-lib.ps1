@@ -15,8 +15,12 @@
     WHAT IS KEPT FOR AN ASSET-ONLY PR, and why each half:
       - MATCHED: every suite Get-AffectedSuiteSelection (gate-lib.ps1) maps the changed paths to. That is
         the same reference graph the local gate trusts, so a suite that names the stylesheet runs.
-      - KEPT-ALWAYS: of the suites that walk the live tree (the selection's Always set, 40 on
-        October 22, 2026), the ones whose source mentions a changed path's extension (`css`, `svg`, ...).
+      - KEPT-ALWAYS: of the suites that walk the live tree (the selection's Walkers set, 40 on
+        October 22, 2026), the ones whose source mentions a changed path's extension (`css`, `svg`, ...),
+        plus any whose declared walk scope a changed path falls in (the selection's Scoped set). The
+        declaration does not DROP a walker here: the local gate trusts it because CI runs behind it, and
+        nothing runs behind this selection, so every walker is still judged by its own text (#3309). It keeps
+        at least what it kept before: a walker whose declared scope the change falls in is kept as well.
         Every walk measured that day filters on `*.ps1`, `*.md`, `*.json`, `*.yml` or a named manifest, so
         none of them can enumerate a stylesheet. A future walk that does has to name the extension
         to filter on it, and naming it keeps the suite in. The guard is crude on purpose: it errs
@@ -96,12 +100,12 @@ function Get-StaticAssetSuiteSelection {
     $tokens = @($assets.Extensions | ForEach-Object { [regex]::Escape($_.TrimStart('.')) })
     $pattern = '(?i)\b(' + ($tokens -join '|') + ')\b'
     $kept = New-Object System.Collections.ArrayList
-    foreach ($suite in @($selection.Always)) {
+    foreach ($suite in @($selection.Walkers)) {
         $full = Join-Path $RepoRoot $suite
         # An unreadable suite is kept: the guard only ever drops a suite it has read.
         $text = $null
         try { $text = [System.IO.File]::ReadAllText($full) } catch { }
-        if ($null -eq $text -or $text -match $pattern) { [void]$kept.Add($suite) }
+        if ($null -eq $text -or $text -match $pattern -or @($selection.Scoped) -contains $suite) { [void]$kept.Add($suite) }
     }
     $result.Matched = @($selection.Matched)
     $result.KeptAlways = @($kept)

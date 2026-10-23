@@ -13,6 +13,9 @@
 
     Pure ASCII (repo convention for .ps1).
 #>
+
+# What this suite's live-tree walks read (#3309): connectors/*.json, plus the manifests, scripts and pages the connector check and hook read when they are pointed at this checkout.
+# gate-selection: walks connectors/* *.json *.ps1 *.md
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path

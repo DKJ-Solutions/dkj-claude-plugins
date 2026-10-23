@@ -35,6 +35,9 @@
     Pure ASCII (repo convention for .ps1). The fixture's header uses a hyphen where the real output has
     an em dash; nothing under test reads that character.
 #>
+
+# What this suite's live-tree walks read (#3309): the shared-script registry (Get-SharedScriptPairs): the paired scripts and the manifests that place the mirrors, and the skill pages beside them.
+# gate-selection: walks *.ps1 marketplace.json plugin.json SKILL.md
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot   = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
