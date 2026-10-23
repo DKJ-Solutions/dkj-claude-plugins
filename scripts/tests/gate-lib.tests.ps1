@@ -837,6 +837,32 @@ exit __EXIT__
     Assert-True (-not $c18u.InFlight) 'one failing record among the named check''s own records is not in flight'
     Assert-True (-not $c18u.Certified) 'and certainly not a certificate'
 
+    # NOT REGISTERED WHILE THE HEAD IS STILL BUSY (#3344): the named check is an aggregator that registers
+    # only after the jobs it waits on, so `--required` reads empty for the whole suite run. With every
+    # check on the head in hand, a pending one makes that absence in flight -- and only that.
+    $busy = '[{"name":"suites (1)","bucket":"pending"},{"name":"lint","bucket":"pass"}]'
+    $idle = '[{"name":"suites (1)","bucket":"pass"},{"name":"lint","bucket":"pass"}]'
+    foreach ($absent in @('', '[]', $partial)) {
+        $c18r = Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $absent -CheckName $named -AllChecksJson $busy
+        Assert-True ($c18r.InFlight -and -not $c18r.Certified) "an unregistered named check reads IN FLIGHT while another check on the head is pending (required: '$absent')"
+        Assert-True ($c18r.Note -match 'has not registered' -and $c18r.Note -match '1 other check') 'and the note says what it is waiting behind'
+        Assert-True (-not (Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $absent -CheckName $named -AllChecksJson $idle).InFlight) 'but not once nothing on the head is pending'
+    }
+    Assert-True (-not (Get-CiTestCertificate -HeadSha $sha -PrHeadSha $other -RequiredChecksJson '' -CheckName $named -AllChecksJson $busy).InFlight) 'a busy head that is not this HEAD is still not in flight'
+    Assert-True (-not (Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson 'not json at all' -CheckName $named -AllChecksJson $busy).InFlight) 'an unparseable required payload stays a plain refusal'
+    Assert-True (-not (Get-CiTestCertificate -HeadSha $sha -PrHeadSha $sha -RequiredChecksJson $failing -CheckName $named -AllChecksJson $busy).InFlight) 'and a RED named check stays red, however busy the head'
+
+    # And the loop: busy-and-absent laps are waited through, and the named check's green ends the wait.
+    $script:lap3344 = 0
+    $w3344 = Wait-CiTestCertificate -HeadSha $sha -CheckName $named -MaxLaps 5 -Reader {
+        $script:lap3344++
+        if ($script:lap3344 -lt 3) { [pscustomobject]@{ PrHeadSha = $sha; RequiredChecksJson = ''; AllChecksJson = $busy } }
+        else { [pscustomobject]@{ PrHeadSha = $sha; RequiredChecksJson = $green; AllChecksJson = $idle } }
+    }
+    Assert-True ($w3344.Certified -and $w3344.Outcome -eq 'certified' -and $w3344.Laps -eq 3) 'the wait rides out the unregistered stretch and certifies on the green'
+    $w3344s = Wait-CiTestCertificate -HeadSha $sha -CheckName $named -MaxLaps 5 -Reader { [pscustomobject]@{ PrHeadSha = $sha; RequiredChecksJson = ''; AllChecksJson = $idle } }
+    Assert-True ($w3344s.Outcome -eq 'settled' -and $w3344s.Laps -eq 1) 'and settles at once when the check is absent with nothing left running'
+
     # --- 18c. Wait-CiTestCertificate -- the loop around it (issue #2317) ---------------------------
     #
     # Every exit is walked here, because none of them is reachable from a fixture: they need a real PR

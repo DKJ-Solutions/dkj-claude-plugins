@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**17 / 33 minor entries** <!-- pending-tally -->
+**18 / 34 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3344-ci-wait-unregistered-check · 20261023-130121Z
+
+A re-ship no longer runs the local suites while CI is still running them
+([#3344](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3344)). The required check
+`lint-en-tests` registers only after the suite shards it waits on have finished. For the whole suite run,
+`gh pr checks --required` answers "no required checks reported", so open-pr read that state as "no
+certificate" and ran the pool: 447s on PR #3334. `Get-CiTestCertificate` in `scripts/lib/gate-lib.ps1`
+now also reads every check on the head. A named check that has not registered counts as in flight while
+another check on that exact commit is still pending, so open-pr waits for it (#2317). Once nothing is
+pending and the check is still absent, the local suites run as before.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A repo running `dkj-policy` whose required check also waits on other jobs (`needs:`) takes the same
+wait through the mirrored `open-pr.ps1`. A re-ship there waits for CI instead of re-running every suite
+locally.
+
+**Score:** 2
+
+#### Pull Request
+
+open-pr waits for CI while the required check has not registered but the head's other checks are still running
+
+Plugins: dkj-policy
+
+[PR #3347](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3347)
+
+---
 
 ### DEPLOY: fix/3343-seam-data-references · 20261023-124807Z
 
