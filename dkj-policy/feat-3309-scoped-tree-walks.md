@@ -40,8 +40,8 @@
 ### PLAN
 
 Lever 1 of [#3309](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3309): narrow the local
-gate's "always" set. Levers 2 (CI, shipped in #3311) and 3 (the overview page) are not this branch, so the
-issue stays open for lever 3 (`-NoResolves`).
+gate's "always" set. Lever 2 (path-aware CI) shipped in #3311, and lever 3 (the per-suite overview page) is
+not this branch, so the issue stays open and this ships with `-NoResolves`.
 
 ### CREATE
 
@@ -52,8 +52,9 @@ issue stays open for lever 3 (`-NoResolves`).
   `Always`; the cache format is versioned to v2.
 - [x] CI's asset-only selection judges every walker (`Walkers`), not just `Always`, so the declarations
   narrow the local gate and leave CI's behaviour as it was.
-- [x] 37 walking suites declare their scope, each with a one-line reason; `dev-pages` stays unbounded on
-  purpose (it reads html, css and js).
+- [x] 37 walking suites declare their scope, each with a one-line reason; `merge-on-green-lib` and
+  `suite-durations-lib` inherit one from a helper they reach, and `dev-pages` stays unbounded on purpose
+  (it reads html, css and js).
 - [x] The scope guard in `affected-suites.tests.ps1`: every declared scope covers its own live walks'
   filters (Victor's review note on #3309).
 - [x] The `open-pr` skill page documents the declaration; the `gate-lib.ps1` mirror is rebuilt.
@@ -69,8 +70,9 @@ issue stays open for lever 3 (`-NoResolves`).
 
 The local test gate in `open-pr` no longer runs every suite that walks the live tree. A suite can now
 declare what its walk reads with a `# gate-selection: walks <pattern> ...` line, and it runs only when a
-changed path falls inside that scope. In this repo 37 of those 40 suites declare one, so a CSS change runs 5
-suites locally where it ran 44. The selection's own suite checks that each declared scope covers the
+changed path falls inside that scope. In this repo 37 of those 40 suites declare one and two more inherit a
+scope from a helper they reach, so only one still runs every time and a CSS change runs 5 suites locally
+where it ran 44. The selection's own suite checks that each declared scope covers the
 filters the suite's own walks use. The required CI check is unchanged.
 
 **Score:** 2
