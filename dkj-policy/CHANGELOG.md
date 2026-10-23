@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**9 / 14 minor entries** <!-- pending-tally -->
+**10 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3297-hub-banner-every-page · 20261023-072310Z
+
+The hub's general banner ([#3297](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3297)), with the
+countdown to the next full hour and the airsquats box, was on the home page only. It now stands on every hub page:
+under the intro of every page `Format-GeneralPageHtml` draws (Artifacts, Issues, SessionStart, the Brandbook
+page, and this repo's own pages), and under the bar of the release notes.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every page of a repo's hub shows the airsquats countdown, so it stays in view whichever page is open.
+
+**Score:** 2
+
+#### Pull Request
+
+The hub's banner on every hub page, not only the home page
+
+Plugins: dkj-policy
+
+[PR #3312](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3312)
+
+---
 
 ### DEPLOY: feat/3309-ci-path-aware-suites · 20261023-003225Z
 
