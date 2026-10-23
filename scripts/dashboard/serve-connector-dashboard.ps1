@@ -1,12 +1,16 @@
 <#
 .SYNOPSIS
-    Serve this repo's dev server on http://localhost:<Port>/ -- the hub on '/', which links the
-    pages below it (#3097): /connectors, every repo registered under connectors/ with its plugins, its
-    local checkout and what check-connectors.ps1 reports for it on this machine (#2976); /specialists, every
-    specialist the dkj-subagents plugins ship and the context each one costs, read from this tree; /test-gate,
-    the per-suite CI durations, grouped by the workflow step each suite guards (scripts/tests/suite-groups.json);
-    and /dkj-repos, every DKJ-Solutions repo on GitHub with its checkout here and a session to open there
-    (#3231). The rules of the hub and of each page are in scripts/lib/dev-pages-lib.ps1.
+    Serve this repo's dev server on http://localhost:<Port>/ -- the hub on '/', which links the hub's own
+    pages (#3097): /test-gate, the per-suite CI durations, grouped by the workflow step each suite guards
+    (scripts/tests/suite-groups.json); and /stopwatch, assignments timed by hand from the moment they are
+    given to the moment they are done (#3315), the one page that takes a POST (its buttons,
+    /stopwatch/<action>). It also builds three pages the product relays, which the hub does not link (below):
+    /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
+    check-connectors.ps1 reports for it on this machine (#2976); /specialists, every specialist the
+    dkj-subagents plugins ship and the context each one costs, read from this tree; and /dkj-repos, every
+    DKJ-Solutions repo on GitHub with its checkout here and a session to open there (#3231). The rules of
+    the hub and of each page are in scripts/lib/dev-pages-lib.ps1, the Stopwatch's in
+    scripts/lib/stopwatch-lib.ps1.
 
     NO /brandbook HERE. The brand book is this repo's product: the brandbook/ app's Vite dev server, which the
     dev-preview hook starts on a port of its own (#3283). This server built and served the same app at
@@ -64,7 +68,8 @@
     finds HEAD somewhere else is answered with a 503 that reloads in three seconds, after which the server
     stops listening and starts its successor on the same port -- under a cmd.exe that changes into the
     root first, as the hook's own start line does, so the hook still recognises it as this checkout's.
-    The hub's "Source at" names that loaded commit, not the live one. Static files skip the check.
+    The hub's "Source at" names that loaded commit, not the live one. Static files skip the check, and so
+    do the Stopwatch's POST buttons, so a Stop pressed during a merge or a fold lands (#3315).
     A successor that dies at start (a broken commit) leaves the port empty, with the reason in
     %TEMP%\serve-connector-dashboard-<Port>-<guid>.log; the next session's hook starts a server again. A root
     holding '%' or '"', which cmd.exe would rewrite, gets the notice but no restart.
@@ -86,6 +91,9 @@
 
 .PARAMETER RepoRootOverride
     (For tests) The repo root instead of the one this script sits in.
+
+.PARAMETER StopwatchPath
+    (For tests) The Stopwatch's store instead of the one under LOCALAPPDATA (Get-StopwatchStorePath).
 #>
 [CmdletBinding()]
 param(
@@ -93,7 +101,8 @@ param(
     [ValidateRange(0, 86400)][int]$CacheSeconds = 60,
     [ValidateRange(100, 60000)][int]$ReadTimeoutMs = 1000,
     [ValidateRange(0, 3600)][int]$MinRefreshSeconds = 10,
-    [string]$RepoRootOverride
+    [string]$RepoRootOverride,
+    [string]$StopwatchPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -102,6 +111,8 @@ $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride
         else { (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path }
 . (Join-Path $root 'scripts\lib\connector-dashboard-lib.ps1')
 . (Join-Path $root 'scripts\lib\dev-pages-lib.ps1')
+. (Join-Path $root 'scripts\lib\stopwatch-lib.ps1')
+if (-not $StopwatchPath) { $StopwatchPath = Get-StopwatchStorePath }
 # The test gate's own selection and CI's, so /test-gate shows what they decide for this checkout (#3309).
 # GUARDED, unlike the libs above: they serve one section of one page, and gate-lib.ps1 loads a chain of its
 # own, so a tree without them (this script's own test fixtures) still serves every page, and the section
@@ -368,6 +379,36 @@ try {
                 Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.')) -Method $method
                 continue
             }
+            if ($method -eq 'POST' -and $path -match '^/stopwatch/(start|lap|stop|discard|note|delete)$') {
+                # A Stopwatch button (#3315), with its values in the query. Answered BEFORE the restart check: the
+                # workflow a run times moves HEAD at every merge and fold, and a Stop pressed at that moment must
+                # land rather than be lost to the 503. It writes only the store, so the old code serves it fine.
+                $action = $Matches[1]
+                # Only the page's own fetch writes: the general refusal lets a request without Sec-Fetch-Site through,
+                # which a browser too old to send it would do for a form another site posts here (Sebastian, #3315).
+                if (([string]$request.SecFetchSite).Trim().ToLowerInvariant() -ne 'same-origin') {
+                    Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: only the Stopwatch page itself may press its buttons.')) -Method $method
+                    continue
+                }
+                $store = Read-StopwatchStore -Path $StopwatchPath
+                if ($store.Error) {
+                    Send-LoopbackResponse $stream 503 'Service Unavailable' 'text/plain; charset=utf-8' ($utf8.GetBytes("The store could not be read ($($store.Error)), so nothing was written over it.")) -Method $method
+                    continue
+                }
+                $result = Invoke-StopwatchAction -Runs $store.Runs -Action $action -Query (ConvertFrom-StopwatchQuery -Target $target) -Now ([datetime]::UtcNow)
+                if ($result.Error) {
+                    Send-LoopbackResponse $stream 409 'Conflict' 'text/plain; charset=utf-8' ($utf8.GetBytes($result.Error)) -Method $method
+                    continue
+                }
+                # A run that did not parse is dropped by this write, so the file as it was is kept beside it first.
+                if ($store.Skipped) { Copy-Item -LiteralPath $StopwatchPath -Destination "$StopwatchPath.bak" -Force -ErrorAction SilentlyContinue }
+                try { Save-StopwatchStore -Path $StopwatchPath -Runs $result.Runs } catch {
+                    Send-LoopbackResponse $stream 500 'Internal Server Error' 'text/plain; charset=utf-8' ($utf8.GetBytes('The store could not be written: ' + $_.Exception.Message)) -Method $method
+                    continue
+                }
+                Send-LoopbackResponse $stream 200 'OK' 'text/plain; charset=utf-8' ($utf8.GetBytes('ok')) -Method $method
+                continue
+            }
             if ($method -ne 'GET' -and $method -ne 'HEAD') {
                 Send-LoopbackResponse $stream 405 'Method Not Allowed' 'text/plain; charset=utf-8' ($utf8.GetBytes('GET only.')) @{ Allow = 'GET, HEAD' } -Method $method
                 continue
@@ -456,6 +497,12 @@ try {
                 $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error -GroupsError $tg.GroupsError -Selection $tg.Selection
                 $body = $utf8.GetBytes($html)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
+                continue
+            }
+            if ($path -eq '/stopwatch') {
+                $store = Read-StopwatchStore -Path $StopwatchPath
+                $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs $store.Runs) -ReadError $store.Error -Skipped $store.Skipped -StorePath $StopwatchPath
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
             if ($path -eq '/specialists') {
