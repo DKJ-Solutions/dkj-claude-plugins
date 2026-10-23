@@ -289,10 +289,12 @@ try {
     Assert-Equal 5 $secs.Count 'every phase of the run has a row'
     Assert-Equal '2:50' $secs[0] 'the longest phase comes first'
     Assert-True ((Format-StopwatchPhaseCard @{ Sessions = 0; Phases = @() } 60 -Title 'T') -match 'No session of this repo') 'a run no session saw says so'
+    Assert-True ((Format-StopwatchPhaseCard @{ Sessions = 1; Phases = @() } 60 -Title 'T') -match 'No phases read' -and (Format-StopwatchPhaseCard @{ Sessions = 1; Phases = @() } 60 -Title 'T') -notmatch '<table') 'a run with a session but no phases gets a line, not an empty table'
+    Assert-True ((Format-StopwatchPhaseCard @{ Sessions = 2; Phases = @(@{ Name = 'x'; Seconds = 1 }) } 60 -Title 'T') -match '<div class="card__head"><h3 class="card__title">T</h3><p class="card__sub">2 sessions</p></div>') 'the card heading follows the house card head, with the sessions under the title'
     Assert-True ((Format-StopwatchPhaseCard $null 60 -Title '<b>') -match 'No phases read' -and (Format-StopwatchPhaseCard $null 60 -Title '<b>') -notmatch '<b>') 'a run with no phases yet says so, and the title is escaped'
     $tm = ConvertTo-StopwatchModel -Runs @($run)
     $tp = Format-StopwatchLabelPageHtml -Group $tm.Groups[0] -StorePath 's' -Transcript $first
-    Assert-True ($tp -match '<h2>Phases</h2>[\s\S]*<section class="card"><h3>[^<]+</h3>[\s\S]*Ship: CI wait, merge, fold</td><td class="num">2:50') 'a label page shows each run''s phases in a card of their own, under the Phases heading'
+    Assert-True ($tp -match '<h2>Phases</h2>[\s\S]*<section class="card"><div class="card__head"><h3 class="card__title">[^<]+</h3>[\s\S]*Ship: CI wait, merge, fold</td><td class="num">2:50') 'a label page shows each run''s phases in a card of their own, under the Phases heading'
     Assert-True ($tp -notmatch 'From the transcripts') 'and the runs table no longer crams them into one cell'
 } finally {
     Remove-Item -LiteralPath $tdir -Recurse -Force -ErrorAction SilentlyContinue

@@ -23,7 +23,7 @@
     plugin's Format-GeneralPageHtml -Bare). '/stopwatch' is an overview of cards, one per measurement label (the label's number
     of runs, its latest run's time and change against the run before, and the run going now with its live clock),
     in the hub's own card markup; each card links to '/stopwatch/<slug>', the label's page: every run, newest
-    first, with its start, time, change and transcript phases. A slug is made of the label alone
+    first, with its start, time and change, and below them a card per run with its transcript phases. A slug is made of the label alone
     (Get-StopwatchSlugs); two labels that would share one each get a hash suffix, so they never merge, and an
     unknown slug is a 404.
 
@@ -472,20 +472,22 @@ function Get-StopwatchTranscriptCache {
 
 function Format-StopwatchPhaseCard {
     <#
-        One run's transcript phases as a card of their own: an h3 with the run's start and time,
-        then a table with a row per phase, longest first, each with its time, its share of the run and a bar of that
-        share; or a line saying why there are none. -Title is the h3's text, already formatted by the caller.
+        One run's transcript phases as a card of their own: a heading with the run's start and time (-Title, already
+        formatted by the caller) and, when more than one session took part, how many; then a table with a row per
+        phase, longest first, each with its time, its share of the run and a bar of that share. A run with no
+        phases says why instead.
     #>
     param($Entry, [double]$Total, [Parameter(Mandatory = $true)][string]$Title)
-    $e = { param($v) ConvertTo-DashboardText $v }
-    $card = '<section class="card"><h3>' + (& $e $Title) + '</h3>'
+    $sub = if ($Entry -and $Entry.Sessions -gt 1) { '<p class="card__sub">' + $Entry.Sessions + ' sessions</p>' } else { '' }
+    $card = '<section class="card"><div class="card__head"><h3 class="card__title">' + (ConvertTo-DashboardText $Title) + '</h3>' + $sub + '</div>'
     if ($null -eq $Entry) { return $card + '<p class="note">No phases read for this run yet.</p></section>' }
     if (-not $Entry.Sessions) { return $card + '<p class="note">No session of this repo was active during this run.</p></section>' }
-    if ($Entry.Sessions -gt 1) { $card += '<p class="card__sub">' + $Entry.Sessions + ' sessions</p>' }
+    if (-not @($Entry.Phases | Where-Object { $_ }).Count) { return $card + '<p class="note">No phases read for this run yet.</p></section>' }
     $card += '<div class="table-wrap"><table class="table"><thead><tr><th class="sw-left">Phase</th><th>Time</th><th>Share</th><th class="sw-left">Of the run</th></tr></thead><tbody>'
     foreach ($p in @($Entry.Phases | Sort-Object -Property @{ Expression = { [double]$_.Seconds }; Descending = $true })) {
+        # Capped at 100 so the bar never overflows its track; a phase is at most the run, so the cap only meets rounding.
         $share = if ($Total -gt 0) { [Math]::Min(100, [Math]::Round(100 * $p.Seconds / $Total)) } else { 0 }
-        $card += '<tr><td class="sw-left">' + (& $e $p.Name) + '</td><td class="num">' + (Format-DevSeconds $p.Seconds) + '</td><td class="num">' + $share + '%</td>' +
+        $card += '<tr><td class="sw-left">' + (ConvertTo-DashboardText $p.Name) + '</td><td class="num">' + (Format-DevSeconds $p.Seconds) + '</td><td class="num">' + $share + '%</td>' +
             '<td class="sw-left"><span class="sw-bar" role="img" aria-label="' + $share + '%"><span style="width: ' + $share + '%"></span></span></td></tr>'
     }
     return $card + '</tbody></table></div></section>'
@@ -589,7 +591,7 @@ function Format-StopwatchLabelPageHtml {
     <#
         One label's page on '/stopwatch/<slug>' (#3323): every finished run of -Group (a group of
         ConvertTo-StopwatchModel), newest first, each with its start, its time, its change against the run before
-        and the run going now on top; below them, under Phases, a card per run with its transcript phases, a row and a
+        and the run going now on top; below the table, under Phases, a card per run with its transcript phases, a row and a
         bar each (-Transcript, by run id, from Get-StopwatchTranscriptCache; a run it lacks says so). The crumbs lead
         back to '/stopwatch'.
     #>

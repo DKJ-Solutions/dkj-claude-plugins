@@ -43,17 +43,27 @@ The transcript phases were crammed into one table cell per run; give each run it
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-StopwatchPhaseCard` replaces `Format-StopwatchTranscriptCell` in `scripts/lib/stopwatch-lib.ps1`: under a Phases heading, each run gets a card in the house card-head form, with a row per phase (longest first), its time, its share and a bar
+- [x] The runs table drops its transcript column
+- [x] Review by Victor (house card head, a run with a session but no phases) and Edith (the docstrings), applied
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1`: 115 passed, with new asserts for the row per phase, the bar, the order, the card head and the empty cases
+- [x] The live hub at `/stopwatch/css-comment-change-reconstructed` serves the Phases heading and six bars
+
 ### DEPLOY: feat/stopwatch-phase-table
 
-**Score:**
+The Stopwatch label page no longer packs a run's phases into one table cell. Under its own Phases heading, each
+run has a card with a row per phase, longest first, with its time, its share of the run and a bar of that share.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+The Stopwatch is a page of this repo's own hub, so nothing a plugin user takes in a release changes.
+
+**Score:** N/A
 
 #### Pull Request
 
