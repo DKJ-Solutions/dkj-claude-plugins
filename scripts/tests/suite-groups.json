@@ -1,8 +1,10 @@
 {
     "note":  [
                  "Which workflow step each test suite guards -- the grouping of the dev server's /test-gate page.",
-                 "It is a READING AID, never a selection: the required CI check runs every suite here on every PR,",
-                 "whichever group it is in, and a merge or fold push to main skips them all or none. A group",
+                 "It is a READING AID, never a selection: which suites run is decided by the changed paths",
+                 "(gate-lib.ps1's Get-AffectedSuiteSelection locally; on CI every suite, except on a PR that",
+                 "changes only static assets, #3309), never by the group a suite is in; a merge or fold push to",
+                 "main skips them all or none. A group",
                  "says what breaks when its suites go red, not when they run.",
                  "Every *.tests.ps1 here is in exactly one group, in workflow order, and dev-pages.tests.ps1 holds",
                  "the file to that: a new suite goes into the group whose step it guards, in the same PR."

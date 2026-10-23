@@ -111,7 +111,7 @@ function Format-RepoGitHubPageHtml {
     if ($SourceCommit) { [void]$sb.AppendLine('<div><dt>Source at</dt><dd><code>' + (& $e $SourceCommit) + '</code></dd></div>') }
     [void]$sb.AppendLine('</dl>')
     $card = { param($href, $label, $sub)
-        '<section class="card"><nav class="menu-list" aria-label="' + $label + '"><a class="menu-item" href="' + $href +
+        '<section class="card card--link"><nav class="menu-list" aria-label="' + $label + '"><a class="menu-item" href="' + $href +
             '"><span class="menu-item__label">' + $label + '<span class="menu-item__sub">' + $sub + '</span></span>' + $script:RepoHubChevron + '</a></nav></section>'
     }
     [void]$sb.AppendLine('<div class="grid-3">')
@@ -184,7 +184,7 @@ function Format-RepoAboutBodyHtml {
     # rule Format-GeneralPagesCardHtml applies; otherwise one card says the server is not running.
     $pageCard = { param($p)
         $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
-        '<section class="card"><nav class="menu-list" aria-label="' + (& $e $p.Label) + '"><a class="menu-item" href="' + (& $e $p.Href) +
+        '<section class="card card--link"><nav class="menu-list" aria-label="' + (& $e $p.Label) + '"><a class="menu-item" href="' + (& $e $p.Href) +
             '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a></nav></section>'
     }
     $general = $GeneralPagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z'
@@ -201,6 +201,20 @@ function Format-RepoAboutBodyHtml {
 }
 
 
+function Get-SuiteSynopsis {
+    <#
+        What a suite protects, in its own words: the paragraph under '.SYNOPSIS' in its header, on one line
+        and capped at -Max characters. '' when the file has no synopsis. Every suite here has one (#3309,
+        lever 3: the per-suite overview reads it rather than keeping a second description that would drift).
+    #>
+    param([AllowEmptyString()][string]$Text, [int]$Max = 260)
+    $m = [regex]::Match($Text, '(?ms)^\s*\.SYNOPSIS[ \t]*\r?\n(.*?)(?:\r?\n[ \t]*\r?\n|\r?\n\s*\.[A-Z]+|\r?\n\s*#>)')
+    if (-not $m.Success) { return '' }
+    $one = ($m.Groups[1].Value -replace '\s+', ' ').Trim()
+    if ($one.Length -gt $Max) { $one = $one.Substring(0, $Max - 3).TrimEnd() + '...' }
+    return $one
+}
+
 function ConvertFrom-SuiteDurations {
     <#
         The test-gate model from the parsed suite-durations.json (-Durations, $null when the file is
@@ -214,8 +228,10 @@ function ConvertFrom-SuiteDurations {
         each holding its recorded suites slowest first and, in Unmeasured, its suites on disk with no recorded
         duration yet; Ungrouped names every suite on disk or recorded that no group holds, and Unknown every
         name a group holds that is not on disk. With no -Groups all three are empty.
+
+        -Synopses maps a suite file name to what it protects (Get-SuiteSynopsis), passed through as Synopses.
     #>
-    param($Durations, [AllowEmptyCollection()][string[]]$SuiteFiles = @(), $Groups = $null)
+    param($Durations, [AllowEmptyCollection()][string[]]$SuiteFiles = @(), $Groups = $null, [hashtable]$Synopses = @{})
     $suites = @()
     if ($Durations -and $Durations.seconds) {
         foreach ($p in $Durations.seconds.PSObject.Properties) {
@@ -257,6 +273,7 @@ function ConvertFrom-SuiteDurations {
         Date    = if ($from) { [string]$from.date } else { '' }
         Machine = if ($from) { [string]$from.machine } else { '' }
         Method  = if ($from) { [string]$from.method } else { '' }
+        Synopses = $Synopses
     }
 }
 
@@ -265,11 +282,23 @@ function Format-TestGatePageHtml {
         The test-gate page from ConvertFrom-SuiteDurations' model. -ReadError is set when suite-durations.json
         could not be read, -GroupsError when suite-groups.json could not be; without groups the page lists the
         suites in one table, slowest first, as it did before the groups existed.
+
+        -Selection is what this checkout's change selects (#3309, lever 3), $null to leave the section out:
+        @{ Base; Changed (paths); Proven; Reason; Selected (suite file names); Why (name -> sentence);
+        PoolCount; CiText }. Built by the server from Get-AffectedSuiteSelection, the function open-pr runs,
+        so the page shows the gate's own answer rather than a second reading of it.
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$Model, [AllowEmptyString()][string]$ReadError = '', [AllowEmptyString()][string]$GroupsError = '')
+    param([Parameter(Mandatory = $true)][hashtable]$Model, [AllowEmptyString()][string]$ReadError = '', [AllowEmptyString()][string]$GroupsError = '', $Selection = $null)
     $e = { param($v) ConvertTo-DashboardText $v }
     $suites = @($Model.Suites)
     $slowest = if ($suites.Count) { $suites[0] } else { $null }
+    $synopses = if ($Model.Synopses) { $Model.Synopses } else { @{} }
+    # A suite's name, and under it what it protects when its header says so.
+    $suiteCell = {
+        param($Name)
+        $what = if ($synopses.ContainsKey($Name) -and $synopses[$Name]) { '<br><span class="note">' + (& $e $synopses[$Name]) + '</span>' } else { '' }
+        return '<code>' + (& $e $Name) + '</code>' + $what
+    }
     $body = New-Object System.Text.StringBuilder
     [void]$body.Append((Format-DevTiles @(
         @{ L = 'Suites recorded'; V = $suites.Count },
@@ -302,11 +331,11 @@ function Format-TestGatePageHtml {
         $t = '<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Suite</th><th>Seconds</th><th class="dp-left">Against the slowest</th><th>Share of the sum</th></tr></thead><tbody>' + "`n"
         foreach ($s in @($Rows)) {
             $stale = if (@($Model.Stale) -contains $s.Name) { ' <span class="badge badge--sm badge--neutral">no longer on disk</span>' } else { '' }
-            $t += '<tr><td class="dp-left"><code>' + (& $e $s.Name) + '</code>' + $stale + '</td><td class="num">' +
+            $t += '<tr><td class="dp-left">' + (& $suiteCell $s.Name) + $stale + '</td><td class="num">' +
                 ([double]$s.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + '</td>' + (Format-DevShareCell $s.Seconds $Model.Total $slowest.Seconds) + '</tr>' + "`n"
         }
         foreach ($n in @($Unmeasured)) {
-            $t += '<tr><td class="dp-left"><code>' + (& $e $n) + '</code> <span class="badge badge--sm badge--neutral">not recorded yet</span></td><td class="num">--</td><td class="dp-left"></td><td>--</td></tr>' + "`n"
+            $t += '<tr><td class="dp-left">' + (& $suiteCell $n) + ' <span class="badge badge--sm badge--neutral">not recorded yet</span></td><td class="num">--</td><td class="dp-left"></td><td>--</td></tr>' + "`n"
         }
         $sum = [double]((@($Rows) | ForEach-Object { $_.Seconds } | Measure-Object -Sum).Sum)
         return $t + '</tbody>' + (& $totalRow $sum (@($Rows).Count + @($Unmeasured).Count) 2) + '</table></div>'
@@ -330,10 +359,55 @@ function Format-TestGatePageHtml {
         if (-not $items.Count) { return '' }
         return '<div class="grid__full dp-tips"><h3>Points to note</h3><ul>' + (($items | ForEach-Object { '<li>' + (& $e $_) + '</li>' }) -join '') + '</ul></div>'
     }
+    # THIS CHECKOUT'S CHANGE, first, because it answers the question a reader arrives with: why am I
+    # waiting on these suites. Each row is the gate's own reason (Get-AffectedSuiteSelection's Why).
+    if ($null -ne $Selection) {
+        $secondsOf = @{}
+        foreach ($s in $suites) { $secondsOf[$s.Name] = $s.Seconds }
+        $changed = @($Selection.Changed | Where-Object { $_ })
+        [void]$body.AppendLine('<div class="grid-2" id="selection">')
+        [void]$body.AppendLine('<div class="grid__head"><h2>This checkout''s change</h2><p class="card__sub">The suites the affected-suite selection picks for it' +
+            $(if ($Selection.Base) { ', against ' + (& $e $Selection.Base) } else { '' }) + ', and why each one is in</p></div>')
+        [void]$body.AppendLine('<section class="card grid__full">')
+        if (-not $changed.Count) {
+            [void]$body.AppendLine('<p class="note">' + $(if ($Selection.Reason) { (& $e $Selection.Reason) + '.' } else { 'Nothing differs from the trunk, so nothing is selected.' }) + '</p>')
+        } else {
+            $shown = @($changed | Select-Object -First 12)
+            [void]$body.AppendLine('<dl class="facts">')
+            [void]$body.AppendLine('<div><dt>Changed</dt><dd>' + (($shown | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ', ') +
+                $(if ($changed.Count -gt $shown.Count) { ' and ' + ($changed.Count - $shown.Count) + ' more' } else { '' }) + '</dd></div>')
+            $local = if (-not $Selection.Proven) { 'every suite -- ' + (& $e $Selection.Reason) }
+                     elseif (@($Selection.Selected).Count -ge $Selection.PoolCount) { 'every suite -- the change can affect all ' + $Selection.PoolCount }
+                     else { '' + @($Selection.Selected).Count + ' of ' + $Selection.PoolCount + ' suites' }
+            [void]$body.AppendLine('<div><dt>Locally</dt><dd>' + $local + '</dd></div>')
+            if ($Selection.CiText) { [void]$body.AppendLine('<div><dt>On CI</dt><dd>' + (& $e $Selection.CiText) + '</dd></div>') }
+            [void]$body.AppendLine('</dl>')
+            if ($Selection.Proven -and @($Selection.Selected).Count) {
+                # Keyed on the suite's path, which is unique; its file name is what the durations, the synopses
+                # and the reader go by.
+                $leafOf = { param($p) ($p -split '/')[-1] }
+                $rows = @($Selection.Selected | Sort-Object @{ Expression = { $n = & $leafOf $_; if ($secondsOf.ContainsKey($n)) { $secondsOf[$n] } else { 0 } }; Descending = $true }, @{ Expression = { $_ } })
+                $t = '<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Suite</th><th class="dp-left">Why it runs</th><th>Seconds</th></tr></thead><tbody>' + "`n"
+                foreach ($key in $rows) {
+                    $n = & $leafOf $key
+                    $reason = if ($Selection.Why -and $Selection.Why.ContainsKey($key)) { $Selection.Why[$key] } else { '' }
+                    $sec = if ($secondsOf.ContainsKey($n)) { ([double]$secondsOf[$n]).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) } else { '--' }
+                    $t += '<tr><td class="dp-left">' + (& $suiteCell $n) + '</td><td class="dp-left">' + (& $e $reason) + '</td><td class="num">' + $sec + '</td></tr>' + "`n"
+                }
+                [void]$body.AppendLine($t + '</tbody></table></div>')
+            }
+        }
+        [void]$body.AppendLine('</section>')
+        [void]$body.AppendLine((& $tipsBlock @(
+            'A suite runs locally when the change reaches a file it runs or names, when its declared walk scope covers a changed path, or when it walks the live tree with no declared scope.',
+            'open-pr -AllSuites runs every suite regardless.')))
+        [void]$body.AppendLine('</div>')
+    }
+
     $groups = @($Model.Groups)
     if ($groups.Count -and $suites.Count) {
         [void]$body.AppendLine('<div class="grid-2" id="groups">')
-        [void]$body.AppendLine('<div class="grid__head"><h2>Groups</h2><p class="card__sub">What each group of suites guards. CI runs every suite on every PR, whichever group it is in</p></div>')
+        [void]$body.AppendLine('<div class="grid__head"><h2>Groups</h2><p class="card__sub">What each group of suites guards. CI runs every suite on every PR, whichever group it is in, except on a PR that changes only stylesheets, images or fonts</p></div>')
         [void]$body.AppendLine('<section class="card grid__full">')
         [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Group</th><th>Suites</th><th>Seconds</th><th class="dp-left">Against the slowest group</th><th>Share of the sum</th></tr></thead><tbody>')
         $heaviest = ($groups | ForEach-Object { $_.Total } | Measure-Object -Maximum).Maximum

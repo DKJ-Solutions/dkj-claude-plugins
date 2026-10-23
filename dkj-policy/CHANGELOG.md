@@ -2,7 +2,60 @@
 
 ## [Unreleased]
 
-**11 / 16 minor entries** <!-- pending-tally -->
+**12 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3309-suite-overview · 20261023-081214Z
+
+The dev server's test-gate page now opens with this checkout's change: which suites the local gate
+runs for it, what CI runs, and one line per suite saying why it is in (the file it reaches, the walk
+scope that covers it, or an unscoped walk) and what it costs. Every suite also shows what it protects,
+taken from its own header (#3309).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A: the page belongs to this repo's dev server and ships to no consumer. `Get-AffectedSuiteSelection`
+gains a `Why` field that a consumer's gate does not read.
+
+**Score:** N/A
+
+#### Pull Request
+
+The test-gate page says what each suite protects and why this checkout's change selects it
+
+Plugins: dkj-policy
+
+[PR #3318](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3318)
+
+---
+
+### DEPLOY: feat/3298-whole-card-clickable · 20261023-074622Z
+
+A hub card that holds one link ([#3298](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3298)) used
+to respond only on its row, so a click on the card's padding did nothing. The house style now has
+`.card--link`: the card's one link stretches over the whole card, and the card tints on hover. This repo's hub
+uses it on the page cards of its home page and on the cards of its Repository page, and the house-style README
+names it in the Pages block.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A page that builds on the house style can make a one-link card clickable over its whole area with one class,
+`.card--link`, without any CSS of its own.
+
+**Score:** 2
+
+#### Pull Request
+
+A hub card that is one link is clickable over its whole area
+
+Plugins: dkj-solutions
+
+[PR #3317](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3317)
+
+---
 
 ### DEPLOY: feat/3309-scoped-tree-walks · 20261023-073540Z
 
