@@ -39,75 +39,74 @@
 
 ### PLAN
 
-The follow-up to #3315 (#3323, owner's choice of trigger: arm on the page, October 23, 2026): the clock times
-Claude's work without anybody pressing Start or Stop.
+The follow-up to #3315 (#3323): the clock times Claude's work without anybody pressing Start or Stop, and the
+page only shows the measurements (owner, October 23, 2026).
 
 #### Design
 
-- **The main route is a marker in the prompt (owner, later the same day).** A prompt whose first line begins with
-  `stopwatch:` (any case, leading whitespace allowed) starts an Auto run at once, labelled with the rest of that
-  line (cut to the label maximum; "Assignment" when empty), so a run starts from the terminal without the page.
-  The `UserPromptSubmit` hook reads its JSON payload from stdin and only parses the `prompt` field, never prints
-  it. A marked prompt while a run is going does nothing and leaves any arming alone; a marked prompt wins over an
-  armed label and clears the arming; an unmarked prompt behaves as below. The empty-HEAD guard applies to both.
-- **Arm, then a hook starts it** (the second route, kept as it is). `/stopwatch` gets an Arm form beside Start: a label is stored as `armed`
-  (top level of the store, beside the runs) and no clock runs. Arming while a run is going is refused, arming
-  again replaces the label, Disarm clears it. A `UserPromptSubmit` hook starts the armed run at the moment the
-  next prompt is submitted (`Auto`, label = the armed label, `StartHead` = the checkout's HEAD) and clears the arming.
+- **The marker is the only way a run starts.** A prompt whose first line begins with `stopwatch:` (any case,
+  leading whitespace allowed) starts an Auto run at once, labelled with the rest of that line (cut to the label
+  maximum; "Assignment" when empty), with the checkout's HEAD as its `StartHead`. The `UserPromptSubmit` hook
+  reads its JSON payload from stdin and only parses the `prompt` field, never prints it. A marked prompt while a
+  run is still going DISCARDS that run and starts the new one: with no button left to discard, a run that never
+  reached the trunk would otherwise block every later measurement. The empty-HEAD guard holds: with no HEAD
+  nothing starts and nothing is discarded. An unmarked prompt does nothing.
 - **The stop is "HEAD moved and the checkout is back on the trunk", not "a branch was seen".** A Stop hook fires
   only at the end of a turn, and a whole ship (branch, PR, merge, fold) usually happens inside one turn, so a
-  branch is never observed at a turn's end. The `Stop` hook ends a running Auto run only when the checkout is on
-  the trunk, `git --no-optional-locks status --porcelain` is empty AND HEAD differs from `StartHead`. A turn that only answers a
-  question leaves HEAD alone and the run keeps going; a branch parked for the owner's eye is not on the trunk, so
-  it keeps going too. A run started by hand is never touched.
-- **The rules are pure, the hook only gathers.** `Invoke-StopwatchHookEvent` takes runs, armed, branch, clean,
-  HEAD, trunk and the clock, so every rule is tested without git. `scripts/dashboard/stopwatch-hook.ps1` reads the
-  store and (only when a decision needs it) git, writes the store when the decision changed it, prints nothing and
-  always exits 0. It never writes over a store that does not read. The trunk name comes from
-  `Get-TrunkBranchName` in `scripts/repo-config.ps1` where this repo defines one, else `main`.
-- **`Invoke-StopwatchAction` stays pure** and now takes `-Armed` and returns `Armed` beside `Runs` and `Error`
-  (`arm` and `disarm` are two more actions); `Save-StopwatchStore` takes `-Armed`, `Read-StopwatchStore` returns
-  it. Runs gain `Auto` and `StartHead`. The server's POST route accepts `arm` and `disarm` under the same
-  same-origin rule.
-- The page shows "Armed: <label> -- starts on your next prompt to Claude" with Disarm, and tags auto-started
-  runs `auto`, in the table and on the running run. The house style is untouched: existing classes only.
+  branch is never observed at a turn's end. The `Stop` hook ends the running Auto run only when the checkout is
+  on the trunk, `git --no-optional-locks status --porcelain` is empty AND HEAD differs from `StartHead`. That is
+  a sign the work landed, not a proof. A turn that only answers a question leaves HEAD alone and the run keeps
+  going; a branch parked for the owner's eye is not on the trunk, so it keeps going too.
+- **The rules are pure, the hook only gathers.** `Invoke-StopwatchHookEvent` takes runs, branch, clean, HEAD,
+  trunk, the prompt and the clock, so every rule is tested without git. `scripts/dashboard/stopwatch-hook.ps1`
+  reads the store and (only when a decision needs it) git, writes the store when the decision changed it, prints
+  nothing and always exits 0. It never writes over a store that does not read, and keeps a `.bak` of a store that
+  holds a run it cannot parse. The trunk name comes from `Get-TrunkBranchName` in `scripts/repo-config.ps1`
+  where this repo defines one, else `main`.
+- **The page is read-only.** It shows the running run (label and live clock) and, per label, the finished runs:
+  start, duration, the comparison with the previous run of the same label and the transcript phases. Every form
+  and button is gone, and so are the POST script, the `POST /stopwatch/<action>` route of the server (the
+  server takes no POST at all now, so its general 405 answers one), `Invoke-StopwatchAction`, the query parser,
+  the arm feature (armed state, `arm` and `disarm`, the armed-prompt rule), manual laps and the laps column, notes
+  and delete. A run keeps `Auto` and `StartHead` in the store, which the Stop rule needs.
+- **Old stores still read.** Laps, notes and an armed label from an earlier version are ignored on read and
+  dropped on the next hook write; an old hand-started run shows as a plain row.
 - **Left out on purpose:** the hooks are wired in this repo's `.claude/settings.json` only, so they run for a
-  session of this checkout and nowhere else; the store is shared with the hub server and the two writes are a
-  read and a rename apart, which a button press against a turn boundary does not realistically hit.
+  session of this checkout and nowhere else.
 
 ### CREATE
 
-- [x] `stopwatch-lib.ps1`: `armed` in the store, `Auto` and `StartHead` on a run, the `arm` and `disarm`
-  actions, `New-StopwatchRun`, `Invoke-StopwatchHookEvent`, and the page's Armed line, Arm form and auto tag
+- [x] `stopwatch-lib.ps1`: `Auto` and `StartHead` on a run, `New-StopwatchRun`, `Get-StopwatchPromptMarker`,
+  `Invoke-StopwatchHookEvent` (the marker starts a run and discards one going; the Stop rule), and the page cut
+  down to the measurements; the manual actions, arm, laps, notes and the query parser removed
 - [x] `scripts/dashboard/stopwatch-hook.ps1`: the hook script for `UserPromptSubmit` and `Stop`, reading the
-  prompt from stdin; `Get-StopwatchPromptMarker` and the `-Prompt` rule in `Invoke-StopwatchHookEvent`
-- [x] `serve-connector-dashboard.ps1`: the POST route takes `arm` and `disarm` and passes the armed state
-  through; `dev-pages-lib.ps1`: the card subtitle no longer says "by hand"
-- [x] `.claude/settings.json`: the two hook entries (a session cannot write a settings file, so the owner or
-  the orchestrator pastes the block; tick this once it is in). The command is
-  `powershell -NoProfile -ExecutionPolicy Bypass -File "$CLAUDE_PROJECT_DIR/scripts/dashboard/stopwatch-hook.ps1" -Hook Prompt|Stop`
+  prompt from stdin
+- [x] `serve-connector-dashboard.ps1`: the POST route and its same-origin handling removed;
+  `dev-pages-lib.ps1`: the card subtitle
+- [x] `.claude/settings.json`: the two hook entries, with `"$CLAUDE_PROJECT_DIR/scripts/dashboard/stopwatch-hook.ps1"`
+  (wired by the owner)
 
 ### TEST
 
-- [x] `stopwatch.tests.ps1`: arm and disarm rules, the hook's decisions (start, no start with a run going or
-  nothing armed, stop only on the trunk, clean and moved; not for a manual run, a missing StartHead or an unknown
-  HEAD), the store round trip of `armed`, `Auto` and `StartHead`, the hook script run for real against a store of
-  its own (silent, exit 0, never writes over an unreadable store), and the page; the `stopwatch:` marker (label, empty label, while running, over an armed label, unknown HEAD) and
-  the hook script reading the prompt from stdin against a temp store (116 green)
-- [x] `dev-pages.tests.ps1` and `connector-dashboard.tests.ps1` green (310 and 198)
+- [x] `stopwatch.tests.ps1`: the marker (label, empty label, later line, case), the hook's decisions (a marked
+  prompt starts a run, discards one going, does nothing without a HEAD; an unmarked prompt does nothing; the stop
+  only on the trunk, clean and moved, never for an old hand-started run or one without a StartHead), the store
+  round trip and an older store, the hook script run for real against stores of its own (prompt on stdin, silent,
+  exit 0, a second marker discards, never writes over an unreadable store, a `.bak` for a dropped run), and the
+  read-only page
+- [x] `dev-pages.tests.ps1` and `connector-dashboard.tests.ps1` green
 - [x] `check-plugin-integrity.ps1`: 0 errors
 
 ### DEPLOY: feat/3323-stopwatch-auto
 
-The hub's Stopwatch can now time Claude's work without anybody pressing Start or Stop. Begin a prompt to Claude
-with `stopwatch: <label>` and the clock starts right there; or arm a label on the page, and it starts at the
-next prompt you give Claude in a session of this checkout. Either way it stops when Claude is back
-on the trunk with a clean checkout and HEAD moved since the start (a sign the work landed, not a proof of it). A turn that only answers a question, or a branch parked
-for your look, keeps the clock going. A run started by hand behaves as before, and auto-started runs carry an
-`auto` tag.
+The hub's Stopwatch now times Claude's work without anybody pressing Start or Stop. Begin a prompt to Claude with
+`stopwatch: <label>` and the clock starts right there (a run still going is discarded); it stops when Claude is
+back on the trunk with a clean checkout and HEAD moved since the start, a sign the work landed rather than a
+proof of it. A turn that only answers a question, or a branch parked for your look, keeps the clock going. The
+`/stopwatch` page only shows the measurements now: the running clock, each run's time, its comparison with the
+previous run of the same label and where its time went. Its buttons are gone.
 
-A running hub must be restarted to pick up the new store fields: an old server would drop `armed`, `auto` and
-`startHead` on its next write. A manual Start while a label is armed clears the arming.
+A running hub must be restarted to pick up this code: an old server would write the old shape of the store back.
 
 **Score:** 2
 
@@ -119,4 +118,4 @@ The hub is this repo's own dev server, so nothing a consumer takes changes.
 
 #### Pull Request
 
-Stopwatch: armed runs start on the next prompt and stop when Claude is back on the trunk
+Stopwatch: a stopwatch: prompt starts a run, the page only shows the measurements
