@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Lever 3 of #3309, the last one (lever 2 is #3311, lever 1 #3314). For each suite, the /test-gate page
+shows what it protects and what it costs, and why a given diff selects it. A visible result, so the
+branch is parked for the owner's review and not merged.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-AffectedSuiteSelection` returns `Why`, one sentence per selected suite: it reaches the changed path, it names it, its walk scope covers it, or it walks unscoped
+- [x] `Get-SuiteSynopsis` reads what a suite protects from its own `.SYNOPSIS`, so no second description has to be kept in sync
+- [x] /test-gate opens with "This checkout's change": the changed paths, what runs locally and on CI, and one row per selected suite with its reason and cost
+- [x] Every suite row shows its synopsis under its name
+- [x] The server loads the gate's selection guarded and caches it on HEAD plus `git status`
+- [x] The page and `suite-groups.json` no longer claim that CI runs every suite on every PR
+- [x] Mirror `plugins/dkj-policy/scripts/lib/gate-lib.ps1` byte-identical
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` (306), `affected-suites.tests.ps1` (139), `connector-dashboard.tests.ps1` (198), `ci-suite-selection-lib.tests.ps1` (34): all pass
+- [x] The live dev server serves the new page (200); for this branch it says that every suite runs, because the change touches the selector
+
 ### DEPLOY: feat/3309-suite-overview
 
-**Score:**
+The dev server's test-gate page now opens with this checkout's change: which suites the local gate
+runs for it, what CI runs, and one line per suite saying why it is in (the file it reaches, the walk
+scope that covers it, or an unscoped walk) and what it costs. Every suite also shows what it protects,
+taken from its own header (#3309).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the page belongs to this repo's dev server and ships to no consumer. `Get-AffectedSuiteSelection`
+gains a `Why` field that a consumer's gate does not read.
+
+**Score:** N/A
 
 #### Pull Request
 
