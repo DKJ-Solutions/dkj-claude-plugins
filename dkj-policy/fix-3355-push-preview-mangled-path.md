@@ -39,19 +39,34 @@
 
 ### PLAN
 
+Inbound #3355: run from Git Bash, MSYS rewrote `-Path '/products/...'` into
+`C:/Program Files/Git/products/...`, and `push-preview` printed that into the preview URL. Verified:
+the script passes `-Path` unchecked to `Get-ThemePreviewUrl` and the `Get-ShopifyPreviewUrls` seam,
+and bwj-development's `Test-MangledStorefrontPath` sits in a plugin this script cannot reach.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-PreviewPathRefusal` in the preview-theme lib (root and shopify mirror, byte-identical)
+- [x] `push-preview.ps1` refuses a mangled `-Path` before any CLI call (root and mirror)
 
 ### TEST
 
+- [x] five asserts in `push-preview.tests.ps1`: both slash directions refused naming the remedy; an absolute, relative and home path pass
+
 ### DEPLOY: fix/3355-push-preview-mangled-path
 
-**Score:**
+`push-preview` now refuses a `-Path` that Git Bash (MSYS) rewrote into a Windows path, such as
+`C:/Program Files/Git/products/x`, before anything is pushed, and names `MSYS_NO_PATHCONV=1` as the
+remedy. Before this, the push succeeded and the printed preview URL silently 404'd.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A Shopify consumer who runs `push-preview -Path ...` from Git Bash gets a clear refusal instead of
+a broken link in the handover. Nothing to configure.
+
+**Score:** 2
 
 #### Pull Request
 
