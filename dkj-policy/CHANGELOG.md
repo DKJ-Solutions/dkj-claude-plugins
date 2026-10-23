@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**16 / 30 minor entries** <!-- pending-tally -->
+**16 / 31 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/stopwatch-phase-table · 20261023-121336Z
+
+The Stopwatch label page no longer packs a run's phases into one table cell. Under its own Phases heading, each
+run has a card with a row per phase, longest first, with its time, its share of the run and a bar of that share. A label with one run is titled with that run's start, is reached at that start
+(`/stopwatch/2026-10-23-1238`, the label's own address still answering) and shows its time on a card of its own; the label title and the comparison table appear from the second run on.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The Stopwatch is a page of this repo's own hub, so nothing a plugin user takes in a release changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The Stopwatch label page shows each run's phases as a table of their own, one row and one bar per phase
+
+[PR #3341](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3341)
+
+---
 
 ### DEPLOY: fix/3336-stopwatch-pasted-prompt · 20261023-115411Z
 
