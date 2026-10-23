@@ -39,19 +39,34 @@
 
 ### PLAN
 
+The owner asked twice on October 23, 2026 for every run to get a card of its own on `/stopwatch`, linking to a page of
+its own. The overview still grouped runs by label, so the 17:22 run of `CSS comment, start to end` was merged into
+one card with the earlier run that had the same label. The card's name is the run's start, not the label (the owner,
+same day).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `ConvertTo-StopwatchModel` makes one group per run, keeping each run's change against the previous run of its label; a run's page is addressed by its start, and a label's old slug arrives at its newest run
+- [x] The overview gives every run a card named by its start, with the label, time and change beneath; `Format-StopwatchLabelPageHtml` becomes `Format-StopwatchRunPageHtml`, showing that one run
+- [x] `stopwatch.tests.ps1` and the dashboard suite's wording follow
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1`: 129 passed, 0 failed
+- [ ] The owner's look at `/stopwatch` and a run page on the hub
+
 ### DEPLOY: fix/stopwatch-one-card-per-run
 
-**Score:**
+The Stopwatch overview now gives every run its own card, also when runs share a label. Each card is named by the
+run's start and leads to that run's page. Before this, runs with the same label were merged into one card.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the Stopwatch is this repo's own hub tooling under `scripts/`, and no plugin ships it.
+
+**Score:** N/A
 
 #### Pull Request
 

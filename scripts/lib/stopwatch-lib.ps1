@@ -20,11 +20,12 @@
         not on the trunk, so the run keeps going in both.
 
     TWO PAGES, BOTH READ-ONLY AND BARE (no h1, lead, tiles or the hub's airsquats banner above their content; the
-    plugin's Format-GeneralPageHtml -Bare). '/stopwatch' is an overview of cards, one per measurement label (the label's number
-    of runs, its latest run's time and change against the run before, and the run going now with its live clock),
-    in the hub's own card markup; each card links to '/stopwatch/<slug>', the label's page: every run, newest
-    first, with its start, time and change, and below them a card per run with its transcript phases. A slug is made of the label alone
-    (Get-StopwatchSlugs); two labels that would share one each get a hash suffix, so they never merge, and an
+    plugin's Format-GeneralPageHtml -Bare). '/stopwatch' is an overview of cards, ONE PER RUN, also when two runs
+    share a label (the owner, October 23, 2026: runs of one label were merged into one card twice): named by the run's
+    start, with its label, its time and its change against the previous run of the same label, or the live clock of the run going
+    now, in the hub's own card markup. Each card links to '/stopwatch/<slug>', the run's page: its time, that change
+    and its transcript phases. The slug is the run's start (ConvertTo-StopwatchModel); a label's slug
+    (Get-StopwatchSlugs), which addressed a page per label before, arrives at that label's newest run, and an
     unknown slug is a 404.
 
     THE CLOCK IS THE HOOKS', NOT THE PAGE'S. A run is a start stamp and an end stamp in the store, and the page
@@ -235,40 +236,45 @@ function Get-StopwatchSlugs {
 
 function ConvertTo-StopwatchModel {
     <#
-        What the pages show: the running run, if any, and the labels as Groups (newest activity first), one per
-        label compared case-insensitively. A group carries its Label, its Slug (Get-StopwatchSlugs), its PageSlug (the
-        address its page is linked by: the start of its one run as yyyy-MM-dd-HHmm while it has one finished run and
-        none going and no other such label started in that minute, else its Slug), its finished
-        runs as Rows (newest first; each with Seconds and its DeltaSeconds against the run of the same label before
-        it, $null for the first), Best, Latest (the start of its newest run, going or not) and Running: the run
-        going now when it is this label's, else $null. A label whose only run is still going is a group with no Rows.
+        What the pages show: the running run, if any, and every run as a Group of its own (newest first), because each
+        run gets a card and a page of its own, also when two runs share a label (the owner, October 23, 2026). A group
+        carries its run's Label, its LabelSlug (Get-StopwatchSlugs), its Slug and PageSlug (the run's start as
+        yyyy-MM-dd-HHmm, with the run's id after it when another run started in the same minute), its Rows (the run,
+        when finished, with Seconds and its DeltaSeconds against the run of the same label before it, compared
+        case-insensitively, $null for the first; no rows while it is going), Latest (its start) and Running (the run
+        going now when this is it, else $null). A run without an end that is not the one going (a run a later prompt
+        discarded) is not shown.
     #>
     param([AllowEmptyCollection()][object[]]$Runs = @())
     $all = @($Runs | Where-Object { $_ } | Sort-Object { $_.Start })
     $running = @($all | Where-Object { -not $_.End }) | Select-Object -Last 1
-    $slugs = Get-StopwatchSlugs -Labels @($all | ForEach-Object { $_.Label })
-    $groups = @()
+    $labelSlugs = Get-StopwatchSlugs -Labels @($all | ForEach-Object { $_.Label })
+    # Each finished run against the run of its label before it.
+    $rowOf = @{}
     foreach ($g in @($all | Group-Object { $_.Label.ToLowerInvariant() })) {
-        $prev = $null; $rows = @()
+        $prev = $null
         foreach ($r in @($g.Group | Where-Object { $_.End } | Sort-Object { $_.Start })) {
             $sec = ($r.End - $r.Start).TotalSeconds
-            $rows += @{ Run = $r; Seconds = $sec; DeltaSeconds = $(if ($null -ne $prev) { $sec - $prev } else { $null }) }
+            $rowOf[$r.Id] = @{ Run = $r; Seconds = $sec; DeltaSeconds = $(if ($null -ne $prev) { $sec - $prev } else { $null }) }
             $prev = $sec
         }
-        $best = if ($rows.Count) { ($rows | ForEach-Object { $_.Seconds } | Measure-Object -Minimum).Minimum } else { $null }
-        [array]::Reverse($rows)
-        $newest = @($g.Group | Sort-Object { $_.Start })[-1]
-        $groups += @{ Label = $newest.Label; Slug = $slugs[$g.Name]; PageSlug = $slugs[$g.Name]; Rows = $rows; Best = $best; Latest = $newest.Start
-            Running = $(if ($running -and $running.Id -eq (@($g.Group | Where-Object { -not $_.End }) | Select-Object -Last 1).Id) { $running } else { $null }) }
     }
-    # A label with one finished run and none going is reached by that run's start, as its page is titled; two such
-    # labels started in the same minute both keep their label's slug, so a page address never names two runs.
-    $stamps = @{}
-    foreach ($grp in @($groups | Where-Object { @($_.Rows).Count -eq 1 -and -not $_.Running })) {
-        $grp.StampSlug = $grp.Rows[0].Run.Start.ToLocalTime().ToString('yyyy-MM-dd-HHmm', [Globalization.CultureInfo]::InvariantCulture)
-        $stamps[$grp.StampSlug] = 1 + [int]$stamps[$grp.StampSlug]
+    $shown = @($all | Where-Object { $_.End -or ($running -and $_.Id -eq $running.Id) })
+    $stampOf = @{}; $stamps = @{}
+    foreach ($r in $shown) {
+        $stampOf[$r.Id] = $r.Start.ToLocalTime().ToString('yyyy-MM-dd-HHmm', [Globalization.CultureInfo]::InvariantCulture)
+        $stamps[$stampOf[$r.Id]] = 1 + [int]$stamps[$stampOf[$r.Id]]
     }
-    foreach ($grp in @($groups | Where-Object { $_.StampSlug -and $stamps[$_.StampSlug] -eq 1 })) { $grp.PageSlug = $grp.StampSlug }
+    $groups = @()
+    foreach ($r in $shown) {
+        $slug = $stampOf[$r.Id]
+        if ($stamps[$slug] -gt 1) { $slug += '-' + ($r.Id.ToLowerInvariant() -replace '[^a-z0-9]+', '') }
+        # Assigned apart: a $( ) around a one-row array would unroll it to the row itself.
+        $rows = @(); if ($rowOf.ContainsKey($r.Id)) { $rows = @($rowOf[$r.Id]) }
+        $groups += @{ Label = $r.Label; LabelSlug = $labelSlugs[$r.Label.ToLowerInvariant()]; Slug = $slug; PageSlug = $slug
+            Rows = $rows; Latest = $r.Start
+            Running = $(if ($running -and $r.Id -eq $running.Id) { $running } else { $null }) }
+    }
     return @{
         Running = $running
         Groups  = @($groups | Sort-Object { $_.Latest } -Descending)
@@ -278,14 +284,14 @@ function ConvertTo-StopwatchModel {
 
 function Find-StopwatchGroup {
     <#
-        The group of -Model whose PageSlug, or else whose Slug, is -Slug, or $null: the label page's lookup, so an
-        unknown slug is a 404. The label's own slug keeps answering, so a link made before a second run moved the
-        page to its label still arrives.
+        The group of -Model whose PageSlug is -Slug, or $null: the run page's lookup, so an unknown slug is a 404. A
+        label's slug, which addressed a page per label before every run had its own, still arrives: at the newest run
+        of that label.
     #>
     param([Parameter(Mandatory = $true)][hashtable]$Model, [AllowEmptyString()][string]$Slug = '')
     $hit = @($Model.Groups | Where-Object { $_.PageSlug -ceq $Slug }) | Select-Object -First 1
     if ($hit) { return $hit }
-    return (@($Model.Groups | Where-Object { $_.Slug -ceq $Slug }) | Select-Object -First 1)
+    return (@($Model.Groups | Where-Object { $_.LabelSlug -ceq $Slug }) | Select-Object -First 1)
 }
 
 # THE TRANSCRIPT PHASES (#3315's second PR). A finished run's window is read back out of this machine's
@@ -530,7 +536,7 @@ function Get-StopwatchTranscriptCache {
     if ($files.Count) {
         $doc = [ordered]@{}
         # The file is written whole, so every entry it was loaded with is carried over, not only the runs asked for
-        # now: the label pages ask for one label's runs at a time, and one label's visit must not wipe another's.
+        # now: the run pages ask for one run at a time, and one run's visit must not wipe another's.
         # Two writers at once (the hub and the background sync) can still drop each other's new entries; such an
         # entry is only read from the transcripts again on the next load, so the cost is a read, never a wrong phase.
         $keep = @{}
@@ -616,10 +622,9 @@ function Format-StopwatchPageShell {
 function Format-StopwatchPageHtml {
     <#
         The overview on '/stopwatch', read-only, and bare (no h1, lead, tiles or general banner): it opens on the
-        Measurements heading and one card per measurement label with its number of runs, its latest run's time,
-        that run's change against the run before it and a link to the label's own page
-        (Format-StopwatchLabelPageHtml), in the hub's card markup. A label going now shows its live clock on its
-        card. -ReadError is set when the
+        Measurements heading and one card per run, newest first, named by its start, with its label, its time and its change
+        against the previous run of the same label, and a link to the run's own page (Format-StopwatchRunPageHtml), in
+        the hub's card markup. The run going now shows its live clock on its card. -ReadError is set when the
         store could not be read. -StorePath is named in the footer, so a run can be read and evaluated outside
         the page.
     #>
@@ -640,20 +645,20 @@ function Format-StopwatchPageHtml {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">' + $Skipped + ' run(s) in the store could not be read and are not shown. The next write by a hook drops them; the file as it was is kept beside the store as a .bak.</p>')
     }
 
-    [void]$body.AppendLine('<div class="grid__head"><h2>Measurements</h2><p class="card__sub">One card per label, newest first. Begin a prompt to Claude with stopwatch: and a label to time it.</p></div>')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Measurements</h2><p class="card__sub">One card per run, newest first. Begin a prompt to Claude with stopwatch: and a label to time it.</p></div>')
     if (@($Model.Groups).Count) {
         [void]$body.AppendLine('<div class="grid-3">')
         foreach ($g in @($Model.Groups)) {
-            $parts = @()
-            $parts += @($g.Rows).Count.ToString() + ' run(s)'
-            if (@($g.Rows).Count) { $parts += 'latest ' + (Format-DevSeconds $g.Rows[0].Seconds); $parts += (Format-StopwatchChangeText $g.Rows[0].DeltaSeconds) }
+            # The run's start is the card's name, as it is its page's; the label stands under it (the owner, October 23, 2026).
+            $stamp = & $e ($g.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))
+            $parts = @([string]$g.Label)
+            if (@($g.Rows).Count) { $parts += (Format-DevSeconds $g.Rows[0].Seconds); $parts += (Format-StopwatchChangeText $g.Rows[0].DeltaSeconds) }
             $sub = (& $e ($parts -join ' - '))
             if ($g.Running) {
                 $sub += ' - going now <span class="num" data-start="' + (Format-StopwatchStamp $g.Running.Start) + '">' + (Format-DevSeconds ($Now - $g.Running.Start).TotalSeconds) + '</span>'
             }
-            $label = & $e $g.Label
-            [void]$body.AppendLine('<section class="card card--link"><nav class="menu-list" aria-label="' + $label + '"><a class="menu-item" href="/stopwatch/' + (& $e $g.PageSlug) +
-                '"><span class="menu-item__label">' + $label + '<span class="menu-item__sub">' + $sub + '</span></span>' + $script:RepoHubChevron + '</a></nav></section>')
+            [void]$body.AppendLine('<section class="card card--link"><nav class="menu-list" aria-label="' + $stamp + '"><a class="menu-item" href="/stopwatch/' + (& $e $g.PageSlug) +
+                '"><span class="menu-item__label">' + $stamp + '<span class="menu-item__sub">' + $sub + '</span></span>' + $script:RepoHubChevron + '</a></nav></section>')
         }
         [void]$body.AppendLine('</div>')
     } else {
@@ -671,13 +676,13 @@ function Format-StopwatchPageHtml {
         -FooterNote $note
 }
 
-function Format-StopwatchLabelPageHtml {
+function Format-StopwatchRunPageHtml {
     <#
-        One label's page on '/stopwatch/<slug>' (#3323), with the run going now on top. A label with one finished run
-        and none going is titled with that run's start, the label beneath it, and shows its time on a card of its own; with more, a table gives every finished run of -Group (a group of
-        ConvertTo-StopwatchModel) a row, newest first, with its start, its time and its change against the run before.
-        Below that, under Phases, a card per run with its transcript phases, a row and a bar each (-Transcript, by run
-        id, from Get-StopwatchTranscriptCache; a run it lacks says so). The crumbs lead back to '/stopwatch'.
+        One run's page on '/stopwatch/<slug>' (#3323), titled with the run's start and its label beneath. A run going
+        now shows its live clock; a finished one its time on a card of its own, with its change against the previous
+        run of the same label, and under Phases its transcript phases, a row and a bar each (-Transcript, by run id,
+        from Get-StopwatchTranscriptCache; a run it lacks says so). -Group is one group of ConvertTo-StopwatchModel.
+        The crumbs lead back to '/stopwatch'.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Group,
@@ -688,42 +693,22 @@ function Format-StopwatchLabelPageHtml {
     $e = { param($v) ConvertTo-DashboardText $v }
     $local = { param($t) (& $e ($t.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))) }
     $body = New-Object System.Text.StringBuilder
-    # A label with one finished run and none going is named for that run: its start is what tells it apart, and the
-    # label stands under it. From a second run on the page is the label's again, since no one start names it.
-    $single = @($Group.Rows).Count -eq 1 -and -not $Group.Running
-    $pageTitle = if ($single) { & $local $Group.Rows[0].Run.Start } else { [string]$Group.Label }
-    $sub = if ($single) { '<p class="card__sub">' + (& $e $Group.Label) + '</p>' } else { '' }
-    [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $pageTitle) + '</h2>' + $sub + '</div>')
+    $pageTitle = $Group.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
+    [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $pageTitle) + '</h2><p class="card__sub">' + (& $e $Group.Label) + '</p></div>')
     if ($Group.Running) {
         [void]$body.AppendLine('<section class="card"><h3>Going now</h3>')
         [void]$body.AppendLine('<p class="sw-clock num" data-start="' + (Format-StopwatchStamp $Group.Running.Start) + '">' + (Format-DevSeconds ($Now - $Group.Running.Start).TotalSeconds) + '</p>')
         [void]$body.AppendLine('<p class="note">Started ' + (& $local $Group.Running.Start) + '.</p></section>')
     }
-    if (@($Group.Rows).Count -eq 1) {
-        # One run is no list: its time stands on a card of its own, and the comparison table waits for a second run.
-        $only = $Group.Rows[0]
-        [void]$body.AppendLine('<section class="card"><div class="card__head"><h3 class="card__title">Time</h3><p class="card__sub">Started ' + (& $local $only.Run.Start) + '. The next run of this label is compared with this one.</p></div>')
-        [void]$body.AppendLine('<p class="sw-clock num">' + (Format-DevSeconds $only.Seconds) + '</p></section>')
-    } elseif (@($Group.Rows).Count) {
-        [void]$body.AppendLine('<div class="grid-2">')
-        [void]$body.AppendLine('<div class="grid__head"><h2>Runs</h2><p class="card__sub">' + @($Group.Rows).Count + ' run(s), best ' + (Format-DevSeconds $Group.Best) + ', newest first</p></div>')
-        [void]$body.AppendLine('<section class="card grid__full"><div class="table-wrap"><table class="table"><thead><tr><th class="sw-left">Started</th><th>Time</th><th>Against the run before</th></tr></thead><tbody>')
-        foreach ($row in @($Group.Rows)) {
-            [void]$body.AppendLine('<tr><td class="sw-left">' + (& $local $row.Run.Start) + '</td><td class="num">' + (Format-DevSeconds $row.Seconds) + '</td><td>' + (Format-StopwatchDelta $row.DeltaSeconds) + '</td></tr>')
-        }
-        [void]$body.AppendLine('</tbody></table></div></section>')
-        [void]$body.AppendLine('</div>')
-    }
     if (@($Group.Rows).Count) {
+        $row = $Group.Rows[0]
+        [void]$body.AppendLine('<section class="card"><div class="card__head"><h3 class="card__title">Time</h3><p class="card__sub">Started ' + (& $local $row.Run.Start) + $(if ($row.Run.Machine) { ' on another machine' } else { '' }) + '.</p></div>')
+        [void]$body.AppendLine('<p class="sw-clock num">' + (Format-DevSeconds $row.Seconds) + '</p>')
+        [void]$body.AppendLine('<p>' + (Format-StopwatchDelta $row.DeltaSeconds) + $(if ($null -ne $row.DeltaSeconds) { ' <span class="note">than the previous run of this label</span>' } else { '' }) + '</p></section>')
         [void]$body.AppendLine('<div class="grid-2">')
-        [void]$body.AppendLine('<div class="grid__head"><h2>Phases</h2><p class="card__sub">Each run split into phases from the session transcripts, longest first</p></div>')
-        foreach ($row in @($Group.Rows)) {
-            $title = (& $local $row.Run.Start) + ' - ' + (Format-DevSeconds $row.Seconds) + $(if ($row.Run.Machine) { ' - another machine' } else { '' })
-            [void]$body.AppendLine((Format-StopwatchPhaseCard $Transcript[$row.Run.Id] $row.Seconds -Title $title))
-        }
+        [void]$body.AppendLine('<div class="grid__head"><h2>Phases</h2><p class="card__sub">This run split into phases from the session transcripts, longest first</p></div>')
+        [void]$body.AppendLine((Format-StopwatchPhaseCard $Transcript[$row.Run.Id] $row.Seconds -Title ((& $local $row.Run.Start) + ' - ' + (Format-DevSeconds $row.Seconds))))
         [void]$body.AppendLine('</div>')
-    } else {
-        [void]$body.AppendLine('<p class="note">No finished run of this label yet.</p>')
     }
     $shell = Format-StopwatchPageShell
     $note = 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout, and shared with the other machines through <code>refs/stopwatch/&lt;machine&gt;</code> on origin. ' +
