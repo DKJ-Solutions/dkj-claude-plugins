@@ -384,6 +384,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         New-Item -ItemType Directory -Force -Path (Join-Path $src 'scripts\lib'), (Join-Path $src 'scripts\dashboard'),(Join-Path $src 'plugins\dkj-policy\dkj-solutions\assets\house-style'), (Join-Path $src 'connectors'), $noup, $outside | Out-Null
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $src 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $src 'scripts\lib\')
+        Copy-Item (Join-Path $RepoRoot 'scripts\lib\stopwatch-lib.ps1') (Join-Path $src 'scripts\lib\')
         # dev-pages-lib reads the plugins' libs from the plugin tree beside scripts/, and the server its state reader.
         New-Item -ItemType Directory -Force -Path (Join-Path $src 'plugins\dkj-policy\hub\lib'), (Join-Path $src 'plugins\dkj-policy\dkj-solutions\scripts\lib') | Out-Null
         Copy-Item (Join-Path $PluginLib '*.ps1') (Join-Path $src 'plugins\dkj-policy\hub\lib\')
@@ -516,6 +517,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'scripts\lib'), (Join-Path $fixture4 'scripts\dashboard'),(Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\assets\house-style') | Out-Null
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
+        Copy-Item (Join-Path $RepoRoot 'scripts\lib\stopwatch-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
         New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'plugins\dkj-policy\hub\lib'), (Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\scripts\lib') | Out-Null
         Copy-Item (Join-Path $PluginLib '*.ps1') (Join-Path $fixture4 'plugins\dkj-policy\hub\lib\')
         Copy-Item $SolutionsPagesLib (Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\scripts\lib\')

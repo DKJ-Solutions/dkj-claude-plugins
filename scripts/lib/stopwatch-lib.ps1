@@ -28,8 +28,8 @@ $script:StopwatchNoteMax = 2000
 $script:StopwatchLapMax = 100
 
 function Get-StopwatchStorePath {
-    <# The store's path on this machine: under LOCALAPPDATA, else TEMP where that is not set. #>
-    $base = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { [System.IO.Path]::GetTempPath() }
+    <# The store's path on this machine: under LOCALAPPDATA, else the per-user local data folder .NET names. #>
+    $base = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { [Environment]::GetFolderPath('LocalApplicationData') }
     return (Join-Path $base 'dkj-claude-plugins\stopwatch.json')
 }
 
