@@ -41,19 +41,49 @@
 
 Card + /stopwatch page with manual timed runs, labels and improvement notes, compared per label; transcript phases follow in a second PR.
 
+#### Owner's choice
+
+Option 3 on #3315 (Maikel, October 23, 2026): the manual stopwatch first, in this PR; the phases read from
+the session transcripts in a second one.
+
+#### Design
+
+- The clock is the server's: Start, Lap and Stop write timestamps, the page draws the time since the stored
+  start. The hub restarts whenever HEAD moves, and the workflow being timed moves HEAD at every merge and
+  fold, so a clock kept in the page would be lost mid-run.
+- The store is outside the tree (`%LOCALAPPDATA%\dkj-claude-plugins\stopwatch.json`): a file in the
+  checkout would dirty it in the middle of the workflow it times.
+- A button is a same-origin POST to `/stopwatch/<action>` with its values in the query, answered before the
+  restart check so a Stop pressed during a fold is not lost to the 503.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/stopwatch-lib.ps1`: the store, the six actions, the model and the page
+- [x] `serve-connector-dashboard.ps1`: the `/stopwatch` page, the POST route, `-StopwatchPath` for tests
+- [x] The Stopwatch card in `Get-RepoHubPages`
 
 ### TEST
 
+- [x] `scripts/tests/stopwatch.tests.ps1` (42 asserts), in the `pages` group of `suite-groups.json`
+- [x] `dev-pages.tests.ps1` updated for the hub's third page of its own (294 green)
+- [x] Smoke test on a throwaway server: start, a refused second start (409), lap, stop, the page and the
+  hub card; a cross-site POST is 403, a POST to another route 405
+- [x] `check-plugin-integrity.ps1`: 0 errors
+
 ### DEPLOY: feat/3315-hub-stopwatch
 
-**Score:**
+The hub has a Stopwatch page. Start it with a label when an assignment is given, mark the phases with Lap
+and stop it when the work is done. Each run is compared with the previous run of the same label, faster or
+slower, and carries a note on what to improve next time. The runs are kept on this machine, outside the
+checkout, so timing a run never dirties the tree it is timing.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+The hub is this repo's own dev server, so nothing a consumer takes changes.
+
+**Score:** N/A
 
 #### Pull Request
 
