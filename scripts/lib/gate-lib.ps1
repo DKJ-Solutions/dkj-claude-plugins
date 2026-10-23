@@ -1647,8 +1647,12 @@ function Get-AffectedSuiteSelection {
         followed only through what it runs, never through what it merely lists, and a library's DATA
         reference counts only when it names a path with a directory -- the bare 'CLAUDE.md' and
         'README.md' that repo-config.ps1 hands out as seam values describe a file in whatever tree the
-        caller passes, which in a suite is a fixture. A file under the tests directory (a suite, or a
-        fixture builder) is held to neither: everything it names counts.
+        caller passes, which in a suite is a fixture. And repo-config.ps1 itself contributes no data
+        reference at all, directory or not (#3343): it is the seam, so every path it names is such a
+        value, and one CSS file in its house-style allowlist selected 118 of 166 suites that load it
+        without reading that file. A change to repo-config.ps1 still runs the whole pool (below). A file
+        under the tests directory (a suite, or a fixture builder) is held to none of this: everything it
+        names counts.
 
         THE SUITES THAT ENUMERATE THE LIVE TREE RUN EVERY TIME. A suite that globs $RepoRoot reads files
         no name points at, so nothing here can say which change reaches it. #2323 counted sixteen such
@@ -1847,8 +1851,11 @@ function Get-AffectedSuiteSelection {
             }
             $follow = @($r.Run)
             if ($testOwned) { $follow += @($r.Read) }
+            # The seam config hands out data, never a dependency: every path it names is a value a caller
+            # reads in whatever tree it passes (#3343). Only what it RUNS is followed.
+            $isSeam = $p -match '(^|/)repo-config\.ps1$'
             foreach ($ref in @($r.Read)) {
-                if ($testOwned -or ($ref.Contains('/') -and $ref -notlike '*.ps1')) { [void]$named.Add($ref) }
+                if ($testOwned -or (-not $isSeam -and $ref.Contains('/') -and $ref -notlike '*.ps1')) { [void]$named.Add($ref) }
             }
             foreach ($ref in $follow) {
                 [void]$named.Add($ref)

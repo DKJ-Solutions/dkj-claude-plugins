@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**16 / 32 minor entries** <!-- pending-tally -->
+**17 / 33 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3343-seam-data-references · 20261023-124807Z
+
+The local test gate no longer selects most of the pool for a change to a file that
+`scripts/repo-config.ps1` only names as data
+([#3343](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3343)). A one-line comment in the
+brand book's `showcase.css` selected 118 of 166 suites, because the house-style allowlist names that path
+and nearly every suite dot-sources the seam. That cost 725s on the first ship and 447s on the re-ship.
+`Get-AffectedSuiteSelection` in `scripts/lib/gate-lib.ps1` now treats every path the seam config names
+as a seam value rather than a dependency. The same change now matches no suite. A change to
+`repo-config.ps1` itself still runs the whole pool, and CI still runs every suite before a merge.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A repo running `dkj-policy` takes the same selection through the mirrored `gate-lib.ps1`. A change to a
+file its own `repo-config.ps1` only names, such as a stylesheet in an allowlist, no longer runs most of
+its suites before `open-pr` pushes.
+
+**Score:** 2
+
+#### Pull Request
+
+Gate selection: repo-config.ps1's data paths no longer select every suite that loads it
+
+Plugins: dkj-policy
+
+[PR #3345](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3345)
+
+---
 
 ### DEPLOY: feat/3338-ship-step-phases · 20261023-123724Z
 
