@@ -50,6 +50,9 @@
 
     Pure ASCII (repo convention for .ps1) -- the em-dash under test is built from its code point.
 #>
+
+# What this suite's live-tree walks read (#3309): the scripts under scripts/.
+# gate-selection: walks scripts/*.ps1
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
 

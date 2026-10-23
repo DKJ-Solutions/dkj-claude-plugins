@@ -54,6 +54,9 @@
 
     Pure ASCII (repo convention for .ps1).
 #>
+
+# What this suite's live-tree walks read (#3309): the scripts under scripts/ and plugins/.
+# gate-selection: walks scripts/*.ps1 plugins/*.ps1
 [CmdletBinding()]
 param()
 

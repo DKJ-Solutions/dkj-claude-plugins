@@ -39,19 +39,49 @@
 
 ### PLAN
 
+Lever 1 of [#3309](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3309): narrow the local
+gate's "always" set. Levers 2 (CI, shipped in #3311) and 3 (the overview page) are not this branch, so the
+issue stays open for lever 3 (`-NoResolves`).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-SuiteReferenceSet` reads `# gate-selection: walks <pattern> ...` as a walk with a scope, and
+  records the literal `-Filter`/`-Include` values of every live-tree walk (`WalkFilters`).
+- [x] `Get-AffectedSuiteSelection` runs a walker whose scope is declared only when a changed path falls in
+  it (`Test-WalkScopeMatch`), inherits a scoped helper's scope, and reports `Scoped` and `Walkers` beside
+  `Always`; the cache format is versioned to v2.
+- [x] CI's asset-only selection judges every walker (`Walkers`), not just `Always`, so the declarations
+  narrow the local gate and leave CI's behaviour as it was.
+- [x] 37 walking suites declare their scope, each with a one-line reason; `dev-pages` stays unbounded on
+  purpose (it reads html, css and js).
+- [x] The scope guard in `affected-suites.tests.ps1`: every declared scope covers its own live walks'
+  filters (Victor's review note on #3309).
+- [x] The `open-pr` skill page documents the declaration; the `gate-lib.ps1` mirror is rebuilt.
 
 ### TEST
 
+- [x] `affected-suites.tests.ps1`: 135 pass, 0 fail. `ci-suite-selection-lib.tests.ps1`: 34 passed, 0 failed.
+- [x] Measured on this tree: a change to `house-style.css` selects 5 of 165 suites (it was 44), a
+  brandbook CSS change selects 2, a change to `claim-issue.ps1` selects 29 and a plugin README 44.
+  CI's asset-only selection for a brandbook CSS change keeps the same two walkers as on `main`.
+
 ### DEPLOY: feat/3309-scoped-tree-walks
 
-**Score:**
+The local test gate in `open-pr` no longer runs every suite that walks the live tree. A suite can now
+declare what its walk reads with a `# gate-selection: walks <pattern> ...` line, and it runs only when a
+changed path falls inside that scope. In this repo 37 of those 40 suites declare one, so a CSS change runs 5
+suites locally where it ran 44. The selection's own suite checks that each declared scope covers the
+filters the suite's own walks use. The required CI check is unchanged.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo that takes this release can declare the same line in its own tree-walking suites and stop waiting on
+them for changes outside what they read. Nothing changes until it does: a suite with no declaration still
+runs every time.
+
+**Score:** 2
 
 #### Pull Request
 

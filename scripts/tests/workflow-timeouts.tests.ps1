@@ -39,6 +39,9 @@
 
     Dependency-free: no Pester, only PowerShell. Pure ASCII (repo convention for .ps1).
 #>
+
+# What this suite's live-tree walks read (#3309): the workflow files.
+# gate-selection: walks .github/workflows/*
 $ErrorActionPreference = 'Stop'
 
 $script:pass = 0

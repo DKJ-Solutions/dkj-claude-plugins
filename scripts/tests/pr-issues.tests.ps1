@@ -23,6 +23,9 @@
 
     Pure ASCII (repo convention for .ps1).
 #>
+
+# What this suite's live-tree walks read (#3309): the libs under scripts/lib.
+# gate-selection: walks scripts/lib/*.ps1
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\lib\pr-issues-lib.ps1')
 

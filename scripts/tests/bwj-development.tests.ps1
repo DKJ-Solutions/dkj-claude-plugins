@@ -16,6 +16,9 @@
     Pure ASCII (repo convention for .ps1).
 #>
 
+# What this suite's live-tree walks read (#3309): the extension's own folder (its *-portable.md chapter pages).
+# gate-selection: walks plugins/dkj-policy/bwj-development/*
+
 # Test-FunctionDefined (issue #1729): the retirement asserts below ask the function table directly
 # rather than through Get-Command, whose miss path -- the case every one of those asserts is in --
 # scans the whole PATH for an executable of that name.

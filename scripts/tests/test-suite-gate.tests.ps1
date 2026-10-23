@@ -33,6 +33,9 @@
 
     Dependency-free (no Pester), same style as the rest of the suite.
 #>
+
+# What this suite's live-tree walks read (#3309): the scripts under scripts/, the suites among them.
+# gate-selection: walks scripts/*.ps1
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path

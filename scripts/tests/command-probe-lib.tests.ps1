@@ -39,6 +39,9 @@
 
     Pure ASCII (repo convention for .ps1).
 #>
+
+# What this suite's live-tree walks read (#3309): the scripts under scripts/.
+# gate-selection: walks scripts/*.ps1
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 

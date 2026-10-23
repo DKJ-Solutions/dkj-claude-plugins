@@ -1304,6 +1304,8 @@ function Get-SuiteReferenceSet {
           - Walks : whether it ENUMERATES the live repo -- a Get-ChildItem, git ls-files/grep, a
                     recursive copy or a directory listing on a path built from $RepoRoot -- or says so
                     itself with a '# gate-selection: always' line.
+          - Scope : the path patterns a '# gate-selection: walks <pattern> ...' line names -- what the
+                    walks can read. Empty means unbounded: the walk reaches whatever the tree holds.
 
         COMMENTS ARE NOT REFERENCES, AND THAT IS MEASURED. Counting every file name a script's text
         mentions selected all 162 suites for every change, because these scripts' docstrings name
@@ -1319,7 +1321,7 @@ function Get-SuiteReferenceSet {
 
     $run = New-Object 'System.Collections.Generic.HashSet[string]'
     $read = New-Object 'System.Collections.Generic.HashSet[string]'
-    $result = [pscustomobject]@{ Parsed = $false; Run = $run; Read = $read; Walks = $false }
+    $result = [pscustomobject]@{ Parsed = $false; Run = $run; Read = $read; Walks = $false; Scope = @(); WalkFilters = @() }
 
     $tokens = $null
     $errors = $null
@@ -1327,6 +1329,17 @@ function Get-SuiteReferenceSet {
     if ($errors -and $errors.Count -gt 0) { return $result }
     $result.Parsed = $true
     if ($Text -match '(?m)^\s*#\s*gate-selection:\s*always\s*$') { $result.Walks = $true }
+    # THE WALK'S SCOPE, DECLARED (issue #3309, lever 1): '# gate-selection: walks *.ps1 plugin.json' says
+    # which changed paths the file's walks can read, and is a walk declaration in its own right. A file
+    # that also says 'always' keeps no scope -- the two lines disagree, and the safe reading wins.
+    $scopeLines = [regex]::Matches($Text, '(?m)^\s*#\s*gate-selection:\s*walks\s+(\S.*?)\s*$')
+    if ($scopeLines.Count -gt 0) {
+        $result.Walks = $true
+        if ($Text -notmatch '(?m)^\s*#\s*gate-selection:\s*always\s*$') {
+            $result.Scope = @($scopeLines | ForEach-Object { $_.Groups[1].Value -split '\s+' } |
+                ForEach-Object { $_.Replace('\', '/').ToLowerInvariant() } | Where-Object { $_ } | Sort-Object -Unique)
+        }
+    }
 
     # ONE WALK OVER THE TREE, and every later question answered by climbing a node's PARENT chain
     # rather than by searching the tree again. Both choices are measured: FindAll with a script-block
@@ -1429,7 +1442,7 @@ function Get-SuiteReferenceSet {
             if ($runCommands.Contains($parent)) {
                 if ($isString) { [void]$run.Add($ref) } else { [void]$varUses.Add(@('run', $varName)) }
             }
-            if ($isVar -and $walkNodes.Contains($parent)) { [void]$varUses.Add(@('walk', $varName)) }
+            if ($isVar -and $walkNodes.Contains($parent)) { [void]$varUses.Add(@('walk', $varName, $parent)) }
             $parent = $parent.Parent
         }
     }
@@ -1449,13 +1462,54 @@ function Get-SuiteReferenceSet {
         }
     } while ($grew)
 
+    $filters = New-Object 'System.Collections.Generic.HashSet[string]'
     foreach ($use in $varUses) {
-        if ($use[0] -eq 'walk' -and $rootVars.Contains($use[1])) { $result.Walks = $true }
+        if ($use[0] -eq 'walk' -and $rootVars.Contains($use[1])) {
+            $result.Walks = $true
+            # The literal -Filter/-Include values of a live-tree Get-ChildItem -- what the scope guard in
+            # affected-suites.tests.ps1 holds a declared scope against (#3309).
+            if ($use[2] -is [System.Management.Automation.Language.CommandAst]) {
+                $els = @($use[2].CommandElements)
+                for ($i = 0; $i -lt $els.Count - 1; $i++) {
+                    if ($els[$i] -isnot [System.Management.Automation.Language.CommandParameterAst]) { continue }
+                    if ($els[$i].ParameterName -notin @('Filter', 'Include')) { continue }
+                    $arg = $els[$i + 1]
+                    $values = if ($arg -is [System.Management.Automation.Language.ArrayLiteralAst]) { @($arg.Elements) } else { @($arg) }
+                    foreach ($v in $values) {
+                        if ($v -is [System.Management.Automation.Language.StringConstantExpressionAst]) { [void]$filters.Add($v.Value.ToLowerInvariant()) }
+                    }
+                }
+            }
+        }
         if ($use[0] -eq 'run' -and $assignedRefs.ContainsKey($use[1])) {
             foreach ($r in $assignedRefs[$use[1]]) { [void]$run.Add($r) }
         }
     }
+    $result.WalkFilters = @($filters | Sort-Object)
     return $result
+}
+
+function Test-WalkScopeMatch {
+    <# Whether a repo-relative path (lower case, forward slashes) falls inside a declared walk scope
+       pattern. A pattern with a directory matches the whole path, one without matches the leaf -- so
+       '*.ps1' is every script at any depth and 'scripts/*.ps1' every script under scripts/. -like's '*'
+       crosses '/', which is the direction a scope must err in: wider, never narrower. #>
+    param([string]$Path, [string]$Pattern)
+    if ($Pattern.Contains('/')) { return ($Path -like $Pattern) }
+    return ((($Path -split '/')[-1]) -like $Pattern)
+}
+
+function Test-WalkScopeCovers {
+    <# Whether a declared walk scope covers a walk's literal -Filter value: a file the filter admits --
+       its wildcards filled in -- is a leaf some pattern's own leaf admits. Coarse on purpose, and in
+       the safe direction for a guard: 'scripts/*.ps1' covers '*.ps1' though the walk may sit elsewhere,
+       so it catches a scope that names the wrong KIND of file, the drift a new filter introduces. #>
+    param([string]$Filter, [string[]]$Scope)
+    $sample = $Filter.ToLowerInvariant().Replace('*', 'x').Replace('?', 'x')
+    foreach ($pattern in @($Scope)) {
+        if ($sample -like (($pattern -split '/')[-1])) { return $true }
+    }
+    return $false
 }
 
 function Test-SuiteReferenceMatch {
@@ -1522,9 +1576,11 @@ function Get-AffectedSuiteSelection {
     <#
         Which test suites a set of changed paths can affect -- the local half of issue #3223, where
         open-pr runs those and leaves the whole pool to the required CI check. Returns {Proven, Suites,
-        Always, Matched, PoolCount, Reason}: Suites is what to run (Always plus Matched), Always the
-        suites that run in every selection, and Proven is $false -- with the Reason -- whenever the
-        mapping could not be made, in which case the caller runs every suite.
+        Always, Scoped, Walkers, Matched, PoolCount, Reason}: Suites is what to run (Always, Scoped and
+        Matched), Always the suites that run in every selection, Scoped the tree-walking suites whose
+        declared scope a changed path falls in, Walkers every tree-walking suite whether it was selected
+        or not, and Proven is $false -- with the Reason -- whenever the mapping could not be made, in
+        which case the caller runs every suite.
 
         THE MAP IS A REFERENCE GRAPH, READ OFF THE SYNTAX TREE. A suite affects a path when the path is
         the suite itself, a file the suite reaches by EXECUTING it (dot-source, &, -File, transitively),
@@ -1542,7 +1598,18 @@ function Get-AffectedSuiteSelection {
         copy over a path built from $RepoRoot or $PSScriptRoot, or by the live root handed to a lib
         function that enumerates it (Get-SharedScriptPairs and its kind) -- 39 suites today. A suite whose
         walk this cannot see -- one done inside a script it runs against the live tree -- says so with a
-        '# gate-selection: always' line. KNOWN GAPS, each costing a red CI run rather than an ungated
+        '# gate-selection: always' line.
+
+        UNLESS THE WALK DECLARES ITS SCOPE (issue #3309, lever 1). Of the 40 that ran every time on
+        October 22, 2026, nearly every walk filtered on *.ps1, *.md, a manifest or a named folder, so a
+        CSS fix waited on all of them. A suite that says '# gate-selection: walks <pattern> ...' runs
+        only when a changed path falls inside one of the patterns (Test-WalkScopeMatch), and its
+        reference graph still selects it as before. A declaration is the suite author's claim about
+        what the walk reads -- including what a script it runs against the live tree reads -- and a
+        wrong one costs a red CI run, the same bar as everything else here. CI's asset-only selection
+        (ci-suite-selection-lib.ps1) does NOT trust it: it judges every walker by its own text.
+
+        KNOWN GAPS, each costing a red CI run rather than an ungated
         merge: a file name assembled at run time ("x-" + "lib.ps1"), Import-Module, and a script run
         through Invoke-Expression or [scriptblock]::Create are not followed.
 
@@ -1575,7 +1642,7 @@ function Get-AffectedSuiteSelection {
         [string]$TestsDir = 'scripts/tests'
     )
     $testsPrefix = ($TestsDir.Replace('\', '/').Trim('/')).ToLowerInvariant() + '/'
-    $verdict = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Matched = @(); PoolCount = 0; Reason = '' }
+    $verdict = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Scoped = @(); Walkers = @(); Matched = @(); PoolCount = 0; Reason = '' }
 
     $changed = @($ChangedPaths | ForEach-Object { "$_".Trim().Replace('\', '/') } | Where-Object { $_ })
     $quoted = @($changed | Where-Object { $_.StartsWith('"') })
@@ -1632,7 +1699,7 @@ function Get-AffectedSuiteSelection {
     # THE CACHE, keyed by the extractor's own source so a change to how references are read can never be
     # answered from a cache written under the old rules. Best-effort in both directions: an unreadable or
     # malformed file is an empty cache, and an unwritable one costs the next run its parse.
-    $extractor = Get-Sha256Hex -Text ("v1`n" + ${function:ConvertTo-SuiteReference}.ToString() + ${function:Get-SuiteReferenceSet}.ToString())
+    $extractor = Get-Sha256Hex -Text ("v2`n" + ${function:ConvertTo-SuiteReference}.ToString() + ${function:Get-SuiteReferenceSet}.ToString())
     $cachePath = Get-SuiteReferenceCachePath -RepoRoot $RepoRoot
     $stored = @{}
     if ($cachePath -and (Test-Path -LiteralPath $cachePath -PathType Leaf)) {
@@ -1650,17 +1717,17 @@ function Get-AffectedSuiteSelection {
     $refsOf = {
         param([string]$Path)
         if ($refs.ContainsKey($Path)) { return $refs[$Path] }
-        $r = [pscustomobject]@{ Parsed = $true; Run = @(); Read = @(); Walks = $false }
+        $r = [pscustomobject]@{ Parsed = $true; Run = @(); Read = @(); Walks = $false; Scope = @() }
         $full = Join-Path $RepoRoot $Path
         if ($Path -like '*.ps1' -and (Test-Path -LiteralPath $full -PathType Leaf)) {
             $blob = if ($blobOf.ContainsKey($Path)) { $blobOf[$Path] } else { '' }
             if ($blob -and $stored.ContainsKey($blob)) {
                 $e = $stored[$blob]
-                $r = [pscustomobject]@{ Parsed = [bool]$e.p; Run = @($e.r); Read = @($e.d); Walks = [bool]$e.w }
+                $r = [pscustomobject]@{ Parsed = [bool]$e.p; Run = @($e.r); Read = @($e.d); Walks = [bool]$e.w; Scope = @($e.s | Where-Object { $_ }) }
             } else {
                 $r = Get-SuiteReferenceSet -Text ([System.IO.File]::ReadAllText($full))
                 if ($blob) {
-                    $stored[$blob] = [pscustomobject]@{ p = [int]$r.Parsed; r = @($r.Run); d = @($r.Read); w = [int]$r.Walks }
+                    $stored[$blob] = [pscustomobject]@{ p = [int]$r.Parsed; r = @($r.Run); d = @($r.Read); w = [int]$r.Walks; s = @($r.Scope) }
                     $cacheState.Dirty = $true
                 }
             }
@@ -1690,6 +1757,8 @@ function Get-AffectedSuiteSelection {
 
     $selected = New-Object System.Collections.ArrayList
     $always = New-Object System.Collections.ArrayList
+    $scoped = New-Object System.Collections.ArrayList
+    $walkers = New-Object System.Collections.ArrayList
     $matched = New-Object System.Collections.ArrayList
     foreach ($s in $suites) {
         $reached = New-Object 'System.Collections.Generic.HashSet[string]'
@@ -1697,11 +1766,20 @@ function Get-AffectedSuiteSelection {
         $queue = New-Object System.Collections.Queue
         $queue.Enqueue($s); [void]$reached.Add($s)
         $runAlways = $false
+        $walks = $false
+        $scope = New-Object 'System.Collections.Generic.HashSet[string]'
         while ($queue.Count -gt 0) {
             $p = $queue.Dequeue()
             $r = & $refsOf $p
             $testOwned = $p.ToLowerInvariant().StartsWith($testsPrefix, [StringComparison]::Ordinal)
-            if (-not $r.Parsed -or ($testOwned -and $r.Walks)) { $runAlways = $true; break }
+            if (-not $r.Parsed) { $runAlways = $true; break }
+            if ($testOwned -and $r.Walks) {
+                # A walk with no declared scope reads whatever the tree holds; one with a scope adds it to
+                # the suite's, and the graph is still followed for everything else the file names.
+                if (@($r.Scope).Count -eq 0) { $runAlways = $true; break }
+                $walks = $true
+                foreach ($pattern in @($r.Scope)) { [void]$scope.Add($pattern) }
+            }
             $follow = @($r.Run)
             if ($testOwned) { $follow += @($r.Read) }
             foreach ($ref in @($r.Read)) {
@@ -1714,7 +1792,16 @@ function Get-AffectedSuiteSelection {
                 }
             }
         }
-        if ($runAlways) { [void]$always.Add($s); [void]$selected.Add($s); continue }
+        if ($runAlways) { [void]$always.Add($s); [void]$walkers.Add($s); [void]$selected.Add($s); continue }
+        if ($walks) {
+            [void]$walkers.Add($s)
+            $inScope = $false
+            foreach ($c in $changed) {
+                foreach ($pattern in $scope) { if (Test-WalkScopeMatch -Path $c -Pattern $pattern) { $inScope = $true; break } }
+                if ($inScope) { break }
+            }
+            if ($inScope) { [void]$scoped.Add($s); [void]$selected.Add($s); continue }
+        }
         $hit = $false
         foreach ($c in $changed) {
             foreach ($rp in $reached) { if ($rp.ToLowerInvariant() -eq $c) { $hit = $true; break } }
@@ -1725,6 +1812,8 @@ function Get-AffectedSuiteSelection {
     }
     $verdict.Suites = @($selected)
     $verdict.Always = @($always)
+    $verdict.Scoped = @($scoped)
+    $verdict.Walkers = @($walkers)
     $verdict.Matched = @($matched)
     $verdict.Proven = $true
 
@@ -2053,7 +2142,7 @@ function Invoke-WorkflowGates {
             if ($SelectSuites -and -not $gateTestsProved -and -not $TestsProvedByCi -and -not ($gateNoteTree -and $gateNoteTree.Proven)) {
                 $ciCheck = ''
                 if (Test-FunctionDefined 'Get-CiTestCheckName') { try { $ciCheck = "$(Get-CiTestCheckName)".Trim() } catch { $ciCheck = '' } }
-                $gateSelection = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Matched = @(); PoolCount = 0; Reason = '' }
+                $gateSelection = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Scoped = @(); Walkers = @(); Matched = @(); PoolCount = 0; Reason = '' }
                 if (-not $ciCheck) {
                     # NOTHING BEHIND A PARTIAL RUN, SO THERE IS NONE. The whole argument for selecting is that
                     # the required check runs every suite before anything merges; a repo that names no such
@@ -2071,7 +2160,7 @@ function Invoke-WorkflowGates {
                         try {
                             $gateSelection = Get-AffectedSuiteSelection -RepoRoot $RepoRoot -ChangedPaths $gateChanges.Paths
                         } catch {
-                            $gateSelection = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Matched = @(); PoolCount = 0; Reason = "the selection failed: $($_.Exception.Message)" }
+                            $gateSelection = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Scoped = @(); Walkers = @(); Matched = @(); PoolCount = 0; Reason = "the selection failed: $($_.Exception.Message)" }
                         }
                         $extraTestCommands = @()
                         if (Test-FunctionDefined 'Get-TestCommands') { $extraTestCommands = @(Get-TestCommands | Where-Object { "$_".Trim() }) }
@@ -2128,7 +2217,7 @@ function Invoke-WorkflowGates {
                 # THE SELECTED RUN (issue #3223). What it prints is the argument, as above: how many suites
                 # the changes reach, how many run regardless, and who runs the rest.
                 $selectedNames = @($gateSelection.Suites | ForEach-Object { ($_ -split '/')[-1] })
-                Write-Host ("test gate: {0} of {1} suites selected for this branch's changes -- {2} reached by a changed path, {3} that walk the live tree and always run. CI ({4}) runs all {1}; -AllSuites runs them here (#3223)." -f $selectedNames.Count, $gateSelection.PoolCount, $gateSelection.Matched.Count, $gateSelection.Always.Count, $ciCheck) -ForegroundColor Cyan
+                Write-Host ("test gate: {0} of {1} suites selected for this branch's changes -- {2} reached by a changed path, {3} that walk the live tree and always run, {5} whose declared walk scope a changed path falls in. CI ({4}) runs all {1}; -AllSuites runs them here (#3223, #3309)." -f $selectedNames.Count, $gateSelection.PoolCount, $gateSelection.Matched.Count, $gateSelection.Always.Count, $ciCheck, @($gateSelection.Scoped).Count) -ForegroundColor Cyan
                 if ($selectedNames.Count -eq 0) {
                     Write-Host "test gate: no suite is affected by these changes -- none run here." -ForegroundColor DarkGray
                 } elseif (-not (Invoke-TestSuiteGate -TestsDir (Join-Path $RepoRoot 'scripts\tests') -Context $Context -MaxParallel $MaxParallel -SuiteNames $selectedNames)) {

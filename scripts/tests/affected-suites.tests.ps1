@@ -22,6 +22,9 @@
 
     Dependency-free (no Pester), same style as the rest of the suite.
 #>
+
+# What this suite's live-tree walk reads (#3309): the suites and helpers in scripts/tests, for the scope guard.
+# gate-selection: walks scripts/tests/*.ps1
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
@@ -155,6 +158,12 @@ $list = @('c-tool.ps1', 'docs/data.json')
     Assert-True (-not $walkFixture.Walks) 'a walk over a fixture is not a walk over the live tree'
     $walkMarked = Get-SuiteReferenceSet -Text "# gate-selection: always`nexit 0`n"
     Assert-True $walkMarked.Walks "a suite can declare its walk with '# gate-selection: always'"
+    $scopedSet = Get-SuiteReferenceSet -Text "# gate-selection: walks *.PS1 plugins\x\plugin.json`n# gate-selection: walks *.ps1`nexit 0`n"
+    Assert-True $scopedSet.Walks "a '# gate-selection: walks' line declares a walk on its own (#3309)"
+    Assert-Equal '*.ps1|plugins/x/plugin.json' (@($scopedSet.Scope) -join '|') 'and its patterns are the scope: lower case, forward slashes, every line, each once'
+    Assert-Equal 0 @($walkDirect.Scope).Count 'a walk nobody declared has no scope -- unbounded'
+    $bothSet = Get-SuiteReferenceSet -Text "# gate-selection: always`n# gate-selection: walks *.ps1`nexit 0`n"
+    Assert-True ($bothSet.Walks -and @($bothSet.Scope).Count -eq 0) "a file that says 'always' as well keeps no scope: the safe line wins"
     $broken = Get-SuiteReferenceSet -Text "function Broken {`n"
     Assert-True (-not $broken.Parsed) 'a file that does not parse is reported as unparsed, never as empty'
 
@@ -165,6 +174,33 @@ $list = @('c-tool.ps1', 'docs/data.json')
     Assert-True (-not (Test-SuiteReferenceMatch -Path 'scripts/mylib/gate-lib.ps1' -Reference 'lib/gate-lib.ps1')) 'but only at a segment boundary'
     Assert-True (-not (Test-SuiteReferenceMatch -Path 'plugins/a/claude.md' -Reference 'plugins/b/claude.md')) 'a qualified reference does not match a namesake elsewhere'
     Assert-True (Test-SuiteReferenceMatch -Path 'scripts/lib/release-lib.ps1' -Reference 'release-lib') "a bare kebab name matches that name with '.ps1'"
+
+    Write-Host "`n== 3b. Test-WalkScopeMatch ==" -ForegroundColor Cyan
+    Assert-True (Test-WalkScopeMatch -Path 'scripts/lib/deep/x.ps1' -Pattern '*.ps1') 'a pattern without a directory matches the leaf at any depth'
+    Assert-True (-not (Test-WalkScopeMatch -Path 'brandbook/src/styles.css' -Pattern '*.ps1')) 'and nothing with another extension -- the saving'
+    Assert-True (Test-WalkScopeMatch -Path 'scripts/release/open-pr.ps1' -Pattern 'scripts/*.ps1') 'a pattern with a directory matches the whole path, and * crosses folders'
+    Assert-True (-not (Test-WalkScopeMatch -Path 'plugins/p/scripts/x.ps1' -Pattern 'scripts/*.ps1')) 'but is anchored at the root'
+    Assert-True (Test-WalkScopeMatch -Path 'plugins/p/.claude-plugin/plugin.json' -Pattern 'plugin.json') 'a bare file name matches that file wherever it sits'
+
+    # THE SCOPE GUARD, over this repo's own suites (#3309). A declared scope is a claim the selection
+    # cannot check -- a wrong one drops a suite that should have run -- so the one part a reading CAN
+    # check is held here: every literal -Filter/-Include of a live-tree walk must be inside the scope
+    # the file declares. A walk added later with a filter of another kind fails here, not on CI.
+    Write-Host "`n== 3c. declared scopes cover their own walks ==" -ForegroundColor Cyan
+    $filterSet = Get-SuiteReferenceSet -Text "Get-ChildItem -LiteralPath (Join-Path `$RepoRoot 'x') -Recurse -Include '*.ps1', '*.yml' -File`n`$s = Join-Path `$env:TEMP 'f'`nGet-ChildItem -LiteralPath `$s -Filter '*.txt'`n"
+    Assert-Equal '*.ps1|*.yml' (@($filterSet.WalkFilters) -join '|') "a live walk's literal filters are recorded, and a fixture walk's are not"
+    Assert-True (Test-WalkScopeCovers -Filter '*-persona.md' -Scope @('*.md')) 'a narrower filter is covered by a wider pattern'
+    Assert-True (Test-WalkScopeCovers -Filter '*.ps1' -Scope @('scripts/*.ps1')) "and by a directory pattern's leaf"
+    Assert-True (-not (Test-WalkScopeCovers -Filter 'hooks.json' -Scope @('*.ps1'))) 'but not by a pattern for another kind of file'
+    $declared = 0
+    foreach ($f in @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.ps1' -File)) {
+        $set = Get-SuiteReferenceSet -Text ([System.IO.File]::ReadAllText($f.FullName))
+        if (@($set.Scope).Count -eq 0) { continue }
+        $declared++
+        $uncovered = @($set.WalkFilters | Where-Object { -not (Test-WalkScopeCovers -Filter $_ -Scope $set.Scope) })
+        Assert-Equal '' ($uncovered -join ', ') "$($f.Name): its declared scope covers every filter its live walks use"
+    }
+    Assert-True ($declared -ge 30) "the guard read the declared suites (found $declared)"
 
     # --- 4. the selection over a real repository ----------------------------------------------------
     Write-Host "`n== 4. Get-AffectedSuiteSelection ==" -ForegroundColor Cyan
@@ -211,6 +247,22 @@ $list = @('c-tool.ps1', 'docs/data.json')
     Assert-Equal 4 $sel.PoolCount 'a suite deleted from disk is not in the pool (Victor)'
     Assert-True ((Get-SelectedNames $sel) -notmatch 'plain') 'and is never selected'
     Set-FixtureFile $r4 'scripts/tests/plain.tests.ps1' "exit 0`n"
+
+    # A walk that DECLARES its scope runs only for a change inside it (#3309, lever 1) -- and a suite that
+    # reaches a scoped helper inherits that helper's scope rather than running every time.
+    Set-FixtureFile $r4 'scripts/tests/scoped.tests.ps1' "# gate-selection: walks *.md`nGet-ChildItem -Path `$RepoRoot -Recurse -Filter *.md`n"
+    Set-FixtureFile $r4 'scripts/tests/walk-helper.ps1' "# gate-selection: walks docs/*`nGet-ChildItem -Path `$RepoRoot -Recurse`n"
+    Set-FixtureFile $r4 'scripts/tests/uses-helper.tests.ps1' ". (Join-Path `$PSScriptRoot 'walk-helper.ps1')`nexit 0`n"
+    $sel = Get-AffectedSuiteSelection -RepoRoot $r4 -ChangedPaths @('scripts/lib/b-lib.ps1')
+    Assert-Equal 'a,walk' (Get-SelectedNames $sel) 'a change outside every declared scope selects none of the scoped walkers'
+    Assert-Equal 'scoped,uses-helper,walk' ((@($sel.Walkers | ForEach-Object { ($_ -split '/')[-1] -replace '\.tests\.ps1$', '' }) | Sort-Object) -join ',') 'and every walker is still reported as one, for CI to judge'
+    Assert-Equal 0 @($sel.Scoped).Count 'none of them is scoped in'
+    $sel = Get-AffectedSuiteSelection -RepoRoot $r4 -ChangedPaths @('README.md')
+    Assert-Equal 'scoped,walk' (Get-SelectedNames $sel) 'a change inside a declared scope selects that walker'
+    Assert-Equal 'scoped' ((@($sel.Scoped | ForEach-Object { ($_ -split '/')[-1] -replace '\.tests\.ps1$', '' })) -join ',') 'and reports it as scoped in, not as always'
+    $sel = Get-AffectedSuiteSelection -RepoRoot $r4 -ChangedPaths @('docs/data.json')
+    Assert-True ((Get-SelectedNames $sel) -match 'uses-helper') "a suite inherits the declared scope of a helper it reaches"
+    Remove-Item -LiteralPath (Join-Path $r4 'scripts/tests/scoped.tests.ps1'), (Join-Path $r4 'scripts/tests/walk-helper.ps1'), (Join-Path $r4 'scripts/tests/uses-helper.tests.ps1')
 
     # --- 5. the per-blob cache ------------------------------------------------------------------------
     Write-Host "`n== 5. the reference cache ==" -ForegroundColor Cyan
