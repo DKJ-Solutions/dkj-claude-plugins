@@ -53,7 +53,7 @@ same day).
 ### TEST
 
 - [x] `stopwatch.tests.ps1`: 129 passed, 0 failed
-- [ ] The owner's look at `/stopwatch` and a run page on the hub
+- [x] The owner's look at `/stopwatch` and a run page on the hub: seen and approved
 
 ### DEPLOY: fix/stopwatch-one-card-per-run
 
