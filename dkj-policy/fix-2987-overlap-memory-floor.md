@@ -39,21 +39,34 @@
 
 ### PLAN
 
+#2987, now at n=2: the parallel case in `test-suite-gate.tests.ps1` ran its nested gate on the real
+free-memory reading, so the lane-start memory floor (#2317) could hold every start after the first
+and serialise the six overlap suites.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Stub a generous memory reading (`-AvailableMemoryMB 65536`) on the parallel overlap run, so the
+  floor cannot fire and the case asserts the gate's parallelism, not the machine's free memory.
 
 ### TEST
 
+- [x] `test-suite-gate.tests.ps1` standalone: 349 pass, 0 fail.
+
 ### DEPLOY: fix/2987-overlap-memory-floor
 
-**Score:**
+The overlap case in `test-suite-gate.tests.ps1` no longer fails a full gate run under memory
+pressure: its nested gate now runs on a stated memory reading instead of the machine's, so the
+lane-start memory floor (#2317) cannot serialise the six suites it measures for overlap (#2987,
+measured twice, each time green standalone).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a test-only repair; nothing a consumer runs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
 test-suite-gate overlap case reads the machine's free memory
-
