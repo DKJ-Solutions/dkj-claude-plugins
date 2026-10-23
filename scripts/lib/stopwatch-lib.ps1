@@ -56,7 +56,8 @@ $script:StopwatchLabelMax = 80
 
 # The step log's reader (#3338), for a ship's steps. Guarded: a tree that copies this file alone keeps one ship phase.
 $swRunProgressLib = Join-Path $PSScriptRoot 'run-progress-lib.ps1'
-if (Test-Path -LiteralPath $swRunProgressLib -PathType Leaf) { . $swRunProgressLib }
+$script:StopwatchStepLogAvailable = $false
+if (Test-Path -LiteralPath $swRunProgressLib -PathType Leaf) { . $swRunProgressLib; $script:StopwatchStepLogAvailable = $true }
 
 function Get-StopwatchStorePath {
     <# The store's path on this machine: under LOCALAPPDATA, else the per-user local data folder .NET names. #>
@@ -498,7 +499,7 @@ function Get-StopwatchTranscriptCache {
     $files = if (Test-Path -LiteralPath $TranscriptDir -PathType Container) { @(Get-ChildItem -LiteralPath $TranscriptDir -Filter *.jsonl -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTimeUtc -ge $from }) } else { @() }
     $events = @(foreach ($f in $files) { Read-StopwatchTranscriptEvents -Path $f.FullName -From $from -To $to })
     $marks = @()
-    if ($StepLogPath -and (Get-Command Read-RunStepMarks -ErrorAction SilentlyContinue)) {
+    if ($StepLogPath -and $script:StopwatchStepLogAvailable) {
         # From the earliest ship call's start, which the events read up to an hour before $from: a mark before it cuts nothing.
         $markFrom = (@($events | ForEach-Object { $_.Tools } | Where-Object { $_ -and $_.Start } | ForEach-Object { $_.Start }) + @($from) | Measure-Object -Minimum).Minimum
         $marks = @(Read-RunStepMarks -Path $StepLogPath -From $markFrom -To $to | Where-Object {
