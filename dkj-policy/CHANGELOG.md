@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**13 / 23 minor entries** <!-- pending-tally -->
+**14 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3327-golive-market-optout · 20261023-101214Z
+
+A store can now leave a market out of the go-live block's live URL list without removing it from its
+previews ([#3327](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3327)). A row in
+`Get-StorefrontMarkets` takes an optional `GoLive = $false`, and `build-golive-block` drops that market
+from `WHEN IT GOES LIVE`. The preview URLs and the handover cards still carry it, and so does the
+`-Path` a session already gives the preview, a per-market override of that market included. A row
+without the field is listed as before. A quoted `'false'` is refused, because PowerShell reads it as
+true. A table where every market is marked `$false` is refused too.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A store that previews a market but does not want it in the message to the requester sets one field on
+that row. Before, deleting the row also took it out of the preview handover.
+
+**Score:** 2
+
+#### Pull Request
+
+build-golive-block: let a store keep a market out of the go-live block's live URL list
+
+Plugins: bwj-development
+
+[PR #3330](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3330)
+
+---
 
 ### DEPLOY: fix/3288-live-listener-outlives-suite · 20261023-094719Z
 
