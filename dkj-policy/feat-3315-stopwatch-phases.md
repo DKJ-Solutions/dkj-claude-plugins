@@ -39,11 +39,39 @@
 
 ### PLAN
 
+The second half of #3315 (option 3, Maikel, October 23, 2026): each finished Stopwatch run is split into
+phases read from this checkout's Claude Code session transcripts, shown beside the hand-set laps.
+
+#### Design
+
+- Every second of a run goes to the FIRST phase going at that moment: ship-pr (CI wait, merge, fold), the
+  local gates and suites, subagents, branch and claim, any other tool call, then Claude's own turn. A second
+  in which no session was busy is waiting on the person. So a backgrounded ship that Claude writes beside is
+  the ship, and the phases always add up to the run.
+- A backgrounded call ends at its `<task-notification>` (it carries the `tool-use-id`), not at the immediate
+  "running in background" result. Measured on #3320's own session: the ship was 21:39 of 48:45.
+- ship-pr prints no timestamps, so CI wait, merge and fold stay one phase; splitting them needs ship-pr to
+  write its own step times, which is a change to that script rather than to this page.
+- A run's window is closed once it stops, so its phases are read once and cached beside the store
+  (`stopwatch-phases.json`, outside the tree). Reading the 49-minute window took 0.34 s.
+- The issue's plan named "the transcript reader in `closeout-lib.ps1`"; that lib has none. The readers are
+  in `measure-closeouts.ps1` and `artifact-harvest-lib.ps1`, and this one follows the latter's cheap,
+  line-filtered read.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `stopwatch-lib.ps1`: the transcript dir, the phase table, the event reader, the phase split, the cache
+  and the table cell; the page gets a "From the transcripts" column
+- [x] `serve-connector-dashboard.ps1`: reads the cache for `/stopwatch`; `-TranscriptDir` for tests
 
 ### TEST
+
+- [x] `stopwatch.tests.ps1`: a fixture transcript (prompt, new-branch, a backgrounded ship-pr ended by its
+  notification, a sidechain line, a cut-off line, a second prompt) split into exact phases; clipping; the
+  cache written, reused, re-read when the end moves and recomputed when it does not read (63 green)
+- [x] Smoke test on a throwaway server: `/stopwatch` with a run over #3320's session renders the six phases
+- [x] `check-plugin-integrity.ps1`: 0 errors
+- [ ] Review: Victor, Sebastian and Edith
 
 ### DEPLOY: feat/3315-stopwatch-phases
 

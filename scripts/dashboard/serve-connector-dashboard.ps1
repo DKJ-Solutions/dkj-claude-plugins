@@ -93,7 +93,12 @@
     (For tests) The repo root instead of the one this script sits in.
 
 .PARAMETER StopwatchPath
-    (For tests) The Stopwatch's store instead of the one under LOCALAPPDATA (Get-StopwatchStorePath).
+    (For tests) The Stopwatch's store instead of the one under LOCALAPPDATA (Get-StopwatchStorePath). The
+    transcript phases are cached beside it, as stopwatch-phases.json.
+
+.PARAMETER TranscriptDir
+    (For tests) The session transcripts the Stopwatch reads its phases from, instead of this checkout's own
+    under ~/.claude/projects (Get-StopwatchTranscriptDir).
 #>
 [CmdletBinding()]
 param(
@@ -102,7 +107,8 @@ param(
     [ValidateRange(100, 60000)][int]$ReadTimeoutMs = 1000,
     [ValidateRange(0, 3600)][int]$MinRefreshSeconds = 10,
     [string]$RepoRootOverride,
-    [string]$StopwatchPath
+    [string]$StopwatchPath,
+    [string]$TranscriptDir
 )
 
 $ErrorActionPreference = 'Stop'
@@ -113,6 +119,8 @@ $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride
 . (Join-Path $root 'scripts\lib\dev-pages-lib.ps1')
 . (Join-Path $root 'scripts\lib\stopwatch-lib.ps1')
 if (-not $StopwatchPath) { $StopwatchPath = Get-StopwatchStorePath }
+if (-not $TranscriptDir) { $TranscriptDir = Get-StopwatchTranscriptDir -RepoRoot $root }
+$StopwatchPhasesPath = Join-Path (Split-Path -Parent $StopwatchPath) 'stopwatch-phases.json'
 # The test gate's own selection and CI's, so /test-gate shows what they decide for this checkout (#3309).
 # GUARDED, unlike the libs above: they serve one section of one page, and gate-lib.ps1 loads a chain of its
 # own, so a tree without them (this script's own test fixtures) still serves every page, and the section
@@ -501,7 +509,8 @@ try {
             }
             if ($path -eq '/stopwatch') {
                 $store = Read-StopwatchStore -Path $StopwatchPath
-                $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs $store.Runs) -ReadError $store.Error -Skipped $store.Skipped -StorePath $StopwatchPath
+                $phases = Get-StopwatchTranscriptCache -Runs $store.Runs -CachePath $StopwatchPhasesPath -TranscriptDir $TranscriptDir
+                $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs $store.Runs) -ReadError $store.Error -Skipped $store.Skipped -StorePath $StopwatchPath -Transcript $phases
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }

@@ -215,6 +215,202 @@ function ConvertTo-StopwatchModel {
     }
 }
 
+# THE TRANSCRIPT PHASES (#3315's second PR). A finished run's window is read back out of this machine's
+# Claude Code session transcripts for this repo, and every second of it is given to exactly one phase: the
+# first in this list that was going at that moment. So a ship that runs in the background while Claude
+# writes is counted as the ship, and what is left when no session is busy is the time the work waited on a
+# person. Each tool call is matched on its name and its serialised input, the way measure-closeouts.ps1
+# matches a chain-ending script, so a script run from Bash, from PowerShell or inside a skill counts alike.
+$script:StopwatchToolPhases = @(
+    @{ Name = 'Ship: CI wait, merge, fold'; Match = 'ship-pr\.ps1' },
+    @{ Name = 'Local gates and tests'; Match = 'open-pr\.ps1|check-plugin-integrity\.ps1|\.tests\.ps1|test-suite-gate|check-[a-z-]+\.ps1' },
+    @{ Name = 'Subagents'; Tool = '^(Agent|Task)$' },
+    @{ Name = 'Branch and claim'; Match = 'new-branch\.ps1|claim-issue\.ps1|sync-main\.ps1|prune-merged\.ps1' },
+    @{ Name = 'Other tool calls'; Tool = '.' }
+)
+$script:StopwatchBusyPhase = 'Claude thinking and writing'
+$script:StopwatchIdlePhase = 'Waiting on you'
+
+function Get-StopwatchTranscriptDir {
+    <# Where Claude Code keeps this checkout's session transcripts: ~/.claude/projects/<root, every non-alphanumeric a dash>. #>
+    param([Parameter(Mandatory = $true)][string]$RepoRoot)
+    return (Join-Path $HOME ('.claude\projects\' + ($RepoRoot.TrimEnd('\', '/') -replace '[^A-Za-z0-9]', '-')))
+}
+
+function Get-StopwatchToolPhase {
+    <# The phase one tool call belongs to: the first entry of $script:StopwatchToolPhases its name or input matches. #>
+    param([string]$Name, [string]$Serialized)
+    foreach ($p in $script:StopwatchToolPhases) {
+        if ($p.Tool -and $Name -match $p.Tool) { return $p.Name }
+        if ($p.Match -and $Serialized -match $p.Match) { return $p.Name }
+    }
+    return $script:StopwatchToolPhases[-1].Name
+}
+
+function Read-StopwatchTranscriptEvents {
+    <#
+        What one transcript (-Path, a .jsonl) holds between -From and -To that the phases are made of: every
+        turn's start (a typed prompt or a task notification), every tool call with its result and, for one that
+        ran in the background, the notification that it finished, and the last moment each turn wrote anything.
+        Returns @{ Turns = @(@{ Start; End }); Tools = @(@{ Phase; Start; End }) }, the times UTC.
+
+        CHEAP ON PURPOSE: a transcript runs to tens of megabytes. A line's timestamp is read with a regex and
+        compared as a string (ISO 8601 sorts as text), and only a user or assistant line inside the window is
+        parsed as JSON. A line that is not JSON is skipped: a transcript being written is cut mid-line at its end.
+        A tool started up to an hour before -From is still read, so a ship started before Start is counted.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path, [Parameter(Mandatory = $true)][datetime]$From, [Parameter(Mandatory = $true)][datetime]$To)
+    $loText = Format-StopwatchStamp $From.AddHours(-1); $hiText = Format-StopwatchStamp $To
+    $turns = New-Object System.Collections.ArrayList
+    $calls = @{}; $results = @{}; $done = @{}
+    $turn = $null
+    foreach ($line in [IO.File]::ReadLines($Path)) {
+        $m = [regex]::Match($line, '"timestamp":"([^"]+)"')
+        if (-not $m.Success) { continue }
+        $ts = $m.Groups[1].Value
+        if ($ts -lt $loText -or $ts -gt $hiText) { continue }
+        if ($line.Contains('<task-notification>')) {
+            $n = [regex]::Match($line, '<tool-use-id>([^<]+)</tool-use-id>')
+            if ($n.Success -and -not $done.ContainsKey($n.Groups[1].Value)) { $done[$n.Groups[1].Value] = $ts }
+        }
+        # A conversation record opens with its parentUuid; queue operations, snapshots and request blobs do not.
+        if (-not $line.StartsWith('{"parentUuid"') -or $line.Contains('"isSidechain":true')) { continue }
+        $isUser = $line.Contains('"type":"user"') -and -not $line.Contains('"isMeta":true')
+        $isTool = $line.Contains('"type":"tool_use"')
+        if ($isUser -or $isTool) {
+            try { $rec = $line | ConvertFrom-Json } catch { $rec = $null }
+            if ($rec -and $rec.message) {
+                $content = $rec.message.content
+                if ($rec.type -eq 'user') {
+                    $isResult = $content -is [array] -and @($content | Where-Object { $_.type -eq 'tool_result' }).Count
+                    if ($isResult) {
+                        foreach ($c in @($content | Where-Object { $_.type -eq 'tool_result' })) {
+                            $text = if ($c.content -is [string]) { $c.content } else { (@($c.content) | ForEach-Object { [string]$_.text }) -join "`n" }
+                            $results[[string]$c.tool_use_id] = @{ At = $ts; Background = ($text -match 'running in background|in the background|Async agent launched') }
+                        }
+                    } else {
+                        $turn = @{ Start = $ts; End = $ts }; [void]$turns.Add($turn)
+                    }
+                } elseif ($rec.type -eq 'assistant' -and $content -is [array]) {
+                    foreach ($c in @($content | Where-Object { $_.type -eq 'tool_use' })) {
+                        $in = ''; try { $in = $c.input | ConvertTo-Json -Depth 6 -Compress } catch { $in = '' }
+                        $calls[[string]$c.id] = @{ Start = $ts; Phase = (Get-StopwatchToolPhase -Name ([string]$c.name) -Serialized $in) }
+                    }
+                }
+            }
+        }
+        if ($turn -and $ts -gt $turn.End) { $turn.End = $ts }
+    }
+    $tools = foreach ($id in $calls.Keys) {
+        $c = $calls[$id]; $r = $results[$id]
+        # Still going at -To (no result yet, or a background run with no notification): it ran to the end.
+        $end = if ($done.ContainsKey($id)) { $done[$id] } elseif ($r -and -not $r.Background) { $r.At } else { $hiText }
+        if ($end) { @{ Phase = $c.Phase; Start = (ConvertTo-StopwatchTime $c.Start); End = (ConvertTo-StopwatchTime $end) } }
+    }
+    return @{
+        Turns = @(foreach ($t in $turns) { @{ Start = (ConvertTo-StopwatchTime $t.Start); End = (ConvertTo-StopwatchTime $t.End) } })
+        Tools = @($tools)
+    }
+}
+
+function Get-StopwatchTranscriptPhases {
+    <#
+        A run's window from -From to -To split into phases, from the events of one or more transcripts
+        (-Events, each what Read-StopwatchTranscriptEvents returns). Every second goes to the first phase
+        going at that moment, in the order of $script:StopwatchToolPhases, then Claude's own turns, then
+        waiting. Returns the phases with any time, in that order, as @{ Name; Seconds }, and Sessions: how many
+        transcripts had a turn in the window. Pure.
+    #>
+    param([AllowEmptyCollection()][object[]]$Events = @(), [Parameter(Mandatory = $true)][datetime]$From, [Parameter(Mandatory = $true)][datetime]$To)
+    $order = @($script:StopwatchToolPhases | ForEach-Object { $_.Name }) + @($script:StopwatchBusyPhase)
+    $marks = New-Object System.Collections.ArrayList
+    $add = { param($phase, $a, $b)
+        if ($a -lt $From) { $a = $From }; if ($b -gt $To) { $b = $To }
+        if ($b -gt $a) { [void]$marks.Add(@{ At = $a; Rank = $order.IndexOf($phase); Step = 1 }); [void]$marks.Add(@{ At = $b; Rank = $order.IndexOf($phase); Step = -1 }) } }
+    $sessions = 0
+    foreach ($ev in @($Events | Where-Object { $_ })) {
+        $busy = $false
+        foreach ($t in @($ev.Turns)) { if ($t.End -ge $From -and $t.Start -le $To) { $busy = $true }; & $add $script:StopwatchBusyPhase $t.Start $t.End }
+        if ($busy) { $sessions++ }
+        foreach ($t in @($ev.Tools | Where-Object { $_ })) { & $add $t.Phase $t.Start $t.End }
+    }
+    $seconds = @{}; $open = New-Object int[] ($order.Count)
+    $at = $From
+    foreach ($mk in @($marks | Sort-Object { $_.At }, { $_.Step })) {
+        $span = ($mk.At - $at).TotalSeconds
+        if ($span -gt 0) {
+            $rank = -1; for ($i = 0; $i -lt $order.Count; $i++) { if ($open[$i] -gt 0) { $rank = $i; break } }
+            $name = if ($rank -ge 0) { $order[$rank] } else { $script:StopwatchIdlePhase }
+            $seconds[$name] = [double]$seconds[$name] + $span
+        }
+        $open[$mk.Rank] += $mk.Step; $at = $mk.At
+    }
+    $tail = ($To - $at).TotalSeconds
+    if ($tail -gt 0) { $seconds[$script:StopwatchIdlePhase] = [double]$seconds[$script:StopwatchIdlePhase] + $tail }
+    return @{
+        Phases   = @(foreach ($n in @($order) + @($script:StopwatchIdlePhase)) { if ($seconds[$n] -gt 0) { @{ Name = $n; Seconds = $seconds[$n] } } })
+        Sessions = $sessions
+    }
+}
+
+function Get-StopwatchTranscriptCache {
+    <#
+        The transcript phases of every finished run in -Runs, by run id, read from the cache at -CachePath and
+        computed for the runs it lacks from the transcripts in -TranscriptDir. A run's window is closed once it
+        stops, so its phases never change and are read from the transcripts once; the cache is rewritten only
+        when one was added. Like the store it lives outside the checkout. A cache that does not read is
+        recomputed rather than trusted.
+    #>
+    param([AllowEmptyCollection()][object[]]$Runs = @(), [Parameter(Mandatory = $true)][string]$CachePath, [Parameter(Mandatory = $true)][string]$TranscriptDir)
+    $cache = @{}
+    if (Test-Path -LiteralPath $CachePath -PathType Leaf) {
+        try {
+            $json = [System.IO.File]::ReadAllText($CachePath, (New-Object System.Text.UTF8Encoding($false))) | ConvertFrom-Json
+            foreach ($p in @($json.PSObject.Properties)) {
+                $cache[$p.Name] = @{ End = [string]$p.Value.end; Sessions = [int]$p.Value.sessions
+                    Phases = @(foreach ($x in @($p.Value.phases)) { if ($x) { @{ Name = [string]$x.name; Seconds = [double]$x.seconds } } }) }
+            }
+        } catch { $cache = @{} }
+    }
+    $files = if (Test-Path -LiteralPath $TranscriptDir -PathType Container) { @(Get-ChildItem -LiteralPath $TranscriptDir -Filter *.jsonl -File -ErrorAction SilentlyContinue) } else { @() }
+    $out = @{}; $added = $false
+    foreach ($r in @($Runs | Where-Object { $_ -and $_.End })) {
+        $end = Format-StopwatchStamp $r.End
+        if ($cache.ContainsKey($r.Id) -and $cache[$r.Id].End -eq $end) { $out[$r.Id] = $cache[$r.Id]; continue }
+        # A transcript last written before the run started holds nothing of it.
+        $events = @(foreach ($f in $files) { if ($f.LastWriteTimeUtc -ge $r.Start) { Read-StopwatchTranscriptEvents -Path $f.FullName -From $r.Start -To $r.End } })
+        $p = Get-StopwatchTranscriptPhases -Events $events -From $r.Start -To $r.End
+        $out[$r.Id] = @{ End = $end; Sessions = $p.Sessions; Phases = $p.Phases }
+        $added = $true
+    }
+    if ($added) {
+        $doc = [ordered]@{}
+        foreach ($id in @($out.Keys | Sort-Object)) {
+            $doc[$id] = [ordered]@{ end = $out[$id].End; sessions = $out[$id].Sessions; phases = @(foreach ($x in @($out[$id].Phases)) { [ordered]@{ name = $x.Name; seconds = [Math]::Round($x.Seconds, 3) } }) }
+        }
+        try {
+            $dir = Split-Path -Parent $CachePath
+            if (-not (Test-Path -LiteralPath $dir -PathType Container)) { [void](New-Item -ItemType Directory -Path $dir -Force) }
+            [System.IO.File]::WriteAllText("$CachePath.tmp", ($doc | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
+            Move-Item -LiteralPath "$CachePath.tmp" -Destination $CachePath -Force
+        } catch { }
+    }
+    return $out
+}
+
+function Format-StopwatchTranscriptCell {
+    <# One run's transcript phases for the table: each phase with its time and share, or why there are none. #>
+    param($Entry, [double]$Total)
+    if ($null -eq $Entry) { return '<span class="note">--</span>' }
+    if (-not $Entry.Sessions) { return '<span class="note">no session of this repo was active</span>' }
+    $rows = @(foreach ($p in @($Entry.Phases)) {
+            $share = if ($Total -gt 0) { [Math]::Round(100 * $p.Seconds / $Total) } else { 0 }
+            (ConvertTo-DashboardText $p.Name) + ' <span class="num">' + (Format-DevSeconds $p.Seconds) + '</span> <span class="note">' + $share + '%</span>'
+        })
+    if ($Entry.Sessions -gt 1) { $rows += '<span class="note">' + $Entry.Sessions + ' sessions</span>' }
+    return ($rows -join '<br>')
+}
+
 function Format-StopwatchDelta {
     <# Faster or slower than the run before, as a badge; nothing for a label's first run. #>
     param($Seconds)
@@ -228,13 +424,15 @@ function Format-StopwatchPageHtml {
     <#
         The page on '/stopwatch'. -ReadError is set when the store could not be read; then the buttons are off,
         since nothing may be written over it. -StorePath is named in the footer, so a run can be read and
-        evaluated outside the page.
+        evaluated outside the page. -Transcript holds each finished run's transcript phases by run id
+        (Get-StopwatchTranscriptCache); a run it lacks shows none.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Model,
         [AllowEmptyString()][string]$ReadError = '',
         [int]$Skipped = 0,
         [AllowEmptyString()][string]$StorePath = '',
+        [hashtable]$Transcript = @{},
         [datetime]$Now = [datetime]::UtcNow
     )
     $e = { param($v) ConvertTo-DashboardText $v }
@@ -283,11 +481,11 @@ function Format-StopwatchPageHtml {
     foreach ($g in @($Model.Groups)) {
         [void]$body.AppendLine('<div class="grid-2">')
         [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $g.Label) + '</h2><p class="card__sub">' + @($g.Rows).Count + ' run(s), best ' + (Format-DevSeconds $g.Best) + ', newest first</p></div>')
-        [void]$body.AppendLine('<section class="card grid__full"><div class="table-wrap"><table class="table"><thead><tr><th class="sw-left">Started</th><th>Time</th><th>Against the run before</th><th class="sw-left">Phases</th><th class="sw-left">What to improve next time</th></tr></thead><tbody>')
+        [void]$body.AppendLine('<section class="card grid__full"><div class="table-wrap"><table class="table"><thead><tr><th class="sw-left">Started</th><th>Time</th><th>Against the run before</th><th class="sw-left">Phases</th><th class="sw-left">From the transcripts</th><th class="sw-left">What to improve next time</th></tr></thead><tbody>')
         foreach ($row in @($g.Rows)) {
             $phases = if (@($row.Phases).Count) { (@($row.Phases) | ForEach-Object { (& $e $_.Name) + ' <span class="num">' + (Format-DevSeconds $_.Seconds) + '</span>' }) -join '<br>' } else { '<span class="note">--</span>' }
             $id = & $e $row.Run.Id
-            [void]$body.AppendLine('<tr><td class="sw-left">' + (& $local $row.Run.Start) + '</td><td class="num">' + (Format-DevSeconds $row.Seconds) + '</td><td>' + (Format-StopwatchDelta $row.DeltaSeconds) + '</td><td class="sw-left">' + $phases + '</td>' +
+            [void]$body.AppendLine('<tr><td class="sw-left">' + (& $local $row.Run.Start) + '</td><td class="num">' + (Format-DevSeconds $row.Seconds) + '</td><td>' + (Format-StopwatchDelta $row.DeltaSeconds) + '</td><td class="sw-left">' + $phases + '</td><td class="sw-left">' + (Format-StopwatchTranscriptCell $Transcript[$row.Run.Id] $row.Seconds) + '</td>' +
                 '<td class="sw-left"><form class="sw-form sw-note" data-action="note"><input type="hidden" name="id" value="' + $id + '"><textarea name="text" rows="2" maxlength="' + $script:StopwatchNoteMax + '" aria-label="What to improve next time">' + (& $e $row.Run.Note) + '</textarea>' +
                 '<div class="action-row"><button class="btn" type="submit"' + $off + '>Save note</button><button class="btn" type="button" data-sw="delete" data-id="' + $id + '" data-confirm="Click again to delete"' + $off + '>Delete</button></div></form></td></tr>')
         }
@@ -337,7 +535,9 @@ function Format-StopwatchPageHtml {
   });
 })();</script>
 '@
-    $note = 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout, so a run never dirties the tree it is timing. Built by <code>scripts/lib/stopwatch-lib.ps1</code>.'
+    $note = 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout, so a run never dirties the tree it is timing. ' +
+        'The transcript phases are read from this repo''s Claude Code session transcripts once a run has stopped: each second goes to the first phase going at that moment, ' +
+        'so a ship running in the background counts as the ship, and a second in which no session was busy is time spent waiting on you. Built by <code>scripts/lib/stopwatch-lib.ps1</code>.'
     return Format-DevPageHtml -Title 'Stopwatch' -Style $style -Body ($body.ToString() + $script) `
         -Lead 'How long an assignment takes, from the moment it is given to the moment it is done. Give each run a label, mark the phases with Lap, and note after each run what to improve, so the next run of the same label is shorter.' `
         -FooterNote $note
