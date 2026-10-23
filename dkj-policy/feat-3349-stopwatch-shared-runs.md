@@ -39,8 +39,9 @@
 
 ### PLAN
 
-The owner wants every machine to see every Stopwatch measurement (#3349). They picked a data ref on origin
-from three routes: the store cannot become a tracked file, because it would dirty the workflow it times.
+The owner wants every machine to see every Stopwatch measurement (#3349). Of three routes (a data ref on
+origin, a tracked file, a private store elsewhere) they picked the data ref. A tracked file was never
+workable, because it would dirty the workflow it times.
 
 #### Measured before building
 
@@ -72,7 +73,7 @@ runs, with the transcript phases it read for them, to a ref of its own on origin
 It does that with git plumbing only, so the checkout's index, working tree and branches are never touched, and
 in a background process, so no turn and no page load waits on the network. The Stop hook starts that process
 once a run has ended. The hub starts it at most every five minutes while a Stopwatch page is open, and it shows
-every other machine's runs beside this machine's own, marking them as "another machine". The machine id is
+every other machine's runs beside this machine's own, and a label page marks each of them as "another machine". The machine id is
 random, so no computer name reaches this public repo. The labels, times and phase names become public.
 
 **Score:** 2
