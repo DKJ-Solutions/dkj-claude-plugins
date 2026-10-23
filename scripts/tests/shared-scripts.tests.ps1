@@ -11,7 +11,7 @@
     Pure ASCII (repo convention for .ps1).
 #>
 
-# What this suite's live-tree walks read (#3309): the shared-script registry (Get-SharedScriptPairs): the paired scripts, and the manifests that place the mirrors, the skill pages that document them, and every script for the repo-wide guards.
+# What this suite's live-tree walks read (#3309): the shared-script registry (Get-SharedScriptPairs): the paired scripts and the manifests that place the mirrors, the skill pages that document them, and every script for the repo-wide guards.
 # gate-selection: walks *.ps1 marketplace.json plugin.json SKILL.md
 $ErrorActionPreference = 'Stop'
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path

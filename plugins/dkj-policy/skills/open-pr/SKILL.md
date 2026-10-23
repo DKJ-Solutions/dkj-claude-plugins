@@ -370,8 +370,11 @@ fix. A pattern with a `/` is matched against the whole path, one without against
 crosses folders. The declaration covers everything the walk reads, a script the suite runs against the live
 tree included; a wrong one costs a red CI run. The selection's own suite holds every declared scope to the
 literal `-Filter`/`-Include` values of the file's live walks, so a new walk over another kind of file fails
-there first. On October 23, 2026 the declarations took a CSS change from 44 suites to 5. CI's asset-only
-selection does not trust them: it still judges every walker by its own text. Each file's references are cached in the git
+there first. That guard checks the kind of file, not the folder, and it cannot see a walk done inside a lib
+the suite calls, so the folder half of a declaration is the author's to get right. On October 23, 2026 the declarations took a CSS change from 44 suites to 5. CI's asset-only
+selection does not trust them: it still judges every walker by its own text.
+
+Each file's references are cached in the git
 directory by blob id, so after the first run only changed files are parsed.
 
 **Every suite runs, and the line says why, whenever the mapping is not proven**: the repo names no

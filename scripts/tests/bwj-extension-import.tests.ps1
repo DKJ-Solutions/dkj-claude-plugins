@@ -17,8 +17,8 @@
     Pure ASCII (repo convention for .ps1).
 #>
 
-# What this suite's live-tree walks read (#3309): the plugin folders under plugins/dkj-policy/, told apart by their manifest.
-# gate-selection: walks plugins/dkj-policy/*/plugin.json
+# What this suite's live-tree walks read (#3309): the plugin folders under plugins/dkj-policy/, told apart by their manifest, and each one's CLAUDE.md.
+# gate-selection: walks plugins/dkj-policy/*/plugin.json plugins/dkj-policy/*/CLAUDE.md
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot   = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path

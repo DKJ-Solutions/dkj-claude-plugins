@@ -19,7 +19,8 @@
         October 22, 2026), the ones whose source mentions a changed path's extension (`css`, `svg`, ...),
         plus any whose declared walk scope a changed path falls in (the selection's Scoped set). The
         declaration does not DROP a walker here: the local gate trusts it because CI runs behind it, and
-        nothing runs behind this selection, so every walker is still judged by its own text (#3309).
+        nothing runs behind this selection, so every walker is still judged by its own text (#3309). It keeps
+        at least what it kept before: a walker whose declared scope the change falls in is kept as well.
         Every walk measured that day filters on `*.ps1`, `*.md`, `*.json`, `*.yml` or a named manifest, so
         none of them can enumerate a stylesheet. A future walk that does has to name the extension
         to filter on it, and naming it keeps the suite in. The guard is crude on purpose: it errs

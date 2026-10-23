@@ -1332,7 +1332,7 @@ function Get-SuiteReferenceSet {
     # THE WALK'S SCOPE, DECLARED (issue #3309, lever 1): '# gate-selection: walks *.ps1 plugin.json' says
     # which changed paths the file's walks can read, and is a walk declaration in its own right. A file
     # that also says 'always' keeps no scope -- the two lines disagree, and the safe reading wins.
-    $scopeLines = [regex]::Matches($Text, '(?m)^\s*#\s*gate-selection:\s*walks\s+(\S.*?)\s*$')
+    $scopeLines = [regex]::Matches($Text, '(?m)^[ \t]*#[ \t]*gate-selection:[ \t]*walks[ \t]+(\S.*?)[ \t]*$')
     if ($scopeLines.Count -gt 0) {
         $result.Walks = $true
         if ($Text -notmatch '(?m)^\s*#\s*gate-selection:\s*always\s*$') {
@@ -1596,7 +1596,7 @@ function Get-AffectedSuiteSelection {
         no name points at, so nothing here can say which change reaches it. #2323 counted sixteen such
         whole-tree self-checks; this reading finds them by their Get-ChildItem / git ls-files / recursive
         copy over a path built from $RepoRoot or $PSScriptRoot, or by the live root handed to a lib
-        function that enumerates it (Get-SharedScriptPairs and its kind) -- 39 suites today. A suite whose
+        function that enumerates it (Get-SharedScriptPairs and its kind) -- 40 suites on October 22, 2026. A suite whose
         walk this cannot see -- one done inside a script it runs against the live tree -- says so with a
         '# gate-selection: always' line.
 

@@ -46,7 +46,7 @@
     codepoint.
 #>
 
-# What this suite's live-tree walks read (#3309): the shared-script registry (Get-SharedScriptPairs): the paired scripts, and the manifests that place the mirrors.
+# What this suite's live-tree walks read (#3309): the shared-script registry (Get-SharedScriptPairs): the paired scripts and the manifests that place the mirrors.
 # gate-selection: walks *.ps1 marketplace.json plugin.json
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest

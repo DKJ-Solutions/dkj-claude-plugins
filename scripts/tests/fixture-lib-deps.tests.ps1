@@ -99,8 +99,8 @@
     Pure ASCII (repo convention for .ps1).
 #>
 
-# What this suite's live-tree walks read (#3309): the files in scripts/tests.
-# gate-selection: walks scripts/tests/*.ps1
+# What this suite's live-tree walks read (#3309): the files in scripts/tests, and the libs and scripts Get-FixtureDepReport reads under scripts/.
+# gate-selection: walks scripts/*.ps1
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'

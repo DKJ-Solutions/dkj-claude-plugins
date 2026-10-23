@@ -51,12 +51,14 @@ not this branch, so the issue stays open and this ships with `-NoResolves`.
   it (`Test-WalkScopeMatch`), inherits a scoped helper's scope, and reports `Scoped` and `Walkers` beside
   `Always`; the cache format is versioned to v2.
 - [x] CI's asset-only selection judges every walker (`Walkers`), not just `Always`, so the declarations
-  narrow the local gate and leave CI's behaviour as it was.
+  narrow the local gate while CI keeps at least what it kept before.
 - [x] 37 walking suites declare their scope, each with a one-line reason; `merge-on-green-lib` and
   `suite-durations-lib` inherit one from a helper they reach, and `dev-pages` stays unbounded on purpose
   (it reads html, css and js).
 - [x] The scope guard in `affected-suites.tests.ps1`: every declared scope covers its own live walks'
   filters (Victor's review note on #3309).
+- [x] Victor's review: `fixture-lib-deps` and `bwj-extension-import` widened to what their libs and
+  variable-built paths read; Edith's copy edit applied.
 - [x] The `open-pr` skill page documents the declaration; the `gate-lib.ps1` mirror is rebuilt.
 
 ### TEST
