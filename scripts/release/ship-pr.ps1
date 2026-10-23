@@ -336,6 +336,10 @@
     0 RESTORES THE OLD BEHAVIOUR -- refuse on the first stale reading and print the remedy -- and the
     refusal then says so, rather than implying the laps ran out.
 
+    THE BUDGET IS SHARED WITH STEP 3A. Since the early forward, a lap can also be spent DURING the CI
+    wait, the moment the trunk voids the running certificate, instead of after that run has finished
+    (Get-EarlyForwardAction). Either way it is one lap of this budget, and 0 switches both off.
+
 .PARAMETER TrustedRoot
     Run in TRUSTED-TREE MODE (issue #2437): a path to a separate, already-checked-out copy of the
     trunk, trusted the way $PSScriptRoot already is when this script itself runs from that tree. Empty
@@ -1779,6 +1783,207 @@ function Wait-ForwardedCertificate {
     }
 }
 
+function Get-FoldExemptCommits {
+    <#
+    .SYNOPSIS
+        Which of the given trunk commits are fold-only (changelog plus a branch document) -- the #1592
+        discount, read from each commit's own diff.
+
+    .DESCRIPTION
+        LIFTED OUT OF STEP 3B so step 3a's early reading discounts exactly what step 3b does: two copies of
+        an exemption are two answers to "is this certificate stale". Fails closed by returning fewer
+        exemptions, never more -- a diff or a seam that does not read leaves the commit counted. The
+        reasoning behind each line is at the step 3b call site, where the measurements are.
+    #>
+    param([AllowEmptyCollection()][string[]]$Commits = @())
+
+    $exempt = @()
+    if (@($Commits).Count -eq 0) { return $exempt }
+    $changelogForFold = ''
+    $entryDirForFold = ''
+    $reservedForFold = @()
+    try {
+        $changelogForFold = Get-SeamValue -Name 'Get-ChangelogPath' -Default (Get-DefaultChangelogPath -RepoRoot $repoRoot)
+        $branchPathsForFold = Get-BranchFilePaths
+        $entryDirForFold = $branchPathsForFold.Directory
+        $reservedForFold = @($branchPathsForFold.ReservedNames)
+    } catch {
+        $changelogForFold = ''
+        $entryDirForFold = ''
+    }
+    if (-not ($changelogForFold -and $entryDirForFold)) { return $exempt }
+    foreach ($gained in $Commits) {
+        $sha = "$gained".Trim()
+        $diffRead = Invoke-NativeCapture -Utf8 -FilePath 'git' -DiscardStderr -Arguments @('show', '--name-status', '--format=', $sha)
+        if ($diffRead.ExitCode -ne 0) { continue }
+        if (Test-IsFoldOnlyCommit -NameStatusLines @($diffRead.Output) -ChangelogPath $changelogForFold `
+                -EntryDirectory $entryDirForFold -ReservedNames $reservedForFold) {
+            $exempt += $sha
+        }
+    }
+    return $exempt
+}
+
+function Get-EarlyStaleReading {
+    <#
+    .SYNOPSIS
+        Step 3a's reading of the certificate WHILE its run is still going: the same predicate as step 3b,
+        failing open. Returns Trunk (the origin/main tip read), RunIds and Verdict ($null = no reading).
+
+    .DESCRIPTION
+        THE SAME READS AS STEP 3B, IN THE SAME ORDER, with every failure answered by "no reading" instead
+        of a refusal: this is a shortcut to step 3b's remedy, not a second gate, and step 3b still reads
+        the certificate fail-closed after the watch. A fetch, a run date, a log that does not read costs
+        this poll and nothing else.
+
+        THE EXPENSIVE HALF RUNS ONLY WHEN THE TRUNK HAS MOVED since the last poll (-LastTrunk), so a quiet
+        trunk costs one fetch per poll and no gh api call at all.
+    #>
+    param(
+        [AllowEmptyString()][string]$ChecksJson = '',
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$RequiredNames,
+        [AllowEmptyString()][string]$LastTrunk = '',
+        [Parameter(Mandatory = $true)][string]$Repo
+    )
+
+    # A READING THAT COULD NOT BE TAKEN KEEPS -LastTrunk, so the next poll asks again rather than treating
+    # this tip as read -- the first polls run while the aggregator is still absent, which is exactly when a
+    # read is most likely to come back short (Victor, on this branch).
+    $none = [pscustomobject]@{ Trunk = $LastTrunk; RunIds = @(); Verdict = $null }
+    try {
+        $fetch = Invoke-NativeCapture -FilePath 'git' -DiscardStderr -Arguments @('fetch', 'origin', 'main', '--quiet')
+        if ($fetch.ExitCode -ne 0) { return $none }
+        $tipRead = Invoke-NativeCapture -FilePath 'git' -DiscardStderr -Arguments @('rev-parse', 'origin/main')
+        $tip = @($tipRead.Output | Where-Object { $_ -and "$_".Trim() }) | Select-Object -First 1
+        if ($tipRead.ExitCode -ne 0 -or -not $tip) { return $none }
+        $tip = "$tip".Trim()
+        if ($tip -eq $LastTrunk) { return $none }
+        $moved = $none
+
+        # A REQUIRED AGGREGATOR HAS NO RECORD UNTIL ITS JOBS ARE DONE, so its run cannot be read off its own
+        # link yet. Every check registered so far was created by the same push, so their runs are dated
+        # instead: Get-CertifyingRunCreatedAt takes the earliest, which can only find MORE gained commits --
+        # an early forward a few seconds too eager, never a stale certificate read as sound. Step 3b reads
+        # the required run itself after the watch.
+        $runIds = @(Get-RequiredCheckRunIds -ChecksJson $ChecksJson -Names $RequiredNames)
+        if ($runIds.Count -eq 0) {
+            # Parsed into a variable first: 5.1 emits a JSON array as one object (see Get-UnfinishedRequiredCount).
+            $parsedChecks = $ChecksJson | ConvertFrom-Json
+            $allNames = @(@($parsedChecks) | Where-Object { $_ -and $_.name } | ForEach-Object { [string]$_.name } | Select-Object -Unique)
+            if ($allNames.Count -gt 0) { $runIds = @(Get-RequiredCheckRunIds -ChecksJson $ChecksJson -Names $allNames) }
+        }
+        if ($runIds.Count -eq 0) { return $moved }
+        $createdAtValues = @()
+        foreach ($runId in $runIds) {
+            $runRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @('api', "repos/$Repo/actions/runs/$runId", '--jq', '.created_at')
+            if ($runRead.ExitCode -ne 0) { return $moved }
+            $createdAtValues += (($runRead.Output -join '').Trim())
+        }
+        $since = Get-CertifyingRunCreatedAt -CreatedAtValues $createdAtValues
+        if ($null -eq $since) { return $moved }
+        $log = Invoke-NativeCapture -FilePath 'git' -DiscardStderr -Arguments @('log', 'origin/main', '--first-parent', '--since', $since.ToString('yyyy-MM-ddTHH:mm:ssZ'), '--pretty=format:%H')
+        if ($log.ExitCode -ne 0) { return $moved }
+        $gained = @($log.Output | Where-Object { $_ -and "$_".Trim() })
+        $verdict = Get-StaleCertificateVerdict -NewMainCommits $gained -ExemptCommits @(Get-FoldExemptCommits -Commits $gained)
+        return [pscustomobject]@{ Trunk = $tip; RunIds = $runIds; Verdict = $verdict }
+    } catch {
+        return $none
+    }
+}
+
+function Complete-ForwardLap {
+    <#
+    .SYNOPSIS
+        After a successful update-branch: wait for the fresh certificate. Returns the fresh check facts;
+        REFUSES (exit 1) when none finishes in time.
+
+    .DESCRIPTION
+        LIFTED OUT OF STEP 3B (issue #2087) so step 3a's early forward waits for a lap exactly the way step
+        3b does. Every forward, whoever spent it, also owes Sync-ForwardedBranchRef afterwards; step 3b puts
+        its red-check verdict between the two, so a red run is reported as red rather than masked by a
+        catch-up error.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Pr,
+        [Parameter(Mandatory = $true)][string]$Repo,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$PreviousRunIds,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$RequiredNames,
+        [int]$PollSeconds = 15
+    )
+
+    # THE WAIT IS FOR A DIFFERENT RUN, NOT FOR A GREEN ONE. See Wait-ForwardedCertificate: the check API
+    # answers with the old, completed, green run for a few seconds after the forward, and a wait that
+    # believed it would spend the whole budget in seconds.
+    $freshFacts = Wait-ForwardedCertificate -Pr $Pr -Repo $Repo -PreviousRunIds $PreviousRunIds `
+        -RequiredNames $RequiredNames -PollSeconds $PollSeconds
+    if ($null -eq $freshFacts) {
+        Write-Error @"
+stale-CI certificate: PR #$Pr was brought up to date, but no fresh certificate finished in time -- NOT
+merged (issue #2087).
+
+The forward itself succeeded, so the branch on GitHub IS current with 'main'; what did not arrive is a
+completed run of $(Format-CheckNameList -Names $RequiredNames) against the new head. Nothing is wrong
+with the branch. Re-run ship-pr once CI is green:
+
+  gh pr checks $Pr --repo $Repo
+"@
+        exit 1
+    }
+    return $freshFacts
+}
+
+function Sync-ForwardedBranchRef {
+    <#
+    .SYNOPSIS
+        After a forward and its fresh certificate: fast-forward this checkout's copy of the branch to the
+        forwarded head. REFUSES (exit 1) when it cannot.
+
+    .DESCRIPTION
+        LIFTED OUT OF STEP 3B (issue #2087) beside Complete-ForwardLap, for the same reason: step 4 reads the
+        step list and the DEPLOY lock from refs/heads/<branch> on the invariant that it IS the PR's head
+        commit, which every forward breaks -- step 3a's early one included.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Branch,
+        [Parameter(Mandatory = $true)][string]$BranchShown,
+        [bool]$Unattended = $false
+    )
+
+    # THE LOCAL REF CATCHES UP LAST, once the new head provably exists. Get-LocalRefForwardPlan decides
+    # which of the two ff-only commands restores it from where HEAD happens to be.
+    $headAtForwardRead = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
+    $headAtForwardLine = @($headAtForwardRead.Output | Where-Object { $_ -and "$_".Trim() }) | Select-Object -First 1
+    $headAtForward = if ($headAtForwardRead.ExitCode -eq 0 -and $headAtForwardLine) { "$headAtForwardLine".Trim() } else { '' }
+    $forwardPlan = Get-LocalRefForwardPlan -Head $headAtForward -Branch $Branch -Unattended:$Unattended
+    if ($forwardPlan -eq 'refuse') {
+        Write-Error "ship-pr: an unattended run is standing on '$BranchShown' at the forward lap, and its merge route would bring the live remote head into this checkout (issue #2343) -- NOT merged; the pull request stays armed."
+        exit 1
+    }
+    $refCatchUp = if ($forwardPlan -eq 'merge-ff-only') {
+        $fetchForBranch = Invoke-NativeCapture -FilePath 'git' -Arguments @('fetch', 'origin', $Branch, '--quiet')
+        if ($fetchForBranch.ExitCode -ne 0) { $fetchForBranch } else {
+            Invoke-NativeCapture -FilePath 'git' -Arguments @('merge', '--ff-only', "origin/$Branch")
+        }
+    } else {
+        # THE REFSPEC IS ITSELF FAST-FORWARD-ONLY without a leading '+', which is the point: a local ref
+        # that has diverged is refused rather than rewritten.
+        Invoke-NativeCapture -FilePath 'git' -Arguments @('fetch', 'origin', "${Branch}:${Branch}")
+    }
+    if ($refCatchUp.ExitCode -ne 0) {
+        $refCatchUp.Output | Where-Object { $_ -and "$_".Trim() } | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkYellow }
+        Write-Error @"
+The branch was forwarded on GitHub, but this checkout's own copy of it could not be fast-forwarded --
+NOT merged (issue #2087).
+
+git's own reason is above. Step 4 reads the step list and the DEPLOY lock from refs/heads/$BranchShown on
+the invariant that it IS the PR's head commit, so merging while the two disagree would gate the merge on
+a document the PR does not contain. The usual cause is a commit made on this branch locally during the CI
+wait: push it, or reset onto origin/$BranchShown, then re-run ship-pr.
+"@
+        exit 1
+    }
+}
+
 # --- Step 3: wait for the required CI check ------------------------------------------------------
 # The CI checks can lag a few seconds behind the push: `gh pr checks` prints "no checks reported"
 # and exits 0 while none are registered yet -- indistinguishable by exit code from "all passed", so
@@ -2112,6 +2317,82 @@ $maxWaitSec = 180
 $waited = Wait-CheckRegistration -Pr "$pr" -Repo $repo -Branch $branch `
     -PollSeconds $PollSeconds -MaxWaitSec $maxWaitSec
 
+# --- STEP 3A: FORWARD EARLY WHEN THE TRUNK VOIDS THE RUNNING CERTIFICATE (a sub-banner of step 3) ---
+# Get-EarlyForwardAction carries the argument and the measurement (PR #3348: a second CI run that began
+# only after a first one the gate was always going to discard, 43% of the assignment). Polled rather than
+# watched, because `gh pr checks --watch` blocks and cannot be asked anything in between; once no required
+# check is unfinished -- or anything here cannot be read -- the waits below take over exactly as before,
+# returning at once on a run that has already finished. The lap budget is step 3b's and is shared.
+#
+# IT SITS BEFORE THE WAIT ON THE REQUIRED CHECK, NOT AFTER IT. That wait ends when the required check
+# registers, and an aggregator like `lint-en-tests` registers only once the jobs it needs are done -- so
+# placed after it, this phase would start with CI already over. Unfinished is therefore counted from the
+# ruleset's names against the full payload (Get-UnfinishedRequiredCount), where an absent record counts.
+#
+# ONE EARLY LAP AT MOST. After a forward this waits for the fresh certificate the way step 3b does
+# (Complete-ForwardLap, which also handles the cancelled duplicate run of #3331) and then hands over, so a
+# trunk that moves AGAIN is step 3b's ordinary lap rather than a second shortcut.
+#
+# BOUNDED, because an absent record counts as unfinished: a required name that never registers (a
+# path-filtered workflow, a ruleset context gh names differently) would otherwise poll forever, where the
+# wait below refuses with #1234's diagnostics. Past the bound this hands over to that wait, which then
+# answers as it always did. And a payload that does not read is retried twice before it hands over, so a
+# single network blip does not end the phase.
+$forwardLapsUsed = 0
+# One trunk reading per four watch polls -- a minute at the default. The reading is a fetch, plus a gh api
+# call only when the trunk has actually moved.
+$earlyProbeSec = 4 * $PollSeconds
+$earlyMaxSec = 1800
+$earlyMaxBlips = 2
+if (-not $SkipStaleCheck -and $MaxForwardLaps -gt 0 -and $requiredWaitNames.Count -gt 0) {
+    $earlyLastTrunk = ''
+    $earlyBlips = 0
+    $earlyBegan = Get-Date
+    while ($true) {
+        if (((Get-Date) - $earlyBegan).TotalSeconds -ge $earlyMaxSec) { break }
+        $earlyFacts = Get-CheckFactsNow -Pr "$pr" -Repo $repo
+        $earlyUnfinished = Get-UnfinishedRequiredCount -ChecksJson $earlyFacts.Checks -RequiredNames $requiredWaitNames
+        if ($earlyUnfinished -lt 0 -and $earlyBlips -lt $earlyMaxBlips) {
+            $earlyBlips++
+            Start-Sleep -Seconds $PollSeconds
+            continue
+        }
+        $earlyBlips = 0
+        $earlyRead = $null
+        if ($earlyUnfinished -gt 0) {
+            $earlyRead = Get-EarlyStaleReading -ChecksJson $earlyFacts.Checks -RequiredNames $requiredWaitNames `
+                -LastTrunk $earlyLastTrunk -Repo $repo
+            $earlyLastTrunk = $earlyRead.Trunk
+        }
+        $earlyVerdict = if ($earlyRead) { $earlyRead.Verdict } else { $null }
+        $earlyAction = Get-EarlyForwardAction -ChecksReadable ($earlyUnfinished -ge 0) `
+            -UnfinishedRequired ([math]::Max($earlyUnfinished, 0)) -StaleVerdict $earlyVerdict `
+            -LapsUsed $forwardLapsUsed -MaxLaps $MaxForwardLaps
+        if ($earlyAction -eq 'watch') { break }
+        if ($earlyAction -eq 'poll') { Start-Sleep -Seconds $earlyProbeSec; continue }
+
+        Write-Host "ship-pr: 'main' gained $($earlyVerdict.Count) commit(s) while CI was still certifying -- bringing '$branchShown' up to date NOW rather than after this run finishes (lap $($forwardLapsUsed + 1) of $MaxForwardLaps, step 3a)." -ForegroundColor Cyan
+        $earlyUpdate = Invoke-NativeCapture -FilePath 'gh' -Arguments @(
+            'api', '--method', 'PUT', "repos/$repo/pulls/$pr/update-branch")
+        $earlyOutcome = Get-UpdateBranchOutcome -ExitCode $earlyUpdate.ExitCode -OutputLines @($earlyUpdate.Output)
+        if ($earlyOutcome.Outcome -ne 'forwarded') {
+            # NOT A REFUSAL HERE. Step 3b reads the same certificate after the watch and owns every
+            # sentence about a forward that could not be made -- a conflict included.
+            Write-Host "  the early forward did not go through ($($earlyOutcome.Outcome)) -- waiting for this run instead; step 3b reads the certificate after it." -ForegroundColor DarkYellow
+            break
+        }
+        $forwardLapsUsed++
+        if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'ship-pr' -Step 'forward') }
+        [void](Complete-ForwardLap -Pr "$pr" -Repo $repo -PreviousRunIds @($earlyRead.RunIds) `
+            -RequiredNames $requiredWaitNames -PollSeconds $PollSeconds)
+        # NO RED VERDICT HERE: the watch below reads the fresh run and its verdict says what red means.
+        Sync-ForwardedBranchRef -Branch $branch -BranchShown $branchShown -Unattended $unattendedShip
+        Write-Host "  forwarded early and re-certified -- the watch below reads the fresh run." -ForegroundColor DarkGray
+        break
+    }
+}
+
+
 # TWO WAITS, AND THE SECOND ONE NEEDS A BUDGET OF ITS OWN (issue #1602, measured on PR #1614's THIRD
 # ship). The wait above asks "is there any CI at all" and refuses at 180s with #1234's diagnostics --
 # that is the right question and the right budget, because "no check suite was created" is answered in
@@ -2147,6 +2428,7 @@ if ($requiredWaitNames.Count -gt 0) {
         -PollSeconds $PollSeconds -MaxWaitSec $maxRequiredWaitSec -AlreadyWaited $waited `
         -RequiredNames $requiredWaitNames
 }
+
 # --watch now blocks until the registered check finishes; exit 0 = all passed, non-zero = SOMETHING
 # failed. WHICH something is the whole question, and the answer is NOT in that exit code (#943). This
 # line used to read "branch protection blocks the merge until green, so a non-zero here means we must
@@ -2596,7 +2878,8 @@ if ($SkipStaleCheck) {
         # unreadable created_at, a failed fetch: each means the gate could not measure, and lapping on
         # a measurement that did not happen would spend the budget learning nothing. Only a certificate
         # that was READ and found stale is worth another lap.
-        $forwardLapsUsed = 0
+        # $forwardLapsUsed IS NOT RESET HERE: it was set before step 3a, and a lap spent there is one of
+        # this budget's.
         $forwardSituation = 'stale'
         while ($true) {
             $staleRunIds = @(Get-RequiredCheckRunIds -ChecksJson $checkFactsJson -Names $staleCheckNames)
@@ -2699,61 +2982,16 @@ certificate anyway.
             # not resolve, leaves the commit counted exactly as it was before this exemption existed -- the
             # refusal below is then the same refusal it always was, which is the safe direction for a gate whose
             # only job is catching "green PR, red trunk".
-            $foldExemptCommits = @()
-            if ($newMainCommits.Count -gt 0) {
-                $changelogForFold = ''
-                $entryDirForFold = ''
-                # Read once and held: Get-BranchFilePaths is pure and static, so two calls could never answer
-                # differently -- but a reader has to establish that before they can be sure, and one variable
-                # says it instead.
-                $reservedForFold = @()
-                try {
-                    $changelogForFold = Get-SeamValue -Name 'Get-ChangelogPath' -Default (Get-DefaultChangelogPath -RepoRoot $repoRoot)
-                    $branchPathsForFold = Get-BranchFilePaths
-                    $entryDirForFold = $branchPathsForFold.Directory
-                    $reservedForFold = @($branchPathsForFold.ReservedNames)
-                } catch {
-                    $changelogForFold = ''
-                    $entryDirForFold = ''
-                }
-                if ($changelogForFold -and $entryDirForFold) {
-                    foreach ($gained in $newMainCommits) {
-                        $sha = "$gained".Trim()
-                        # --format= empties the header so only the name-status body comes back; -DiscardStderr
-                        # because this output is PARSED, the same reason the first-parent log above carries it.
-                        #
-                        # AND -Utf8, BECAUSE THESE PATHS ARE DATA (issue #907). Branch names here are ASCII by
-                        # this repo's own naming rule, so the console code page cannot change today's answer --
-                        # but this call compares its output against two seam-supplied paths, which is exactly the
-                        # class the lib's own header says must not be decoded with the console's code page. It
-                        # fails in the safe direction either way (a mis-decoded path matches nothing and the
-                        # commit stays counted), so this is the convention being followed rather than a bug being
-                        # fixed; the alternative was a comment explaining why this one call is the odd one out.
-                        $diffRead = Invoke-NativeCapture -Utf8 -FilePath 'git' -DiscardStderr -Arguments @('show', '--name-status', '--format=', $sha)
-                        # AN UNMEASURABLE EXIT CODE LANDS IN THE SAME `continue` (issue #1931, audited under
-                        # #2081), and it needs no arm of its own for the reason the block below gives about a
-                        # short read: both leave the commit COUNTED in the staleness verdict, which is the
-                        # fail-closed direction, so a separate branch would be a no-op wearing a citation.
-                        # Recorded rather than repaired -- that is this site's audited verdict.
-                        if ($diffRead.ExitCode -ne 0) { continue }
-                        # NO ShortRead BRANCH HERE, AND THAT IS A MEASUREMENT RATHER THAN AN OMISSION
-                        # (issue #1679). This call was listed with the five sites that read an empty capture
-                        # on exit 0 as a substantive answer -- "this commit changed no files" -- and it does.
-                        # But Test-IsFoldOnlyCommit FAILS CLOSED on exactly that: an unreadable diff returns
-                        # $false, the commit is not exempted, and it stays counted in the staleness verdict.
-                        # A ShortRead guard would `continue`, which leaves it counted too, so the two are
-                        # behaviourally identical and the guard would be a no-op wearing a citation. What a
-                        # short read costs here is one spurious stale-CI refusal, never a merge that should
-                        # have been refused -- and an empty capture is LEGITIMATE at this call anyway (`git
-                        # show --name-status --format=` on a commit that changed no files: measured, 0 bytes
-                        # at exit 0), which is the other reason not to treat empty as failure.
-                        if (Test-IsFoldOnlyCommit -NameStatusLines @($diffRead.Output) -ChangelogPath $changelogForFold `
-                                -EntryDirectory $entryDirForFold -ReservedNames $reservedForFold) {
-                            $foldExemptCommits += $sha
-                        }
-                    }
-                }
-            }
+            #
+            # THE READ ITSELF IS Get-FoldExemptCommits SINCE STEP 3A, which reads the same discount during
+            # the wait. Inside it: the seams are read once and held (Get-BranchFilePaths is pure and static);
+            # each diff is read with --format= so only the name-status body comes back, -DiscardStderr
+            # because that output is PARSED, and -Utf8 because these paths are DATA compared against two
+            # seam-supplied paths (issue #907). AN UNMEASURABLE EXIT CODE `continue`s (issue #1931, audited
+            # under #2081) and an EMPTY capture is not guarded (issue #1679): both leave the commit COUNTED,
+            # which is the fail-closed direction, and an empty capture is legitimate anyway -- `git show
+            # --name-status --format=` on a commit that changed no files measured 0 bytes at exit 0.
+            $foldExemptCommits = @(Get-FoldExemptCommits -Commits $newMainCommits)
 
             $staleVerdict = Get-StaleCertificateVerdict -NewMainCommits $newMainCommits -ExemptCommits $foldExemptCommits
             if ($staleVerdict.ExemptCount -gt 0) {
@@ -2857,24 +3095,12 @@ certificate anyway; -MaxForwardLaps 0 refuses on the first stale reading and pri
                         exit 1
                     }
 
-                    # THE WAIT IS FOR A DIFFERENT RUN, NOT FOR A GREEN ONE. See Wait-ForwardedCertificate:
-                    # the check API answers with the old, completed, green run for a few seconds after the
-                    # forward, and a wait that believed it would spend the whole budget in seconds.
-                    $freshFacts = Wait-ForwardedCertificate -Pr "$pr" -Repo $repo -PreviousRunIds $staleRunIds `
+                    # THE WAIT FOR A DIFFERENT RUN is Complete-ForwardLap's, and the local ref catching up
+                    # after it is Sync-ForwardedBranchRef's -- both shared with step 3a's early forward, both
+                    # refusing themselves. The red-check verdict stays here, BETWEEN them, so a red run is
+                    # reported as red rather than masked by a catch-up error.
+                    $freshFacts = Complete-ForwardLap -Pr "$pr" -Repo $repo -PreviousRunIds $staleRunIds `
                         -RequiredNames $staleCheckNames -PollSeconds $PollSeconds
-                    if ($null -eq $freshFacts) {
-                        Write-Error @"
-stale-CI certificate: PR #$pr was brought up to date, but no fresh certificate finished in time -- NOT
-merged (issue #2087).
-
-The forward itself succeeded, so the branch on GitHub IS current with 'main'; what did not arrive is a
-completed run of $(Format-CheckNameList -Names $staleCheckNames) against the new head. Nothing is wrong
-with the branch. Re-run ship-pr once CI is green:
-
-  gh pr checks $pr --repo $repo
-"@
-                        exit 1
-                    }
                     $checkFactsJson = $freshFacts.Checks
                     $requiredFactsJson = $freshFacts.Required
 
@@ -2897,41 +3123,7 @@ exactly what the stale-certificate gate exists to find. Fix it on the branch and
                         exit 1
                     }
 
-                    # THE LOCAL REF CATCHES UP LAST, once the new head provably exists. Step 4 reads the
-                    # step list and the DEPLOY lock from refs/heads/<branch> on the stated invariant that
-                    # it is the PR's head commit -- which the forward has just broken. Get-LocalRefForwardPlan
-                    # decides which of the two ff-only commands restores it from where HEAD happens to be.
-                    $headAtForwardRead = Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', '--abbrev-ref', 'HEAD')
-                    $headAtForwardLine = @($headAtForwardRead.Output | Where-Object { $_ -and "$_".Trim() }) | Select-Object -First 1
-                    $headAtForward = if ($headAtForwardRead.ExitCode -eq 0 -and $headAtForwardLine) { "$headAtForwardLine".Trim() } else { '' }
-                    $forwardPlan = Get-LocalRefForwardPlan -Head $headAtForward -Branch $branch -Unattended:$unattendedShip
-                    if ($forwardPlan -eq 'refuse') {
-                        Write-Error "ship-pr: an unattended run is standing on '$branchShown' at the forward lap, and its merge route would bring the live remote head into this checkout (issue #2343) -- NOT merged; the pull request stays armed."
-                        exit 1
-                    }
-                    $refCatchUp = if ($forwardPlan -eq 'merge-ff-only') {
-                        $fetchForBranch = Invoke-NativeCapture -FilePath 'git' -Arguments @('fetch', 'origin', $branch, '--quiet')
-                        if ($fetchForBranch.ExitCode -ne 0) { $fetchForBranch } else {
-                            Invoke-NativeCapture -FilePath 'git' -Arguments @('merge', '--ff-only', "origin/$branch")
-                        }
-                    } else {
-                        # THE REFSPEC IS ITSELF FAST-FORWARD-ONLY without a leading '+', which is the point:
-                        # a local ref that has diverged is refused rather than rewritten.
-                        Invoke-NativeCapture -FilePath 'git' -Arguments @('fetch', 'origin', "${branch}:${branch}")
-                    }
-                    if ($refCatchUp.ExitCode -ne 0) {
-                        $refCatchUp.Output | Where-Object { $_ -and "$_".Trim() } | ForEach-Object { Write-Host "  $_" -ForegroundColor DarkYellow }
-                        Write-Error @"
-The branch was forwarded on GitHub, but this checkout's own copy of it could not be fast-forwarded --
-NOT merged (issue #2087).
-
-git's own reason is above. Step 4 reads the step list and the DEPLOY lock from refs/heads/$branchShown on
-the invariant that it IS the PR's head commit, so merging while the two disagree would gate the merge on
-a document the PR does not contain. The usual cause is a commit made on this branch locally during the CI
-wait: push it, or reset onto origin/$branchShown, then re-run ship-pr.
-"@
-                        exit 1
-                    }
+                    Sync-ForwardedBranchRef -Branch $branch -BranchShown $branchShown -Unattended $unattendedShip
                     Write-Host "  forwarded and re-certified -- measuring the certificate again." -ForegroundColor DarkGray
                     continue
                 }

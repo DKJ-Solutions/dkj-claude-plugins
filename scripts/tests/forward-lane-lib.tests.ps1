@@ -205,6 +205,44 @@ Assert-Equal '' ((Get-CancelledCheckRunIds -ChecksJson 'not json' -Names @('lint
 Assert-Equal '' ((Get-CancelledCheckRunIds -ChecksJson '' -Names @('lint-en-tests')) -join ',') '...and so does an empty one'
 
 Write-Host ''
+Write-Host 'Get-UnfinishedRequiredCount -- a required aggregator that has not registered is unfinished' -ForegroundColor Cyan
+
+# THE CASE THE FUNCTION EXISTS FOR. `lint-en-tests` has no record until the jobs it needs are done, and
+# the `--required` payload says nothing about it -- so counting from that payload would end step 3a three
+# minutes into an eight-minute CI. Counted against the ruleset's names, an absent record is unfinished.
+$midRun = '[{"name":"lint","bucket":"pending"},{"name":"suites (1)","bucket":"pending"},{"name":"branch-entry","bucket":"pass"}]'
+Assert-Equal 1 (Get-UnfinishedRequiredCount -ChecksJson $midRun -RequiredNames @('lint-en-tests')) 'a required check with no record yet counts as unfinished'
+Assert-Equal 1 (Get-UnfinishedRequiredCount -ChecksJson '[{"name":"lint-en-tests","bucket":"pending"}]' -RequiredNames @('lint-en-tests')) 'a pending one does too'
+Assert-Equal 0 (Get-UnfinishedRequiredCount -ChecksJson '[{"name":"lint-en-tests","bucket":"pass"}]' -RequiredNames @('lint-en-tests')) 'a passed one does not'
+# FAIL AND CANCEL ARE CONCLUDED. Step 3a hands over on them; the watch and its verdict say what they mean.
+Assert-Equal 0 (Get-UnfinishedRequiredCount -ChecksJson '[{"name":"lint-en-tests","bucket":"fail"}]' -RequiredNames @('lint-en-tests')) 'a failed one is concluded, not unfinished'
+Assert-Equal 0 (Get-UnfinishedRequiredCount -ChecksJson '[{"name":"lint-en-tests","bucket":"cancel"}]' -RequiredNames @('lint-en-tests')) '...and so is a cancelled one'
+Assert-Equal 2 (Get-UnfinishedRequiredCount -ChecksJson '[{"name":"a","bucket":"pass"}]' -RequiredNames @('a', 'b', 'c', 'c')) 'each required name is counted once'
+# SEVERAL RECORDS, the shape every real payload has -- and the one Windows PowerShell 5.1 collapses into a
+# single object when ConvertFrom-Json is wrapped inline, so every name read as all of them joined and this
+# never reached 0 (Victor, on the branch that added it). Every single-record case above passes either way.
+Assert-Equal 0 (Get-UnfinishedRequiredCount -ChecksJson '[{"name":"a","bucket":"pass"},{"name":"b","bucket":"fail"}]' -RequiredNames @('a', 'b')) 'several concluded records read as concluded'
+Assert-Equal 2 (Get-UnfinishedRequiredCount -ChecksJson '[{"name":"a","bucket":"pass"},{"name":"b","bucket":"pending"}]' -RequiredNames @('a', 'b', 'c')) '...and a pending one among them still counts, with the absent one'
+Assert-Equal -1 (Get-UnfinishedRequiredCount -ChecksJson '' -RequiredNames @('lint-en-tests')) 'an empty payload is unreadable, not "nothing unfinished"'
+Assert-Equal -1 (Get-UnfinishedRequiredCount -ChecksJson 'not json' -RequiredNames @('lint-en-tests')) '...and so is one that does not parse'
+
+Write-Host ''
+Write-Host 'Get-EarlyForwardAction -- every answer but poll and forward hands over to the watch' -ForegroundColor Cyan
+
+$stale = [pscustomobject]@{ Stale = $true; Count = 1 }
+$fresh = [pscustomobject]@{ Stale = $false; Count = 0 }
+Assert-Equal 'forward' (Get-EarlyForwardAction -ChecksReadable $true -UnfinishedRequired 1 -StaleVerdict $stale -LapsUsed 0 -MaxLaps 2) 'a stale reading mid-run with budget left forwards now'
+Assert-Equal 'poll' (Get-EarlyForwardAction -ChecksReadable $true -UnfinishedRequired 1 -StaleVerdict $fresh -LapsUsed 0 -MaxLaps 2) 'a sound reading keeps polling'
+# NO READING IS NOT A SOUND READING, BUT IT IS NOT A STALE ONE EITHER: this phase only shortcuts the
+# remedy, so it waits for a reading rather than forwarding on a guess.
+Assert-Equal 'poll' (Get-EarlyForwardAction -ChecksReadable $true -UnfinishedRequired 1 -StaleVerdict $null -LapsUsed 0 -MaxLaps 2) 'no reading this poll keeps polling'
+Assert-Equal 'watch' (Get-EarlyForwardAction -ChecksReadable $true -UnfinishedRequired 0 -StaleVerdict $stale -LapsUsed 0 -MaxLaps 2) 'a finished certificate is step 3b''s to read, stale or not'
+Assert-Equal 'watch' (Get-EarlyForwardAction -ChecksReadable $false -UnfinishedRequired 1 -StaleVerdict $stale -LapsUsed 0 -MaxLaps 2) 'an unreadable payload hands over rather than refusing'
+# THE BUDGET IS SHARED, so a spent one hands over and step 3b prints #2087's note -- no second sentence here.
+Assert-Equal 'watch' (Get-EarlyForwardAction -ChecksReadable $true -UnfinishedRequired 1 -StaleVerdict $stale -LapsUsed 2 -MaxLaps 2) 'a spent lap budget hands over'
+Assert-Equal 'watch' (Get-EarlyForwardAction -ChecksReadable $true -UnfinishedRequired 1 -StaleVerdict $stale -LapsUsed 0 -MaxLaps 0) '...and so does -MaxForwardLaps 0'
+
+Write-Host ''
 Write-Host 'The structural half -- ship-pr.ps1 laps on these decisions' -ForegroundColor Cyan
 
 $ship = Get-Content -LiteralPath $ShipPath -Raw
@@ -223,7 +261,8 @@ Assert-True ($ship -match "pulls/\`$pr/update-branch") 'the forward is GitHub-si
 Assert-True ($ship -match 'Get-UpdateBranchOutcome -ExitCode') '...and its answer is classified by the lib'
 Assert-True ($ship -match 'Wait-ForwardedCertificate -Pr') 'the run waits for a NEW certifying run before measuring again'
 Assert-True ($ship -match 'Get-LocalRefForwardPlan -Head \$headAtForward -Branch \$branch') 'the local ref is brought up to the forwarded head'
-Assert-True ($ship -match 'Get-LocalRefForwardPlan -Head \$headAtForward -Branch \$branch -Unattended:\$unattendedShip') '...passing whether the run is unattended (#2343)'
+Assert-True ($ship -match 'Get-LocalRefForwardPlan -Head \$headAtForward -Branch \$Branch -Unattended:\$Unattended') '...passing whether the run is unattended (#2343)'
+Assert-Equal 2 ([regex]::Matches($ship, 'Sync-ForwardedBranchRef -Branch \$branch -BranchShown \$branchShown -Unattended \$unattendedShip').Count) '...which both callers of Sync-ForwardedBranchRef hand in'
 Assert-True ($ship -match "if \(\`$forwardPlan -eq 'refuse'\) \{") '...and a refused plan ends the run rather than falling through to a fetch'
 # THE STOP SITS BETWEEN STEP 2B AND THE CI WAIT, reading what step 2b actually did.
 Assert-True ($ship -match "\`$unattendedShip = \(\`$env:GITHUB_ACTIONS -eq 'true'\)") 'unattended means running inside GitHub Actions'
@@ -232,6 +271,31 @@ $backAt = $ship.IndexOf("@('checkout', 'main')")
 $waitAt = $ship.IndexOf('waiting for the CI check(s) on PR')
 Assert-True ($stopAt -gt $backAt -and $backAt -ge 0) 'the unattended stop reads step 2b''s outcome, after the checkout attempt'
 Assert-True ($stopAt -ge 0 -and $stopAt -lt $waitAt) '...and comes before the CI wait'
+
+# STEP 3A: THE EARLY FORWARD. Its place is the whole fix -- after the wait on the required check it would
+# start with CI already over (an aggregator registers last) -- and its budget is step 3b's.
+$firstWaitAt = $ship.IndexOf('-PollSeconds $PollSeconds -MaxWaitSec $maxWaitSec')
+$earlyAt = $ship.IndexOf('Get-EarlyForwardAction -ChecksReadable')
+$requiredWaitAt = $ship.IndexOf('-PollSeconds $PollSeconds -MaxWaitSec $maxRequiredWaitSec -AlreadyWaited $waited')
+$step3bAt = $ship.IndexOf('# --- Step 3b:')
+Assert-True ($firstWaitAt -ge 0 -and $earlyAt -gt $firstWaitAt) 'step 3a runs after the first check has registered'
+Assert-True ($requiredWaitAt -gt $earlyAt) '...and BEFORE the wait on the required check, which ends only when CI is nearly over'
+Assert-True ($ship -match 'Get-UnfinishedRequiredCount -ChecksJson \$earlyFacts\.Checks -RequiredNames \$requiredWaitNames') '...counting unfinished from the ruleset names, not the --required payload'
+Assert-True ($ship -match "if \(-not \`$SkipStaleCheck -and \`$MaxForwardLaps -gt 0 -and \`$requiredWaitNames\.Count -gt 0\)") '...and only where step 3b would read a certificate at all'
+$lapsInitAt = $ship.IndexOf('$forwardLapsUsed = 0')
+Assert-True ($lapsInitAt -ge 0 -and $lapsInitAt -lt $earlyAt) 'the lap counter is set before step 3a'
+Assert-Equal 1 ([regex]::Matches($ship, '(?m)^\s*\$forwardLapsUsed = 0').Count) '...exactly once, so step 3b does not reset a lap 3a spent'
+Assert-True ($ship -match '(?s)Get-EarlyForwardAction -ChecksReadable.*?\$forwardLapsUsed\+\+.*?Complete-ForwardLap.*?Sync-ForwardedBranchRef') 'an early forward spends a lap and completes it the way step 3b does'
+# STEP 3B KEEPS ITS ORDER: wait, red verdict, then the ref -- so a red run is reported as red.
+$redAt = $ship.IndexOf('The required check went RED on the forwarded head')
+$syncIn3bAt = $ship.IndexOf('Sync-ForwardedBranchRef -Branch', $step3bAt)
+Assert-True ($redAt -gt $step3bAt -and $syncIn3bAt -gt $redAt) 'step 3b reads the red verdict before the local ref catches up'
+# BOUNDED: an absent record counts as unfinished, so a name that never registers must not poll forever.
+Assert-True ($ship -match '(?s)\$earlyBegan = Get-Date.*?TotalSeconds -ge \$earlyMaxSec\) \{ break \}') 'step 3a hands over to the waits after a bound'
+Assert-True ($ship -match '\$earlyUnfinished -lt 0 -and \$earlyBlips -lt \$earlyMaxBlips') '...and retries an unreadable payload before handing over'
+Assert-Equal 2 ([regex]::Matches($ship, 'Complete-ForwardLap -Pr').Count) 'Complete-ForwardLap is the one way a forward finishes, from 3a and from 3b'
+Assert-True ($ship.IndexOf('Get-FoldExemptCommits -Commits $newMainCommits') -gt $step3bAt) 'step 3b discounts folds through Get-FoldExemptCommits'
+Assert-True ($ship -match 'Get-StaleCertificateVerdict -NewMainCommits \$gained -ExemptCommits @\(Get-FoldExemptCommits -Commits \$gained\)') '...and so does the early reading, so the two cannot disagree'
 
 # THE REFUSAL #1292 ALWAYS PRINTED IS STILL THERE, with the lap note appended rather than woven in. The
 # whole point of this change is that the PREDICATE is untouched; a suite that let the refusal be
