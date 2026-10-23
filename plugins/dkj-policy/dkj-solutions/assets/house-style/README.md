@@ -654,7 +654,9 @@ description beneath it, a chevron at the end; a line between rows): the house's 
 A row is a full-width, `--tap`-high link that tints on hover; a `.tile` is a figure that does not respond, so
 the two cannot be mistaken for each other. Each row's label is the page's own name as its breadcrumb reads it,
 short, in the app's language; its description is one line or nothing; its link is a route on the same dev
-server, never an external site.
+server, never an external site. **A card that holds one row only is a `.card.card--link`**
+([#3298](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3298)): its link stretches over the whole
+card, so a click anywhere on the card follows it, and the whole card tints on hover rather than the row alone.
 
 **The groups** ([#206](https://github.com/DKJ-Solutions/dkj-brandbook/issues/206), approved in
 [dkj-claude-plugins#3121](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3121)): **This repo** (sub

@@ -110,7 +110,7 @@ function Format-RepoGitHubPageHtml {
     if ($SourceCommit) { [void]$sb.AppendLine('<div><dt>Source at</dt><dd><code>' + (& $e $SourceCommit) + '</code></dd></div>') }
     [void]$sb.AppendLine('</dl>')
     $card = { param($href, $label, $sub)
-        '<section class="card"><nav class="menu-list" aria-label="' + $label + '"><a class="menu-item" href="' + $href +
+        '<section class="card card--link"><nav class="menu-list" aria-label="' + $label + '"><a class="menu-item" href="' + $href +
             '"><span class="menu-item__label">' + $label + '<span class="menu-item__sub">' + $sub + '</span></span>' + $script:RepoHubChevron + '</a></nav></section>'
     }
     [void]$sb.AppendLine('<div class="grid-3">')
@@ -183,7 +183,7 @@ function Format-RepoAboutBodyHtml {
     # rule Format-GeneralPagesCardHtml applies; otherwise one card says the server is not running.
     $pageCard = { param($p)
         $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
-        '<section class="card"><nav class="menu-list" aria-label="' + (& $e $p.Label) + '"><a class="menu-item" href="' + (& $e $p.Href) +
+        '<section class="card card--link"><nav class="menu-list" aria-label="' + (& $e $p.Label) + '"><a class="menu-item" href="' + (& $e $p.Href) +
             '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a></nav></section>'
     }
     $general = $GeneralPagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z'

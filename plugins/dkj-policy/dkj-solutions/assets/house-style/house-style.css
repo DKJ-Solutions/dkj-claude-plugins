@@ -708,6 +708,13 @@ html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + va
    optionally with a one-line description under the label: <span class="menu-item__label">Label<span class="menu-item__sub">..</span></span>. */
 .menu-item__sub { display: block; font-size: var(--text-sm); font-weight: 400; color: var(--muted); }
 a.menu-item:hover { background: var(--paper-3); }
+/* A card that is one link (#3298): <section class="card card--link"> around a single <a>. The link's area stretches
+   over the whole card, so a click anywhere on it follows the link, and the whole card tints on hover rather than the
+   row alone. The <a> must not be positioned itself; one link per card, or the last one covers the rest. */
+.card--link { position: relative; }
+.card--link a::after { content: ""; position: absolute; inset: 0; }
+.card--link:hover { background: var(--paper-3); }
+.card--link a.menu-item:hover { background: none; }
 
 /* ---- Screen readers only --------------------------------------------------------- */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
