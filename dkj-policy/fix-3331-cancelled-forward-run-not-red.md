@@ -39,19 +39,34 @@
 
 ### PLAN
 
+- [x] Verify #3331's reason in the tree: `Get-CheckOutcome` maps `cancel` to `fail`, and `Wait-ForwardedCertificate` returns the first renewed run that finished
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-CancelledCheckRunIds` in `forward-lane-lib.ps1` (and its mirror)
+- [x] `Wait-ForwardedCertificate` adds a cancelled renewal's run id to the ignored set and keeps waiting (and the mirror)
 
 ### TEST
 
+- [x] `forward-lane-lib.tests.ps1`: the measured case, failure and success not read as cancelled, the state fallback, no link, unparseable input, and the structural assert on the wait (81 pass)
+
 ### DEPLOY: fix/3331-cancelled-forward-run-not-red
 
-**Score:**
+`ship-pr`'s forward lap no longer refuses a merge as "the required check went RED on the forwarded head"
+when the run it saw was only a cancelled duplicate. After a forward, two `pull_request` runs can start on
+the same head seconds apart, and the concurrency group cancels the first. That run counted as the renewed
+certificate, and a cancellation reads as a failure. The wait now puts a cancelled run's id beside the old
+green run it already ignores, and keeps waiting for the run that superseded it. A real `failure` still
+ends the run as red (#3331).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer running `ship-pr` no longer gets a false RED refusal on a branch that was forwarded, which
+otherwise cost a manual re-run once CI finished.
+
+**Score:** 2
 
 #### Pull Request
 
