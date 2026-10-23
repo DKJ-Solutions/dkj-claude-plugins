@@ -590,7 +590,7 @@ function Format-StopwatchPageHtml {
 function Format-StopwatchLabelPageHtml {
     <#
         One label's page on '/stopwatch/<slug>' (#3323), with the run going now on top. A label with one finished run
-        shows its time on a card of its own; with more, a table gives every finished run of -Group (a group of
+        and none going is titled with that run's start, the label beneath it, and shows its time on a card of its own; with more, a table gives every finished run of -Group (a group of
         ConvertTo-StopwatchModel) a row, newest first, with its start, its time and its change against the run before.
         Below that, under Phases, a card per run with its transcript phases, a row and a bar each (-Transcript, by run
         id, from Get-StopwatchTranscriptCache; a run it lacks says so). The crumbs lead back to '/stopwatch'.
@@ -604,7 +604,12 @@ function Format-StopwatchLabelPageHtml {
     $e = { param($v) ConvertTo-DashboardText $v }
     $local = { param($t) (& $e ($t.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))) }
     $body = New-Object System.Text.StringBuilder
-    [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $Group.Label) + '</h2></div>')
+    # A label with one finished run and none going is named for that run: its start is what tells it apart, and the
+    # label stands under it. From a second run on the page is the label's again, since no one start names it.
+    $single = @($Group.Rows).Count -eq 1 -and -not $Group.Running
+    $pageTitle = if ($single) { & $local $Group.Rows[0].Run.Start } else { [string]$Group.Label }
+    $sub = if ($single) { '<p class="card__sub">' + (& $e $Group.Label) + '</p>' } else { '' }
+    [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $pageTitle) + '</h2>' + $sub + '</div>')
     if ($Group.Running) {
         [void]$body.AppendLine('<section class="card"><h3>Going now</h3>')
         [void]$body.AppendLine('<p class="sw-clock num" data-start="' + (Format-StopwatchStamp $Group.Running.Start) + '">' + (Format-DevSeconds ($Now - $Group.Running.Start).TotalSeconds) + '</p>')
@@ -640,6 +645,6 @@ function Format-StopwatchLabelPageHtml {
     $note = 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout. ' +
         'The phases are read from this repo''s Claude Code session transcripts once a run has stopped: each second goes to the first phase going at that moment, ' +
         'so a ship running in the background counts as the ship, and a second in which no session was busy is time spent waiting on you. Built by <code>scripts/lib/stopwatch-lib.ps1</code>.'
-    return Format-DevPageHtml -Title ([string]$Group.Label) -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare -ParentCrumbs @(@{ Label = 'Stopwatch'; Href = '/stopwatch' }) `
+    return Format-DevPageHtml -Title ([string]$pageTitle) -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare -ParentCrumbs @(@{ Label = 'Stopwatch'; Href = '/stopwatch' }) `
         -FooterNote $note
 }

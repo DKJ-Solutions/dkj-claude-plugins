@@ -297,6 +297,8 @@ try {
     Assert-True ($tp -match '<h2>Phases</h2>[\s\S]*<section class="card"><div class="card__head"><h3 class="card__title">[^<]+</h3>[\s\S]*Ship: CI wait, merge, fold</td><td class="num">2:50') 'a label page shows each run''s phases in a card of their own, under the Phases heading'
     Assert-True ($tp -notmatch 'From the transcripts') 'and the runs table no longer crams them into one cell'
     Assert-True ($tp -notmatch '<h2>Runs</h2>' -and $tp -notmatch 'Against the run before' -and $tp -match '<h3 class="card__title">Time</h3>[\s\S]*class="sw-clock num">5:30</p>') 'a label with one run shows its time on a card, with no Runs heading and no comparison table'
+    $startText = (& $at 0).ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
+    Assert-True ($tp -match ('<h2>' + [regex]::Escape($startText) + '</h2><p class="card__sub">CSS comment</p>') -and $tp -match ('<span aria-current="page">' + [regex]::Escape($startText) + '</span>')) 'a label with one run is titled with its start, in the heading and the crumb, the label beneath'
 } finally {
     Remove-Item -LiteralPath $tdir -Recurse -Force -ErrorAction SilentlyContinue
 }
