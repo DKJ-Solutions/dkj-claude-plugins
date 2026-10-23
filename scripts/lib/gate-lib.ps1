@@ -1637,7 +1637,8 @@ function Get-AffectedSuiteSelection {
         declared scope a changed path falls in, Walkers every tree-walking suite whether it was selected
         or not, Open the walkers with a walk that can return a file of any type (Get-SuiteReferenceSet's
         WalksOpen, in any test-owned file the suite reaches, or a file that does not parse; #3316), and Proven is $false -- with the Reason -- whenever the mapping could not be made, in
-        which case the caller runs every suite.
+        which case the caller runs every suite. Why maps each selected suite to one sentence saying why
+        it was selected, which the dev server's /test-gate page shows (#3309, lever 3); nothing decides on it.
 
         THE MAP IS A REFERENCE GRAPH, READ OFF THE SYNTAX TREE. A suite affects a path when the path is
         the suite itself, a file the suite reaches by EXECUTING it (dot-source, &, -File, transitively),
@@ -1699,7 +1700,7 @@ function Get-AffectedSuiteSelection {
         [string]$TestsDir = 'scripts/tests'
     )
     $testsPrefix = ($TestsDir.Replace('\', '/').Trim('/')).ToLowerInvariant() + '/'
-    $verdict = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Scoped = @(); Walkers = @(); Open = @(); Matched = @(); PoolCount = 0; Reason = '' }
+    $verdict = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Scoped = @(); Walkers = @(); Open = @(); Matched = @(); Why = @{}; PoolCount = 0; Reason = '' }
 
     $changed = @($ChangedPaths | ForEach-Object { "$_".Trim().Replace('\', '/') } | Where-Object { $_ })
     $quoted = @($changed | Where-Object { $_.StartsWith('"') })
@@ -1818,6 +1819,7 @@ function Get-AffectedSuiteSelection {
     $walkers = New-Object System.Collections.ArrayList
     $open = New-Object System.Collections.ArrayList
     $matched = New-Object System.Collections.ArrayList
+    $why = @{}
     foreach ($s in $suites) {
         $reached = New-Object 'System.Collections.Generic.HashSet[string]'
         $named = New-Object 'System.Collections.Generic.HashSet[string]'
@@ -1832,13 +1834,14 @@ function Get-AffectedSuiteSelection {
             $r = & $refsOf $p
             $testOwned = $p.ToLowerInvariant().StartsWith($testsPrefix, [StringComparison]::Ordinal)
             # A file that does not parse is unknown, so its suite always runs and its walk is open.
-            if (-not $r.Parsed) { $runAlways = $true; $walksOpen = $true; break }
+            if (-not $r.Parsed) { $runAlways = $true; $walksOpen = $true; $why[$s] = "$p does not parse, so what it reaches is unknown"; break }
             if ($testOwned -and $r.Walks) {
                 # A walk with no declared scope reads whatever the tree holds; one with a scope adds it to
                 # the suite's, and the graph is still followed for everything else the file names -- an
-                # unscoped one too, so an open walk further along still marks the suite Open (#3316).
+                # unscoped one too, so an open walk further along still marks the suite Open (#3316). The
+                # first unscoped walk met is the reason given.
                 if ($r.WalksOpen) { $walksOpen = $true }
-                if (@($r.Scope).Count -eq 0) { $runAlways = $true }
+                if (@($r.Scope).Count -eq 0 -and -not $runAlways) { $runAlways = $true; $why[$s] = "$p walks the live tree and declares no scope, so it runs for every change" }
                 $walks = $true
                 foreach ($pattern in @($r.Scope)) { [void]$scope.Add($pattern) }
             }
@@ -1860,15 +1863,21 @@ function Get-AffectedSuiteSelection {
             [void]$walkers.Add($s)
             $inScope = $false
             foreach ($c in $changed) {
-                foreach ($pattern in $scope) { if (Test-WalkScopeMatch -Path $c -Pattern $pattern) { $inScope = $true; break } }
+                foreach ($pattern in $scope) { if (Test-WalkScopeMatch -Path $c -Pattern $pattern) { $inScope = $true; $why[$s] = "its walk scope '$pattern' covers $c"; break } }
                 if ($inScope) { break }
             }
             if ($inScope) { [void]$scoped.Add($s); [void]$selected.Add($s); continue }
         }
         $hit = $false
         foreach ($c in $changed) {
-            foreach ($rp in $reached) { if ($rp.ToLowerInvariant() -eq $c) { $hit = $true; break } }
-            if (-not $hit) { foreach ($ref in $named) { if (Test-SuiteReferenceMatch -Path $c -Reference $ref) { $hit = $true; break } } }
+            foreach ($rp in $reached) {
+                if ($rp.ToLowerInvariant() -eq $c) {
+                    $hit = $true
+                    $why[$s] = $(if ($rp -eq $s) { 'it is itself a changed file' } else { "it reaches $c" })
+                    break
+                }
+            }
+            if (-not $hit) { foreach ($ref in $named) { if (Test-SuiteReferenceMatch -Path $c -Reference $ref) { $hit = $true; $why[$s] = "it or a file it runs names $c"; break } } }
             if ($hit) { break }
         }
         if ($hit) { [void]$selected.Add($s); [void]$matched.Add($s) }
@@ -1879,6 +1888,7 @@ function Get-AffectedSuiteSelection {
     $verdict.Walkers = @($walkers)
     $verdict.Open = @($open)
     $verdict.Matched = @($matched)
+    $verdict.Why = $why
     $verdict.Proven = $true
 
     # Written only when something new was parsed or something stale can be dropped, and then holding
