@@ -39,19 +39,71 @@
 
 ### PLAN
 
+The follow-up to #3315 (#3323, owner's choice of trigger: arm on the page, October 23, 2026): the clock times
+Claude's work without anybody pressing Start or Stop.
+
+#### Design
+
+- **Arm, then a hook starts it.** `/stopwatch` gets an Arm form beside Start: a label is stored as `armed`
+  (top level of the store, beside the runs) and no clock runs. Arming while a run is going is refused, arming
+  again replaces the label, Disarm clears it. A `UserPromptSubmit` hook starts the armed run at the moment the
+  next prompt is submitted (`Auto`, label = the armed label, `StartHead` = the checkout's HEAD) and clears the arming.
+- **The stop is "HEAD moved and the checkout is back on the trunk", not "a branch was seen".** A Stop hook fires
+  only at the end of a turn, and a whole ship (branch, PR, merge, fold) usually happens inside one turn, so a
+  branch is never observed at a turn's end. The `Stop` hook ends a running Auto run only when the checkout is on
+  the trunk, `git status --porcelain` is empty AND HEAD differs from `StartHead`. A turn that only answers a
+  question leaves HEAD alone and the run keeps going; a branch parked for the owner's eye is not on the trunk, so
+  it keeps going too. A run started by hand is never touched.
+- **The rules are pure, the hook only gathers.** `Invoke-StopwatchHookEvent` takes runs, armed, branch, clean,
+  HEAD, trunk and the clock, so every rule is tested without git. `scripts/dashboard/stopwatch-hook.ps1` reads the
+  store and (only when a decision needs it) git, writes the store when the decision changed it, prints nothing and
+  always exits 0. It never writes over a store that does not read. The trunk name comes from
+  `Get-TrunkBranchName` in `scripts/repo-config.ps1` where this repo defines one, else `main`.
+- **`Invoke-StopwatchAction` stays pure** and now takes `-Armed` and returns `Armed` beside `Runs` and `Error`
+  (`arm` and `disarm` are two more actions); `Save-StopwatchStore` takes `-Armed`, `Read-StopwatchStore` returns
+  it. Runs gain `Auto` and `StartHead`. The server's POST route accepts `arm` and `disarm` under the same
+  same-origin rule.
+- The page shows "Armed: <label> -- starts on your next prompt to Claude" with Disarm, and tags auto-started
+  runs `auto`, in the table and on the running run. The house style is untouched: existing classes only.
+- **Left out on purpose:** the hooks are wired in this repo's `.claude/settings.json` only, so they run for a
+  session of this checkout and nowhere else; the store is shared with the hub server and the two writes are a
+  read and a rename apart, which a button press against a turn boundary does not realistically hit.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `stopwatch-lib.ps1`: `armed` in the store, `Auto` and `StartHead` on a run, the `arm` and `disarm`
+  actions, `New-StopwatchRun`, `Invoke-StopwatchHookEvent`, and the page's Armed line, Arm form and auto tag
+- [x] `scripts/dashboard/stopwatch-hook.ps1`: the hook script for `UserPromptSubmit` and `Stop`
+- [x] `serve-connector-dashboard.ps1`: the POST route takes `arm` and `disarm` and passes the armed state
+  through; `dev-pages-lib.ps1`: the card subtitle no longer says "by hand"
+- [ ] `.claude/settings.json`: the two hook entries (a session cannot write a settings file, so the owner or
+  the orchestrator pastes the block; tick this once it is in)
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1`: arm and disarm rules, the hook's decisions (start, no start with a run going or
+  nothing armed, stop only on the trunk, clean and moved; not for a manual run, a missing StartHead or an unknown
+  HEAD), the store round trip of `armed`, `Auto` and `StartHead`, the hook script run for real against a store of
+  its own (silent, exit 0, never writes over an unreadable store), and the page (100 green)
+- [x] `dev-pages.tests.ps1` and `connector-dashboard.tests.ps1` green (310 and 198)
+- [x] `check-plugin-integrity.ps1`: 0 errors
+
 ### DEPLOY: feat/3323-stopwatch-auto
 
-**Score:**
+The hub's Stopwatch can now time Claude's work without anybody pressing Start or Stop. Arm a label on the page,
+and the clock starts at the next prompt you give Claude in a session of this checkout; it stops when Claude is back
+on the trunk with a clean checkout and the work landed. A turn that only answers a question, or a branch parked
+for your look, keeps the clock going. A run started by hand behaves as before, and auto-started runs carry an
+`auto` tag.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+The hub is this repo's own dev server, so nothing a consumer takes changes.
+
+**Score:** N/A
 
 #### Pull Request
 
+Stopwatch: armed runs start on the next prompt and stop when Claude is back on the trunk
