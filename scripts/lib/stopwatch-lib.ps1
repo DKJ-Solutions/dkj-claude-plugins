@@ -589,11 +589,11 @@ function Format-StopwatchPageHtml {
 
 function Format-StopwatchLabelPageHtml {
     <#
-        One label's page on '/stopwatch/<slug>' (#3323): every finished run of -Group (a group of
-        ConvertTo-StopwatchModel), newest first, each with its start, its time, its change against the run before
-        and the run going now on top; below the table, under Phases, a card per run with its transcript phases, a row and a
-        bar each (-Transcript, by run id, from Get-StopwatchTranscriptCache; a run it lacks says so). The crumbs lead
-        back to '/stopwatch'.
+        One label's page on '/stopwatch/<slug>' (#3323), with the run going now on top. A label with one finished run
+        shows its time on a card of its own; with more, a table gives every finished run of -Group (a group of
+        ConvertTo-StopwatchModel) a row, newest first, with its start, its time and its change against the run before.
+        Below that, under Phases, a card per run with its transcript phases, a row and a bar each (-Transcript, by run
+        id, from Get-StopwatchTranscriptCache; a run it lacks says so). The crumbs lead back to '/stopwatch'.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Group,
@@ -610,7 +610,12 @@ function Format-StopwatchLabelPageHtml {
         [void]$body.AppendLine('<p class="sw-clock num" data-start="' + (Format-StopwatchStamp $Group.Running.Start) + '">' + (Format-DevSeconds ($Now - $Group.Running.Start).TotalSeconds) + '</p>')
         [void]$body.AppendLine('<p class="note">Started ' + (& $local $Group.Running.Start) + '.</p></section>')
     }
-    if (@($Group.Rows).Count) {
+    if (@($Group.Rows).Count -eq 1) {
+        # One run is no list: its time stands on a card of its own, and the comparison table waits for a second run.
+        $only = $Group.Rows[0]
+        [void]$body.AppendLine('<section class="card"><div class="card__head"><h3 class="card__title">Time</h3><p class="card__sub">Started ' + (& $local $only.Run.Start) + '. The next run of this label is compared with this one.</p></div>')
+        [void]$body.AppendLine('<p class="sw-clock num">' + (Format-DevSeconds $only.Seconds) + '</p></section>')
+    } elseif (@($Group.Rows).Count) {
         [void]$body.AppendLine('<div class="grid-2">')
         [void]$body.AppendLine('<div class="grid__head"><h2>Runs</h2><p class="card__sub">' + @($Group.Rows).Count + ' run(s), best ' + (Format-DevSeconds $Group.Best) + ', newest first</p></div>')
         [void]$body.AppendLine('<section class="card grid__full"><div class="table-wrap"><table class="table"><thead><tr><th class="sw-left">Started</th><th>Time</th><th>Against the run before</th></tr></thead><tbody>')
@@ -619,6 +624,8 @@ function Format-StopwatchLabelPageHtml {
         }
         [void]$body.AppendLine('</tbody></table></div></section>')
         [void]$body.AppendLine('</div>')
+    }
+    if (@($Group.Rows).Count) {
         [void]$body.AppendLine('<div class="grid-2">')
         [void]$body.AppendLine('<div class="grid__head"><h2>Phases</h2><p class="card__sub">Each run split into phases from the session transcripts, longest first</p></div>')
         foreach ($row in @($Group.Rows)) {
