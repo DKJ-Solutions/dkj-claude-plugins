@@ -409,28 +409,45 @@ if (-not $id) {
     # run finds the theme by name, and this record is the only thing that tells it the copy may still be
     # filling (see the fill-state read above step 4).
     $null = git config "branch.$branch.previewFill" pending
-    $dup = Invoke-ShopifyCli -Arguments $dupArgs -Quiet -DiscardStderr
+    # NOT -DiscardStderr (#3322), for the reason the plain-push arm above gives: the CLI's own refusal --
+    # "A shop may only have N themes" -- is on stderr, and the duplicate can exit 0 without creating
+    # anything, so that line is the one piece of evidence of why. Get-ThemeIdFromPushOutput is a regex
+    # that skips the CLI's box lines, so a stderr line in front of the JSON does not hide the id.
+    $dup = Invoke-ShopifyCli -Arguments $dupArgs -Quiet
     if ($dup.ExitCode -ne 0) {
-        Write-Error ("Creating the preview theme (a copy of live) failed. If the CLI says 'A shop may only " +
-            "have N themes', the estate is full: archive and remove a spent preview theme first.")
+        $null = git config --unset "branch.$branch.previewFill"
+        Write-Host "Creating the preview theme (a copy of live) failed. The CLI said:" -ForegroundColor Red
+        @($dup.Output | Where-Object { "$_".Trim() }) | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+        Write-Error ("If it says 'A shop may only have N themes', the estate is full: archive and remove a " +
+            "spent preview theme first.")
         exit 1
     }
     $id = Get-ThemeIdFromPushOutput -Output ($dup.Output | Out-String)
     if (-not $id) {
         # The name is ours and unique, so the theme list is the authoritative answer where --json was not.
+        # ANSWERED means parsed, not merely exit 0: a list that cannot be read says nothing about the name.
+        $listAnswered = $false
+        $themeCount = -1
         $list = Invoke-ShopifyCli -Arguments @('theme', 'list', '--store', $store, '--json') -Quiet -DiscardStderr
         if ($list.ExitCode -eq 0) {
             try {
-                $theme = Get-ThemeByName -Parsed (($list.Output | Out-String) | ConvertFrom-Json) -ThemeName $themeName
+                $parsedList = ($list.Output | Out-String) | ConvertFrom-Json
+                $theme = Get-ThemeByName -Parsed $parsedList -ThemeName $themeName
+                $listAnswered = $true
+                $themeCount = @($parsedList).Count
                 if ($theme) { $id = [string]$theme.id }
             } catch { }
         }
-    }
-    if (-not $id) {
-        Write-Error ("The copy '$themeName' WAS created, but its id cannot be read back yet. Nothing was " +
-            "pushed. Re-run this script: it finds the theme by name and, because the copy is recorded as " +
-            "pending, waits for it to fill before pushing.")
-        exit 1
+        if (-not $id) {
+            $missing = Get-DuplicateMissingIdVerdict -ThemeName $themeName -ListAnswered $listAnswered `
+                -ThemeCount $themeCount -CliLines @($dup.Output)
+            # A copy that does not exist is not filling: the 'pending' would only tell the next run to wait
+            # on a theme it will never find. Kept where the outcome is unknown, which is what it is for.
+            if ($missing.Created -eq 'no') { $null = git config --unset "branch.$branch.previewFill" }
+            $missing.Lines | ForEach-Object{ Write-Host $_ -ForegroundColor Red }
+            Write-Error 'No preview theme to push to; see above.'
+            exit 1
+        }
     }
     # 'complete' only once verified. A run that dies during the wait leaves the next run knowing it must
     # wait rather than push into a half-filled copy.
