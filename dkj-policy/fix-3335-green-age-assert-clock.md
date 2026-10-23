@@ -39,19 +39,32 @@
 
 ### PLAN
 
+Issue #3335: the `green for 30 minute(s)` assert reads a fixture stamped at load time, and the check
+floors the age, so a slow suite prints 31. Stamp the fixture at the case that reads it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `unshipped-pr-gate.tests.ps1`: the `[UNSHIPPED]` case builds its green fixture inline, right before
+  the check runs, instead of reading the load-time `$GreenSettled`
 
 ### TEST
 
+- [x] the gate runs the suite in `ship-pr`
+
 ### DEPLOY: fix/3335-green-age-assert-clock
 
-**Score:**
+The `unshipped-pr-gate` suite no longer fails `and how long it has been green` when it runs slow. The
+case read a fixture stamped when the suite loaded, and the check floors the age, so a minute or more
+between the two printed `green for 31 minute(s)` against an exact-30 assert (measured on PR #3334's
+forwarded head, a 166.6s shard). The case now stamps its own fixture right before the check runs (#3335).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing reaches a user of the plugins: the change is in this repo's own test suite.
+
+**Score:** N/A
 
 #### Pull Request
 

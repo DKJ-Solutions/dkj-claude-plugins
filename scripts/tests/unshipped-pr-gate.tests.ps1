@@ -220,7 +220,9 @@ try {
     Write-Host 'check-unshipped-pr.ps1 -- [UNSHIPPED], the case #2525 measured' -ForegroundColor Cyan
 
     $t = New-Tree -Label 'unshipped' -WithFlow
-    $r = Invoke-Check -Dir $t -Path $fake -Account 'tester' -Repo 'fake/repo' -PrListJson $UnarmedJson -PrChecksJson $GreenSettled
+    # Stamped here, not at load: the check floors the age, so a load-time stamp read a minute or more
+    # later prints 31 and fails the exact-minutes assert below on a slow shard (#3335).
+    $r = Invoke-Check -Dir $t -Path $fake -Account 'tester' -Repo 'fake/repo' -PrListJson $UnarmedJson -PrChecksJson (New-CheckedJson -MinutesAgo 30)
     Assert-True ($r.Code -eq 0) 'a finding still exits 0'
     Assert-True ($r.Out -match '\[UNSHIPPED\]') 'unarmed + green + settled, with a sweep present -- [UNSHIPPED]'
     Assert-True ($r.Out -match '#2515') 'it names the pull request'
