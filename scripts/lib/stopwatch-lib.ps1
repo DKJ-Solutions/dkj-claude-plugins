@@ -54,6 +54,11 @@
 
 $script:StopwatchLabelMax = 80
 
+# The step log's reader (#3338), for a ship's steps. Guarded: a tree that copies this file alone keeps one ship phase.
+$swRunProgressLib = Join-Path $PSScriptRoot 'run-progress-lib.ps1'
+$script:StopwatchStepLogAvailable = $false
+if (Test-Path -LiteralPath $swRunProgressLib -PathType Leaf) { . $swRunProgressLib; $script:StopwatchStepLogAvailable = $true }
+
 function Get-StopwatchStorePath {
     <# The store's path on this machine: under LOCALAPPDATA, else the per-user local data folder .NET names. #>
     $base = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { [Environment]::GetFolderPath('LocalApplicationData') }
@@ -301,6 +306,21 @@ $script:StopwatchShellTools = '^(Bash|PowerShell)$'
 $script:StopwatchBackgroundTools = '^(Bash|PowerShell|Agent|Task)$'
 $script:StopwatchBackgroundText = '^\s*(Command running in background|Async agent launched)|was moved to the background'
 $script:StopwatchBusyPhase = 'Claude thinking and writing'
+# A SHIP CALL SPLIT BY ITS OWN STEPS (#3338). A ship-pr call is one tool call, and its command line cannot say
+# which of its local gates, its CI wait, a forwarded head's re-certification or its merge and fold a moment
+# belongs to. ship-pr marks each step it enters in the opt-in step log (Add-RunStepMark in run-progress-lib.ps1,
+# on when DKJ_RUN_STEP_LOG is set, as this repo's .claude/settings.json does), and a ship call with marks inside
+# it is cut at them (Split-StopwatchShipTool): each step lasts until the next mark or the call's end, and the
+# moments before the first mark are its checks before the PR. A ship call with no marks -- a run from before
+# the log, or from a machine without it -- stays the one phase above.
+$script:StopwatchShipStepPhases = [ordered]@{
+    'before'  = 'Ship: checks before the PR'
+    'gates'   = 'Ship: local gates and opening the PR'
+    'ci-wait' = 'Ship: CI wait'
+    'forward' = 'Ship: forwarded head, re-certified'
+    'merge'   = 'Ship: merge'
+    'fold'    = 'Ship: fold and close-out'
+}
 $script:StopwatchIdlePhase = 'Waiting on you'
 
 function Get-StopwatchTranscriptDir {
@@ -318,6 +338,27 @@ function Get-StopwatchToolPhase {
         if ($p.Match -and $shell -and $Command -match $p.Match) { return $p.Name }
     }
     return $script:StopwatchToolPhases[-1].Name
+}
+
+function Split-StopwatchShipTool {
+    <#
+        One tool call (@{ Phase; Start; End }, as Read-StopwatchTranscriptEvents returns it) as its segments: a
+        ship call with step marks (-Marks, @{ At; Step }) strictly inside it is cut at each mark, the part before
+        the first as 'before', and every segment named from $script:StopwatchShipStepPhases (a step it does not
+        know keeps the ship's own phase). Any other call, or a ship with no mark inside, comes back whole. Pure.
+    #>
+    param([Parameter(Mandatory = $true)][hashtable]$Tool, [AllowEmptyCollection()][object[]]$Marks = @())
+    $ship = $script:StopwatchToolPhases[0].Name
+    if ($Tool.Phase -ne $ship) { return , @($Tool) }
+    $inside = @($Marks | Where-Object { $_ -and $_.At -gt $Tool.Start -and $_.At -lt $Tool.End } | Sort-Object { $_.At })
+    if (-not $inside.Count) { return , @($Tool) }
+    $name = { param($step) if ($script:StopwatchShipStepPhases.Contains($step)) { $script:StopwatchShipStepPhases[$step] } else { $ship } }
+    $segs = @(@{ Phase = (& $name 'before'); Start = $Tool.Start; End = $inside[0].At })
+    for ($i = 0; $i -lt $inside.Count; $i++) {
+        $end = if ($i + 1 -lt $inside.Count) { $inside[$i + 1].At } else { $Tool.End }
+        $segs += @{ Phase = (& $name $inside[$i].Step); Start = $inside[$i].At; End = $end }
+    }
+    return , $segs
 }
 
 function Read-StopwatchTranscriptEvents {
@@ -394,13 +435,16 @@ function Read-StopwatchTranscriptEvents {
 function Get-StopwatchTranscriptPhases {
     <#
         A run's window from -From to -To split into phases, from the events of one or more transcripts
-        (-Events, each what Read-StopwatchTranscriptEvents returns). Every second goes to the first phase
-        going at that moment, in the order of $script:StopwatchToolPhases, then Claude's own turns, then
+        (-Events, each what Read-StopwatchTranscriptEvents returns). A ship call is first cut at the step marks
+        in -ShipMarks (Split-StopwatchShipTool). Every second goes to the first phase going at that moment, in
+        the order of $script:StopwatchToolPhases (a ship's steps beside the ship), then Claude's own turns, then
         waiting. Returns the phases with any time, in that order, as @{ Name; Seconds }, and Sessions: how many
         transcripts had a turn in the window. Pure.
     #>
-    param([AllowEmptyCollection()][object[]]$Events = @(), [Parameter(Mandatory = $true)][datetime]$From, [Parameter(Mandatory = $true)][datetime]$To)
-    $order = @($script:StopwatchToolPhases | ForEach-Object { $_.Name }) + @($script:StopwatchBusyPhase)
+    param([AllowEmptyCollection()][object[]]$Events = @(), [Parameter(Mandatory = $true)][datetime]$From, [Parameter(Mandatory = $true)][datetime]$To,
+        [AllowEmptyCollection()][object[]]$ShipMarks = @())
+    $ship = $script:StopwatchToolPhases[0].Name
+    $order = @(foreach ($p in $script:StopwatchToolPhases) { $p.Name; if ($p.Name -eq $ship) { @($script:StopwatchShipStepPhases.Values) } }) + @($script:StopwatchBusyPhase)
     $marks = New-Object System.Collections.ArrayList
     $add = { param($phase, $a, $b)
         if ($a -lt $From) { $a = $From }; if ($b -gt $To) { $b = $To }
@@ -410,7 +454,7 @@ function Get-StopwatchTranscriptPhases {
         $busy = $false
         foreach ($t in @($ev.Turns)) { if ($t.End -ge $From -and $t.Start -le $To) { $busy = $true }; & $add $script:StopwatchBusyPhase $t.Start $t.End }
         if ($busy) { $sessions++ }
-        foreach ($t in @($ev.Tools | Where-Object { $_ })) { & $add $t.Phase $t.Start $t.End }
+        foreach ($t in @($ev.Tools | Where-Object { $_ })) { foreach ($seg in (Split-StopwatchShipTool -Tool $t -Marks $ShipMarks)) { & $add $seg.Phase $seg.Start $seg.End } }
     }
     $seconds = @{}; $open = New-Object int[] ($order.Count)
     $at = $From
@@ -443,8 +487,13 @@ function Get-StopwatchTranscriptCache {
         earliest missing start to the latest missing end, and every run takes its own window out of those
         events (Sebastian and Victor, #3315). And nothing is cached unless a transcript was actually read, so a
         server started with the wrong -TranscriptDir does not file every run as "no session" for good.
+
+        A SHIP'S STEPS come from the step log at -StepLogPath (#3338; Read-RunStepMarks): the ship-pr marks
+        whose checkout is -RepoRoot's, so a ship in another checkout on this machine never cuts this one's.
+        Without -StepLogPath, or where run-progress-lib.ps1 is not beside this file, a ship stays one phase.
     #>
-    param([AllowEmptyCollection()][object[]]$Runs = @(), [Parameter(Mandatory = $true)][string]$CachePath, [Parameter(Mandatory = $true)][string]$TranscriptDir)
+    param([AllowEmptyCollection()][object[]]$Runs = @(), [Parameter(Mandatory = $true)][string]$CachePath, [Parameter(Mandatory = $true)][string]$TranscriptDir,
+        [string]$StepLogPath = '', [string]$RepoRoot = '')
     $cache = @{}
     if (Test-Path -LiteralPath $CachePath -PathType Leaf) {
         try {
@@ -465,8 +514,15 @@ function Get-StopwatchTranscriptCache {
     # A transcript last written before the earliest missing start holds nothing of any of them.
     $files = if (Test-Path -LiteralPath $TranscriptDir -PathType Container) { @(Get-ChildItem -LiteralPath $TranscriptDir -Filter *.jsonl -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTimeUtc -ge $from }) } else { @() }
     $events = @(foreach ($f in $files) { Read-StopwatchTranscriptEvents -Path $f.FullName -From $from -To $to })
+    $marks = @()
+    if ($StepLogPath -and $script:StopwatchStepLogAvailable) {
+        # From the earliest ship call's start, which the events read up to an hour before $from: a mark before it cuts nothing.
+        $markFrom = (@($events | ForEach-Object { $_.Tools } | Where-Object { $_ -and $_.Start } | ForEach-Object { $_.Start }) + @($from) | Measure-Object -Minimum).Minimum
+        $marks = @(Read-RunStepMarks -Path $StepLogPath -From $markFrom -To $to | Where-Object {
+                $_.Run -eq 'ship-pr' -and (-not $RepoRoot -or (Test-RunProgressInWorkspace -RecordWorkspace $_.Workspace -SessionWorkspace $RepoRoot)) })
+    }
     foreach ($r in $missing) {
-        $p = Get-StopwatchTranscriptPhases -Events $events -From $r.Start -To $r.End
+        $p = Get-StopwatchTranscriptPhases -Events $events -From $r.Start -To $r.End -ShipMarks $marks
         $out[$r.Id] = @{ End = (Format-StopwatchStamp $r.End); Sessions = $p.Sessions; Phases = $p.Phases }
     }
     if ($files.Count) {
