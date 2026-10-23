@@ -146,9 +146,12 @@ function Get-StopwatchPromptMarker {
         The label a prompt asks a run under, or $null when it carries no marker (#3323): the first line of -Prompt
         begins, after any leading whitespace, with `stopwatch:` in any case. The label is the rest of that line,
         control characters as spaces, trimmed and cut to the label maximum; empty becomes "Assignment".
+        A prompt that is a paste arrives wrapped, its first line Claude Code's `<pasted_content id="hhhh">` (#3336),
+        so one such opening line is skipped and the marker is read from the pasted text's first line.
     #>
     param([AllowEmptyString()][string]$Prompt = '')
-    $m = [regex]::Match($Prompt.TrimStart(), '^stopwatch:([^' + [char]13 + [char]10 + ']*)', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    $text = [regex]::Replace($Prompt.TrimStart(), '^<pasted_content id="[0-9a-f]{4}">[ \t]*\r?\n', '')
+    $m = [regex]::Match($text.TrimStart(), '^stopwatch:([^' + [char]13 + [char]10 + ']*)', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
     if (-not $m.Success) { return $null }
     $label = ($m.Groups[1].Value -replace ('[' + [char]0 + '-' + [char]31 + [char]127 + ']'), ' ').Trim()
     if ($label.Length -gt $script:StopwatchLabelMax) { $label = $label.Substring(0, $script:StopwatchLabelMax).Trim() }
