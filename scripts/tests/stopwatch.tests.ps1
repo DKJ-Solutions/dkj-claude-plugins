@@ -282,11 +282,18 @@ try {
     $twoDoc = Get-Content -LiteralPath $twoPath -Raw | ConvertFrom-Json
     Assert-True ($null -ne $twoDoc.rb -and $null -ne $twoDoc.ra -and $twoDoc.ra.end -eq (Format-StopwatchStamp $w0.AddSeconds(340))) 'a write for one label keeps the other label''s cached phases'
 
-    $cell = Format-StopwatchTranscriptCell $first.r1 330
-    Assert-True ($cell -match 'Waiting on you <span class="num">1:41</span> <span class="note">31%</span>') 'the cell gives each phase its time and its share of the run'
-    Assert-True ((Format-StopwatchTranscriptCell @{ Sessions = 0; Phases = @() } 60) -match 'no session') 'a run no session saw says so'
+    $card = Format-StopwatchPhaseCard $first.r1 330 -Title 'T'
+    Assert-True ($card -match '<tr><td class="sw-left">Waiting on you</td><td class="num">1:41</td><td class="num">31%</td>') 'a phase card gives each phase a row of its own, with its time and its share of the run'
+    Assert-True ($card -match 'class="sw-bar" role="img" aria-label="31%"><span style="width: 31%">') 'and a bar as wide as its share'
+    $secs = @([regex]::Matches($card, '<tr><td class="sw-left">[^<]+</td><td class="num">([^<]+)</td>') | ForEach-Object { $_.Groups[1].Value })
+    Assert-Equal 5 $secs.Count 'every phase of the run has a row'
+    Assert-Equal '2:50' $secs[0] 'the longest phase comes first'
+    Assert-True ((Format-StopwatchPhaseCard @{ Sessions = 0; Phases = @() } 60 -Title 'T') -match 'No session of this repo') 'a run no session saw says so'
+    Assert-True ((Format-StopwatchPhaseCard $null 60 -Title '<b>') -match 'No phases read' -and (Format-StopwatchPhaseCard $null 60 -Title '<b>') -notmatch '<b>') 'a run with no phases yet says so, and the title is escaped'
     $tm = ConvertTo-StopwatchModel -Runs @($run)
-    Assert-True ((Format-StopwatchLabelPageHtml -Group $tm.Groups[0] -StorePath 's' -Transcript $first) -match 'From the transcripts</th>[\s\S]*Ship: CI wait, merge, fold <span class="num">2:50') 'a label page shows the transcript phases of each run'
+    $tp = Format-StopwatchLabelPageHtml -Group $tm.Groups[0] -StorePath 's' -Transcript $first
+    Assert-True ($tp -match '<h2>Phases</h2>[\s\S]*<section class="card"><h3>[^<]+</h3>[\s\S]*Ship: CI wait, merge, fold</td><td class="num">2:50') 'a label page shows each run''s phases in a card of their own, under the Phases heading'
+    Assert-True ($tp -notmatch 'From the transcripts') 'and the runs table no longer crams them into one cell'
 } finally {
     Remove-Item -LiteralPath $tdir -Recurse -Force -ErrorAction SilentlyContinue
 }
