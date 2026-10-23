@@ -43,17 +43,22 @@ Measure the full workflow with an invisible change: one CSS comment stamped with
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Put `/* stopwatch test run 2026-10-23 12:39 */` on the first line of `brandbook/src/showcase/showcase.css`
 
 ### TEST
 
+- [x] A comment only: nothing renders differently, and the gates run in open-pr.
+
 ### DEPLOY: docs/stopwatch-css-comment
 
-**Score:**
+A timing run of the full workflow, branch to fold: the brand book's showcase stylesheet carries a
+one-line comment stamped with the run's date and time, and nothing renders differently.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+**Score:** N/A
 
 #### Pull Request
 
