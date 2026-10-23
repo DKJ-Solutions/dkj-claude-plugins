@@ -76,7 +76,7 @@ Claude's work without anybody pressing Start or Stop.
 - [x] `scripts/dashboard/stopwatch-hook.ps1`: the hook script for `UserPromptSubmit` and `Stop`
 - [x] `serve-connector-dashboard.ps1`: the POST route takes `arm` and `disarm` and passes the armed state
   through; `dev-pages-lib.ps1`: the card subtitle no longer says "by hand"
-- [ ] `.claude/settings.json`: the two hook entries (a session cannot write a settings file, so the owner or
+- [x] `.claude/settings.json`: the two hook entries (a session cannot write a settings file, so the owner or
   the orchestrator pastes the block; tick this once it is in). The command is
   `powershell -NoProfile -ExecutionPolicy Bypass -File "$CLAUDE_PROJECT_DIR/scripts/dashboard/stopwatch-hook.ps1" -Hook Prompt|Stop`
 
