@@ -302,6 +302,10 @@ try {
     (Get-Item -LiteralPath $late).LastWriteTimeUtc = (& $at 330)
     $covered = Get-StopwatchTranscriptCache -Runs @($run) -CachePath $legacyPath -TranscriptDir $pdir
     Assert-Equal 1 $covered.r1.Sessions 'a transcript whose first record lands within a minute of the start covers the run (the prompt hook stamps the start first)'
+    [System.IO.File]::WriteAllText($legacyPath, ('{"r1":{"end":"' + (& $stamp 330) + '","sessions":0,"phases":[{"name":"Waiting on you","seconds":330}]}}'))
+    $stamped = (Get-Item -LiteralPath $legacyPath).LastWriteTimeUtc
+    $quiet = Get-StopwatchTranscriptCache -Runs @($run) -CachePath $legacyPath -TranscriptDir $pdir
+    Assert-True ($quiet.r1.Sessions -eq 0 -and (Get-Item -LiteralPath $legacyPath).LastWriteTimeUtc -eq $stamped) 'an entry with no session whose run IS covered is taken from the cache as it stands, not recomputed and rewritten on every load'
 
     # One label's page asks for its own runs only, and the file is written whole: the others must survive it.
     $twoPath = Join-Path $tdir 'two\stopwatch-phases.json'

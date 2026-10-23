@@ -55,11 +55,11 @@ fixes the cache it publishes, and touches none of that branch's sync code.
 
 ### CREATE
 
-- [x] `stopwatch-lib.ps1`: `Get-StopwatchTranscriptFirstStamp`; `Get-StopwatchTranscriptCache` reads, caches and returns only runs a transcript covers, re-judges a cached entry with no session, and drops one nothing covers from the cache file
+- [x] `stopwatch-lib.ps1`: `Get-StopwatchTranscriptFirstStamp`; `Get-StopwatchTranscriptCache` reads, caches and returns only runs a transcript covers, re-judges a cached entry with no session, and drops one nothing covers from the cache file, keeping one something does (Victor's review)
 
 ### TEST
 
-- [x] `stopwatch.tests.ps1`: a pruned run beside a newer transcript is neither returned nor cached, an entry cached as all waiting before this change is dropped, a transcript starting 30 s after the start still covers the run, and the existing cache asserts are updated to the new rule (131 passed, 0 failed)
+- [x] `stopwatch.tests.ps1`: a pruned run beside a newer transcript is neither returned nor cached, an entry cached as all waiting before this change is dropped, a transcript starting 30 s after the start still covers the run, and a covered entry with no session is taken from the cache without a rewrite, and the existing cache asserts are updated to the new rule (132 passed, 0 failed)
 
 ### DEPLOY: fix/3350-stopwatch-uncovered-run-cache
 

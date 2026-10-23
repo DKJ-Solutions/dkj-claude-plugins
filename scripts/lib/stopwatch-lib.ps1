@@ -510,7 +510,8 @@ function Get-StopwatchTranscriptCache {
         record lands) and that was last written at or after it. A run whose transcripts were pruned, or a server
         started with the wrong -TranscriptDir, would otherwise be computed from nothing and filed for good as
         all waiting; uncovered, it is left out, so the page says no phases were read, and it costs no read. A
-        cached entry with no session is judged again on the same terms, so one filed that way before is dropped.
+        cached entry with no session is judged again on the same terms: dropped when nothing covers its run, so
+        one filed that way before goes, and kept as it stands when something does.
 
         A SHIP'S STEPS come from the step log at -StepLogPath (#3338; Read-RunStepMarks): the ship-pr marks
         whose checkout is -RepoRoot's, so a ship in another checkout on this machine never cuts this one's.
@@ -539,8 +540,10 @@ function Get-StopwatchTranscriptCache {
     $firsts = @{}; foreach ($f in $all) { $firsts[$f.FullName] = Get-StopwatchTranscriptFirstStamp -Path $f.FullName }
     $uncovered = @($missing | Where-Object { $r = $_; $by = Format-StopwatchStamp $r.Start.AddMinutes(1)
             -not @($all | Where-Object { $firsts[$_.FullName] -and $firsts[$_.FullName] -le $by -and $_.LastWriteTimeUtc -ge $r.Start }).Count })
-    $missing = @($missing | Where-Object { $uncovered -notcontains $_ })
     $dropped = $false; foreach ($r in $uncovered) { if ($cache.ContainsKey($r.Id)) { $cache.Remove($r.Id); $dropped = $true } }
+    # A covered run whose cached entry had no session is taken as it stands: no session of this repo was active.
+    $missing = @($missing | Where-Object { $uncovered -notcontains $_ } | Where-Object {
+            if ($cache.ContainsKey($_.Id) -and $cache[$_.Id].End -eq (Format-StopwatchStamp $_.End)) { $out[$_.Id] = $cache[$_.Id]; $false } else { $true } })
     if ($missing.Count) {
         $from = ($missing | ForEach-Object { $_.Start } | Measure-Object -Minimum).Minimum
         $to = ($missing | ForEach-Object { $_.End } | Measure-Object -Maximum).Maximum
