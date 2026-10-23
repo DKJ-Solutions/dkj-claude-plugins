@@ -57,13 +57,22 @@ workable, because it would dirty the workflow it times.
 - [x] The Stop hook starts the sync in a process of its own once a run has ended, except when a test passes a store
 - [x] The hub merges the other machines' runs into both Stopwatch pages, uses their own phases, and starts a throttled sync
 - [x] The docstrings and the page footers no longer say the runs stay on this machine
+- [x] Review round (Victor, Sebastian, Edith): another machine's payload is parsed per run and bounded; the commits
+  name a neutral identity and a UTC date; one sync at a time under a lock, with one retry of a refused push; no
+  credential window (`GCM_INTERACTIVE=never`) and low-speed bounds on fetch and push; a one-phase run stays an
+  array; the phases cache writes through a temporary file of its own. A run whose transcripts were pruned being
+  cached as all waiting is older than this branch and is filed as #3350.
 
 ### TEST
 
-- [x] `scripts/tests/stopwatch-sync.tests.ps1` (new, 34 asserts, in the pages group): a publish and a read between
-  two clones of a bare origin, an accent through git, the fast-forward, and an untouched index, tree and HEAD
+- [x] `scripts/tests/stopwatch-sync.tests.ps1` (new, 41 asserts, in the pages group): a publish and a read between
+  two clones of a bare origin, an accent through git, the fast-forward, an untouched index, tree and HEAD, the
+  neutral identity, a poisoned payload, and `stopwatch-sync.ps1` end to end against a clone of its own
 - [x] `stopwatch.tests.ps1` 127/0 and `connector-dashboard.tests.ps1` 202/0, the latter after guarding the sync lib's load
-- [x] A real run on this machine: `stopwatch-sync.ps1` pushed `refs/stopwatch/9a3c5423`, and the checkout stayed clean
+- [x] A real run on this machine: `stopwatch-sync.ps1` pushed `refs/stopwatch/9a3c5423`, and the checkout stayed clean.
+  The first push of it still named this machine's git identity, so that ref was deleted and published again.
+- [~] The Stop hook's background start under Claude Code itself is not exercised: whether the harness lets a
+  hidden child outlive the hook is not measured. The hub's throttled sync publishes the same runs if it does not.
 
 ### DEPLOY: feat/3349-stopwatch-shared-runs
 
