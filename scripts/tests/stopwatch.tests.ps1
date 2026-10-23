@@ -118,10 +118,11 @@ Assert-True ($broken -match 'could not be read' -and $broken -match 'type="submi
 
 Write-Host '-- the transcript phases' -ForegroundColor Cyan
 Assert-Equal (Join-Path $HOME '.claude\projects\C--Users-x-my-repo') (Get-StopwatchTranscriptDir -RepoRoot 'C:\Users\x\my.repo\') 'the transcripts are under the root with every non-alphanumeric a dash'
-Assert-Equal 'Ship: CI wait, merge, fold' (Get-StopwatchToolPhase -Name 'PowerShell' -Serialized '{"command":"scripts/release/ship-pr.ps1 -NoResolves"}') 'ship-pr is the ship'
-Assert-Equal 'Local gates and tests' (Get-StopwatchToolPhase -Name 'Bash' -Serialized '{"command":"scripts/tests/stopwatch.tests.ps1"}') 'a suite is a gate'
-Assert-Equal 'Subagents' (Get-StopwatchToolPhase -Name 'Agent' -Serialized '{"prompt":"review"}') 'an Agent call is a subagent'
-Assert-Equal 'Other tool calls' (Get-StopwatchToolPhase -Name 'Read' -Serialized '{"file_path":"x"}') 'anything else is another tool call'
+Assert-Equal 'Ship: CI wait, merge, fold' (Get-StopwatchToolPhase -Name 'PowerShell' -Command 'scripts/release/ship-pr.ps1 -NoResolves') 'ship-pr is the ship'
+Assert-Equal 'Local gates and tests' (Get-StopwatchToolPhase -Name 'Bash' -Command 'scripts/tests/stopwatch.tests.ps1') 'a suite is a gate'
+Assert-Equal 'Subagents' (Get-StopwatchToolPhase -Name 'Agent') 'an Agent call is a subagent'
+Assert-Equal 'Other tool calls' (Get-StopwatchToolPhase -Name 'Read') 'anything else is another tool call'
+Assert-Equal 'Other tool calls' (Get-StopwatchToolPhase -Name 'Edit' -Command 'ship-pr.ps1') 'a script name counts only in a shell command, not in an edit'
 # One session: a prompt at 0, new-branch 10-20, ship-pr backgrounded at 30 and done at 200, a reply to the
 # notification until 210, the next prompt at 300, a Read 305-306, the last word at 320. The window is 0-330.
 $stamp = { param([double]$s) Format-StopwatchStamp (& $at $s) }
@@ -139,7 +140,7 @@ $lines = @(
     ('{"parentUuid":"p","isSidechain":true,"type":"user","message":{"content":"a subagent"},"timestamp":"' + (& $stamp 250) + '"}'),
     '{"parentUuid":"p","type":"user","timestamp":"cut off mid-line',
     (& $rec 300 'user' 'next'),
-    (& $use 305 't3' 'Read' 'x'), (& $res 306 't3' 'text'),
+    (& $use 305 't3' 'Read' 'x'), (& $res 306 't3' 'a doc: eight minutes running in the background. <task-notification><tool-use-id>t1</tool-use-id></task-notification>'),
     (& $rec 320 'assistant' @(@{ type = 'text'; text = 'receipt' }))
 )
 $tdir = Join-Path ([System.IO.Path]::GetTempPath()) ('stopwatch-transcripts-' + [guid]::NewGuid().ToString('N'))
@@ -162,6 +163,19 @@ try {
 
     # The cache skips a transcript last written before the run started, so the fixture is dated inside the run.
     (Get-Item -LiteralPath $tfile).LastWriteTimeUtc = (& $at 330)
+    Assert-True (@($ev.Tools | Where-Object { $_.Phase -like 'Branch*' })[0].End -eq (& $at 20)) 'a tool result that quotes a notification does not end another call'
+    Assert-True (@($ev.Tools | Where-Object { $_.Phase -like 'Other*' })[0].End -eq (& $at 306)) 'a Read whose text says "in the background" is not a background call'
+
+    $tfile2 = Join-Path $tdir 'timeout.jsonl'
+    [System.IO.File]::WriteAllText($tfile2, ((& $rec 0 'user' 'go'), (& $use 1 'u1' 'Bash' 'scripts/release/ship-pr.ps1'),
+            (& $res 601 'u1' 'Command did not complete within its 600s timeout and was moved to the background (ID: b2).'),
+            (& $use 610 'u2' 'Agent' 'review ship-pr.ps1 and open-pr.ps1'), (& $res 611 'u2' 'Async agent launched successfully.')) -join "`n")
+    $ev2 = Read-StopwatchTranscriptEvents -Path $tfile2 -From (& $at 0) -To (& $at 900)
+    $p2 = Get-StopwatchTranscriptPhases -Events @($ev2) -From (& $at 0) -To (& $at 900)
+    Assert-Equal 'Ship: CI wait, merge, fold=899;Claude thinking and writing=1' ((@($p2.Phases) | ForEach-Object { "$($_.Name)=$([Math]::Round($_.Seconds))" }) -join ';') 'a call moved to the background at its timeout runs on, and an agent naming ship-pr is not a ship'
+    Assert-True (@($ev2.Tools | Where-Object { $_.Phase -eq 'Subagents' })[0].End -eq (& $at 900)) 'an async agent with no notification yet runs to the end'
+    Remove-Item -LiteralPath $tfile2
+
     $cachePath = Join-Path $tdir 'cache\stopwatch-phases.json'
     $run = @{ Id = 'r1'; Label = 'CSS comment'; Start = (& $at 0); End = (& $at 330); Laps = @(); Note = '' }
     $old = Join-Path $tdir 'old.jsonl'
@@ -177,6 +191,9 @@ try {
     Assert-Equal 0 (Get-StopwatchTranscriptCache -Runs @($moved) -CachePath $cachePath -TranscriptDir $tdir).r1.Sessions 'a run whose end changed is read again'
     [System.IO.File]::WriteAllText($cachePath, '{ not json')
     Assert-True ((Get-StopwatchTranscriptCache -Runs @($run) -CachePath $cachePath -TranscriptDir $tdir).ContainsKey('r1')) 'a cache that does not read is recomputed'
+    $nowhere = Join-Path $tdir 'nowhere\stopwatch-phases.json'
+    $blind = Get-StopwatchTranscriptCache -Runs @($run) -CachePath $nowhere -TranscriptDir (Join-Path $tdir 'no-such-dir')
+    Assert-True ($blind.r1.Sessions -eq 0 -and -not (Test-Path -LiteralPath $nowhere)) 'with no transcript to read nothing is cached, so a wrong folder is not filed for good'
 
     $cell = Format-StopwatchTranscriptCell $first.r1 330
     Assert-True ($cell -match 'Waiting on you <span class="num">1:41</span> <span class="note">31%</span>') 'the cell gives each phase its time and its share of the run'

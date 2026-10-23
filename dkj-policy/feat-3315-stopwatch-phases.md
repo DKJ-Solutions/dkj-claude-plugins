@@ -47,13 +47,17 @@ phases read from this checkout's Claude Code session transcripts, shown beside t
 - Every second of a run goes to the FIRST phase going at that moment: ship-pr (CI wait, merge, fold), the
   local gates and suites, subagents, branch and claim, any other tool call, then Claude's own turn. A second
   in which no session was busy is waiting on the person. So a backgrounded ship that Claude writes beside is
-  the ship, and the phases always add up to the run.
+  the ship, and the phases always add up to the run. A script name counts only in a Bash or PowerShell
+  command, so a subagent brief that names ship-pr is a subagent.
+- The page and the cache carry phase names and seconds only, never transcript text (Sebastian).
 - A backgrounded call ends at its `<task-notification>` (it carries the `tool-use-id`), not at the immediate
   "running in background" result. Measured on #3320's own session: the ship was 21:39 of 48:45.
 - ship-pr prints no timestamps, so CI wait, merge and fold stay one phase; splitting them needs ship-pr to
   write its own step times, which is a change to that script rather than to this page.
 - A run's window is closed once it stops, so its phases are read once and cached beside the store
-  (`stopwatch-phases.json`, outside the tree). Reading the 49-minute window took 0.34 s.
+  (`stopwatch-phases.json`, outside the tree), each transcript in one pass for every run the cache lacks.
+  Nothing is cached when no transcript was read. Reading the 49-minute window took 0.3 s.
+- The existing "Phases" column is now "Laps", so "phases" means the transcript split only (Edith).
 - The issue's plan named "the transcript reader in `closeout-lib.ps1`"; that lib has none. The readers are
   in `measure-closeouts.ps1` and `artifact-harvest-lib.ps1`, and this one follows the latter's cheap,
   line-filtered read.
@@ -68,18 +72,31 @@ phases read from this checkout's Claude Code session transcripts, shown beside t
 
 - [x] `stopwatch.tests.ps1`: a fixture transcript (prompt, new-branch, a backgrounded ship-pr ended by its
   notification, a sidechain line, a cut-off line, a second prompt) split into exact phases; clipping; the
-  cache written, reused, re-read when the end moves and recomputed when it does not read (63 green)
-- [x] Smoke test on a throwaway server: `/stopwatch` with a run over #3320's session renders the six phases
+  cache written, reused, re-read when the end moves, recomputed when it does not read, and not written when
+  no transcript was read (69 green)
+- [x] Smoke test on a throwaway server: `/stopwatch` with a run over #3320's session renders its six phases,
+  Waiting on you among them
 - [x] `check-plugin-integrity.ps1`: 0 errors
-- [ ] Review: Victor, Sebastian and Edith
+- [x] Review: Victor, Sebastian and Edith. Applied: a background call is recognised only from a shell or
+  agent call's own answer (a Read saying "in the background" ran to the end of the run), the timeout's "moved
+  to the background" counts too, a notification counts only as its own record, a script name only in a shell
+  command, one pass per transcript, no cache without a transcript read, and the header, the purity note and
+  the Laps column brought in line
 
 ### DEPLOY: feat/3315-stopwatch-phases
 
-**Score:**
+A finished Stopwatch run now shows where its time went, read from this repo's session transcripts: the ship
+(CI wait, merge and fold), the local gates and tests, subagents, branch and claim, other tool calls, Claude's
+own thinking and writing, and the time it waited on you, each with its share of the run. Every second counts
+once, so the phases add up to the run. The hand-set laps stay beside them, in a column now called Laps.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+The hub is this repo's own dev server, so nothing a consumer takes changes.
+
+**Score:** N/A
 
 #### Pull Request
 
