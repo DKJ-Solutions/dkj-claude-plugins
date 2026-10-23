@@ -433,8 +433,9 @@ Assert-True ($goLivePasted.TrimStart().StartsWith($hdr)) 'the block opens with t
 $glPastedLines = @($goLivePasted.Trim() -split "`n")
 Assert-Equal 'GitHub issue [BWJ-Development/smartwatchbanden#500](https://github.com/BWJ-Development/smartwatchbanden/issues/500) is now **closed**: this Asana task is now in review.' `
     $glPastedLines[2] 'then the intro, the issue name a link and the verb bold -- the requester''s form (#3069)'
-Assert-Equal 'It becomes visible with the release named below, and can be reopened anytime when something is still not working as expected.' `
-    $glPastedLines[3] 'and directly under it, a planned release day''s line: visible only once that release is out (#3069)'
+Assert-Equal '' $glPastedLines[3] 'and directly under it nothing: a planned release day''s sections say when and that a no reopens it, so no line repeats them (#3328)'
+Assert-True ($goLivePasted -notmatch 'becomes visible|reopened anytime') 'and neither half of the old after-release line is anywhere in the block (#3328)'
+Assert-Equal (Format-GoLiveClosedLine -IssueRef 'o/r#1' -AfterRelease) (Format-GoLiveClosedLine -IssueRef 'o/r#1' -AfterRelease).Split("`n")[0] 'the after-release closed line is the intro alone, on one line (#3328)'
 Assert-True (-not $goLiveBlock.Contains((Get-AsanaReleaseBlockMarker))) 'without -ReleaseMarker the block carries no second marker'
 $glRel = Format-GoLiveBlock -Marker '<!-- m -->' -IssueRef 'o/r#1' -GoLiveDate 'maandag 19 oktober 2026' -ReleaseMarker (Get-AsanaReleaseBlockMarker)
 Assert-True ($glRel.StartsWith("<!-- m -->`n$(Get-AsanaReleaseBlockMarker)`n`n")) 'a planned block carries the after-release marker beside its own, outside the rules (#3069)'
@@ -1441,14 +1442,15 @@ Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r#1' -AlreadyFixed) -match 'res
 Assert-True ((New-ClosedMessage -IssueRef 'o/r#1' -AlreadyFixed).EndsWith("in review.`nNothing was changed for this ticket: it was already fixed by an earlier release. Check below that it holds for you.")) 'the plain message carries the same two lines'
 Assert-Equal "with the session's already-fixed block" (Get-ClosedMessageBlockPhrase -Sections 'x' -AlreadyFixed $true -Research $true) 'the log names the already-fixed block'
 Assert-Equal (Format-GoLiveClosedLine -IssueRef 'o/r#1' -AlreadyFixed).Split("`n")[1] (Get-ClosedMessageSecondLine -AlreadyFixed) 'the block''s closed line and the message''s second line are the same words'
+Assert-Equal '' (Get-ClosedMessageSecondLine -AfterRelease) 'and the message''s after-release second line is empty, the same words as the block''s (#3328)'
 
 # ONE INTRO, AND THE LINE UNDER IT TELLS THE FORMS APART (#3069).
 $cmRel = New-ClosedMessageHtml -IssueRef 'o/r#1' -BlockSections 'TE BEKIJKEN OP' -AfterRelease
 [void][xml]$cmRel
-Assert-True ($cmRel.Contains("is now <strong>closed</strong>: this Asana task is now in review.`nIt becomes visible with the release named below, and can be reopened anytime when something is still not working as expected.`n`n<strong>TE BEKIJKEN OP</strong>")) 'a result visible only after the release says so under the intro, and stays the same message'
+Assert-True ($cmRel.Contains("is now <strong>closed</strong>: this Asana task is now in review.`n`n<strong>TE BEKIJKEN OP</strong>")) 'a result visible only after the release has the intro alone above its sections, and stays the same message (#3328)'
 Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r#1' -AfterRelease) -notmatch 'becomes visible') 'without a block -AfterRelease says nothing about a release it cannot see'
 Assert-True ((New-ClosedMessageHtml -IssueRef 'o/r#1' -BlockSections 'OUTCOME' -Research -AfterRelease) -match 'Nothing has changed' -and (New-ClosedMessageHtml -IssueRef 'o/r#1' -BlockSections 'OUTCOME' -Research -AfterRelease) -notmatch 'becomes visible') 'research wins over -AfterRelease: a research block has no release'
-Assert-True ((New-ClosedMessage -IssueRef 'o/r#1' -AfterRelease).EndsWith("is now closed: this Asana task is now in review.`nIt becomes visible with the release named below, and can be reopened anytime when something is still not working as expected.")) 'the plain message carries the same two lines'
+Assert-True ((New-ClosedMessage -IssueRef 'o/r#1' -AfterRelease).EndsWith("is now closed: this Asana task is now in review.")) 'the plain message ends on the intro too, with no empty line after it (#3328)'
 $cmIntro = 'GitHub issue o/r#1 is now **closed**: this Asana task is now in review.'
 Assert-Equal 'TE BEKIJKEN OP' (Get-PasteBlockSections -Body "m`n---`n$hdr`n`n$cmIntro`nIt can be reopened anytime.`n`nTE BEKIJKEN OP`n---") 'the closed line''s second line is the message''s own, so it is dropped with the intro'
 Assert-Equal 'TE BEKIJKEN OP' (Get-PasteBlockSections -Body "m`n---`n$hdr`n`nGitHub issue o/r#1 is now **closed**. It can be reopened anytime.`n`nTE BEKIJKEN OP`n---") 'a block written before #3069, its closed line one line, is read as before'
@@ -1766,7 +1768,7 @@ Assert-Equal 0 $stRun.AsanaReads.Count 'a result close makes no board read'
 Assert-True ($stRun.Body.Contains("this Asana task is now in review.`nIt can be reopened anytime") -and $stRun.Body -notmatch 'becomes visible') 'a block without the after-release marker keeps the plain reopen line (#3069)'
 $stRel = New-StLine ($stBlock.Replace("$cmLibMarker`n", "$cmLibMarker`n$(Get-AsanaReleaseBlockMarker)`n")) $stT1
 $stRun = Invoke-StMain -Comments @($stRel) -Events @()
-Assert-True ($stRun.Body.Contains("this Asana task is now in review.`nIt becomes visible with the release named below") -and $stRun.Body.Contains('round-1')) 'a block carrying the after-release marker says the result is visible with the release, above its sections (#3069)'
+Assert-True ($stRun.Body.Contains("this Asana task is now in review.`n`n") -and $stRun.Body -notmatch 'becomes visible|reopened anytime' -and $stRun.Body.Contains('round-1')) 'a block carrying the after-release marker has the intro alone above its sections (#3069, #3328)'
 $stRun = Invoke-StMain -Comments @($stRel) -Events @($stT2)
 Assert-True ($stRun.Body -notmatch 'becomes visible' -and $stRun.Body.Contains('follows')) 'and a held-back after-release block takes its line with it'
 $stRun = Invoke-StMain -Comments @((New-StLine $rbBlock $stT1)) -Events @($stT2)

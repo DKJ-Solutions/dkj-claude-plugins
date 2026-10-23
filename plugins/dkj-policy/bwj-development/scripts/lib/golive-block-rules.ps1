@@ -287,15 +287,16 @@ function Get-GoLiveBlockText {
     $header = "$dash GitHub automation $([char]::ConvertFromUtf32(0x1F916))"
     # THE CLOSED LINE IS AN INTRO AND THE LINE UNDER IT (#3069, Maikel, October 16, 2026). A close as
     # completed sends the task on to review whatever the block holds, so the intro is one line for every
-    # form, and only the line under it differs: the reopen invitation for a result already visible, the
-    # same with 'visible with the release' for one that names a planned day, and 'Nothing has changed'
+    # form, and only the line under it differs: the reopen invitation for a result already visible, NO
+    # line at all for one that names a planned day (#3328: 'it becomes visible with the release named
+    # below, and can be reopened anytime' said both halves again above WHEN IT GOES LIVE and the ask's
+    # 'reopened for a new round', xoxowildhearts#414), and 'Nothing has changed'
     # for research -- which replaces #3017's 'the Asana task is ready for review. Read the outcome
     # below.', a lead that did not say nothing changed, so a research form used for a change that went
     # live read as plausible (smartwatchbanden#395). The same words the closed message composes
     # (Get-ClosedMessageIntroTail, Get-ClosedMessageSecondLine).
     $closed         = 'GitHub issue [{0}]({1}) is now **closed**: this Asana task is now in review.'
     $closedLive     = 'It can be reopened anytime when something is still not working as expected.'
-    $closedRelease  = 'It becomes visible with the release named below, and can be reopened anytime when something is still not working as expected.'
     $closedResearch = 'Nothing has changed. Read the outcome below.'
     # THE MEASUREMENT FORM'S LINE (#3179): the store DID change, only the effect is a number nobody sees, so
     # it neither says nothing changed nor invites a look. The same words the closed message composes.
@@ -314,7 +315,6 @@ function Get-GoLiveBlockText {
             Header       = $header
             Closed       = $closed
             ClosedLive   = $closedLive
-            ClosedRelease = $closedRelease
             ClosedResearch = $closedResearch
             ClosedMeasure = $closedMeasure
             ClosedAlreadyFixed = $closedAlreadyFixed
@@ -352,7 +352,6 @@ function Get-GoLiveBlockText {
         Header       = $header
         Closed       = $closed
         ClosedLive   = $closedLive
-        ClosedRelease = $closedRelease
         ClosedResearch = $closedResearch
         ClosedMeasure = $closedMeasure
         ClosedAlreadyFixed = $closedAlreadyFixed
@@ -587,10 +586,11 @@ function Format-GoLiveClosedLine {
     <#
         Pure: the closed line, in Markdown -- the intro with the issue name as a link and the verb bold
         (#2700), and on the next line, with no blank line between, the line that tells the forms apart
-        (#3069): the reopen invitation, or with -AfterRelease the same said of a result that becomes
-        visible with the release, or with -Research that nothing changed, or with -Measure (#3179) that
-        nothing changes visibly and the requester can measure it themselves, or with -AlreadyFixed
+        (#3069): the reopen invitation, or with -Research that nothing changed, or with -Measure (#3179)
+        that nothing changes visibly and the requester can measure it themselves, or with -AlreadyFixed
         (#3242) that nothing changed for this ticket because an earlier release had fixed it.
+        -AfterRelease writes the intro alone (#3328): its sections already say when it goes live and
+        that a 'no' reopens the issue, so a line under the intro could only repeat them.
         -IssueRef is 'owner/repo#<n>'; a bare number has no repo to link to and is refused.
     #>
     param(
@@ -606,8 +606,10 @@ function Format-GoLiveClosedLine {
     }
     $url = "https://github.com/$($Matches[1])/issues/$($Matches[2])"
     $t = if ($Text) { $Text } else { Get-GoLiveBlockText }
-    $second = if ($Measure) { $t.ClosedMeasure } elseif ($AlreadyFixed) { $t.ClosedAlreadyFixed } elseif ($Research) { $t.ClosedResearch } elseif ($AfterRelease) { $t.ClosedRelease } else { $t.ClosedLive }
-    return (($t.Closed -f $IssueRef, $url) + "`n" + $second)
+    $intro = $t.Closed -f $IssueRef, $url
+    if ($AfterRelease -and -not ($Measure -or $AlreadyFixed -or $Research)) { return $intro }
+    $second = if ($Measure) { $t.ClosedMeasure } elseif ($AlreadyFixed) { $t.ClosedAlreadyFixed } elseif ($Research) { $t.ClosedResearch } else { $t.ClosedLive }
+    return ($intro + "`n" + $second)
 }
 
 function Format-GoLiveBlock {

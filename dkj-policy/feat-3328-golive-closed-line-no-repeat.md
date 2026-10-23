@@ -39,19 +39,42 @@
 
 ### PLAN
 
+#### Inbound #3328, verified
+
+Both copies still wrote the line the xoxowildhearts owner called redundant: `$closedRelease` in
+`golive-block-rules.ps1` and `Get-ClosedMessageSecondLine -AfterRelease` in `asana-closed-message.ps1`.
+An after-release block always writes `WHEN IT GOES LIVE` (the planned day) and the ask (`AskNo`: a no
+reopens it), so both halves of the line were said again lower down. Only the after-release form changes.
+The live, no-storefront, research, measurement and already-fixed forms keep their lines.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-GoLiveClosedLine -AfterRelease` writes the intro alone, and `ClosedRelease` is gone from `Get-GoLiveBlockText`
+- [x] `Get-ClosedMessageSecondLine -AfterRelease` returns `''`, and `New-ClosedMessage` / `New-ClosedMessageHtml` write no empty line for it
+- [x] `Get-PasteBlockSections` needed no change: a blank line under the intro drops nothing, and an older block that still has the line has it dropped as before
+- [x] Docs: the golive-block and notify-live skills and `WORKFLOW-portable.md` no longer quote the old sentence
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1`: the four pins on the old sentence now pin the intro alone, plus a pin that the block's and the message's after-release forms agree (888/888 locally)
+
 ### DEPLOY: feat/3328-golive-closed-line-no-repeat
 
-**Score:**
+A go-live block that names a planned release day now has only the intro in its closed line
+([#3328](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3328)). The line under it ("It
+becomes visible with the release named below, and can be reopened anytime ...") repeated `WHEN IT GOES
+LIVE` and the ask's "reopened for a new round". The Asana closed message, which writes the same line
+in place of the block's own, drops it too, so the two copies still agree. The other forms keep their
+second lines, and notify-live still finds these tasks by the after-release marker.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A requester reading a planned-release close on the Asana task is no longer told twice when it goes
+live and how to reopen it.
+
+**Score:** 1
 
 #### Pull Request
 
