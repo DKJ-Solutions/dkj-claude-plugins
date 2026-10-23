@@ -67,7 +67,7 @@ page only shows the measurements (owner, October 23, 2026).
   (label and live clock) and one card per measurement label, in the hub's own card markup: the label, its number
   of runs, the latest run's time, its change against the run before and, for the label going now, its live clock.
   A card links `/stopwatch/<slug>`, the label's page: every run, newest first, with start, duration, the change
-  and the transcript phases (time and share), and a link back. A slug is the lower-cased label with other runs of
+  and the transcript phases (time and share), and the crumbs lead back. A slug is the lower-cased label with other runs of
   characters as one dash (40 characters at most, `run` when nothing is left); labels that would share a slug each
   get a hash suffix of the SHA-1 of the lower-cased label, so they never merge and the slug does not depend on
   the order of the runs; an unknown slug is a 404. The overview opens straight on its Measurements heading: no h1, lead, tiles, Now section or the hub's
