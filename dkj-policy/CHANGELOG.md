@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**12 / 18 minor entries** <!-- pending-tally -->
+**12 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3315-hub-stopwatch · 20261023-083234Z
+
+The hub has a Stopwatch page. Start it with a label when an assignment is given, mark the phases with Lap
+and stop it when the work is done. Each run is compared with the previous run of the same label, faster or
+slower, and carries a note on what to improve next time. The runs are kept on this machine, outside the
+checkout, so timing a run never dirties the tree it is timing.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The hub is this repo's own dev server, so nothing a consumer takes changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch card on the hub
+
+[PR #3320](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3320)
+
+---
 
 ### DEPLOY: feat/3309-suite-overview · 20261023-081214Z
 
