@@ -721,10 +721,15 @@ try {
         $r2 = & $getRaw $g '/hub'
         Assert-True ($r2 -match 'HTTP/1.1 303' -and $r2 -match "Location: http://localhost:$port3/index.html\r") '/hub on the general server goes to the repo''s own hub, as the state file names it, instead of rendering one'
         Assert-True ((& $getRaw $g '/') -match 'HTTP/1.1 303' -and (& $getRaw $g '/index.html') -match 'HTTP/1.1 303') 'and so do / and /index.html'
+        # /artifacts, not /issues (#3324): the assert is about the routing, and /issues spawns git and gh inside the
+        # server's single-threaded loop. It went unanswered for 30 s on loaded CI shards seven times on October 23,
+        # 2026 while answering locally in 0 s, cause not established. On a miss, /whoami says whether the loop was
+        # held or is gone, which is the next fact that cause needs.
         $t1 = Get-Date
-        $issues = & $getRaw $g '/issues'
-        $first = if ($issues) { ($issues -split "`r?`n")[0] } else { '(no answer)' }
-        Assert-True ($issues -match 'HTTP/1.1 200') "while the general pages answer as ever (got '$first' after $([int]((Get-Date) - $t1).TotalSeconds) s)"
+        $general = & $getRaw $g '/artifacts'
+        $first = if ($general) { ($general -split "`r?`n")[0] } else { '(no answer)' }
+        $after = if ($general -match 'HTTP/1.1 200') { '' } else { $w = try { & $getRaw $g '/whoami' } catch { '' }; "; /whoami then: $(if ($w) { ($w -split "`r?`n")[0] } else { '(no answer)' })" }
+        Assert-True ($general -match 'HTTP/1.1 200') "while the general pages answer as ever (got '$first' after $([int]((Get-Date) - $t1).TotalSeconds) s$after)"
         $r = Invoke-Hook $own
         Assert-Equal "Hub: http://localhost:$port3/index.html (already running)" (Get-Message $r.Text) 'a second start reuses it, in the old words'
         # An opted-out repo whose server cannot start has no hub to send to: a plain 404 text, as before.
