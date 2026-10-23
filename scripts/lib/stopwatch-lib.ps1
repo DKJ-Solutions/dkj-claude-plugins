@@ -483,6 +483,24 @@ function Get-StopwatchTranscriptPhases {
     }
 }
 
+function Get-StopwatchTranscriptFirstStamp {
+    <#
+        The first timestamp in one transcript (-Path, a .jsonl) as ISO text, or $null when it holds none. Reads only up
+        to that line, through a reader closed by hand: leaving a foreach over ReadLines early does not dispose it, and
+        the file stays locked.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path)
+    $reader = $null
+    try {
+        $reader = New-Object System.IO.StreamReader((New-Object System.IO.FileStream($Path, [IO.FileMode]::Open, [IO.FileAccess]::Read, [IO.FileShare]::ReadWrite)))
+        while ($null -ne ($line = $reader.ReadLine())) {
+            $m = [regex]::Match($line, '"timestamp":"([^"]+)"')
+            if ($m.Success) { return $m.Groups[1].Value }
+        }
+    } catch { } finally { if ($reader) { $reader.Dispose() } }
+    return $null
+}
+
 function Get-StopwatchTranscriptCache {
     <#
         The transcript phases of every finished run in -Runs, by run id, read from the cache at -CachePath and
@@ -493,8 +511,15 @@ function Get-StopwatchTranscriptCache {
 
         ONE PASS PER TRANSCRIPT, however many runs it lacks: each file is read once over the span from the
         earliest missing start to the latest missing end, and every run takes its own window out of those
-        events (Sebastian and Victor, #3315). And nothing is cached unless a transcript was actually read, so a
-        server started with the wrong -TranscriptDir does not file every run as "no session" for good.
+        events (Sebastian and Victor, #3315).
+
+        ONLY A RUN SOME TRANSCRIPT COVERS is read, cached or returned (#3350): one whose first event is no later
+        than a minute after the run's start (the prompt hook stamps the start, possibly before the prompt's own
+        record lands) and that was last written at or after it. A run whose transcripts were pruned, or a server
+        started with the wrong -TranscriptDir, would otherwise be computed from nothing and filed for good as
+        all waiting; uncovered, it is left out, so the page says no phases were read, and it costs no read. A
+        cached entry with no session is judged again on the same terms: dropped when nothing covers its run, so
+        one filed that way before goes, and kept as it stands when something does.
 
         A SHIP'S STEPS come from the step log at -StepLogPath (#3338; Read-RunStepMarks): the ship-pr marks
         whose checkout is -RepoRoot's, so a ship in another checkout on this machine never cuts this one's.
@@ -514,26 +539,37 @@ function Get-StopwatchTranscriptCache {
     }
     $out = @{}; $missing = @()
     foreach ($r in @($Runs | Where-Object { $_ -and $_.End })) {
-        if ($cache.ContainsKey($r.Id) -and $cache[$r.Id].End -eq (Format-StopwatchStamp $r.End)) { $out[$r.Id] = $cache[$r.Id] } else { $missing += $r }
+        if ($cache.ContainsKey($r.Id) -and $cache[$r.Id].End -eq (Format-StopwatchStamp $r.End) -and $cache[$r.Id].Sessions) { $out[$r.Id] = $cache[$r.Id] } else { $missing += $r }
     }
     if (-not $missing.Count) { return $out }
-    $from = ($missing | ForEach-Object { $_.Start } | Measure-Object -Minimum).Minimum
-    $to = ($missing | ForEach-Object { $_.End } | Measure-Object -Maximum).Maximum
     # A transcript last written before the earliest missing start holds nothing of any of them.
-    $files = if (Test-Path -LiteralPath $TranscriptDir -PathType Container) { @(Get-ChildItem -LiteralPath $TranscriptDir -Filter *.jsonl -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTimeUtc -ge $from }) } else { @() }
-    $events = @(foreach ($f in $files) { Read-StopwatchTranscriptEvents -Path $f.FullName -From $from -To $to })
-    $marks = @()
-    if ($StepLogPath -and $script:StopwatchStepLogAvailable) {
-        # From the earliest ship call's start, which the events read up to an hour before $from: a mark before it cuts nothing.
-        $markFrom = (@($events | ForEach-Object { $_.Tools } | Where-Object { $_ -and $_.Start } | ForEach-Object { $_.Start }) + @($from) | Measure-Object -Minimum).Minimum
-        $marks = @(Read-RunStepMarks -Path $StepLogPath -From $markFrom -To $to | Where-Object {
-                $_.Run -eq 'ship-pr' -and (-not $RepoRoot -or (Test-RunProgressInWorkspace -RecordWorkspace $_.Workspace -SessionWorkspace $RepoRoot)) })
+    $earliest = ($missing | ForEach-Object { $_.Start } | Measure-Object -Minimum).Minimum
+    $all = if (Test-Path -LiteralPath $TranscriptDir -PathType Container) { @(Get-ChildItem -LiteralPath $TranscriptDir -Filter *.jsonl -File -ErrorAction SilentlyContinue | Where-Object { $_.LastWriteTimeUtc -ge $earliest }) } else { @() }
+    $firsts = @{}; foreach ($f in $all) { $firsts[$f.FullName] = Get-StopwatchTranscriptFirstStamp -Path $f.FullName }
+    $uncovered = @($missing | Where-Object { $r = $_; $by = Format-StopwatchStamp $r.Start.AddMinutes(1)
+            -not @($all | Where-Object { $firsts[$_.FullName] -and $firsts[$_.FullName] -le $by -and $_.LastWriteTimeUtc -ge $r.Start }).Count })
+    $dropped = $false; foreach ($r in $uncovered) { if ($cache.ContainsKey($r.Id)) { $cache.Remove($r.Id); $dropped = $true } }
+    # A covered run whose cached entry had no session is taken as it stands: no session of this repo was active.
+    $missing = @($missing | Where-Object { $uncovered -notcontains $_ } | Where-Object {
+            if ($cache.ContainsKey($_.Id) -and $cache[$_.Id].End -eq (Format-StopwatchStamp $_.End)) { $out[$_.Id] = $cache[$_.Id]; $false } else { $true } })
+    if ($missing.Count) {
+        $from = ($missing | ForEach-Object { $_.Start } | Measure-Object -Minimum).Minimum
+        $to = ($missing | ForEach-Object { $_.End } | Measure-Object -Maximum).Maximum
+        $events = @(foreach ($f in @($all | Where-Object { $_.LastWriteTimeUtc -ge $from })) { Read-StopwatchTranscriptEvents -Path $f.FullName -From $from -To $to })
+        $marks = @()
+        if ($StepLogPath -and $script:StopwatchStepLogAvailable) {
+            # From the earliest ship call's start, which the events read up to an hour before $from: a mark before it cuts nothing.
+            $markFrom = (@($events | ForEach-Object { $_.Tools } | Where-Object { $_ -and $_.Start } | ForEach-Object { $_.Start }) + @($from) | Measure-Object -Minimum).Minimum
+            $marks = @(Read-RunStepMarks -Path $StepLogPath -From $markFrom -To $to | Where-Object {
+                    $_.Run -eq 'ship-pr' -and (-not $RepoRoot -or (Test-RunProgressInWorkspace -RecordWorkspace $_.Workspace -SessionWorkspace $RepoRoot)) })
+        }
+        foreach ($r in $missing) {
+            $p = Get-StopwatchTranscriptPhases -Events $events -From $r.Start -To $r.End -ShipMarks $marks
+            $out[$r.Id] = @{ End = (Format-StopwatchStamp $r.End); Sessions = $p.Sessions; Phases = $p.Phases }
+        }
     }
-    foreach ($r in $missing) {
-        $p = Get-StopwatchTranscriptPhases -Events $events -From $r.Start -To $r.End -ShipMarks $marks
-        $out[$r.Id] = @{ End = (Format-StopwatchStamp $r.End); Sessions = $p.Sessions; Phases = $p.Phases }
-    }
-    if ($files.Count) {
+    # A covered run means a transcript was read; a dropped entry means the file holds one it must lose.
+    if ($missing.Count -or $dropped) {
         $doc = [ordered]@{}
         # The file is written whole, so every entry it was loaded with is carried over, not only the runs asked for
         # now: the run pages ask for one run at a time, and one run's visit must not wipe another's.
