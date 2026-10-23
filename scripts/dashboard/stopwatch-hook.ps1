@@ -63,7 +63,7 @@ try {
     $trunk = 'main'
     $cfg = Join-Path $root 'scripts\repo-config.ps1'
     if (Test-Path -LiteralPath $cfg -PathType Leaf) {
-        try { . $cfg *> $null; if (Get-Command Get-TrunkBranchName -ErrorAction SilentlyContinue) { $t = [string](Get-TrunkBranchName); if ($t.Trim()) { $trunk = $t.Trim() } } } catch { }
+        try { . (Join-Path $root 'scripts\lib\command-probe-lib.ps1'); . $cfg *> $null; if (Test-FunctionDefined 'Get-TrunkBranchName') { $t = [string](Get-TrunkBranchName); if ($t.Trim()) { $trunk = $t.Trim() } } } catch { }
     }
     # Windows PowerShell 5.1 turns a native command's stderr line into a terminating error under 'Stop', so the
     # git calls run under 'Continue' and are judged by their exit code and output (Victor, #3323).
