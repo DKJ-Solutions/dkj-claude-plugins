@@ -258,15 +258,22 @@ function Get-TestGateSelection {
     <#
         What this checkout's change selects, locally and on CI (#3309, lever 3), from the functions open-pr
         and the CI check run themselves -- Get-GateChangedPaths and Get-AffectedSuiteSelection in
-        gate-lib.ps1, Get-StaticAssetVerdict in ci-suite-selection-lib.ps1 -- so the page cannot disagree
-        with the gate. A warm run takes about 2 s (the gate's own per-blob cache in the git directory), a
-        cold one about 25 s, so the answer is kept until HEAD or the working copy changes, or -CacheSeconds
-        pass. A failure is a sentence on the page, never a failed page.
+        gate-lib.ps1, Get-StaticAssetVerdict in ci-suite-selection-lib.ps1 -- so the page shows the
+        selection's own answer. It is the SELECTION, not the whole gate: open-pr may skip the suites
+        before selecting (tests already proved for the tree, a CI certificate, a note-tree-only change), and
+        the page does not repeat those checks (Victor, #3309). A warm run takes about 2 s (the gate's own
+        per-blob cache in the git directory), a cold one about 25 s, which holds the single-threaded server
+        for that long. So the answer is kept for -CacheSeconds while HEAD and the list of changed files stay
+        the same; a further edit to a file already modified is seen once that time is up. A failure is a
+        sentence on the page, never a failed page, and is not kept.
     #>
     # 'Continue', as Invoke-DashboardGit does: the gate's git reads must not turn stderr into a terminating error.
     $ErrorActionPreference = 'Continue'
-    $key = (@(Invoke-DashboardGit $root @('rev-parse', 'HEAD')) + @(Invoke-DashboardGit $root @('status', '--porcelain'))) -join '|'
-    if ($script:selectionCache -and $script:selectionCache.Key -eq $key -and ((Get-Date) - $script:selectionCache.At).TotalSeconds -lt $CacheSeconds) {
+    $head = Invoke-DashboardGit $root @('rev-parse', 'HEAD')
+    $status = Invoke-DashboardGit $root @('status', '--porcelain')
+    # No key when git could not answer: a constant key would keep whatever came first.
+    $key = if ($null -ne $head -and $null -ne $status) { (@($head) + @($status)) -join '|' } else { $null }
+    if ($key -and $script:selectionCache -and $script:selectionCache.Key -eq $key -and ((Get-Date) - $script:selectionCache.At).TotalSeconds -lt $CacheSeconds) {
         return $script:selectionCache.Value
     }
     $value = @{ Base = ''; Changed = @(); Proven = $false; Reason = ''; Selected = @(); Why = @{}; PoolCount = 0; CiText = '' }
@@ -288,8 +295,8 @@ function Get-TestGateSelection {
                 else { "every suite -- $($ci.Reason)" }
             } else { "every suite, because $($assets.Reason)" }
         }
-    } catch { $value.Reason = "the selection failed: $($_.Exception.Message)" }
-    $script:selectionCache = @{ Key = $key; At = Get-Date; Value = $value }
+    } catch { $value.Reason = "the selection failed: $($_.Exception.Message)"; return $value }
+    if ($key) { $script:selectionCache = @{ Key = $key; At = Get-Date; Value = $value } }
     return $value
 }
 

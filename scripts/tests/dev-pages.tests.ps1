@@ -231,6 +231,9 @@ $none = Format-TestGatePageHtml -Model $sm -Selection @{ Base = 'origin/main'; C
 Assert-True ($none -match 'id="selection"' -and $none -match 'Nothing differs from origin/main, so nothing is selected\.') 'a clean checkout says there is nothing to select'
 $whole = Format-TestGatePageHtml -Model $sm -Selection @{ Base = 'origin/main'; Changed = @('scripts/lib/gate-lib.ps1'); Proven = $false; Reason = 'the change touches the selection'; Selected = @(); Why = @{}; PoolCount = 165; CiText = '' }
 Assert-True ($whole -match '<dt>Locally</dt><dd>every suite -- the change touches the selection</dd>' -and $whole -notmatch 'Why it runs') 'an unproven selection says every suite runs, and why, with no table'
+$all = Format-TestGatePageHtml -Model $sm -Selection @{ Base = 'origin/main'; Changed = @('x.ps1'); Proven = $true; Reason = ''; Selected = @('scripts/tests/a.tests.ps1', 'scripts/tests/b.tests.ps1'); Why = @{}; PoolCount = 2; CiText = '' }
+Assert-True ($all -match '<dt>Locally</dt><dd>every suite -- the change can affect all 2</dd>') 'a selection of the whole pool says every suite, not "2 of 2" (Victor)'
+Assert-True ($sel -match 'The suites the affected-suite selection picks for it, against origin/main') 'and the section claims the selection, not the whole gate, which may skip the suites first (Victor)'
 
 Write-Host '-- suite-groups.json against the tree' -ForegroundColor Cyan
 # The file is a reading aid and nothing selects suites by it, so the only way it goes wrong is by going

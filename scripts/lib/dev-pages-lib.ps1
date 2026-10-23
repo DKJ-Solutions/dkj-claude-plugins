@@ -365,8 +365,8 @@ function Format-TestGatePageHtml {
         foreach ($s in $suites) { $secondsOf[$s.Name] = $s.Seconds }
         $changed = @($Selection.Changed | Where-Object { $_ })
         [void]$body.AppendLine('<div class="grid-2" id="selection">')
-        [void]$body.AppendLine('<div class="grid__head"><h2>This checkout''s change</h2><p class="card__sub">What the local gate in open-pr runs for it' +
-            $(if ($Selection.Base) { ', against ' + (& $e $Selection.Base) } else { '' }) + ', and why each suite is in</p></div>')
+        [void]$body.AppendLine('<div class="grid__head"><h2>This checkout''s change</h2><p class="card__sub">The suites the affected-suite selection picks for it' +
+            $(if ($Selection.Base) { ', against ' + (& $e $Selection.Base) } else { '' }) + ', and why each one is in</p></div>')
         [void]$body.AppendLine('<section class="card grid__full">')
         if (-not $changed.Count) {
             [void]$body.AppendLine('<p class="note">' + $(if ($Selection.Reason) { (& $e $Selection.Reason) + '.' } else { 'Nothing differs from the trunk, so nothing is selected.' }) + '</p>')
@@ -375,16 +375,20 @@ function Format-TestGatePageHtml {
             [void]$body.AppendLine('<dl class="facts">')
             [void]$body.AppendLine('<div><dt>Changed</dt><dd>' + (($shown | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ', ') +
                 $(if ($changed.Count -gt $shown.Count) { ' and ' + ($changed.Count - $shown.Count) + ' more' } else { '' }) + '</dd></div>')
-            $local = if ($Selection.Proven) { '' + @($Selection.Selected).Count + ' of ' + $Selection.PoolCount + ' suites' }
-                     else { 'every suite -- ' + (& $e $Selection.Reason) }
+            $local = if (-not $Selection.Proven) { 'every suite -- ' + (& $e $Selection.Reason) }
+                     elseif (@($Selection.Selected).Count -ge $Selection.PoolCount) { 'every suite -- the change can affect all ' + $Selection.PoolCount }
+                     else { '' + @($Selection.Selected).Count + ' of ' + $Selection.PoolCount + ' suites' }
             [void]$body.AppendLine('<div><dt>Locally</dt><dd>' + $local + '</dd></div>')
             if ($Selection.CiText) { [void]$body.AppendLine('<div><dt>On CI</dt><dd>' + (& $e $Selection.CiText) + '</dd></div>') }
             [void]$body.AppendLine('</dl>')
             if ($Selection.Proven -and @($Selection.Selected).Count) {
-                $rows = @($Selection.Selected | ForEach-Object { ($_ -split '/')[-1] } | Sort-Object @{ Expression = { if ($secondsOf.ContainsKey($_)) { $secondsOf[$_] } else { 0 } }; Descending = $true }, @{ Expression = { $_ } })
+                # Keyed on the suite's path, which is unique; its file name is what the durations, the synopses
+                # and the reader go by.
+                $leafOf = { param($p) ($p -split '/')[-1] }
+                $rows = @($Selection.Selected | Sort-Object @{ Expression = { $n = & $leafOf $_; if ($secondsOf.ContainsKey($n)) { $secondsOf[$n] } else { 0 } }; Descending = $true }, @{ Expression = { $_ } })
                 $t = '<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Suite</th><th class="dp-left">Why it runs</th><th>Seconds</th></tr></thead><tbody>' + "`n"
-                foreach ($n in $rows) {
-                    $key = @($Selection.Selected | Where-Object { ($_ -split '/')[-1] -eq $n } | Select-Object -First 1)[0]
+                foreach ($key in $rows) {
+                    $n = & $leafOf $key
                     $reason = if ($Selection.Why -and $Selection.Why.ContainsKey($key)) { $Selection.Why[$key] } else { '' }
                     $sec = if ($secondsOf.ContainsKey($n)) { ([double]$secondsOf[$n]).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) } else { '--' }
                     $t += '<tr><td class="dp-left">' + (& $suiteCell $n) + '</td><td class="dp-left">' + (& $e $reason) + '</td><td class="num">' + $sec + '</td></tr>' + "`n"

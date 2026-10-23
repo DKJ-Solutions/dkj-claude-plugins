@@ -55,8 +55,9 @@ branch is parked for the owner's review and not merged.
 
 ### TEST
 
-- [x] `dev-pages.tests.ps1` (306), `affected-suites.tests.ps1` (139), `connector-dashboard.tests.ps1` (198), `ci-suite-selection-lib.tests.ps1` (34): all pass
+- [x] `dev-pages.tests.ps1` (308), `affected-suites.tests.ps1` (139), `connector-dashboard.tests.ps1` (198), `ci-suite-selection-lib.tests.ps1` (34): all pass
 - [x] The live dev server serves the new page (200); for this branch it says that every suite runs, because the change touches the selector
+- [x] Victor (code review): nothing blocking; the section now claims the selection rather than the whole gate, a whole-pool selection reads "every suite", a failed git read is not cached, and rows are keyed on the suite path
 
 ### DEPLOY: feat/3309-suite-overview
 
