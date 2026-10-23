@@ -874,6 +874,26 @@ $cutSectH11 Pull Request
     Assert-True ($r20.Code -ne 0) 'build leaks: a source map in the output refuses the cut'
     Assert-Says "left a source map or a local path in index.js.map" $r20.Out 'build leaks: the refusal names the file'
     Assert-Equal '' (Get-GitOut -Root $root20 -GitArgs @('status', '--porcelain')).Trim() 'build leaks: the tree is as clean as it was'
+
+    # A running executable inside the build's folder refuses BEFORE the gates (#3353): npm ci cannot unlink it,
+    # and the refusal used to come after an ~11-minute gate. The holder is a copied ping.exe in the ignored output.
+    $root21 = New-CutFixture -Name 'build-held'
+    $holderExe = Join-Path $root21 'app\dist\holder.exe'
+    New-Item -ItemType Directory -Force -Path (Split-Path $holderExe) | Out-Null
+    Copy-Item -LiteralPath (Join-Path $env:SystemRoot 'System32\PING.EXE') -Destination $holderExe
+    $holder = Start-Process -FilePath $holderExe -ArgumentList '-n', '120', '127.0.0.1' -WindowStyle Hidden -PassThru
+    try {
+        $r21 = Invoke-Cut -Root $root21 -Arguments @('-Bump', 'patch', '-NoPush')
+    } finally {
+        Stop-Process -Id $holder.Id -Force -ErrorAction SilentlyContinue
+        $holder.WaitForExit(5000) | Out-Null
+    }
+    Assert-True ($r21.Code -ne 0) 'build held: refused with a non-zero exit'
+    Assert-Says "release build 'app': holder.exe is in use by a running process" $r21.Out 'build held: the refusal names the build and the held file'
+    Assert-NotMatch 'lint gate:' $r21.Out 'build held: refused before the lint gate ran'
+    Assert-True (Test-Path -LiteralPath $holderExe) 'build held: refused before the build removed its output'
+    $v21 = (Get-Content -LiteralPath (Join-Path $root21 'plugins\dkj-subagents\team-fixture\.claude-plugin\plugin.json') -Raw | ConvertFrom-Json).version
+    Assert-Equal '1.4.0' $v21 'build held: nothing was written'
 } finally {
     if (Test-Path -LiteralPath $FixtureDir) {
         Remove-Item -LiteralPath $FixtureDir -Recurse -Force -ErrorAction SilentlyContinue
