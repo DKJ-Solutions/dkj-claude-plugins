@@ -130,19 +130,22 @@ try {
 
 Write-Host '-- the model' -ForegroundColor Cyan
 $mk = { param($label, $start, $end) @{ Id = "id$start"; Label = $label; Start = (& $at $start); End = $(if ($null -ne $end) { & $at $end } else { $null }); Auto = $true; StartHead = 'a' } }
+$stampAt = { param($s) (& $at $s).ToLocalTime().ToString('yyyy-MM-dd-HHmm', [Globalization.CultureInfo]::InvariantCulture) }
+$sp = { param($s) (& $at $s).ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture) }
 $m = ConvertTo-StopwatchModel -Runs @((& $mk 'CSS comment' 0 300), (& $mk 'css COMMENT' 1000 1200), (& $mk 'Docs' 2000 2500), (& $mk 'CSS comment' 3000 3250), (& $mk 'Live' 5000 $null))
 Assert-True ($m.Running -and $m.Running.Label -eq 'Live') 'the run without an end is the running one'
 Assert-Equal 4 $m.Count 'only finished runs are counted'
-Assert-Equal 'Live,CSS comment,Docs' (($m.Groups | ForEach-Object { $_.Label }) -join ',') 'labels group case-insensitively, the group with the newest run first, one going now included'
-Assert-True (@($m.Groups[0].Rows).Count -eq 0 -and $m.Groups[0].Running.Label -eq 'Live' -and $null -eq $m.Groups[1].Running) 'a label with only a run going has no rows, and only its group holds the running run'
-$css = $m.Groups[1]
-Assert-Equal '250,200,300' (($css.Rows | ForEach-Object { $_.Seconds }) -join ',') 'a group''s runs are newest first'
-Assert-Equal '50,-100,' (($css.Rows | ForEach-Object { $_.DeltaSeconds }) -join ',') 'each against the run before it, and the first against nothing'
-Assert-Equal 200 $css.Best 'the best is the shortest run'
+Assert-Equal 'Live,CSS comment,Docs,css COMMENT,CSS comment' (($m.Groups | ForEach-Object { $_.Label }) -join ',') 'every run is a group of its own, also when runs share a label, newest first, the one going now included'
+Assert-True (@($m.Groups[0].Rows).Count -eq 0 -and $m.Groups[0].Running.Label -eq 'Live' -and $null -eq $m.Groups[1].Running) 'the run going has no rows, and only its group holds it'
+Assert-True (@($m.Groups | Where-Object { @($_.Rows).Count -gt 1 }).Count -eq 0) 'no group holds two runs'
+Assert-Equal '250,500,200,300' ((@($m.Groups | Select-Object -Skip 1) | ForEach-Object { $_.Rows[0].Seconds }) -join ',') 'each finished run carries its own time'
+Assert-Equal '50,,-100,' ((@($m.Groups | Select-Object -Skip 1) | ForEach-Object { $_.Rows[0].DeltaSeconds }) -join ',') 'each against the previous run of its label, case-insensitively, and a label''s first against nothing'
+$gone = ConvertTo-StopwatchModel -Runs @((& $mk 'Old' 0 $null), (& $mk 'New' 100 $null))
+Assert-Equal 'New' (($gone.Groups | ForEach-Object { $_.Label }) -join ',') 'a run a later prompt discarded is not shown'
 
 Write-Host '-- the slugs (#3323)' -ForegroundColor Cyan
 $sl = Get-StopwatchSlugs -Labels @('CSS comment change', 'css COMMENT change', 'Docs', '???', 'Ship it!!')
-Assert-Equal 'css-comment-change' $sl['css comment change'] 'a slug is the lower-cased label with every other run turned into one dash'
+Assert-Equal 'css-comment-change' $sl['css comment change'] 'a label slug is the lower-cased label with every other run turned into one dash'
 Assert-Equal 4 @($sl.Keys).Count 'labels that differ only in case are one label'
 Assert-Equal 'run' $sl['???'] 'a label with no letter or digit is called run'
 Assert-Equal 'ship-it' $sl['ship it!!'] 'trailing punctuation leaves no trailing dash'
@@ -152,11 +155,13 @@ Assert-True ($clash['a b'] -ne $clash['a-b'] -and $clash['a b'] -match '^a-b-[0-
 Assert-Equal 'other' $clash['other'] 'a label that collides with nobody keeps its plain slug'
 $clash2 = Get-StopwatchSlugs -Labels @('Other', 'a-b', 'A b')
 Assert-True ($clash2['a b'] -ceq $clash['a b'] -and $clash2['a-b'] -ceq $clash['a-b']) 'the suffixes depend on the label, not on the order'
-$cm = ConvertTo-StopwatchModel -Runs @((& $mk 'A b' 0 10), (& $mk 'a-b' 100 130))
-Assert-Equal 2 @($cm.Groups).Count 'the two colliding labels stay two groups'
-Assert-True ((Find-StopwatchGroup -Model $cm -Slug $clash['a b']).Label -eq 'A b' -and (Find-StopwatchGroup -Model $cm -Slug $clash['a-b']).Label -eq 'a-b') 'each slug finds its own label'
-Assert-True ($null -eq (Find-StopwatchGroup -Model $cm -Slug 'a-b') -and $null -eq (Find-StopwatchGroup -Model $cm -Slug '')) 'a slug no label has finds nothing'
-foreach ($g in @($m.Groups)) { Assert-Equal $g.Label (Find-StopwatchGroup -Model $m -Slug $g.Slug).Label ("the slug '$($g.Slug)' finds its group again") }
+foreach ($g in @($m.Groups)) { Assert-Equal $g.Latest (Find-StopwatchGroup -Model $m -Slug $g.PageSlug).Latest ("the slug '$($g.PageSlug)' finds its run again") }
+Assert-Equal (& $stampAt 2000) @($m.Groups | Where-Object { $_.Label -eq 'Docs' })[0].PageSlug 'a run''s page is addressed by its start'
+Assert-Equal (& $at 3000) (Find-StopwatchGroup -Model $m -Slug 'css-comment').Latest 'a label''s slug, from when a page held a label, arrives at its newest run'
+Assert-True ($null -eq (Find-StopwatchGroup -Model $m -Slug 'nothing') -and $null -eq (Find-StopwatchGroup -Model $m -Slug '')) 'a slug no run or label has finds nothing'
+$twin = ConvertTo-StopwatchModel -Runs @((& $mk 'One' 0 10), (& $mk 'One' 5 20))
+$twinSlugs = @($twin.Groups | ForEach-Object { $_.PageSlug })
+Assert-True ($twinSlugs.Count -eq 2 -and $twinSlugs[0] -ne $twinSlugs[1] -and $twinSlugs[0] -match '^\d{4}-\d{2}-\d{2}-\d{4}-id\d+$') 'two runs started in the same minute each take their id after the start'
 
 Write-Host '-- the page' -ForegroundColor Cyan
 $page = Format-StopwatchPageHtml -Model $m -StorePath 'C:\x\stopwatch.json' -Now (& $at 5065)
@@ -164,16 +169,12 @@ Assert-True ($page -match 'aria-current="page">Stopwatch</span>' -and $page -mat
 Assert-True ($page -notmatch '<h1|class="lead"|hub-banner|Runs recorded|id="now"|class="sw-clock') 'the overview is bare: no h1, lead, airsquats banner, tiles or Now section above the cards'
 Assert-True ($page -match '<h2>Measurements</h2>' -and $page.IndexOf('<h2>Measurements</h2>') -lt $page.IndexOf('card--link')) 'it opens on the Measurements heading, then the cards'
 Assert-True ($page -match 'querySelectorAll\("\[data-start\]"\)') 'the clock script ticks every [data-start] element, the card''s going-now span included'
-Assert-Equal 3 ([regex]::Matches($page, '<section class="card card--link">')).Count 'one card per label: CSS comment, Docs and the one only going now'
-Assert-True ($page -match 'href="/stopwatch/css-comment"><span class="menu-item__label">CSS comment<span class="menu-item__sub">3 run\(s\) - latest 4:10 - 50.0s slower than the run before</span>') 'a card gives the label, the runs, the latest time and its change, and links the label page'
-$docsGroup = @($m.Groups | Where-Object { $_.Label -eq 'Docs' })[0]
-$docsStamp = $docsGroup.Rows[0].Run.Start.ToLocalTime().ToString('yyyy-MM-dd-HHmm', [Globalization.CultureInfo]::InvariantCulture)
-Assert-True ($page -match ('href="/stopwatch/' + $docsStamp + '"><span class="menu-item__label">Docs<span class="menu-item__sub">1 run\(s\) - latest 8:20 - first run<')) 'a label with one run says first run, and is linked by its run''s start'
-Assert-True ((Find-StopwatchGroup -Model $m -Slug $docsStamp).Label -eq 'Docs' -and (Find-StopwatchGroup -Model $m -Slug 'docs').Label -eq 'Docs') 'its page answers on the start and on the label''s own slug, so an older link still arrives'
-$twin = ConvertTo-StopwatchModel -Runs @((& $mk 'One' 0 10), (& $mk 'Two' 5 20))
-Assert-True (@($twin.Groups | Where-Object { $_.PageSlug -eq $_.Slug }).Count -eq 2) 'two one-run labels started in the same minute keep their label slugs'
-Assert-True ($page -match 'href="/stopwatch/live"><span class="menu-item__label">Live<span class="menu-item__sub">0 run\(s\) - going now <span class="num" data-start="2026-10-23T11:23:20.000Z">1:05</span>') 'the label going now carries its live clock on its card'
-Assert-True ($page -notmatch 'Against the run before</th>') 'the overview holds no table of runs; they are on the label page'
+Assert-Equal 5 ([regex]::Matches($page, '<section class="card card--link">')).Count 'one card per run, also for the three runs that share a label'
+Assert-True ($page -match ('href="/stopwatch/' + (& $stampAt 3000) + '"><span class="menu-item__label">' + [regex]::Escape((& $sp 3000)) + '<span class="menu-item__sub">CSS comment - 4:10 - 50.0s slower than the run before</span>')) 'a card is named by its run''s start, with the label, the time and its change under it, and links the run''s page'
+Assert-True ($page -match ('<span class="menu-item__label">' + [regex]::Escape((& $sp 2000)) + '<span class="menu-item__sub">Docs - 8:20 - first run<')) 'a label''s first run says so'
+Assert-True ($page -match ('<span class="menu-item__label">' + [regex]::Escape((& $sp 5000)) + '<span class="menu-item__sub">Live - going now <span class="num" data-start="2026-10-23T11:23:20.000Z">1:05</span>')) 'the run going now carries its live clock on its card'
+Assert-True ($page -notmatch 'run\(s\)') 'a card counts no runs: it is one'
+Assert-True ($page -notmatch 'Against the run before</th>') 'the overview holds no table of runs'
 Assert-True ($page -notmatch '<section class="card[^"]*">\s*<h2') 'no h2 stands inside a card'
 Assert-True ($page -match 'C:\\x\\stopwatch.json') 'the footer names where the runs are kept'
 Assert-True ($page -notmatch '<form|<button|<textarea|data-sw=|data-action=|fetch\(|method: "POST"|sw-form') 'the page is read-only: no form, button, textarea or POST script of its own (the hub shell banner checkbox is not the page)'
@@ -182,23 +183,21 @@ $idle = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk
 Assert-True ($idle -notmatch 'going now' -and $idle -notmatch 'data-start=') 'with nothing running no card carries a clock'
 Assert-True ((Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's') -match 'No run yet') 'with no run at all it says so, with no card'
 $evil = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk '<script>x</script>' 0 10))) -StorePath 's'
-Assert-True ($evil -notmatch '<script>x</script>' -and $evil -match '&lt;script&gt;x&lt;/script&gt;' -and $evil -match 'href="/stopwatch/[0-9-]+"' -and (ConvertTo-StopwatchModel -Runs @((& $mk '<script>x</script>' 0 10))).Groups[0].Slug -eq 'script-x-script') 'a label is escaped wherever it is shown, and its slugs are URL-safe'
+Assert-True ($evil -notmatch '<script>x</script>' -and $evil -match '&lt;script&gt;x&lt;/script&gt;' -and $evil -match 'href="/stopwatch/[0-9-]+"' -and (ConvertTo-StopwatchModel -Runs @((& $mk '<script>x</script>' 0 10))).Groups[0].LabelSlug -eq 'script-x-script') 'a label is escaped wherever it is shown, and its slugs are URL-safe'
 $broken = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -ReadError 'it is not valid JSON' -StorePath 's'
 Assert-True ($broken -match 'could not be read') 'a store that does not read says so'
 
-Write-Host '-- the label page (#3323)' -ForegroundColor Cyan
-$cssGroup = Find-StopwatchGroup -Model $m -Slug 'css-comment'
-$lp = Format-StopwatchLabelPageHtml -Group $cssGroup -StorePath 's'
-Assert-True ($lp -match '<h2>CSS comment</h2>' -and $lp -notmatch 'Back to the Stopwatch' -and $lp -notmatch '<h1|hub-banner') 'the label page is named for the label, leaves the way back to the crumbs and carries no banner'
-Assert-True ($lp -match '<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">CSS comment</span></li>') 'the trail reads Home, Stopwatch (linking /stopwatch), then the label'
-Assert-True ($lp -match 'badge--good">1:40 faster<' -and $lp -match 'badge--bad">50.0s slower<' -and $lp -match 'first run') 'each run says faster or slower than the one before'
-Assert-Equal 3 ([regex]::Matches($lp, '<tr><td')).Count 'every run of the label has a row'
-Assert-True ($lp -match '4:10</td>[\s\S]*3:20</td>[\s\S]*5:00</td>') 'the rows run newest first'
-Assert-True ($lp -match '3 run\(s\), best 3:20') 'it names the runs and the best'
-$live = Format-StopwatchLabelPageHtml -Group (Find-StopwatchGroup -Model $m -Slug 'live') -StorePath 's' -Now (& $at 5065)
-Assert-True ($live -match 'class="sw-clock num" data-start="2026-10-23T11:23:20.000Z">1:05<' -and $live -match 'No finished run of this label yet') 'a label with only a run going shows its clock'
+Write-Host '-- the run page (#3323)' -ForegroundColor Cyan
+$lp = Format-StopwatchRunPageHtml -Group (Find-StopwatchGroup -Model $m -Slug (& $stampAt 3000)) -StorePath 's'
+Assert-True ($lp -match ('<h2>' + [regex]::Escape((& $sp 3000)) + '</h2><p class="card__sub">CSS comment</p>') -and $lp -notmatch '<h1|hub-banner') 'a run''s page is named by its start, its label beneath, and carries no banner'
+Assert-True ($lp -match ('<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">' + [regex]::Escape((& $sp 3000)) + '</span></li>')) 'the trail reads Home, Stopwatch (linking /stopwatch), then the run''s start'
+Assert-True ($lp -match '<h3 class="card__title">Time</h3>[\s\S]*class="sw-clock num">4:10</p>' -and $lp -match 'badge--bad">50.0s slower</span> <span class="note">than the previous run of this label') 'it shows its time on a card, and its change against the previous run of its label'
+Assert-True ($lp -notmatch '<h2>Runs</h2>' -and $lp -notmatch 'Against the run before' -and $lp -notmatch '3:20|5:00') 'it holds this run only: no Runs heading, no table, no other run''s time'
+Assert-True ((Format-StopwatchRunPageHtml -Group (Find-StopwatchGroup -Model $m -Slug (& $stampAt 0)) -StorePath 's') -match 'first run') 'a label''s first run says so'
+$live = Format-StopwatchRunPageHtml -Group (Find-StopwatchGroup -Model $m -Slug 'live') -StorePath 's' -Now (& $at 5065)
+Assert-True ($live -match 'class="sw-clock num" data-start="2026-10-23T11:23:20.000Z">1:05<' -and $live -notmatch '<h2>Phases</h2>') 'the run going shows its clock, and no phases yet'
 $evilGroup = (ConvertTo-StopwatchModel -Runs @((& $mk '<b>x</b>' 0 10))).Groups[0]
-Assert-True ((Format-StopwatchLabelPageHtml -Group $evilGroup -StorePath '<i>') -notmatch '<b>x</b>|<i>') 'the label and the store path are escaped on the label page'
+Assert-True ((Format-StopwatchRunPageHtml -Group $evilGroup -StorePath '<i>') -notmatch '<b>x</b>|<i>') 'the label and the store path are escaped on the run page'
 
 Write-Host '-- the transcript phases' -ForegroundColor Cyan
 Assert-Equal (Join-Path $HOME '.claude\projects\C--Users-x-my-repo') (Get-StopwatchTranscriptDir -RepoRoot 'C:\Users\x\my.repo\') 'the transcripts are under the root with every non-alphanumeric a dash'
@@ -307,7 +306,7 @@ try {
     $quiet = Get-StopwatchTranscriptCache -Runs @($run) -CachePath $legacyPath -TranscriptDir $pdir
     Assert-True ($quiet.r1.Sessions -eq 0 -and (Get-Item -LiteralPath $legacyPath).LastWriteTimeUtc -eq $stamped) 'an entry with no session whose run IS covered is taken from the cache as it stands, not recomputed and rewritten on every load'
 
-    # One label's page asks for its own runs only, and the file is written whole: the others must survive it.
+    # One run's page asks for its own run only, and the file is written whole: the others must survive it.
     $twoPath = Join-Path $tdir 'two\stopwatch-phases.json'
     # Windows from an hour ago to now, covered by a transcript of their own, whatever the clock says.
     $w0 = [datetime]::UtcNow.AddHours(-1)
@@ -333,12 +332,12 @@ try {
     Assert-True ((Format-StopwatchPhaseCard @{ Sessions = 2; Phases = @(@{ Name = 'x'; Seconds = 1 }) } 60 -Title 'T') -match '<div class="card__head"><h3 class="card__title">T</h3><p class="card__sub">2 sessions</p></div>') 'the card heading follows the house card head, with the sessions under the title'
     Assert-True ((Format-StopwatchPhaseCard $null 60 -Title '<b>') -match 'No phases read' -and (Format-StopwatchPhaseCard $null 60 -Title '<b>') -notmatch '<b>') 'a run with no phases yet says so, and the title is escaped'
     $tm = ConvertTo-StopwatchModel -Runs @($run)
-    $tp = Format-StopwatchLabelPageHtml -Group $tm.Groups[0] -StorePath 's' -Transcript $first
-    Assert-True ($tp -match '<h2>Phases</h2>[\s\S]*<section class="card"><div class="card__head"><h3 class="card__title">[^<]+</h3>[\s\S]*Ship: CI wait, merge, fold</td><td class="num">2:50') 'a label page shows each run''s phases in a card of their own, under the Phases heading'
+    $tp = Format-StopwatchRunPageHtml -Group $tm.Groups[0] -StorePath 's' -Transcript $first
+    Assert-True ($tp -match '<h2>Phases</h2>[\s\S]*<section class="card"><div class="card__head"><h3 class="card__title">[^<]+</h3>[\s\S]*Ship: CI wait, merge, fold</td><td class="num">2:50') 'a run page shows its phases in a card of their own, under the Phases heading'
     Assert-True ($tp -notmatch 'From the transcripts') 'and the runs table no longer crams them into one cell'
-    Assert-True ($tp -notmatch '<h2>Runs</h2>' -and $tp -notmatch 'Against the run before' -and $tp -match '<h3 class="card__title">Time</h3>[\s\S]*class="sw-clock num">5:30</p>') 'a label with one run shows its time on a card, with no Runs heading and no comparison table'
+    Assert-True ($tp -notmatch '<h2>Runs</h2>' -and $tp -notmatch 'Against the run before' -and $tp -match '<h3 class="card__title">Time</h3>[\s\S]*class="sw-clock num">5:30</p>') 'a run shows its time on a card, with no Runs heading and no comparison table'
     $startText = (& $at 0).ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
-    Assert-True ($tp -match ('<h2>' + [regex]::Escape($startText) + '</h2><p class="card__sub">CSS comment</p>') -and $tp -match ('<span aria-current="page">' + [regex]::Escape($startText) + '</span>')) 'a label with one run is titled with its start, in the heading and the crumb, the label beneath'
+    Assert-True ($tp -match ('<h2>' + [regex]::Escape($startText) + '</h2><p class="card__sub">CSS comment</p>') -and $tp -match ('<span aria-current="page">' + [regex]::Escape($startText) + '</span>')) 'a run page is titled with its start, in the heading and the crumb, the label beneath'
 
     # A SHIP SPLIT BY ITS STEP MARKS (#3338). The ship above runs 30-200; ship-pr marks its gates at 40, its CI
     # wait at 60, its merge at 180 and its fold at 190.

@@ -92,7 +92,7 @@ function Format-GeneralPageHtml {
         banner, so the page opens on its own content; the crumbs and the site header stay, and -Title still names the
         crumb and the <title>. -Lead may then be empty.
         -ParentCrumbs are the crumbs between Home and the page, in order, each @{ Label; Href }: a page nested under
-        another (the Stopwatch's label pages) names its parent so the trail reads Home > parent > the page.
+        another (the Stopwatch's run pages) names its parent so the trail reads Home > parent > the page.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Title,

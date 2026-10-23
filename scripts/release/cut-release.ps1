@@ -463,9 +463,26 @@ $releaseBuilds = @(foreach ($b in @(Get-SeamValue -Name 'Get-ReleaseBuilds' -Def
     $buildDir = Join-Path $repoRoot ($rels[0] -replace '/', '\')
     if (-not (Test-Path -LiteralPath $buildDir -PathType Container)) { Write-Error "Get-ReleaseBuilds names '$($rels[0])' for '$($b.Name)', which does not exist -- release aborted."; exit 1 }
     if ((Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'check-ignore', '-q', '--', ($rels[1] + '/x')) -DiscardStderr).ExitCode -ne 0) { Write-Error "Get-ReleaseBuilds: '$($b.Name)' builds into '$($rels[1])', which git does not ignore -- release aborted."; exit 1 }
-    [pscustomobject]@{ Name = [string]$b.Name; Dir = $buildDir; Commands = @($b.Commands | ForEach-Object { [string]$_ })
+    [pscustomobject]@{ Name = [string]$b.Name; Folder = $rels[0]; Dir = $buildDir; Commands = @($b.Commands | ForEach-Object { [string]$_ })
         Output = $rels[1]; OutputAbs = (Join-Path $repoRoot ($rels[1] -replace '/', '\')); Target = $rels[2]; TargetAbs = (Join-Path $repoRoot ($rels[2] -replace '/', '\')) }
 })
+
+# A BUILD WHOSE FOLDER HOLDS A FILE SOME PROCESS HAS LOADED REFUSES THE CUT HERE, before the gates (#3353). On
+# Windows a running executable or a loaded native module cannot be unlinked, so 'npm ci' failed with EPERM on the
+# esbuild.exe a product dev server keeps running from the same node_modules -- measured after the full ~11-minute
+# gate, which that refusal then wasted. The probe is the write-open an unlink trips on, not a process scan: a
+# process's image path can come back in 8.3 form, and a .node module is loaded into node.exe, whose own image sits
+# elsewhere. Only executables and native modules are probed, which kept the scan of brandbook/ to ~1.5 seconds.
+foreach ($b in $releaseBuilds) {
+    $held = @(Get-ChildItem -LiteralPath $b.Dir -Recurse -File -Include '*.exe', '*.dll', '*.node' -ErrorAction SilentlyContinue | Where-Object {
+        try { [System.IO.File]::Open($_.FullName, 'Open', 'ReadWrite', 'None').Dispose(); $false } catch [System.IO.IOException] { $true } catch { $false } })
+    if ($held.Count) {
+        $named = ($held | Select-Object -First 3 | ForEach-Object { $_.Name }) -join ', '
+        Write-Error ("release build '$($b.Name)': $named is in use by a running process, and the build cannot replace it -- release aborted before the gates, nothing written. " +
+            "Stop whatever runs from '$($b.Folder)' first; a dev server started from that folder is the usual holder.")
+        exit 1
+    }
+}
 
 # The consumer tier (#417 phase 2). Empty by default, which is the tier switched OFF -- what this
 # script did for its whole life as a workshop-only file, so nothing changes for a consumer.

@@ -3,7 +3,7 @@
     Serve this repo's dev server on http://localhost:<Port>/ -- the hub on '/', which links the hub's own
     pages (#3097): /test-gate, the per-suite CI durations, grouped by the workflow step each suite guards
     (scripts/tests/suite-groups.json); and /stopwatch, how long each assignment took: a read-only overview of cards, one per
-    label, and /stopwatch/<slug>, each label's runs, from the runs the hooks of scripts/dashboard/stopwatch-hook.ps1 record (#3315, #3323). The server takes no POST at all. It also builds three pages the product relays, which the hub does not link (below):
+    run, and /stopwatch/<slug>, each run's page, from the runs the hooks of scripts/dashboard/stopwatch-hook.ps1 record (#3315, #3323). The server takes no POST at all. It also builds three pages the product relays, which the hub does not link (below):
     /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
     check-connectors.ps1 reports for it on this machine (#2976); /specialists, every specialist the
     dkj-subagents plugins ship and the context each one costs, read from this tree; and /dkj-repos, every
@@ -505,7 +505,7 @@ try {
                 continue
             }
             if ($path -match '^/stopwatch/([a-z0-9-]{1,60})$') {
-                # One label's page (#3323). A slug no label has is a 404, like any other path.
+                # One run's page (#3323). A slug no run has is a 404, like any other path.
                 $sw = Get-StopwatchPageRuns; $store = $sw.Store
                 if ($store.Error) {
                     # The same read error the overview shows, not a bare 404 for a page that may well exist.
@@ -521,7 +521,7 @@ try {
                 # Only this machine's runs are read from its transcripts; another machine's carry the phases it read from its own.
                 $phases = Get-StopwatchTranscriptCache -Runs @($group.Rows | ForEach-Object { $_.Run } | Where-Object { -not $_.Machine }) -CachePath $StopwatchPhasesPath -TranscriptDir $TranscriptDir -StepLogPath $StopwatchStepLogPath -RepoRoot $root
                 foreach ($k in $sw.Shared.Phases.Keys) { if (-not $phases.ContainsKey($k)) { $phases[$k] = $sw.Shared.Phases[$k] } }
-                $html = Format-StopwatchLabelPageHtml -Group $group -StorePath $StopwatchPath -Transcript $phases
+                $html = Format-StopwatchRunPageHtml -Group $group -StorePath $StopwatchPath -Transcript $phases
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }

@@ -2,7 +2,58 @@
 
 ## [Unreleased]
 
-**2 / 4 minor entries** <!-- pending-tally -->
+**2 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/stopwatch-one-card-per-run · 20261023-165610Z
+
+The Stopwatch overview now gives every run its own card, also when runs share a label. Each card is named by the
+run's start and leads to that run's page. Before this, runs with the same label were merged into one card.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A: the Stopwatch is this repo's own hub tooling under `scripts/`, and no plugin ships it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The Stopwatch gives every run a card and a page of its own, also when two runs share a label
+
+Plugins: dkj-policy
+
+[PR #3363](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3363)
+
+---
+
+### DEPLOY: fix/3353-release-build-held-files · 20261023-155717Z
+
+`cut-release.ps1` now refuses a cut **before its gates** when a running process has loaded an executable or
+native module inside a release build's folder, which is what a dev server running from `brandbook/` does.
+The build's `npm ci` cannot replace such a file, and until now the cut only found that out after the whole
+~11-minute gate ([#3353](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3353)). The refusal names
+the file and the folder. The probe is a write-open on `*.exe`, `*.dll` and `*.node` rather than a process
+scan, because a process's image path can come back in 8.3 form and a `.node` module is loaded into
+`node.exe`, which lives elsewhere.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A: a consumer names no release build by default, so its cut is unchanged.
+
+**Score:** N/A
+
+#### Pull Request
+
+cut-release: refuse before the gates when a running process holds a release build's files
+
+Plugins: dkj-policy
+
+[PR #3360](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3360)
+
+---
 
 ### DEPLOY: fix/3324-general-pages-probe · 20261023-154805Z
 
