@@ -436,6 +436,27 @@ function Get-ThemePreviewUrl {
     return 'https://' + $domain + $Path + '?preview_theme_id=' + $ThemeId + '&' + $script:ThemePreviewQuery
 }
 
+function Get-PreviewPathRefusal {
+    <# The refusal for a -Path that git-bash (MSYS) rewrote, or $null for a path that may be printed.
+
+       Run from git-bash, MSYS turns any argument that looks like an absolute POSIX path into a Windows
+       path before powershell.exe sees it, so '/products/x' arrives as 'C:/Program Files/Git/products/x'.
+       The push itself is unaffected, so nothing in the run reads as wrong -- only the printed preview URL
+       404s, and that URL is what the handover carries (inbound #3355, measured in a consumer on
+       2026-10-23). A drive letter is the mangling's own fingerprint and cannot occur in a storefront
+       path, so that is what is tested -- not a missing leading slash, which is a documented convenience.
+       bwj-development's market-urls lib refuses the same shape; that plugin is not reachable from here,
+       so the one-line test is written out rather than depended on.
+
+       Called BEFORE any CLI call, so a refused path costs nothing: refusing after the push would waste
+       the push and still hand over no link. #>
+    param([string]$Path)
+    if ("$Path" -notmatch '[A-Za-z]:[\\/]') { return $null }
+    return ("-Path holds '$Path', which is not a storefront path -- git-bash (MSYS) rewrote it into a " +
+        "Windows path before powershell.exe saw it. Re-run from PowerShell, or prefix the command with " +
+        "MSYS_NO_PATHCONV=1. Nothing was pushed.")
+}
+
 function Get-PreviewHandoverNote {
     <# The closing note a MULTI-URL preview push prints under its list -- inbound #1873.
 
