@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Issue #3324: the ownhub assert "while the general pages answer as ever" went unanswered for 30 s in CI shard
+`suites (2)` seven times on October 23, 2026, which blocked every PR that day. Ruled out by measurement:
+unauthenticated `gh` in a non-git folder exits in 67 ms, the hook's `/whoami` probe always sends its request,
+and no suite sharing the shard stops processes. The cause is still not established, so the repair takes out
+the one part of the assert that runs processes in the server's single-threaded loop, and makes a miss
+diagnose itself.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `dev-preview-sessionstart.tests.ps1`: probe `/artifacts` (a file read) instead of `/issues` (git plus three gh calls). On a miss, ask `/whoami` and print its answer.
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1` alone: 308 passed, 0 failed, and `/artifacts` answered in 0 s.
+
 ### DEPLOY: fix/3324-general-pages-probe
 
-**Score:**
+The ownhub routing assert in `dev-preview-sessionstart.tests.ps1` now probes the general pages with
+`/artifacts` rather than `/issues`, so it no longer runs git and gh inside the fixture server's
+single-threaded loop. That probe went unanswered for 30 s on loaded CI shards seven times in one day, which
+blocked every PR, while answering locally in 0 s
+([#3324](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3324)). The cause is not established.
+On a miss the assert now also reports what `/whoami` answers, which tells a held loop from a dead server.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: a test of this repo's own suite, which no consumer runs.
+
+**Score:** N/A
 
 #### Pull Request
 
