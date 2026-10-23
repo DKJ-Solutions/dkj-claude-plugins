@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**15 / 26 minor entries** <!-- pending-tally -->
+**16 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3331-cancelled-forward-run-not-red · 20261023-110206Z
+
+`ship-pr`'s forward lap no longer refuses a merge as "the required check went RED on the forwarded head"
+when the run it saw was only a cancelled duplicate. After a forward, two `pull_request` runs can start on
+the same head seconds apart, and the concurrency group cancels the first. That run counted as the renewed
+certificate, and a cancellation reads as a failure. The wait now does not return while a required check
+reads cancelled, and keeps waiting for the run that superseded it. A real `failure` still ends the run as
+red (#3331).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer running `ship-pr` no longer gets a false RED refusal on a branch that was forwarded, which
+otherwise cost a manual re-run once CI finished.
+
+**Score:** 2
+
+#### Pull Request
+
+a cancelled duplicate CI run on the forwarded head no longer reads as red
+
+Plugins: dkj-policy
+
+[PR #3333](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3333)
+
+---
 
 ### DEPLOY: feat/3328-golive-closed-line-no-repeat · 20261023-105042Z
 
