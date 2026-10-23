@@ -161,7 +161,8 @@ foreach ($g in @($m.Groups)) { Assert-Equal $g.Label (Find-StopwatchGroup -Model
 Write-Host '-- the page' -ForegroundColor Cyan
 $page = Format-StopwatchPageHtml -Model $m -StorePath 'C:\x\stopwatch.json' -Now (& $at 5065)
 Assert-True ($page -match 'aria-current="page">Stopwatch</span>' -and $page -match '<li><a href="/">Home</a></li>') 'the page has the house shell and its crumb back to the hub'
-Assert-True ($page -notmatch '<h1|class="lead"|hub-banner|Runs recorded|id="now"|class="sw-clock') 'the overview is bare: no h1, lead, airsquats banner, tiles or Now section above the cards'
+Assert-True ($page -notmatch '<h1|class="lead"|Runs recorded|id="now"|class="sw-clock') 'the overview is bare: no h1, lead, tiles or Now section above the cards'
+Assert-True (([regex]::Matches($page, 'id="hub-banner"')).Count -eq 1 -and $page.IndexOf('id="hub-banner"') -lt $page.IndexOf('<h2>Measurements</h2>')) 'but it carries the airsquats banner once, above the Measurements heading, as every hub page does (#3356)'
 Assert-True ($page -match '<h2>Measurements</h2>' -and $page.IndexOf('<h2>Measurements</h2>') -lt $page.IndexOf('card--link')) 'it opens on the Measurements heading, then the cards'
 Assert-True ($page -match 'querySelectorAll\("\[data-start\]"\)') 'the clock script ticks every [data-start] element, the card''s going-now span included'
 Assert-Equal 3 ([regex]::Matches($page, '<section class="card card--link">')).Count 'one card per label: CSS comment, Docs and the one only going now'
@@ -189,7 +190,7 @@ Assert-True ($broken -match 'could not be read') 'a store that does not read say
 Write-Host '-- the label page (#3323)' -ForegroundColor Cyan
 $cssGroup = Find-StopwatchGroup -Model $m -Slug 'css-comment'
 $lp = Format-StopwatchLabelPageHtml -Group $cssGroup -StorePath 's'
-Assert-True ($lp -match '<h2>CSS comment</h2>' -and $lp -notmatch 'Back to the Stopwatch' -and $lp -notmatch '<h1|hub-banner') 'the label page is named for the label, leaves the way back to the crumbs and carries no banner'
+Assert-True ($lp -match '<h2>CSS comment</h2>' -and $lp -notmatch 'Back to the Stopwatch' -and $lp -notmatch '<h1' -and ([regex]::Matches($lp, 'id="hub-banner"')).Count -eq 1 -and $lp.IndexOf('id="hub-banner"') -lt $lp.IndexOf('<h2>CSS comment</h2>')) 'the label page is named for the label, leaves the way back to the crumbs and carries the banner once, above its heading (#3356)'
 Assert-True ($lp -match '<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">CSS comment</span></li>') 'the trail reads Home, Stopwatch (linking /stopwatch), then the label'
 Assert-True ($lp -match 'badge--good">1:40 faster<' -and $lp -match 'badge--bad">50.0s slower<' -and $lp -match 'first run') 'each run says faster or slower than the one before'
 Assert-Equal 3 ([regex]::Matches($lp, '<tr><td')).Count 'every run of the label has a row'

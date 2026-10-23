@@ -39,19 +39,36 @@
 
 ### PLAN
 
+The owner wants the hub's general banner on every hub page, without exception (#3356). Measured on the running
+hub: every route carried it except `/stopwatch` (and its label pages), bare since #3323, and `/connectors`, whose
+own page shell #3297 never reached.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `-Bare` on `Format-GeneralPageHtml` leaves out the h1 and the lead only; the banner stays (docstrings in
+  `general-pages-lib.ps1`, `dev-pages-lib.ps1`, `stopwatch-lib.ps1` follow)
+- [x] the Connectors page writes the banner under its intro
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1`: the two asserts that pinned the banner's absence now pin it once, above the heading
+- [x] `connector-dashboard.tests.ps1`: the banner is on the page once, between the h1 and the tiles
+- [x] stopwatch, connector-dashboard, dev-pages and dev-preview-sessionstart suites green
+
 ### DEPLOY: feat/3356-hub-banner-everywhere
 
-**Score:**
+The hub's airsquats banner is now on every hub page: the Stopwatch overview and its label pages keep their bare
+layout (no h1 or lead) but open on the banner, and the Connectors page carries it under its intro. `-Bare` on
+`Format-GeneralPageHtml` now leaves out the intro only.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+The hub is this repo's own dev server; a consumer's hub pages that pass `-Bare` (none do today) would gain the
+banner too.
+
+**Score:** N/A
 
 #### Pull Request
 
