@@ -285,6 +285,89 @@ function Get-ForwardLapDecision {
     }
 }
 
+function Get-EarlyForwardAction {
+    <#
+    .SYNOPSIS
+        While the certifying run is still going: keep polling, forward now, or hand over to the watch?
+
+    .DESCRIPTION
+        THE LAP USED TO START ONLY AFTER THE STALE RUN HAD FINISHED. Step 3b reads the certificate once
+        the required check is green, so a trunk that moved seconds after CI started still cost the whole
+        of that run before the lap began -- a run whose answer the gate was always going to discard.
+        Measured on PR #3348 (October 23, 2026): another PR merged 12s after its CI started, the first run
+        took 8m19s, and only then did the lap begin; a second 8m03s run followed. Of the 19m15s the
+        assignment took, that first run was 43%, and none of it bought anything.
+
+        SO THE SAME PREDICATE IS READ DURING THE WAIT. Step 3a polls while a required check is unfinished,
+        and once the trunk has gained a non-fold commit after the certifying run was created, it forwards
+        at once. The gate is unchanged -- the reading is #1292's, with #1592's fold discount, and the lap
+        budget is #2087's and is SHARED with step 3b -- only the moment of the forward moves.
+
+        IT FAILS OPEN, AND THAT IS WHAT MAKES IT SAFE TO ADD. Every answer other than 'forward' and 'poll'
+        is 'watch': the ordinary step 3 watch takes over and step 3b reads the certificate exactly as it
+        always did, fail-closed. An unreadable payload, a reading that could not be taken, a spent budget:
+        each ends this phase rather than refusing in it, because step 3b is the gate and this is only a
+        shortcut to its remedy.
+
+          the check payload did not read          -> watch
+          no required check is still unfinished   -> watch (the certificate is complete; step 3b reads it)
+          no stale reading (or none could be had) -> poll
+          stale, and the lap budget says no       -> watch (step 3b then refuses with #2087's note)
+          stale, and a lap is allowed             -> forward
+    #>
+    param(
+        [Parameter(Mandatory = $true)][bool]$ChecksReadable,
+        [Parameter(Mandatory = $true)][int]$UnfinishedRequired,
+        # The Get-StaleCertificateVerdict result, or $null when no reading was taken this poll.
+        [AllowNull()]$StaleVerdict,
+        [Parameter(Mandatory = $true)][int]$LapsUsed,
+        [Parameter(Mandatory = $true)][int]$MaxLaps
+    )
+
+    if (-not $ChecksReadable) { return 'watch' }
+    if ($UnfinishedRequired -le 0) { return 'watch' }
+    if ($null -eq $StaleVerdict -or -not $StaleVerdict.Stale) { return 'poll' }
+    if (-not (Get-ForwardLapDecision -LapsUsed $LapsUsed -MaxLaps $MaxLaps).Forward) { return 'watch' }
+    return 'forward'
+}
+
+function Get-UnfinishedRequiredCount {
+    <#
+    .SYNOPSIS
+        How many of the ruleset's required check NAMES have no concluded record yet in a full
+        `gh pr checks --json name,bucket` payload. -1 when the payload does not read.
+
+    .DESCRIPTION
+        NOT Get-MergeBlockVerdict's UnfinishedRequired, and the difference is the whole point. That one
+        reads the `--required` payload, which lists only the required checks THAT HAVE REGISTERED -- and a
+        required check is very often an aggregator that registers when the jobs it needs have finished
+        (`lint-en-tests` here). Asked that way, a run three minutes into an eight-minute CI reads "nothing
+        unfinished", which would end step 3a at the very moment it exists for. So the names come from the
+        ruleset, and a name with no record at all counts as unfinished.
+
+        Concluded means a bucket of pass, fail, skipping or cancel; pending, an empty bucket and an absent
+        record are unfinished.
+    #>
+    param(
+        [AllowEmptyString()][string]$ChecksJson = '',
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$RequiredNames
+    )
+
+    if (-not $ChecksJson -or -not $ChecksJson.Trim()) { return -1 }
+    # PARSED INTO A VARIABLE FIRST, then wrapped: Windows PowerShell 5.1 emits a JSON array from
+    # ConvertFrom-Json as ONE object, so @($json | ConvertFrom-Json) is a one-element array holding the whole
+    # list and every name reads as all of them joined (the trap pr-issues-lib.ps1 documents).
+    try { $parsed = $ChecksJson | ConvertFrom-Json } catch { return -1 }
+    $records = @(@($parsed) | Where-Object { $_ -and $_.name })
+    $concluded = @('pass', 'fail', 'skipping', 'cancel')
+    $count = 0
+    foreach ($name in @($RequiredNames | Where-Object { $_ -and "$_".Trim() } | Select-Object -Unique)) {
+        $done = @($records | Where-Object { [string]$_.name -eq $name -and $concluded -contains ([string]$_.bucket).ToLowerInvariant() })
+        if ($done.Count -eq 0) { $count++ }
+    }
+    return $count
+}
+
 function Test-CertificateRenewed {
     <#
     .SYNOPSIS
