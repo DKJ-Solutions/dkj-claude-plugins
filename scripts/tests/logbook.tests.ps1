@@ -147,6 +147,27 @@ $rp = Format-LogbookRunPageHtml -Group $g -StorePath 'C:\x\logbook.json'
 Assert-True ((Format-LogbookRunPageHtml -Group $g -Transcript $tr) -match 'Work 45\.0s, waiting on you 1:15\.' -and $rp -notmatch 'waiting on you \d') 'a run''s page states its work time and its waiting under its time'
 Assert-True ($rp -match 'First' -and $rp -match '2:00' -and $rp -match 'href="/logbook"' -and $rp -notmatch 'first run|than the previous run') 'a run''s page shows its time, crumbs back to /logbook, and no change against a run before'
 
+Write-Host '-- a sweep, per issue (#3405)' -ForegroundColor Cyan
+$mk = { param([double]$s, $run = 'ship-pr', $step = 'fold') @{ At = (& $at $s); Run = $run; Step = $step; Workspace = 'C:\x' } }
+$cm = { param([double]$s, $subject) @{ At = (& $at $s); Subject = $subject } }
+$folds = Get-LogbookFolds -Marks @((& $mk 600), (& $mk 500 'ship-pr' 'merge'), (& $mk 1800), (& $mk 900 'stopwatch'), (& $mk 2500)) `
+    -Commits @((& $cm 1804 'fold: fix/3397-walk changelog (#3399)'), (& $cm 604 'fold: feat/3392-scope changelog (#3398)'), (& $cm 2000 'merge: feat/3400-x (#3402)'), (& $cm 1500 'fold: feat/3393-elsewhere changelog (#3396)'))
+Assert-Equal '600:3392,1800:3397,2500:' (($folds | ForEach-Object { '{0}:{1}' -f ($_.At - $t0).TotalSeconds, $_.Issue }) -join ',') 'every ship-pr fold mark is a fold, named after the fold commit made just after it; a commit minutes before it, or no commit, names none'
+Assert-Equal '' (Get-LogbookFolds -Marks @((& $mk 600)) -Commits @((& $cm 604 'fold: docs/no-number changelog (#1)')))[0].Issue 'a fold commit whose branch carries no issue number names none'
+
+$sw = @{ Id = 'sw1'; Label = '/sweep-issues'; Start = (& $at 0); End = (& $at 1830); Auto = $true; StartHead = 'a'; Session = 's1' }
+$other = @{ Id = 'o1'; Label = 'fix the thing'; Start = (& $at 100); End = (& $at 700); Auto = $true; StartHead = 'a'; Session = 's2' }
+$split = Split-LogbookSweepRuns -Runs @($sw, $other) -Folds $folds
+$shape = { param($rs) ($rs | ForEach-Object { '{0}|{1}|{2}-{3}' -f $_.Id, $_.Label, ($_.Start - $t0).TotalSeconds, $(if ($_.End) { ($_.End - $t0).TotalSeconds } else { 'going' }) }) -join ', ' }
+Assert-Equal 'sw1-1|/sweep-issues #3392|0-600, o1|fix the thing|100-700, sw1-2|/sweep-issues #3397|600-1800' (& $shape $split) 'a finished sweep becomes one run per issue, clean trunk to clean trunk; its time after the last fold is dropped, and another run is left alone'
+Assert-True ($split[0].Session -eq 's1' -and $sw.Id -eq 'sw1' -and $sw.Label -eq '/sweep-issues') 'an issue keeps the sweep''s session, and the stored run is not changed'
+$going = $sw.Clone(); $going.End = $null
+Assert-Equal 'sw1-1|/sweep-issues #3392|0-600, sw1-2|/sweep-issues #3397|600-1800, sw1-3|/sweep-issues issue 3|1800-going' (& $shape (Split-LogbookSweepRuns -Runs @($going) -Folds @($folds[0], $folds[1]))) 'in a going sweep the issue in progress is going'
+Assert-Equal 'sw1-1|/dkj-policy:sweep-issues issue 1|0-600' (& $shape (Split-LogbookSweepRuns -Runs @(@{ Id = 'sw1'; Label = '/dkj-policy:sweep-issues'; Start = (& $at 0); End = (& $at 700) }) -Folds @(@{ At = (& $at 600); Issue = '' }))) 'the plugin-qualified command is a sweep too, and a fold that named no issue is numbered'
+Assert-Equal 'sw1|/sweep-issues|0-1830' (& $shape (Split-LogbookSweepRuns -Runs @($sw) -Folds @(@{ At = (& $at 1900); Issue = '1' }))) 'a sweep with no fold inside it stays whole'
+Assert-Equal 'o1|fix the thing|100-700' (& $shape (Split-LogbookSweepRuns -Runs @($other) -Folds $folds)) 'a run that is not a sweep is never cut, whatever it shipped'
+Assert-Equal 'sw1|/sweep-issues|0-1830' (& $shape (Get-LogbookRuns -Runs @($sw) -StepLogPath '')) 'without a step log the pages show the sweep whole'
+
 Write-Host ''
 Write-Host "logbook: $script:pass passed, $script:fail failed"
 if ($script:fail -gt 0) { exit 1 }

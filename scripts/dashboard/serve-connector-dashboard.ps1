@@ -4,7 +4,7 @@
     pages (#3097): /test-gate, the per-suite CI durations, grouped by the workflow step each suite guards
     (scripts/tests/suite-groups.json); and /stopwatch, how long each assignment took: a read-only overview of cards, one per
     run, and /stopwatch/<slug>, each run's page, from the runs the hooks of scripts/dashboard/stopwatch-hook.ps1 record (#3315, #3323); and /logbook
-    and /logbook/<slug>, the same pages for every session that began on a clean trunk, from the runs of scripts/dashboard/logbook-hook.ps1 (#3364). The server takes no POST at all. It also builds three pages the product relays, which the hub does not link (below):
+    and /logbook/<slug>, the same pages for every session that began on a clean trunk, from the runs of scripts/dashboard/logbook-hook.ps1 (#3364), a /sweep-issues run cut into one run per issue at its folds (#3405). The server takes no POST at all. It also builds three pages the product relays, which the hub does not link (below):
     /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
     check-connectors.ps1 reports for it on this machine (#2976); /specialists, every specialist the
     dkj-subagents plugins ship and the context each one costs, read from this tree; and /dkj-repos, every
@@ -549,9 +549,11 @@ try {
             }
             if ($LogbookAvailable -and $path -eq '/logbook') {
                 $lb = Read-StopwatchStore -Path $LogbookPath
+                # A sweep is shown per issue, cut at its folds (#3405).
+                $lbRuns = Get-LogbookRuns -Runs $lb.Runs -StepLogPath $StopwatchStepLogPath -RepoRoot $root
                 # Every finished run's phases, for its work time on its card: read from the transcripts once, then cached.
-                $phases = Get-StopwatchTranscriptCache -Runs @($lb.Runs | Where-Object { $_.End }) -CachePath $LogbookPhasesPath -TranscriptDir $TranscriptDir -StepLogPath $StopwatchStepLogPath -RepoRoot $root
-                $html = Format-LogbookPageHtml -Runs $lb.Runs -ReadError $lb.Error -Skipped $lb.Skipped -StorePath $LogbookPath -Transcript $phases
+                $phases = Get-StopwatchTranscriptCache -Runs @($lbRuns | Where-Object { $_.End }) -CachePath $LogbookPhasesPath -TranscriptDir $TranscriptDir -StepLogPath $StopwatchStepLogPath -RepoRoot $root
+                $html = Format-LogbookPageHtml -Runs $lbRuns -ReadError $lb.Error -Skipped $lb.Skipped -StorePath $LogbookPath -Transcript $phases
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
@@ -563,7 +565,7 @@ try {
                     Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                     continue
                 }
-                $group = Find-StopwatchGroup -Model (ConvertTo-LogbookModel -Runs $lb.Runs) -Slug $Matches[1]
+                $group = Find-StopwatchGroup -Model (ConvertTo-LogbookModel -Runs (Get-LogbookRuns -Runs $lb.Runs -StepLogPath $StopwatchStepLogPath -RepoRoot $root)) -Slug $Matches[1]
                 if (-not $group) {
                     Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
                     continue
