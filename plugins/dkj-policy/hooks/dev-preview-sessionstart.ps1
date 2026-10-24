@@ -259,7 +259,11 @@ function Start-DevPreviewHub($Listeners, $Processes) {
 # @{ Action = 'reuse'|'start'|'failed'; Port; Url; Detail; NotStarted; Exposed; Proc; Log }: Detail is the
 # reason where it failed, and NotStarted says whether it reads "not started: <Detail>" or stands on its own.
 function Start-DevPreviewProduct($Listeners, $Processes, $Cfg, [string]$LogName = 'dev-preview') {
-    $r = @{ Action = 'failed'; Port = 0; Url = ''; Detail = ''; NotStarted = $true; Exposed = ''; Proc = $null; Log = '' }
+    $r = @{ Action = 'failed'; Port = 0; Url = ''; Detail = ''; NotStarted = $true; Exposed = ''; Proc = $null; Log = ''; Stale = '' }
+    # AN INSTALL OLDER THAN ITS LOCK IS NAMED, NOT REFUSED (#3404): the server may still run, and when it does
+    # not, this is the line's only clue.
+    $staleRel = Get-DevPreviewStaleInstall -Root $root -Requires $Cfg.Requires
+    if ($staleRel) { $r.Stale = "; '$staleRel' is older than its package-lock.json -- run npm install" }
     $pick = Select-DevPreviewPort -Ports $Cfg.Ports -Listeners $Listeners -Processes $Processes -Root $root
     if ($pick.Action -eq 'reuse') {
         $r.Action = 'reuse'
@@ -334,6 +338,8 @@ $targets = @()
 # The hub's own deadline, 12 s; DKJ_DEV_PREVIEW_HUB_WAIT (0-99) is the TEST override.
 $hubWait = 12
 if ([string]$env:DKJ_DEV_PREVIEW_HUB_WAIT -match '^[0-9]{1,2}$') { $hubWait = [int]$env:DKJ_DEV_PREVIEW_HUB_WAIT }
+# The settle after a started product's first answer (#3404); DKJ_DEV_PREVIEW_SETTLE (0-99) is the TEST override.
+if ([string]$env:DKJ_DEV_PREVIEW_SETTLE -match '^[0-9]{1,2}$') { $script:DevPreviewSettleSeconds = [int]$env:DKJ_DEV_PREVIEW_SETTLE }
 if ($hub.Action -eq 'start') { $targets += @{ Name = 'hub'; Port = $hub.Port; Proc = $hub.Proc; Deadline = (Get-Date).AddSeconds($hubWait); Done = $false; Ok = $false; Fail = '' } }
 if ($prod -and $prod.Action -eq 'start') { $targets += @{ Name = 'product'; Port = $prod.Port; Proc = $prod.Proc; Deadline = (Get-Date).AddSeconds($cfg.WaitSeconds); Done = $false; Ok = $false; Fail = '' } }
 if ($extra -and $extra.Action -eq 'start') { $targets += @{ Name = 'extra'; Port = $extra.Port; Proc = $extra.Proc; Deadline = (Get-Date).AddSeconds($extraCfg.WaitSeconds); Done = $false; Ok = $false; Fail = '' } }
@@ -359,7 +365,7 @@ Save-DevPreviewState
 $pending = @($targets)
 while ($pending.Count) {
     foreach ($t in $pending) {
-        if ((Get-Date) -ge $t.Deadline) { $t.Done = $true; $t.Fail = 'timeout' }
+        if ((Get-Date) -ge $t.Deadline -and -not $t.SettleUntil) { $t.Done = $true; $t.Fail = 'timeout' }
     }
     $pending = @($pending | Where-Object { -not $_.Done })
     if (-not $pending.Count) { break }
@@ -373,10 +379,24 @@ while ($pending.Count) {
             if ($null -eq $table) { $table = Get-DevPreviewProcesses }
             $state = Get-DevPreviewPortState -Port $t.Port -Listeners $mine -Processes $table -Root $root
         }
+        # A started product that answered is held for a short settle before it reads as started (#3404): a
+        # server that binds and then exits at once leaves its port free, and would otherwise be 'started'.
+        if ($t.SettleUntil) {
+            $gone = $mine.Count -and -not @($mine | Where-Object { $table.ContainsKey([int]$_.OwningProcess) }).Count
+            switch (Get-DevPreviewSettleOutcome -State $state -Due ((Get-Date) -ge $t.SettleUntil) -HolderGone $gone) {
+                'ok'      { $t.Done = $true; $t.Ok = $true }
+                'stopped' { $t.Done = $true; $t.Fail = 'stopped' }
+                'lost'    { $t.Done = $true; $t.Fail = 'lost'; $t.Holder = Format-DevPreviewPortHolders -Ports @([int]$t.Port) -Listeners $mine -Processes $table }
+            }
+            continue
+        }
         # The shell that runs the Command ends with it, so a server that died at start ends the wait too --
         # also where another process holds the port: that is a lost bind, not a slow start (#3378).
         switch (Get-DevPreviewWaitOutcome -State $state -Exited ([bool]$t.Proc.HasExited)) {
-            'ok'     { $t.Done = $true; $t.Ok = $true }
+            'ok'     {
+                if ($t.Name -eq 'hub') { $t.Done = $true; $t.Ok = $true }
+                else { $t.SettleUntil = (Get-Date).AddSeconds($script:DevPreviewSettleSeconds) }
+            }
             'exited' { $t.Done = $true; $t.Fail = 'exited' }
             'lost'   { $t.Done = $true; $t.Fail = 'lost'; $t.Holder = Format-DevPreviewPortHolders -Ports @([int]$t.Port) -Listeners $mine -Processes $table }
         }
@@ -407,6 +427,7 @@ function Get-DevPreviewServerPart($P, $T, $Cfg) {
     elseif ($P.Action -eq 'start') {
         if ($T.Ok) { $r.Url = $P.Url; $r.Word = 'started' }
         elseif ($T.Fail -eq 'exited') { $r.Fail = "the server on port $($P.Port) exited at start -- see $($P.Log)" }
+        elseif ($T.Fail -eq 'stopped') { $r.Fail = "the server on port $($P.Port) stopped right after it started listening -- see $($P.Log)" }
         elseif ($T.Fail -eq 'lost') { $r.Fail = "the server lost port $($P.Port) to a process this hook cannot identify ($($T.Holder)) -- it may be one started beside it; see $($P.Log)" }
         else { $r.Fail = "starting on $($P.Url) but not listening after $($Cfg.WaitSeconds)s -- see $($P.Log)" }
     }
@@ -417,9 +438,9 @@ function Get-DevPreviewServerPart($P, $T, $Cfg) {
 
 # The product's clause on the line, from its part: 'product: <url> (<word>)', or why there is none.
 function Format-DevPreviewProductClause($Part, $P) {
-    if ($Part.Url) { return "product: $($Part.Url) ($($Part.Word)$(if ($P.Action -eq 'reuse') { $P.Exposed }))" }
-    if ($Part.Fail -like 'not started: *') { return "product $($Part.Fail)" }
-    return "product: $($Part.Fail)"
+    if ($Part.Url) { return "product: $($Part.Url) ($($Part.Word)$(if ($P.Action -eq 'reuse') { $P.Exposed })$($P.Stale))" }
+    if ($Part.Fail -like 'not started: *') { return "product $($Part.Fail)$($P.Stale)" }
+    return "product: $($Part.Fail)$($P.Stale)"
 }
 
 $part = Get-DevPreviewServerPart $prod $prodT $cfg
@@ -437,9 +458,9 @@ if ($mode -eq 'ownhub') {
         $script:openInVsCode = $cfg.OpenInVsCode
         $opened = Open-DevPreviewInVsCode $prodUrl
         $exposed = if ($prod.Action -eq 'reuse') { $prod.Exposed } else { '' }
-        Write-DevPreviewLine "$($cfg.Name): $prodUrl ($prodWord$opened$exposed)$extraClause"
+        Write-DevPreviewLine "$($cfg.Name): $prodUrl ($prodWord$opened$exposed$($prod.Stale))$extraClause"
     }
-    Write-DevPreviewLine "$($cfg.Name): $(if ($prodFail -like 'not started: *') { 'not started -- ' + $prodFail.Substring(13) } else { $prodFail })$extraClause"
+    Write-DevPreviewLine "$($cfg.Name): $(if ($prodFail -like 'not started: *') { 'not started -- ' + $prodFail.Substring(13) } else { $prodFail })$($prod.Stale)$extraClause"
 }
 
 $head = if ($hubUrl) { "$script:DevPreviewLabel`: $hubUrl" } else { "$script:DevPreviewLabel`: not started -- $hubReason" }
