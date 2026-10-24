@@ -39,21 +39,39 @@
 
 ### PLAN
 
+#3393: shard 1 spends 59s of an asset-only PR's run on the suite selection. The issue inferred a cold
+parse every run and asked for a timing first. Measured locally, October 24, 2026: 27.3s cold and 3.3s
+warm, with the same answer (10 suites for a house-style.css change), so the inference stands.
+
+A cache saved in a PR run is visible only to that PR, so the trunk has to write it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `get-pr-suite-selection.ps1` warms the parse cache on a push to main, in shard 1, best-effort; the verdict stays `full`
+- [x] `ci.yml`: shard 1 restores `.git/workflow-suite-refs.json` (key: hash of every `.ps1`, prefix fallback), and the trunk saves it when the key moved
 
 ### TEST
 
+- [x] simulated trunk warm from an empty cache (24.2s), then a real asset-only selection: 3.3s
+- [x] `ci-suite-selection-lib.tests.ps1`: path, order, shard and trunk-only conditions pinned (47 passed)
+- [~] the CI saving itself is only measurable once main has saved its first entry, after the merge: the next asset-only PR's selection step shows it
+
 ### DEPLOY: feat/3393-ci-selection-parse-cache
 
-**Score:**
+CI now keeps the suite selection's parse cache between runs, so an asset-only pull request no longer
+pays a cold parse of every script before its suites start
+([#3393](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3393)). Every push to `main` warms
+the cache and saves it, and shard 1 of a pull request restores it. Measured locally: 27.3s cold
+against 3.3s warm, with the same selection. On CI the step took 59s.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: this repo's own CI, which ships in no plugin.
+
+**Score:** N/A
 
 #### Pull Request
 
 CI: keep the suite selection's parse cache between runs
-

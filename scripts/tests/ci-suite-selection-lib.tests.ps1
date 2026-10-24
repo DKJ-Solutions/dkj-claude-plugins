@@ -139,6 +139,17 @@ $script = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\ci\get-pr-
 Assert-True ($script -match "if \(\`$Shard -eq 1\) \{ 'whole' \} else \{ 'full' \}") 'a failed path read makes shard 1 carry the whole pool, since the other shards may have skipped'
 
 Write-Host ''
+Write-Host 'the parse cache travels between runs (#3393)' -ForegroundColor Cyan
+# The path ci.yml carries must be the one the selection reads: the cache file's leaf, in the git directory.
+. (Join-Path $RepoRoot 'scripts\lib\gate-lib.ps1')
+$leaf = Split-Path -Leaf (Get-SuiteReferenceCachePath -RepoRoot $RepoRoot)
+Assert-Equal 2 ([regex]::Matches($ci, "path: \.git/$([regex]::Escape($leaf))")).Count "the restore and the save both carry .git/$leaf, the file the selection reads"
+Assert-True ($ci -match "(?s)- name: Restore the suite selection's parse cache\s+if: \`$\{\{ matrix\.shard == 1 \}\}") 'only shard 1 restores it: the one job that parses'
+Assert-True ($ci -match "(?s)Restore the suite selection's parse cache.*?- name: PR suite selection.*?- name: Save the suite selection's parse cache") 'the restore comes before the selection, and the save after it'
+Assert-True ($ci -match "if: \`$\{\{ matrix\.shard == 1 && github\.event_name == 'push' && github\.ref == 'refs/heads/main' && steps\.suite-refs-cache\.outputs\.cache-hit != 'true' \}\}") 'only the trunk saves, since a PR''s cache is visible to that PR alone'
+Assert-True ($script -match "\`$Shard -eq 1 -and \`$env:GITHUB_EVENT_NAME -eq 'push' -and \`$env:GITHUB_REF -eq 'refs/heads/main'") 'and the script warms it on that same push, in that same shard'
+
+Write-Host ''
 Write-Host ("ci-suite-selection-lib: {0} passed, {1} failed" -f $script:pass, $script:fail)
 if ($script:fail -gt 0) { exit 1 }
 exit 0

@@ -27,6 +27,14 @@
 
     FAIL-CLOSED: any read that fails, or any event that is not pull_request, answers 'full'. The rules
     themselves are in scripts/lib/ci-suite-selection-lib.ps1.
+
+    THE TRUNK WARMS THE PARSE CACHE, AND A PR READS IT (#3393). The selection caches each script's parse by
+    blob (Get-SuiteReferenceCachePath, in the git directory), but every CI runner starts with a fresh one,
+    so shard 1 paid the cold parse on every asset-only PR: 59s of a run whose suites took 81s. Measured
+    locally, October 24, 2026: 27.3s cold, 3.3s warm, the same answer. ci.yml carries the file between
+    runs, and a cache a PR run saves is visible to that PR alone, so the trunk is the writer: on a push to
+    main, shard 1 runs the same selection here only to bring the cache up to date, and answers 'full' as
+    before. After the first such run only the blobs a merge changed are parsed again.
 #>
 [CmdletBinding()]
 param(
@@ -53,6 +61,19 @@ Set-Location $RepoRoot
 . (Join-Path $PSScriptRoot '../lib/ci-suite-selection-lib.ps1')
 
 if ($env:GITHUB_EVENT_NAME -ne 'pull_request') {
+    if ($Shard -eq 1 -and $env:GITHUB_EVENT_NAME -eq 'push' -and $env:GITHUB_REF -eq 'refs/heads/main') {
+        # Best-effort: a warm that fails costs the next PR its parse, never this run its verdict.
+        $sw = [System.Diagnostics.Stopwatch]::StartNew()
+        try {
+            . (Join-Path $PSScriptRoot '../lib/gate-lib.ps1')
+            $configPath = Join-Path $RepoRoot 'scripts/repo-config.ps1'
+            if (Test-Path -LiteralPath $configPath) { . $configPath }
+            $null = Get-StaticAssetSuiteSelection -RepoRoot $RepoRoot -ChangedPaths @('warm.css')
+            Write-Host ("pr-suite-selection: warmed the parse cache for the next PR in {0:0.0}s (#3393)" -f $sw.Elapsed.TotalSeconds)
+        } catch {
+            Write-Host "pr-suite-selection: the parse cache could not be warmed ($($_.Exception.GetType().Name)); the next PR parses cold"
+        }
+    }
     Write-SelectionVerdict -Mode 'full' -Reason "event is '$($env:GITHUB_EVENT_NAME)', not 'pull_request'"
     exit 0
 }
