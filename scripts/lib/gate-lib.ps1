@@ -1648,6 +1648,15 @@ function Get-GateChangedPaths {
     return $result
 }
 
+function Get-GateBranchDocument {
+    <# The checked-out branch's development document, repo-relative, for Get-AffectedSuiteSelection's
+       -BranchDocument (#3379) -- through the one resolver every gate uses. '' where it is not loaded or
+       fails, which leaves the document in the scope match: the selection only grows. #>
+    param([Parameter(Mandatory)][string]$RepoRoot)
+    if (-not (Test-FunctionDefined 'Resolve-BranchFilePath')) { return '' }
+    try { return "$(Resolve-BranchFilePath -Kind File -RepoRoot $RepoRoot)".Trim() } catch { return '' }
+}
+
 function Get-SuiteReferenceCachePath {
     <# Where the per-blob reference cache lives -- beside the gate evidence, in the git directory, for
        the four reasons this file's header gives for keeping state there. $null when git cannot say. #>
@@ -1700,6 +1709,15 @@ function Get-AffectedSuiteSelection {
         wrong one costs a red CI run, the same bar as everything else here. CI's asset-only selection
         (ci-suite-selection-lib.ps1) does NOT trust it: it judges every walker by its own text.
 
+        THE BRANCH'S OWN DOCUMENT FALLS IN NO WALK SCOPE (issue #3379). new-branch writes
+        dkj-policy/<branch>.md on every branch, so a '*.md' scope selected its suite on every branch:
+        measured on PR #3375, a one-line CSS comment, five scoped suites came from that document alone and
+        script-contract set an 89s makespan where ~23s would do. None of the five reads a branch document
+        (they read root docs, personas, the always-on closure, manifests). -BranchDocument names it, the
+        caller resolves it, and it is left out of the scope match ONLY: a suite that names or reaches the
+        document is still selected by the reference graph. Empty removes nothing. CI's half is #3370's
+        Remove-BranchDocumentPath.
+
         KNOWN GAPS, each costing a red CI run rather than an ungated
         merge: a file name assembled at run time ("x-" + "lib.ps1"), Import-Module, and a script run
         through Invoke-Expression or [scriptblock]::Create are not followed.
@@ -1730,8 +1748,10 @@ function Get-AffectedSuiteSelection {
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
         [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$ChangedPaths,
-        [string]$TestsDir = 'scripts/tests'
+        [string]$TestsDir = 'scripts/tests',
+        [AllowEmptyString()][string]$BranchDocument = ''
     )
+    $branchDoc = "$BranchDocument".Trim().Replace('\', '/').ToLowerInvariant()
     $testsPrefix = ($TestsDir.Replace('\', '/').Trim('/')).ToLowerInvariant() + '/'
     $verdict = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Scoped = @(); Walkers = @(); Open = @(); Matched = @(); Why = @{}; PoolCount = 0; Reason = '' }
 
@@ -1899,6 +1919,7 @@ function Get-AffectedSuiteSelection {
             [void]$walkers.Add($s)
             $inScope = $false
             foreach ($c in $changed) {
+                if ($branchDoc -and $c -eq $branchDoc) { continue }
                 foreach ($pattern in $scope) { if (Test-WalkScopeMatch -Path $c -Pattern $pattern) { $inScope = $true; $why[$s] = "its walk scope '$pattern' covers $c"; break } }
                 if ($inScope) { break }
             }
@@ -2268,7 +2289,7 @@ function Invoke-WorkflowGates {
                         # A THROW HERE IS NOT A RED GATE: the selection is an optimisation, so whatever breaks it
                         # (an unreadable file, a cache, git) costs the saving and runs every suite.
                         try {
-                            $gateSelection = Get-AffectedSuiteSelection -RepoRoot $RepoRoot -ChangedPaths $gateChanges.Paths
+                            $gateSelection = Get-AffectedSuiteSelection -RepoRoot $RepoRoot -ChangedPaths $gateChanges.Paths -BranchDocument (Get-GateBranchDocument -RepoRoot $RepoRoot)
                         } catch {
                             $gateSelection = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Scoped = @(); Walkers = @(); Open = @(); Matched = @(); PoolCount = 0; Reason = "the selection failed: $($_.Exception.Message)" }
                         }
