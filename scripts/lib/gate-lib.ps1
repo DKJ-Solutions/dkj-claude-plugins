@@ -1340,6 +1340,13 @@ function Get-SuiteReferenceSet {
                     detection below), or the '# gate-selection: always' line, whose walk nobody can read.
                     CI's asset-only selection never drops such a suite by file type (issue #3316): it reads
                     the suite's text for the changed extension, and an open walk reads a type it never names.
+          - WalkSamples : per live-tree walk, the paths it can return, as samples a declared scope must
+                    admit (issue #3392) -- its root, resolved through the variables it is built from, plus
+                    each type its constants filter on, or '<root>/x.gate-any' for an open walk. A walk whose
+                    root cannot be resolved samples from no directory, so only a pattern without one admits
+                    it. A lib-function enumeration is typed and has no sample. -SuiteDirectory (the file's
+                    repo-relative folder) is what $PSScriptRoot resolves to; without it, a walk rooted there
+                    is unresolved.
 
         COMMENTS ARE NOT REFERENCES, AND THAT IS MEASURED. Counting every file name a script's text
         mentions selected all 162 suites for every change, because these scripts' docstrings name
@@ -1351,11 +1358,14 @@ function Get-SuiteReferenceSet {
         A FILE THAT DOES NOT PARSE IS NOT EMPTY, it is unknown: Parsed is $false, and the caller runs
         every suite that reaches it.
     #>
-    param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
+        [string]$SuiteDirectory = ''
+    )
 
     $run = New-Object 'System.Collections.Generic.HashSet[string]'
     $read = New-Object 'System.Collections.Generic.HashSet[string]'
-    $result = [pscustomobject]@{ Parsed = $false; Run = $run; Read = $read; Walks = $false; WalksOpen = $false; Scope = @(); WalkFilters = @() }
+    $result = [pscustomobject]@{ Parsed = $false; Run = $run; Read = $read; Walks = $false; WalksOpen = $false; Scope = @(); WalkSamples = @() }
 
     $tokens = $null
     $errors = $null
@@ -1386,13 +1396,17 @@ function Get-SuiteReferenceSet {
         $n -is [System.Management.Automation.Language.ExpandableStringExpressionAst] -or
         $n -is [System.Management.Automation.Language.VariableExpressionAst] -or
         $n -is [System.Management.Automation.Language.CommandAst] -or
-        $n -is [System.Management.Automation.Language.InvokeMemberExpressionAst]
+        $n -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -or
+        $n -is [System.Management.Automation.Language.AssignmentStatementAst] -or
+        $n -is [System.Management.Automation.Language.ForEachStatementAst]
     }, $true)
 
     # The commands first: which of them RUN a file, and which WALK a directory.
     $runCommands = New-Object 'System.Collections.Generic.HashSet[object]'
     $walkNodes = New-Object 'System.Collections.Generic.HashSet[object]'
     $openWalkNodes = New-Object 'System.Collections.Generic.HashSet[object]'
+    # The constants that narrowed each walk to a type -- the filters its samples are built from (#3392).
+    $typedOf = @{}
     # Whether a constant names a file type in its last path segment: '*.ps1', 'hooks.json'. '*.*' and a
     # bare directory name do not.
     $namesType = { param($v) return (("$v" -split '[\\/]')[-1] -match '\.[A-Za-z0-9]+$') }
@@ -1403,10 +1417,11 @@ function Get-SuiteReferenceSet {
                 [void]$walkNodes.Add($n)
                 # A FILE listing is open unless one of its constant arguments names a type (the search
                 # pattern); a directory listing returns no file at all.
-                if ($member -notin @('enumeratedirectories', 'getdirectories') -and
-                    -not @(@($n.Arguments) | Where-Object { $_ -is [System.Management.Automation.Language.StringConstantExpressionAst] -and (& $namesType $_.Value) }).Count) {
+                $typed = @(@($n.Arguments) | Where-Object { $_ -is [System.Management.Automation.Language.StringConstantExpressionAst] -and (& $namesType $_.Value) })
+                if ($member -notin @('enumeratedirectories', 'getdirectories') -and -not $typed.Count) {
                     [void]$openWalkNodes.Add($n)
                 }
+                $typedOf[$n] = @($typed | ForEach-Object { $_.Value })
             }
             continue
         }
@@ -1446,6 +1461,7 @@ function Get-SuiteReferenceSet {
             $narrowed = $false
             $previous = ''
             $afterDashes = $false
+            $typedOf[$n] = New-Object System.Collections.ArrayList
             # Element 0 is the command name itself, and 'git.exe' would read as a type.
             foreach ($e in @($n.CommandElements | Select-Object -Skip 1)) {
                 if ($e -is [System.Management.Automation.Language.CommandParameterAst]) {
@@ -1457,9 +1473,10 @@ function Get-SuiteReferenceSet {
                     Where-Object { $_.Parent -isnot [System.Management.Automation.Language.ExpandableStringExpressionAst] })
                 $byType = @($consts | Where-Object { & $namesType $_.Value }).Count -gt 0
                 $isExclude = $previous.Length -ge 2 -and 'exclude'.StartsWith($previous)
+                $typedHere = @($consts | Where-Object { & $namesType $_.Value } | ForEach-Object { $_.Value })
                 if ($name -in @('git', 'git.exe')) {
-                    if ($byType -and (($words -contains 'ls-files') -or $afterDashes)) { $narrowed = $true }
-                } elseif ($byType -and -not $isExclude) { $narrowed = $true }
+                    if ($byType -and (($words -contains 'ls-files') -or $afterDashes)) { $narrowed = $true; [void]$typedOf[$n].AddRange($typedHere) }
+                } elseif ($byType -and -not $isExclude) { $narrowed = $true; [void]$typedOf[$n].AddRange($typedHere) }
                 $previous = ''
             }
             # A Get-ChildItem -Directory lists no file at all, like the .NET directory listings above.
@@ -1546,31 +1563,271 @@ function Get-SuiteReferenceSet {
         }
     } while ($grew)
 
-    $filters = New-Object 'System.Collections.Generic.HashSet[string]'
     foreach ($use in $varUses) {
         if ($use[0] -eq 'walk' -and $rootVars.Contains($use[1])) {
             $result.Walks = $true
             if ($openWalkNodes.Contains($use[2])) { $result.WalksOpen = $true }
-            # The literal -Filter/-Include values of a live-tree Get-ChildItem -- what the scope guard in
-            # affected-suites.tests.ps1 holds a declared scope against (#3309).
-            if ($use[2] -is [System.Management.Automation.Language.CommandAst]) {
-                $els = @($use[2].CommandElements)
-                for ($i = 0; $i -lt $els.Count - 1; $i++) {
-                    if ($els[$i] -isnot [System.Management.Automation.Language.CommandParameterAst]) { continue }
-                    if ($els[$i].ParameterName -notin @('Filter', 'Include')) { continue }
-                    $arg = $els[$i + 1]
-                    $values = if ($arg -is [System.Management.Automation.Language.ArrayLiteralAst]) { @($arg.Elements) } else { @($arg) }
-                    foreach ($v in $values) {
-                        if ($v -is [System.Management.Automation.Language.StringConstantExpressionAst]) { [void]$filters.Add($v.Value.ToLowerInvariant()) }
-                    }
-                }
-            }
         }
         if ($use[0] -eq 'run' -and $assignedRefs.ContainsKey($use[1])) {
             foreach ($r in $assignedRefs[$use[1]]) { [void]$run.Add($r) }
         }
     }
-    $result.WalkFilters = @($filters | Sort-Object)
+
+    # WHERE EACH LIVE WALK IS ROOTED (#3392). CI's asset-only selection trusts a declared scope to drop a
+    # walker, so the scope guard has to hold the declaration against what the walk can return, root
+    # included -- a '*.ps1' filter is covered by 'scripts/*.ps1' only when the walk sits under scripts/.
+    # A root is a SET of repo-relative paths, resolved from $RepoRoot (the repo root) and $PSScriptRoot
+    # (-SuiteDirectory) through Join-Path, Split-Path, Resolve-Path, [IO.Path]::Combine, "$var\x", a
+    # foreach or ForEach-Object over a constant list, and the variables those are assigned to. Anything
+    # else is unresolved, which only narrows what a scope can be said to cover.
+    $liveWalks = New-Object System.Collections.ArrayList
+    foreach ($use in $varUses) {
+        if ($use[0] -eq 'walk' -and $rootVars.Contains($use[1]) -and -not $liveWalks.Contains($use[2])) { [void]$liveWalks.Add($use[2]) }
+    }
+    if ($liveWalks.Count -gt 0) {
+        # A path climbing above the repo root is unresolved: '' is the root itself, $null is unknown.
+        $normalize = {
+            param([string]$Path)
+            $out = New-Object System.Collections.ArrayList
+            foreach ($seg in ($Path.Replace('\', '/') -split '/')) {
+                if (-not $seg -or $seg -eq '.') { continue }
+                if ($seg -eq '..') { if ($out.Count -eq 0) { return $null }; $out.RemoveAt($out.Count - 1); continue }
+                [void]$out.Add($seg.ToLowerInvariant())
+            }
+            return ($out -join '/')
+        }
+        # Every base joined with every combination of the parts; $null when any of them is unresolved.
+        $combine = {
+            param($Bases, $Parts)
+            if ($null -eq $Bases) { return $null }
+            $acc = @($Bases)
+            foreach ($part in $Parts) {
+                if ($null -eq $part) { return $null }
+                $acc = @(foreach ($a in $acc) { foreach ($v in @($part)) { & $normalize ("$a/$v") } })
+            }
+            if (@($acc | Where-Object { $null -eq $_ }).Count) { return $null }
+            return ,@($acc | Sort-Object -Unique)
+        }
+        $seeds = @('reporoot', 'psscriptroot')
+        $seedRoots = @{ 'reporoot' = @('') }
+        if ($SuiteDirectory) {
+            $suiteDir = & $normalize $SuiteDirectory
+            if ($null -ne $suiteDir) { $seedRoots['psscriptroot'] = @($suiteDir) }
+        }
+        $rootOf = $seedRoots.Clone()
+        $constOf = @{}
+        # The value-taking parameters of the commands a root is built with; any other is a switch.
+        $valued = @('path', 'literalpath', 'childpath', 'additionalchildpath', 'filter', 'include', 'exclude', 'depth', 'attributes', 'erroraction', 'errorvariable', 'outvariable', 'destination')
+        $argsOf = {
+            param($cmd)
+            $named = @{}
+            $switches = New-Object System.Collections.ArrayList
+            $positional = New-Object System.Collections.ArrayList
+            $els = @($cmd.CommandElements)
+            for ($i = 1; $i -lt $els.Count; $i++) {
+                $e = $els[$i]
+                if ($e -is [System.Management.Automation.Language.CommandParameterAst]) {
+                    $p = $e.ParameterName.ToLowerInvariant()
+                    $full = @($valued | Where-Object { $p.Length -ge 2 -and $_.StartsWith($p) } | Select-Object -First 1)
+                    if ($full.Count -eq 0) { [void]$switches.Add($p); continue }
+                    if ($null -ne $e.Argument) { $named[$full[0]] = $e.Argument }
+                    elseif ($i + 1 -lt $els.Count) { $i++; $named[$full[0]] = $els[$i] }
+                    continue
+                }
+                [void]$positional.Add($e)
+            }
+            return @{ Named = $named; Switches = $switches; Positional = $positional }
+        }
+        $pathArg = {
+            param($a)
+            if ($a.Named.ContainsKey('literalpath')) { return $a.Named['literalpath'] }
+            if ($a.Named.ContainsKey('path')) { return $a.Named['path'] }
+            if ($a.Positional.Count) { return $a.Positional[0] }
+            return $null
+        }
+        # The constant strings an expression holds; $Bind is what $_ holds inside a ForEach-Object.
+        $constsOf = {
+            param($e, $Bind)
+            if ($null -eq $e) { return $null }
+            if ($e -is [System.Management.Automation.Language.StringConstantExpressionAst]) { return ,@($e.Value) }
+            if ($e -is [System.Management.Automation.Language.CommandExpressionAst]) { return (& $constsOf $e.Expression $Bind) }
+            if ($e -is [System.Management.Automation.Language.ParenExpressionAst]) { return (& $constsOf $e.Pipeline $Bind) }
+            if ($e -is [System.Management.Automation.Language.ArrayExpressionAst]) {
+                $st = @($e.SubExpression.Statements)
+                if ($st.Count -ne 1) { return $null }
+                return (& $constsOf $st[0] $Bind)
+            }
+            if ($e -is [System.Management.Automation.Language.PipelineAst]) {
+                if (@($e.PipelineElements).Count -ne 1) { return $null }
+                return (& $constsOf $e.PipelineElements[0] $Bind)
+            }
+            if ($e -is [System.Management.Automation.Language.ArrayLiteralAst]) {
+                $out = New-Object System.Collections.ArrayList
+                foreach ($x in @($e.Elements)) {
+                    $v = & $constsOf $x $Bind
+                    if ($null -eq $v) { return $null }
+                    [void]$out.AddRange(@($v))
+                }
+                return ,@($out)
+            }
+            if ($e -is [System.Management.Automation.Language.VariableExpressionAst]) {
+                $v = $e.VariablePath.UserPath.ToLowerInvariant()
+                if ($v -in @('_', 'psitem')) { return $Bind }
+                if ($constOf.ContainsKey($v)) { return ,@($constOf[$v]) }
+            }
+            return $null
+        }
+        # The repo-relative paths an expression holds, or $null.
+        $pathOf = {
+            param($e, $Bind)
+            if ($null -eq $e) { return $null }
+            if ($e -is [System.Management.Automation.Language.CommandExpressionAst]) { return (& $pathOf $e.Expression $Bind) }
+            if ($e -is [System.Management.Automation.Language.ParenExpressionAst]) { return (& $pathOf $e.Pipeline $Bind) }
+            if ($e -is [System.Management.Automation.Language.ArrayExpressionAst]) {
+                $st = @($e.SubExpression.Statements)
+                if ($st.Count -ne 1) { return $null }
+                return (& $pathOf $st[0] $Bind)
+            }
+            if ($e -is [System.Management.Automation.Language.PipelineAst]) {
+                $els = @($e.PipelineElements)
+                if ($els.Count -eq 1) { return (& $pathOf $els[0] $Bind) }
+                # @('a', 'b') | ForEach-Object { Join-Path $RepoRoot $_ } | Where-Object { ... } -- a filter
+                # stage only drops a path, so it is read past.
+                $items = & $constsOf $els[0] $Bind
+                $each = $els[1]
+                if ($null -eq $items -or $each -isnot [System.Management.Automation.Language.CommandAst] -or
+                    "$($each.GetCommandName())".ToLowerInvariant() -notin @('foreach-object', '%')) { return $null }
+                $block = @($each.CommandElements | Select-Object -Skip 1)
+                if ($block.Count -ne 1 -or $block[0] -isnot [System.Management.Automation.Language.ScriptBlockExpressionAst]) { return $null }
+                $st = @($block[0].ScriptBlock.EndBlock.Statements)
+                if ($st.Count -ne 1) { return $null }
+                foreach ($rest in @($els | Select-Object -Skip 2)) {
+                    if ($rest -isnot [System.Management.Automation.Language.CommandAst] -or "$($rest.GetCommandName())".ToLowerInvariant() -notin @('where-object', '?', 'where')) { return $null }
+                }
+                $out = New-Object System.Collections.ArrayList
+                foreach ($item in @($items)) {
+                    $v = & $pathOf $st[0] @($item)
+                    if ($null -eq $v) { return $null }
+                    [void]$out.AddRange(@($v))
+                }
+                return ,@($out | Sort-Object -Unique)
+            }
+            if ($e -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+                # [System.IO.Path]::Combine($base, 'x', ...)
+                if ("$($e.Member)" -ne 'Combine' -or @($e.Arguments).Count -lt 2) { return $null }
+                return (& $combine (& $pathOf @($e.Arguments)[0] $Bind) @(@($e.Arguments | Select-Object -Skip 1) | ForEach-Object { ,(& $constsOf $_ $Bind) }))
+            }
+            if ($e -is [System.Management.Automation.Language.MemberExpressionAst]) {
+                if ("$($e.Member)" -in @('Path', 'ProviderPath', 'FullName')) { return (& $pathOf $e.Expression $Bind) }
+                return $null
+            }
+            if ($e -is [System.Management.Automation.Language.VariableExpressionAst]) {
+                $v = $e.VariablePath.UserPath.ToLowerInvariant()
+                if ($rootOf.ContainsKey($v)) { return ,@($rootOf[$v]) }
+                return $null
+            }
+            if ($e -is [System.Management.Automation.Language.ExpandableStringExpressionAst]) {
+                # "$RepoRoot\plugins\x": one leading variable and a constant rest.
+                $nested = @($e.NestedExpressions)
+                if ($nested.Count -ne 1 -or $nested[0] -isnot [System.Management.Automation.Language.VariableExpressionAst]) { return $null }
+                $lead = $nested[0].Extent.Text
+                $body = "$($e.Extent.Text)".Trim('"')
+                if (-not $body.StartsWith($lead, [StringComparison]::OrdinalIgnoreCase)) { return $null }
+                return (& $combine (& $pathOf $nested[0] $Bind) @(,@($body.Substring($lead.Length))))
+            }
+            if ($e -is [System.Management.Automation.Language.CommandAst]) {
+                $cmdName = "$($e.GetCommandName())".ToLowerInvariant()
+                $a = & $argsOf $e
+                if ($cmdName -eq 'join-path') {
+                    $base = if ($a.Named.ContainsKey('path')) { $a.Named['path'] } elseif ($a.Positional.Count) { $a.Positional[0] } else { $null }
+                    $children = New-Object System.Collections.ArrayList
+                    if ($a.Named.ContainsKey('childpath')) { [void]$children.Add($a.Named['childpath']) }
+                    $skip = if ($a.Named.ContainsKey('path')) { 0 } else { 1 }
+                    foreach ($c in @($a.Positional | Select-Object -Skip $skip)) { [void]$children.Add($c) }
+                    if ($a.Named.ContainsKey('additionalchildpath')) { [void]$children.Add($a.Named['additionalchildpath']) }
+                    return (& $combine (& $pathOf $base $Bind) @($children | ForEach-Object { ,(& $constsOf $_ $Bind) }))
+                }
+                if ($cmdName -in @('resolve-path', 'convert-path', 'get-item')) { return (& $pathOf (& $pathArg $a) $Bind) }
+                if ($cmdName -eq 'split-path') {
+                    # Split-Path returns the parent unless a switch asks for another part.
+                    if (@($a.Switches | Where-Object { $_ -ne 'parent' }).Count) { return $null }
+                    $paths = & $pathOf (& $pathArg $a) $Bind
+                    if ($null -eq $paths -or @($paths | Where-Object { -not $_ }).Count) { return $null }
+                    return ,@($paths | ForEach-Object { if ($_.Contains('/')) { $_.Substring(0, $_.LastIndexOf('/')) } else { '' } } | Sort-Object -Unique)
+                }
+            }
+            return $null
+        }
+        # The assignments and foreach loops, to a fixed point: a variable resolves when every write to it
+        # resolves, to the union of what they write. The two seeds keep their value whatever is assigned.
+        $writes = New-Object System.Collections.ArrayList
+        foreach ($n in $nodes) {
+            if ($n -is [System.Management.Automation.Language.AssignmentStatementAst] -and "$($n.Operator)" -eq 'Equals') {
+                $target = & $assignedName $n
+                if ($target -and $seeds -notcontains $target) { [void]$writes.Add(@($target, $n.Right)) }
+            } elseif ($n -is [System.Management.Automation.Language.ForEachStatementAst]) {
+                $target = $n.Variable.VariablePath.UserPath.ToLowerInvariant()
+                if ($seeds -notcontains $target) { [void]$writes.Add(@($target, $n.Condition)) }
+            }
+        }
+        $lastKey = ''
+        for ($pass = 0; $pass -lt 8; $pass++) {
+            $nextRoots = $seedRoots.Clone()
+            $nextConsts = @{}
+            $unresolvedRoot = @{}
+            $unresolvedConst = @{}
+            foreach ($w in $writes) {
+                $p = & $pathOf $w[1] $null
+                if ($null -eq $p) { $unresolvedRoot[$w[0]] = $true } else { $nextRoots[$w[0]] = @(@($nextRoots[$w[0]]) + @($p) | Where-Object { $null -ne $_ } | Sort-Object -Unique) }
+                $c = & $constsOf $w[1] $null
+                if ($null -eq $c) { $unresolvedConst[$w[0]] = $true } else { $nextConsts[$w[0]] = @(@($nextConsts[$w[0]]) + @($c) | Where-Object { $null -ne $_ } | Sort-Object -Unique) }
+            }
+            foreach ($k in @($unresolvedRoot.Keys)) { $nextRoots.Remove($k) }
+            foreach ($k in @($unresolvedConst.Keys)) { $nextConsts.Remove($k) }
+            $rootOf = $nextRoots
+            $constOf = $nextConsts
+            $key = (@($rootOf.Keys | Sort-Object | ForEach-Object { "$_=$(@($rootOf[$_]) -join ',')" }) + '|' + @($constOf.Keys | Sort-Object | ForEach-Object { "$_=$(@($constOf[$_]) -join ',')" })) -join ';'
+            if ($key -eq $lastKey) { break }
+            $lastKey = $key
+        }
+
+        $fill = { param([string]$v) return $v.Replace('\', '/').ToLowerInvariant().Replace('*', 'x').Replace('?', 'x').TrimStart('/') }
+        $samples = New-Object 'System.Collections.Generic.HashSet[string]'
+        foreach ($w in $liveWalks) {
+            $isGit = $false
+            $roots = $null
+            if ($w -is [System.Management.Automation.Language.InvokeMemberExpressionAst]) {
+                $roots = & $pathOf @($w.Arguments)[0] $null
+            } else {
+                $cmdName = "$($w.GetCommandName())".ToLowerInvariant()
+                if ($cmdName -in @('get-childitem', 'gci', 'dir', 'ls', 'copy-item')) {
+                    $roots = & $pathOf (& $pathArg (& $argsOf $w)) $null
+                } elseif ($cmdName -in @('git', 'git.exe')) {
+                    $isGit = $true
+                    $els = @($w.CommandElements)
+                    for ($i = 1; $i -lt $els.Count - 1; $i++) {
+                        if ($els[$i] -is [System.Management.Automation.Language.CommandParameterAst] -and $els[$i].ParameterName -ceq 'C') { $roots = & $pathOf $els[$i + 1] $null; break }
+                    }
+                } else {
+                    # A lib function's enumeration is typed (Get-SharedScriptPairs, ...): nothing to sample.
+                    continue
+                }
+            }
+            # Unresolved samples from no directory, which only a pattern without one admits.
+            if ($null -eq $roots) { $roots = @('') }
+            foreach ($root in @($roots)) {
+                $prefix = if ($root) { $root + '/' } else { '' }
+                if ($openWalkNodes.Contains($w)) { [void]$samples.Add($prefix + 'x.gate-any'); continue }
+                $rootIsFile = $root -and (& $namesType $root)
+                foreach ($t in @($typedOf[$w])) {
+                    if ($rootIsFile) { [void]$samples.Add((& $fill $root)) }
+                    elseif ($isGit) { [void]$samples.Add($prefix + (& $fill $t)) }
+                    else { [void]$samples.Add($prefix + (& $fill (("$t" -split '[\\/]')[-1]))) }
+                }
+            }
+        }
+        $result.WalkSamples = @($samples | Sort-Object)
+    }
     return $result
 }
 
@@ -1584,17 +1841,15 @@ function Test-WalkScopeMatch {
     return ((($Path -split '/')[-1]) -like $Pattern)
 }
 
-function Test-WalkScopeCovers {
-    <# Whether a declared walk scope covers a walk's literal -Filter value: a file the filter admits --
-       its wildcards filled in -- is a leaf some pattern's own leaf admits. Coarse on purpose, and in
-       the safe direction for a guard: 'scripts/*.ps1' covers '*.ps1' though the walk may sit elsewhere,
-       so it catches a scope that names the wrong KIND of file, the drift a new filter introduces. #>
-    param([string]$Filter, [string[]]$Scope)
-    $sample = $Filter.ToLowerInvariant().Replace('*', 'x').Replace('?', 'x')
-    foreach ($pattern in @($Scope)) {
-        if ($sample -like (($pattern -split '/')[-1])) { return $true }
-    }
-    return $false
+function Get-UncoveredWalkSample {
+    <# The walk samples (Get-SuiteReferenceSet's WalkSamples) no pattern of a declared scope admits --
+       what the scope guard in affected-suites.tests.ps1 refuses (#3392). Empty means the declaration
+       covers every live walk it can see: its roots as well as its types, Copy-Item sources included. #>
+    param([AllowEmptyCollection()][string[]]$Samples, [AllowEmptyCollection()][string[]]$Scope)
+    return @(@($Samples) | Where-Object {
+        $sample = $_
+        -not @(@($Scope) | Where-Object { Test-WalkScopeMatch -Path $sample -Pattern $_ }).Count
+    })
 }
 
 function Test-SuiteReferenceMatch {
@@ -1707,7 +1962,9 @@ function Get-AffectedSuiteSelection {
         reference graph still selects it as before. A declaration is the suite author's claim about
         what the walk reads -- including what a script it runs against the live tree reads -- and a
         wrong one costs a red CI run, the same bar as everything else here. CI's asset-only selection
-        (ci-suite-selection-lib.ps1) does NOT trust it: it judges every walker by its own text.
+        (ci-suite-selection-lib.ps1) trusts it too since #3392, where a wrong one costs an ungated merge,
+        so the scope guard in affected-suites.tests.ps1 holds every declaration against the roots and
+        types of the walks the reading can see (WalkSamples).
 
         THE BRANCH'S OWN DOCUMENT FALLS IN NO WALK SCOPE (issue #3379). new-branch writes
         dkj-policy/<branch>.md on every branch, so a '*.md' scope selected its suite on every branch:

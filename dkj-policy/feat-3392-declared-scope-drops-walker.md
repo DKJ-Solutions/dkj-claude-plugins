@@ -39,19 +39,48 @@
 
 ### PLAN
 
+Issue #3392, decided by the owner on October 24, 2026: a declared `# gate-selection: walks <roots>`
+is authoritative for dropping a walker in CI's asset-only selection, Open or text-matched alike, on
+condition of a scope guard that checks each declaration against every root its walks reach, `Copy-Item`
+roots included.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `ci-suite-selection-lib.ps1`: a walker outside the selection's Always set (it declares its scope
+  and reaches no undeclared walk) is kept only when it is in Scoped; undeclared walkers are judged as before.
+- [x] `gate-lib.ps1` (and its mirror): `Get-SuiteReferenceSet -SuiteDirectory` records `WalkSamples` per
+  live walk -- the root resolved through Join-Path, Split-Path, Resolve-Path, `[IO.Path]::Combine`,
+  `"$var\x"`, a foreach or ForEach-Object over a constant list, and the variables those are assigned to,
+  plus each typed filter, or any type for an open walk. `Get-UncoveredWalkSample` replaces the
+  filter-only `Test-WalkScopeCovers`, and `WalkFilters` goes with it.
+- [x] `affected-suites.tests.ps1` 3c holds every declared suite's samples against its scope;
+  `ci-suite-selection-lib.tests.ps1` asserts that a declared walker is dropped, open or text-matched.
 
 ### TEST
 
+- [x] `affected-suites` (176 pass) and `ci-suite-selection-lib` (44 pass), standalone. All 38 declared
+  suites in the tree are covered, roots included; before the resolver followed constant lists and
+  Split-Path, six read as unresolved, and none turned out to be a real hole.
+- [x] The PR #3391 change (`brandbook/src/showcase/showcase.css`) now selects 2 of 168 suites instead of 7.
+
 ### DEPLOY: feat/3392-declared-scope-drops-walker
 
-**Score:**
+On CI, a pull request that changes only stylesheets, images or fonts no longer runs a suite whose
+declared `# gate-selection: walks` scope leaves the change out, even when its text names the extension or
+its walk can return any type ([#3392](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3392)).
+The one-line CSS comment of PR #3391 now selects 2 of 168 suites instead of 7, so the three ~70-80s
+suites that set shard 1's critical path no longer run for it. The trust rests on a stricter scope guard
+in `affected-suites.tests.ps1`: every declaration is now held against the roots of the walks it can see,
+`Copy-Item` sources included, and not only their literal filters. A walk added outside its suite's scope
+fails there first.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the CI selection and its guard run in this repo only; a consumer's local gate selects as before.
+
+**Score:** N/A
 
 #### Pull Request
 

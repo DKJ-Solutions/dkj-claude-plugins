@@ -16,19 +16,27 @@
       - MATCHED: every suite Get-AffectedSuiteSelection (gate-lib.ps1) maps the changed paths to. That is
         the same reference graph the local gate trusts, so a suite that names the stylesheet runs.
       - KEPT-ALWAYS: of the suites that walk the live tree (the selection's Walkers set, 40 on
-        October 22, 2026), the ones whose source mentions a changed path's extension (`css`, `svg`, ...),
-        plus any whose declared walk scope a changed path falls in (the selection's Scoped set). The
-        declaration does not DROP a walker here: the local gate trusts it because CI runs behind it, and
-        nothing runs behind this selection, so every walker is still judged by its own text (#3309). It keeps
-        at least what it kept before: a walker whose declared scope the change falls in is kept as well.
-        Every walk measured that day filters on `*.ps1`, `*.md`, `*.json`, `*.yml` or a named manifest, so
-        none of them can enumerate a stylesheet. A future walk that does has to name the extension
-        to filter on it, and naming it keeps the suite in. The guard is crude on purpose: it errs
-        toward running a suite, never toward skipping one.
+        October 22, 2026), the ones it can read a changed asset through:
+          - A walker that DECLARES its walk scope ('# gate-selection: walks <roots>', and no undeclared
+            walk anywhere it reaches -- every walker outside the selection's Always set) is kept only when
+            a changed path falls in that scope (the selection's Scoped set). The declaration is
+            authoritative for dropping it, open walk or not, whatever its text says (#3392). Before that,
+            CI judged every walker by its own text, and on PR #3391 a one-line CSS comment kept three
+            ~70-80s suites that mention `css` only in fixture strings or copy a folder holding no
+            stylesheet. What makes the trust safe is the scope guard in affected-suites.tests.ps1: every
+            declaration is held against the roots and types of the walks the reading can see,
+            Copy-Item sources included, so a walk added outside its suite's scope fails there first.
+          - A walker that declares nothing (the Always set) is judged as before (#3309, #3316): kept when
+            its walk is OPEN, returning a file of any type, when its source mentions a changed path's
+            extension (`css`, `svg`, ...), or when it cannot be read. A future typed walk that can enumerate
+            a stylesheet has to name the extension to filter on it, and naming it keeps the suite in. The
+            guard is crude on purpose: it errs toward running a suite, never toward skipping one.
 
     WHAT A MISS COSTS IS DIFFERENT FROM THE LOCAL GATE, and that is the trade the owner accepted. Locally a
     missed suite costs a red CI run. Here nothing runs behind the selection, so a missed suite is an ungated
-    merge of an asset-only PR. The lint job still runs in full on every PR, and that includes its encoding
+    merge of an asset-only PR. Trusting a declaration to drop a walker is part of that trade, accepted on
+    October 24, 2026 with the scope guard as its condition (#3392); what the guard cannot see -- a walk done
+    inside a script the suite runs against the live tree -- rests on the declaration alone. The lint job still runs in full on every PR, and that includes its encoding
     and text checks over `.css` and `.html`. The next PR that touches anything else runs the whole pool over
     the same tree.
 
@@ -128,14 +136,19 @@ function Get-StaticAssetSuiteSelection {
     $pattern = '(?i)\b(' + ($tokens -join '|') + ')\b'
     $kept = New-Object System.Collections.ArrayList
     foreach ($suite in @($selection.Walkers)) {
-        # An OPEN walker is never dropped by type (#3316): its walk can return a file of any type, so its
-        # text need not name the changed extension for the walk to read it.
+        # A DECLARED walker runs exactly when its scope admits a changed path (#3392).
+        if (@($selection.Always) -notcontains $suite) {
+            if (@($selection.Scoped) -contains $suite) { [void]$kept.Add($suite) }
+            continue
+        }
+        # An OPEN undeclared walker is never dropped by type (#3316): its walk can return a file of any
+        # type, so its text need not name the changed extension for the walk to read it.
         if (@($selection.Open) -contains $suite) { [void]$kept.Add($suite); continue }
         $full = Join-Path $RepoRoot $suite
         # An unreadable suite is kept: the guard only ever drops a suite it has read.
         $text = $null
         try { $text = [System.IO.File]::ReadAllText($full) } catch { }
-        if ($null -eq $text -or $text -match $pattern -or @($selection.Scoped) -contains $suite) { [void]$kept.Add($suite) }
+        if ($null -eq $text -or $text -match $pattern) { [void]$kept.Add($suite) }
     }
     $result.Matched = @($selection.Matched)
     $result.KeptAlways = @($kept)
