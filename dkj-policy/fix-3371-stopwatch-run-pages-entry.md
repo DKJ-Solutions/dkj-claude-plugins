@@ -61,6 +61,8 @@ notes would have described pages that no longer exist.
 
 #### What makes this deploy extra special
 
+A wording fix in this repo's own pending changelog entry; nothing a consumer runs changes.
+
 **Score:** N/A
 
 #### Pull Request
