@@ -85,16 +85,13 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    app is fixed in this plugin, through an inbound issue on the source repo, so that every app gets the fix. A
    value that is wrong for one app is a new domain token in that app, not an override. Extend, never
    override.
-4. **An `h2` never stands inside a card; it always stands above the card(s) it heads**, so the `h2`s group
-   the page (a hard rule, [#3175](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3175)). Put it
-   in a `.grid__head` (React: `CardGroup`) and title a card with an `h3`, or not at all. Related cards share
-   one `h2`. The README has the form under "Page patterns", "An h2 never stands inside a card".
 
 ## The gate: `check-house-style`
 
 **[`scripts/lint/check-house-style.ps1`](../../scripts/lint/check-house-style.ps1) holds a repo to these
-four rules** ([#3035](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3035),
-[#3175](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3175)):
+three rules** ([#3035](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3035)). A fourth, `heading` (no `h2`
+inside a card, [#3175](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3175)), was retired on October 24, 2026
+(Maikel): an `h2` may title a card.
 
 1. **pin**: every tracked `house-style.css` and `house-theme.js` hashes to the table above. The copies are
    found in the tree, so no repo needs to declare where they live. A repo without a `house-style.css` fails too.
@@ -102,10 +99,8 @@ four rules** ([#3035](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues
    (`.card { }`, `main .card { }`). A house class inside a component of the repo's own (`.my-panel .card`) is
    composition, not a redefinition.
 3. **retired**: the repo's own layer neither defines nor reads (`var(--x)`) a token name the house style retired.
-4. **heading**: no `h2` stands inside a card, neither as `h2.card__title` nor as the first element of a
-   `.card__head` (the brand book's `.dkj-card-title` and `.dkj-card-head` too).
 
-Checks 2 to 4 use a pattern grep over every tracked file of the kinds a page is built in (`.css`, `.html`, `.js`,
+Checks 2 and 3 use a pattern grep over every tracked file of the kinds a page is built in (`.css`, `.html`, `.js`,
 `.py`, `.ps1` and the like, not Markdown), so CSS inside a Python or PowerShell string counts. A false
 positive is answered in the repo's `scripts/repo-config.ps1`. Every entry needs a reason, and a drifted
 copy is never answered there:
