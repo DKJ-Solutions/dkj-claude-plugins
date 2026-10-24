@@ -2,7 +2,56 @@
 
 ## [Unreleased]
 
-**0 / 2 patch entries** <!-- pending-tally -->
+**1 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/house-style-h1-sans · 20261024-195118Z
+
+The house `h1` is set in the body sans at weight 700 and in its own case: the serif face and the capitals are
+gone. The template masthead of the general pages follows it. `--font-serif` stays as a token for a title that
+keeps that face.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions app that takes the next house-style copy shows its page titles in the sans, in ordinary case.
+
+**Score:** 3
+
+#### Pull Request
+
+The house h1 in the body sans, in its own case
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3413](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3413)
+
+---
+
+### DEPLOY: feat/stopwatch-label-pages · 20261024-194102Z
+
+The Stopwatch overview on the dev server now opens on a Stopwatch h1 and shows one card per prompt label, three to
+a row: an h2 with the label's short title, a line saying from which prompt a run starts and when it stops, and the
+label's fastest time (or the live clock of its only run). Each card opens the
+label's own page, `/stopwatch/<label slug>`, which holds a card per run of that label, newest first, each opening
+the run's page as before. A run's page now leads back through its label in the breadcrumb. A label's slug used to
+redirect to its newest run; it addresses the label page instead.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the Stopwatch is a page of this repo's own dev server and ships to no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+A page per label on the Stopwatch, holding that label's run cards
+
+[PR #3409](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3409)
+
+---
 
 ### DEPLOY: feat/3405-logbook-sweep-per-issue · 20261024-185230Z
 
