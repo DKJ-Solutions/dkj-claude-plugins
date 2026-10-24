@@ -227,6 +227,12 @@ Assert-True (@(@($noHints | ForEach-Object { $_ }) | Sort-Object -Unique).Count 
 $emptyHints = @(Get-TestSuiteShardOrder -Suites $costPool -Costs @{} -Shard 1 -ShardCount 4 | ForEach-Object { $_.Name })
 Assert-True (($emptyHints -join ',') -eq ($noHints[0] -join ',')) 'an EMPTY hints table is the stride too, not a pack that puts everything in shard 1'
 
+# THE UNTIMED ARE COUNTED, because each one is charged the maximum and nothing else names them (#3368).
+$untimed = @(Get-TestSuiteUntimedNames -Suites @($costPool + (New-FakeSuite 'zz-new.tests.ps1') + (New-FakeSuite 'aa-new.tests.ps1')) -Costs $costs)
+Assert-True (($untimed -join ',') -eq 'aa-new.tests.ps1,zz-new.tests.ps1') "the suites with no recorded duration are named, sorted (got '$($untimed -join ',')')"
+Assert-True (@(Get-TestSuiteUntimedNames -Suites $costPool -Costs $costs).Count -eq 0) 'a pool the hints fully cover has no untimed suites'
+Assert-True (@(Get-TestSuiteUntimedNames -Suites $costPool -Costs $null).Count -eq 0) 'and with no hints there is no skew to report, so nothing is named'
+
 Write-Host "== the hints file: a bad one degrades to the stride rather than failing the gate ==" -ForegroundColor Cyan
 
 $hintDir = Join-Path ([System.IO.Path]::GetTempPath()) ("ci-shard-hints-$PID-$([guid]::NewGuid().ToString('n'))")

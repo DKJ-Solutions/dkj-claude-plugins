@@ -39,19 +39,29 @@
 
 ### PLAN
 
+Issue #3368: name the suites `suite-durations.json` has not timed, on the gate's opening lines.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-TestSuiteUntimedNames` in `native-capture-lib.ps1` (and both mirrors), counted over the whole pool before the shard slice
+- [x] `Invoke-TestSuiteGate` prints the count, the charged maximum and the names when there are any
+- [x] asserts in `ci-shard.tests.ps1`
 
 ### TEST
 
+- [x] the gates, run by ship-pr
+
 ### DEPLOY: fix/3368-untimed-suite-count
 
-**Score:**
+The test gate now says how many suites `suite-durations.json` has not timed, and names them, on its opening lines. Each one is charged the largest recorded duration when the CI shards are packed, so twelve untimed suites had quietly added about 3,000 seconds of load nobody saw until a stopwatch found it weeks later (#3367). The skew now shows on the run that introduces it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo that keeps its own `suite-durations.json` sees one new yellow line in its test gate when a suite is missing from it; without that file nothing changes.
+
+**Score:** 1
 
 #### Pull Request
 
