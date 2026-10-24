@@ -9,6 +9,10 @@
           {
             "type": "command",
             "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/dashboard/stopwatch-hook.ps1\" -Hook Prompt"
+          },
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/dashboard/logbook-hook.ps1\" -Hook Prompt"
           }
         ]
       }
@@ -19,6 +23,10 @@
           {
             "type": "command",
             "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/dashboard/stopwatch-hook.ps1\" -Hook Stop"
+          },
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/dashboard/logbook-hook.ps1\" -Hook Stop"
           }
         ]
       }
