@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**7 / 11 minor entries** <!-- pending-tally -->
+**8 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3419-stale-install-by-content · 20261024-222029Z
+
+dev-preview's `run npm install` note now fires only where the install really differs from the lock
+([#3419](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3419)). The note added in #3404 compared
+file times, and git rewrites `package-lock.json` on any commit or checkout that touches it. In this repo it fired
+on an install that `npm ls` called clean. A lock newer than npm's own install record is now compared by content:
+every package version it pins against `node_modules/.package-lock.json`. The note appears only where a package is
+installed at another version, or not at all. Optional packages for other platforms never count.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer no longer gets a `run npm install` note on every session after a pull or checkout that rewrote the
+lock without changing what it pins.
+
+**Score:** 2
+
+#### Pull Request
+
+dev-preview's stale-install note compares the lock's content with the install, not its time
+
+Plugins: dkj-policy
+
+[PR #3421](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3421)
+
+---
 
 ### DEPLOY: fix/3403-stopwatch-fetch-state · 20261024-220200Z
 
