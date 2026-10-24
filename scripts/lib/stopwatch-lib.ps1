@@ -670,9 +670,9 @@ function Format-StopwatchPageShell {
         '.sw-card > p { margin: 0; }' + "`n" +
         '.sw-card > p + p { margin-top: var(--spacing-1); }' + "`n" +
         '.sw-stamp { font-size: var(--text-base); font-weight: 700; color: var(--fg-1); }' + "`n" +
-        '.sw-title { font-size: var(--text-sm); font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }' + "`n" +
-        '.sw-title a { color: inherit; text-decoration: none; }' + "`n" +
-        '.sw-title .muted { font-size: var(--text-sm); font-weight: 400; }' + "`n" +
+        '.sw-instruction { font-size: var(--text-sm); font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }' + "`n" +
+        '.sw-instruction a { color: inherit; text-decoration: none; }' + "`n" +
+        '.sw-instruction .muted { font-size: var(--text-sm); font-weight: 400; }' + "`n" +
         '.sw-time { font-size: var(--text-lg); font-weight: 700; color: var(--fg-1); }' + "`n" +
         '.sw-change { margin-left: var(--spacing-2); font-size: var(--text-xs); font-weight: 400; color: var(--muted); }' + "`n" +
         '.sw-change--good { color: var(--positive-5); }' + "`n" +
@@ -741,7 +741,7 @@ function Format-StopwatchPageHtml {
             $stamp = & $e ($g.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))
             $href = (& $e $Route) + '/' + (& $e $g.PageSlug)
             $card = '<section class="card card--link sw-card"><p class="sw-stamp">' + $stamp + '</p>' +
-                '<p class="sw-title"><a href="' + $href + '">' + (& $e $g.Label) + '</a>' +
+                '<p class="sw-instruction"><a href="' + $href + '">' + (& $e $g.Label) + '</a>' +
                 $(if ($g.Versions -gt 1) { ' <span class="muted">v' + $g.Version + '</span>' } else { '' }) + '</p>'
             if ($g.Running) {
                 $card += '<p class="sw-time num" data-start="' + (Format-StopwatchStamp $g.Running.Start) + '">' + (Format-DevSeconds ($Now - $g.Running.Start).TotalSeconds) + '</p>'
