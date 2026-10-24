@@ -19,11 +19,14 @@
   <script src="../house-theme.js"></script>
 </head>
 <body>
-  <!-- 0. The site header: the mark and the repo's name as the way home, the settings button on the far right. It
+  <!-- 0. The general banner (#3250) stands here on a served hub, above the site header: Format-RepoHubBanner
+       writes it. -->
+
+  <!-- 1. The site header: the mark and the repo's name as the way home, the settings button on the far right. It
        names the repo, so the page has no intro of its own. -->
   <header class="site-header"><div class="container"><a class="site-header__brand" href="repo-dashboard.html" aria-label="example-repo hub, home"><span class="site-header__mark" aria-hidden="true">DKJ</span><span class="site-header__name">example-repo <span class="site-header__tag">hub</span></span></a><div id="settings"></div></div></header>
 
-  <!-- 1. The breadcrumb bar, under the site header; on the home page its trail is this one crumb. -->
+  <!-- 2. The breadcrumb bar, under the site header; on the home page its trail is this one crumb. -->
   <div class="breadcrumbs-bar">
     <div class="container">
       <nav class="breadcrumbs" aria-label="Breadcrumb">
@@ -35,8 +38,6 @@
   </div>
 
   <main class="page-column">
-
-    <!-- 2. The general banner (#3250) stands here on a served hub: Format-RepoHubBanner writes it. -->
 
     <!-- 3. The pages: every page a .card.card--link of its own, three to a row in one .grid-3, with no heading above
          them (#3383). A card holds the page's one .menu-item row; its link stretches over the whole card. In this

@@ -346,6 +346,8 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
+    # The hub's general banner first, above the site header, as on every other hub page (#3297, #3356; owner, October 24, 2026).
+    [void]$sb.AppendLine((Format-RepoHubBanner))
     # The house site header, holding the settings button, then the breadcrumb bar under it: its trail from Home to this page.
     # 'product': the product port links and relays this page.
     [void]$sb.Append((Format-SiteHeaderHtml -Name 'dkj-claude-plugins' -Href '/' -Tag 'product'))
@@ -355,8 +357,6 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('</ol></nav></div></div>')
     [void]$sb.AppendLine('<main class="page-column">')
 
-    # The hub's general banner first, above the intro, as on every other hub page (#3297, #3356; owner, October 24, 2026).
-    [void]$sb.AppendLine((Format-RepoHubBanner))
     # The intro is a <div>, never a <header>, which the house style lays out as a flex row.
     [void]$sb.AppendLine('<div>')
     [void]$sb.AppendLine('<h1>' + $pageName + '</h1>')
