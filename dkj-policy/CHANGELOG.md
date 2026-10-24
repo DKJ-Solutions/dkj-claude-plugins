@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**7 / 10 minor entries** <!-- pending-tally -->
+**7 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3403-stopwatch-fetch-state · 20261024-220200Z
+
+The Stopwatch overview now says when its copy of the other machines' runs was last fetched, and says so
+whenever a fetch is running, not only on the first visit
+([#3403](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3403)). The page renders the runs last
+fetched into `refs/stopwatch-origin/*` and starts a fetch in the background, so a run another machine had just
+published was missing with no sign of why. Measured: a group showed one card short of another machine's
+overview. The footer now ends with `as last fetched <time>`. While a fetch runs, the page says it is checking
+origin for newer runs and reloads until the fetch ends.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the Stopwatch is this repo's own dev-server page; no plugin ships it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The Stopwatch says when the other machines' runs were last fetched, and when a fetch is running
+
+[PR #3420](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3420)
+
+---
 
 ### DEPLOY: fix/3408-unfolded-entry-stacked-branch · 20261024-211441Z
 
