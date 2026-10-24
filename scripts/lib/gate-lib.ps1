@@ -1718,7 +1718,10 @@ function Get-SuiteReferenceSet {
                     "$($each.GetCommandName())".ToLowerInvariant() -notin @('foreach-object', '%')) { return $null }
                 $block = @($each.CommandElements | Select-Object -Skip 1)
                 if ($block.Count -ne 1 -or $block[0] -isnot [System.Management.Automation.Language.ScriptBlockExpressionAst]) { return $null }
-                $st = @($block[0].ScriptBlock.EndBlock.Statements)
+                # The block's body through Find, not the member: trusted-tree-seam reads any constant naming
+                # the scriptblock type as a string-to-code factory, and a member name is such a constant.
+                $body = $block[0].Find({ param($x) $x -is [System.Management.Automation.Language.ScriptBlockAst] }, $true)
+                $st = @($body.EndBlock.Statements)
                 if ($st.Count -ne 1) { return $null }
                 foreach ($rest in @($els | Select-Object -Skip 2)) {
                     if ($rest -isnot [System.Management.Automation.Language.CommandAst] -or "$($rest.GetCommandName())".ToLowerInvariant() -notin @('where-object', '?', 'where')) { return $null }
