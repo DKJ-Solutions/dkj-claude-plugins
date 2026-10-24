@@ -41,17 +41,22 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Restamp the stopwatch comment at the top of `brandbook/src/showcase/showcase.css`
 
 ### TEST
 
 ### DEPLOY: docs/stopwatch-css-comment
 
-**Score:**
+A timing run of the full workflow, branch to fold: the brand book's showcase stylesheet carries a
+one-line comment stamped with the run's date and time, and nothing renders differently.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing reaches a user of the plugins: the comment sits in the brand book's source and changes no output.
+
+**Score:** N/A
 
 #### Pull Request
 
