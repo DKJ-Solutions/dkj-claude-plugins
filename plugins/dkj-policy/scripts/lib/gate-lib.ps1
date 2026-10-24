@@ -1398,7 +1398,8 @@ function Get-SuiteReferenceSet {
         $n -is [System.Management.Automation.Language.CommandAst] -or
         $n -is [System.Management.Automation.Language.InvokeMemberExpressionAst] -or
         $n -is [System.Management.Automation.Language.AssignmentStatementAst] -or
-        $n -is [System.Management.Automation.Language.ForEachStatementAst]
+        $n -is [System.Management.Automation.Language.ForEachStatementAst] -or
+        $n -is [System.Management.Automation.Language.FunctionDefinitionAst]
     }, $true)
 
     # The commands first: which of them RUN a file, and which WALK a directory.
@@ -1407,6 +1408,8 @@ function Get-SuiteReferenceSet {
     $openWalkNodes = New-Object 'System.Collections.Generic.HashSet[object]'
     # The constants that narrowed each walk to a type -- the filters its samples are built from (#3392).
     $typedOf = @{}
+    # The path argument of a Select-String walk, whose first positional is a pattern, not a path (#3397).
+    $selectPathOf = @{}
     # Whether a constant names a file type in its last path segment: '*.ps1', 'hooks.json'. '*.*' and a
     # bare directory name do not.
     $namesType = { param($v) return (("$v" -split '[\\/]')[-1] -match '\.[A-Za-z0-9]+$') }
@@ -1442,6 +1445,46 @@ function Get-SuiteReferenceSet {
             ($name -eq 'copy-item' -and @($flags | Where-Object { 'recurse'.StartsWith($_) }).Count) -or
             ($name -in @('git', 'git.exe') -and (($words -contains 'ls-files') -or ($words -contains 'grep')))) {
             [void]$walkNodes.Add($n)
+        }
+        # Two more shapes that list the tree (#3397): git through the Invoke-GitRead wrapper, whose
+        # arguments sit in an array, and a Select-String over a wildcard path. Both are read like git and
+        # Get-ChildItem below -- narrowed only by a typed constant in a filtering position.
+        $allConsts = $null
+        if ($name -eq 'invoke-gitread') {
+            $allConsts = @($n.FindAll({ param($x) $x -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true) |
+                Where-Object { $_.Parent -isnot [System.Management.Automation.Language.ExpandableStringExpressionAst] -and $_.Parent -ne $n } |
+                ForEach-Object { $_.Value })
+            if ($allConsts -contains 'ls-files' -or $allConsts -contains 'grep') {
+                [void]$walkNodes.Add($n)
+                $typed = @($allConsts | Where-Object { -not ($_.StartsWith('-') -or $_.StartsWith(':')) -and (& $namesType $_) })
+                if ($allConsts -contains 'ls-files' -and $typed.Count) { $typedOf[$n] = $typed } else { [void]$openWalkNodes.Add($n) }
+            }
+        }
+        if ($name -eq 'select-string') {
+            # Its first positional is the pattern, so the path is -Path, -LiteralPath or the second one.
+            $pathEl = $null
+            $pos = 0
+            $els = @($n.CommandElements)
+            for ($i = 1; $i -lt $els.Count; $i++) {
+                if ($els[$i] -is [System.Management.Automation.Language.CommandParameterAst]) {
+                    $pn = $els[$i].ParameterName.ToLowerInvariant()
+                    $valueEl = if ($null -ne $els[$i].Argument) { $els[$i].Argument } elseif ($i + 1 -lt $els.Count) { $els[$i + 1] } else { $null }
+                    if ($pn -in @('path', 'literalpath', 'lp')) { $pathEl = $valueEl }
+                    if ($null -eq $els[$i].Argument -and $pn -notin @('simplematch', 'casesensitive', 'quiet', 'list', 'notmatch', 'allmatches', 'raw')) { $i++ }
+                    continue
+                }
+                $pos++
+                if ($pos -eq 2 -and $null -eq $pathEl) { $pathEl = $els[$i] }
+            }
+            if ($null -ne $pathEl) {
+                $pathConsts = @($pathEl.FindAll({ param($x) $x -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true) | ForEach-Object { $_.Value })
+                if (@($pathConsts | Where-Object { $_.Contains('*') -or $_.Contains('?') }).Count) {
+                    [void]$walkNodes.Add($n)
+                    $selectPathOf[$n] = $pathEl
+                    $typed = @($pathConsts | Where-Object { & $namesType $_ })
+                    if ($typed.Count) { $typedOf[$n] = $typed } else { [void]$openWalkNodes.Add($n) }
+                }
+            }
         }
         # AN OPEN WALK IS EVERY WALK NOT PROVABLY NARROWED TO A FILE TYPE AT THE SOURCE (#3316) -- open is
         # the default, because getting it wrong in that direction costs a suite kept, never one dropped.
@@ -1556,6 +1599,47 @@ function Get-SuiteReferenceSet {
         }
     }
 
+    # A FUNCTION PARAMETER HOLDS WHAT ITS CALLERS PASS (#3397): `function Get-Docs($root) { gci $root -Recurse };
+    # Get-Docs $RepoRoot` walks the live tree through $root. Each call site binds its arguments to the
+    # function's parameters -- by name where it names one, otherwise in order -- and the binding is read as
+    # an assignment, here for the walk and in $paramWrites for its root.
+    $paramWrites = New-Object System.Collections.ArrayList
+    $paramsOf = @{}
+    foreach ($n in $nodes) {
+        if ($n -isnot [System.Management.Automation.Language.FunctionDefinitionAst]) { continue }
+        $plist = if ($n.Parameters) { @($n.Parameters) } elseif ($n.Body.ParamBlock) { @($n.Body.ParamBlock.Parameters) } else { @() }
+        if ($plist.Count) { $paramsOf[$n.Name.ToLowerInvariant()] = @($plist | ForEach-Object { $_.Name.VariablePath.UserPath.ToLowerInvariant() }) }
+    }
+    if ($paramsOf.Count) {
+        foreach ($n in $nodes) {
+            if ($n -isnot [System.Management.Automation.Language.CommandAst]) { continue }
+            $fname = "$($n.GetCommandName())".ToLowerInvariant()
+            if (-not $paramsOf.ContainsKey($fname)) { continue }
+            $params = @($paramsOf[$fname])
+            $bound = New-Object System.Collections.ArrayList
+            $positional = New-Object System.Collections.ArrayList
+            $els = @($n.CommandElements)
+            for ($i = 1; $i -lt $els.Count; $i++) {
+                if ($els[$i] -is [System.Management.Automation.Language.CommandParameterAst]) {
+                    $pn = $els[$i].ParameterName.ToLowerInvariant()
+                    $match = @($params | Where-Object { $_.StartsWith($pn) } | Select-Object -First 1)
+                    $valueEl = if ($null -ne $els[$i].Argument) { $els[$i].Argument } elseif ($i + 1 -lt $els.Count -and $els[$i + 1] -isnot [System.Management.Automation.Language.CommandParameterAst]) { $i++; $els[$i] } else { $null }
+                    if ($match.Count -and $null -ne $valueEl) { [void]$bound.Add(@($match[0], $valueEl)) }
+                    continue
+                }
+                [void]$positional.Add($els[$i])
+            }
+            $free = @($params | Where-Object { $p = $_; -not @($bound | Where-Object { $_[0] -eq $p }).Count })
+            for ($i = 0; $i -lt [Math]::Min($free.Count, $positional.Count); $i++) { [void]$bound.Add(@($free[$i], $positional[$i])) }
+            foreach ($b in $bound) {
+                [void]$paramWrites.Add($b)
+                foreach ($v in @($b[1].FindAll({ param($x) $x -is [System.Management.Automation.Language.VariableExpressionAst] }, $true))) {
+                    [void]$derivedFrom.Add(@($b[0], $v.VariablePath.UserPath.ToLowerInvariant()))
+                }
+            }
+        }
+    }
+
     # Which variables hold a path built from $RepoRoot -- a fixed point, so a variable derived from a
     # derived one counts too.
     # SEEDED WITH $PSScriptRoot AS WELL AS $RepoRoot: a suite's own directory IS the live tree, and two
@@ -1581,6 +1665,30 @@ function Get-SuiteReferenceSet {
         }
     }
 
+    # A ROOT PIPED INTO THE WALK (#3397): `(Join-Path $RepoRoot 'plugins') | Get-ChildItem -Recurse` names no
+    # root inside the walk command itself, so the variables above never reach it. A Get-ChildItem past the
+    # first stage of a pipeline whose earlier stages name a live root is a live walk, rooted at the stage
+    # right before it.
+    $pipedFrom = @{}
+    foreach ($w in $walkNodes) {
+        if ($w -isnot [System.Management.Automation.Language.CommandAst] -or "$($w.GetCommandName())".ToLowerInvariant() -notin @('get-childitem', 'gci', 'dir', 'ls')) { continue }
+        $pipe = $w.Parent
+        if ($pipe -isnot [System.Management.Automation.Language.PipelineAst]) { continue }
+        $stages = @($pipe.PipelineElements)
+        $at = [Array]::IndexOf($stages, $w)
+        if ($at -lt 1) { continue }
+        $live = $false
+        for ($i = 0; $i -lt $at; $i++) {
+            foreach ($v in @($stages[$i].FindAll({ param($x) $x -is [System.Management.Automation.Language.VariableExpressionAst] }, $true))) {
+                if ($rootVars.Contains($v.VariablePath.UserPath.ToLowerInvariant())) { $live = $true }
+            }
+        }
+        if (-not $live) { continue }
+        $pipedFrom[$w] = $stages[$at - 1]
+        $result.Walks = $true
+        if ($openWalkNodes.Contains($w)) { $result.WalksOpen = $true }
+    }
+
     # WHERE EACH LIVE WALK IS ROOTED (#3392). CI's asset-only selection trusts a declared scope to drop a
     # walker, so the scope guard has to hold the declaration against what the walk can return, root
     # included -- a '*.ps1' filter is covered by 'scripts/*.ps1' only when the walk sits under scripts/.
@@ -1592,6 +1700,7 @@ function Get-SuiteReferenceSet {
     foreach ($use in $varUses) {
         if ($use[0] -eq 'walk' -and $rootVars.Contains($use[1]) -and -not $liveWalks.Contains($use[2])) { [void]$liveWalks.Add($use[2]) }
     }
+    foreach ($w in $pipedFrom.Keys) { if (-not $liveWalks.Contains($w)) { [void]$liveWalks.Add($w) } }
     # Only the scope guard reads the samples, and it names the suite directory; the selection does not,
     # and skipping them keeps its first parse of a walking file at the cost it had.
     if ($liveWalks.Count -gt 0 -and $SuiteDirectory) {
@@ -1799,6 +1908,7 @@ function Get-SuiteReferenceSet {
                 if ($seeds -notcontains $target) { [void]$writes.Add(@($target, $n.Condition)) }
             }
         }
+        foreach ($pw in $paramWrites) { if ($seeds -notcontains $pw[0]) { [void]$writes.Add($pw) } }
         $lastKey = ''
         for ($pass = 0; $pass -lt 8; $pass++) {
             $nextRoots = $seedRoots.Clone()
@@ -1830,7 +1940,20 @@ function Get-SuiteReferenceSet {
             } else {
                 $cmdName = "$($w.GetCommandName())".ToLowerInvariant()
                 if ($cmdName -in @('get-childitem', 'gci', 'dir', 'ls', 'copy-item')) {
-                    $roots = & $pathOf (& $pathArg (& $argsOf $w)) $null
+                    $p = & $pathArg (& $argsOf $w)
+                    # A root piped in from the stage before (#3397).
+                    if ($null -eq $p -and $pipedFrom.ContainsKey($w)) { $p = $pipedFrom[$w] }
+                    $roots = & $pathOf $p $null
+                } elseif ($cmdName -eq 'select-string') {
+                    $roots = & $pathOf $selectPathOf[$w] $null
+                } elseif ($cmdName -eq 'invoke-gitread') {
+                    $isGit = $true
+                    $rootEl = $null
+                    $els = @($w.CommandElements)
+                    for ($i = 1; $i -lt $els.Count - 1; $i++) {
+                        if ($els[$i] -is [System.Management.Automation.Language.CommandParameterAst] -and $els[$i].ParameterName -eq 'RepoRoot') { $rootEl = $els[$i + 1]; break }
+                    }
+                    $roots = & $pathOf $rootEl $null
                 } elseif ($cmdName -in @('git', 'git.exe')) {
                     $isGit = $true
                     $els = @($w.CommandElements)

@@ -39,19 +39,44 @@
 
 ### PLAN
 
+Issue #3397: four in-suite walk shapes were invisible to `Get-SuiteReferenceSet`, and so were neither
+selected nor held by #3392's scope guard. Of the issue's two directions this takes (b), extending
+detection, because (a) would first need a proof that a walk runs over a fixture, which the reading
+does not have.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `gate-lib.ps1` (and its mirror): a Get-ChildItem past the first pipeline stage is a live walk when an
+  earlier stage names a live root, rooted at the stage before it; a function's parameters are bound
+  from each call site (by name, otherwise in order) and read as assignments; `Invoke-GitRead` with
+  `ls-files`/`grep` and `Select-String` over a wildcard path are walks, narrowed only by a typed constant.
+- [x] `ci-suite-selection-lib.ps1`'s trade note now names only what the reading still cannot see.
+- [x] `affected-suites.tests.ps1` asserts each shape, its sample, and that the same shape over a fixture
+  is no walk.
 
 ### TEST
 
+- [x] `affected-suites` (194 pass), `ci-suite-selection-lib` (49) and `trusted-tree-seam` (58), standalone.
+- [x] Every suite in `scripts/tests` reads the same Walks and WalksOpen as on `main`, so the local
+  selection costs nothing more today, and no declared suite reads uncovered.
+
 ### DEPLOY: fix/3397-walk-reading-unseen-shapes
 
-**Score:**
+The test selection now recognises four more ways a suite can list the live tree: a root piped into
+`Get-ChildItem`, a root handed to a function parameter, git read through `Invoke-GitRead`, and
+`Select-String` over a wildcard path
+([#3397](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3397)). Such a suite used to be
+neither selected as a walker nor held by the declared-scope guard that CI's asset-only selection relies
+on since #3392. No suite in the tree uses one of these shapes today, so nothing selects differently.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a consumer's local gate selects exactly as before until one of its suites uses one of these shapes,
+and then it runs that suite, which is the safe direction.
+
+**Score:** N/A
 
 #### Pull Request
 
