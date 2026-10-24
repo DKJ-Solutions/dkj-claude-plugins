@@ -108,6 +108,8 @@ connector dashboard is the hub, and the brand book's Vite dev server is the prod
 | states a server | `Hub: http://localhost:4890/ -- product: http://localhost:4321/dkj-recipes/ (started)`; `(already running)` where it is reused |
 | states a server that cannot start | `Hub: http://localhost:4890/ -- product not started: port 3000 taken by other processes: 3000 by dkj-lifehub (pid 19544)` |
 | and the holder's command line cannot be read | `... 3000 by pid 22588 (another logon session -- its command line cannot be read)`, the session clause only where the holder runs in another Windows logon session (#3401) |
+| states a server that binds and then quits | `... -- product: the server on port 3001 stopped right after it started listening -- see <log>`: a started server reads as `(started)` only once it is still listening two seconds after its first answer (#3404) |
+| `Requires` a `node_modules` older than the `package-lock.json` beside it | the product's clause ends `; 'node_modules' is older than its package-lock.json -- run npm install`, read from npm's own `node_modules/.package-lock.json`; the server is still started (#3404) |
 | states `OwnHub = $true` | `Hub: http://localhost:4870/ (started)`, as before #3245 |
 | states `OwnHub = $true` and a `Product` | `Hub: http://localhost:4870/ (started) -- product: http://localhost:5173/brandbook/ (started)` |
 | and the hub cannot start | `Hub: not started -- <why>`, then the product's clause where there is one |

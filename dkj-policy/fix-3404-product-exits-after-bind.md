@@ -39,19 +39,41 @@
 
 ### PLAN
 
+Inbound #3404, both gaps verified in the code: `Requires` was a bare `Test-Path`, and the wait ended on the
+first `'ok'`, so a server that bound and exited at once still read as `(started)`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] A started product is held for a 2s settle after its first answer; a port gone free, or held by a
+  listener whose process is gone, reads as `stopped right after it started listening`. The hub is not held.
+- [x] A `Requires` entry that is a `node_modules` older than the `package-lock.json` beside it is named on
+  the product's clause, read from npm's own `node_modules/.package-lock.json`.
+- [x] The hub README's table of lines shows both.
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: the settle and stale-install rules, a server that listens for 2s
+  and quits, and the stale note on the line (355 passed standalone).
+
 ### DEPLOY: fix/3404-product-exits-after-bind
 
-**Score:**
+The dev-preview line no longer reports a product as `(started)` when it quits right after it starts listening
+([#3404](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3404)). A started product counts as started
+only once it is still listening two seconds after its first answer, and otherwise reads
+`the server on port N stopped right after it started listening -- see <log>`. Measured: Next.js 16.4.0 under an
+agent printed `Ready`, then exited to show an upgrade nudge, while the line said `(started)`. A `Requires`
+entry that is a `node_modules` folder older than the `package-lock.json` beside it now adds
+`'node_modules' is older than its package-lock.json -- run npm install` to the product's clause. That was the
+cause here: a pull had moved the lock to 16.4.3 while this machine's install stayed on 16.4.0.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer whose dev server dies right after it starts, or whose install fell behind a pull, is told so on
+the session's first line instead of getting a `(started)` link to nothing.
+
+**Score:** 3
 
 #### Pull Request
 

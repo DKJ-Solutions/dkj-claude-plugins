@@ -68,6 +68,8 @@
 #>
 
 $script:DevPreviewMaxAncestors = 4
+# How long a started product must keep listening after its first answer before it reads as started (#3404).
+$script:DevPreviewSettleSeconds = 2
 # The word the session-start line opens with, in every repo (#3064): 'Hub', since the page called Repository is /repository on it.
 $script:DevPreviewLabel = 'Hub'
 # The general pages server, which is the Repository (#3119, #3245). Fixed, so a .vscode route can name them; ten,
@@ -331,6 +333,44 @@ function Get-DevPreviewWaitOutcome {
     if (-not $Exited) { return 'pending' }
     if ($State -eq 'other') { return 'lost' }
     return 'exited'
+}
+
+function Get-DevPreviewSettleOutcome {
+    <#
+        One step of the settle that follows a started product's first 'ok': 'ok', 'stopped', 'lost' or
+        'pending', from the port's state and whether -SettleUntil has passed. INBOUND #3404: Next.js 16.4.0
+        under an agent printed Ready, bound its port, then exited to show an upgrade nudge, and the line said
+        '(started)' about a port nobody listened on seconds later. The launcher's exit says nothing here (a
+        Command may hand its server off), so the port decides: still ours at the end is 'ok', free is
+        'stopped', another process's is 'lost'. -HolderGone is a listener whose process is no longer in the
+        table: a socket outliving its process for a moment as the server exits, so it is 'stopped' too
+        (measured in the suite: read as 'other', it reported the server's own exit as a lost port).
+    #>
+    param([Parameter(Mandatory = $true)][string]$State, [bool]$Due, [bool]$HolderGone)
+    if ($State -eq 'free' -or ($State -eq 'other' -and $HolderGone)) { return 'stopped' }
+    if ($State -eq 'other') { return 'lost' }
+    if ($Due) { return 'ok' }
+    return 'pending'
+}
+
+function Get-DevPreviewStaleInstall {
+    <#
+        The first -Requires entry that is a node_modules folder older than the package-lock.json beside it,
+        or '' where none is. INBOUND #3404: Requires checked only that the folder exists, so a pull that
+        moved the lock (next 16.4.0 -> 16.4.3) on another machine left this one starting the old install.
+        Older is read from npm's own record of its last install, node_modules\.package-lock.json (npm 7+);
+        where that file is absent (another package manager, an older npm) nothing is claimed.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Root, [AllowEmptyCollection()][string[]]$Requires)
+    foreach ($rel in @($Requires)) {
+        if (-not $rel -or (Split-Path -Leaf $rel.TrimEnd('\', '/')) -ne 'node_modules') { continue }
+        $dir = Join-Path $Root $rel
+        $lock = Join-Path (Split-Path -Parent $dir.TrimEnd('\', '/')) 'package-lock.json'
+        $marker = Join-Path $dir '.package-lock.json'
+        if (-not (Test-Path -LiteralPath $lock -PathType Leaf) -or -not (Test-Path -LiteralPath $marker -PathType Leaf)) { continue }
+        if ((Get-Item -LiteralPath $lock).LastWriteTimeUtc -gt (Get-Item -LiteralPath $marker).LastWriteTimeUtc) { return $rel }
+    }
+    return ''
 }
 
 function Select-DevPreviewPort {

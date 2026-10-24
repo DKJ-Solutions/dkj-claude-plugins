@@ -199,6 +199,29 @@ Assert-Equal '3000 by pid 22588 (another logon session -- its command line canno
 Assert-Equal '3000 by pid 22600 (its command line cannot be read)' (Format-DevPreviewPortHolders -Ports @(3000) -Listeners @((& $L 3000 22600)) -Processes $procsSession -SessionId 28) 'an unreadable holder in our own session names no other session'
 Assert-True ((Format-DevPreviewPortHolders -Ports @(3000) -Listeners @((& $L 3000 22588)) -Processes $procsSession) -match '^3000 by pid 22588 \(') 'the session defaults to the hook''s own, without a -SessionId'
 
+# #3404: the settle after a started product's first answer -- the port decides, never the launcher.
+Assert-Equal 'pending' (Get-DevPreviewSettleOutcome -State 'ours' -Due $false) 'still ours before the settle ends: keep holding'
+Assert-Equal 'ok'      (Get-DevPreviewSettleOutcome -State 'ours' -Due $true) 'still ours when it ends: started'
+Assert-Equal 'stopped' (Get-DevPreviewSettleOutcome -State 'free' -Due $false) 'the port gone free during the settle: stopped, at once'
+Assert-Equal 'lost'    (Get-DevPreviewSettleOutcome -State 'other' -Due $true) 'another process on it: lost'
+Assert-Equal 'stopped' (Get-DevPreviewSettleOutcome -State 'other' -Due $false -HolderGone $true) 'a socket outliving its exited process: stopped, not lost'
+
+# #3404: an install older than the lock beside it is named; without npm's own record nothing is claimed.
+$stale = Join-Path ([System.IO.Path]::GetTempPath()) "dev-preview-stale-$PID-$([guid]::NewGuid().ToString('n'))"
+try {
+    $nm = New-Item -ItemType Directory -Path (Join-Path $stale 'app\node_modules') -Force
+    $lockFile = Join-Path $stale 'app\package-lock.json'
+    $marker = Join-Path $nm.FullName '.package-lock.json'
+    Set-Content -LiteralPath $lockFile -Value '{}'; Set-Content -LiteralPath $marker -Value '{}'
+    (Get-Item -LiteralPath $marker).LastWriteTimeUtc = [datetime]::UtcNow.AddHours(-1)
+    Assert-Equal 'app/node_modules' (Get-DevPreviewStaleInstall -Root $stale -Requires @('data', 'app/node_modules')) 'a node_modules older than its lock is named, past an entry that is no node_modules'
+    (Get-Item -LiteralPath $marker).LastWriteTimeUtc = [datetime]::UtcNow.AddHours(1)
+    Assert-Equal '' (Get-DevPreviewStaleInstall -Root $stale -Requires @('app/node_modules')) 'an install newer than its lock is not'
+    Remove-Item -LiteralPath $marker
+    Assert-Equal '' (Get-DevPreviewStaleInstall -Root $stale -Requires @('app/node_modules')) 'without npm''s own install record nothing is claimed'
+    Assert-Equal '' (Get-DevPreviewStaleInstall -Root $stale -Requires @()) 'no Requires, no claim'
+} finally { Remove-Item -LiteralPath $stale -Recurse -Force -ErrorAction SilentlyContinue }
+
 $pick = Select-DevPreviewPort -Ports @(5173, 5174, 5175) -Listeners @((& $L 5173 200), (& $L 5174 103)) -Processes $procs -Root $root
 Assert-True ($pick.Action -eq 'reuse' -and $pick.Port -eq 5174) 'ours on a later port is reused, past a foreign one'
 $pick = Select-DevPreviewPort -Ports @(5173, 5174, 5175) -Listeners @((& $L 5173 200)) -Processes $procs -Root $root
@@ -844,6 +867,30 @@ try {
         Assert-True ($m -match "^Hub: http://localhost:$g/ -- product: the server on port $port2 exited at start") "a server that dies at start is reported as such, beside the hub link (got '$m')"
         Assert-True (((Get-Date) - $t0).TotalSeconds -lt 25) 'and the hook stops waiting when it dies, not at WaitSeconds'
         Assert-True ((Get-HubState (Join-Path $Fixture 'dies')).Product -eq '') 'and the state file does not name the product that died'
+
+        # A SERVER THAT LISTENS AND THEN QUITS (#3404, measured: Next.js printed Ready, then exited for an
+        # upgrade nudge): not '(started)'. The settle is widened to 6s here so the 2s listen is seen first.
+        Use-GeneralPort (New-FreePort)
+        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
+        $portQ = New-FreePort
+        $brief = ($listen -replace 'Start-Sleep 600', 'Start-Sleep 2').Replace("'", "''")
+        $env:DKJ_DEV_PREVIEW_SETTLE = '6'
+        try { $r = Invoke-Hook (New-Repo 'quits' "function Get-DevPreview { @{ Command = '$brief'; Ports = $portQ; WaitSeconds = 30 } }`n") }
+        finally { Remove-Item Env:\DKJ_DEV_PREVIEW_SETTLE -ErrorAction SilentlyContinue }
+        $m = Get-Message $r.Text
+        Assert-True ($m -match "^Hub: http://localhost:$g/ -- product: the server on port $portQ stopped right after it started listening") "a server that quits right after it listens is not reported as started (got '$m')"
+        Assert-True ((Get-HubState (Join-Path $Fixture 'quits')).Product -eq '') 'and the state file does not name it'
+
+        # AN INSTALL OLDER THAN ITS LOCK (#3404) rides on the product's clause, whatever became of the start.
+        Use-GeneralPort (New-FreePort)
+        $portS = New-FreePort
+        $staleRepo2 = New-Repo 'stale-install' "function Get-DevPreview { @{ Command = 'echo {port}'; Ports = $portS; Requires = 'node_modules'; WaitSeconds = 30 } }`n"
+        $nm2 = New-Item -ItemType Directory -Path (Join-Path $staleRepo2 'node_modules') -Force
+        Set-Content -LiteralPath (Join-Path $staleRepo2 'package-lock.json') -Value '{}'
+        Set-Content -LiteralPath (Join-Path $nm2.FullName '.package-lock.json') -Value '{}'
+        (Get-Item -LiteralPath (Join-Path $nm2.FullName '.package-lock.json')).LastWriteTimeUtc = [datetime]::UtcNow.AddHours(-1)
+        $m = Get-Message (Invoke-Hook $staleRepo2).Text
+        Assert-True ($m -match "exited at start -- see .+; 'node_modules' is older than its package-lock\.json -- run npm install$") "an install older than its lock is named on the product's clause (got '$m')"
 
         Use-GeneralPort (New-FreePort)
         $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
