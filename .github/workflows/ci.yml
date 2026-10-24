@@ -356,12 +356,38 @@ jobs:
       # longer caught here), the asset set and the fail-closed reads are argued in
       # scripts/lib/ci-suite-selection-lib.ps1. Step-level rather than a job of its own, for the reason
       # get-merge-suite-skip.ps1 gives: a skipped `needs:` job skips its dependents.
+      #
+      # THE SELECTION'S PARSE CACHE IS CARRIED BETWEEN RUNS -- issue #3393. Shard 1 spent 59s of an asset-only
+      # PR's run parsing ~480 scripts cold, because every runner starts with an empty git directory, where the
+      # per-blob cache lives. Only shard 1 restores it: it is the one job that parses. The key is the hash of
+      # every .ps1, so an asset-only PR (which changes none) hits the trunk's entry exactly, and the prefix
+      # takes the newest one otherwise. A cache saved in a PR run is visible to that PR alone, so the TRUNK
+      # writes it: on a push to main the selection script warms the file, and the save step below stores it.
+      # Best-effort both ways: a miss is the old cold parse, never a different verdict.
+      - name: Restore the suite selection's parse cache
+        if: ${{ matrix.shard == 1 }}
+        id: suite-refs-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .git/workflow-suite-refs.json
+          key: suite-refs-${{ hashFiles('**/*.ps1') }}
+          restore-keys: suite-refs-
+
       - name: PR suite selection (does this PR change only static assets?)
         id: pr-suite-selection
         shell: powershell
         run: |
           powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ci/get-pr-suite-selection.ps1 -Shard ${{ matrix.shard }}
           exit $LASTEXITCODE
+
+      # Only the trunk saves, for the visibility reason above, and only when the key moved: an entry under a
+      # key is never overwritten, so saving an exact hit again would only fail with a warning.
+      - name: Save the suite selection's parse cache (the trunk only)
+        if: ${{ matrix.shard == 1 && github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.suite-refs-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .git/workflow-suite-refs.json
+          key: ${{ steps.suite-refs-cache.outputs.cache-primary-key }}
 
       # THE SAME SHARED GATE open-pr.ps1 AND cut-release.ps1 RUN, not a third copy of its loop. This step
       # held an inline copy until August 7, 2026 (issue #512), which is how it would have kept running the
