@@ -2013,7 +2013,10 @@ foreach ($af in $auditFiles) {
 # 97 -> 98 (#3155): cut-release.ps1's Invoke-TrunkCatchUp, $rcCap (`gh api repos/<slug>/commits/<sha>/check-runs`),
 # at the shared network bound, -DiscardStderr because the JSON is parsed. It asks Test-NativeExitMeasured, and
 # anything but a measured 0 is an unreadable lap: no certificate, so the cut refuses exactly as #2899 did.
-Assert-Equal 98 $boundedTotal 'the parser still counts 98 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 98 -> 99 (#3386): claim-issue.ps1's $freeHeads (`git ls-remote --heads origin`), at the shared network bound,
+# read before a fresh -Tag claim writes its marker. It asks Test-NativeExitMeasured, and anything but a measured
+# 0 is said and passed -- the remote could not rule a branch out -- exactly as -Candidates passes an unread list.
+Assert-Equal 99 $boundedTotal 'the parser still counts 99 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
