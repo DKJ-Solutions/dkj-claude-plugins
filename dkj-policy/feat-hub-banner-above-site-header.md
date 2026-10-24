@@ -48,7 +48,7 @@
 ### TEST
 
 - [x] `dev-pages`, `connector-dashboard` and `stopwatch` suites green; `dev-preview-sessionstart`'s one red assert (a server probe hitting an OutOfMemoryException) is red on the trunk code too
-- [ ] The owner has looked at the hub in the browser
+- [x] The owner has looked at the hub in the browser and approved it (October 24, 2026)
 
 ### DEPLOY: feat/hub-banner-above-site-header
 
