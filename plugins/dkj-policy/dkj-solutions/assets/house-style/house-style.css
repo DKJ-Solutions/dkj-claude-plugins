@@ -123,7 +123,7 @@
      Headings take the heading token of their own level; body text is --text-base. Same in both modes. */
   /* No heading above 32px (owner, October 22, 2026): a page shows as much content as it can on a 900px-high screen,
      so h1 is h2's size and stands apart by its capitals and the theme's colour. The hero figure takes it too. */
-  --text-h1: 32px; --text-h2: 32px; --text-h3: 22px;
+  --text-h1: 32px; --text-h2: 24px; --text-h3: 22px;
   --text-h4: 18px; --text-h5: 16px;
   --text-lg: 18px; --text-base: 14px; --text-sm: 12px; --text-xs: 11px;
   /* the serif h1 and h2 are set in; a component whose title keeps that face at another level takes it from here */
@@ -230,26 +230,27 @@ body > header, main > header { display: flex; justify-content: space-between; al
 @media (max-width: 760px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } .hero .value { font-size: var(--text-h1); } }
 
 /* ---- Typography ----------------------------------------------------------- */
-/* Headings set in a serif so they stand off from the sans body text. System fonts only (no
+/* h1 is set in a serif so it stands off from the sans body text. System fonts only (no
    external requests): Iowan Old Style (macOS/iOS), Palatino Linotype (Windows), Georgia,
-   Noto Serif (Android/Linux). Their bold is heavier than the sans 600, so the tracking is
-   pulled in slightly. h3-h5 stay in the body sans. */
-h1, h2 { font-family: var(--font-serif);
-  font-weight: 600; letter-spacing: -0.01em; }
-/* h1 is --primary, h2 --fg-2 and h3-h5 --fg-3 (owner's decision, October 19, 2026: an h2 in the h1's colour read too
-   much like it; #3235 moved h2 and h3-h5 to the text steps). On a fill the paper is the text: .fill-primary and
+   Noto Serif (Android/Linux). Its bold is heavier than the sans 600, so the tracking is
+   pulled in slightly. h2-h5 are in the body sans (h2 since October 24, 2026, the owner; it was a serif too). */
+h1 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.01em; }
+h2 { font-weight: 700; }   /* 700 since October 24, 2026 (owner); it was 600 */
+/* h1 and h2 are --primary, h3-h5 --fg-3 (owner, October 24, 2026: h2 back in the colour, now 24px in the sans under
+   the h1's serif capitals; from October 19 it was --fg-2, because an h2 in the h1's colour read too much like it, and #3235 moved h2
+   and h3-h5 to the text steps). On a fill the paper is the text: .fill-primary and
    .fill-inverse at the end of this file switch every heading to --paper-1, so an h2 reads on the page and on the
    primary alike (owner, #3235). :where() keeps them at
    zero specificity, so a heading inside a coloured container (or one an app colours itself) wins without an override. */
 :where(h1) { color: var(--primary); }
-:where(h2) { color: var(--fg-2); }
+:where(h2) { color: var(--primary); }
 :where(h3, h4, h5) { color: var(--fg-3); }
 /* h1 is set in capitals so it stands further apart from h2 (owner, #3247); capitals want air between them,
-   so its tracking opens to 0.02em where h2 keeps the serif's -0.01em. */
+   so its tracking opens to 0.02em. */
 h1 { font-size: var(--text-h1); margin: 0; text-transform: uppercase; letter-spacing: 0.02em; }
 h2 { font-size: var(--text-h2); margin: 0 0 var(--spacing-1); }
-/* Flex so an .info-button sits on the heading's vertical centre, not on its baseline; the serif's
-   capitals sit almost exactly mid-line, so 1px corrects the rest. */
+/* Flex so an .info-button sits on the heading's vertical centre, not on its baseline; the capitals
+   sit almost exactly mid-line, so 1px corrects the rest. */
 h2 { display: flex; align-items: center; }
 h2 .info-button { top: 1px; }
 h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; }
@@ -272,7 +273,7 @@ p, p.meta { color: var(--fg-1); }
 .eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }   /* 0.04em mirrors the brand book's --dkj-tracking-label */
 /* Lead: the one paragraph under a page title that says what the page is for (#141). On a <p>, in the paragraph
    colour, at the large running size, held to a readable measure. */
-.lead { max-width: 46rem; margin: var(--spacing-2) 0 0; font-size: var(--text-lg); line-height: 1.35; color: var(--fg-1); }   /* 1.35 mirrors the brand book's --dkj-lh-snug */
+.lead { max-width: 46rem; margin: var(--spacing-2) 0 0; font-size: var(--text-base); line-height: 1.35; color: var(--fg-1); }   /* 1.35 mirrors the brand book's --dkj-lh-snug */
 .num { font-variant-numeric: tabular-nums; }                        /* aligned digits */
 .delta { font-weight: 600; }
 .delta--up, .pos { color: var(--positive-5); }
@@ -646,7 +647,7 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
    one --tap high and one line: a trail longer than the screen scrolls sideways inside the bar rather than wrapping, so
    the height stays fixed and whatever else sticks to the top sits right under it. Its trail lines up with the page
    column (.container). */
-.breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); white-space: nowrap; }
+.breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-base); white-space: nowrap; }   /* --text-base since October 24, 2026 (owner); it was --text-sm */
 .breadcrumbs li { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }
 .breadcrumbs a { color: var(--paper-2); text-decoration: none; text-underline-offset: 4px; }
 .breadcrumbs a:focus-visible { outline-color: var(--paper-1); }
@@ -675,7 +676,7 @@ html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + va
 .site-header__brand { display: inline-flex; align-items: center; gap: var(--spacing-3); min-width: 0; color: var(--paper-1); text-decoration: none; }
 .site-header__brand:focus-visible { outline: 2px solid var(--paper-1); outline-offset: 4px; }
 .site-header__mark { display: inline-block; flex: none; padding: var(--spacing-1) var(--spacing-2);
-  border-radius: var(--spacing-2); background: var(--paper-1); color: var(--primary); font-size: var(--text-h2); font-weight: 800;
+  border-radius: var(--spacing-2); background: var(--paper-1); color: var(--primary); font-size: var(--text-h1); font-weight: 800;
   line-height: 1; letter-spacing: 0.02em; }
 .site-header__name { overflow: hidden; font-size: var(--text-lg); font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
 .site-header__tag { font-weight: 400; color: var(--paper-3); }
@@ -683,7 +684,7 @@ html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + va
 .site-header + .breadcrumbs-bar .breadcrumbs a { color: var(--fg-3); }
 .site-header + .breadcrumbs-bar .breadcrumbs a:focus-visible { outline-color: var(--muted); }
 .site-header + .breadcrumbs-bar .breadcrumbs__sep { color: var(--muted); }
-.site-header + .breadcrumbs-bar .breadcrumbs [aria-current='page'] { color: var(--fg-1); }
+.site-header + .breadcrumbs-bar .breadcrumbs [aria-current='page'] { color: var(--primary); }   /* owner, October 24, 2026; it was --fg-1 */
 
 /* ---- Menu list and menu item ---------------------------------------------------- */
 /* Settings as rows: <ul class="menu-list"><li class="menu-row"><span class="menu-row__label">..</span>

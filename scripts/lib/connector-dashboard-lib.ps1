@@ -355,13 +355,13 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('</ol></nav></div></div>')
     [void]$sb.AppendLine('<main class="page-column">')
 
+    # The hub's general banner first, above the intro, as on every other hub page (#3297, #3356; owner, October 24, 2026).
+    [void]$sb.AppendLine((Format-RepoHubBanner))
     # The intro is a <div>, never a <header>, which the house style lays out as a flex row.
     [void]$sb.AppendLine('<div>')
     [void]$sb.AppendLine('<h1>' + $pageName + '</h1>')
     [void]$sb.AppendLine('<p class="lead">Every repo registered under <code>connectors/</code>, as <code>check-connectors.ps1</code> reports it on this machine.</p>')
     [void]$sb.AppendLine('</div>')
-    # The hub's general banner under the intro, as on every other hub page (#3297, #3356).
-    [void]$sb.AppendLine((Format-RepoHubBanner))
 
     # One tile per count.
     [void]$sb.AppendLine('<div class="tiles">')
