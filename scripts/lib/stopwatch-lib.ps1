@@ -661,9 +661,11 @@ function Format-StopwatchChangePercent {
 function Format-StopwatchPageShell {
     <# The pieces the two pages share: the page's own style layer and the live-clock script. Names are the page's (sw-), house tokens only. #>
     $style = '.sw-clock { font-size: var(--text-h1); font-weight: 600; margin: var(--spacing-2) 0; }' + "`n" +
-        '.sw-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }' + "`n" +
-        '@media (max-width: 1000px) { .sw-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }' + "`n" +
-        '@media (max-width: 760px) { .sw-grid-4 { grid-template-columns: 1fr; } }' + "`n" +
+        # Five cards to a row on a full screen, four below 1400px, then two and one (the owner, October 24, 2026).
+        '.sw-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }' + "`n" +
+        '@media (max-width: 1400px) { .sw-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }' + "`n" +
+        '@media (max-width: 1000px) { .sw-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }' + "`n" +
+        '@media (max-width: 760px) { .sw-grid { grid-template-columns: 1fr; } }' + "`n" +
         # A card's lines are built from the house text sizes (--text-lg, -base, -sm, -xs), the text colour or --muted, and the
         # weights 300 to 800, and nothing else: no heading (the owner, October 24, 2026). The start is the card's
         # header (base, 800), the prompt label the least visible line under it (sm, regular, muted, its version likewise),
@@ -700,7 +702,7 @@ function Format-StopwatchPageHtml {
     <#
         The overview on '/stopwatch', read-only, and bare (no tiles; the general banner stays, #3356): it opens on its h1 and lead (-Flat: bare, no h1 or lead), the
         banner, then an h2 per prompt label (-Flat: one Measurements h2 for all) and under it one card per run of that
-        label, newest first, four to a row, in three lines: its start,
+        label, newest first, five to a row on a full screen, in three lines: its start,
         its label (the link to the run's own page, Format-StopwatchRunPageHtml), its time, and its change in percent
         against the previous run of the same label (Format-StopwatchChangePercent). The run going now shows its live clock as its time. -ReadError is set when the
         store could not be read. -StorePath is named in the footer, so a run can be read and evaluated outside
@@ -750,10 +752,10 @@ function Format-StopwatchPageHtml {
     }
     foreach ($set in $sets) {
         if (-not @($set.Groups).Count) { continue }
-        [void]$body.AppendLine('<div class="grid-3 sw-grid-4">')
+        [void]$body.AppendLine('<div class="grid-3 sw-grid">')
         [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $set.Title) + '</h2><p class="card__sub">' + (& $e $set.Sub) + '</p></div>')
         foreach ($g in @($set.Groups)) {
-            # Three lines with no header above them, four cards to a row (the owner, October 24, 2026): the run's start, its
+            # Three lines with no header above them, five cards to a row on a full screen (the owner, October 24, 2026): the run's start, its
             # prompt label (with its version behind it once the label has run more than once), and its time with its change
             # against the run before in percent beside it. The label is the card's one link, stretched over the card. A run
             # going shows its live clock.
