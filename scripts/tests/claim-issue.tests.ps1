@@ -1751,6 +1751,19 @@ $arrayThrew = $false
 try { $oldArgs = @('784', '-Tag', '-Release', '-Marker', 'claim-tag'); & $binder @oldArgs | Out-Null } catch { $arrayThrew = $true }
 Assert-True $arrayThrew 'and the old array splat still fails to bind there -- the measured PositionalParameterNotFound'
 
+# A FREE ISSUE WITH AN UNMARKED BRANCH ON ORIGIN IS REFUSED, WHOEVER WROTE IT (#3386). -Candidates calls
+# that state 'branch'; the claim printed [OK] over it when the author was this account. The arm is read
+# off the script: driving it needs a live origin, and Get-IssueBranchNames is proved above.
+$unmarkedArm = if ($body -match "(?s)if \(\`$tagVerdict\.Code -eq 'free' -and -not \`$takeOverBranch\) \{(.*?)\n    \}") { $Matches[1] } else { '' }
+Assert-True ($unmarkedArm -ne '') 'the unmarked-branch arm is findable, and only a fresh claim reaches it (#3386)'
+Assert-True ($unmarkedArm -match 'Get-IssueBranchNames') 'it matches branches by the same <prefix>/<n>- convention -Candidates and -TakeOver use'
+Assert-True ($unmarkedArm -match '\[REFUSED\]' -and $unmarkedArm -match 'exit 1') 'and refuses, before any marker is written'
+Assert-True ($unmarkedArm -notmatch 'SelfNames|Test-SelfAuthored') 'without asking who wrote the branch -- same account is not same session'
+Assert-True ($unmarkedArm -match '-Tag -TakeOver') 'and names -TakeOver as the deliberate resume'
+$armAt = $body.IndexOf("if (`$tagVerdict.Code -eq 'free' -and -not `$takeOverBranch)")
+$writeAt = $body.IndexOf('Format-ClaimComment -Tag $claimTag.Tag')
+Assert-True ($armAt -gt 0 -and $writeAt -gt 0 -and $armAt -lt $writeAt) 'the refusal sits above the marker write'
+
 # -Verify WRITES NOTHING. It is a reading, and a reading that wrote would make the resume step itself
 # a claim.
 # ANCHORED AT COLUMN FOUR: an unanchored 'if \($Verify\) \{' also matches the 'elseif ($Verify) {' in the

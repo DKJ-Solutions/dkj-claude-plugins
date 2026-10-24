@@ -1108,6 +1108,32 @@ if ($Tag) {
         }
     }
 
+    # A FREE ISSUE WITH AN UNMARKED BRANCH ON ORIGIN IS NOT FREE (issue #3386). -Candidates reads that
+    # state as 'branch' (#2392), and this claim used to print [OK] over it whenever the branch's author was
+    # this account -- the parked-fix scan below raises NOT YOURS for a foreign author only. Measured
+    # October 24, 2026: a sweep claimed #3379 an hour after its -Candidates run, over a branch another
+    # session had pushed without a marker; that branch merged first and the sweep's PR was a duplicate.
+    # Same account is not same session, so the author is not asked: -TakeOver is the deliberate resume.
+    # Asked only on a fresh claim -- a take-over has already chosen its branch -- and a remote that
+    # cannot be listed is said and passed, as -Candidates passes it.
+    if ($tagVerdict.Code -eq 'free' -and -not $takeOverBranch) {
+        $freeHeads = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'ls-remote', '--heads', 'origin') -Utf8 -DiscardStderr `
+                                          -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+        if (-not $freeHeads -or -not (Test-NativeExitMeasured -Capture $freeHeads) -or $freeHeads.ExitCode -ne 0 -or $freeHeads.ShortRead) {
+            Write-Host "  [branch check skipped] origin's branches could not be listed, so no unmarked branch for #$number could be ruled out." -ForegroundColor DarkGray
+        } else {
+            $unmarked = @(Get-IssueBranchNames -Text (@($freeHeads.Output) -join "`n") -Issue ([int]$number))
+            if ($unmarked.Count -gt 0) {
+                Write-Host "[REFUSED] #$number carries no claim marker, but $(Format-ForConsole -Text ($unmarked -join ', ')) is on origin -- nothing was claimed." -ForegroundColor Red
+                Write-Host '          Somebody is working it without a marker, possibly another session under this same account.' -ForegroundColor Red
+                Write-Host '          Read that branch first. Take the next free number, or, where the branch is your own' -ForegroundColor Red
+                Write-Host "          work to resume, hand it over deliberately: claim-issue.ps1 $number -Tag -TakeOver" -ForegroundColor Red
+                Write-Host "          $($facts.url)" -ForegroundColor Red
+                exit 1
+            }
+        }
+    }
+
     # MAPPED ONTO THE ASSIGNEE VERDICT'S VOCABULARY so that everything below reads one variable: 'claim'
     # writes, 'skip' is a resume. The Others field carries the foreign assignees rather than the rival
     # tags -- a rival tag refused above and never reaches here.
