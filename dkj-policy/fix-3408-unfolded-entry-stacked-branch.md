@@ -39,19 +39,41 @@
 
 ### PLAN
 
+#3408, verified in the code: `Get-UnfoldedTrunkEntry` excluded only the current branch's own document, so
+on a stacked branch every unmerged parent's document read as a trunk leftover.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Off the trunk, a written document counts as a leftover only where it is also in the tree at HEAD's
+  merge-base with the trunk (`origin/<trunk>` first, the local trunk second); with no merge-base, nothing is
+  narrowed. Offline, as before.
+- [x] Function-local `Continue`, so `cat-file`'s stderr cannot turn the narrowing off under a caller's
+  `Stop` (the #107 pitfall, measured in the suite).
+- [x] The plugin mirror synced.
 
 ### TEST
 
+- [x] `unfolded-entry-gate.tests.ps1`: a two-deep stack above a trunk carrying one real leftover -- only the
+  leftover is reported, with the branch passed or resolved from HEAD, and the trunk is not narrowed.
+
 ### DEPLOY: fix/3408-unfolded-entry-stacked-branch
 
-**Score:**
+The unfolded-entry check no longer reports a stacked branch's unmerged parents as changelog entries
+stranded on the trunk ([#3408](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3408)). On a branch
+stacked three deep with the trunk clean, `unfolded-entry-sessioncheck` printed `[ERROR]` for both parents.
+Its remedy, `fold-changelog-entry.ps1 -Commit -Push`, would have put unmerged work's entries onto `main`. Off
+the trunk, a document now counts only where it is also on the trunk's tree at HEAD's merge-base with it. A
+leftover that came in from the trunk is still reported; a stacked parent's document is not. On the trunk,
+nothing changes.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer who stacks branches no longer gets an `[ERROR]` at session start whose remedy folds unmerged
+work onto their trunk.
+
+**Score:** 2
 
 #### Pull Request
 
