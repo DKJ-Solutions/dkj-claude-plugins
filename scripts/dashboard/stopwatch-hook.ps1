@@ -83,7 +83,7 @@ try {
     # The commits since the run's start (#3400), only when HEAD moved: the run stops on one made during it, and a
     # release run on its notes commit. A log git refuses leaves $commits $null, which keeps the plain HEAD test.
     $commits = $null
-    if ($Hook -eq 'Stop' -and $head -and $head -cne $running.StartHead) {
+    if ($Hook -eq 'Stop' -and $head -and $running.StartHead -and $head -cne $running.StartHead) {
         $out = @(git -C $root log -n 500 --format='%ct %s' "$($running.StartHead)..$head" 2>$null)
         if ($LASTEXITCODE -eq 0) { $commits = @(ConvertFrom-StopwatchCommitLog -Lines $out) }
     }
