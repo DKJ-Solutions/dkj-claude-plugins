@@ -28,10 +28,10 @@ plugin's payload (`Get-HouseStyleDir`, `dkj-solutions/assets/house-style/`). Eve
 `dkj-policy` carries that folder, whether or not the repo enables `dkj-solutions`. A repo's own pages are
 another matter: BWJ-Development styles those itself.
 
-**What a repo gets from enabling `dkj-solutions` is the home page's Brand book section** (the DKJ-Solutions
-card, #3270) and the Brandbook page it links. Both are read from `.claude/settings.json` and
+**What a repo gets from enabling `dkj-solutions` is the home page's Brand book card** (#3270; one card in
+the grid since #3383) and the Brandbook page it links. Both are read from `.claude/settings.json` and
 `.claude/settings.local.json` (`Test-DkjSolutionsEnabled`; the local file wins where it names the plugin too)
-when each server starts. Without it, `/brandbook` is a plain 404 and the home page has no Brand book section.
+when each server starts. Without it, `/brandbook` is a plain 404 and the home page has no Brand book card.
 
 ## The hub and the product
 
@@ -47,19 +47,22 @@ link on that hub, not the hub itself.
 [#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)): the one laid down in
 [`dkj-solutions/assets/house-style/README.md`](../dkj-solutions/assets/house-style/README.md), section
 "The hub": one page on `/`, under the site header (#3289, which ended #3270's separate About this repo
-page; an old link to `/about` is sent to `/`). The blocks and their order are fixed. The site header names
-the repo, and under the breadcrumb bar and the banner the page carries:
+page; an old link to `/about` is sent to `/`), and since #3383 a grid of card links with a separate
+**Repository** page. The blocks and their order are fixed. The site header names the repo, and under the
+breadcrumb bar and the banner the home page carries one `.grid-3` of card links, with no heading above them:
 
-- a **Products** section, where the repo states a server: its link, or a line saying it is not running;
-- two **setup cards** in its place, only where the repo states no `Get-DevPreview` at all: how to add one,
-  and which port to route to VS Code's Simple Browser;
-- the **General** pages, by bare path;
-- the **Facts**: the folder, the dev preview, where it is stated and who serves the hub;
-- the **Brand book** section, where the repo enables `dkj-solutions`, linking its pages by bare path;
-- a footer naming the serving script.
+- the **product**, where the repo states a server: its link, or a card saying it is not running;
+- **Repository**, the page on `/repository` holding the facts (the GitHub repo where the `origin` remote is
+  on github.com, the folder, the dev preview, where it is stated and who serves the hub) and a card for
+  **Issues** and, on GitHub, for the pull requests and the CI runs;
+- the **General** pages but Issues, by bare path;
+- the **Brandbook**, where the repo enables `dkj-solutions`, by bare path.
 
-The page is built per request from the state file below, and the repo's name and the product url, the only
-values from outside, are HTML-escaped. The line the hook prints opens with `Hub:`, and a repo cannot
+Under the grid, only where the repo states no `Get-DevPreview` at all, two **setup cards**: how to add one,
+and which port to route to VS Code's Simple Browser. A footer names the serving script.
+
+Both pages are built per request from the state file below, and the repo's name, its `origin` slug and the
+product url, the only values from outside, are HTML-escaped. The line the hook prints opens with `Hub:`, and a repo cannot
 choose another word. A `Name` a repo still states in `Get-DevPreview` is ignored, so delete it at your next
 edit. "dev-preview" names the mechanism, which is why the hook's lines about its own setup (skipped) still
 open with it.
@@ -198,6 +201,7 @@ under `/brandbook/`. The PowerShell Brandbook page it replaces is retired, so th
 | Page | Reads, from the repo it was started in | When it is absent |
 |---|---|---|
 | `/`, `/index.html`, `/hub` | The state file below, on every request: the home page of this plugin's hub; `/about` answers 303 to `/` (#3289). Under `OwnHub` a 303 to the repo's own hub instead | Under `OwnHub` with no hub known, a short 404 text |
+| `/repository` | The state file and the `origin` remote: the hub's Repository page, its facts and a card for Issues and, where the remote is on github.com, its pull requests and CI runs (#3383) | Always answers; with no github.com remote the facts carry no GitHub row and the page no GitHub cards |
 | `/artifacts` | `scripts/dashboard/artifacts.json`, on every request | The page says the file is not there |
 | `/brandbook/` | Only where the repo enables `dkj-solutions`: the brand book app's build in the `dkj-solutions/assets/brandbook/` this server runs from, its own routes answered with its `index.html`; `/brandbook` is a 303 to it | A plain 404 in a repo without `dkj-solutions`; a plugin copy that ships no build gets a page saying so |
 | `/issues` | `gh issue list`, three calls (the open issues, and those opened and closed in the last 28 days), for `--repo <owner/name>` taken from the `origin` remote when it is on github.com, else for the repo `gh` finds in the working directory; kept for five minutes | A `gh` that fails or is missing is a warning on the page |

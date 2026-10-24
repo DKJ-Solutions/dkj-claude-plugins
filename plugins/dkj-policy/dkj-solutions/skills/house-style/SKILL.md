@@ -65,12 +65,14 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    instead of building its own toggle around `DKJTheme.picker`; the README has its options.
    **The hub** (a repo's dev server's home page on `/`, one page under the site header since #3289, with
    `/about` sending an old link there; the dkj-policy plugin serves one in every repo that does not opt out,
-   with the repo's own server in its Products section, #3245) **takes the one form the README lays down
+   with the repo's own server as its first card, #3245) **takes the one form the README lays down
    under "Page patterns", "The hub"**: its blocks and their order, with only the content the repo's own.
-   The site header names the repo; the page holds its products, its own pages and the general ones, what is
-   in flight where it has lists, its facts, and the Brand book. A repo without a build starts from
-   [`patterns/repo-dashboard.html`](../../assets/house-style/patterns/repo-dashboard.html)
-   in this plugin's `assets/house-style/`, which carries no CSS of its own
+   The site header names the repo; the page is one grid of card links with no heading (its products, its
+   own pages, the general ones and the Brand book), and its facts, its Issues and what is in flight sit on a
+   separate **Repository** page on `/repository` (#3383). A repo without a build starts from
+   [`patterns/repo-dashboard.html`](../../assets/house-style/patterns/repo-dashboard.html) and
+   [`patterns/repo-repository.html`](../../assets/house-style/patterns/repo-repository.html)
+   in this plugin's `assets/house-style/`, which carry no CSS of their own
    ([#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)).
    **Every page a repo's dev server serves opens with the breadcrumb bar**, the home page and the
    product alike, its trail starting at **Home**, as the README lays it down under "Page

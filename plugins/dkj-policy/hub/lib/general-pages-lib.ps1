@@ -327,6 +327,20 @@ function Format-GeneralPagesCardHtml {
     return $sb.ToString()
 }
 
+function Format-HubCardLinkHtml {
+    <#
+        One page as a hub card (#3383, the house hub form since the owner's decision of October 24, 2026): a
+        .card.card--link holding the page's one .menu-item row, so a click anywhere on the card follows it. -Href,
+        -Label and -Sub (optional, one line) are escaped here. The hubs set these cards three to a row, in a .grid-3
+        with no heading above them.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Href, [Parameter(Mandatory = $true)][string]$Label, [AllowEmptyString()][string]$Sub = '')
+    $e = { param($v) ConvertTo-GeneralPageText $v }
+    $s = if ($Sub) { '<span class="menu-item__sub">' + (& $e $Sub) + '</span>' } else { '' }
+    return '<section class="card card--link"><nav class="menu-list" aria-label="' + (& $e $Label) + '"><a class="menu-item" href="' + (& $e $Href) +
+        '"><span class="menu-item__label">' + (& $e $Label) + $s + '</span>' + $script:RepoHubChevron + '</a></nav></section>'
+}
+
 function ConvertTo-SiteHeaderName {
     <# The name a site header shows for -RepoName: a GitHub slug without its 'Owner/' (DKJ-Solutions/x -> x); any other
        name as it is, so a folder name with a slash in it is not cut. #>
