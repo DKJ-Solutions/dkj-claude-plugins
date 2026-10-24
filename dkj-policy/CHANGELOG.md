@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**8 / 21 minor entries** <!-- pending-tally -->
+**9 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3386-claim-unmarked-branch · 20261024-144309Z
+
+A `-Tag` claim now asks origin for a `<prefix>/<n>-*` branch before it writes its marker, and refuses
+when it finds one carrying no claim marker, whoever wrote it. Until now the claim printed `[OK]` over
+such a branch when its author was this account, although `-Candidates` calls that state `branch` and not
+free. Measured: a sweep claimed #3379 an hour after its candidate list, the other session's branch
+merged first, and the sweep's pull request was a duplicate. `-TakeOver` stays the way to resume your own
+unmarked branch ([#3386](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3386)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A team that sweeps the same tracker from several checkouts no longer builds an issue twice when one
+session pushed its branch without a claim.
+
+**Score:** 2
+
+#### Pull Request
+
+claim-issue -Tag refuses a free issue with an unmarked branch on origin, whoever wrote it
+
+Plugins: dkj-policy
+
+[PR #3389](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3389)
+
+---
 
 ### DEPLOY: feat/stopwatch-cards-readable · 20261024-143319Z
 
