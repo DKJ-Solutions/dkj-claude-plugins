@@ -2,7 +2,58 @@
 
 ## [Unreleased]
 
-**5 / 18 minor entries** <!-- pending-tally -->
+**7 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3379-gate-branch-document-walk-scope · 20261024-140923Z
+
+open-pr's local test gate no longer counts the branch's own development document as a change to any
+suite's walk scope, so a branch that changes only a stylesheet runs 2 suites instead of 7 (89s down
+to about 23s on the measured case). A suite that names the document itself is still selected. The dev
+server's /test-gate page shows the same selection, and its CI line now drops the document as CI does.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer whose suites declare a `'*.md'` walk scope gets the same saving on every branch.
+
+**Score:** 1
+
+#### Pull Request
+
+Local test gate leaves the branch document out of walk scopes
+
+Plugins: dkj-policy
+
+[PR #3384](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3384)
+
+---
+
+### DEPLOY: fix/3378-hub-lost-bind · 20261024-135858Z
+
+The dev-preview SessionStart line no longer says a server is "not listening after 15s" when its port is
+listening. Where the started server lost its bind to another process (one whose command line cannot be
+read), the wait ends at once and the line names the port's holder, for the hub and for a repo's own
+server alike ([#3378](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3378)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A user of the plugin who opens two sessions at once is told which process holds the port, instead of a
+false "not listening" after a 15-second wait.
+
+**Score:** 1
+
+#### Pull Request
+
+The dev-preview hook names a hub port lost to another process instead of 'not listening'
+
+Plugins: dkj-policy
+
+[PR #3382](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3382)
+
+---
 
 ### DEPLOY: fix/3376-new-branch-merged-name · 20261024-134302Z
 

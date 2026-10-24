@@ -165,6 +165,9 @@ try {
     . (Join-Path $root 'scripts\lib\gate-lib.ps1')
     . (Join-Path $root 'scripts\lib\ci-suite-selection-lib.ps1')
 } catch { $gateLibError = $_.Exception.Message }
+# For Resolve-BranchFilePath: the branch document falls in no walk scope, as in open-pr (#3379). Its own try,
+# because without it Get-GateBranchDocument answers '' and the selection only grows.
+try { . (Join-Path $root 'scripts\lib\entry-scaffold-lib.ps1') } catch { }
 # The state file the hook writes, and the probe of the general pages server (#3119): the plugin's, read from
 # this repo's own tree because this repo is the plugin's source.
 . (Join-Path $root 'plugins\dkj-policy\hub\lib\general-pages-state.ps1')
@@ -339,12 +342,15 @@ function Get-TestGateSelection {
         elseif (-not @($changes.Paths).Count) { $value.Reason = "Nothing differs from $($changes.Base), so nothing is selected" }
         else {
             $value.Changed = @($changes.Paths)
-            $sel = Get-AffectedSuiteSelection -RepoRoot $root -ChangedPaths $value.Changed
+            $branchDoc = Get-GateBranchDocument -RepoRoot $root
+            $sel = Get-AffectedSuiteSelection -RepoRoot $root -ChangedPaths $value.Changed -BranchDocument $branchDoc
             $value.Proven = [bool]$sel.Proven; $value.Reason = $sel.Reason; $value.PoolCount = $sel.PoolCount
             $value.Selected = @($sel.Suites); $value.Why = $(if ($sel.Why) { $sel.Why } else { @{} })
-            $assets = Get-StaticAssetVerdict -ChangedPaths $value.Changed
+            # CI judges the change without the branch document too (#3370, get-pr-suite-selection.ps1).
+            $ciPaths = @(Remove-BranchDocumentPath -ChangedPaths $value.Changed -BranchDocument $branchDoc)
+            $assets = Get-StaticAssetVerdict -ChangedPaths $ciPaths
             $value.CiText = if ($assets.AssetOnly) {
-                $ci = Get-StaticAssetSuiteSelection -RepoRoot $root -ChangedPaths $value.Changed
+                $ci = Get-StaticAssetSuiteSelection -RepoRoot $root -ChangedPaths $ciPaths
                 if ($ci.Proven) { "only stylesheets, images or fonts change, so the required check runs $(@($ci.Suites).Count) of $($ci.PoolCount) suites" }
                 else { "every suite -- $($ci.Reason)" }
             } else { "every suite, because $($assets.Reason)" }

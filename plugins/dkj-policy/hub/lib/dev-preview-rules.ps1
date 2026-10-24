@@ -294,6 +294,24 @@ function Get-DevPreviewPortState {
     return 'other'
 }
 
+function Get-DevPreviewWaitOutcome {
+    <#
+        One step of the hook's wait for a server it started: 'ok', 'exited', 'lost' or 'pending', from the
+        port's state (Get-DevPreviewPortState) and whether the started process has exited.
+
+        'LOST' IS ITS OWN OUTCOME (#3378). The wait read the exit only while nobody listened on the port, so
+        a start that lost its bind to another process -- measured: HttpListener.Start() threw 'only one usage
+        of each socket address', while a listener whose command line read back empty held the port -- waited
+        out the whole deadline and reported "not listening" about a port that was listening. Ours wins over
+        an exit: a server whose own listener is up has started, whatever its launcher did.
+    #>
+    param([Parameter(Mandatory = $true)][string]$State, [bool]$Exited)
+    if ($State -eq 'ours') { return 'ok' }
+    if (-not $Exited) { return 'pending' }
+    if ($State -eq 'other') { return 'lost' }
+    return 'exited'
+}
+
 function Select-DevPreviewPort {
     <#
         Over -Ports in order: the first that is ours wins outright (reuse, never a second server);

@@ -367,12 +367,17 @@ while ($pending.Count) {
     $table = $null
     foreach ($t in $pending) {
         $mine = @($now | Where-Object { [int]$_.LocalPort -eq [int]$t.Port })
+        $state = 'free'
         if ($mine.Count) {
             if ($null -eq $table) { $table = Get-DevPreviewProcesses }
-            if ((Get-DevPreviewPortState -Port $t.Port -Listeners $mine -Processes $table -Root $root) -eq 'ours') { $t.Done = $true; $t.Ok = $true }
-        } elseif ($t.Proc.HasExited) {
-            # The shell that runs the Command ends with it, so a server that died at start ends the wait too.
-            $t.Done = $true; $t.Fail = 'exited'
+            $state = Get-DevPreviewPortState -Port $t.Port -Listeners $mine -Processes $table -Root $root
+        }
+        # The shell that runs the Command ends with it, so a server that died at start ends the wait too --
+        # also where another process holds the port: that is a lost bind, not a slow start (#3378).
+        switch (Get-DevPreviewWaitOutcome -State $state -Exited ([bool]$t.Proc.HasExited)) {
+            'ok'     { $t.Done = $true; $t.Ok = $true }
+            'exited' { $t.Done = $true; $t.Fail = 'exited' }
+            'lost'   { $t.Done = $true; $t.Fail = 'lost'; $t.Holder = Format-DevPreviewPortHolders -Ports @([int]$t.Port) -Listeners $mine -Processes $table }
         }
     }
     $pending = @($pending | Where-Object { -not $_.Done })
@@ -389,6 +394,7 @@ if ($hub.Action -eq 'reuse') { $hubUrl = "$($hub.Base)/"; $hubWord = 'already ru
 elseif ($hub.Action -eq 'start') {
     if ($hubT.Ok) { $hubUrl = "$($hub.Base)/"; $hubWord = $(if ($hub.Restarted) { 'restarted: it ran another plugin version' } else { 'started' }) }
     elseif ($hubT.Fail -eq 'exited') { $hubReason = "the hub on port $($hub.Port) exited at start -- see $(Get-DevPreviewLogPath -Root $root -Name 'dev-preview-general')" }
+    elseif ($hubT.Fail -eq 'lost') { $hubReason = "the hub lost port $($hub.Port) to a process this hook cannot identify ($($hubT.Holder)) -- it may be a hub started beside this one; see $(Get-DevPreviewLogPath -Root $root -Name 'dev-preview-general')" }
     else { $hubReason = "the hub on port $($hub.Port) is not listening after ${hubWait}s -- see $(Get-DevPreviewLogPath -Root $root -Name 'dev-preview-general')" }
 }
 
@@ -400,6 +406,7 @@ function Get-DevPreviewServerPart($P, $T, $Cfg) {
     elseif ($P.Action -eq 'start') {
         if ($T.Ok) { $r.Url = $P.Url; $r.Word = 'started' }
         elseif ($T.Fail -eq 'exited') { $r.Fail = "the server on port $($P.Port) exited at start -- see $($P.Log)" }
+        elseif ($T.Fail -eq 'lost') { $r.Fail = "the server lost port $($P.Port) to a process this hook cannot identify ($($T.Holder)) -- it may be one started beside it; see $($P.Log)" }
         else { $r.Fail = "starting on $($P.Url) but not listening after $($Cfg.WaitSeconds)s -- see $($P.Log)" }
     }
     elseif ($P.NotStarted) { $r.Fail = "not started: $($P.Detail)" }
