@@ -114,26 +114,53 @@ function ConvertTo-LogbookModel {
     return (ConvertTo-StopwatchModel -Runs @($Runs | Where-Object { $_ -and ($_.End -or $_.Start -ge $cut) }) -KeepOpenRuns)
 }
 
+function Get-LogbookWorkTimes {
+    <#
+        Each finished run's work time, by run id: its time less the phase in which no session was busy
+        ($script:StopwatchIdlePhase, "Waiting on you"), from -Transcript (Get-StopwatchTranscriptCache's entries). A
+        run the transcripts did not cover, or covered with no session, has none, so a page never shows a work time
+        nothing measured. Returns @{ Work; Waiting } per id, in seconds. Pure.
+    #>
+    param([AllowEmptyCollection()][object[]]$Runs = @(), [hashtable]$Transcript = @{})
+    $out = @{}
+    foreach ($r in @($Runs | Where-Object { $_ -and $_.End })) {
+        $t = $Transcript[$r.Id]
+        if (-not $t -or -not $t.Sessions -or -not @($t.Phases | Where-Object { $_ }).Count) { continue }
+        $waiting = [double](@($t.Phases | Where-Object { $_.Name -eq $script:StopwatchIdlePhase } | ForEach-Object { [double]$_.Seconds }) | Measure-Object -Sum).Sum
+        $total = ($r.End - $r.Start).TotalSeconds
+        $out[$r.Id] = @{ Work = [Math]::Max(0, $total - $waiting); Waiting = [Math]::Min($total, $waiting) }
+    }
+    return $out
+}
+
 function Format-LogbookPageHtml {
-    <# The overview on '/logbook': the Stopwatch's overview with the Logbook's words, every recent open run going (ConvertTo-LogbookModel), and no change against a run before. #>
+    <#
+        The overview on '/logbook': the Stopwatch's overview with the Logbook's words, every recent open run going
+        (ConvertTo-LogbookModel), no change against a run before, and each finished run's work time beside its time
+        (Get-LogbookWorkTimes over -Transcript), so the time Claude waited on the owner does not hide the work.
+    #>
     param(
         [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Runs,
         [AllowEmptyString()][string]$ReadError = '',
         [int]$Skipped = 0,
         [AllowEmptyString()][string]$StorePath = '',
+        [hashtable]$Transcript = @{},
         [datetime]$Now = [datetime]::UtcNow
     )
+    $notes = @{}
+    $work = Get-LogbookWorkTimes -Runs $Runs -Transcript $Transcript
+    foreach ($id in $work.Keys) { $notes[$id] = 'work ' + (Format-DevSeconds $work[$id].Work) }
     $note = 'Kept on this machine in <code>' + (ConvertTo-DashboardText $StorePath) + '</code>, outside the checkout, and not shared: a label is the first line of a prompt. ' +
         'The first prompt of a new Claude Code session starts a run when the checkout is on the trunk and clean; a Stop hook ends it once a turn ends with the checkout back on the trunk and clean, ' +
         'also when nothing was merged, and not while a ship-pr is still waiting on CI. Both are <code>scripts/dashboard/logbook-hook.ps1</code>. ' +
         'Built by <code>scripts/lib/logbook-lib.ps1</code> on the Stopwatch''s pages.'
     return Format-StopwatchPageHtml -Model (ConvertTo-LogbookModel -Runs $Runs -Now $Now) -ReadError $ReadError -Skipped $Skipped -StorePath $StorePath -Now $Now `
         -Route '/logbook' -PageTitle 'Logbook' -Sub 'One card per session that began on a clean trunk, newest first, timed from its first prompt until Claude was back on the trunk.' `
-        -FooterNote $note -NoDelta
+        -FooterNote $note -NoDelta -CardNotes $notes
 }
 
 function Format-LogbookRunPageHtml {
-    <# One run's page on '/logbook/<slug>': the Stopwatch's run page under the Logbook's crumb, without the change against a run before. #>
+    <# One run's page on '/logbook/<slug>': the Stopwatch's run page under the Logbook's crumb, without the change against a run before, with its work time and its waiting under its time. #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Group,
         [AllowEmptyString()][string]$StorePath = '',
@@ -143,5 +170,10 @@ function Format-LogbookRunPageHtml {
     $note = 'Kept on this machine in <code>' + (ConvertTo-DashboardText $StorePath) + '</code>, outside the checkout, and not shared. ' +
         'The phases are read from this repo''s Claude Code session transcripts once a run has stopped, as the Stopwatch reads them: each second goes to the first phase going at that moment, ' +
         'and a second in which no session was busy is time spent waiting on you. Built by <code>scripts/lib/logbook-lib.ps1</code>.'
-    return Format-StopwatchRunPageHtml -Group $Group -StorePath $StorePath -Transcript $Transcript -Now $Now -Route '/logbook' -ParentLabel 'Logbook' -FooterNote $note -NoDelta
+    $timeNote = ''
+    if (@($Group.Rows).Count) {
+        $w = (Get-LogbookWorkTimes -Runs @($Group.Rows[0].Run) -Transcript $Transcript)[$Group.Rows[0].Run.Id]
+        if ($w) { $timeNote = 'Work ' + (Format-DevSeconds $w.Work) + ', waiting on you ' + (Format-DevSeconds $w.Waiting) + '.' }
+    }
+    return Format-StopwatchRunPageHtml -Group $Group -StorePath $StorePath -Transcript $Transcript -Now $Now -Route '/logbook' -ParentLabel 'Logbook' -FooterNote $note -NoDelta -TimeNote $timeNote
 }

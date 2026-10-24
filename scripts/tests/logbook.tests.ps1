@@ -136,8 +136,15 @@ Assert-True ($page -match '<title>[^<]*Logbook' -and $page -match 'href="/logboo
 Assert-True ($page -match 'Parked &lt;for&gt; a look' -and $page -notmatch 'Parked <for>') 'a label is escaped'
 Assert-True ($page -notmatch 'first run|faster|slower|the run before' -and ([regex]::Matches($page, 'data-start=')).Count -eq 2) 'no change against a run before, and a live clock on each open run'
 Assert-True ($page -match 'not shared' -and $page -match 'logbook-hook\.ps1') 'its footer says the store is not shared and names the hook'
+$tr = @{ r1 = @{ Sessions = 1; Phases = @(@{ Name = 'Claude working'; Seconds = 45 }, @{ Name = 'Waiting on you'; Seconds = 75 }) } }
+$wt = Get-LogbookWorkTimes -Runs $runs -Transcript $tr
+Assert-True (@($wt.Keys).Count -eq 1 -and $wt.r1.Work -eq 45 -and $wt.r1.Waiting -eq 75) 'a run''s work time is its time less the time waiting on the owner; an open run has none'
+Assert-Equal 0 @((Get-LogbookWorkTimes -Runs $runs -Transcript @{ r1 = @{ Sessions = 0; Phases = @() } }).Keys).Count 'a run no session covered has no work time, rather than all of it'
+$wpage = Format-LogbookPageHtml -Runs $runs -Transcript $tr -Now (& $at 2100)
+Assert-True ($wpage -match 'First - 2:00 - work 45\.0s' -and $page -notmatch 'work \d') 'the card shows the work time beside the time, and only for a run the transcripts measured'
 $g = Find-StopwatchGroup -Model $m -Slug $m.Groups[2].PageSlug
 $rp = Format-LogbookRunPageHtml -Group $g -StorePath 'C:\x\logbook.json'
+Assert-True ((Format-LogbookRunPageHtml -Group $g -Transcript $tr) -match 'Work 45\.0s, waiting on you 1:15\.' -and $rp -notmatch 'waiting on you \d') 'a run''s page states its work time and its waiting under its time'
 Assert-True ($rp -match 'First' -and $rp -match '2:00' -and $rp -match 'href="/logbook"' -and $rp -notmatch 'first run|than the previous run') 'a run''s page shows its time, crumbs back to /logbook, and no change against a run before'
 
 Write-Host ''

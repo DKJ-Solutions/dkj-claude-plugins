@@ -52,6 +52,7 @@ to origin, because a label is a prompt's first line and the repo is public. A li
 - [x] `scripts/lib/stopwatch-lib.ps1`: a run's Session and the store's session list, `-KeepOpenRuns`, page parameters
 - [x] `scripts/dashboard/logbook-hook.ps1` and its two hooks in `.claude/settings.json`
 - [x] `/logbook` and `/logbook/<slug>` on the hub server, and the card on the home page
+- [x] The work time beside each run's time (the owner's choice over pausing the clock)
 
 ### TEST
 
@@ -65,7 +66,9 @@ It times every assignment given in a clean session, with no marker. The first pr
 starts a run when the checkout is on a clean trunk. The run stops when a turn ends with Claude back on the clean
 trunk, including when nothing was merged, and never while a `ship-pr` is still waiting on CI. Each session keeps
 its own run. A branch parked for a look keeps its run going. Every run gets a card and a page with its transcript
-phases, built from the Stopwatch's own pages. The runs stay on this machine and are not shared.
+phases, built from the Stopwatch's own pages. Beside each run's time stands its work time: the time less the
+minutes in which no session was busy, so waiting on the owner's look does not hide the work. The runs stay on
+this machine and are not shared.
 
 **Score:** 3
 

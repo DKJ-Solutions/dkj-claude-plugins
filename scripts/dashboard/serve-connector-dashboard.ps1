@@ -541,7 +541,9 @@ try {
             }
             if ($LogbookAvailable -and $path -eq '/logbook') {
                 $lb = Read-StopwatchStore -Path $LogbookPath
-                $html = Format-LogbookPageHtml -Runs $lb.Runs -ReadError $lb.Error -Skipped $lb.Skipped -StorePath $LogbookPath
+                # Every finished run's phases, for its work time on its card: read from the transcripts once, then cached.
+                $phases = Get-StopwatchTranscriptCache -Runs @($lb.Runs | Where-Object { $_.End }) -CachePath $LogbookPhasesPath -TranscriptDir $TranscriptDir -StepLogPath $StopwatchStepLogPath -RepoRoot $root
+                $html = Format-LogbookPageHtml -Runs $lb.Runs -ReadError $lb.Error -Skipped $lb.Skipped -StorePath $LogbookPath -Transcript $phases
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }

@@ -673,8 +673,9 @@ function Format-StopwatchPageHtml {
         the hub's card markup. The run going now shows its live clock on its card. -ReadError is set when the
         store could not be read. -StorePath is named in the footer, so a run can be read and evaluated outside
         the page. The Logbook (scripts/lib/logbook-lib.ps1, #3364) draws its overview here too: -Route, -PageTitle,
-        -Sub and -FooterNote are its own, and -NoDelta leaves out the change against the run before, which only means
-        something between runs that share a label on purpose.
+        -Sub and -FooterNote are its own, -NoDelta leaves out the change against the run before, which only means
+        something between runs that share a label on purpose, and -CardNotes (text by run id) adds a part to a finished
+        run's card line: its work time.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Model,
@@ -687,7 +688,8 @@ function Format-StopwatchPageHtml {
         [string]$PageTitle = 'Stopwatch',
         [string]$Sub = 'One card per run, newest first. Begin a prompt to Claude with stopwatch: and a label to time it.',
         [AllowEmptyString()][string]$FooterNote = '',
-        [switch]$NoDelta
+        [switch]$NoDelta,
+        [hashtable]$CardNotes = @{}
     )
     $e = { param($v) ConvertTo-DashboardText $v }
     $body = New-Object System.Text.StringBuilder
@@ -705,7 +707,11 @@ function Format-StopwatchPageHtml {
             # The run's start is the card's name, as it is its page's; the label stands under it (the owner, October 23, 2026).
             $stamp = & $e ($g.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))
             $parts = @([string]$g.Label)
-            if (@($g.Rows).Count) { $parts += (Format-DevSeconds $g.Rows[0].Seconds); if (-not $NoDelta) { $parts += (Format-StopwatchChangeText $g.Rows[0].DeltaSeconds) } }
+            if (@($g.Rows).Count) {
+                $parts += (Format-DevSeconds $g.Rows[0].Seconds)
+                if ($CardNotes[$g.Rows[0].Run.Id]) { $parts += [string]$CardNotes[$g.Rows[0].Run.Id] }
+                if (-not $NoDelta) { $parts += (Format-StopwatchChangeText $g.Rows[0].DeltaSeconds) }
+            }
             $sub = (& $e ($parts -join ' - '))
             if ($g.Running) {
                 $sub += ' - going now <span class="num" data-start="' + (Format-StopwatchStamp $g.Running.Start) + '">' + (Format-DevSeconds ($Now - $g.Running.Start).TotalSeconds) + '</span>'
@@ -736,7 +742,8 @@ function Format-StopwatchRunPageHtml {
         run of the same label, and under Phases its transcript phases, a row and a bar each (-Transcript, by run id,
         from Get-StopwatchTranscriptCache; a run it lacks says so). -Group is one group of ConvertTo-StopwatchModel.
         The crumbs lead back to '/stopwatch', or to -Route under -ParentLabel for the Logbook (#3364), whose
-        -FooterNote is its own and whose -NoDelta leaves out the change against the run before.
+        -FooterNote is its own, whose -NoDelta leaves out the change against the run before, and whose -TimeNote stands
+        under the run's time: its work time.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Group,
@@ -746,7 +753,8 @@ function Format-StopwatchRunPageHtml {
         [string]$Route = '/stopwatch',
         [string]$ParentLabel = 'Stopwatch',
         [AllowEmptyString()][string]$FooterNote = '',
-        [switch]$NoDelta
+        [switch]$NoDelta,
+        [AllowEmptyString()][string]$TimeNote = ''
     )
     $e = { param($v) ConvertTo-DashboardText $v }
     $local = { param($t) (& $e ($t.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))) }
@@ -762,6 +770,7 @@ function Format-StopwatchRunPageHtml {
         $row = $Group.Rows[0]
         [void]$body.AppendLine('<section class="card"><div class="card__head"><h3 class="card__title">Time</h3><p class="card__sub">Started ' + (& $local $row.Run.Start) + $(if ($row.Run.Machine) { ' on another machine' } else { '' }) + '.</p></div>')
         [void]$body.AppendLine('<p class="sw-clock num">' + (Format-DevSeconds $row.Seconds) + '</p>')
+        if ($TimeNote) { [void]$body.AppendLine('<p class="note">' + (& $e $TimeNote) + '</p>') }
         if (-not $NoDelta) { [void]$body.AppendLine('<p>' + (Format-StopwatchDelta $row.DeltaSeconds) + $(if ($null -ne $row.DeltaSeconds) { ' <span class="note">than the previous run of this label</span>' } else { '' }) + '</p>') }
         [void]$body.AppendLine('</section>')
         [void]$body.AppendLine('<div class="grid-2">')
