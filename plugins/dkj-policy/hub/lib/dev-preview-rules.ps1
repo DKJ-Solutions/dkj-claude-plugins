@@ -360,6 +360,11 @@ function Get-DevPreviewStaleInstall {
         moved the lock (next 16.4.0 -> 16.4.3) on another machine left this one starting the old install.
         Older is read from npm's own record of its last install, node_modules\.package-lock.json (npm 7+);
         where that file is absent (another package manager, an older npm) nothing is claimed.
+
+        BY CONTENT, WITH THE TIME AS A FILTER ONLY (#3419). A lock newer than the install record was claimed stale
+        on its time alone, and git rewrites the lock on any commit or checkout that touches it: measured on this
+        repo's brandbook/, a lock written 18 minutes after the install, with `npm ls` clean. So the time only picks
+        which locks are read, and Test-DevPreviewLockMatchesInstall decides.
     #>
     param([Parameter(Mandatory = $true)][string]$Root, [AllowEmptyCollection()][string[]]$Requires)
     foreach ($rel in @($Requires)) {
@@ -368,9 +373,55 @@ function Get-DevPreviewStaleInstall {
         $lock = Join-Path (Split-Path -Parent $dir.TrimEnd('\', '/')) 'package-lock.json'
         $marker = Join-Path $dir '.package-lock.json'
         if (-not (Test-Path -LiteralPath $lock -PathType Leaf) -or -not (Test-Path -LiteralPath $marker -PathType Leaf)) { continue }
-        if ((Get-Item -LiteralPath $lock).LastWriteTimeUtc -gt (Get-Item -LiteralPath $marker).LastWriteTimeUtc) { return $rel }
+        if ((Get-Item -LiteralPath $lock).LastWriteTimeUtc -le (Get-Item -LiteralPath $marker).LastWriteTimeUtc) { continue }
+        if ((Test-DevPreviewLockMatchesInstall -LockPath $lock -InstalledPath $marker) -eq $false) { return $rel }
     }
     return ''
+}
+
+function ConvertFrom-DevPreviewLockJson {
+    <#
+        A lock file's 'packages' map as a dictionary, or $null where it cannot be read. JavaScriptSerializer rather
+        than ConvertFrom-Json: Windows PowerShell 5.1's ConvertFrom-Json refuses the root package's empty key ("")
+        that every package-lock.json carries (measured). The length cap is the document's own, as in
+        plugin-tree-lib.ps1.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Path)
+    try {
+        $text = [System.IO.File]::ReadAllText($Path)
+        Add-Type -AssemblyName System.Web.Extensions -ErrorAction Stop
+        $reader = New-Object System.Web.Script.Serialization.JavaScriptSerializer
+        $reader.MaxJsonLength = [Math]::Max(1, $text.Length)
+        $doc = $reader.DeserializeObject($text)
+        if ($doc -isnot [System.Collections.IDictionary] -or $doc['packages'] -isnot [System.Collections.IDictionary]) { return $null }
+        return $doc['packages']
+    } catch { return $null }
+}
+
+function Test-DevPreviewLockMatchesInstall {
+    <#
+        $true where every package -LockPath pins is installed at that version according to -InstalledPath (npm's
+        node_modules\.package-lock.json), $false where one is not, and $null where either cannot be read -- which
+        the caller reads as no claim (#3419). A package the lock marks optional, devOptional or peer may be absent
+        without counting (another platform's binaries are never installed), and a link has no version to compare.
+    #>
+    param([Parameter(Mandatory = $true)][string]$LockPath, [Parameter(Mandatory = $true)][string]$InstalledPath)
+    $want = ConvertFrom-DevPreviewLockJson -Path $LockPath
+    $have = ConvertFrom-DevPreviewLockJson -Path $InstalledPath
+    if ($null -eq $want -or $null -eq $have) { return $null }
+    foreach ($key in @($want.Keys)) {
+        if (-not ([string]$key).StartsWith('node_modules/')) { continue }
+        $w = $want[$key]
+        if ($w -isnot [System.Collections.IDictionary] -or $w['link']) { continue }
+        # ContainsKey: the serializer hands back a generic Dictionary, whose IDictionary.Contains PowerShell cannot call.
+        if (-not $have.ContainsKey($key)) {
+            if ($w['optional'] -or $w['devOptional'] -or $w['peer']) { continue }
+            return $false
+        }
+        $h = $have[$key]
+        if ($h -is [System.Collections.IDictionary] -and [string]$h['version'] -ne [string]$w['version']) { return $false }
+    }
+    return $true
 }
 
 function Select-DevPreviewPort {
