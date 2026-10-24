@@ -248,6 +248,14 @@ if ($args -contains 'issue' -and $args -contains 'view') {
     [Console]::Error.WriteLine("GraphQL: Could not resolve to an issue or pull request with the number of $asked. (repository.issue)")
     exit 1
 }
+if ($args -contains 'pr' -and $args -contains 'list' -and $args -contains '--head') {
+    # The used-up name check (#3376): GH_MERGED_HEADS names the heads a merged PR has used up.
+    $head = $args[[array]::IndexOf($args, '--head') + 1]
+    $merged = @()
+    if ($env:GH_MERGED_HEADS) { $merged = $env:GH_MERGED_HEADS -split ',' }
+    if ($merged -contains $head) { Write-Output "[{`"number`":3334,`"state`":`"MERGED`",`"url`":`"https://github.com/o/r/pull/3334`"}]" } else { Write-Output '[]' }
+    exit 0
+}
 if ($args -contains 'pr' -and $args -contains 'list') {
     if ($env:GH_FAIL_PR_LIST) { [Console]::Error.WriteLine('fake gh: pr list failed'); exit 1 }
     if ($env:GH_PR_LIST_JSON) { Write-Output $env:GH_PR_LIST_JSON } else { Write-Output '[]' }
@@ -390,9 +398,44 @@ exit 1
         Assert-True (($rX9.Log | Where-Object { $_ -match [regex]::Escape('issue view 1409 --repo fake/repo') }).Count -eq 1) 'a number that is not an issue here: and the silence comes from having ASKED, not from skipping the check'
         $branchesX9 = ((& git -C $fixX9 branch --list 'fix/1409-foreign-citation') -join '').Trim()
         Assert-True ([bool]$branchesX9) 'a number that is not an issue here: the branch is created as normal'
+
+        # (x10) A NAME A MERGED PR HAS USED UP IS REFUSED BEFORE THE CHECKOUT (#3376). The check asks gh
+        # only under a hosted origin, so the fixture gets one that refuses connections at once; there is
+        # no origin/main ref, so the base is never fetched, and -NoPush keeps the cut offline.
+        $fixX10 = New-Fixture -Label 'x10'
+        Add-FixtureRepoConfig -Dir $fixX10 -RepoName 'fake/repo'
+        & git -C $fixX10 remote add origin 'https://127.0.0.1:9/fake/repo.git' 2>$null
+        $env:GH_MERGED_HEADS = 'docs/used-name,docs/used-name-v2,docs/used-name-v3,docs/used-name-v4'
+        Remove-Item -Path $xCallLog -Force -ErrorAction SilentlyContinue
+        $env:GH_CALL_LOG = $xCallLog
+        $rX10 = Invoke-NewBranch -Dir $fixX10 -Name 'docs/used-name' -NoPush
+        Assert-ExitCode 1 $rX10 'used-up name: refused'
+        Assert-True (Test-Phrase -Text $rX10.Out -Phrase 'is used up -- PR #3334 for it is already merged') 'used-up name: names the merged PR'
+        Assert-True (Test-Phrase -Text $rX10.Out -Phrase "The first free follow-up name is 'docs/used-name-v5'") 'used-up name: names the first FREE -vN, not -v2'
+        $branchesX10 = ((& git -C $fixX10 branch --list 'docs/used-name*') -join '').Trim()
+        Assert-True (-not $branchesX10) 'used-up name: nothing was created'
+
+        # (x11) THE NEGATIVE CONTROL: the same hosted origin, a name nobody has used -- asked, and cut.
+        $fixX11 = New-Fixture -Label 'x11'
+        Add-FixtureRepoConfig -Dir $fixX11 -RepoName 'fake/repo'
+        & git -C $fixX11 remote add origin 'https://127.0.0.1:9/fake/repo.git' 2>$null
+        Remove-Item -Path $xCallLog -Force -ErrorAction SilentlyContinue
+        $rX11 = Invoke-NewBranch -Dir $fixX11 -Name 'docs/fresh-name' -NoPush
+        $logX11 = if (Test-Path -LiteralPath $xCallLog) { @(Get-Content -Path $xCallLog) } else { @() }
+        Assert-ExitCode 0 $rX11 'unused name: exits 0'
+        Assert-True (@($logX11 | Where-Object { $_ -match [regex]::Escape('--head docs/fresh-name') }).Count -eq 1) 'unused name: gh WAS asked, so the silence is an answer'
+
+        # (x12) NO HOSTED ORIGIN, NO QUESTION: the ordinary fixture asks gh nothing for this check.
+        $fixX12 = New-Fixture -Label 'x12'
+        Add-FixtureRepoConfig -Dir $fixX12 -RepoName 'fake/repo'
+        Remove-Item -Path $xCallLog -Force -ErrorAction SilentlyContinue
+        $rX12 = Invoke-NewBranch -Dir $fixX12 -Name 'docs/used-name' -NoPush
+        $logX12 = if (Test-Path -LiteralPath $xCallLog) { @(Get-Content -Path $xCallLog) } else { @() }
+        Assert-ExitCode 0 $rX12 'no hosted origin: a used-up name is not refused -- there is nothing to ask'
+        Assert-True (@($logX12 | Where-Object { $_ -match '--head' }).Count -eq 0) 'no hosted origin: and gh is not asked'
     } finally {
         $env:PATH = $prevPathX
-        'GH_CALL_LOG', 'GH_OPEN_ISSUES', 'GH_CLOSED_ISSUES', 'GH_PR_LIST_JSON', 'GH_FAIL_ISSUE_LIST', 'GH_FAIL_PR_LIST' | ForEach-Object {
+        'GH_CALL_LOG', 'GH_OPEN_ISSUES', 'GH_CLOSED_ISSUES', 'GH_PR_LIST_JSON', 'GH_FAIL_ISSUE_LIST', 'GH_FAIL_PR_LIST', 'GH_MERGED_HEADS' | ForEach-Object {
             Remove-Item "Env:\$_" -ErrorAction SilentlyContinue
         }
         Remove-Item -Path $xBin -Recurse -Force -ErrorAction SilentlyContinue

@@ -462,6 +462,81 @@ function Get-ExistingPrRecord {
     return (@($parsed) | Where-Object { $_ -and $_.number } | Select-Object -First 1)
 }
 
+function Get-MergedHeadRecord {
+    <#
+    .SYNOPSIS
+        The merged PR that has used up a branch name, from a `gh pr list --head <name> --state all --json
+        number,state,url` payload -- or $null when the name is still usable.
+
+    .DESCRIPTION
+        ISSUE #3376, October 24, 2026. new-branch.ps1 cut 'docs/stopwatch-css-comment', committed and
+        pushed its document, and only open-pr.ps1 then said the name already belonged to merged PR #3334.
+        This answers open-pr's question ("is there a merged PR for this head name?") in the same terms, so
+        new-branch can ask it BEFORE the checkout, where a refusal costs nothing.
+
+        AN OPEN PR WINS, AND THAT IS open-pr's ORDER TOO: it asks for an open PR first and reaches the
+        merged query only when there is none. A name recycled after its first merge -- with an open PR of
+        its own now -- is a branch to resume, not a name that is used up. So one open record anywhere in
+        the payload answers $null, and otherwise the first MERGED record is returned. A CLOSED (unmerged)
+        PR does not use the name up: open-pr does not refuse it either.
+
+        Same 5.1 parse rules as Get-ExistingPrRecord: assign first, wrap second, and require a `number`.
+        $null for empty input, an empty list or unparseable JSON -- "not used up", never an error.
+    #>
+    param([string]$Json)
+
+    if (-not $Json -or -not $Json.Trim()) { return $null }
+    try {
+        $parsed = $Json | ConvertFrom-Json
+    } catch {
+        return $null
+    }
+    $records = @(@($parsed) | Where-Object { $_ -and $_.number })
+    if (@($records | Where-Object { "$($_.state)" -eq 'OPEN' }).Count -gt 0) { return $null }
+    return ($records | Where-Object { "$($_.state)" -eq 'MERGED' } | Select-Object -First 1)
+}
+
+function Select-FollowUpBranchName {
+    <#
+    .SYNOPSIS
+        The first free follow-up name for a branch whose name is used up: '<base>-v2', '-v3' ... up to
+        '-v<Limit>', where <base> is the name without any '-v<N>' it already carries.
+
+    .DESCRIPTION
+        ISSUE #3376. open-pr.ps1 told the reader to "name it with a -v2 suffix by hand" whatever was
+        already taken -- measured on the branch that filed the issue, where -v2 to -v4 had all merged and
+        the free name was -v5. So both new-branch.ps1 and open-pr.ps1 now name the first free one.
+
+        STARTS FROM -v2 WHATEVER SUFFIX THE NAME CARRIES, so 'x-v3' refused proposes 'x-v2' if that one is
+        somehow free -- the probe, not an assumption about order, decides what is free. The shape follows
+        Select-SyncBranchName (sync-rules.ps1): a probe rather than a set, so only the names actually tried
+        cost a gh call, and $null past the limit, which the caller reports instead of guessing.
+
+        PURE apart from the probe it is handed. The caller runs git and gh.
+
+    .PARAMETER Name
+        The used-up branch name, as given.
+
+    .PARAMETER IsTaken
+        Called with one candidate name; a true answer means "not free, try the next suffix".
+
+    .PARAMETER Limit
+        The highest suffix tried.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][ValidateNotNullOrEmpty()][string]$Name,
+        [Parameter(Mandatory = $true)][scriptblock]$IsTaken,
+        [int]$Limit = 20
+    )
+
+    $base = $Name -replace '-v\d+$', ''
+    for ($n = 2; $n -le $Limit; $n++) {
+        $candidate = "$base-v$n"
+        if (-not (& $IsTaken $candidate)) { return $candidate }
+    }
+    return $null
+}
+
 function Get-InterruptedShipCandidates {
     <#
     .SYNOPSIS

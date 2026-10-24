@@ -85,7 +85,8 @@ Assert-True ($hub -match 'class="grid-3"' -and $hub -match 'href="/test-gate"' -
 # THE GENERAL BANNER (#3250): under the intro, above the sections, in house classes only, and its state in this browser.
 $hubBanner = $hub.IndexOf('<div class="notice" id="hub-banner"')
 Assert-True ($hubBanner -gt $hub.IndexOf('class="breadcrumbs-bar"') -and $hubBanner -lt $hub.IndexOf('class="grid-3"')) 'the airsquats banner sits directly under the bar, above the sections'
-Assert-True ($hub.Contains('data-hub-timer') -and $hub.Contains('<input type="checkbox" data-hub-done> <span data-hub-count>10</span> airsquats') -and $hub.Contains('data-hub-due hidden')) 'it counts down to the hour, and its "10 airsquats" box stays hidden until an hour has passed'
+Assert-True ($hub.Contains('data-hub-timer') -and $hub.Contains('<input type="checkbox" data-hub-done> <span data-hub-count>10</span> due') -and $hub.Contains('data-hub-due hidden')) 'it counts down to the hour, and its "10 due" box stays hidden until an hour has passed, on the same one-row line as the timer'
+Assert-True (([regex]::Matches((Format-RepoHubBanner), '<p[ >]')).Count -eq 1) 'the banner is one row: the timer and the box owed share a single paragraph, never a second line (Dave, October 24, 2026)'
 $bannerJs = Format-RepoHubBanner
 Assert-True ($bannerJs -match 'localStorage' -and $bannerJs -notmatch 'fetch\(|XMLHttpRequest|WebSocket|sendBeacon|eval\(|new Function|document\.cookie') 'its script keeps its state in localStorage and makes no request'
 Assert-True ($bannerJs -match 's\.owed \+= passed' -and $bannerJs -match 'PER \* s\.owed') 'an unticked hour adds to the total owed, so the box shows 10 per hour passed'

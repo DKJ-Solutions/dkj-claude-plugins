@@ -145,3 +145,49 @@ function Get-RemoteAheadNote {
     $note += '.'
     return $note
 }
+
+function Get-FreeFollowUpBranchName {
+    <#
+        The first free '<base>-v<N>' for a branch name a merged PR has used up (issue #3376), as both
+        new-branch.ps1 and open-pr.ps1 print it. Here rather than in pr-issues-lib.ps1, whose functions are
+        pure: this is the probe Select-FollowUpBranchName is handed, and it runs git and gh. It sits in this
+        file because this file is already the one place those two scripts share a question about a branch
+        name against the remote.
+
+        A candidate is TAKEN when any PR in any state has it as its head, or a local or remote-tracking ref
+        of that name exists -- a parked branch with no PR yet is somebody's work too.
+
+        RepoRoot -- the repo to run git in.
+        Repo     -- the owner/name gh is asked under.
+        Name     -- the used-up branch name.
+
+        Returns '' when no free name was found within the limit, or when gh could not answer for a
+        candidate: an unanswered probe is not "free", and a guessed name is the hint this replaces.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [Parameter(Mandatory = $true)][string]$Repo,
+        [Parameter(Mandatory = $true)][string]$Name
+    )
+
+    $script:followUpProbeFailed = $false
+    $probe = {
+        param($candidate)
+        foreach ($ref in @("refs/heads/$candidate", "refs/remotes/origin/$candidate")) {
+            $refCap = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $RepoRoot, 'rev-parse', '--verify', '--quiet', $ref) -DiscardStderr
+            if ($refCap.ExitCode -eq 0) { return $true }
+        }
+        $prCap = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'list', '--repo', $Repo, '--head', $candidate, '--state', 'all', '--json', 'number', '--limit', '1') -DiscardStderr
+        if (-not (Test-NativeExitMeasured -Capture $prCap) -or $prCap.ExitCode -ne 0) {
+            # Stop the walk: reading an unanswered candidate as taken would skip past it, and as free
+            # would propose it. Either way the hint would be a guess.
+            $script:followUpProbeFailed = $true
+            return $false
+        }
+        $text = (@($prCap.Output) -join "`n").Trim()
+        return ($text -and $text -ne '[]')
+    }
+    $found = Select-FollowUpBranchName -Name $Name -IsTaken $probe
+    if ($script:followUpProbeFailed -or -not $found) { return '' }
+    return $found
+}

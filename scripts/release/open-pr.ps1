@@ -918,7 +918,15 @@ if (-not $existingPr) {
         $mergedPr = Get-ExistingPrRecord -Json ($mergedLookup.Output -join "`n")
         if ($mergedPr) {
             Write-Host "PR #$($mergedPr.number) for '$branch' is already merged -- nothing to open. $($mergedPr.url)" -ForegroundColor Green
-            Write-Host "A follow-up cycle on the same subject gets its own branch -- name it with a -v2 suffix by hand." -ForegroundColor DarkGray
+            # THE FIRST FREE SUFFIX, NOT '-v2' UNCONDITIONALLY (issue #3376): the hint once said -v2 on a
+            # name whose -v2 to -v4 had all merged. new-branch.ps1 now refuses a used-up name before the
+            # checkout and prints the same name, so this is the second door, for a branch cut without it.
+            $freeName = Get-FreeFollowUpBranchName -RepoRoot $repoRoot -Repo $repo -Name $branch
+            if ($freeName) {
+                Write-Host "A follow-up cycle on the same subject gets its own branch -- the first free name is '$freeName'." -ForegroundColor DarkGray
+            } else {
+                Write-Host "A follow-up cycle on the same subject gets its own branch -- no free '-v<N>' name could be confirmed, so pick one by hand." -ForegroundColor DarkGray
+            }
             exit 0
         }
     }
