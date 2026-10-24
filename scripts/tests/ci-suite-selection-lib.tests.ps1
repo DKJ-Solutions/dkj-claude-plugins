@@ -55,6 +55,23 @@ Assert-True (-not $v.AssetOnly) 'a quoted (non-ASCII) path is not judged, even w
 Assert-True ($v.Reason -match 'ASCII') 'and the reason says why'
 
 Write-Host ''
+Write-Host 'Remove-BranchDocumentPath (#3370)' -ForegroundColor Cyan
+
+$doc = 'dkj-policy/docs-stopwatch-css-comment-v4.md'
+$left = @(Remove-BranchDocumentPath -ChangedPaths @('brandbook/src/showcase/showcase.css', $doc) -BranchDocument $doc)
+Assert-Equal 'brandbook/src/showcase/showcase.css' ($left -join ',') 'the branch document is taken out of the judged change'
+Assert-True (Get-StaticAssetVerdict -ChangedPaths $left).AssetOnly 'so a CSS change with its branch document is asset-only (the #3369 case)'
+$left = @(Remove-BranchDocumentPath -ChangedPaths @('a.css', $doc, 'dkj-policy/other-branch.md', 'README.md') -BranchDocument $doc)
+Assert-Equal 'a.css,dkj-policy/other-branch.md,README.md' ($left -join ',') 'only that one path goes: another branch document and any other .md stay'
+Assert-True (-not (Get-StaticAssetVerdict -ChangedPaths $left).AssetOnly) 'and they still make the change not asset-only'
+$left = @(Remove-BranchDocumentPath -ChangedPaths @('a.css', $doc) -BranchDocument '')
+Assert-Equal "a.css,$doc" ($left -join ',') 'an unresolved document removes nothing (fail-closed)'
+$left = @(Remove-BranchDocumentPath -ChangedPaths @($doc) -BranchDocument $doc)
+Assert-True (-not (Get-StaticAssetVerdict -ChangedPaths $left).AssetOnly) 'a PR that changes only its branch document proves nothing, so it runs the pool'
+$left = @(Remove-BranchDocumentPath -ChangedPaths @('a.css', 'DKJ-POLICY/docs-stopwatch-css-comment-v4.md') -BranchDocument $doc)
+Assert-Equal 2 $left.Count 'the match is exact, case included -- git paths are case-sensitive'
+
+Write-Host ''
 Write-Host 'Get-StaticAssetSuiteSelection' -ForegroundColor Cyan
 
 $fixture = Join-Path ([System.IO.Path]::GetTempPath()) ("ci-suite-selection-" + [guid]::NewGuid().ToString('N'))

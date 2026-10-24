@@ -75,6 +75,26 @@ if ($null -eq $paths) {
     exit 0
 }
 
+# THE BRANCH'S OWN DOCUMENT IS NOT PART OF THE JUDGED CHANGE (#3370) -- see Remove-BranchDocumentPath.
+# Resolved through the same resolver every gate uses, for the PR's head branch. A resolver that fails
+# leaves the path set untouched, so the document stays in and the verdict stays 'full'.
+try {
+    if ($env:GITHUB_HEAD_REF) {
+        . (Join-Path $RepoRoot 'scripts/lib/branch-info.ps1')
+        . (Join-Path $PSScriptRoot '../lib/entry-scaffold-lib.ps1')
+        $branchDoc = Resolve-BranchFilePath -Kind File -RepoRoot $RepoRoot -Branch $env:GITHUB_HEAD_REF
+        $without = @(Remove-BranchDocumentPath -ChangedPaths $paths -BranchDocument $branchDoc)
+        if ($without.Count -lt $paths.Count) {
+            Write-Host "pr-suite-selection: not judging $branchDoc -- the branch's own development document (#3370)"
+            $paths = $without
+        }
+    }
+} catch {
+    # The exception's TYPE, not its message: a message can carry foreign text, and stripping it would load
+    # check-report-lib.ps1 into every shard for one line (#2271's guard).
+    Write-Host "pr-suite-selection: the branch document could not be resolved ($($_.Exception.GetType().Name)); it stays in the judged change"
+}
+
 $assets = Get-StaticAssetVerdict -ChangedPaths $paths
 if (-not $assets.AssetOnly) {
     Write-SelectionVerdict -Mode 'full' -Reason $assets.Reason
