@@ -1,4 +1,4 @@
-## docs/stopwatch-css-comment
+## docs/stopwatch-css-comment-v5
 
 > **How this file is read.** A step is `- [ ]` until it is resolved -- `- [x]` done, or
 > `- [~]` dropped with the reason, which exists so nobody ticks a box for work they did not do.
@@ -45,7 +45,7 @@
 
 ### TEST
 
-### DEPLOY: docs/stopwatch-css-comment
+### DEPLOY: docs/stopwatch-css-comment-v5
 
 A timing run of the full workflow, branch to fold: the brand book's showcase stylesheet carries a
 one-line comment stamped with the run's date and time, and nothing renders differently.
