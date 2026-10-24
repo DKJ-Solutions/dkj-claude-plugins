@@ -141,7 +141,7 @@ $wt = Get-LogbookWorkTimes -Runs $runs -Transcript $tr
 Assert-True (@($wt.Keys).Count -eq 1 -and $wt.r1.Work -eq 45 -and $wt.r1.Waiting -eq 75) 'a run''s work time is its time less the time waiting on the owner; an open run has none'
 Assert-Equal 0 @((Get-LogbookWorkTimes -Runs $runs -Transcript @{ r1 = @{ Sessions = 0; Phases = @() } }).Keys).Count 'a run no session covered has no work time, rather than all of it'
 $wpage = Format-LogbookPageHtml -Runs $runs -Transcript $tr -Now (& $at 2100)
-Assert-True ($wpage -match '>First</a></dd></div><div><dt>Time</dt><dd class="sw-large num">2:00</dd><dd class="muted">work 45\.0s</dd>' -and $page -notmatch 'work \d') 'the card shows the work time under the time, and only for a run the transcripts measured'
+Assert-True ($wpage -match '>First</a></p><p class="sw-large num">2:00</p><p class="muted">work 45\.0s</p>' -and $page -notmatch 'work \d') 'the card shows the work time under the time, and only for a run the transcripts measured'
 $g = Find-StopwatchGroup -Model $m -Slug $m.Groups[2].PageSlug
 $rp = Format-LogbookRunPageHtml -Group $g -StorePath 'C:\x\logbook.json'
 Assert-True ((Format-LogbookRunPageHtml -Group $g -Transcript $tr) -match 'Work 45\.0s, waiting on you 1:15\.' -and $rp -notmatch 'waiting on you \d') 'a run''s page states its work time and its waiting under its time'
