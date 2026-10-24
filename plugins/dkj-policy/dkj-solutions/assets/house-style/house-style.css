@@ -230,12 +230,12 @@ body > header, main > header { display: flex; justify-content: space-between; al
 @media (max-width: 760px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } .hero .value { font-size: var(--text-h1); } }
 
 /* ---- Typography ----------------------------------------------------------- */
-/* Headings set in a serif so they stand off from the sans body text. System fonts only (no
+/* h1 is set in a serif so it stands off from the sans body text. System fonts only (no
    external requests): Iowan Old Style (macOS/iOS), Palatino Linotype (Windows), Georgia,
-   Noto Serif (Android/Linux). Their bold is heavier than the sans 600, so the tracking is
-   pulled in slightly. h3-h5 stay in the body sans. */
-h1, h2 { font-family: var(--font-serif);
-  font-weight: 600; letter-spacing: -0.01em; }
+   Noto Serif (Android/Linux). Its bold is heavier than the sans 600, so the tracking is
+   pulled in slightly. h2-h5 are in the body sans (h2 since October 24, 2026, the owner; it was a serif too). */
+h1 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.01em; }
+h2 { font-weight: 600; }
 /* h1 is --primary, h2 --fg-4 and h3-h5 --fg-3 (owner, October 24, 2026: h2 on the last text step, 24px under the h1's
    capitals; from October 19 it was --fg-2, because an h2 in the h1's colour read too much like it, and #3235 moved h2
    and h3-h5 to the text steps). On a fill the paper is the text: .fill-primary and
@@ -246,11 +246,11 @@ h1, h2 { font-family: var(--font-serif);
 :where(h2) { color: var(--fg-4); }
 :where(h3, h4, h5) { color: var(--fg-3); }
 /* h1 is set in capitals so it stands further apart from h2 (owner, #3247); capitals want air between them,
-   so its tracking opens to 0.02em where h2 keeps the serif's -0.01em. */
+   so its tracking opens to 0.02em. */
 h1 { font-size: var(--text-h1); margin: 0; text-transform: uppercase; letter-spacing: 0.02em; }
 h2 { font-size: var(--text-h2); margin: 0 0 var(--spacing-1); }
-/* Flex so an .info-button sits on the heading's vertical centre, not on its baseline; the serif's
-   capitals sit almost exactly mid-line, so 1px corrects the rest. */
+/* Flex so an .info-button sits on the heading's vertical centre, not on its baseline; the capitals
+   sit almost exactly mid-line, so 1px corrects the rest. */
 h2 { display: flex; align-items: center; }
 h2 .info-button { top: 1px; }
 h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; }
