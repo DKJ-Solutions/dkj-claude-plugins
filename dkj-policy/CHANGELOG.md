@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**0 / 1 patch entry** <!-- pending-tally -->
+**0 / 2 patch entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3405-logbook-sweep-per-issue · 20261024-185230Z
+
+The Logbook now times a `/sweep-issues` session per issue
+([#3405](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3405)). A sweep used to be one run of the
+whole sweep, whose length only said how many issues the backlog held. Its pages now cut it at every `ship-pr` fold
+of this checkout, the moment the trunk is clean again: each issue gets a card and a page of its own, from the
+previous clean trunk to its fold, named after the issue its fold commit names (`/sweep-issues #3397`), with its own
+transcript phases and work time. The time after the last fold belongs to no issue and is not shown; in a sweep
+still going, the issue in progress shows as going. The store and the hooks are unchanged.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A: the Logbook is this repo's own hub tooling under `scripts/`, and no plugin ships it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The Logbook times a /sweep-issues run per issue, clean trunk to clean trunk
+
+[PR #3407](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3407)
+
+---
 
 ### DEPLOY: feat/3400-stopwatch-release-run · 20261024-182244Z
 
