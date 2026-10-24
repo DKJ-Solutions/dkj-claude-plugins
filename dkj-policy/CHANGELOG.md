@@ -2,7 +2,27 @@
 
 ## [Unreleased]
 
-**2 / 8 minor entries** <!-- pending-tally -->
+**2 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/stopwatch-css-comment-v3 · 20261024-094528Z
+
+The first line of the brand book's showcase stylesheet now carries a fresh stopwatch test comment, timing a branch from start to fold. A CSS comment only; nothing renders differently.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- a comment in a stylesheet reaches no user of what this repo ships.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch test comment on the showcase stylesheet
+
+[PR #3366](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3366)
+
+---
 
 ### DEPLOY: feat/3364-logbook · 20261024-092754Z
 
