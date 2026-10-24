@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**2 / 5 minor entries** <!-- pending-tally -->
+**3 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/hub-banner-above-site-header · 20261024-201638Z
+
+The airsquats banner is now the first thing on every hub page, above the site header rather than under the breadcrumb bar (owner, October 24, 2026). It stands with no margin, border or radius, a bare strip edge to edge, flush against the header.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every hub page a consumer opens shows the countdown at the very top, above its own site header.
+
+**Score:** 2
+
+#### Pull Request
+
+The hub banner stands above the site header
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3411](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3411)
+
+---
 
 ### DEPLOY: fix/3401-holder-other-logon-session · 20261024-200215Z
 
