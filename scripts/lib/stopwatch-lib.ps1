@@ -644,8 +644,9 @@ function Format-StopwatchDelta {
 function Format-StopwatchChangePercent {
     <#
         A run's change against the run of its label before it, in percent of that run's time, beside the time on a
-        card: only a sign and the number (the owner, October 24, 2026), - for less time in the positive colour and + for
-        more in the negative one. Under half a second is 0%, and a label's first run has nothing to compare with.
+        card: only a sign and the number (the owner, October 24, 2026). The sign is the result's, not the time's: + for a
+        faster run in the positive colour, - for a slower one in the negative colour. Under half a second is 0%, and a
+        label's first run has nothing to compare with.
     #>
     param([double]$Seconds, $DeltaSeconds)
     if ($null -eq $DeltaSeconds) { return '' }
@@ -653,8 +654,8 @@ function Format-StopwatchChangePercent {
     if ([Math]::Abs([double]$DeltaSeconds) -lt 0.5 -or $before -le 0) { return ' <span class="sw-change">0%</span>' }
     $pct = [Math]::Round([Math]::Abs([double]$DeltaSeconds) / $before * 100)
     $pctText = if ($pct -lt 1) { '&lt;1%' } else { [string]$pct + '%' }
-    if ($DeltaSeconds -lt 0) { return ' <span class="sw-change sw-change--good">-' + $pctText + '</span>' }
-    return ' <span class="sw-change sw-change--bad">+' + $pctText + '</span>'
+    if ($DeltaSeconds -lt 0) { return ' <span class="sw-change sw-change--good">+' + $pctText + '</span>' }
+    return ' <span class="sw-change sw-change--bad">-' + $pctText + '</span>'
 }
 
 function Format-StopwatchPageShell {
