@@ -48,8 +48,8 @@ link on that hub, not the hub itself.
 [`dkj-solutions/assets/house-style/README.md`](../dkj-solutions/assets/house-style/README.md), section
 "The hub": one page on `/`, under the site header (#3289, which ended #3270's separate About this repo
 page; an old link to `/about` is sent to `/`), and since #3383 a grid of card links with a separate
-**Repository** page. The blocks and their order are fixed. The site header names the repo, and under the
-breadcrumb bar and the banner the home page carries one `.grid-3` of card links, with no heading above them:
+**Repository** page. The blocks and their order are fixed. The general banner stands above the site header,
+which names the repo, and under the breadcrumb bar the home page carries one `.grid-3` of card links, with no heading above them:
 
 - the **product**, where the repo states a server: its link, or a card saying it is not running;
 - **Repository**, the page on `/repository` holding the facts (the GitHub repo where the `origin` remote is

@@ -157,6 +157,9 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
+    # The general banner on every page, not only the home page (#3297), and a bare one too (#3356): ALWAYS the first
+    # thing in <body>, above the site header (owner, October 24, 2026).
+    [void]$sb.AppendLine((Format-RepoHubBanner))
     if ($Brand) { [void]$sb.Append((Format-SiteHeaderHtml -Name $Brand -Href $HubHref -Tag $BrandTag)) }
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
     [void]$sb.AppendLine('<li><a href="' + (& $e $HubHref) + '">Home</a></li>')
@@ -166,9 +169,6 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine('</ol></nav></div></div>')
     if (-not $Brand) { [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>') }
     [void]$sb.AppendLine('<main class="page-column">')
-    # The general banner on every page, not only the home page (#3297), and a bare one too (#3356): ALWAYS the first
-    # block of the page, above the h1 where there is one (owner, October 24, 2026).
-    [void]$sb.AppendLine((Format-RepoHubBanner))
     if (-not $Bare) {
         [void]$sb.AppendLine('<div>')
         if ($Eyebrow -and -not $Brand) { [void]$sb.AppendLine('<p class="eyebrow">' + (& $e $Eyebrow) + '</p>') }
@@ -194,8 +194,11 @@ function Format-RepoHubBanner {
 
         ONE FUNCTION, ON EVERY HUB PAGE (#3297): both home pages (through Format-RepoHomeHeadHtml), every page
         Format-GeneralPageHtml draws, a -Bare one included (#3356), the Connectors page (Format-ConnectorDashboardHtml), and the release notes (Format-ReleaseNotesDevPage), so the hubs carry the
-        same banner wherever the visitor is. It sits directly under the intro, inside <main>, and uses house
-        classes only (.notice, .msg, .num), because the hub restyles nothing.
+        same banner wherever the visitor is. It is the first thing in <body>, ABOVE the site header (owner,
+        October 24, 2026; it was the first block of <main>, under the breadcrumb bar), so every caller writes it
+        straight after '<body>'. It stands there with no margin, border or radius of its own, a bare strip flush against the
+        header (owner, October 24, 2026), and otherwise uses house classes only (.notice, .msg, .num), because
+        the hub restyles nothing.
 
         ONE ROW, ALWAYS (Dave, October 24, 2026): the countdown and the box owed share a single .msg line,
         the box an inline span after the timer rather than a paragraph of its own, and its label is short
@@ -209,7 +212,7 @@ function Format-RepoHubBanner {
         not this page's.
     #>
     return @'
-<div class="notice" id="hub-banner" role="region" aria-label="Airsquats">
+<div class="notice" id="hub-banner" role="region" aria-label="Airsquats" style="margin: 0; border: 0; border-radius: 0">
 <p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong><span class="msg--warn" data-hub-due hidden> &middot; <label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> due</label></span></p>
 </div>
 <script>
@@ -370,13 +373,15 @@ function Format-RepoHomeHeadHtml {
         The top of a repo's home page on '/' (#3270), the same in every hub: the breadcrumb bar with its one
         crumb, Home; the settings button; and the opening of <main> with the intro, whose h1 is the repo's
         name (-RepoName, escaped by the caller) and whose lead (-Lead, markup the caller escaped) is what the
-        repo is for. No eyebrow: the h1 already names the repo. The general banner (#3250) follows the intro.
-        With -Brand the site header stands above the bar and there is no intro: <main> opens on the banner.
-        The caller writes the <head> before it and the sections and </main> after it.
+        repo is for. No eyebrow: the h1 already names the repo. The general banner (#3250) opens it, above the
+        site header. With -Brand the site header stands above the bar and there is no intro: <main> opens on the
+        sections. The caller writes the <head> and '<body>' before it and the sections and </main> after it.
     #>
     param([Parameter(Mandatory = $true)][string]$RepoName, [Parameter(Mandatory = $true)][string]$Lead, [AllowEmptyString()][string]$Brand = '',
         [AllowEmptyString()][string]$BrandTag = '')
     $sb = New-Object System.Text.StringBuilder
+    # The general banner first, above the site header, as on every hub page (owner, October 24, 2026).
+    [void]$sb.AppendLine((Format-RepoHubBanner))
     # -Brand: the house site header above the bar, as Format-GeneralPageHtml draws it, holding the settings button.
     if ($Brand) { [void]$sb.Append((Format-SiteHeaderHtml -Name $Brand -Href '/' -Tag $BrandTag)) }
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
@@ -384,8 +389,6 @@ function Format-RepoHomeHeadHtml {
     [void]$sb.AppendLine('</ol></nav></div></div>')
     if (-not $Brand) { [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>') }
     [void]$sb.AppendLine('<main class="page-column">')
-    # The general banner first, above the intro, as on every hub page (owner, October 24, 2026).
-    [void]$sb.AppendLine((Format-RepoHubBanner))
     # Under a site header there is no intro at all (owner, October 22, 2026): the header names the repo, and the
     # page goes straight to its sections. Without one, the intro is a <div>, never a <header>, which the house
     # style lays out as a flex row.
@@ -1144,9 +1147,9 @@ function Format-ReleaseNotesDevPage {
     # The site header above the bar, holding the settings button, when the repo is named; else the button floats.
     $bar = if ($RepoName) { (Format-SiteHeaderHtml -Name (ConvertTo-SiteHeaderName -RepoName $RepoName) -Href $HubHref -Tag 'hub') + $bar }
             else { $bar + "`n" + '<div id="settings" class="theme-settings--floating"></div>' }
-    # The general banner under the bar, as on every other hub page (#3297), in a page column of its own: the
-    # template's layout is its own, so the banner does not reach into it.
-    $bar += "`n" + '<div class="page-column">' + "`n" + (Format-RepoHubBanner) + '</div>'
+    # The general banner above the site header, as on every other hub page (#3297; owner, October 24, 2026). It
+    # stands outside the template's layout, so that is left alone.
+    $bar = (Format-RepoHubBanner) + $bar
     $settings = '<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>'
 
     # Back to front, so each index still points where it was read.
