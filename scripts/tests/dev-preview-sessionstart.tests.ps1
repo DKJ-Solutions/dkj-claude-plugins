@@ -98,12 +98,19 @@ $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; OwnH
 Assert-True ($c.Ok -and $c.Config.ProductProblem -match '^the Product: .*\{port\}') 'a Product held to the server''s rules names itself in the problem'
 $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870..4872; OwnHub = $true; Product = @{ Command = 'y {port}'; Ports = 4872..4873 } }
 Assert-True ($c.Ok -and $c.Config.ProductProblem -match 'overlap the hub''s \(port 4872\)') 'a Product whose ports overlap the hub''s is refused'
-foreach ($k in 'OwnHub', 'OpenInVsCode', 'Product') {
+foreach ($k in 'OwnHub', 'OpenInVsCode', 'DefaultTheme', 'Product') {
     $inner = @{ Command = 'y {port}'; Ports = 5173 }; $inner[$k] = $true
     $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; OwnHub = $true; Product = $inner }
     Assert-True ($c.Ok -and $c.Config.ProductProblem -match "states $k") "a Product stating $k, which belongs to the hub alone, is a problem of the product"
 }
 Assert-Equal 1 @($c.Config.Ports).Count 'one port becomes a list of one'
+# The default theme of the plugin's hub and general pages (#3390).
+Assert-Equal '' (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870 }).Config.DefaultTheme 'a repo that states no DefaultTheme states none, so its pages keep lilac'
+Assert-Equal 'teal' (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; DefaultTheme = 'teal' }).Config.DefaultTheme 'a stated DefaultTheme is carried as it stands'
+foreach ($badTheme in 'Teal', 'teal"x', '1teal', 'te al', ('t' * 33), '') {
+    $bad = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; DefaultTheme = $badTheme }
+    Assert-True (-not $bad.Ok -and $bad.Problem -match 'DefaultTheme must be a theme id') "a DefaultTheme of '$($badTheme.Substring(0, [Math]::Min(12, $badTheme.Length)))' is refused, since it lands in an attribute"
+}
 $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 5173..5180; Path = 'dashboard.html'; Requires = @('node_modules', 'data\processed') }
 Assert-Equal '/dashboard.html' $c.Config.Path 'a Path without its slash gets one'
 Assert-Equal '5173 5174 5175 5176 5177 5178 5179 5180' (@($c.Config.Ports) -join ' ') 'a range keeps its order'
@@ -264,6 +271,10 @@ Assert-True ($html -match '<body>\s*<header class="site-header">.*</header>\s*<d
 Assert-True ($html.Contains((Format-RepoHubBanner)) -and $html.IndexOf('id="hub-banner"') -gt $html.IndexOf('class="breadcrumbs-bar"')) 'the plugin hub carries the same airsquats banner, under the bar (#3250)'
 Assert-True (([regex]::Matches($html, '<header')).Count -eq 1) 'and its one <header> is the site header: no intro, so none the house style would lay out as a flex row'
 Assert-True ($html -match '<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">') 'with no stored theme it falls back to lilac, and it shares the general pages'' theme key: one origin now'
+Set-GeneralPagesThemeDefault 'teal'
+Assert-True ((Format-PluginRepoHubHtml -RepoName 'r' -PagesUrl 'http://localhost:4890') -match '<html lang="en" data-theme-default="teal" ') 'a repo''s DefaultTheme replaces lilac on the hub (#3390)'
+Set-GeneralPagesThemeDefault ''
+Assert-True ((Format-PluginRepoHubHtml -RepoName 'r' -PagesUrl 'http://localhost:4890') -match 'data-theme-default="lilac"') 'and handing in nothing restores lilac'
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'and starts from the house style its own server serves'
 Assert-True ($html -notmatch '<h2>Products</h2>') 'without a stated server there is no Products section'
 Assert-True ($html -match '<h2>Set up a product</h2>' -and $html -match '<h3 class="card__title">Add a dev server of your own</h3>' -and $html -match '<h3 class="card__title">Open it in VS Code</h3>') 'the two setup cards share one h2, each titled with an h3 (#3175)'
@@ -393,6 +404,10 @@ $st = ConvertFrom-RepoHubState -Text ((([ordered]@{ root = $stateRoot; hub = '';
 Assert-Equal 'none' $st.Mode 'a mode that is none of the three words is none'
 $st = ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Product 'http://localhost:4321/' -Mode 'product') -Root 'C:\Users\x\GitHub\other'
 Assert-True ($st.Product -eq '' -and $st.Mode -eq 'none') 'and for another root the product and the mode are nothing too'
+# The theme (#3390).
+Assert-Equal 'teal' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Mode 'ownhub' -Theme 'teal') -Root $stateRoot).Theme 'a state file reads back the repo''s DefaultTheme'
+Assert-Equal '' (ConvertFrom-RepoHubState -Text $legacy -Root $stateRoot).Theme 'a file written before #3390 has no theme, so the pages keep lilac'
+Assert-Equal '' (ConvertFrom-RepoHubState -Text ((([ordered]@{ root = $stateRoot; theme = 'x" onload="y' }) | ConvertTo-Json -Compress)) -Root $stateRoot).Theme 'a theme that is not an id''s shape is not believed: every page writes it into an attribute'
 $threw = $false
 try { $null = Format-RepoHubState -Root $stateRoot -Mode 'bogus' } catch { $threw = $true }
 Assert-True $threw 'the writer refuses a mode that is none of the three words'

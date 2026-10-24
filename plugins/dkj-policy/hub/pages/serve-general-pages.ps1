@@ -402,6 +402,10 @@ try {
                 Send-LoopbackResponse $stream 200 'OK' $s.Type $body -Method $method
                 continue
             }
+            # The repo's DefaultTheme (#3390), read per request like the hub, so a session start that changes it
+            # reaches the next page without a restart, and every page below opens in it.
+            $state = Read-RepoHubState -Root $root
+            Set-GeneralPagesThemeDefault $state.Theme
             if ($path -eq '/about') {
                 # The hub is one page (#3289): an old link to About this repo goes on to the home page, which holds it.
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/' } -Method $method
@@ -410,7 +414,6 @@ try {
             if ($path -eq '/' -or $path -eq '/index.html' -or $path -eq '/hub') {
                 # THE HUB IS THIS SERVER'S (#3245), built per request from the state file: unless the repo opted
                 # out with OwnHub, in which case its own server is the hub and this one sends the visitor there.
-                $state = Read-RepoHubState -Root $root
                 if ($state.Mode -eq 'ownhub') {
                     if ($state.Hub) {
                         Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $state.Hub } -Method $method
