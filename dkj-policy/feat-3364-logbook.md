@@ -58,6 +58,7 @@ to origin, because a label is a prompt's first line and the repo is public. A li
 
 - [x] `scripts/tests/logbook.tests.ps1` (new, in the pages group), plus the hub's and the server's suites
 - [x] The lint gate (0 errors) and the four touched suites, run directly; `open-pr` runs the whole gate at the PR
+- [x] The owner's look at `/logbook` and the home page card on the hub: seen and approved
 
 ### DEPLOY: feat/3364-logbook
 
