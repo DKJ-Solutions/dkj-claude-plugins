@@ -205,23 +205,39 @@ $list = @('c-tool.ps1', 'docs/data.json')
     Assert-True (-not (Test-WalkScopeMatch -Path 'plugins/p/scripts/x.ps1' -Pattern 'scripts/*.ps1')) 'but is anchored at the root'
     Assert-True (Test-WalkScopeMatch -Path 'plugins/p/.claude-plugin/plugin.json' -Pattern 'plugin.json') 'a bare file name matches that file wherever it sits'
 
-    # THE SCOPE GUARD, over this repo's own suites (#3309). A declared scope is a claim the selection
-    # cannot check -- a wrong one drops a suite that should have run -- so the one part a reading CAN
-    # check is held here: every literal -Filter/-Include of a live-tree walk must be inside the scope
-    # the file declares. A walk added later with a filter of another kind fails here, not on CI.
+    # THE SCOPE GUARD, over this repo's own suites (#3309, #3392). A declared scope is a claim the
+    # selection cannot check, and since #3392 CI's asset-only selection trusts it to DROP a walker, where a
+    # wrong one is an ungated merge. So every part a reading CAN check is held here: each live-tree walk's
+    # samples -- its root, resolved through the variables it is built from, plus each type it filters on,
+    # or any type at all for an open walk -- must fall inside the scope the file declares. A walk added
+    # later outside it, by root or by type, fails here, not on CI.
     Write-Host "`n== 3c. declared scopes cover their own walks ==" -ForegroundColor Cyan
-    $filterSet = Get-SuiteReferenceSet -Text "Get-ChildItem -LiteralPath (Join-Path `$RepoRoot 'x') -Recurse -Include '*.ps1', '*.yml' -File`n`$s = Join-Path `$env:TEMP 'f'`nGet-ChildItem -LiteralPath `$s -Filter '*.txt'`n"
-    Assert-Equal '*.ps1|*.yml' (@($filterSet.WalkFilters) -join '|') "a live walk's literal filters are recorded, and a fixture walk's are not"
-    Assert-True (Test-WalkScopeCovers -Filter '*-persona.md' -Scope @('*.md')) 'a narrower filter is covered by a wider pattern'
-    Assert-True (Test-WalkScopeCovers -Filter '*.ps1' -Scope @('scripts/*.ps1')) "and by a directory pattern's leaf"
-    Assert-True (-not (Test-WalkScopeCovers -Filter 'hooks.json' -Scope @('*.ps1'))) 'but not by a pattern for another kind of file'
+    $samplesOf = { param([string]$Text) @((Get-SuiteReferenceSet -Text $Text -SuiteDirectory 'scripts/tests').WalkSamples) -join '|' }
+    Assert-Equal 'x/x.ps1|x/x.yml' (& $samplesOf "Get-ChildItem -LiteralPath (Join-Path `$RepoRoot 'x') -Recurse -Include '*.ps1', '*.yml' -File`n`$s = Join-Path `$env:TEMP 'f'`nGet-ChildItem -LiteralPath `$s -Filter '*.txt'`n") "a live walk samples its root and each filter, and a fixture walk samples nothing"
+    Assert-Equal 'plugins/p/x.gate-any' (& $samplesOf "Copy-Item -Path (Join-Path `$RepoRoot 'plugins\p') -Destination `$tmp -Recurse`n") 'a recursive Copy-Item is a walk of its source, of any type'
+    Assert-Equal 'scripts/x.ps1' (& $samplesOf "`$scriptsRoot = (Resolve-Path (Join-Path `$PSScriptRoot '..')).Path`nGet-ChildItem -LiteralPath `$scriptsRoot -Recurse -Filter '*.ps1'`n") 'a root built from $PSScriptRoot resolves against the suite directory, through a variable'
+    Assert-Equal 'plugins/x.ps1|scripts/x.ps1' (& $samplesOf "foreach (`$root in @('scripts', 'plugins')) { Get-ChildItem -LiteralPath (Join-Path `$RepoRoot `$root) -Recurse -Filter '*.ps1' }`n") 'a foreach over a constant list samples every root in it'
+    Assert-Equal '.github/workflows/x.yml|scripts/x.yml' (& $samplesOf "`$roots = @('scripts', '.github\workflows') | ForEach-Object { Join-Path `$RepoRoot `$_ } | Where-Object { Test-Path `$_ }`nGet-ChildItem -LiteralPath `$roots -Recurse -Include '*.yml'`n") 'and so does a ForEach-Object over one, past a filtering stage'
+    Assert-Equal 'a/b/x-persona.md' (& $samplesOf "`$src = Join-Path `$RepoRoot 'a\b\c-persona.md'`nGet-ChildItem -LiteralPath (Split-Path `$src -Parent) -Filter '*-persona.md'`n") 'Split-Path resolves to the parent'
+    Assert-Equal 'x.gate-any' (& $samplesOf "`$d = Get-Something`n`$all = Join-Path `$RepoRoot `$d`nGet-ChildItem -LiteralPath `$all -Recurse`n") 'an unresolved root samples from no directory'
+    Assert-Equal 'x.md' (& $samplesOf "`$d = if (`$a) { Join-Path `$RepoRoot 'a' } else { Join-Path `$RepoRoot 'b' }`nGet-ChildItem -LiteralPath `$d -Filter '*.md'`n") 'and so does one assigned through a statement it cannot read'
+    Assert-Equal 'x.md' (& $samplesOf "`$r = @('scripts')`n`$r += 'plugins'`nforeach (`$x in `$r) { Get-ChildItem -LiteralPath (Join-Path `$RepoRoot `$x) -Recurse -Filter '*.md' }`n") "a '+=' write makes the variable unresolved, not its first value alone (Victor)"
+    Assert-Equal 'x.md' (& $samplesOf "`$d = 'scripts'`nSet-Variable d 'plugins'`nGet-ChildItem -LiteralPath (Join-Path `$RepoRoot `$d) -Filter '*.md'`n") 'and so does a Set-Variable'
+    Assert-Equal 'a/x.gate-any|b/x.gate-any' (& $samplesOf "`$dirs = @((Join-Path `$RepoRoot 'a'), (Join-Path `$RepoRoot 'b'))`nforeach (`$d in `$dirs) { Get-ChildItem `$d -Recurse }`n") 'a foreach over live paths is a live walk through its loop variable'
+    Assert-True (Get-SuiteReferenceSet -Text "Copy-Item `$RepoRoot `$tmp -r`n").Walks 'an abbreviated -Recurse makes a Copy-Item a walk'
+    Assert-True (Get-SuiteReferenceSet -Text "& git -C `$RepoRoot ls-files -- ':!*.md'`n").WalksOpen 'a git exclude pathspec narrows nothing, so the walk stays open'
+    Assert-Equal '' (& { $set = Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot -Recurse`n"; @($set.WalkSamples) -join '|' }) 'without -SuiteDirectory no samples are computed -- the selection never reads them'
+    Assert-Equal '' (@(Get-UncoveredWalkSample -Samples @('plugins/p/x.gate-any') -Scope @('plugins/p/*')) -join ',') 'an open walk is covered by a folder pattern over its root'
+    Assert-Equal 'plugins/q/x.gate-any' (@(Get-UncoveredWalkSample -Samples @('plugins/q/x.gate-any') -Scope @('plugins/p/*', '*.ps1')) -join ',') 'but not by one over another folder, nor by a typed pattern'
+    Assert-Equal 'x.ps1' (@(Get-UncoveredWalkSample -Samples @('x.ps1', 'scripts/x.ps1') -Scope @('scripts/*.ps1')) -join ',') 'a whole-tree *.ps1 walk is NOT covered by scripts/*.ps1 -- the hole the filter-only guard had'
+    Assert-Equal '' (@(Get-UncoveredWalkSample -Samples @('x.ps1', 'scripts/x.ps1') -Scope @('*.ps1')) -join ',') 'while a pattern without a directory covers it at any root'
+    Assert-Equal 'hooks.json' (@(Get-UncoveredWalkSample -Samples @('hooks.json') -Scope @('*.ps1')) -join ',') 'and a pattern for another kind of file covers nothing'
     $declared = 0
     foreach ($f in @(Get-ChildItem -LiteralPath $PSScriptRoot -Filter '*.ps1' -File)) {
-        $set = Get-SuiteReferenceSet -Text ([System.IO.File]::ReadAllText($f.FullName))
+        $set = Get-SuiteReferenceSet -Text ([System.IO.File]::ReadAllText($f.FullName)) -SuiteDirectory 'scripts/tests'
         if (@($set.Scope).Count -eq 0) { continue }
         $declared++
-        $uncovered = @($set.WalkFilters | Where-Object { -not (Test-WalkScopeCovers -Filter $_ -Scope $set.Scope) })
-        Assert-Equal '' ($uncovered -join ', ') "$($f.Name): its declared scope covers every filter its live walks use"
+        Assert-Equal '' (@(Get-UncoveredWalkSample -Samples $set.WalkSamples -Scope $set.Scope) -join ', ') "$($f.Name): its declared scope covers every root and type its live walks reach"
     }
     Assert-True ($declared -ge 30) "the guard read the declared suites (found $declared)"
 
