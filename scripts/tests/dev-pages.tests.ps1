@@ -57,7 +57,7 @@ Assert-True ($gshell -match '<title>Org/some&lt;repo&gt; -- An &lt;i&gt;issue</t
 Assert-True ($gshell -match 'data-theme-key="general-pages"') 'the theme key is the general server''s own'
 Assert-True ($gshell -notmatch 'dkj-claude-plugins') 'and nothing of this repo is built into it'
 $gIntro = $gshell.IndexOf('<h1>')
-Assert-True ($gshell.Contains((Format-RepoHubBanner)) -and $gshell.IndexOf('id="hub-banner"') -gt $gshell.IndexOf('<main class="page-column">') -and $gshell.IndexOf('id="hub-banner"') -lt $gIntro -and $gIntro -lt $gshell.IndexOf('<p>body</p>') -and ([regex]::Matches($gshell, 'id="hub-banner"')).Count -eq 1) 'every page carries the general banner once, as the first block of the page, above its h1 and its own blocks (#3297; owner, October 24, 2026)'
+Assert-True ($gshell.Contains((Format-RepoHubBanner)) -and $gshell.IndexOf('id="hub-banner"') -lt $gshell.IndexOf('class="site-header"') -and $gshell.IndexOf('id="hub-banner"') -lt $gIntro -and $gIntro -lt $gshell.IndexOf('<p>body</p>') -and ([regex]::Matches($gshell, 'id="hub-banner"')).Count -eq 1) 'every page carries the general banner once, as the first thing in <body>, above the site header, its h1 and its own blocks (#3297; owner, October 24, 2026)'
 # THE SITE HEADER (October 22, 2026): only where a caller asks for it with -Brand, so every other repo's pages stay as they were.
 $anon = Format-GeneralPageHtml -Title 'T' -Lead 'L' -Body ''
 Assert-True ($anon -notmatch 'site-header' -and $anon -match 'theme-settings--floating') 'a page that names no site draws no site header, and its settings button floats as before'
@@ -75,16 +75,16 @@ Assert-Equal '/test-gate,/stopwatch,/logbook,/repository' (($pages | ForEach-Obj
 Assert-Equal '/artifacts,/issues,/release-notes,/sessionstart' ((Get-GeneralPages | ForEach-Object { $_.Href }) -join ',') 'the plugin lists the four general pages, in order'
 Assert-Equal '/brandbook' ((Get-DkjSolutionsPages | ForEach-Object { $_.Href }) -join ',') 'and the one page only DKJ-Solutions repos share, the Brandbook'
 $hub = Format-RepoHubHtml
-Assert-True ($hub -match '<title>dkj-claude-plugins -- Home</title>' -and $hub -notmatch '<h1' -and $hub -notmatch 'class="lead"' -and $hub -match '<main class="page-column">\s*<div class="notice" id="hub-banner"') 'under the site header the home page has no intro at all: <main> opens on the banner, and its title says Home'
-Assert-True ($hub -match '<body>\s*<header class="site-header">.*</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Home</span></li>\s*</ol>') 'the site header opens <body>, the bar right under it, its trail the one crumb Home'
+Assert-True ($hub -match '<title>dkj-claude-plugins -- Home</title>' -and $hub -notmatch '<h1' -and $hub -notmatch 'class="lead"' -and $hub -notmatch '<main class="page-column">\s*<div>\s*<h1') 'under the site header the home page has no intro at all, and its title says Home'
+Assert-True ($hub -match '(?s)<body>\s*<div class="container"[^>]*>\s*<div class="notice" id="hub-banner".*?</script>\s*<header class="site-header">.*?</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Home</span></li>\s*</ol>') 'the banner opens <body>, the site header under it and the bar right under that, its trail the one crumb Home (owner, October 24, 2026)'
 Assert-True ($hub -notmatch 'class="eyebrow"' -and ([regex]::Matches($hub, '<header')).Count -eq 1 -and $hub -notmatch 'btn--primary' -and $hub -notmatch 'theme-settings--floating' -and $hub -match '<div id="settings"></div></div></header>') 'no eyebrow, no <header> but the site header, which holds the settings button, and no product button'
 Assert-True ($hub -notmatch 'href="/about"' -and $hub -notmatch '<h2>About this repo</h2>') 'no About this repo link: what it held is on the home page itself'
 Assert-True (([regex]::Matches($hub, '<h2[ >]')).Count -eq 0 -and $hub -notmatch 'href="/(dkj-repos|connectors|specialists|brandbook)') 'the home page has no h2: the pages are cards, the facts a row: DKJ repos, Connectors, Specialists and the brand book are the product''s'
 Assert-True ($hub -notmatch 'brandbook' -and $hub -notmatch 'Brand book') 'and no brand book, which is the product port''s alone'
 Assert-True ($hub -match 'class="grid-3"' -and $hub -match 'href="/test-gate"' -and $hub -match 'href="/repository"' -and $hub -notmatch 'class="facts' -and $hub -match 'class="footer-note"') 'the home page is the page cards and the footer note: the facts are the Repository page''s'
-# THE GENERAL BANNER (#3250): under the intro, above the sections, in house classes only, and its state in this browser.
+# THE GENERAL BANNER (#3250): above the site header (owner, October 24, 2026), in house classes only, and its state in this browser.
 $hubBanner = $hub.IndexOf('<div class="notice" id="hub-banner"')
-Assert-True ($hubBanner -gt $hub.IndexOf('class="breadcrumbs-bar"') -and $hubBanner -lt $hub.IndexOf('class="grid-3"')) 'the airsquats banner sits directly under the bar, above the sections'
+Assert-True ($hubBanner -ge 0 -and $hubBanner -lt $hub.IndexOf('class="site-header"') -and $hubBanner -lt $hub.IndexOf('class="grid-3"')) 'the airsquats banner sits above the site header, and so above the sections'
 Assert-True ($hub.Contains('data-hub-timer') -and $hub.Contains('<input type="checkbox" data-hub-done> <span data-hub-count>10</span> due') -and $hub.Contains('data-hub-due hidden')) 'it counts down to the hour, and its "10 due" box stays hidden until an hour has passed, on the same one-row line as the timer'
 Assert-True (([regex]::Matches((Format-RepoHubBanner), '<p[ >]')).Count -eq 1) 'the banner is one row: the timer and the box owed share a single paragraph, never a second line (Dave, October 24, 2026)'
 $bannerJs = Format-RepoHubBanner
@@ -122,7 +122,7 @@ $alone = Format-RepoHubHtml -Pages @() -GeneralPagesUrl 'http://localhost:4890'
 Assert-True ($alone -match 'class="grid-3"' -and $alone -notmatch 'href="/test-gate"' -and $alone -match 'href="/release-notes"') 'with no page of its own, the home page holds the general cards alone'
 Assert-True ($rp -match '<dt>Source at</dt><dd><code>abc1234</code></dd>') 'the Repository page names the commit the hub serves from'
 Assert-True ((Format-RepoHubHtml -Pages $pages) -notmatch 'Source at') 'and leave the row out when the commit could not be read'
-$ix = @('class="site-header"', 'id="settings"', 'class="breadcrumbs-bar"', 'id="hub-banner"', 'class="grid-3"', 'class="footer-note"') | ForEach-Object { $about.IndexOf($_) }
+$ix = @('id="hub-banner"', 'class="site-header"', 'id="settings"', 'class="breadcrumbs-bar"', 'class="grid-3"', 'class="footer-note"') | ForEach-Object { $about.IndexOf($_) }
 Assert-True ((@($ix | Where-Object { $_ -lt 0 }).Count -eq 0) -and ((($ix | Sort-Object) -join ',') -eq ($ix -join ','))) 'the blocks stand in the form''s order'
 $evil = Format-RepoHubHtml -Pages @(@{ Href = '/x"><script>'; Label = '<b>'; Sub = '' })
 Assert-True ($evil -notmatch 'x"><script>' -and $evil -match 'href="/x&quot;&gt;&lt;script&gt;"' -and $evil -notmatch '<b>') 'every value is escaped'
@@ -419,7 +419,7 @@ Write-Host '-- the release-notes page, as the dev server serves it (#3108)' -For
 $tpl = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'scripts\release\release-notes-page-template.html'))
 $rn = Format-ReleaseNotesDevPage -Html $tpl
 Assert-True ($rn -ne $tpl) 'the template has the shape the dressing needs'
-Assert-True ($rn.Contains((Format-RepoHubBanner)) -and $rn.IndexOf('id="hub-banner"') -gt $rn.IndexOf('class="breadcrumbs-bar"') -and ([regex]::Matches($rn, 'id="hub-banner"')).Count -eq 1) 'the release notes carry the general banner once, under the bar (#3297)'
+Assert-True ($rn.Contains((Format-RepoHubBanner)) -and $rn.IndexOf('id="hub-banner"') -lt $rn.IndexOf('class="breadcrumbs-bar"') -and ([regex]::Matches($rn, 'id="hub-banner"')).Count -eq 1) 'the release notes carry the general banner once, above the bar and any site header (#3297; owner, October 24, 2026)'
 Assert-True ($rn -match '<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">') 'it takes the theme key and the lilac default every other page of the general server uses (#3162)'
 Set-GeneralPagesThemeDefault 'teal'
 Assert-True ((Format-ReleaseNotesDevPage -Html $tpl) -match 'data-theme-default="teal"' -and (Format-GeneralPageHtml -Title 't' -Lead '' -Body '') -match 'data-theme-default="teal"') 'a repo''s DefaultTheme reaches the release notes and every general page (#3390)'
@@ -434,7 +434,7 @@ Assert-True ($rn.IndexOf('--panel: var(--paper-2)') -gt $houseAt) 'and the templ
 Assert-True ($rn.IndexOf('<script src="/house-theme.js"></script>') -lt $rn.IndexOf('<body')) 'the theme script loads in the head'
 $bodyAt = $rn.IndexOf('<body>')
 $barAt = $rn.IndexOf('<div class="breadcrumbs-bar">')
-Assert-True ($barAt -gt $bodyAt -and $rn.Substring($bodyAt + 6, $barAt - $bodyAt - 6).Trim() -eq '') 'the breadcrumb bar is the first thing in <body>'
+Assert-True ($barAt -gt $bodyAt -and $rn.Substring($bodyAt + 6, $barAt - $bodyAt - 6).Trim() -eq (Format-RepoHubBanner).Trim()) 'the banner is the first thing in <body>, and with no repo named the breadcrumb bar comes straight after it'
 Assert-True ($rn -match '<li><a href="/hub">Home</a></li>\s*<li><span class="breadcrumbs__sep" aria-hidden="true"><svg\ viewBox="0\ 0\ 24\ 24"><path\ fill="currentColor"\ fill-rule="evenodd"\ d="M9\.793\ 16\.707a1\ 1\ 0\ 0\ 1\ 0-1\.414L13\.086\ 12\ 9\.793\ 8\.707a1\ 1\ 0\ 0\ 1\ 1\.414-1\.414l4\ 4a1\ 1\ 0\ 0\ 1\ 0\ 1\.414l-4\ 4a1\ 1\ 0\ 0\ 1-1\.414\ 0"\ clip-rule="evenodd"/></svg></span><span aria-current="page">Release notes</span></li>') 'its trail runs from the hub, on /hub of the general server, to this page'
 Assert-True ($rn.IndexOf('DKJTheme.settings(') -gt $rn.IndexOf('id="settings"') -and $rn.IndexOf('DKJTheme.settings(') -lt $rn.LastIndexOf('</body>')) 'the settings button is mounted before </body>'
 Assert-True ($rn.Contains('<div class="wrap">') -and $rn.Contains('@@RELEASE_ROWS@@') -and $rn.Contains('@@PAGE_STYLE@@')) 'the template''s own content is left alone'
