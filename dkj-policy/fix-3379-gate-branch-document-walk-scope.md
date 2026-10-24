@@ -1,4 +1,4 @@
-﻿## fix/3379-gate-branch-document-walk-scope
+## fix/3379-gate-branch-document-walk-scope
 
 > **How this file is read.** A step is `- [ ]` until it is resolved -- `- [x]` done, or
 > `- [~]` dropped with the reason, which exists so nobody ticks a box for work they did not do.
