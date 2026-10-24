@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Resolves [#3400](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3400): the owner wants to time
+every release cut with the Stopwatch, to see whether it gets faster, and chose the stop rule in this session.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Invoke-StopwatchHookEvent -Commits`: a Stop needs a commit made during the run, and a `release…` label
+  needs a `release: vX.Y.Z release notes` commit made during the run
+- [x] `ConvertFrom-StopwatchCommitLog` parses `git log --format='%ct %s'`; the Stop hook passes the commits in
+  `StartHead..HEAD`, and `$null` when git refuses, which keeps the plain HEAD test
+- [x] the lib's header and the function's docstring describe the new rule
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1`: 11 new asserts (the parser, a fast-forward of older commits, the same-second
+  start, the release commit, the notes commit, older notes, the label test, the `$null` fallback); 159 passed
+- [x] replayed against the v5.30.0 cut's real commits: the run keeps going after the fast-forward
+  (`978d1c901..b162817d0`) and after the release commit (`..3ca292dd5`), and stops on the notes commit
+  (`..0af12f457`)
+
 ### DEPLOY: feat/3400-stopwatch-release-run
 
-**Score:**
+A Stopwatch run now stops only on a commit made during it, so a fast-forward that brought in others' older
+commits no longer ends it. A run whose label begins with `release` (`stopwatch: Release cut`) stops only on the
+`release: vX.Y.Z release notes` commit that `cut-release` step 4 prescribes. A release cut had moved HEAD at the
+fast-forward and again at the release commit, minutes before it was done
+([#3400](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3400)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the Stopwatch is this repo's own dev-server page and its hooks; no plugin ships it.
+
+**Score:** N/A
 
 #### Pull Request
 

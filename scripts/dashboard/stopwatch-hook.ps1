@@ -80,8 +80,15 @@ try {
         $porcelain = @(git -C $root --no-optional-locks status --porcelain 2>$null)
         $clean = ($LASTEXITCODE -eq 0) -and ($porcelain.Count -eq 0)
     }
+    # The commits since the run's start (#3400), only when HEAD moved: the run stops on one made during it, and a
+    # release run on its notes commit. A log git refuses leaves $commits $null, which keeps the plain HEAD test.
+    $commits = $null
+    if ($Hook -eq 'Stop' -and $head -and $head -cne $running.StartHead) {
+        $out = @(git -C $root log -n 500 --format='%ct %s' "$($running.StartHead)..$head" 2>$null)
+        if ($LASTEXITCODE -eq 0) { $commits = @(ConvertFrom-StopwatchCommitLog -Lines $out) }
+    }
     $ErrorActionPreference = 'Stop'
-    $r = Invoke-StopwatchHookEvent -Hook $Hook -Runs $store.Runs -Now ([datetime]::UtcNow) -Branch $branch -Clean $clean -Head $head -Trunk $trunk -Prompt $prompt
+    $r = Invoke-StopwatchHookEvent -Hook $Hook -Runs $store.Runs -Now ([datetime]::UtcNow) -Branch $branch -Clean $clean -Head $head -Trunk $trunk -Prompt $prompt -Commits $commits
     if ($r.Changed) {
         if ($store.Skipped) { Copy-Item -LiteralPath $StorePath -Destination "$StorePath.bak" -Force -ErrorAction SilentlyContinue }
         Save-StopwatchStore -Path $StorePath -Runs $r.Runs
