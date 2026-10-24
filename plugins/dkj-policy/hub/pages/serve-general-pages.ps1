@@ -40,6 +40,8 @@
                       Product card (mode 'product'), the setup cards (mode 'none'). EXCEPT where the repo
                       opted out with OwnHub (mode 'ownhub', #3245): then a 303 to the repo's own hub, the url
                       the file names, and a plain 404 text where it names none.
+      /repository     the hub's Repository page (Format-PluginRepoRepositoryHtml, #3383): the facts the home page
+                      held until the house hub became a grid of card links, and the Issues page's card.
       /refresh        ?page=issues or ?page=sessionstart drops that page's cache (at most once per
                       -MinRefreshSeconds, and per 60 s for issues) and goes back to the page.
       /whoami         the hash of the repo root this server was started in (Get-DevPreviewRootHash): the
@@ -422,6 +424,15 @@ try {
                 $hubMode = if ($state.Mode -eq 'product') { 'product' } else { 'none' }
                 $hubHtml = Format-PluginRepoHubHtml -RepoName (Get-RepoIdentity).Name -Folder (Split-Path -Leaf $root) -Mode $hubMode -ProductUrl $state.Product -PagesUrl "http://localhost:$Port" -DkjSolutions:$dkjSolutions
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($hubHtml)) -Method $method
+                continue
+            }
+            if ($path -eq '/repository') {
+                # The hub's Repository page (#3383): the facts and the Issues page, which the home page no longer holds.
+                $state = Read-RepoHubState -Root $root
+                $hubMode = if ($state.Mode -eq 'product') { 'product' } else { 'none' }
+                $id = Get-RepoIdentity
+                $repoHtml = Format-PluginRepoRepositoryHtml -RepoName $id.Name -Folder (Split-Path -Leaf $root) -Slug $id.Slug -Mode $hubMode -ProductUrl $state.Product -PagesUrl "http://localhost:$Port"
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($repoHtml)) -Method $method
                 continue
             }
             if ($path -eq '/refresh') {

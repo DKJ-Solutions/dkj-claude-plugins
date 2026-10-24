@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Owner decision on #3383 (Maikel, October 24, 2026): the source repo's `.grid-3` card-link hub with a
+separate Repository page is the house hub form. The README, the patterns and the plugin's hub follow it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `general-pages-lib.ps1`: `Format-HubCardLinkHtml`, the one hub card both hubs draw
+- [x] `repo-hub-page.ps1`: the home page as one `.grid-3` of card links; `Format-PluginRepoRepositoryHtml` for `/repository`
+- [x] `serve-general-pages.ps1`: the `/repository` route; the hub README's route table and home-page list
+- [x] `dev-pages-lib.ps1`: the source hub draws its cards through the shared helper
+- [x] House-style README "The hub", the `house-style` skill, `patterns/repo-dashboard.html` and the new `patterns/repo-repository.html`
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1` (326/0) and `dev-pages.tests.ps1` (311/0) green with the new asserts
+
 ### DEPLOY: feat/3383-house-hub-card-grid
 
-**Score:**
+The house hub's form is now the one the source repo's own hub already had, in the README, the patterns and the
+dkj-policy plugin's hub alike (#3383): the home page is one `.grid-3` of card links with no heading, and the
+facts and Issues sit on a separate Repository page on `/repository`. The two hubs draw their cards through one
+helper, `Format-HubCardLinkHtml`, and `patterns/repo-repository.html` is the new reference for that page.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every repo's hub the dkj-policy plugin serves changes shape at the next update: the products and pages become
+cards in one grid, and the facts move to a Repository page. A repo that built its own hub from the README
+now has a reference that matches the plugin's hub it sees beside it.
+
+**Score:** 3
 
 #### Pull Request
 

@@ -8,7 +8,8 @@
 
 .DESCRIPTION
     THE HUB IS ONE PAGE (owner, October 22, 2026), the house form since #3289, which this hub took first: before
-    it the house hub was a home page linking an About this repo page (#3270). Here the site header names the repo and
+    it the house hub was a home page linking an About this repo page (#3270). Its grid of card links with a
+    separate Repository page, which this hub also took first, is the house form too since #3383 (October 24, 2026). Here the site header names the repo and
     holds the settings button, the bar has its one crumb, Home, and the page goes straight to what About held: the
     Pages block (the 'This repo' card linking the repo's own pages, then the General card), the facts and a
     footer note, so it fits on one screen. This repo is no
@@ -114,10 +115,8 @@ function Format-RepoGitHubPageHtml {
     [void]$sb.AppendLine('<div><dt>Required check</dt><dd>lint-en-tests</dd></div>')
     if ($SourceCommit) { [void]$sb.AppendLine('<div><dt>Source at</dt><dd><code>' + (& $e $SourceCommit) + '</code></dd></div>') }
     [void]$sb.AppendLine('</dl>')
-    $card = { param($href, $label, $sub)
-        '<section class="card card--link"><nav class="menu-list" aria-label="' + $label + '"><a class="menu-item" href="' + $href +
-            '"><span class="menu-item__label">' + $label + '<span class="menu-item__sub">' + $sub + '</span></span>' + $script:RepoHubChevron + '</a></nav></section>'
-    }
+    # Each page a card of its own: the plugin's Format-HubCardLinkHtml, the house hub card (#3383).
+    $card = { param($href, $label, $sub) Format-HubCardLinkHtml -Href $href -Label $label -Sub $sub }
     [void]$sb.AppendLine('<div class="grid-3">')
     if ($GeneralPagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z') {
         [void]$sb.AppendLine((& $card '/issues' 'Issues' 'The open issues, grouped by what they wait on'))
@@ -180,17 +179,13 @@ function Format-RepoAboutBodyHtml {
         [AllowEmptyString()][string]$SourceCommit = '',
         [AllowEmptyString()][string]$GeneralPagesUrl = ''
     )
-    $e = { param($v) ConvertTo-DashboardText $v }
     $sb = New-Object System.Text.StringBuilder
     # Pages: every page a card of its own, three to a row (.grid-3), with no heading above them (owner, October 22,
-    # 2026): this repo's own first, then the general ones. A card holds the page's one menu-item row. The general pages are
-    # linked by bare path, since this hub relays them (#3168), and only when a plain loopback server answers -- the
-    # rule Format-GeneralPagesCardHtml applies; otherwise one card says the server is not running.
-    $pageCard = { param($p)
-        $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
-        '<section class="card card--link"><nav class="menu-list" aria-label="' + (& $e $p.Label) + '"><a class="menu-item" href="' + (& $e $p.Href) +
-            '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a></nav></section>'
-    }
+    # 2026; the house hub form since #3383): this repo's own first, then the general ones. A card holds the page's one
+    # menu-item row (the plugin's Format-HubCardLinkHtml). The general pages are linked by bare path, since this hub
+    # relays them (#3168), and only when a plain loopback server answers -- the rule Format-GeneralPagesCardHtml
+    # applies; otherwise one card says the server is not running.
+    $pageCard = { param($p) Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub }
     $general = $GeneralPagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z'
     [void]$sb.AppendLine('<div class="grid-3">')
     foreach ($p in @($Pages)) { [void]$sb.AppendLine((& $pageCard $p)) }
