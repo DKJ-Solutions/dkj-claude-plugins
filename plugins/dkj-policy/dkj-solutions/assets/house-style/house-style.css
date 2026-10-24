@@ -236,14 +236,14 @@ body > header, main > header { display: flex; justify-content: space-between; al
    pulled in slightly. h2-h5 are in the body sans (h2 since October 24, 2026, the owner; it was a serif too). */
 h1 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.01em; }
 h2 { font-weight: 600; }
-/* h1 is --primary, h2 --fg-4 and h3-h5 --fg-3 (owner, October 24, 2026: h2 on the last text step, 24px under the h1's
-   capitals; from October 19 it was --fg-2, because an h2 in the h1's colour read too much like it, and #3235 moved h2
+/* h1 and h2 are --primary, h3-h5 --fg-3 (owner, October 24, 2026: h2 back in the colour, now 24px in the sans under
+   the h1's serif capitals; from October 19 it was --fg-2, because an h2 in the h1's colour read too much like it, and #3235 moved h2
    and h3-h5 to the text steps). On a fill the paper is the text: .fill-primary and
    .fill-inverse at the end of this file switch every heading to --paper-1, so an h2 reads on the page and on the
    primary alike (owner, #3235). :where() keeps them at
    zero specificity, so a heading inside a coloured container (or one an app colours itself) wins without an override. */
 :where(h1) { color: var(--primary); }
-:where(h2) { color: var(--fg-4); }
+:where(h2) { color: var(--primary); }
 :where(h3, h4, h5) { color: var(--fg-3); }
 /* h1 is set in capitals so it stands further apart from h2 (owner, #3247); capitals want air between them,
    so its tracking opens to 0.02em. */

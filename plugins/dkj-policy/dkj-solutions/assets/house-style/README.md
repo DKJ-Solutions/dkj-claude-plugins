@@ -430,8 +430,8 @@ out). Three more things follow it by default, in light and in dark (and a measur
 - **Lines are tinted.** `--paper-3` is every line: borders, row dividers, grid lines and the meter track
   (a separate grid colour was dropped on October 14, 2026: it was too close to the border to tell apart).
 - **The theme picker previews it:** each swatch shows its own theme's page, with the primary as the dot.
-- **Links are the theme's colour**, as `--primary` (owner's decision, October 15, 2026). **`h1` is `--primary`,
-  `h2` is `--fg-4`, `.meta` on a span is `--fg-2` and `h3`–`h5` are `--fg-3`** (the owner, October 24, 2026, for `h2`:
+- **Links are the theme's colour**, as `--primary` (owner's decision, October 15, 2026). **`h1` and `h2` are
+  `--primary`, `.meta` on a span is `--fg-2` and `h3`–`h5` are `--fg-3`** (the owner, October 24, 2026, for `h2`:
   from #3235 until then it was `--fg-2`, and before #3235 `h2` and `h3`–`h5` were steps of the colour).
 - **On a fill the text switches** (#3235, the owner: *"h2 heeft niet altijd dezelfde kleur"*, an h2 does not always have the same colour). See
   [Fills](#fills-the-text-switches-with-the-ground).

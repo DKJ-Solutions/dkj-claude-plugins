@@ -661,11 +661,8 @@ function Format-StopwatchChangePercent {
 function Format-StopwatchPageShell {
     <# The pieces the two pages share: the page's own style layer and the live-clock script. Names are the page's (sw-), house tokens only. #>
     $style = '.sw-clock { font-size: var(--text-h1); font-weight: 600; margin: var(--spacing-2) 0; }' + "`n" +
-        # Five cards to a row on a full screen, four below 1400px, then two and one (the owner, October 24, 2026).
-        # Its own grid rather than a .grid-3, so a group takes no extra margin above its h2 (the owner, October 24, 2026).
-        '.sw-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--spacing-4); }' + "`n" +
-        '.sw-grid > .card { margin-top: 0; }' + "`n" +
-        '@media (max-width: 1400px) { .sw-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }' + "`n" +
+        # Five cards to a row, then two and one on a narrow screen (the owner, October 24, 2026).
+        '.sw-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }' + "`n" +
         '@media (max-width: 1000px) { .sw-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }' + "`n" +
         '@media (max-width: 760px) { .sw-grid { grid-template-columns: 1fr; } }' + "`n" +
         # A card's lines are built from the house text sizes (--text-lg, -base, -sm, -xs), the text colour or --muted, and the
@@ -754,7 +751,7 @@ function Format-StopwatchPageHtml {
     }
     foreach ($set in $sets) {
         if (-not @($set.Groups).Count) { continue }
-        [void]$body.AppendLine('<div class="sw-grid">')
+        [void]$body.AppendLine('<div class="grid-3 sw-grid">')
         [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $set.Title) + '</h2><p class="card__sub">' + (& $e $set.Sub) + '</p></div>')
         foreach ($g in @($set.Groups)) {
             # Three lines with no header above them, five cards to a row on a full screen (the owner, October 24, 2026): the run's start, its
