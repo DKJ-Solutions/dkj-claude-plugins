@@ -75,6 +75,7 @@ function Format-PluginRepoHubHtml {
     $n = ConvertTo-GeneralPageText (ConvertTo-PluginRepoHubName $RepoName)
     $product = if (Test-RepoHubLocalUrl $ProductUrl) { $ProductUrl } else { '' }
     $general = $PagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z'
+    $e = { param($v) ConvertTo-GeneralPageText $v }
 
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')

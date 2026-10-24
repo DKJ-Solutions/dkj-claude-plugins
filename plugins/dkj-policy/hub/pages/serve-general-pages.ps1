@@ -431,7 +431,6 @@ try {
             }
             if ($path -eq '/repository') {
                 # The hub's Repository page (#3383): the facts and the Issues page, which the home page no longer holds.
-                $state = Read-RepoHubState -Root $root
                 $hubMode = if ($state.Mode -eq 'product') { 'product' } else { 'none' }
                 $id = Get-RepoIdentity
                 $repoHtml = Format-PluginRepoRepositoryHtml -RepoName $id.Name -Folder (Split-Path -Leaf $root) -Slug $id.Slug -Mode $hubMode -ProductUrl $state.Product -PagesUrl "http://localhost:$Port"
