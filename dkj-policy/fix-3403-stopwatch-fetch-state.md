@@ -39,19 +39,44 @@
 
 ### PLAN
 
+#3403, verified in the code: `Get-StopwatchPageRuns` raised `Fetching` only while no other machine had been
+read, so a fetch on a later visit was silent, and the page never said how old its copy of the other machines'
+runs was. A visible result: parked for the owner's look, no PR until then.
+
+#### For the owner's look
+
+Open `http://localhost:4871/stopwatch` (restarted on this branch). The footer now ends "...the runs of 2 other
+machines are shown with these, as last fetched <time>." While a sync runs, the page shows "Checking origin for
+newer runs from the other machines. This page reloads in a few seconds to show any." and reloads.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Fetching` on every visit a sync runs, with its own wording once other machines are shown.
+- [x] The footer names when the other machines' runs were last fetched (the mtime of `stopwatch-sync.log`).
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1`: the later-visit notice and its reload, the fetched time in local time, and no time
+  claimed without one (179 passed standalone).
+- [ ] The owner has looked at `/stopwatch`.
+
 ### DEPLOY: fix/3403-stopwatch-fetch-state
 
-**Score:**
+The Stopwatch overview now says when its copy of the other machines' runs was last fetched, and says so
+whenever a fetch is running, not only on the first visit
+([#3403](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3403)). The page renders the runs last
+fetched into `refs/stopwatch-origin/*` and starts a fetch in the background, so a run another machine had just
+published was missing with no sign of why. Measured: a group showed one card short of another machine's
+overview. The footer now ends with `as last fetched <time>`. While a fetch runs, the page says it is checking
+origin for newer runs and reloads until the fetch ends.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the Stopwatch is this repo's own dev-server page; no plugin ships it.
+
+**Score:** N/A
 
 #### Pull Request
 

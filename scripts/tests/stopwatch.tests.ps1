@@ -246,6 +246,13 @@ $empty = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -S
 Assert-True ($empty -match 'no other machine has shared a run yet' -and $empty -notmatch 'being fetched|location\.reload') 'with no sync under way an empty origin is stated, and the page does not reload'
 $fetching = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's' -Fetching
 Assert-True ($fetching -match 'being fetched' -and $fetching -match 'still being fetched' -and $fetching -notmatch 'no other machine has shared' -and $fetching -match 'location\.reload') 'while the first sync fetches, the page says so instead of an empty origin, and reloads (#3377)'
+# #3403: a later visit's fetch is said too, and the copy of the other machines' runs carries its age.
+$later = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's' -SharedMachines 2 -Fetching
+Assert-True ($later -match 'Checking origin for newer runs' -and $later -match 'location\.reload' -and $later -notmatch 'are being fetched from origin') 'a fetch on a later visit, with machines already shown, says it checks for newer runs and reloads (#3403)'
+$when = [datetime]::SpecifyKind([datetime]'2026-10-24 09:30:00', 'Utc')
+$aged = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's' -SharedMachines 2 -LastFetched $when
+Assert-True ($aged -match ('the runs of 2 other machines are shown with these, as last fetched ' + [regex]::Escape($when.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)) + '\.') -and $aged -notmatch 'location\.reload') 'the footer names when the other machines'' runs were last fetched, in local time (#3403)'
+Assert-True ($empty -notmatch 'as last fetched') 'with no fetch on record no time is claimed'
 $broken = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -ReadError 'it is not valid JSON' -StorePath 's'
 Assert-True ($broken -match 'could not be read') 'a store that does not read says so'
 
