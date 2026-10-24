@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Inbound #3401: a port holder in another Windows logon session reads back with an empty command line,
+so the dev-preview line named it by bare pid with no reason. Verified in the code: the hook's process
+table read no `SessionId`, and `Format-DevPreviewPortHolders` fell back to the pid whenever no name came.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The hook's process table carries each process's `SessionId`.
+- [x] `Format-DevPreviewPortHolders` says when a holder's command line cannot be read, and names the
+  other logon session where its `SessionId` differs from the hook's own.
+- [x] The hub README's table of lines shows the new shape.
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: the measured case, an unreadable holder in our own session,
+  the default session, and the #3378 assert updated to the new wording.
+
 ### DEPLOY: fix/3401-holder-other-logon-session
 
-**Score:**
+The dev-preview line now says why it can only name a port's holder by pid
+([#3401](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3401)). Where the holder's command line
+reads back empty, the entry reads `3000 by pid 22588 (its command line cannot be read)`, and
+`(another logon session -- its command line cannot be read)` where the holder runs in another Windows logon
+session of the account. Measured: the bare pid was this checkout's own product, started from another session,
+and nothing in the line said where to look.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer whose dev server was started from another Windows logon session now learns that from the session
+line, instead of hunting for a foreign app holding the port.
+
+**Score:** 2
 
 #### Pull Request
 
