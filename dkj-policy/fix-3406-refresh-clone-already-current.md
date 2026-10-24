@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Inbound #3406. Verified in the code: step 1 counted every non-zero `marketplace update` as a failure,
+whatever state the clone was in. The lock holder being the session itself is the reporter's inference and
+stays one; the repair does not depend on it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] A failed refresh asks `git ls-remote origin HEAD` of the clone; at its own HEAD it is a `WARNING`, not
+  a failure, and the summary says how many.
+- [x] A `FAILED` refresh whose output carries `EBUSY` names the lock and its likely holder.
+- [x] The plugin mirror synced; the skill page says both.
 
 ### TEST
 
+- [x] `update-plugins.tests.ps1` 6b-6d, against a real local origin: at origin's HEAD exit 0, behind it
+  exit 1, and the EBUSY line.
+
 ### DEPLOY: fix/3406-refresh-clone-already-current
 
-**Score:**
+`update-plugins` no longer exits 1 when a marketplace refresh fails while the clone is already at its
+origin's HEAD ([#3406](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3406)). On Windows the refresh
+can fail with `EBUSY` while a session holds the clone. Measured: the run exited 1 while its own receipt read
+all plugins current. A failed refresh now asks the clone's origin for its HEAD. Where that matches the clone,
+the refresh prints as a `WARNING` and the run can still exit 0. A refresh that really left the clone behind
+stays `FAILED`, and an `EBUSY` one says to close the other sessions and rerun.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer running `update-plugins` from inside a session on Windows gets an exit code that agrees with its
+receipt, instead of a red run after an update that went through.
+
+**Score:** 2
 
 #### Pull Request
 
