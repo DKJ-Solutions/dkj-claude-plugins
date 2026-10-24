@@ -520,32 +520,22 @@ level-up colours, the equipment lists, the stat lines, the chips and the downloa
 
 ## Page patterns
 
-### An h2 never stands inside a card
+### An h2 may title a card
 
-**A hard rule** (Maikel, October 19, 2026,
-[#3175](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3175)): **an `h2` always stands above the
-card or cards it heads, never inside one.** The `h2`s are what group a page: one `h2` with its sub line, the
-cards that belong to it, then the next `h2`. A heading inside a card's border reads as that card's label and
-groups nothing.
+**Retired rule** (Maikel, October 24, 2026): from October 19, 2026
+([#3175](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3175)) an `h2` always stood above the
+card or cards it heads and never inside one, and `check-house-style` held that as its fourth check, `heading`.
+Both are gone: an `h2` may now title a card, as the Stopwatch's label cards do.
 
-- **The form:** a `.grid-2` whose first child is a `.grid__head` (the `h2`, then a `p.card__sub`), then the
-  cards. Two cards sit side by side; a card with `.grid__full` takes the whole row, so stacked cards each carry
-  it. With React, the brand book's `CardGroup`.
-- **A card's own title is an `h3`**: `.card__head` > `h3.card__title` (room for a `.badge` before the text) or a
-  plain `h3`, then an optional `.card__sub`. A card that is the only one under its `h2` needs no title of its
-  own. With React, `CardHead` in a `Card variant="data"` renders an `h3`.
-- **Related cards share one `h2`.** Where several cards answer one question (three ways of counting the same
-  issues, the in-flight lists), they stand under one `h2` with an `h3` each, rather than an `h2` each.
-- **The spacing does the grouping.** In a `.page-column`, a `.grid-2` with a `.grid__head` takes an extra
-  `--spacing-5` above it, so an `h2` sits clearly closer to its own cards (`--spacing-4`) than to the group
-  before it.
-- **The gate holds it:** `check-house-style`'s fourth check, `heading`, reports an `h2` carrying
-  `.card__title` (or the brand book's `.dkj-card-title`) and an `h2` opening a `.card__head`
-  (or `.dkj-card-head`).
-
-**What this changes for an app that takes the update:** a card titled with `h2.card__title` fails the gate.
-Move the `h2` and its sub line into a `.grid__head` above the card, and add `.grid__full` to the card. A
-`.card__title` now renders at `--text-h3`, in the sans, where it was `--text-h2` in the serif.
+- **The grouping form still stands where a page groups cards**: a `.grid-2` whose first child is a
+  `.grid__head` (the `h2`, then a `p.card__sub`), then the cards; a card with `.grid__full` takes the whole
+  row. With React, the brand book's `CardGroup`. In a `.page-column`, a `.grid-2` with a `.grid__head` takes
+  an extra `--spacing-5` above it, so an `h2` sits closer to its own cards than to the group before it.
+- **A card's own title under such a group is still an `h3`**: `.card__head` > `h3.card__title` (room for a
+  `.badge` before the text) or a plain `h3`, then an optional `.card__sub`. A `.card__title` renders at
+  `--text-h3`, in the sans.
+- **A card that stands on its own may carry an `h2`** instead, when it is one of a set of cards that each name
+  a subject of the page, rather than a part of one group.
 
 ### Every page: the breadcrumb bar
 
