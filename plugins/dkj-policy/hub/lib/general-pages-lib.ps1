@@ -88,9 +88,10 @@ function Format-GeneralPageHtml {
         the app's name on the primary above the bar, linking -HubHref, with the settings button in it; the eyebrow
         then goes, since the header already names the site. -BrandTag is the word after the name. A page that
         names -SiteName and no -Brand gets the header anyway (ConvertTo-SiteHeaderName), since October 22, 2026. Without it the page is as it always was.
-        -Bare (a page's own choice, default off) leaves out everything above -Body: the h1, the lead and the general
-        banner, so the page opens on its own content; the crumbs and the site header stay, and -Title still names the
-        crumb and the <title>. -Lead may then be empty.
+        -Bare (a page's own choice, default off) leaves out the intro above -Body: the h1 and the lead, so the page
+        opens on the general banner and then its own content; the crumbs, the site header and the banner stay (the
+        banner is on every hub page without exception, #3356), and -Title still names the crumb and the <title>.
+        -Lead may then be empty.
         -ParentCrumbs are the crumbs between Home and the page, in order, each @{ Label; Href }: a page nested under
         another (the Stopwatch's run pages) names its parent so the trail reads Home > parent > the page.
     #>
@@ -150,9 +151,10 @@ function Format-GeneralPageHtml {
         [void]$sb.AppendLine('<h1>' + (& $e $Title) + '</h1>')
         [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>')
         [void]$sb.AppendLine('</div>')
-        # The general banner on every page, not only the home page (#3297): under the intro, above the page's own blocks.
-        [void]$sb.AppendLine((Format-RepoHubBanner))
     }
+    # The general banner on every page, not only the home page (#3297), and a bare one too (#3356): under the
+    # intro where there is one, above the page's own blocks.
+    [void]$sb.AppendLine((Format-RepoHubBanner))
     [void]$sb.Append($Body)
     if ($FooterNote) { [void]$sb.AppendLine('<p class="footer-note">' + $FooterNote + '</p>') }
     [void]$sb.AppendLine('</main>')
@@ -170,7 +172,7 @@ function Format-RepoHubBanner {
         adds another 10, so the box shows the total owed; ticking it clears the total.
 
         ONE FUNCTION, ON EVERY HUB PAGE (#3297): both home pages (through Format-RepoHomeHeadHtml), every page
-        Format-GeneralPageHtml draws, and the release notes (Format-ReleaseNotesDevPage), so the hubs carry the
+        Format-GeneralPageHtml draws, a -Bare one included (#3356), the Connectors page (Format-ConnectorDashboardHtml), and the release notes (Format-ReleaseNotesDevPage), so the hubs carry the
         same banner wherever the visitor is. It sits directly under the intro, inside <main>, and uses house
         classes only (.notice, .msg, .num), because the hub restyles nothing.
 

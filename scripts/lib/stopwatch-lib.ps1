@@ -19,8 +19,8 @@
         turn's end. A turn that only answers leaves HEAD where it was, and a branch parked for the owner's eye is
         not on the trunk, so the run keeps going in both.
 
-    TWO PAGES, BOTH READ-ONLY AND BARE (no h1, lead, tiles or the hub's airsquats banner above their content; the
-    plugin's Format-GeneralPageHtml -Bare). '/stopwatch' is an overview of cards, ONE PER RUN, also when two runs
+    TWO PAGES, BOTH READ-ONLY AND BARE (no h1, lead or tiles above their content, only the hub's airsquats banner,
+    which is on every hub page, #3356; the plugin's Format-GeneralPageHtml -Bare). '/stopwatch' is an overview of cards, ONE PER RUN, also when two runs
     share a label (the owner, October 23, 2026: runs of one label were merged into one card twice): named by the run's
     start, with its label, its time and its change against the previous run of the same label, or the live clock of the run going
     now, in the hub's own card markup. Each card links to '/stopwatch/<slug>', the run's page: its time, that change
@@ -667,8 +667,8 @@ function Format-StopwatchPageShell {
 
 function Format-StopwatchPageHtml {
     <#
-        The overview on '/stopwatch', read-only, and bare (no h1, lead, tiles or general banner): it opens on the
-        Measurements heading and one card per run, newest first, named by its start, with its label, its time and its change
+        The overview on '/stopwatch', read-only, and bare (no h1, lead or tiles; the general banner stays, #3356): it opens on the
+        banner, then the Measurements heading and one card per run, newest first, named by its start, with its label, its time and its change
         against the previous run of the same label, and a link to the run's own page (Format-StopwatchRunPageHtml), in
         the hub's card markup. The run going now shows its live clock on its card. -ReadError is set when the
         store could not be read. -StorePath is named in the footer, so a run can be read and evaluated outside

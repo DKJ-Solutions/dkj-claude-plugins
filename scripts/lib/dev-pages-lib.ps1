@@ -73,7 +73,7 @@ function Format-DevPageHtml {
         [switch]$Bare,
         [AllowEmptyCollection()][object[]]$ParentCrumbs = @()
     )
-    # -Bare: no h1, lead or general banner above the body (Format-GeneralPageHtml's own switch), for a page that opens on its content.
+    # -Bare: no h1 or lead above the body, the general banner still on top (Format-GeneralPageHtml's own switch, #3356), for a page that opens on its content.
     return Format-GeneralPageHtml -Title $Title -Lead $Lead -Body $Body -Style $Style -FooterNote $FooterNote -ThemeKey $ThemeKey `
         -Brand 'dkj-claude-plugins' -BrandTag $BrandTag -SiteName 'dkj-claude-plugins' -HubHref '/' -Bare:$Bare -ParentCrumbs $ParentCrumbs
 }
