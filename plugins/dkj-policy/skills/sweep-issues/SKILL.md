@@ -143,6 +143,13 @@ The marker goes on first, the assignee beside it, and then the claim is **read b
 machine got there first, this session releases its own marker and stops with exit 1. Take the next free
 number -- a lost race costs a claim, never work.
 
+**And before the marker, it asks origin once more.** An issue `free` at step 1 may have gained a
+`<prefix>/<n>-*` branch since, pushed by a session that wrote no marker. The claim refuses it, whoever
+wrote it: same account is not same session. Measured October 24, 2026
+([#3386](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3386)): a sweep claimed #3379 an hour
+after step 1, and the other session's branch merged first. Read the branch, and resume your own work
+with `-TakeOver` below.
+
 **A refusal is final here -- with one deliberate exception.** `held` means another machine is mid-flight
 and its branch is somewhere this session cannot see. The exception is your OWN issue on another of your
 machines, whose branch IS on origin -- the state a machine you cannot reach leaves behind
