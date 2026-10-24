@@ -89,7 +89,7 @@ function Format-GeneralPageHtml {
         then goes, since the header already names the site. -BrandTag is the word after the name. A page that
         names -SiteName and no -Brand gets the header anyway (ConvertTo-SiteHeaderName), since October 22, 2026. Without it the page is as it always was.
         -Bare (a page's own choice, default off) leaves out the intro above -Body: the h1 and the lead, so the page
-        opens on the general banner and then its own content; the crumbs, the site header and the banner stay (the
+        opens on the general banner (the first block of every page, above the h1 where there is one) and then its own content; the crumbs, the site header and the banner stay (the
         banner is on every hub page without exception, #3356), and -Title still names the crumb and the <title>.
         -Lead may then be empty.
         -ParentCrumbs are the crumbs between Home and the page, in order, each @{ Label; Href }: a page nested under
@@ -145,6 +145,9 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine('</ol></nav></div></div>')
     if (-not $Brand) { [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>') }
     [void]$sb.AppendLine('<main class="page-column">')
+    # The general banner on every page, not only the home page (#3297), and a bare one too (#3356): ALWAYS the first
+    # block of the page, above the h1 where there is one (owner, October 24, 2026).
+    [void]$sb.AppendLine((Format-RepoHubBanner))
     if (-not $Bare) {
         [void]$sb.AppendLine('<div>')
         if ($Eyebrow -and -not $Brand) { [void]$sb.AppendLine('<p class="eyebrow">' + (& $e $Eyebrow) + '</p>') }
@@ -152,9 +155,6 @@ function Format-GeneralPageHtml {
         [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>')
         [void]$sb.AppendLine('</div>')
     }
-    # The general banner on every page, not only the home page (#3297), and a bare one too (#3356): under the
-    # intro where there is one, above the page's own blocks.
-    [void]$sb.AppendLine((Format-RepoHubBanner))
     [void]$sb.Append($Body)
     if ($FooterNote) { [void]$sb.AppendLine('<p class="footer-note">' + $FooterNote + '</p>') }
     [void]$sb.AppendLine('</main>')
@@ -349,6 +349,8 @@ function Format-RepoHomeHeadHtml {
     [void]$sb.AppendLine('</ol></nav></div></div>')
     if (-not $Brand) { [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>') }
     [void]$sb.AppendLine('<main class="page-column">')
+    # The general banner first, above the intro, as on every hub page (owner, October 24, 2026).
+    [void]$sb.AppendLine((Format-RepoHubBanner))
     # Under a site header there is no intro at all (owner, October 22, 2026): the header names the repo, and the
     # page goes straight to its sections. Without one, the intro is a <div>, never a <header>, which the house
     # style lays out as a flex row.
@@ -358,7 +360,6 @@ function Format-RepoHomeHeadHtml {
         [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>')
         [void]$sb.AppendLine('</div>')
     }
-    [void]$sb.AppendLine((Format-RepoHubBanner))
     return $sb.ToString()
 }
 

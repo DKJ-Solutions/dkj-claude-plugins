@@ -225,7 +225,7 @@ Assert-True ($html -match '<body>\s*<header class="site-header">.*</header>\s*<d
 Assert-True (([regex]::Matches($html, '<header')).Count -eq 1 -and $html -notmatch 'cd-band|cd-accent') 'and its intro is no <header> (the one is the site header), and no decoration the form does not carry'
 Assert-True ($html -notmatch 'About this repo</h2>' -and $html -match 'href="#overview">Back to overview') 'the facts card is the hub''s, and the card the overview links down to carries the way back'
 Assert-True ($html.Contains((Format-RepoHubBanner)) -and ([regex]::Matches($html, 'id="hub-banner"')).Count -eq 1) 'the page carries the hub''s general banner once, as every hub page does (#3356)'
-$ix = @('class="site-header"', 'class="breadcrumbs-bar"', '<h1>', 'id="hub-banner"', 'class="tiles"', 'Connected repos</h2>', 'Issues</h2>', 'class="footer-note"') | ForEach-Object { $html.IndexOf($_) }
+$ix = @('class="site-header"', 'class="breadcrumbs-bar"', 'id="hub-banner"', '<h1>', 'class="tiles"', 'Connected repos</h2>', 'Issues</h2>', 'class="footer-note"') | ForEach-Object { $html.IndexOf($_) }
 Assert-True ((@($ix | Where-Object { $_ -lt 0 }).Count -eq 0) -and ((($ix | Sort-Object) -join ',') -eq ($ix -join ','))) 'and its blocks stand in the form''s order'
 Assert-True ($html -match '1\.3s|1\.2s') 'the run time is printed with an invariant decimal point'
 Assert-Equal 'bwj' (Get-ConnectorOwnerGroup 'BWJ-Development/shop') 'a BWJ-Development repo is in the BWJ group'

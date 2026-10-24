@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**7 / 20 minor entries** <!-- pending-tally -->
+**8 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/stopwatch-cards-readable · 20261024-143319Z
+
+The `/stopwatch` overview is a bare page, with no `h1` or lead (the breadcrumb names it), and groups its cards under one `h2` per prompt label (compared case-insensitively, the label with the newest run first, with no sub line under it); the Logbook, which draws its overview with the same function, keeps its bare page and its one Measurements heading (`-Flat`). The cards on both read in three lines, with no header above them: the run's start; its prompt label as the link to the run's page, with the run's version behind it (`v3`) once the label has run more than once; and its total time with its change against the previous run of the same label beside it, as a signed percent only (`+31%` in green when faster, `-25%` in red when slower: the sign is the result's). A card sets its text in the house sizes (`--text-lg`, `-base`, `-sm`, `-xs`), the text colour or `--muted`, and the weights 300 to 800 only, with no heading: the start is the heaviest line (base, 800), the prompt label with its version the least visible (sm, regular, muted), and the time light (base, 300) with its change beside it (xs, regular). The cards stand five to a row, then two and one on a narrow screen, in grids of the page's own (`.sw-grid`) with no top margin; the groups stand in one wrapper (`.sw-groups`) whose 28px gap (`--spacing-7`) spaces them apart.
+
+The hub's airsquats banner is now always the first block of a hub page, above the `h1` where there is one (the general page shell, the home page and the Connectors page; the release notes already had it there).
+
+The house style's `h2` is now 24px (`--text-h2`, was 32px) at weight 700 (was 600), set in the sans (it was the serif `h1` keeps) and in the theme colour (`--primary`, was `--fg-2`), while the `h1` stands apart by its 32px serif capitals. The `.lead` under an `h1` is now body size (`--text-base`, was `--text-lg`). The site header's initials mark used `--text-h2` and now takes `--text-h1`, so it keeps its size. The breadcrumb trail is set at `--text-base` (was `--text-sm`), and under a site header its current page is in the theme colour (`--primary`, was `--fg-1`). The house style README, the brand book's type specimen and the checksum in the `house-style` skill follow the new file.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions app that takes the next house-style copy gets smaller sans `h2`s in its theme colour, a body-size lead under its `h1` and a larger breadcrumb trail with its current page in the theme colour, and every repo's hub shows its banner above the page title, without changing anything of its own.
+
+**Score:** 3
+
+#### Pull Request
+
+Stopwatch cards grouped per prompt, the hub banner on top, and a smaller house h2
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3387](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3387)
+
+---
 
 ### DEPLOY: fix/3379-gate-branch-document-walk-scope · 20261024-140923Z
 
