@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**2 / 11 minor entries** <!-- pending-tally -->
+**3 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3368-untimed-suite-count · 20261024-104843Z
+
+The test gate now says how many suites `suite-durations.json` has not timed, and names them, on its opening lines. Each one is charged the largest recorded duration when the CI shards are packed, so twelve untimed suites had quietly added about 3,000 seconds of load nobody saw until a stopwatch found it weeks later (#3367). The skew now shows on the run that introduces it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo that keeps its own `suite-durations.json` sees one new yellow line in its test gate when a suite is missing from it; without that file nothing changes.
+
+**Score:** 1
+
+#### Pull Request
+
+Report how many suites suite-durations.json has not timed
+
+Plugins: dkj-policy, dkj-subagents-shopify
+
+[PR #3372](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3372)
+
+---
 
 ### DEPLOY: docs/stopwatch-css-comment-v4 · 20261024-102537Z
 

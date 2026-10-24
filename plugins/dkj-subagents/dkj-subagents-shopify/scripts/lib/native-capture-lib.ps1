@@ -2938,6 +2938,40 @@ function Get-TestSuiteShardOrder {
     return @($bins[$Shard - 1])
 }
 
+function Get-TestSuiteUntimedNames {
+    <#
+    .SYNOPSIS
+        The suites in a pool that the duration hints do not name, by name. Issue #3368.
+
+    .DESCRIPTION
+        THE COUNT IS WHAT NOBODY SAW. Get-TestSuiteShardOrder charges an untimed suite the largest
+        recorded value, and that rule is right for ONE new suite (#2307). What it hides is that each
+        further one adds roughly another maximum of load the packer believes in and the runner never
+        does. Measured October 24, 2026: twelve suites had gone untimed since the hints file's last
+        refresh, each charged 267.7s while most ran in 1 to 40s, so the packer was carrying about
+        3,000s that did not exist -- and the slowest shard, simulated over three CI runs, came down
+        from 454s to 378s once the file was refreshed. Nothing had reported the twelve; a stopwatch
+        found them weeks later. The gate now names them on its opening lines, so the skew is visible
+        on the run that introduces it.
+
+        No hints at all returns nothing: that is the stride, where no suite is charged anything and
+        there is no skew to report -- which is every consumer without a suite-durations.json.
+
+    .PARAMETER Suites
+        The pool, in any order. Anything with a .Name is accepted, so a test can pass fakes.
+
+    .PARAMETER Costs
+        Name -> seconds, from Get-TestSuiteCostHints.
+    #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][object[]]$Suites,
+        [hashtable]$Costs
+    )
+
+    if (-not $Costs -or $Costs.Count -eq 0) { return @() }
+    return @($Suites | Where-Object { -not $Costs.ContainsKey($_.Name) } | ForEach-Object { $_.Name } | Sort-Object)
+}
+
 function Get-TestSuiteFocusOrder {
     <#
     .SYNOPSIS
@@ -4002,6 +4036,7 @@ function Invoke-TestSuiteGate {
     # the shard order in exactly the same shape, so the pool below has one kind of thing to handle and a
     # focus run is not a second code path through it.
     $runItems = @()
+    $untimedNames = @()
     if ($focusMode) {
         if ($suites.Count -eq 0) {
             throw "Invoke-TestSuiteGate: -FocusSuite '$FocusSuite' was asked for, but $TestsDir holds no *.tests.ps1 suites."
@@ -4009,6 +4044,10 @@ function Invoke-TestSuiteGate {
         $runItems = @(Get-TestSuiteFocusOrder -Suites $suites -Costs $costHints `
                         -FocusSuite $FocusSuite -Repeat $FocusRepeat -Lanes $MaxParallel)
     } else {
+        # Counted over the whole pool BEFORE the slice, because the skew it reports is in the pack, and
+        # the pack is a function of every suite -- an untimed suite in another shard moves this one's.
+        $untimedNames = @(Get-TestSuiteUntimedNames -Suites $suites -Costs $costHints)
+        $untimedOf    = $suites.Count
         $suites = @(Get-TestSuiteShardOrder -Suites $suites -Costs $costHints -Shard $Shard -ShardCount $ShardCount)
         $runItems = @($suites | ForEach-Object {
             [pscustomobject]@{ File = $_; IsTarget = $true; Label = $_.Name; Stem = $_.BaseName }
@@ -4139,6 +4178,15 @@ function Invoke-TestSuiteGate {
         # itself and has nothing to be told.
         if ($laneLimitReason) {
             Write-Host "  lanes set by $laneLimitReason -- pass -MaxParallel to override." -ForegroundColor DarkGray
+        }
+        # HOW MANY SUITES THE PACK IS GUESSING AT -- issue #3368. Printed only when there are any, so a
+        # run on fresh hints sees no byte it did not see before. Each one is charged the maximum, so the
+        # count is roughly how many maxima of load the shards are carrying that the runner never does.
+        if ($untimedNames.Count -gt 0) {
+            $maxHint = [math]::Round((($costHints.Values | Measure-Object -Maximum).Maximum), 1)
+            Write-Host ("  $($untimedNames.Count) of $untimedOf suites have no entry in suite-durations.json " +
+                        "and are each charged the maximum (${maxHint}s) -- refresh it with record-suite-durations " +
+                        "(issue #3368): $($untimedNames -join ', ')") -ForegroundColor Yellow
         }
         if ($suiteDeadline -gt 0) {
             # 'TO START WITH' IS LOAD-BEARING SINCE #2263: on the default bound this figure is a floor
