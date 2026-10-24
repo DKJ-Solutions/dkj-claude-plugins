@@ -35,8 +35,10 @@
     WHAT A MISS COSTS IS DIFFERENT FROM THE LOCAL GATE, and that is the trade the owner accepted. Locally a
     missed suite costs a red CI run. Here nothing runs behind the selection, so a missed suite is an ungated
     merge of an asset-only PR. Trusting a declaration to drop a walker is part of that trade, accepted on
-    October 24, 2026 with the scope guard as its condition (#3392); what the guard cannot see -- a walk done
-    inside a script the suite runs against the live tree -- rests on the declaration alone. The lint job still runs in full on every PR, and that includes its encoding
+    October 24, 2026 with the scope guard as its condition (#3392). What the guard cannot see rests on the
+    declaration alone: a walk done inside a script the suite runs against the live tree, and the in-suite
+    shapes the walk reading does not follow -- a root piped into Get-ChildItem, a root handed to a function
+    parameter, a git read through Invoke-GitRead, a Select-String over a wildcard path (#3397). The lint job still runs in full on every PR, and that includes its encoding
     and text checks over `.css` and `.html`. The next PR that touches anything else runs the whole pool over
     the same tree.
 

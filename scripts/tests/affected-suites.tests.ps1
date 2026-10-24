@@ -221,6 +221,12 @@ $list = @('c-tool.ps1', 'docs/data.json')
     Assert-Equal 'a/b/x-persona.md' (& $samplesOf "`$src = Join-Path `$RepoRoot 'a\b\c-persona.md'`nGet-ChildItem -LiteralPath (Split-Path `$src -Parent) -Filter '*-persona.md'`n") 'Split-Path resolves to the parent'
     Assert-Equal 'x.gate-any' (& $samplesOf "`$d = Get-Something`n`$all = Join-Path `$RepoRoot `$d`nGet-ChildItem -LiteralPath `$all -Recurse`n") 'an unresolved root samples from no directory'
     Assert-Equal 'x.md' (& $samplesOf "`$d = if (`$a) { Join-Path `$RepoRoot 'a' } else { Join-Path `$RepoRoot 'b' }`nGet-ChildItem -LiteralPath `$d -Filter '*.md'`n") 'and so does one assigned through a statement it cannot read'
+    Assert-Equal 'x.md' (& $samplesOf "`$r = @('scripts')`n`$r += 'plugins'`nforeach (`$x in `$r) { Get-ChildItem -LiteralPath (Join-Path `$RepoRoot `$x) -Recurse -Filter '*.md' }`n") "a '+=' write makes the variable unresolved, not its first value alone (Victor)"
+    Assert-Equal 'x.md' (& $samplesOf "`$d = 'scripts'`nSet-Variable d 'plugins'`nGet-ChildItem -LiteralPath (Join-Path `$RepoRoot `$d) -Filter '*.md'`n") 'and so does a Set-Variable'
+    Assert-Equal 'a/x.gate-any|b/x.gate-any' (& $samplesOf "`$dirs = @((Join-Path `$RepoRoot 'a'), (Join-Path `$RepoRoot 'b'))`nforeach (`$d in `$dirs) { Get-ChildItem `$d -Recurse }`n") 'a foreach over live paths is a live walk through its loop variable'
+    Assert-True (Get-SuiteReferenceSet -Text "Copy-Item `$RepoRoot `$tmp -r`n").Walks 'an abbreviated -Recurse makes a Copy-Item a walk'
+    Assert-True (Get-SuiteReferenceSet -Text "& git -C `$RepoRoot ls-files -- ':!*.md'`n").WalksOpen 'a git exclude pathspec narrows nothing, so the walk stays open'
+    Assert-Equal '' (& { $set = Get-SuiteReferenceSet -Text "Get-ChildItem `$RepoRoot -Recurse`n"; @($set.WalkSamples) -join '|' }) 'without -SuiteDirectory no samples are computed -- the selection never reads them'
     Assert-Equal '' (@(Get-UncoveredWalkSample -Samples @('plugins/p/x.gate-any') -Scope @('plugins/p/*')) -join ',') 'an open walk is covered by a folder pattern over its root'
     Assert-Equal 'plugins/q/x.gate-any' (@(Get-UncoveredWalkSample -Samples @('plugins/q/x.gate-any') -Scope @('plugins/p/*', '*.ps1')) -join ',') 'but not by one over another folder, nor by a typed pattern'
     Assert-Equal 'x.ps1' (@(Get-UncoveredWalkSample -Samples @('x.ps1', 'scripts/x.ps1') -Scope @('scripts/*.ps1')) -join ',') 'a whole-tree *.ps1 walk is NOT covered by scripts/*.ps1 -- the hole the filter-only guard had'

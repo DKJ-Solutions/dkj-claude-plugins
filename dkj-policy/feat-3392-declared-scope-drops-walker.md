@@ -53,12 +53,16 @@ roots included.
   `"$var\x"`, a foreach or ForEach-Object over a constant list, and the variables those are assigned to,
   plus each typed filter, or any type for an open walk. `Get-UncoveredWalkSample` replaces the
   filter-only `Test-WalkScopeCovers`, and `WalkFilters` goes with it.
+- [x] Victor's review: `+=` and Set-Variable writes make a variable unresolved, a foreach over live
+  paths is a live walk through its loop variable, `Copy-Item -r` is a walk, a git `:!` or `-` argument is
+  no filter, and samples are computed only when `-SuiteDirectory` is given (the selection never reads
+  them, so its parse cost is unchanged). The shapes the walk reading still misses are #3397.
 - [x] `affected-suites.tests.ps1` 3c holds every declared suite's samples against its scope;
   `ci-suite-selection-lib.tests.ps1` asserts that a declared walker is dropped, open or text-matched.
 
 ### TEST
 
-- [x] `affected-suites` (176 pass) and `ci-suite-selection-lib` (44 pass), standalone. All 38 declared
+- [x] `affected-suites` (182 pass) and `ci-suite-selection-lib` (44 pass), standalone. All 38 declared
   suites in the tree are covered, roots included; before the resolver followed constant lists and
   Split-Path, six read as unresolved, and none turned out to be a real hole.
 - [x] The PR #3391 change (`brandbook/src/showcase/showcase.css`) now selects 2 of 168 suites instead of 7.

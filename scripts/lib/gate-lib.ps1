@@ -1439,7 +1439,7 @@ function Get-SuiteReferenceSet {
         # cannot see, which is what '# gate-selection: always' is for.
         if (($name -in @('get-childitem', 'gci', 'dir', 'ls', 'get-specialistfiles', 'get-sharedscriptpairs',
                          'get-repopluginroots', 'get-repoworkflowrecord', 'get-alwaysondocuments')) -or
-            ($name -eq 'copy-item' -and $flags -contains 'recurse') -or
+            ($name -eq 'copy-item' -and @($flags | Where-Object { 'recurse'.StartsWith($_) }).Count) -or
             ($name -in @('git', 'git.exe') -and (($words -contains 'ls-files') -or ($words -contains 'grep')))) {
             [void]$walkNodes.Add($n)
         }
@@ -1471,9 +1471,12 @@ function Get-SuiteReferenceSet {
                 }
                 $consts = @($e.FindAll({ param($x) $x -is [System.Management.Automation.Language.StringConstantExpressionAst] }, $true) |
                     Where-Object { $_.Parent -isnot [System.Management.Automation.Language.ExpandableStringExpressionAst] })
-                $byType = @($consts | Where-Object { & $namesType $_.Value }).Count -gt 0
-                $isExclude = $previous.Length -ge 2 -and 'exclude'.StartsWith($previous)
+                # A git argument starting with '-' or ':' is an option or a magic pathspec (':!*.md' EXCLUDES),
+                # never a filter (#3392).
+                if ($name -in @('git', 'git.exe')) { $consts = @($consts | Where-Object { -not ($_.Value.StartsWith('-') -or $_.Value.StartsWith(':')) }) }
                 $typedHere = @($consts | Where-Object { & $namesType $_.Value } | ForEach-Object { $_.Value })
+                $byType = $typedHere.Count -gt 0
+                $isExclude = $previous.Length -ge 2 -and 'exclude'.StartsWith($previous)
                 if ($name -in @('git', 'git.exe')) {
                     if ($byType -and (($words -contains 'ls-files') -or $afterDashes)) { $narrowed = $true; [void]$typedOf[$n].AddRange($typedHere) }
                 } elseif ($byType -and -not $isExclude) { $narrowed = $true; [void]$typedOf[$n].AddRange($typedHere) }
@@ -1540,6 +1543,11 @@ function Get-SuiteReferenceSet {
                     }
                 }
             }
+            # A foreach over live paths makes its loop variable one too (#3392): foreach ($d in $dirs) { gci $d }.
+            if ($isVar -and $parent -is [System.Management.Automation.Language.ForEachStatementAst] -and
+                $n.Extent.StartOffset -ge $parent.Condition.Extent.StartOffset -and $n.Extent.EndOffset -le $parent.Condition.Extent.EndOffset) {
+                [void]$derivedFrom.Add(@($parent.Variable.VariablePath.UserPath.ToLowerInvariant(), $varName))
+            }
             if ($runCommands.Contains($parent)) {
                 if ($isString) { [void]$run.Add($ref) } else { [void]$varUses.Add(@('run', $varName)) }
             }
@@ -1584,7 +1592,9 @@ function Get-SuiteReferenceSet {
     foreach ($use in $varUses) {
         if ($use[0] -eq 'walk' -and $rootVars.Contains($use[1]) -and -not $liveWalks.Contains($use[2])) { [void]$liveWalks.Add($use[2]) }
     }
-    if ($liveWalks.Count -gt 0) {
+    # Only the scope guard reads the samples, and it names the suite directory; the selection does not,
+    # and skipping them keeps its first parse of a walking file at the cost it had.
+    if ($liveWalks.Count -gt 0 -and $SuiteDirectory) {
         # A path climbing above the repo root is unresolved: '' is the root itself, $null is unknown.
         $normalize = {
             param([string]$Path)
@@ -1688,6 +1698,15 @@ function Get-SuiteReferenceSet {
                 if ($st.Count -ne 1) { return $null }
                 return (& $pathOf $st[0] $Bind)
             }
+            if ($e -is [System.Management.Automation.Language.ArrayLiteralAst]) {
+                $out = New-Object System.Collections.ArrayList
+                foreach ($x in @($e.Elements)) {
+                    $v = & $pathOf $x $Bind
+                    if ($null -eq $v) { return $null }
+                    [void]$out.AddRange(@($v))
+                }
+                return ,@($out | Sort-Object -Unique)
+            }
             if ($e -is [System.Management.Automation.Language.PipelineAst]) {
                 $els = @($e.PipelineElements)
                 if ($els.Count -eq 1) { return (& $pathOf $els[0] $Bind) }
@@ -1760,11 +1779,18 @@ function Get-SuiteReferenceSet {
         }
         # The assignments and foreach loops, to a fixed point: a variable resolves when every write to it
         # resolves, to the union of what they write. The two seeds keep their value whatever is assigned.
+        # A write this cannot read -- '+=' and its kin, Set-Variable, New-Variable -- is an unresolved one
+        # ($null), so the variable is unresolved rather than holding only its first value.
         $writes = New-Object System.Collections.ArrayList
         foreach ($n in $nodes) {
-            if ($n -is [System.Management.Automation.Language.AssignmentStatementAst] -and "$($n.Operator)" -eq 'Equals') {
+            if ($n -is [System.Management.Automation.Language.AssignmentStatementAst]) {
                 $target = & $assignedName $n
-                if ($target -and $seeds -notcontains $target) { [void]$writes.Add(@($target, $n.Right)) }
+                $value = if ("$($n.Operator)" -eq 'Equals') { $n.Right } else { $null }
+                if ($target -and $seeds -notcontains $target) { [void]$writes.Add(@($target, $value)) }
+            } elseif ($n -is [System.Management.Automation.Language.CommandAst] -and "$($n.GetCommandName())".ToLowerInvariant() -in @('set-variable', 'new-variable', 'sv', 'nv')) {
+                foreach ($c in @($n.CommandElements | Select-Object -Skip 1)) {
+                    if ($c -is [System.Management.Automation.Language.StringConstantExpressionAst]) { [void]$writes.Add(@($c.Value.ToLowerInvariant(), $null)); break }
+                }
             } elseif ($n -is [System.Management.Automation.Language.ForEachStatementAst]) {
                 $target = $n.Variable.VariablePath.UserPath.ToLowerInvariant()
                 if ($seeds -notcontains $target) { [void]$writes.Add(@($target, $n.Condition)) }
