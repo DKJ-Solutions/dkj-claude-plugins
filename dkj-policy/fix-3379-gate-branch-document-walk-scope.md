@@ -77,5 +77,3 @@ A consumer whose suites declare a `'*.md'` walk scope gets the same saving on ev
 
 Local test gate leaves the branch document out of walk scopes
 
-Plugins: dkj-policy
-
