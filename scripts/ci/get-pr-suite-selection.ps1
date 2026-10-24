@@ -90,7 +90,9 @@ try {
         }
     }
 } catch {
-    Write-Host "pr-suite-selection: the branch document could not be resolved ($($_.Exception.Message)); it stays in the judged change"
+    # The exception's TYPE, not its message: a message can carry foreign text, and stripping it would load
+    # check-report-lib.ps1 into every shard for one line (#2271's guard).
+    Write-Host "pr-suite-selection: the branch document could not be resolved ($($_.Exception.GetType().Name)); it stays in the judged change"
 }
 
 $assets = Get-StaticAssetVerdict -ChangedPaths $paths
