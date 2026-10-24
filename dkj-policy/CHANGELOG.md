@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**3 / 12 minor entries** <!-- pending-tally -->
+**3 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3356-hub-banner-everywhere · 20261024-110301Z
+
+The hub's airsquats banner is now on every hub page: the Stopwatch overview and its label pages keep their bare
+layout (no h1 or lead) but open on the banner, and the Connectors page carries it under its intro. `-Bare` on
+`Format-GeneralPageHtml` now leaves out the intro only.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The hub is this repo's own dev server; a consumer's hub pages that pass `-Bare` (none do today) would gain the
+banner too.
+
+**Score:** N/A
+
+#### Pull Request
+
+The hub banner shows on every hub page, the Stopwatch and Connectors included
+
+Plugins: dkj-policy
+
+[PR #3357](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3357)
+
+---
 
 ### DEPLOY: fix/3368-untimed-suite-count · 20261024-104843Z
 
