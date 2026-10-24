@@ -123,7 +123,7 @@
      Headings take the heading token of their own level; body text is --text-base. Same in both modes. */
   /* No heading above 32px (owner, October 22, 2026): a page shows as much content as it can on a 900px-high screen,
      so h1 is h2's size and stands apart by its capitals and the theme's colour. The hero figure takes it too. */
-  --text-h1: 32px; --text-h2: 32px; --text-h3: 22px;
+  --text-h1: 32px; --text-h2: 24px; --text-h3: 22px;
   --text-h4: 18px; --text-h5: 16px;
   --text-lg: 18px; --text-base: 14px; --text-sm: 12px; --text-xs: 11px;
   /* the serif h1 and h2 are set in; a component whose title keeps that face at another level takes it from here */
@@ -236,13 +236,14 @@ body > header, main > header { display: flex; justify-content: space-between; al
    pulled in slightly. h3-h5 stay in the body sans. */
 h1, h2 { font-family: var(--font-serif);
   font-weight: 600; letter-spacing: -0.01em; }
-/* h1 is --primary, h2 --fg-2 and h3-h5 --fg-3 (owner's decision, October 19, 2026: an h2 in the h1's colour read too
-   much like it; #3235 moved h2 and h3-h5 to the text steps). On a fill the paper is the text: .fill-primary and
+/* h1 and h2 are --primary, h3-h5 --fg-3 (owner, October 24, 2026: h2 back in the colour, now that h1 stands apart by
+   its capitals and h2 is 24px; from October 19 h2 was --fg-2, because an h2 in the h1's colour read too much like it,
+   and #3235 moved h2 and h3-h5 to the text steps). On a fill the paper is the text: .fill-primary and
    .fill-inverse at the end of this file switch every heading to --paper-1, so an h2 reads on the page and on the
    primary alike (owner, #3235). :where() keeps them at
    zero specificity, so a heading inside a coloured container (or one an app colours itself) wins without an override. */
 :where(h1) { color: var(--primary); }
-:where(h2) { color: var(--fg-2); }
+:where(h2) { color: var(--primary); }
 :where(h3, h4, h5) { color: var(--fg-3); }
 /* h1 is set in capitals so it stands further apart from h2 (owner, #3247); capitals want air between them,
    so its tracking opens to 0.02em where h2 keeps the serif's -0.01em. */
@@ -272,7 +273,7 @@ p, p.meta { color: var(--fg-1); }
 .eyebrow { margin: 0 0 var(--spacing-1); font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }   /* 0.04em mirrors the brand book's --dkj-tracking-label */
 /* Lead: the one paragraph under a page title that says what the page is for (#141). On a <p>, in the paragraph
    colour, at the large running size, held to a readable measure. */
-.lead { max-width: 46rem; margin: var(--spacing-2) 0 0; font-size: var(--text-lg); line-height: 1.35; color: var(--fg-1); }   /* 1.35 mirrors the brand book's --dkj-lh-snug */
+.lead { max-width: 46rem; margin: var(--spacing-2) 0 0; font-size: var(--text-base); line-height: 1.35; color: var(--fg-1); }   /* 1.35 mirrors the brand book's --dkj-lh-snug */
 .num { font-variant-numeric: tabular-nums; }                        /* aligned digits */
 .delta { font-weight: 600; }
 .delta--up, .pos { color: var(--positive-5); }
@@ -675,7 +676,7 @@ html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + va
 .site-header__brand { display: inline-flex; align-items: center; gap: var(--spacing-3); min-width: 0; color: var(--paper-1); text-decoration: none; }
 .site-header__brand:focus-visible { outline: 2px solid var(--paper-1); outline-offset: 4px; }
 .site-header__mark { display: inline-block; flex: none; padding: var(--spacing-1) var(--spacing-2);
-  border-radius: var(--spacing-2); background: var(--paper-1); color: var(--primary); font-size: var(--text-h2); font-weight: 800;
+  border-radius: var(--spacing-2); background: var(--paper-1); color: var(--primary); font-size: var(--text-h1); font-weight: 800;
   line-height: 1; letter-spacing: 0.02em; }
 .site-header__name { overflow: hidden; font-size: var(--text-lg); font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
 .site-header__tag { font-weight: 400; color: var(--paper-3); }
