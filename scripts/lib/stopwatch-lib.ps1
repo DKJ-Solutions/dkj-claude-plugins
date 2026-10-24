@@ -825,7 +825,11 @@ function Format-StopwatchPageHtml {
         and -FooterNote are its own, -NoDelta leaves out the change against the run before, which only means
         something between runs that share a label on purpose, and -CardNotes (text by run id) adds a part to a finished
         run's card line: its work time. -Fetching says the other machines' runs are still being fetched, in place of
-        "no other machine has shared a run yet", and reloads the page until they are in (#3377).
+        "no other machine has shared a run yet", and reloads the page until they are in (#3377). It is set on EVERY
+        visit a fetch runs on, not only the first, and once other machines are shown it says it is checking for newer
+        runs instead (#3403). -LastFetched, when given, is when the last fetch ended, and the footer names it beside the
+        other machines' runs: a run another machine published since then is not on the page yet, and nothing else
+        said so -- measured, a group showed one card short with no sign that the copy was stale.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Model,
@@ -834,6 +838,7 @@ function Format-StopwatchPageHtml {
         [AllowEmptyString()][string]$StorePath = '',
         [int]$SharedMachines = 0,
         [switch]$Fetching,
+        [Nullable[datetime]]$LastFetched = $null,
         [datetime]$Now = [datetime]::UtcNow,
         [string]$Route = '/stopwatch',
         [string]$PageTitle = 'Stopwatch',
@@ -852,8 +857,11 @@ function Format-StopwatchPageHtml {
     }
 
     if ($Fetching) {
-        # The first sync is still fetching the other machines' runs (#3377): say so, and reload until it has ended.
-        [void]$body.AppendLine('<p class="msg" role="status">The other machines'' runs are being fetched from origin. This page reloads in a few seconds to show them.</p>')
+        # A sync is fetching the other machines' runs (#3377): say so, and reload until it has ended. On a later visit
+        # the page already shows what the last fetch brought, and this one may bring newer runs (#3403).
+        $what = if ($SharedMachines -gt 0) { 'Checking origin for newer runs from the other machines. This page reloads in a few seconds to show any.' }
+                else { 'The other machines'' runs are being fetched from origin. This page reloads in a few seconds to show them.' }
+        [void]$body.AppendLine('<p class="msg" role="status">' + $what + '</p>')
         [void]$body.AppendLine('<script>setTimeout(function () { location.reload(); }, 4000);</script>')
     }
     # One card per prompt label under the page's h1, each linking the label's page (the owner, October 24, 2026). -Flat
@@ -882,9 +890,11 @@ function Format-StopwatchPageHtml {
     }
 
     $shell = Format-StopwatchPageShell
+    # When the copy of the other machines' runs was last fetched (#3403), in local time like every time on these pages.
+    $fetchedAt = if ($null -ne $LastFetched) { ', as last fetched ' + (& $e (([datetime]$LastFetched).ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))) } else { '' }
     $note = if ($FooterNote) { $FooterNote } else { 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout, so a run never dirties the tree it is timing. ' +
         'Every finished run is also shared through a ref of this machine''s own on origin, <code>refs/stopwatch/&lt;machine&gt;</code> (<code>scripts/lib/stopwatch-sync-lib.ps1</code>), ' +
-        $(if ($SharedMachines -eq 1) { 'and the runs of one other machine are shown with these. ' } elseif ($SharedMachines -gt 1) { 'and the runs of ' + $SharedMachines + ' other machines are shown with these. ' } elseif ($Fetching) { 'and the other machines'' runs are still being fetched. ' } else { 'and no other machine has shared a run yet. ' }) +
+        $(if ($SharedMachines -eq 1) { "and the runs of one other machine are shown with these$fetchedAt. " } elseif ($SharedMachines -gt 1) { 'and the runs of ' + $SharedMachines + " other machines are shown with these$fetchedAt. " } elseif ($Fetching) { 'and the other machines'' runs are still being fetched. ' } else { "and no other machine has shared a run yet$fetchedAt. " }) +
         'A prompt whose first line begins with <code>stopwatch:</code> starts a run in a session of this checkout, labelled with the rest of that line, and discards a run still going; ' +
         'a Stop hook ends it once Claude is back on the trunk, clean, with HEAD moved since the start (that suggests the work landed; it does not prove it). Both are <code>scripts/dashboard/stopwatch-hook.ps1</code>. ' +
         'Built by <code>scripts/lib/stopwatch-lib.ps1</code>.' }
