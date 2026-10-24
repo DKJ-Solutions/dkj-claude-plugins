@@ -60,7 +60,7 @@ shared a run yet" while the fetch is still under way (#3377).
   older log, a newer log, a stamp aged past the interval).
 - [x] `stopwatch.tests.ps1`: the empty page states an empty origin and does not reload; `-Fetching` says
   the runs are being fetched and reloads.
-- [ ] The owner looks at `/stopwatch` on a first visit (a visible result).
+- [x] The owner looked at `/stopwatch` and approved it (October 24, 2026).
 
 ### DEPLOY: fix/3377-stopwatch-first-sync-fetching
 
