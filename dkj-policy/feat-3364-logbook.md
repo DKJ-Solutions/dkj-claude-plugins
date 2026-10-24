@@ -39,19 +39,41 @@
 
 ### PLAN
 
+#### Decisions
+
+The owner's choices (#3364): the working name Logbook; a run starts at the first prompt of a new session, only on
+a clean trunk; it stops when a turn ends on a clean trunk, also when HEAD never moved. The Stopwatch's store,
+model, phases and pages are reused, its page functions taking a route, title and note. The Logbook is not shared
+to origin, because a label is a prompt's first line and the repo is public. A live ship-pr CI wait holds the run open.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/logbook-lib.ps1`: the rules, the label, the two pages on the Stopwatch's
+- [x] `scripts/lib/stopwatch-lib.ps1`: a run's Session and the store's session list, `-KeepOpenRuns`, page parameters
+- [x] `scripts/dashboard/logbook-hook.ps1` and its two hooks in `.claude/settings.json`
+- [x] `/logbook` and `/logbook/<slug>` on the hub server, and the card on the home page
 
 ### TEST
 
+- [x] `scripts/tests/logbook.tests.ps1` (new, in the pages group), plus the hub's and the server's suites
+- [x] The lint gate and the suites through `open-pr`
+
 ### DEPLOY: feat/3364-logbook
 
-**Score:**
+The hub has a new card, **Logbook** ([#3364](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3364)).
+It times every assignment given in a clean session, with no marker. The first prompt of a new Claude Code session
+starts a run when the checkout is on a clean trunk. The run stops when a turn ends with Claude back on the clean
+trunk, including when nothing was merged, and never while a `ship-pr` is still waiting on CI. Each session keeps
+its own run. A branch parked for a look keeps its run going. Every run gets a card and a page with its transcript
+phases, built from the Stopwatch's own pages. The runs stay on this machine and are not shared.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the Logbook is this repo's own hub tooling under `scripts/`, and no plugin ships it.
+
+**Score:** N/A
 
 #### Pull Request
 

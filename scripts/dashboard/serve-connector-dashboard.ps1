@@ -3,7 +3,8 @@
     Serve this repo's dev server on http://localhost:<Port>/ -- the hub on '/', which links the hub's own
     pages (#3097): /test-gate, the per-suite CI durations, grouped by the workflow step each suite guards
     (scripts/tests/suite-groups.json); and /stopwatch, how long each assignment took: a read-only overview of cards, one per
-    run, and /stopwatch/<slug>, each run's page, from the runs the hooks of scripts/dashboard/stopwatch-hook.ps1 record (#3315, #3323). The server takes no POST at all. It also builds three pages the product relays, which the hub does not link (below):
+    run, and /stopwatch/<slug>, each run's page, from the runs the hooks of scripts/dashboard/stopwatch-hook.ps1 record (#3315, #3323); and /logbook
+    and /logbook/<slug>, the same pages for every session that began on a clean trunk, from the runs of scripts/dashboard/logbook-hook.ps1 (#3364). The server takes no POST at all. It also builds three pages the product relays, which the hub does not link (below):
     /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
     check-connectors.ps1 reports for it on this machine (#2976); /specialists, every specialist the
     dkj-subagents plugins ship and the context each one costs, read from this tree; and /dkj-repos, every
@@ -94,6 +95,10 @@
     (For tests) The Stopwatch's store instead of the one under LOCALAPPDATA (Get-StopwatchStorePath). The
     transcript phases are cached beside it, as stopwatch-phases.json.
 
+.PARAMETER LogbookPath
+    (For tests) The Logbook's store instead of the one under LOCALAPPDATA (Get-LogbookStorePath). Its transcript
+    phases are cached beside it, as logbook-phases.json.
+
 .PARAMETER TranscriptDir
     (For tests) The session transcripts the Stopwatch reads its phases from, instead of this checkout's own
     under ~/.claude/projects (Get-StopwatchTranscriptDir).
@@ -106,6 +111,7 @@ param(
     [ValidateRange(0, 3600)][int]$MinRefreshSeconds = 10,
     [string]$RepoRootOverride,
     [string]$StopwatchPath,
+    [string]$LogbookPath,
     [string]$TranscriptDir
 )
 
@@ -119,6 +125,14 @@ $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride
 if (-not $StopwatchPath) { $StopwatchPath = Get-StopwatchStorePath }
 if (-not $TranscriptDir) { $TranscriptDir = Get-StopwatchTranscriptDir -RepoRoot $root }
 $StopwatchPhasesPath = Join-Path (Split-Path -Parent $StopwatchPath) 'stopwatch-phases.json'
+# The Logbook (#3364), guarded: a tree that copies the Stopwatch's lib alone serves no /logbook.
+$logbookLib = Join-Path $root 'scripts\lib\logbook-lib.ps1'
+$LogbookAvailable = Test-Path -LiteralPath $logbookLib -PathType Leaf
+if ($LogbookAvailable) {
+    . $logbookLib
+    if (-not $LogbookPath) { $LogbookPath = Get-LogbookStorePath }
+    $LogbookPhasesPath = Join-Path (Split-Path -Parent $LogbookPath) 'logbook-phases.json'
+}
 # ship-pr's step marks (#3338): the writer's own path, from the lib stopwatch-lib.ps1 loads beside itself.
 $StopwatchStepLogPath = if ($script:StopwatchStepLogAvailable) { Get-RunStepLogPath } else { '' }
 # The other machines' runs (#3349), read from refs/stopwatch-origin/* and refreshed in the background at most every
@@ -522,6 +536,30 @@ try {
                 $phases = Get-StopwatchTranscriptCache -Runs @($group.Rows | ForEach-Object { $_.Run } | Where-Object { -not $_.Machine }) -CachePath $StopwatchPhasesPath -TranscriptDir $TranscriptDir -StepLogPath $StopwatchStepLogPath -RepoRoot $root
                 foreach ($k in $sw.Shared.Phases.Keys) { if (-not $phases.ContainsKey($k)) { $phases[$k] = $sw.Shared.Phases[$k] } }
                 $html = Format-StopwatchRunPageHtml -Group $group -StorePath $StopwatchPath -Transcript $phases
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                continue
+            }
+            if ($LogbookAvailable -and $path -eq '/logbook') {
+                $lb = Read-StopwatchStore -Path $LogbookPath
+                $html = Format-LogbookPageHtml -Runs $lb.Runs -ReadError $lb.Error -Skipped $lb.Skipped -StorePath $LogbookPath
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                continue
+            }
+            if ($LogbookAvailable -and $path -match '^/logbook/([a-z0-9-]{1,60})$') {
+                # One run's page. A store that does not read shows the overview's warning; a slug no run has is a 404.
+                $lb = Read-StopwatchStore -Path $LogbookPath
+                if ($lb.Error) {
+                    $html = Format-LogbookPageHtml -Runs @() -ReadError $lb.Error -StorePath $LogbookPath
+                    Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                    continue
+                }
+                $group = Find-StopwatchGroup -Model (ConvertTo-StopwatchModel -Runs $lb.Runs -KeepOpenRuns) -Slug $Matches[1]
+                if (-not $group) {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
+                    continue
+                }
+                $phases = Get-StopwatchTranscriptCache -Runs @($group.Rows | ForEach-Object { $_.Run }) -CachePath $LogbookPhasesPath -TranscriptDir $TranscriptDir -StepLogPath $StopwatchStepLogPath -RepoRoot $root
+                $html = Format-LogbookRunPageHtml -Group $group -StorePath $LogbookPath -Transcript $phases
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }

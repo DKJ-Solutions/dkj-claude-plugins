@@ -71,7 +71,7 @@ Assert-True ($bshell -notmatch 'class="eyebrow"' -and $bshell -notmatch 'theme-s
 
 Write-Host '-- the hub: the home page on / and About this repo on /about (#3270)' -ForegroundColor Cyan
 $pages = @(Get-RepoHubPages)
-Assert-Equal '/test-gate,/stopwatch,/repository' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links three pages of its own, Test gate, Stopwatch (#3315) and Repository: Connectors, Specialists and the Brandbook are the product''s'
+Assert-Equal '/test-gate,/stopwatch,/logbook,/repository' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links four pages of its own, Test gate, Stopwatch (#3315), Logbook (#3364) and Repository: Connectors, Specialists and the Brandbook are the product''s'
 Assert-Equal '/artifacts,/issues,/release-notes,/sessionstart' ((Get-GeneralPages | ForEach-Object { $_.Href }) -join ',') 'the plugin lists the four general pages, in order'
 Assert-Equal '/brandbook' ((Get-DkjSolutionsPages | ForEach-Object { $_.Href }) -join ',') 'and the one page only DKJ-Solutions repos share, the Brandbook'
 $hub = Format-RepoHubHtml
@@ -96,10 +96,10 @@ Assert-True ((Format-GeneralPagesCardHtml -Pages @() -LocalPages @(@{ Href = '/x
 $about = Format-RepoHubHtml -Pages $pages -SourceCommit 'abc1234' -GeneralPagesUrl 'http://localhost:4890'
 Assert-True ($about -match '<title>dkj-claude-plugins -- Home</title>' -and $about -notmatch '<h1' -and $about -notmatch 'class="eyebrow"' -and $about -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/"') 'it is the home page: the site header names the repo and goes home, no h1 and no eyebrow'
 Assert-True ($about -match '<li><span aria-current="page">Home</span></li>' -and $about -notmatch 'About this repo</span>') 'its trail is the one crumb, Home'
-Assert-Equal 6 ([regex]::Matches($about, '<a class="menu-item" href="(http://localhost:4890)?/[a-z-]+"><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: label, description, chevron -- this repo''s two (Test gate, Stopwatch) and the four general ones'
+Assert-Equal 7 ([regex]::Matches($about, '<a class="menu-item" href="(http://localhost:4890)?/[a-z-]+"><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: label, description, chevron -- this repo''s three (Test gate, Stopwatch, Logbook) and the four general ones'
 Assert-Equal 3 ([regex]::Matches($about, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="/(artifacts|release-notes|sessionstart)"')).Count 'every general page but Issues is a card of its own on the home page'
 Assert-True ($about -match '<div class="grid-3">\r?\n<section class="card card--link"><nav class="menu-list" aria-label="Test gate"><a class="menu-item" href="/test-gate"' -and $about -notmatch '<h2') 'the pages are a .grid-3, three cards to a row, with no heading above them: this repo''s own page is the first card'
-Assert-Equal 6 ([regex]::Matches($about, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="/[a-z-]+"')).Count 'every page is a card of its own, this repo''s and the general ones alike, with no group card or h3 around them'
+Assert-Equal 7 ([regex]::Matches($about, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="/[a-z-]+"')).Count 'every page is a card of its own, this repo''s and the general ones alike, with no group card or h3 around them'
 Assert-True ($about -notmatch '<section class="card">') 'and every one of them is a .card--link, clickable over its whole area (#3298)'
 $houseCss = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\assets\house-style\house-style.css'))
 Assert-True ($houseCss -match '\.card--link \{ position: relative; \}' -and $houseCss -match '\.card--link a::after \{ content: ""; position: absolute; inset: 0; \}') 'the house style stretches a .card--link''s one link over the card'
