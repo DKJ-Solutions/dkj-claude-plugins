@@ -709,8 +709,8 @@ function Format-StopwatchPageHtml {
         its label (the link to the run's own page, Format-StopwatchRunPageHtml), its time, and its change in percent
         against the previous run of the same label (Format-StopwatchChangePercent). The run going now shows its live clock as its time. -ReadError is set when the
         store could not be read. -StorePath is named in the footer, so a run can be read and evaluated outside
-        the page. The Logbook (scripts/lib/logbook-lib.ps1, #3364) draws its overview here too: -Route, -PageTitle,
-        -Sub and -FooterNote are its own, -NoDelta leaves out the change against the run before, which only means
+        the page. The Logbook (scripts/lib/logbook-lib.ps1, #3364) draws its overview here too: -Route, -PageTitle
+        and -FooterNote are its own, -NoDelta leaves out the change against the run before, which only means
         something between runs that share a label on purpose, and -CardNotes (text by run id) adds a part to a finished
         run's card line: its work time.
     #>
@@ -723,7 +723,6 @@ function Format-StopwatchPageHtml {
         [datetime]$Now = [datetime]::UtcNow,
         [string]$Route = '/stopwatch',
         [string]$PageTitle = 'Stopwatch',
-        [string]$Sub = 'One card per run, newest first. Begin a prompt to Claude with stopwatch: and a label to time it.',
         [AllowEmptyString()][string]$FooterNote = '',
         [switch]$NoDelta,
         [hashtable]$CardNotes = @{},
@@ -743,15 +742,15 @@ function Format-StopwatchPageHtml {
     # whose labels are the first lines of prompts and rarely repeat.
     $sets = @()
     if ($Flat) {
-        $sets += @{ Title = 'Measurements'; Sub = $Sub; Groups = @($Model.Groups) }
+        $sets += @{ Title = 'Measurements'; Groups = @($Model.Groups) }
     } else {
         foreach ($set in @($Model.Groups | Group-Object { $_.Label.ToLowerInvariant() } | Sort-Object { ($_.Group | ForEach-Object { $_.Latest } | Measure-Object -Maximum).Maximum } -Descending)) {
             $newest = @($set.Group | Sort-Object { $_.Latest } -Descending)
-            $sets += @{ Title = $newest[0].Label; Sub = [string]$set.Count + $(if ($set.Count -eq 1) { ' run' } else { ' runs, newest first' }); Groups = $newest }
+            $sets += @{ Title = $newest[0].Label; Groups = $newest }
         }
     }
     if (-not @($Model.Groups).Count) {
-        [void]$body.AppendLine('<div class="grid__head"><h2>Measurements</h2><p class="card__sub">' + (& $e $Sub) + '</p></div>')
+        [void]$body.AppendLine('<div class="grid__head"><h2>Measurements</h2></div>')
     }
     # The groups stand in one wrapper whose gap is the space between them, so no group carries a top margin (the owner,
     # October 24, 2026).
@@ -759,7 +758,8 @@ function Format-StopwatchPageHtml {
     foreach ($set in $sets) {
         if (-not @($set.Groups).Count) { continue }
         [void]$body.AppendLine('<div class="sw-grid">')
-        [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $set.Title) + '</h2><p class="card__sub">' + (& $e $set.Sub) + '</p></div>')
+        # A group's head is its h2 alone, with no sub line under it (the owner, October 24, 2026).
+        [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $set.Title) + '</h2></div>')
         foreach ($g in @($set.Groups)) {
             # Three lines with no header above them, five cards to a row on a full screen (the owner, October 24, 2026): the run's start, its
             # prompt label (with its version behind it once the label has run more than once), and its time with its change
