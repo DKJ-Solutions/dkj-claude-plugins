@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**11 / 28 minor entries** <!-- pending-tally -->
+**11 / 29 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3397-walk-reading-unseen-shapes · 20261024-171000Z
+
+The test selection now recognises four more ways a suite can list the live tree: a root piped into
+`Get-ChildItem`, a root handed to a function parameter, git read through `Invoke-GitRead`, and
+`Select-String` over a wildcard path
+([#3397](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3397)). Such a suite used to be
+neither selected as a walker nor held by the declared-scope guard that CI's asset-only selection relies
+on since #3392. No suite in the tree uses one of these shapes today, so nothing selects differently.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- a consumer's local gate selects exactly as before until one of its suites uses one of these shapes,
+and then it runs that suite, which is the safe direction.
+
+**Score:** N/A
+
+#### Pull Request
+
+Walk reading sees piped roots, function parameters, Invoke-GitRead and Select-String
+
+Plugins: dkj-policy
+
+[PR #3399](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3399)
+
+---
 
 ### DEPLOY: feat/3392-declared-scope-drops-walker · 20261024-163700Z
 
