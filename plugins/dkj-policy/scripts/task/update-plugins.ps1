@@ -507,7 +507,8 @@ function Get-CloneHeadIfCurrent {
     if ($h.ExitCode -ne 0) { return '' }
     $head = (@($h.Output) -join "`n").Trim()
     $o = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $CloneDir, 'ls-remote', 'origin', 'HEAD') -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
-    if ($o.ExitCode -ne 0) { return '' }
+    # An unmeasured exit is not a yes: the refresh then stays the failure it was.
+    if (-not (Test-NativeExitMeasured -Capture $o) -or $o.ExitCode -ne 0) { return '' }
     $remote = ((@($o.Output) -join "`n").Trim() -split '\s+')[0]
     if ($head -match '^[0-9a-f]{40}$' -and $head -eq $remote) { return $head }
     return ''

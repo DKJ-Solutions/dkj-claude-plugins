@@ -54,6 +54,8 @@ stays one; the repair does not depend on it.
 
 - [x] `update-plugins.tests.ps1` 6b-6d, against a real local origin: at origin's HEAD exit 0, behind it
   exit 1, and the EBUSY line.
+- [x] `native-capture.tests.ps1`: the new bounded `ls-remote` asks `Test-NativeExitMeasured`, and the audited
+  count moves 99 -> 100 (caught by the gate).
 
 ### DEPLOY: fix/3406-refresh-clone-already-current
 

@@ -2016,7 +2016,10 @@ foreach ($af in $auditFiles) {
 # 98 -> 99 (#3386): claim-issue.ps1's $freeHeads (`git ls-remote --heads origin`), at the shared network bound,
 # read before a fresh -Tag claim writes its marker. It asks Test-NativeExitMeasured, and anything but a measured
 # 0 is said and passed -- the remote could not rule a branch out -- exactly as -Candidates passes an unread list.
-Assert-Equal 99 $boundedTotal 'the parser still counts 99 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 99 -> 100 (#3406): update-plugins.ps1's $o (`git ls-remote origin HEAD` in the marketplace clone), at the shared
+# network bound, read only after a marketplace refresh failed. It asks Test-NativeExitMeasured, and anything but a
+# measured 0 is "cannot establish", so the refresh stays FAILED -- the conservative verdict step 1 already gives.
+Assert-Equal 100 $boundedTotal 'the parser still counts 100 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
