@@ -553,7 +553,7 @@ try {
                     Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                     continue
                 }
-                $group = Find-StopwatchGroup -Model (ConvertTo-StopwatchModel -Runs $lb.Runs -KeepOpenRuns) -Slug $Matches[1]
+                $group = Find-StopwatchGroup -Model (ConvertTo-LogbookModel -Runs $lb.Runs) -Slug $Matches[1]
                 if (-not $group) {
                     Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
                     continue

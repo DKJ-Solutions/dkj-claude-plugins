@@ -67,9 +67,12 @@ try {
     if ($LASTEXITCODE -eq 0 -and $out.Count) { $head = ([string]$out[0]).Trim() }
     $out = @(git -C $root rev-parse --abbrev-ref HEAD 2>$null)
     if ($LASTEXITCODE -eq 0 -and $out.Count) { $branch = ([string]$out[0]).Trim() }
-    # --no-optional-locks: a status run beside Claude's own git must not take the index lock.
-    $porcelain = @(git -C $root --no-optional-locks status --porcelain 2>$null)
-    $clean = ($LASTEXITCODE -eq 0) -and ($porcelain.Count -eq 0)
+    # Off the trunk the answer is known, so no status. --no-optional-locks: a status run beside Claude's own git must
+    # not take the index lock.
+    if ($branch -ceq $trunk) {
+        $porcelain = @(git -C $root --no-optional-locks status --porcelain 2>$null)
+        $clean = ($LASTEXITCODE -eq 0) -and ($porcelain.Count -eq 0)
+    }
     $ErrorActionPreference = 'Stop'
     # A ship-pr CI wait still live in this checkout holds the run open (its record: scripts/lib/run-progress-lib.ps1).
     $ship = $false

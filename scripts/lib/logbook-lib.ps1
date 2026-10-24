@@ -26,7 +26,7 @@
         (scripts/lib/run-progress-lib.ps1), and a live one holds the run open; the turn the finished ship wakes
         ends it.
       - Runs are keyed by session id, so two sessions side by side each keep their own run, and every open run shows
-        as going (ConvertTo-StopwatchModel -KeepOpenRuns).
+        as going (ConvertTo-StopwatchModel -KeepOpenRuns), up to a day old (ConvertTo-LogbookModel).
 
     THE STORE IS THIS MACHINE'S AND STAYS HERE: %LOCALAPPDATA%\dkj-claude-plugins\logbook.json, outside the tree
     for the Stopwatch's reason (a run must not dirty the checkout it is timing). Unlike the Stopwatch's runs it is
@@ -39,6 +39,10 @@
 . (Join-Path $PSScriptRoot 'stopwatch-lib.ps1')
 
 $script:LogbookSessionsKept = 500
+# An open run older than this is not shown (Victor, #3364): a session abandoned on a branch, or one that crashed,
+# never reaches its Stop on the trunk, and would otherwise draw a clock that grows for ever. It stays in the store,
+# so a resumed session that does close it shows it again.
+$script:LogbookOpenRunMaxHours = 24
 
 function Get-LogbookStorePath {
     <# The Logbook's store on this machine, beside the Stopwatch's. #>
@@ -103,10 +107,17 @@ function Invoke-LogbookHookEvent {
     return @{ Runs = @($runs | ForEach-Object { if ($_.Id -eq $copy.Id) { $copy } else { $_ } }); Sessions = $seen; Changed = $true }
 }
 
+function ConvertTo-LogbookModel {
+    <# What both Logbook pages show: ConvertTo-StopwatchModel -KeepOpenRuns over -Runs, without the open runs older than $script:LogbookOpenRunMaxHours at -Now. #>
+    param([AllowEmptyCollection()][object[]]$Runs = @(), [datetime]$Now = [datetime]::UtcNow)
+    $cut = $Now.ToUniversalTime().AddHours(-$script:LogbookOpenRunMaxHours)
+    return (ConvertTo-StopwatchModel -Runs @($Runs | Where-Object { $_ -and ($_.End -or $_.Start -ge $cut) }) -KeepOpenRuns)
+}
+
 function Format-LogbookPageHtml {
-    <# The overview on '/logbook': the Stopwatch's overview with the Logbook's words, every open run going, and no change against a run before. #>
+    <# The overview on '/logbook': the Stopwatch's overview with the Logbook's words, every recent open run going (ConvertTo-LogbookModel), and no change against a run before. #>
     param(
-        [Parameter(Mandatory = $true)][object[]]$Runs,
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Runs,
         [AllowEmptyString()][string]$ReadError = '',
         [int]$Skipped = 0,
         [AllowEmptyString()][string]$StorePath = '',
@@ -116,7 +127,7 @@ function Format-LogbookPageHtml {
         'The first prompt of a new Claude Code session starts a run when the checkout is on the trunk and clean; a Stop hook ends it once a turn ends with the checkout back on the trunk and clean, ' +
         'also when nothing was merged, and not while a ship-pr is still waiting on CI. Both are <code>scripts/dashboard/logbook-hook.ps1</code>. ' +
         'Built by <code>scripts/lib/logbook-lib.ps1</code> on the Stopwatch''s pages.'
-    return Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs $Runs -KeepOpenRuns) -ReadError $ReadError -Skipped $Skipped -StorePath $StorePath -Now $Now `
+    return Format-StopwatchPageHtml -Model (ConvertTo-LogbookModel -Runs $Runs -Now $Now) -ReadError $ReadError -Skipped $Skipped -StorePath $StorePath -Now $Now `
         -Route '/logbook' -PageTitle 'Logbook' -Sub 'One card per session that began on a clean trunk, newest first, timed from its first prompt until Claude was back on the trunk.' `
         -FooterNote $note -NoDelta
 }

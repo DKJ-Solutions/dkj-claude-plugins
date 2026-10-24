@@ -128,6 +128,9 @@ $runs = @(
 $m = ConvertTo-StopwatchModel -Runs $runs -KeepOpenRuns
 Assert-True (@($m.Groups).Count -eq 3 -and @($m.Groups | Where-Object { $_.Running }).Count -eq 2) 'with -KeepOpenRuns every open run is shown as going, not only the newest'
 Assert-Equal 2 @((ConvertTo-StopwatchModel -Runs $runs).Groups).Count 'without it the Stopwatch keeps showing only the newest open run'
+$lm = ConvertTo-LogbookModel -Runs $runs -Now (& $at (1000 + 24 * 3600 + 500))
+Assert-Equal 'Side by side,First' (($lm.Groups | ForEach-Object { $_.Label }) -join ',') 'the Logbook hides an open run older than a day, an abandoned session, and keeps the finished ones'
+Assert-Equal 3 @((ConvertTo-LogbookModel -Runs $runs -Now (& $at 2100)).Groups).Count 'and shows every open run younger than that'
 $page = Format-LogbookPageHtml -Runs $runs -StorePath 'C:\x\logbook.json' -Now (& $at 2100)
 Assert-True ($page -match '<title>[^<]*Logbook' -and $page -match 'href="/logbook/\d{4}-\d{2}-\d{2}-\d{4}"' -and $page -notmatch 'href="/stopwatch') 'the overview is titled Logbook and links its runs under /logbook'
 Assert-True ($page -match 'Parked &lt;for&gt; a look' -and $page -notmatch 'Parked <for>') 'a label is escaped'
