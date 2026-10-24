@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**6 / 9 minor entries** <!-- pending-tally -->
+**7 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3408-unfolded-entry-stacked-branch · 20261024-211441Z
+
+The unfolded-entry check no longer reports a stacked branch's unmerged parents as changelog entries
+stranded on the trunk ([#3408](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3408)). On a branch
+stacked three deep with the trunk clean, `unfolded-entry-sessioncheck` printed `[ERROR]` for both parents.
+Its remedy, `fold-changelog-entry.ps1 -Commit -Push`, would have put unmerged work's entries onto `main`. Off
+the trunk, a document now counts only where it is also on the trunk's tree at HEAD's merge-base with it. A
+leftover that came in from the trunk is still reported; a stacked parent's document is not. On the trunk,
+nothing changes.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer who stacks branches no longer gets an `[ERROR]` at session start whose remedy folds unmerged
+work onto their trunk.
+
+**Score:** 2
+
+#### Pull Request
+
+The unfolded-entry check no longer reports a stacked branch's parent documents as trunk leftovers
+
+Plugins: dkj-policy
+
+[PR #3418](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3418)
+
+---
 
 ### DEPLOY: fix/3406-refresh-clone-already-current · 20261024-205709Z
 
