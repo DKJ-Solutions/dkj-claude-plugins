@@ -43,7 +43,7 @@
 
 - [x] Overview cards in three lines (start, prompt label with its version, time with its change in percent), five to a row on a full screen, grouped under an `h2` per prompt label, with an `h1` (`Format-StopwatchPageHtml`, new `Format-StopwatchChangePercent`)
 - [x] Hub banner the first block of every hub page, above the h1 (general page shell, home page, Connectors page)
-- [x] House style: `--text-h2` 24px and `h2` in `--primary`, `.lead` at `--text-base`, the site header's mark on `--text-h1`; README, brand book specimen and the skill's checksum follow (carried over from `feat/house-h2-24-primary`, so the owner reviews one branch)
+- [x] House style: `--text-h2` 24px and `h2` in `--fg-4`, `.lead` at `--text-base`, the site header's mark on `--text-h1`; README, brand book specimen and the skill's checksum follow (carried over from `feat/house-h2-24-primary`, so the owner reviews one branch)
 
 ### TEST
 
@@ -55,16 +55,16 @@ The `/stopwatch` overview opens on an `h1` (Stopwatch, set in capitals by the ho
 
 The hub's airsquats banner is now always the first block of a hub page, above the `h1` where there is one (the general page shell, the home page and the Connectors page; the release notes already had it there).
 
-The house style's `h2` is now 24px (`--text-h2`, was 32px) and set in the theme colour (`--primary`, was `--fg-2`), so a section heading reads in the colour again while the `h1` stands apart by its 32px capitals. The `.lead` under an `h1` is now body size (`--text-base`, was `--text-lg`). The site header's initials mark used `--text-h2` and now takes `--text-h1`, so it keeps its size. The house style README, the brand book's type specimen and the checksum in the `house-style` skill follow the new file.
+The house style's `h2` is now 24px (`--text-h2`, was 32px) and set in the last text step (`--fg-4`, was `--fg-2`), while the `h1` stands apart in the theme colour and its 32px capitals. The `.lead` under an `h1` is now body size (`--text-base`, was `--text-lg`). The site header's initials mark used `--text-h2` and now takes `--text-h1`, so it keeps its size. The house style README, the brand book's type specimen and the checksum in the `house-style` skill follow the new file.
 
 **Score:** 3
 
 #### What makes this deploy extra special
 
-Every DKJ-Solutions app that takes the next house-style copy gets smaller `h2`s in its theme colour and a body-size lead under its `h1`, and every repo's hub shows its banner above the page title, without changing anything of its own.
+Every DKJ-Solutions app that takes the next house-style copy gets smaller `h2`s on the last text step and a body-size lead under its `h1`, and every repo's hub shows its banner above the page title, without changing anything of its own.
 
 **Score:** 3
 
 #### Pull Request
 
-Stopwatch cards grouped per prompt, the hub banner on top, and a smaller house h2 in the theme colour
+Stopwatch cards grouped per prompt, the hub banner on top, and a smaller house h2
