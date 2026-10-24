@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**3 / 14 minor entries** <!-- pending-tally -->
+**3 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3371-stopwatch-run-pages-entry · 20261024-112308Z
+
+The pending changelog entry for the hub banner (#3357) named the Stopwatch's label pages, which had
+been replaced by run pages before it merged; it now says run pages. Without the fix, the next release
+notes would have described pages that no longer exist.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A wording fix in this repo's own pending changelog entry; nothing a consumer runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Correct #3357's changelog entry: the Stopwatch's run pages, not label pages
+
+[PR #3374](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3374)
+
+---
 
 ### DEPLOY: fix/3370-asset-only-branch-document · 20261024-111349Z
 
