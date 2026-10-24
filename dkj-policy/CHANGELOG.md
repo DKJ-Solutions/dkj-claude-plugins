@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**11 / 27 minor entries** <!-- pending-tally -->
+**11 / 28 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3392-declared-scope-drops-walker · 20261024-163700Z
+
+On CI, a pull request that changes only stylesheets, images or fonts no longer runs a suite whose
+declared `# gate-selection: walks` scope leaves the change out, even when its text names the extension or
+its walk can return any type ([#3392](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3392)).
+The one-line CSS comment of PR #3391 now selects 2 of 168 suites instead of 7, so the three ~70-80s
+suites that set shard 1's critical path no longer run for it. The trust rests on a stricter scope guard
+in `affected-suites.tests.ps1`: every declaration is now held against the roots of the walks it can see,
+`Copy-Item` sources included, and not only their literal filters. A walk added outside its suite's scope
+fails there first.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the CI selection and its guard run in this repo only; a consumer's local gate selects as before.
+
+**Score:** N/A
+
+#### Pull Request
+
+CI asset-only selection trusts a declared walk scope to drop a walker
+
+Plugins: dkj-policy
+
+[PR #3398](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3398)
+
+---
 
 ### DEPLOY: feat/3383-house-hub-card-grid · 20261024-161943Z
 
