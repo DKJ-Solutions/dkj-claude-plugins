@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**3 / 6 minor entries** <!-- pending-tally -->
+**4 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/house-style-h2-in-card · 20261024-202517Z
+
+The house rule that an `h2` never stands inside a card (#3175) is retired, and with it `check-house-style`'s
+fourth check, `heading`. An `h2` may now title a card; the grouping form with an `h2` in a `.grid__head` above
+`h3`-titled cards stays where a page groups cards.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions app whose CI runs the house-style gate no longer fails on an `h2` inside a card.
+
+**Score:** 3
+
+#### Pull Request
+
+Retire the house rule that an h2 never stands inside a card
+
+Plugins: dkj-solutions
+
+[PR #3414](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3414)
+
+---
 
 ### DEPLOY: feat/hub-banner-above-site-header · 20261024-201638Z
 
