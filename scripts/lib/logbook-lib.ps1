@@ -155,8 +155,8 @@ function Format-LogbookPageHtml {
         'also when nothing was merged, and not while a ship-pr is still waiting on CI. Both are <code>scripts/dashboard/logbook-hook.ps1</code>. ' +
         'Built by <code>scripts/lib/logbook-lib.ps1</code> on the Stopwatch''s pages.'
     return Format-StopwatchPageHtml -Model (ConvertTo-LogbookModel -Runs $Runs -Now $Now) -ReadError $ReadError -Skipped $Skipped -StorePath $StorePath -Now $Now `
-        -Route '/logbook' -PageTitle 'Logbook' -Sub 'One card per session that began on a clean trunk, newest first, timed from its first prompt until Claude was back on the trunk.' `
-        -FooterNote $note -NoDelta -CardNotes $notes
+        -Route '/logbook' -PageTitle 'Logbook' `
+        -FooterNote $note -NoDelta -CardNotes $notes -Flat
 }
 
 function Format-LogbookRunPageHtml {

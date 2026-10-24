@@ -56,8 +56,8 @@ Assert-True ($gshell -match '<li><a href="/hub">Home</a></li>') 'the first crumb
 Assert-True ($gshell -match '<title>Org/some&lt;repo&gt; -- An &lt;i&gt;issue</title>' -and $gshell -match 'site-header__name">Org/some&lt;repo&gt; <span class="site-header__tag">hub</span>' -and $gshell -notmatch 'class="eyebrow"') 'the title and the site header carry the repo''s name, escaped, and a named page needs no eyebrow'
 Assert-True ($gshell -match 'data-theme-key="general-pages"') 'the theme key is the general server''s own'
 Assert-True ($gshell -notmatch 'dkj-claude-plugins') 'and nothing of this repo is built into it'
-$gIntroEnd = $gshell.IndexOf('<p class="lead">lead</p>')
-Assert-True ($gshell.Contains((Format-RepoHubBanner)) -and $gshell.IndexOf('id="hub-banner"') -gt $gIntroEnd -and $gshell.IndexOf('id="hub-banner"') -lt $gshell.IndexOf('<p>body</p>') -and ([regex]::Matches($gshell, 'id="hub-banner"')).Count -eq 1) 'every page carries the general banner once, under its intro and above its own blocks (#3297)'
+$gIntro = $gshell.IndexOf('<h1>')
+Assert-True ($gshell.Contains((Format-RepoHubBanner)) -and $gshell.IndexOf('id="hub-banner"') -gt $gshell.IndexOf('<main class="page-column">') -and $gshell.IndexOf('id="hub-banner"') -lt $gIntro -and $gIntro -lt $gshell.IndexOf('<p>body</p>') -and ([regex]::Matches($gshell, 'id="hub-banner"')).Count -eq 1) 'every page carries the general banner once, as the first block of the page, above its h1 and its own blocks (#3297; owner, October 24, 2026)'
 # THE SITE HEADER (October 22, 2026): only where a caller asks for it with -Brand, so every other repo's pages stay as they were.
 $anon = Format-GeneralPageHtml -Title 'T' -Lead 'L' -Body ''
 Assert-True ($anon -notmatch 'site-header' -and $anon -match 'theme-settings--floating') 'a page that names no site draws no site header, and its settings button floats as before'
