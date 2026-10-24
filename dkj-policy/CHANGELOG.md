@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**3 / 16 minor entries** <!-- pending-tally -->
+**4 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/hub-banner-one-row · 20261024-133354Z
+
+The hub's airsquats banner never takes more than one row: once airsquats are due, the checkbox (`☐ 30 due`) now sits on the same line as the countdown instead of on a second line below it, and a test holds the banner to one paragraph.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo hub that runs `dkj-policy` carries this banner, so after the update its airsquats line stays one row high instead of pushing the page down a line every hour.
+
+**Score:** 2
+
+#### Pull Request
+
+Hub banner always fits on one row
+
+Plugins: dkj-policy
+
+[PR #3380](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3380)
+
+---
 
 ### DEPLOY: docs/stopwatch-css-comment-v5 · 20261024-125533Z
 
