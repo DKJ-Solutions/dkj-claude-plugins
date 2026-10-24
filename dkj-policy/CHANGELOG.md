@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**10 / 26 minor entries** <!-- pending-tally -->
+**11 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3383-house-hub-card-grid · 20261024-161943Z
+
+The house hub's form is now the one the source repo's own hub already had, in the README, the patterns and the
+dkj-policy plugin's hub alike (#3383): the home page is one `.grid-3` of card links with no heading, and the
+facts and Issues sit on a separate Repository page on `/repository`. The two hubs draw their cards through one
+helper, `Format-HubCardLinkHtml`, and `patterns/repo-repository.html` is the new reference for that page.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo's hub the dkj-policy plugin serves changes shape at the next update: the products and pages become
+cards in one grid, and the facts move to a Repository page. A repo that built its own hub from the README
+now has a reference that matches the plugin's hub it sees beside it.
+
+**Score:** 3
+
+#### Pull Request
+
+The house hub is a grid of card links with a separate Repository page
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3395](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3395)
+
+---
 
 ### DEPLOY: feat/3393-ci-selection-parse-cache · 20261024-160911Z
 
