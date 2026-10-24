@@ -291,8 +291,11 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
     New-Item -ItemType Directory -Path $swDir | Out-Null
     $swStore = Join-Path $swDir 'stopwatch.json'
     [System.IO.File]::WriteAllText($swStore, '{ "runs": [ { "id": "s1", "label": "Server fixture", "start": "2026-10-23T10:00:00.000Z", "end": "2026-10-23T10:05:00.000Z", "auto": true, "startHead": "a" } ] }')
+    # And the Logbook's (#3364), beside it.
+    $lbStore = Join-Path $swDir 'logbook.json'
+    [System.IO.File]::WriteAllText($lbStore, '{ "runs": [ { "id": "l1", "label": "Logbook fixture", "start": "2026-10-24T10:00:00.000Z", "end": "2026-10-24T10:02:00.000Z", "auto": true, "startHead": "a", "session": "x1" } ], "sessions": [ "x1" ] }')
     $proc = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
-        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$Server`"", '-Port', $port, '-StopwatchPath', "`"$swStore`"")
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$Server`"", '-Port', $port, '-StopwatchPath', "`"$swStore`"", '-LogbookPath', "`"$lbStore`"")
     try {
         # THE TWO WINDOWS BELOW ARE WIDE ON PURPOSE (#3038). Both groups failed on a loaded CI shard and
         # passed on a rerun. Measured unloaded: the server is up in ~0.6s, a request behind a silent
@@ -339,6 +342,12 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             $swLabel = Get-Raw 'GET' '/stopwatch/server-fixture' "localhost:$port"
             Assert-True ($swLabel -match 'HTTP/1.1 200' -and $swLabel -match 'Server fixture' -and $swLabel -match 'href="/stopwatch"') 'a label''s page shows its runs and links back'
             Assert-Equal 404 (Get-Status 'GET' '/stopwatch/no-such-label' "localhost:$port") 'an unknown Stopwatch slug is not found'
+            $lbOverview = Get-Raw 'GET' '/logbook' "localhost:$port"
+            Assert-True ($lbOverview -match 'HTTP/1.1 200' -and $lbOverview -match 'Logbook fixture' -and $lbOverview -match 'href="/logbook/2026-10-2[45]-\d{4}"') 'the Logbook overview has a card for the fixture run, linking its page (#3364)'
+            $lbSlug = [regex]::Match($lbOverview, 'href="/logbook/([0-9-]+)"').Groups[1].Value
+            $lbRun = Get-Raw 'GET' "/logbook/$lbSlug" "localhost:$port"
+            Assert-True ($lbRun -match 'HTTP/1.1 200' -and $lbRun -match 'Logbook fixture' -and $lbRun -match 'href="/logbook"') 'a Logbook run''s page shows the run and links back'
+            Assert-Equal 404 (Get-Status 'GET' '/logbook/no-such-run' "localhost:$port") 'an unknown Logbook slug is not found'
             Assert-Equal 404 (Get-Status 'GET' '/../connectors/x.json' "localhost:$port") 'a path outside the routes is not found'
             # The brand book is the product port's alone (October 22, 2026): the hub neither serves nor redirects it.
             Assert-Equal 404 (Get-Status 'GET' '/brandbook' "localhost:$port") '/brandbook is not a page of the hub'
