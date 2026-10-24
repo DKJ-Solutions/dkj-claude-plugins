@@ -58,7 +58,7 @@ newer runs from the other machines. This page reloads in a few seconds to show a
 
 - [x] `stopwatch.tests.ps1`: the later-visit notice and its reload, the fetched time in local time, and no time
   claimed without one (179 passed standalone).
-- [ ] The owner has looked at `/stopwatch`.
+- [x] The owner has looked at `/stopwatch` and approved it (Dave, October 24, 2026).
 
 ### DEPLOY: fix/3403-stopwatch-fetch-state
 
