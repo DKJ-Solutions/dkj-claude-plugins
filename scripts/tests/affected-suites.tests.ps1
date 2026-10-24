@@ -299,6 +299,14 @@ $list = @('c-tool.ps1', 'docs/data.json')
     Assert-Equal 'scoped,walk' (Get-SelectedNames $sel) 'a change inside a declared scope selects that walker'
     Assert-Equal 'scoped' ((@($sel.Scoped | ForEach-Object { ($_ -split '/')[-1] -replace '\.tests\.ps1$', '' })) -join ',') 'and reports it as scoped in, not as always'
     Assert-Equal "its walk scope '*.md' covers readme.md" $sel.Why['scripts/tests/scoped.tests.ps1'] 'and its reason names the scope and the path it covers (#3309, lever 3)'
+    # THE BRANCH DOCUMENT MATCHES NO WALK SCOPE (#3379): every branch carries one, so '*.md' once selected
+    # the slowest walkers for a one-line CSS change. Another .md beside it still does.
+    $sel = Get-AffectedSuiteSelection -RepoRoot $r4 -ChangedPaths @('site/x.css', 'dkj-policy/fix-1-x.md') -BranchDocument 'dkj-policy/fix-1-x.md'
+    Assert-True ((Get-SelectedNames $sel) -notmatch 'scoped') 'the branch document alone scopes in no walker (#3379)'
+    $sel = Get-AffectedSuiteSelection -RepoRoot $r4 -ChangedPaths @('site/x.css', 'dkj-policy/fix-1-x.md')
+    Assert-True ((Get-SelectedNames $sel) -match 'scoped') 'without -BranchDocument it is matched as before -- the fail-closed default'
+    $sel = Get-AffectedSuiteSelection -RepoRoot $r4 -ChangedPaths @('README.md', 'dkj-policy/fix-1-x.md') -BranchDocument 'dkj-policy/fix-1-x.md'
+    Assert-True ((Get-SelectedNames $sel) -match 'scoped') 'any other .md still scopes the walker in'
     $sel = Get-AffectedSuiteSelection -RepoRoot $r4 -ChangedPaths @('docs/data.json')
     Assert-True ((Get-SelectedNames $sel) -match 'uses-helper') "a suite inherits the declared scope of a helper it reaches"
     Remove-Item -LiteralPath (Join-Path $r4 'scripts/tests/scoped.tests.ps1'), (Join-Path $r4 'scripts/tests/walk-helper.ps1'), (Join-Path $r4 'scripts/tests/uses-helper.tests.ps1')

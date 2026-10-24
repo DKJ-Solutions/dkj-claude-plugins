@@ -165,6 +165,12 @@ try {
     . (Join-Path $root 'scripts\lib\gate-lib.ps1')
     . (Join-Path $root 'scripts\lib\ci-suite-selection-lib.ps1')
 } catch { $gateLibError = $_.Exception.Message }
+# The branch document's resolver, so the page leaves that document out of the walk scopes as the gate does
+# (#3379). Optional: without it Get-GateBranchDocument answers '' and the document is matched as before.
+try {
+    . (Join-Path $root 'scripts\lib\branch-info.ps1')
+    . (Join-Path $root 'scripts\lib\entry-scaffold-lib.ps1')
+} catch { }
 # The state file the hook writes, and the probe of the general pages server (#3119): the plugin's, read from
 # this repo's own tree because this repo is the plugin's source.
 . (Join-Path $root 'plugins\dkj-policy\hub\lib\general-pages-state.ps1')
@@ -339,7 +345,7 @@ function Get-TestGateSelection {
         elseif (-not @($changes.Paths).Count) { $value.Reason = "Nothing differs from $($changes.Base), so nothing is selected" }
         else {
             $value.Changed = @($changes.Paths)
-            $sel = Get-AffectedSuiteSelection -RepoRoot $root -ChangedPaths $value.Changed
+            $sel = Get-AffectedSuiteSelection -RepoRoot $root -ChangedPaths $value.Changed -BranchDocument (Get-GateBranchDocument -RepoRoot $root)
             $value.Proven = [bool]$sel.Proven; $value.Reason = $sel.Reason; $value.PoolCount = $sel.PoolCount
             $value.Selected = @($sel.Suites); $value.Why = $(if ($sel.Why) { $sel.Why } else { @{} })
             $assets = Get-StaticAssetVerdict -ChangedPaths $value.Changed

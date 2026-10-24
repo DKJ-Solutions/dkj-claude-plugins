@@ -1657,6 +1657,16 @@ function Get-SuiteReferenceCachePath {
     return (Join-Path (Split-Path -Parent $evidence) 'workflow-suite-refs.json')
 }
 
+function Get-GateBranchDocument {
+    <# The checked-out branch's development document as a repo-relative path, for
+       Get-AffectedSuiteSelection's -BranchDocument (#3379) -- or '' wherever it cannot be said: no
+       Resolve-BranchFilePath loaded (entry-scaffold-lib.ps1), or the resolver throws. '' leaves the
+       document matched, which is the fail-closed direction. #>
+    param([Parameter(Mandatory)][string]$RepoRoot)
+    if (-not (Test-FunctionDefined 'Resolve-BranchFilePath')) { return '' }
+    try { return "$(Resolve-BranchFilePath -Kind File -RepoRoot $RepoRoot)".Trim() } catch { return '' }
+}
+
 function Get-AffectedSuiteSelection {
     <#
         Which test suites a set of changed paths can affect -- the local half of issue #3223, where
@@ -1730,9 +1740,12 @@ function Get-AffectedSuiteSelection {
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
         [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$ChangedPaths,
-        [string]$TestsDir = 'scripts/tests'
+        [string]$TestsDir = 'scripts/tests',
+        # The branch's own development document (Get-GateBranchDocument), which no walk scope matches
+        # (#3379). Empty -- the default, and what a failed resolve gives -- leaves it matched as before.
+        [string]$BranchDocument = ''
     )
-    $testsPrefix = ($TestsDir.Replace('\', '/').Trim('/')).ToLowerInvariant() + '/'
+    $testsPrefix =($TestsDir.Replace('\', '/').Trim('/')).ToLowerInvariant() + '/'
     $verdict = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Scoped = @(); Walkers = @(); Open = @(); Matched = @(); Why = @{}; PoolCount = 0; Reason = '' }
 
     $changed = @($ChangedPaths | ForEach-Object { "$_".Trim().Replace('\', '/') } | Where-Object { $_ })
@@ -1750,6 +1763,14 @@ function Get-AffectedSuiteSelection {
         return $verdict
     }
     $changed = @($changed | ForEach-Object { $_.ToLowerInvariant() })
+    # THE BRANCH DOCUMENT MATCHES NO WALK SCOPE (#3379), the local half of what #3370 did for CI. Every
+    # branch carries dkj-policy/<branch>.md, so a '*.md' scope selected script-contract, connectors and
+    # subagent-shared for a one-line CSS change: 89s where ~25s would do (PR #3375). Only the scope match
+    # skips it -- the reference graph and the whole-pool reasons above still read it. Safe on the same
+    # grounds as #3370: the branch-entry gate judges the document, CI's asset-only lane already leaves it
+    # out, and any other change still runs the whole pool on CI, so a miss costs a red CI run, not an
+    # ungated merge.
+    $scopeSkip = "$BranchDocument".Trim().Replace('\', '/').ToLowerInvariant()
 
     $staged = Invoke-GitRead -RepoRoot $RepoRoot -GitArgs @('-c', 'core.quotePath=true', 'ls-files', '--stage')
     $untracked = Invoke-GitRead -RepoRoot $RepoRoot -GitArgs @('-c', 'core.quotePath=true', 'ls-files', '--others', '--exclude-standard')
@@ -1899,6 +1920,7 @@ function Get-AffectedSuiteSelection {
             [void]$walkers.Add($s)
             $inScope = $false
             foreach ($c in $changed) {
+                if ($scopeSkip -and $c -eq $scopeSkip) { continue }
                 foreach ($pattern in $scope) { if (Test-WalkScopeMatch -Path $c -Pattern $pattern) { $inScope = $true; $why[$s] = "its walk scope '$pattern' covers $c"; break } }
                 if ($inScope) { break }
             }
@@ -2268,7 +2290,7 @@ function Invoke-WorkflowGates {
                         # A THROW HERE IS NOT A RED GATE: the selection is an optimisation, so whatever breaks it
                         # (an unreadable file, a cache, git) costs the saving and runs every suite.
                         try {
-                            $gateSelection = Get-AffectedSuiteSelection -RepoRoot $RepoRoot -ChangedPaths $gateChanges.Paths
+                            $gateSelection = Get-AffectedSuiteSelection -RepoRoot $RepoRoot -ChangedPaths $gateChanges.Paths -BranchDocument (Get-GateBranchDocument -RepoRoot $RepoRoot)
                         } catch {
                             $gateSelection = [pscustomobject]@{ Proven = $false; Suites = @(); Always = @(); Scoped = @(); Walkers = @(); Open = @(); Matched = @(); PoolCount = 0; Reason = "the selection failed: $($_.Exception.Message)" }
                         }

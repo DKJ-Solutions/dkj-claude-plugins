@@ -41,19 +41,29 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-AffectedSuiteSelection` takes `-BranchDocument` and matches it against no walk scope; `Get-GateBranchDocument` resolves it
+- [x] The test gate and the dev server's `/test-gate` page pass it
 
 ### TEST
 
+- [x] `affected-suites.tests.ps1` covers the skip, the fail-closed default and another `.md` beside it
+
 ### DEPLOY: fix/3379-gate-branch-document-scope
 
-**Score:**
+The local test gate no longer selects the walk-scoped suites for the branch's own development document.
+Every branch carries one, so a `*.md` scope pulled `script-contract`, `connectors` and `subagent-shared`
+into a one-line CSS change: 89s where about 25s would do. The document still counts for everything else
+the selection reads, and any other `.md` still selects those suites. This is the local half of #3370
+([#3379](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3379)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing reaches a user of the plugins: the local gate's selection runs in this repo only.
+
+**Score:** N/A
 
 #### Pull Request
 
 The local test gate's walk scopes no longer select suites for the branch's own document
-
