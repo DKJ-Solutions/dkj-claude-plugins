@@ -934,9 +934,9 @@ if ($gap.Measured -and -not $resuming) {
 # proposal. There is no PR body yet to scan for a mention, so an issue only named in -Intent, or decided
 # after the branch is cut, is invisible here; that gap is unaddressed and may not be addressable.
 #
-# GH IS OPTIONAL, AND THIS IS THE ONLY PLACE IN THE SCRIPT THAT ASKS FOR IT. -Resolves is opt-in, so the
-# ordinary run -- no issue number given -- still asks nothing of gh and stays exactly as usable offline as
-# this script's own docstring promises for scripts\lib\branch-info.ps1.
+# GH IS OPTIONAL HERE. -Resolves is opt-in, so the ordinary run -- no issue number given -- asks this
+# block nothing. The used-up name check above (#3376) is the script's one other gh question, and it is
+# skipped wherever there is no repo name or no hosted origin to ask about.
 $alreadyDoneNote = ''
 $resolveList = @(ConvertTo-IssueNumberList -Value $Resolves)
 if ($resolveList.Count -gt 0) {
