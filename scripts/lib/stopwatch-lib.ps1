@@ -17,7 +17,9 @@
         That is a sign the work landed, not a proof of it. The HEAD test is the reason no branch needs to be seen:
         a whole ship (branch, PR, merge, fold) usually happens inside one turn, and the Stop hook fires only at a
         turn's end. A turn that only answers leaves HEAD where it was, and a branch parked for the owner's eye is
-        not on the trunk, so the run keeps going in both.
+        not on the trunk, so the run keeps going in both. HEAD must also hold a commit made during the run, so a
+        fast-forward of older commits stops nothing, and a label that begins with `release` waits for the cut's
+        `release: vX.Y.Z release notes` commit (#3400), so a release cut is timed to its end.
 
     THREE PAGES, ALL READ-ONLY AND BARE (no lead or tiles above their content, only the hub's airsquats banner,
     which is on every hub page, #3356; the plugin's Format-GeneralPageHtml -Bare). '/stopwatch' is an overview of
@@ -176,6 +178,20 @@ function Get-StopwatchPromptMarker {
     return $label
 }
 
+function ConvertFrom-StopwatchCommitLog {
+    <#
+        The commits Invoke-StopwatchHookEvent -Commits reads (#3400), from the lines of
+        `git log --format='%ct %s' <StartHead>..HEAD`: each @{ Subject; Time }, Time the committer time in UTC. A
+        line that does not start with a Unix time is skipped.
+    #>
+    param([AllowEmptyCollection()][string[]]$Lines = @())
+    $epoch = New-Object DateTime 1970, 1, 1, 0, 0, 0, ([DateTimeKind]::Utc)
+    return @(foreach ($line in @($Lines)) {
+        $m = [regex]::Match([string]$line, '^(\d+) ?(.*)$')
+        if ($m.Success) { @{ Subject = $m.Groups[2].Value; Time = $epoch.AddSeconds([double]$m.Groups[1].Value) } }
+    })
+}
+
 function Invoke-StopwatchHookEvent {
     <#
         What a Claude Code hook does to the store (#3323), decided without git or a clock so every rule is tested.
@@ -185,6 +201,13 @@ function Invoke-StopwatchHookEvent {
         without a StartHead could never stop by itself. -Hook Stop: the running run ends at -Now only when it is
         Auto, -Branch is -Trunk, -Clean (git status --porcelain was empty) and -Head is not the run's StartHead,
         taken as work that landed (it proves HEAD moved, not that anything was merged); otherwise nothing.
+        -Commits, the commits in StartHead..HEAD as @{ Subject; Time } (Time the committer time, UTC), narrows
+        that further (#3400): HEAD must hold a commit made during the run, so a fast-forward that only brought in
+        older commits by others stops nothing. And a run whose label begins with `release` (any case) stops only
+        on a `release: vX.Y.Z release notes` commit made during the run, the commit cut-release's step 4
+        prescribes, because a cut moves HEAD at the fast-forward and again at the release commit, minutes before
+        it is done. A commit counts from the second the run started in, since a committer time has no fraction.
+        $null (the hook could not read git) leaves the HEAD test alone: a timing aid that never stops is worse.
         Returns Runs and Changed (write only when set).
     #>
     param(
@@ -195,7 +218,8 @@ function Invoke-StopwatchHookEvent {
         [bool]$Clean = $false,
         [string]$Head = '',
         [string]$Trunk = 'main',
-        [AllowEmptyString()][string]$Prompt = ''
+        [AllowEmptyString()][string]$Prompt = '',
+        [AllowEmptyCollection()][object[]]$Commits = $null
     )
     $runs = @($Runs | Where-Object { $_ })
     $running = @($runs | Where-Object { -not $_.End }) | Select-Object -Last 1
@@ -208,6 +232,13 @@ function Invoke-StopwatchHookEvent {
     }
     if (-not $running -or -not $running.Auto -or -not $running.StartHead) { return $same }
     if ($Branch -cne $Trunk -or -not $Clean -or -not $Head -or $Head -ceq $running.StartHead) { return $same }
+    if ($null -ne $Commits) {
+        $s = $running.Start.ToUniversalTime()
+        $from = $s.AddTicks(-($s.Ticks % [TimeSpan]::TicksPerSecond))
+        $own = @($Commits | Where-Object { $_ -and $_.Time -and $_.Time.ToUniversalTime() -ge $from })
+        if ([string]$running.Label -match '^release') { $own = @($own | Where-Object { [string]$_.Subject -match '^release: v\d+\.\d+\.\d+ release notes' }) }
+        if (-not $own.Count) { return $same }
+    }
     $copy = $running.Clone(); $copy.End = $Now.ToUniversalTime()
     return @{ Runs = @($runs | ForEach-Object { if ($_.Id -eq $copy.Id) { $copy } else { $_ } }); Changed = $true }
 }

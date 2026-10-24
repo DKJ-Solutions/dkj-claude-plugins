@@ -68,6 +68,27 @@ Assert-True (-not (& $stop 'main' $true 'bbb' @($noHeadRun)).Changed) 'a run wit
 Assert-True ((Invoke-StopwatchHookEvent -Hook Stop -Runs $auto -Now (& $at 500) -Branch 'master' -Clean $true -Head 'bbb' -Trunk 'master').Changed) 'the trunk name is a parameter'
 Assert-True (-not (Invoke-StopwatchHookEvent -Hook Stop -Runs @($done) -Now (& $at 500) -Branch 'main' -Clean $true -Head 'bbb').Changed) 'a Stop with no run going does nothing'
 
+Write-Host '-- a commit made during the run, and a release run (#3400)' -ForegroundColor Cyan
+$log = @(ConvertFrom-StopwatchCommitLog -Lines @("$(1792749610) release: v5.30.0 release notes", 'garbage', "$(1792749600)"))
+Assert-True ($log.Count -eq 2 -and $log[0].Subject -eq 'release: v5.30.0 release notes' -and $log[0].Time -eq (New-Object DateTime 2026, 10, 23, 10, 0, 10, ([DateTimeKind]::Utc)) -and $log[1].Subject -eq '') 'a %ct %s line becomes a subject and a UTC committer time; a line with no time is skipped'
+$going7 = $going.Clone(); $going7.Start = (& $at 6.7)
+$withCommits = { param($rs, $cs) Invoke-StopwatchHookEvent -Hook Stop -Runs $rs -Now (& $at 500) -Branch 'main' -Clean $true -Head 'bbb' -Commits $cs }
+$older = @{ Subject = 'fold: someone else'; Time = (& $at 1) }
+$sameSecond = @{ Subject = 'fold: mine'; Time = (& $at 6) }
+Assert-True (-not (& $withCommits @($going7) @($older)).Changed) 'a fast-forward that brought in only commits older than the run stops nothing'
+Assert-True (-not (& $withCommits @($going7) @()).Changed) 'an empty commit list stops nothing'
+Assert-True ((& $withCommits @($going7) @($older, $sameSecond)).Changed) 'a commit made during the run stops it, from the second the run started in'
+$release = $going7.Clone(); $release.Label = 'Release cut'
+$cutCommit = @{ Subject = 'release: v5.30.0'; Time = (& $at 300) }
+$notes = @{ Subject = 'release: v5.30.0 release notes'; Time = (& $at 400) }
+Assert-True (-not (& $withCommits @($release) @($older, $cutCommit)).Changed) 'a release run does not stop on the release commit'
+Assert-True ((& $withCommits @($release) @($older, $cutCommit, $notes)).Changed) 'a release run stops on a release-notes commit made during it'
+$oldNotes = @{ Subject = 'release: v5.29.0 release notes'; Time = (& $at 2) }
+Assert-True (-not (& $withCommits @($release) @($oldNotes)).Changed) 'a release-notes commit from before the run does not stop it'
+$lower = $release.Clone(); $lower.Label = 'release patch'
+Assert-True ((& $withCommits @($lower) @($notes)).Changed -and -not (& $withCommits @(@{ Id = 'p'; Label = 'Prerelease check'; Start = (& $at 6); End = $null; Auto = $true; StartHead = 'aaa' }) @($older)).Changed) 'the label test is any case and anchored at the start'
+Assert-True ((& $stop 'main' $true 'bbb' @($release)).Changed) 'without a commit list (git could not be read) the plain HEAD test still ends the run'
+
 Write-Host '-- the store' -ForegroundColor Cyan
 $dir = Join-Path ([System.IO.Path]::GetTempPath()) ('stopwatch-tests-' + [guid]::NewGuid().ToString('N'))
 $store = Join-Path $dir 'sub\stopwatch.json'
