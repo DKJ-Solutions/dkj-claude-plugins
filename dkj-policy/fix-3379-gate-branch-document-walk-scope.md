@@ -39,19 +39,43 @@
 
 ### PLAN
 
+Issue #3379: the local gate's `Get-AffectedSuiteSelection` matched the branch's own document against
+every `'*.md'` walk scope, so five slow suites ran on every branch. Leave the document out of the
+walk-scope match only (the reference graph still sees it), the local half of #3370.
+
+Checked before excluding it: none of the five suites reads a branch document. `cut-release-guardrail`
+reads root docs only, `subagent-shared` personas and agent defs, `measure-always-on` the always-on
+closure, and neither `check-script-contract.ps1` nor `connector-sessioncheck.ps1` resolves one.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-AffectedSuiteSelection -BranchDocument`, skipped in the walk-scope match only (`scripts/lib/gate-lib.ps1`, mirror synced)
+- [x] `Get-GateBranchDocument` resolves it through `Resolve-BranchFilePath`, and the test gate passes it
+- [x] The dev server's /test-gate page passes it too, and its CI line drops the document as CI does (#3370)
 
 ### TEST
 
+- [x] `affected-suites.tests.ps1`: three asserts (document alone scopes nothing; another `.md` still does; empty name removes nothing) -- 166 pass
+- [x] The issue's case remeasured: `showcase.css` + the branch document now selects `ci-suite-selection-lib` and `dev-pages`, against seven before
+
 ### DEPLOY: fix/3379-gate-branch-document-walk-scope
 
-**Score:**
+open-pr's local test gate no longer counts the branch's own development document as a change to any
+suite's walk scope, so a branch that changes only a stylesheet runs 2 suites instead of 7 (89s down
+to about 23s on the measured case). A suite that names the document itself is still selected. The dev
+server's /test-gate page shows the same selection, and its CI line now drops the document as CI does.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer whose suites declare a `'*.md'` walk scope gets the same saving on every branch.
+
+**Score:** 1
 
 #### Pull Request
+
+Local test gate leaves the branch document out of walk scopes
+
+Plugins: dkj-policy
 
