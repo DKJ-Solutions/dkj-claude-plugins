@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**9 / 24 minor entries** <!-- pending-tally -->
+**10 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3390-hub-default-theme · 20261024-155325Z
+
+A repo can now state the theme the plugin's hub and its general pages (Artifacts, Issues, Release notes,
+SessionStart) open in, with an optional `DefaultTheme` in its `Get-DevPreview`, for example `'teal'`.
+Until now they always opened in lilac, so a repo whose own product opens in another theme showed two
+defaults depending on the port. A repo that states nothing keeps lilac, and a visitor's own theme choice
+still wins ([#3390](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3390)). The key is
+documented in [the hub's README](../plugins/dkj-policy/hub/README.md).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer repo's maintainer who runs its own themed product beside the plugin's hub can now make the
+hub and its pages open in the same theme, with one line in `scripts/repo-config.ps1`.
+
+**Score:** 2
+
+#### Pull Request
+
+Let a repo state the default theme of the plugin's hub and general pages
+
+Plugins: dkj-policy
+
+[PR #3394](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3394)
+
+---
 
 ### DEPLOY: docs/stopwatch-css-comment-v6 · 20261024-150222Z
 
