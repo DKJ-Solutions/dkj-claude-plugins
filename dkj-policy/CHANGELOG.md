@@ -2,7 +2,28 @@
 
 ## [Unreleased]
 
-**3 / 15 minor entries** <!-- pending-tally -->
+**3 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/stopwatch-css-comment-v5 · 20261024-125533Z
+
+A timing run of the full workflow, branch to fold: the brand book's showcase stylesheet carries a
+one-line comment stamped with the run's date and time, and nothing renders differently.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing reaches a user of the plugins: the comment sits in the brand book's source and changes no output.
+
+**Score:** N/A
+
+#### Pull Request
+
+A stopwatch test-run comment at the top of showcase.css
+
+[PR #3375](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3375)
+
+---
 
 ### DEPLOY: fix/3371-stopwatch-run-pages-entry · 20261024-112308Z
 
