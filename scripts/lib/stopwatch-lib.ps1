@@ -663,12 +663,16 @@ function Format-StopwatchPageShell {
         '.sw-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }' + "`n" +
         '@media (max-width: 1000px) { .sw-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }' + "`n" +
         '@media (max-width: 760px) { .sw-grid-4 { grid-template-columns: 1fr; } }' + "`n" +
-        '.sw-stamp { margin: 0; font-size: var(--text-sm); color: var(--muted); }' + "`n" +
-        '.sw-label { margin: var(--spacing-1) 0 0; font-size: var(--text-h4); font-weight: 600; color: var(--fg-3); overflow-wrap: anywhere; }' + "`n" +
-        '.sw-label a { color: inherit; text-decoration: none; }' + "`n" +
-        '.sw-version { font-weight: 400; color: var(--muted); }' + "`n" +
-        '.sw-total { margin: var(--spacing-2) 0 0; font-size: var(--text-h2); font-weight: 600; color: var(--fg-3); }' + "`n" +
-        '.sw-change { margin-left: var(--spacing-2); font-size: var(--text-base); color: var(--muted); }' + "`n" +
+        # A card's facts in the four text roles of the house type specimen and no other (the owner, October 24, 2026):
+        # each header a sub line, a value body text, the time large text, the run's version a muted note.
+        '.sw-facts { margin: 0; }' + "`n" +
+        '.sw-facts > div + div { margin-top: var(--spacing-2); }' + "`n" +
+        '.sw-facts dt { font-size: var(--text-sm); color: var(--muted); }' + "`n" +
+        '.sw-facts dd { margin: 0; font-size: var(--text-base); color: var(--fg-1); overflow-wrap: anywhere; }' + "`n" +
+        '.sw-facts dd a { color: inherit; text-decoration: none; }' + "`n" +
+        '.sw-facts .sw-large { font-size: var(--text-lg); }' + "`n" +
+        '.sw-facts dd.muted { font-size: var(--text-sm); color: var(--muted); }' + "`n" +
+        '.sw-change { margin-left: var(--spacing-2); color: var(--muted); }' + "`n" +
         '.sw-change--good { color: var(--positive-5); }' + "`n" +
         '.sw-change--bad { color: var(--negative-5); }' + "`n" +
         '.sw-left { text-align: left; }' + "`n" +
@@ -728,23 +732,25 @@ function Format-StopwatchPageHtml {
     if (@($Model.Groups).Count) {
         [void]$body.AppendLine('<div class="grid-3 sw-grid-4">')
         foreach ($g in @($Model.Groups)) {
-            # Three rows, four cards to a row (the owner, October 24, 2026): the run's start, its label (with its version
-            # behind it once the label has run more than once), and its time with its change against the run before in
-            # percent beside it. The label is the card's one link, stretched over the card. A run going shows its live clock.
+            # Three facts under their headers, four cards to a row (the owner, October 24, 2026): the run's start, its prompt
+            # label (with its version behind it once the label has run more than once), and its time with its change against
+            # the run before in percent beside it. The label is the card's one link, stretched over the card. A run going
+            # shows its live clock.
             $stamp = & $e ($g.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))
             $href = (& $e $Route) + '/' + (& $e $g.PageSlug)
-            $card = '<section class="card card--link"><p class="sw-stamp">' + $stamp + '</p>' +
-                '<h3 class="sw-label"><a href="' + $href + '">' + (& $e $g.Label) + '</a>' +
-                $(if ($g.Versions -gt 1) { ' <span class="sw-version">v' + $g.Version + '</span>' } else { '' }) + '</h3>'
+            $card = '<section class="card card--link"><dl class="sw-facts">' +
+                '<div><dt>Started</dt><dd>' + $stamp + '</dd></div>' +
+                '<div><dt>Prompt</dt><dd><a href="' + $href + '">' + (& $e $g.Label) + '</a>' +
+                $(if ($g.Versions -gt 1) { ' <span class="muted">v' + $g.Version + '</span>' } else { '' }) + '</dd></div>'
             if ($g.Running) {
-                $card += '<p class="sw-total num" data-start="' + (Format-StopwatchStamp $g.Running.Start) + '">' + (Format-DevSeconds ($Now - $g.Running.Start).TotalSeconds) + '</p>'
+                $card += '<div><dt>Time</dt><dd class="sw-large num" data-start="' + (Format-StopwatchStamp $g.Running.Start) + '">' + (Format-DevSeconds ($Now - $g.Running.Start).TotalSeconds) + '</dd></div>'
             } elseif (@($g.Rows).Count) {
                 $row = $g.Rows[0]
                 $change = if ($NoDelta) { '' } else { Format-StopwatchChangePercent -Seconds $row.Seconds -DeltaSeconds $row.DeltaSeconds }
-                $card += '<p class="sw-total num">' + (Format-DevSeconds $row.Seconds) + $change + '</p>'
-                if ($CardNotes[$row.Run.Id]) { $card += '<p class="card__sub">' + (& $e ([string]$CardNotes[$row.Run.Id])) + '</p>' }
+                $note = if ($CardNotes[$row.Run.Id]) { '<dd class="muted">' + (& $e ([string]$CardNotes[$row.Run.Id])) + '</dd>' } else { '' }
+                $card += '<div><dt>Time</dt><dd class="sw-large num">' + (Format-DevSeconds $row.Seconds) + $change + '</dd>' + $note + '</div>'
             }
-            [void]$body.AppendLine($card + '</section>')
+            [void]$body.AppendLine($card + '</dl></section>')
         }
         [void]$body.AppendLine('</div>')
     } else {
