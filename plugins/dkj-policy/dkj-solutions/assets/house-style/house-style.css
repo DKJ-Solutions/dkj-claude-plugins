@@ -235,7 +235,7 @@ body > header, main > header { display: flex; justify-content: space-between; al
    Noto Serif (Android/Linux). Its bold is heavier than the sans 600, so the tracking is
    pulled in slightly. h2-h5 are in the body sans (h2 since October 24, 2026, the owner; it was a serif too). */
 h1 { font-family: var(--font-serif); font-weight: 600; letter-spacing: -0.01em; }
-h2 { font-weight: 600; }
+h2 { font-weight: 700; }   /* 700 since October 24, 2026 (owner); it was 600 */
 /* h1 and h2 are --primary, h3-h5 --fg-3 (owner, October 24, 2026: h2 back in the colour, now 24px in the sans under
    the h1's serif capitals; from October 19 it was --fg-2, because an h2 in the h1's colour read too much like it, and #3235 moved h2
    and h3-h5 to the text steps). On a fill the paper is the text: .fill-primary and
