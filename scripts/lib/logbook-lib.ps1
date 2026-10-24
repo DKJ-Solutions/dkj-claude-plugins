@@ -28,6 +28,13 @@
       - Runs are keyed by session id, so two sessions side by side each keep their own run, and every open run shows
         as going (ConvertTo-StopwatchModel -KeepOpenRuns), up to a day old (ConvertTo-LogbookModel).
 
+    A SWEEP IS SHOWN PER ISSUE (#3405). A /sweep-issues session works several issues in one turn, so its run is the
+    whole sweep, and that length only says how many issues the backlog held (the owner, October 24, 2026). The pages
+    cut it at every ship-pr fold of this checkout inside it (Get-LogbookRuns), since a fold is the moment the trunk
+    is clean again: each issue is a run of its own, from the previous clean trunk to its fold, named after the issue
+    its fold commit names. The time after the last fold belongs to no issue and is not shown. The store and the
+    hooks do not change; the cut is made where the pages are built.
+
     THE STORE IS THIS MACHINE'S AND STAYS HERE: %LOCALAPPDATA%\dkj-claude-plugins\logbook.json, outside the tree
     for the Stopwatch's reason (a run must not dirty the checkout it is timing). Unlike the Stopwatch's runs it is
     NOT shared to origin (#3349): a label is the first line of a prompt, and this repo is public.
@@ -107,6 +114,97 @@ function Invoke-LogbookHookEvent {
     return @{ Runs = @($runs | ForEach-Object { if ($_.Id -eq $copy.Id) { $copy } else { $_ } }); Sessions = $seen; Changed = $true }
 }
 
+# A run whose label is this is a sweep, cut per issue on the pages (#3405).
+$script:LogbookSweepLabel = '^/(dkj-policy:)?sweep-issues(\s|$)'
+# A fold commit is made seconds after its fold mark; one this far after it, or before it, belongs to another fold.
+$script:LogbookFoldCommitSeconds = 300
+
+function Split-LogbookSweepRuns {
+    <#
+        -Runs with every sweep run ($script:LogbookSweepLabel) cut at the -Folds inside it (@{ At; Issue }), oldest
+        first: one run per fold, from the run's start or the fold before to this fold, labelled with the fold's issue
+        (`/sweep-issues #3397`, or `issue <n>` when the fold named none), and its id the sweep's with `-<n>` behind it.
+        A finished sweep's time after its last fold is dropped; a going sweep's is the issue in progress, going. A
+        sweep with no fold inside it, and every other run, is returned as it is. Pure.
+    #>
+    param([AllowEmptyCollection()][object[]]$Runs = @(), [AllowEmptyCollection()][object[]]$Folds = @())
+    $out = @()
+    foreach ($r in @($Runs | Where-Object { $_ })) {
+        $cuts = @()
+        if ($r.Label -imatch $script:LogbookSweepLabel) {
+            $cuts = @($Folds | Where-Object { $_ -and $_.At -gt $r.Start -and (-not $r.End -or $_.At -le $r.End) } | Sort-Object { $_.At })
+        }
+        if (-not $cuts.Count) { $out += $r; continue }
+        $from = $r.Start; $n = 0
+        foreach ($c in $cuts) {
+            $n++
+            $lap = $r.Clone(); $lap.Id = "$($r.Id)-$n"; $lap.Start = $from; $lap.End = $c.At
+            $lap.Label = $r.Label + ' ' + $(if ($c.Issue) { '#' + $c.Issue } else { "issue $n" })
+            $out += $lap; $from = $c.At
+        }
+        if (-not $r.End) {
+            $lap = $r.Clone(); $lap.Id = "$($r.Id)-$($n + 1)"; $lap.Start = $from; $lap.Label = $r.Label + ' issue ' + ($n + 1)
+            $out += $lap
+        }
+    }
+    return @($out | Sort-Object { $_.Start })
+}
+
+function Get-LogbookFolds {
+    <#
+        The folds in -Marks (Read-RunStepMarks' marks, already this checkout's) as @{ At; Issue }: every ship-pr 'fold'
+        mark, with the issue number from the branch of the first unused fold commit in -Commits (@{ At; Subject }, a
+        subject reading `fold: <prefix>/<n>-...`) made from 5 seconds before it to $script:LogbookFoldCommitSeconds
+        after it; empty when none matches. Pure.
+    #>
+    param([AllowEmptyCollection()][object[]]$Marks = @(), [AllowEmptyCollection()][object[]]$Commits = @())
+    $used = @{}; $out = @()
+    foreach ($m in @($Marks | Where-Object { $_ -and $_.Run -eq 'ship-pr' -and $_.Step -eq 'fold' } | Sort-Object { $_.At })) {
+        $issue = ''
+        $i = 0
+        foreach ($c in @($Commits | Sort-Object { $_.At })) {
+            $i++
+            if ($used[$i] -or $c.At -lt $m.At.AddSeconds(-5) -or $c.At -gt $m.At.AddSeconds($script:LogbookFoldCommitSeconds)) { continue }
+            if ($c.Subject -cmatch '^fold: [a-z]+/(\d+)-') { $issue = $Matches[1]; $used[$i] = $true; break }
+        }
+        $out += @{ At = $m.At; Issue = $issue }
+    }
+    return $out
+}
+
+function Get-LogbookRuns {
+    <#
+        The runs the Logbook pages show: -Runs with every sweep cut per issue (Split-LogbookSweepRuns), at the folds
+        the step log at -StepLogPath holds for the checkout at -RepoRoot, named from the fold commits in that
+        checkout's git history. Without a sweep among -Runs nothing is read; without the step log's reader, or a
+        log, the sweeps stay whole. Never throws.
+    #>
+    param([AllowEmptyCollection()][object[]]$Runs = @(), [string]$StepLogPath = '', [string]$RepoRoot = '')
+    $sweeps = @($Runs | Where-Object { $_ -and $_.Label -imatch $script:LogbookSweepLabel })
+    if (-not $sweeps.Count -or -not $StepLogPath -or -not $script:StopwatchStepLogAvailable) { return @($Runs) }
+    try {
+        $from = ($sweeps | ForEach-Object { $_.Start } | Measure-Object -Minimum).Minimum
+        $to = [datetime]::UtcNow
+        $marks = @(Read-RunStepMarks -Path $StepLogPath -From $from -To $to | Where-Object {
+                $_.Run -eq 'ship-pr' -and $_.Step -eq 'fold' -and (-not $RepoRoot -or (Test-RunProgressInWorkspace -RecordWorkspace $_.Workspace -SessionWorkspace $RepoRoot)) })
+        if (-not $marks.Count) { return @($Runs) }
+        $commits = @()
+        if ($RepoRoot) {
+            $ErrorActionPreference = 'Continue'
+            $since = $from.ToUniversalTime().AddMinutes(-1).ToString('yyyy-MM-ddTHH:mm:ssZ', [Globalization.CultureInfo]::InvariantCulture)
+            $lines = @(git -C $RepoRoot log --all --format='%ct%x09%s' --since=$since --grep='^fold: ' 2>$null)
+            if ($LASTEXITCODE -eq 0) {
+                $commits = @(foreach ($l in $lines) {
+                        $p = ([string]$l) -split "`t", 2
+                        if ($p.Count -eq 2 -and $p[0] -match '^\d+$') { @{ At = [DateTimeOffset]::FromUnixTimeSeconds([long]$p[0]).UtcDateTime; Subject = $p[1] } } })
+            }
+        }
+        return (Split-LogbookSweepRuns -Runs $Runs -Folds (Get-LogbookFolds -Marks $marks -Commits $commits))
+    } catch {
+        return @($Runs)
+    }
+}
+
 function ConvertTo-LogbookModel {
     <# What both Logbook pages show: ConvertTo-StopwatchModel -KeepOpenRuns over -Runs, without the open runs older than $script:LogbookOpenRunMaxHours at -Now. #>
     param([AllowEmptyCollection()][object[]]$Runs = @(), [datetime]$Now = [datetime]::UtcNow)
@@ -153,6 +251,7 @@ function Format-LogbookPageHtml {
     $note = 'Kept on this machine in <code>' + (ConvertTo-DashboardText $StorePath) + '</code>, outside the checkout, and not shared: a label is the first line of a prompt. ' +
         'The first prompt of a new Claude Code session starts a run when the checkout is on the trunk and clean; a Stop hook ends it once a turn ends with the checkout back on the trunk and clean, ' +
         'also when nothing was merged, and not while a ship-pr is still waiting on CI. Both are <code>scripts/dashboard/logbook-hook.ps1</code>. ' +
+        'A <code>/sweep-issues</code> run is shown per issue: cut at each ship-pr fold of this checkout, the moment the trunk is clean again, and named after the issue its fold commit names; the time after the last fold belongs to no issue. ' +
         'Built by <code>scripts/lib/logbook-lib.ps1</code> on the Stopwatch''s pages.'
     return Format-StopwatchPageHtml -Model (ConvertTo-LogbookModel -Runs $Runs -Now $Now) -ReadError $ReadError -Skipped $Skipped -StorePath $StorePath -Now $Now `
         -Route '/logbook' -PageTitle 'Logbook' `
