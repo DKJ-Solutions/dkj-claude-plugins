@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**1 / 4 minor entries** <!-- pending-tally -->
+**2 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3401-holder-other-logon-session · 20261024-200215Z
+
+The dev-preview line now says why it can only name a port's holder by pid
+([#3401](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3401)). Where the holder's command line
+reads back empty, the entry reads `3000 by pid 22588 (its command line cannot be read)`, and
+`(another logon session -- its command line cannot be read)` where the holder runs in another Windows logon
+session of the account. Measured: the bare pid was this checkout's own product, started from another session,
+and nothing in the line said where to look.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer whose dev server was started from another Windows logon session now learns that from the session
+line, instead of hunting for a foreign app holding the port.
+
+**Score:** 2
+
+#### Pull Request
+
+dev-preview names a holder whose command line cannot be read, and another logon session
+
+Plugins: dkj-policy
+
+[PR #3412](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3412)
+
+---
 
 ### DEPLOY: feat/house-style-h1-sans · 20261024-195118Z
 
