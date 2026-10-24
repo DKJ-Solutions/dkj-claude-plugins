@@ -6,7 +6,7 @@
 
 ### DEPLOY: feat/3356-hub-banner-everywhere · 20261024-110301Z
 
-The hub's airsquats banner is now on every hub page: the Stopwatch overview and its label pages keep their bare
+The hub's airsquats banner is now on every hub page: the Stopwatch overview and its run pages keep their bare
 layout (no h1 or lead) but open on the banner, and the Connectors page carries it under its intro. `-Bare` on
 `Format-GeneralPageHtml` now leaves out the intro only.
 

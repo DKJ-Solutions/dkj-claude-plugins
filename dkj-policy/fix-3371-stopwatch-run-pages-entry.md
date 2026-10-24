@@ -39,19 +39,29 @@
 
 ### PLAN
 
+#3357's DEPLOY text was written while the Stopwatch had one page per label; main reshaped it into
+run pages (`Format-StopwatchRunPageHtml`) before the merge, and the locked DEPLOY section folded
+unchanged. Correct the one sentence in the pending entry in `CHANGELOG.md`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `CHANGELOG.md`: "its label pages" becomes "its run pages" in the feat/3356-hub-banner-everywhere entry
 
 ### TEST
 
+- [x] Checked against `scripts/lib/stopwatch-lib.ps1`: no label-page renderer remains, only the overview and `Format-StopwatchRunPageHtml`
+
 ### DEPLOY: fix/3371-stopwatch-run-pages-entry
 
-**Score:**
+The pending changelog entry for the hub banner (#3357) named the Stopwatch's label pages, which had
+been replaced by run pages before it merged; it now says run pages. Without the fix, the next release
+notes would have described pages that no longer exist.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+**Score:** N/A
 
 #### Pull Request
 
