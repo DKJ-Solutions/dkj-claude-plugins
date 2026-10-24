@@ -155,6 +155,21 @@ function Test-StopwatchSyncDue {
     return (($Now.ToUniversalTime() - (Get-Item -LiteralPath $StampPath).LastWriteTimeUtc).TotalMinutes -ge $Minutes)
 }
 
+function Test-StopwatchSyncRunning {
+    <#
+        Whether a sync looks under way (#3377): the stamp at -StampPath is younger than -Minutes at -Now, and the log at
+        -LogPath, which a sync writes as it ends, is missing or older than that stamp. A sync that died without its log
+        stops counting once the stamp has aged past -Minutes. Reads only the two files' modification times.
+    #>
+    param([Parameter(Mandatory = $true)][string]$StampPath, [Parameter(Mandatory = $true)][string]$LogPath,
+        [datetime]$Now = [datetime]::UtcNow, [int]$Minutes = $script:StopwatchSyncIntervalMinutes)
+    if (-not (Test-Path -LiteralPath $StampPath -PathType Leaf)) { return $false }
+    $stamped = (Get-Item -LiteralPath $StampPath).LastWriteTimeUtc
+    if (($Now.ToUniversalTime() - $stamped).TotalMinutes -ge $Minutes) { return $false }
+    if (-not (Test-Path -LiteralPath $LogPath -PathType Leaf)) { return $true }
+    return ((Get-Item -LiteralPath $LogPath).LastWriteTimeUtc -lt $stamped)
+}
+
 function Start-StopwatchSync {
     <#
         Starts scripts/dashboard/stopwatch-sync.ps1 of -RepoRoot as a hidden process of its own and returns at once;

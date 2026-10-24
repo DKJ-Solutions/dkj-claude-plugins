@@ -39,21 +39,44 @@
 
 ### PLAN
 
+#### The cause, verified
+
+`Get-StopwatchPageRuns` in `scripts/dashboard/serve-connector-dashboard.ps1` starts the sync with
+`Start-StopwatchSync`, which returns at once, and then reads `refs/stopwatch-origin/*` as they stood
+before it. On a machine's first visit there are none yet, so the overview states "no other machine has
+shared a run yet" while the fetch is still under way (#3377).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Test-StopwatchSyncRunning` in `scripts/lib/stopwatch-sync-lib.ps1`: a stamp younger than the sync
+  interval, with a log missing or older than it, is a sync under way.
+- [x] The hub marks the shared read `Fetching` when it found no other machine and a sync is under way.
+- [x] `Format-StopwatchPageHtml -Fetching`: a status line above Measurements, the footer clause "still
+  being fetched" in place of the empty-origin one, and a reload every four seconds until the sync has ended.
 
 ### TEST
 
+- [x] `stopwatch-sync.tests.ps1`: five asserts on `Test-StopwatchSyncRunning` (no stamp, no log yet, an
+  older log, a newer log, a stamp aged past the interval).
+- [x] `stopwatch.tests.ps1`: the empty page states an empty origin and does not reload; `-Fetching` says
+  the runs are being fetched and reloads.
+- [ ] The owner looks at `/stopwatch` on a first visit (a visible result).
+
 ### DEPLOY: fix/3377-stopwatch-first-sync-fetching
 
-**Score:**
+The Stopwatch overview on a machine's first visit no longer says that no other machine has shared a run
+while its first sync is still fetching them. Until that sync has ended it says the other machines' runs
+are being fetched, and reloads every few seconds to show them
+([#3377](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3377)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the Stopwatch is this repo's own hub page and ships in no plugin.
+
+**Score:** N/A
 
 #### Pull Request
 
 Stopwatch: say the other machines' runs are being fetched while the first sync runs
-

@@ -85,6 +85,18 @@ try {
     Assert-True (-not (Test-StopwatchSyncDue -StampPath $stamp -Now ([datetime]::UtcNow))) 'a fresh stamp holds the next sync back'
     Assert-True (Test-StopwatchSyncDue -StampPath $stamp -Now ([datetime]::UtcNow.AddMinutes(6))) 'and lets it through once the interval has passed'
 
+    # --- A sync under way (#3377) ---
+    $syncLog = Join-Path $tmp 'sync.log'
+    Assert-True (-not (Test-StopwatchSyncRunning -StampPath (Join-Path $tmp 'none.stamp') -LogPath $syncLog)) 'with no stamp no sync is under way'
+    Assert-True (Test-StopwatchSyncRunning -StampPath $stamp -LogPath $syncLog) 'a fresh stamp and no log yet: the first sync is under way'
+    [System.IO.File]::WriteAllText($syncLog, 'x')
+    (Get-Item -LiteralPath $syncLog).LastWriteTimeUtc = (Get-Item -LiteralPath $stamp).LastWriteTimeUtc.AddSeconds(-30)
+    Assert-True (Test-StopwatchSyncRunning -StampPath $stamp -LogPath $syncLog) 'a log older than the stamp is the sync before: this one is under way'
+    (Get-Item -LiteralPath $syncLog).LastWriteTimeUtc = (Get-Item -LiteralPath $stamp).LastWriteTimeUtc.AddSeconds(4)
+    Assert-True (-not (Test-StopwatchSyncRunning -StampPath $stamp -LogPath $syncLog)) 'a log newer than the stamp: the sync has ended'
+    Remove-Item -LiteralPath $syncLog
+    Assert-True (-not (Test-StopwatchSyncRunning -StampPath $stamp -LogPath $syncLog -Now ([datetime]::UtcNow.AddMinutes(6)))) 'a sync that died without its log stops counting once the stamp has aged'
+
     # --- Publish and read between two clones of a bare origin ---
     $origin = Join-Path $tmp 'origin.git'
     $a = Join-Path $tmp 'a'; $b = Join-Path $tmp 'b'
