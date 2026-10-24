@@ -184,8 +184,8 @@ function Get-DevPreviewListeners([int[]]$Ports) {
 }
 function Get-DevPreviewProcesses {
     $processes = @{}
-    foreach ($p in @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId, CommandLine -ErrorAction SilentlyContinue)) {
-        $processes[[int]$p.ProcessId] = @{ CommandLine = [string]$p.CommandLine; ParentId = [int]$p.ParentProcessId }
+    foreach ($p in @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId, CommandLine, SessionId -ErrorAction SilentlyContinue)) {
+        $processes[[int]$p.ProcessId] = @{ CommandLine = [string]$p.CommandLine; ParentId = [int]$p.ParentProcessId; SessionId = $p.SessionId }
     }
     return $processes
 }

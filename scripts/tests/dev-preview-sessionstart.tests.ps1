@@ -187,7 +187,17 @@ Assert-Equal 'pending' (Get-DevPreviewWaitOutcome -State 'other' -Exited $false)
 Assert-Equal 'exited'  (Get-DevPreviewWaitOutcome -State 'free' -Exited $true) 'our start exited and nobody listens: exited'
 Assert-Equal 'pending' (Get-DevPreviewWaitOutcome -State 'free' -Exited $false) 'nobody listens yet and the start runs: keep waiting'
 Assert-Equal 'ok'      (Get-DevPreviewWaitOutcome -State 'ours' -Exited $true) 'our own listener is up: ok, whatever the launcher did'
-Assert-Equal '4871 by pid 42924' (Format-DevPreviewPortHolders -Ports @(4871) -Listeners @((& $L 4871 42924)) -Processes $procsLost) 'the lost port names its holder by pid where no name can be read'
+Assert-Equal '4871 by pid 42924 (its command line cannot be read)' (Format-DevPreviewPortHolders -Ports @(4871) -Listeners @((& $L 4871 42924)) -Processes $procsLost -SessionId 1) 'the lost port names its holder by pid, and says why no name can be read'
+
+# #3401: the measured case -- a holder in another logon session of the same account reads back empty.
+$procsSession = @{
+    22588 = @{ CommandLine = ''; ParentId = 22500; SessionId = 29 }
+    22500 = @{ CommandLine = ''; ParentId = 1; SessionId = 29 }
+    22600 = @{ CommandLine = ''; ParentId = 1; SessionId = 28 }
+}
+Assert-Equal '3000 by pid 22588 (another logon session -- its command line cannot be read)' (Format-DevPreviewPortHolders -Ports @(3000) -Listeners @((& $L 3000 22588)) -Processes $procsSession -SessionId 28) 'a holder in another logon session says so (#3401)'
+Assert-Equal '3000 by pid 22600 (its command line cannot be read)' (Format-DevPreviewPortHolders -Ports @(3000) -Listeners @((& $L 3000 22600)) -Processes $procsSession -SessionId 28) 'an unreadable holder in our own session names no other session'
+Assert-True ((Format-DevPreviewPortHolders -Ports @(3000) -Listeners @((& $L 3000 22588)) -Processes $procsSession) -match '^3000 by pid 22588 \(') 'the session defaults to the hook''s own, without a -SessionId'
 
 $pick = Select-DevPreviewPort -Ports @(5173, 5174, 5175) -Listeners @((& $L 5173 200), (& $L 5174 103)) -Processes $procs -Root $root
 Assert-True ($pick.Action -eq 'reuse' -and $pick.Port -eq 5174) 'ours on a later port is reused, past a foreign one'
