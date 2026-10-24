@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**2 / 7 minor entries** <!-- pending-tally -->
+**2 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3364-logbook · 20261024-092754Z
+
+The hub has a new card, **Logbook** ([#3364](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3364)).
+It times every assignment given in a clean session, with no marker. The first prompt of a new Claude Code session
+starts a run when the checkout is on a clean trunk. The run stops when a turn ends with Claude back on the clean
+trunk, including when nothing was merged, and never while a `ship-pr` is still waiting on CI. Each session keeps
+its own run. A branch parked for a look keeps its run going. Every run gets a card and a page with its transcript
+phases, built from the Stopwatch's own pages. Beside each run's time stands its work time: the time less the
+minutes in which no session was busy, so waiting on the owner's look does not hide the work. The runs stay on
+this machine and are not shared.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A: the Logbook is this repo's own hub tooling under `scripts/`, and no plugin ships it.
+
+**Score:** N/A
+
+#### Pull Request
+
+A Logbook card on the hub that times every assignment of a clean session, first prompt to back on the trunk
+
+[PR #3365](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3365)
+
+---
 
 ### DEPLOY: fix/3350-stopwatch-uncovered-run-cache · 20261023-170553Z
 
