@@ -41,17 +41,23 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Bump the stopwatch test comment on the first line of `brandbook/src/showcase/showcase.css`
 
 ### TEST
 
+- [x] Only a CSS comment changed; nothing renders differently
+
 ### DEPLOY: docs/stopwatch-css-comment-v6
 
-**Score:**
+The first line of the brand book's showcase stylesheet now carries a fresh stopwatch test comment, timing a branch from start to fold. A CSS comment only; nothing renders differently.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a comment in a stylesheet reaches no user of what this repo ships.
+
+**Score:** N/A
 
 #### Pull Request
 
