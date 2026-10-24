@@ -28,7 +28,7 @@ always pins the release that carries the bytes its checksums name.
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.29.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css` | `dce352be923017a76dd97071d1bc6dc7e44540f91fc526cbe35f3c4c481fbc4d` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.29.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css` | `685f6ea40ea766c473ff3f8f44334ba58e0606580e92e41be85a74777462eb10` |
 | `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.29.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-theme.js` | `24ed94dd5f096274826bbdc47ff63f29932369f6bd55f2b47ab9ece25a09599f` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in

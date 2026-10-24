@@ -563,7 +563,7 @@ its own.
   down: the product (under its own name), then a page inside it. The last crumb is the current page,
   unlinked, with `aria-current="page"`. The bar stands on the theme's colour, `--primary` (owner, #3235, October 21, 2026), so
   the trail is in the paper steps, which all read on it: the chevron `--paper-3`, the ancestor links `--paper-2` (with
-  a `--paper-1` focus ring), the current page `--paper-1`, every crumb at weight 400; a link shows its underline only under the pointer. On the home page itself the trail is that one crumb: the bar is
+  a `--paper-1` focus ring), the current page `--paper-1`, every crumb at weight 400 and `--text-base` (owner, October 24, 2026; it was `--text-sm`); a link shows its underline only under the pointer. On the home page itself the trail is that one crumb: the bar is
   still there, so it sits in the same place on every page.
 - **The labels** are the pages' own names, short, in the app's language. A crumb names a page, never a
   section on a page: an in-page anchor is not a level.
@@ -600,7 +600,8 @@ every general page of every repo, with the repo's name and `hub` after it, and t
   block.
 - **The bar under it leaves the primary to the header:** `.site-header + .breadcrumbs-bar` stands on
   `--paper-1` with a `--paper-3` line under it, and the trail is in the text steps (links `--fg-3`, the
-  chevron `--muted`, the current page `--fg-1`). The header scrolls away; the bar still sticks to the top.
+  chevron `--muted`, the current page `--primary`, since October 24, 2026, the owner; it was `--fg-1`). The header
+  scrolls away; the bar still sticks to the top.
 
 ```html
 <header class="site-header"><div class="container">

@@ -662,7 +662,9 @@ function Format-StopwatchPageShell {
     <# The pieces the two pages share: the page's own style layer and the live-clock script. Names are the page's (sw-), house tokens only. #>
     $style = '.sw-clock { font-size: var(--text-h1); font-weight: 600; margin: var(--spacing-2) 0; }' + "`n" +
         # Five cards to a row on a full screen, four below 1400px, then two and one (the owner, October 24, 2026).
-        '.sw-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }' + "`n" +
+        # Its own grid rather than a .grid-3, so a group takes no extra margin above its h2 (the owner, October 24, 2026).
+        '.sw-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--spacing-4); }' + "`n" +
+        '.sw-grid > .card { margin-top: 0; }' + "`n" +
         '@media (max-width: 1400px) { .sw-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }' + "`n" +
         '@media (max-width: 1000px) { .sw-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }' + "`n" +
         '@media (max-width: 760px) { .sw-grid { grid-template-columns: 1fr; } }' + "`n" +
@@ -700,7 +702,7 @@ function Format-StopwatchPageShell {
 
 function Format-StopwatchPageHtml {
     <#
-        The overview on '/stopwatch', read-only, and bare (no tiles; the general banner stays, #3356): it opens on its h1 and lead (-Flat: bare, no h1 or lead), the
+        The overview on '/stopwatch', read-only, and bare (no h1, lead or tiles; the general banner stays, #3356): it opens on the
         banner, then an h2 per prompt label (-Flat: one Measurements h2 for all) and under it one card per run of that
         label, newest first, five to a row on a full screen, in three lines: its start,
         its label (the link to the run's own page, Format-StopwatchRunPageHtml), its time, and its change in percent
@@ -752,7 +754,7 @@ function Format-StopwatchPageHtml {
     }
     foreach ($set in $sets) {
         if (-not @($set.Groups).Count) { continue }
-        [void]$body.AppendLine('<div class="grid-3 sw-grid">')
+        [void]$body.AppendLine('<div class="sw-grid">')
         [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $set.Title) + '</h2><p class="card__sub">' + (& $e $set.Sub) + '</p></div>')
         foreach ($g in @($set.Groups)) {
             # Three lines with no header above them, five cards to a row on a full screen (the owner, October 24, 2026): the run's start, its
@@ -787,10 +789,9 @@ function Format-StopwatchPageHtml {
         'A prompt whose first line begins with <code>stopwatch:</code> starts a run in a session of this checkout, labelled with the rest of that line, and discards a run still going; ' +
         'a Stop hook ends it once Claude is back on the trunk, clean, with HEAD moved since the start (that suggests the work landed; it does not prove it). Both are <code>scripts/dashboard/stopwatch-hook.ps1</code>. ' +
         'Built by <code>scripts/lib/stopwatch-lib.ps1</code>.' }
-    # The grouped overview opens on its h1 (the house sets it in capitals: STOPWATCH) with -Sub as its lead (the owner,
-    # October 24, 2026); the flat one stays bare.
-    $lead = if ($Flat) { '' } else { & $e $Sub }
-    return Format-DevPageHtml -Title $PageTitle -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead $lead -Bare:$Flat `
+    # Bare, with no h1 or lead (the owner, October 24, 2026): the breadcrumb's current page names it, and the footer says
+    # how a run starts.
+    return Format-DevPageHtml -Title $PageTitle -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare `
         -FooterNote $note
 }
 

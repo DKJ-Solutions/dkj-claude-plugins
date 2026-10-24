@@ -647,7 +647,7 @@ html:has(.topbar) { scroll-padding-top: var(--topbar-h); }
    one --tap high and one line: a trail longer than the screen scrolls sideways inside the bar rather than wrapping, so
    the height stays fixed and whatever else sticks to the top sits right under it. Its trail lines up with the page
    column (.container). */
-.breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); white-space: nowrap; }
+.breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-1-5); margin: 0; padding: 0; list-style: none; font-size: var(--text-base); white-space: nowrap; }   /* --text-base since October 24, 2026 (owner); it was --text-sm */
 .breadcrumbs li { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }
 .breadcrumbs a { color: var(--paper-2); text-decoration: none; text-underline-offset: 4px; }
 .breadcrumbs a:focus-visible { outline-color: var(--paper-1); }
@@ -684,7 +684,7 @@ html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + va
 .site-header + .breadcrumbs-bar .breadcrumbs a { color: var(--fg-3); }
 .site-header + .breadcrumbs-bar .breadcrumbs a:focus-visible { outline-color: var(--muted); }
 .site-header + .breadcrumbs-bar .breadcrumbs__sep { color: var(--muted); }
-.site-header + .breadcrumbs-bar .breadcrumbs [aria-current='page'] { color: var(--fg-1); }
+.site-header + .breadcrumbs-bar .breadcrumbs [aria-current='page'] { color: var(--primary); }   /* owner, October 24, 2026; it was --fg-1 */
 
 /* ---- Menu list and menu item ---------------------------------------------------- */
 /* Settings as rows: <ul class="menu-list"><li class="menu-row"><span class="menu-row__label">..</span>
