@@ -2,7 +2,27 @@
 
 ## [Unreleased]
 
-**2 / 9 minor entries** <!-- pending-tally -->
+**2 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/refresh-suite-durations · 20261024-100707Z
+
+The CI suite shards pack evenly again. Twelve suites added since October 7 had no recorded duration, so the packer charged each of them the largest one (267.7s) while most take 2 to 40 seconds -- about 3,000 seconds of phantom load that left shards 1 and 5 heavy. In the three latest PR runs shard 5 was the slowest every time, at 488 to 521 seconds. Refreshed from those runs, a simulation of the pack puts every shard at about 378 seconds against 454 for the slowest before: roughly 76 seconds off the required check, about a tenth of a small branch's run from prompt to fold.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- CI wall-clock in this repo; nothing that ships to a plugin user changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Refresh suite-durations.json so the CI shards pack evenly again
+
+[PR #3367](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3367)
+
+---
 
 ### DEPLOY: docs/stopwatch-css-comment-v3 · 20261024-094528Z
 
