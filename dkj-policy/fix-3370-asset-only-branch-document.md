@@ -39,19 +39,29 @@
 
 ### PLAN
 
+Issue #3370: take the branch's own development document out of the change CI's asset-only selection judges.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Remove-BranchDocumentPath` in `ci-suite-selection-lib.ps1`: one exact path, nothing when unresolved
+- [x] `get-pr-suite-selection.ps1` resolves the head branch's document through `Resolve-BranchFilePath` and drops it before the verdict; a failed resolve keeps it in
+- [x] asserts in `ci-suite-selection-lib.tests.ps1`, the #3369 case included
 
 ### TEST
 
+- [x] the gates, run by ship-pr
+
 ### DEPLOY: fix/3370-asset-only-branch-document
 
-**Score:**
+A pull request that changes only stylesheets, images or fonts now really runs only the suites that read them on CI. The asset-only lane from #3309 had never fired, because every pull request also carries its own branch document, a Markdown file, and that one file sent every run to the whole pool. CI now leaves that one document out of the judgement, and only that one: any other changed file still runs everything. On a one-line CSS change like #3369 the suites leg drops from about seven and a half minutes over five shards to the handful of suites that touch the stylesheet.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- this repo's own CI; nothing a plugin user takes changes.
+
+**Score:** N/A
 
 #### Pull Request
 
