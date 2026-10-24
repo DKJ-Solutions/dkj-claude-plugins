@@ -53,7 +53,7 @@ general form: a page per prompt label, with the overview showing one card per la
 
 - [x] `stopwatch.tests.ps1` (162 passed), `connector-dashboard.tests.ps1` (206), `logbook.tests.ps1` (43),
   `dev-pages.tests.ps1` (313), all green locally
-- [ ] The owner has looked at `/stopwatch` and `/stopwatch/css-comment-start-to-end` in the hub
+- [x] The owner has looked at `/stopwatch` and `/stopwatch/css-comment-start-to-end` in the hub
 
 ### DEPLOY: feat/stopwatch-label-pages
 
