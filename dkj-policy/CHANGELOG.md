@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**5 / 8 minor entries** <!-- pending-tally -->
+**6 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3406-refresh-clone-already-current · 20261024-205709Z
+
+`update-plugins` no longer exits 1 when a marketplace refresh fails while the clone is already at its
+origin's HEAD ([#3406](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3406)). On Windows the refresh
+can fail with `EBUSY` while a session holds the clone. Measured: the run exited 1 while its own receipt read
+all plugins current. A failed refresh now asks the clone's origin for its HEAD. Where that matches the clone,
+the refresh prints as a `WARNING` and the run can still exit 0. A refresh that really left the clone behind
+stays `FAILED`, and an `EBUSY` one says to close the other sessions and rerun.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer running `update-plugins` from inside a session on Windows gets an exit code that agrees with its
+receipt, instead of a red run after an update that went through.
+
+**Score:** 2
+
+#### Pull Request
+
+update-plugins counts a failed refresh as a warning when the clone is already at its remote's HEAD
+
+Plugins: dkj-policy
+
+[PR #3417](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3417)
+
+---
 
 ### DEPLOY: fix/3404-product-exits-after-bind · 20261024-203430Z
 
