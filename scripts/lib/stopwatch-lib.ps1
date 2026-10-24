@@ -664,17 +664,17 @@ function Format-StopwatchPageShell {
         '@media (max-width: 1000px) { .sw-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }' + "`n" +
         '@media (max-width: 760px) { .sw-grid-4 { grid-template-columns: 1fr; } }' + "`n" +
         # A card's lines are built from the house text sizes (--text-lg, -base, -sm, -xs), the text colour or --muted, and the
-        # weights 400, 500, 600 and 700, and nothing else: no heading (the owner, October 24, 2026). The label is the card's
-        # header (lg, semibold), the start a muted line above it (sm), the time below it (base, semibold) with its change
-        # beside it (sm, medium), and the version a muted note behind the label (sm, regular).
+        # weights 400, 500, 600 and 700, and nothing else: no heading (the owner, October 24, 2026). The start is the card's
+        # header (base, bold), the prompt label the least visible line under it (sm, regular, muted, its version likewise),
+        # and the time the largest (lg, bold) with its change beside it (xs, regular).
         '.sw-card > p { margin: 0; }' + "`n" +
         '.sw-card > p + p { margin-top: var(--spacing-1); }' + "`n" +
-        '.sw-stamp { font-size: var(--text-sm); font-weight: 400; color: var(--muted); }' + "`n" +
-        '.sw-title { font-size: var(--text-lg); font-weight: 600; color: var(--fg-1); overflow-wrap: anywhere; }' + "`n" +
+        '.sw-stamp { font-size: var(--text-base); font-weight: 700; color: var(--fg-1); }' + "`n" +
+        '.sw-title { font-size: var(--text-sm); font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }' + "`n" +
         '.sw-title a { color: inherit; text-decoration: none; }' + "`n" +
         '.sw-title .muted { font-size: var(--text-sm); font-weight: 400; }' + "`n" +
-        '.sw-time { font-size: var(--text-base); font-weight: 600; color: var(--fg-1); }' + "`n" +
-        '.sw-change { margin-left: var(--spacing-2); font-size: var(--text-sm); font-weight: 500; color: var(--muted); }' + "`n" +
+        '.sw-time { font-size: var(--text-lg); font-weight: 700; color: var(--fg-1); }' + "`n" +
+        '.sw-change { margin-left: var(--spacing-2); font-size: var(--text-xs); font-weight: 400; color: var(--muted); }' + "`n" +
         '.sw-change--good { color: var(--positive-5); }' + "`n" +
         '.sw-change--bad { color: var(--negative-5); }' + "`n" +
         '.sw-left { text-align: left; }' + "`n" +
