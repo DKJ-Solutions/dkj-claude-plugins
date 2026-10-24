@@ -664,7 +664,7 @@ function Format-StopwatchPageShell {
         # Five cards to a row, then two and one on a narrow screen (the owner, October 24, 2026).
         # A grid of the page's own rather than a .grid-3, so a group takes no top margin; the space between groups is
         # .sw-groups' gap instead.
-        '.sw-groups { display: grid; gap: var(--spacing-10); }' + "`n" +
+        '.sw-groups { display: grid; gap: var(--spacing-7); }' + "`n" +
         '.sw-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--spacing-4); }' + "`n" +
         '.sw-grid > .card { margin-top: 0; }' + "`n" +
         '@media (max-width: 1000px) { .sw-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }' + "`n" +
