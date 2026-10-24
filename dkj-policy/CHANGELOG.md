@@ -2,7 +2,27 @@
 
 ## [Unreleased]
 
-**3 / 13 minor entries** <!-- pending-tally -->
+**3 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3370-asset-only-branch-document · 20261024-111349Z
+
+A pull request that changes only stylesheets, images or fonts now really runs only the suites that read them on CI. The asset-only lane from #3309 had never fired, because every pull request also carries its own branch document, a Markdown file, and that one file sent every run to the whole pool. CI now leaves that one document out of the judgement, and only that one: any other changed file still runs everything. On a one-line CSS change like #3369 the suites leg drops from about seven and a half minutes over five shards to the handful of suites that touch the stylesheet.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- this repo's own CI; nothing a plugin user takes changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Let CI's asset-only suite selection see past the branch document
+
+[PR #3373](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3373)
+
+---
 
 ### DEPLOY: feat/3356-hub-banner-everywhere · 20261024-110301Z
 
