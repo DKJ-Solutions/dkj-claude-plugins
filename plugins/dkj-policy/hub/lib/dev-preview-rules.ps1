@@ -20,6 +20,8 @@
                 WaitSeconds  = 20               # optional: how long to wait for the server to listen (1-45)
                 OpenInVsCode = $false           # optional: also hand the URL to VS Code (see the hook)
                 OwnHub       = $false           # optional: this server IS the repo's hub, so the plugin's is not used (#3245)
+                DefaultTheme = 'teal'           # optional: the house theme the plugin's hub and general pages open in
+                                                #   while the visitor has picked none; lilac where unstated (#3390)
                 Product      = @{ ... }         # optional, only with OwnHub = $true: a product beside that hub, stating
                                                 #   Command, Ports, Path, Requires and WaitSeconds as above (#3283)
             }
@@ -55,8 +57,8 @@
     plugin's general pages server (hub/pages/serve-general-pages.ps1: Artifacts, Issues, Release notes,
     SessionStart), on the first free port of 4890-4899 under the same ownership rule. The two servers learn
     of each other through ONE file per checkout, %TEMP%\dkj-repo-hub-<leaf>-<hash>.json, which the hook
-    writes at every session start: { root, hub, pages, product, mode }, the Repository's url, the general
-    server's base url, the repo's own server url and what the repo states (#3245). Get-RepoHubStatePath names
+    writes at every session start: { root, hub, pages, product, mode, theme }, the Repository's url, the general
+    server's base url, the repo's own server url, what the repo states (#3245) and its DefaultTheme (#3390). Get-RepoHubStatePath names
     it, Format-RepoHubState writes it, ConvertFrom-RepoHubState reads it and believes it only when it names
     this root and carries plain loopback urls. The hash is the one the hook's
     log paths use (Get-DevPreviewRootHash), so a checkout's files sit together in %TEMP%.
@@ -99,6 +101,12 @@ function Test-DevPreviewVsCodeRoute {
     # A line commented out with // is no route (Victor's review, #3047).
     $live = ($SettingsText -split "`n" | Where-Object { $_ -notmatch '^\s*//' }) -join "`n"
     return [bool]($live -match ('"(localhost|127\.0\.0\.1):' + $Port + '"\s*:\s*"simpleBrowser\.open"'))
+}
+
+function Test-DevPreviewThemeId {
+    <# True when -Theme has the shape of a house theme id (#3390): a lowercase letter, then lowercase letters, digits or hyphens, 32 at most. #>
+    param([AllowNull()][AllowEmptyString()][string]$Theme)
+    return [bool]($Theme -cmatch '^[a-z][a-z0-9-]{0,31}\z')
 }
 
 function ConvertTo-DevPreviewConfig {
@@ -179,6 +187,18 @@ function ConvertTo-DevPreviewConfig {
         $ownHub = [bool]$Raw['OwnHub']
     }
 
+    # The theme the plugin's hub and general pages open in (#3390): a theme id, the shape house-theme.js names its
+    # themes in, so it can be written into an attribute as it stands. One the house style does not know falls
+    # back in the browser, the way a stored choice naming a retired theme does.
+    $theme = ''
+    if ($null -ne $Raw['DefaultTheme']) {
+        $theme = [string]$Raw['DefaultTheme']
+        if (-not (Test-DevPreviewThemeId $theme)) {
+            $result.Problem = 'DefaultTheme must be a theme id: a lowercase letter, then lowercase letters, digits or hyphens, at most 32'
+            return $result
+        }
+    }
+
     # A product BESIDE the repo's own hub (#3283): only where OwnHub is on, because without it the server
     # itself is already the product. It states the same fields as the server and is held to the same rules,
     # except the three that belong to the hub alone (OwnHub, OpenInVsCode and a Product of its own). A Product
@@ -195,7 +215,7 @@ function ConvertTo-DevPreviewConfig {
         if ($Raw['Product'] -isnot [System.Collections.IDictionary]) {
             $productProblem = 'the Product must be a hashtable'
         } else {
-            foreach ($k in 'OwnHub', 'OpenInVsCode', 'Product') {
+            foreach ($k in 'OwnHub', 'OpenInVsCode', 'DefaultTheme', 'Product') {
                 if (-not $productProblem -and $Raw['Product'].Contains($k)) { $productProblem = "the Product states $k, which belongs to the hub alone" }
             }
         }
@@ -221,6 +241,7 @@ function ConvertTo-DevPreviewConfig {
         WaitSeconds  = $wait
         OpenInVsCode = [bool]$Raw['OpenInVsCode']
         OwnHub       = $ownHub
+        DefaultTheme = $theme
         Product      = $product
         ProductProblem = $productProblem
     }
@@ -530,31 +551,33 @@ function Format-RepoHubState {
         server's base url, '' where none is running. -Product is the repo's own server url, or ''. -Mode is
         what the repo states: 'none' (no Get-DevPreview, so the hub carries the setup cards), 'product' (a
         server of its own, one link on the plugin's hub) or 'ownhub' (OwnHub: its server is the hub, and the
-        general server sends '/hub' there instead of rendering one).
+        general server sends '/hub' there instead of rendering one). -Theme is the repo's DefaultTheme, or '' (#3390).
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Root,
         [AllowEmptyString()][string]$Hub = '',
         [AllowEmptyString()][string]$Pages = '',
         [AllowEmptyString()][string]$Product = '',
-        [ValidateSet('none', 'product', 'ownhub')][string]$Mode = 'none'
+        [ValidateSet('none', 'product', 'ownhub')][string]$Mode = 'none',
+        [AllowEmptyString()][string]$Theme = ''
     )
-    return ([ordered]@{ root = $Root; hub = $Hub; pages = $Pages; product = $Product; mode = $Mode } | ConvertTo-Json -Compress)
+    return ([ordered]@{ root = $Root; hub = $Hub; pages = $Pages; product = $Product; mode = $Mode; theme = $Theme } | ConvertTo-Json -Compress)
 }
 
 function ConvertFrom-RepoHubState {
     <#
-        @{ Hub; Pages; Product; Mode } from the state file's -Text, each '' (Mode 'none') unless it can be
+        @{ Hub; Pages; Product; Mode; Theme } from the state file's -Text, each '' (Mode 'none') unless it can be
         believed: the file is JSON, its root is -Root (compared the way paths are), and each url is a plain
         loopback url -- the hub's and the product's with an optional path of the characters Get-DevPreview's
         Path allows (Test-RepoHubLocalUrl), the pages' a bare base on one of the general pages ports
         (Get-GeneralPagesPortRange), so a file another process can write cannot point a hub's links at any
         other local service. The urls are redirect targets and link hrefs, so a state file that names anything
         else is ignored. Mode is believed only as one of its three words; a file written before #3245 has
-        none, and reads as 'none': the plugin's own hub.
+        none, and reads as 'none': the plugin's own hub. Theme is believed only in a theme id's shape
+        (Test-DevPreviewThemeId), since every page writes it into its <html> (#3390).
     #>
     param([AllowNull()][AllowEmptyString()][string]$Text, [Parameter(Mandatory = $true)][string]$Root)
-    $state = @{ Hub = ''; Pages = ''; Product = ''; Mode = 'none' }
+    $state = @{ Hub = ''; Pages = ''; Product = ''; Mode = 'none'; Theme = '' }
     if (-not $Text) { return $state }
     try { $s = $Text | ConvertFrom-Json } catch { return $state }
     if (-not $s -or -not $s.PSObject.Properties['root']) { return $state }
@@ -567,5 +590,7 @@ function ConvertFrom-RepoHubState {
     if (Test-RepoHubLocalUrl $q) { $state.Product = $q }
     if ($p -cmatch '^http://localhost:([0-9]{4,5})/?\z' -and (@(Get-GeneralPagesPortRange) -contains [int]$Matches[1])) { $state.Pages = $p.TrimEnd('/') }
     if ($m -cmatch '^(none|product|ownhub)\z') { $state.Mode = $m }
+    $t = if ($s.PSObject.Properties['theme']) { [string]$s.theme } else { '' }
+    if (Test-DevPreviewThemeId $t) { $state.Theme = $t }
     return $state
 }

@@ -350,7 +350,8 @@ function Save-DevPreviewState {
         if ($mode -eq 'ownhub') {
             $productUrl = if ($extra -and $extra.Url -and -not (@($targets | Where-Object { $_.Name -eq 'extra' -and $_.Done -and -not $_.Ok }).Count)) { $extra.Url } else { '' }
         }
-        Write-RepoHubState -Root $root -Hub $hubUrl -Pages $pagesUrl -Product $productUrl -Mode $mode
+        $theme = if ($cfg) { [string]$cfg.DefaultTheme } else { '' }
+        Write-RepoHubState -Root $root -Hub $hubUrl -Pages $pagesUrl -Product $productUrl -Mode $mode -Theme $theme
     } catch { }
 }
 Save-DevPreviewState

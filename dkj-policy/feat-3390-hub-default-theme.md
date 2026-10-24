@@ -39,21 +39,44 @@
 
 ### PLAN
 
+Inbound #3390 from dkj-lifehub: the plugin's hub and general pages hard-code `data-theme-default="lilac"`
+at three sites, so a consumer whose own product opens in another theme shows two defaults. Verified in
+the tree: `general-pages-lib.ps1` (the page shell and the release-notes dressing) and `repo-hub-page.ps1`.
+The issue's own proposal: an optional `DefaultTheme` key in `Get-DevPreview`, lilac where unstated.
+
+No visible change here: this repo states no `DefaultTheme`, so every page keeps lilac; in a consumer the
+change shows only once it opts in. The attribute's value is held by the suites.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `ConvertTo-DevPreviewConfig` takes `DefaultTheme`, refused unless it has a theme id's shape, and hub-alone (a `Product` may not state it)
+- [x] the state file carries it as `theme`, believed only in that shape; the hook writes it
+- [x] the general pages server reads it per request and hands it in with `Set-GeneralPagesThemeDefault`; the three sites write `Get-GeneralPagesThemeDefault`, escaped
+- [x] the hub README documents the key
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: config, refusals, state round-trip, legacy file, hub attribute (329 passed)
+- [x] `dev-pages.tests.ps1`: the release notes and the page shell take the theme, escaped (313 passed)
+
 ### DEPLOY: feat/3390-hub-default-theme
 
-**Score:**
+A repo can now state the theme the plugin's hub and its general pages (Artifacts, Issues, Release notes,
+SessionStart) open in, with an optional `DefaultTheme` in its `Get-DevPreview`, for example `'teal'`.
+Until now they always opened in lilac, so a repo whose own product opens in another theme showed two
+defaults depending on the port. A repo that states nothing keeps lilac, and a visitor's own theme choice
+still wins ([#3390](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3390)). The key is
+documented in [the hub's README](../plugins/dkj-policy/hub/README.md).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer repo's maintainer who runs its own themed product beside the plugin's hub can now make the
+hub and its pages open in the same theme, with one line in `scripts/repo-config.ps1`.
+
+**Score:** 2
 
 #### Pull Request
 
 Let a repo state the default theme of the plugin's hub and general pages
-

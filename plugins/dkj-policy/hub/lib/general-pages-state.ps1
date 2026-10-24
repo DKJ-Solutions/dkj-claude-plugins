@@ -18,14 +18,14 @@
 . (Join-Path $PSScriptRoot 'dev-preview-rules.ps1')
 
 function Read-RepoHubState {
-    <# @{ Hub; Pages; Product; Mode } for the checkout at -Root: every url '' and Mode 'none' when the file is absent, unreadable or not this root's. #>
+    <# @{ Hub; Pages; Product; Mode; Theme } for the checkout at -Root: every url and Theme '' and Mode 'none' when the file is absent, unreadable or not this root's. #>
     param([Parameter(Mandatory = $true)][string]$Root)
     $path = Get-RepoHubStatePath -Root $Root
     try {
-        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return @{ Hub = ''; Pages = ''; Product = ''; Mode = 'none' } }
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { return @{ Hub = ''; Pages = ''; Product = ''; Mode = 'none'; Theme = '' } }
         return (ConvertFrom-RepoHubState -Text ([System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8)) -Root $Root)
     } catch {
-        return @{ Hub = ''; Pages = ''; Product = ''; Mode = 'none' }
+        return @{ Hub = ''; Pages = ''; Product = ''; Mode = 'none'; Theme = '' }
     }
 }
 
@@ -36,9 +36,10 @@ function Write-RepoHubState {
         [AllowEmptyString()][string]$Hub = '',
         [AllowEmptyString()][string]$Pages = '',
         [AllowEmptyString()][string]$Product = '',
-        [ValidateSet('none', 'product', 'ownhub')][string]$Mode = 'none'
+        [ValidateSet('none', 'product', 'ownhub')][string]$Mode = 'none',
+        [AllowEmptyString()][string]$Theme = ''
     )
-    $text = Format-RepoHubState -Root $Root -Hub $Hub -Pages $Pages -Product $Product -Mode $Mode
+    $text = Format-RepoHubState -Root $Root -Hub $Hub -Pages $Pages -Product $Product -Mode $Mode -Theme $Theme
     [System.IO.File]::WriteAllText((Get-RepoHubStatePath -Root $Root), $text, (New-Object System.Text.UTF8Encoding($false)))
 }
 
