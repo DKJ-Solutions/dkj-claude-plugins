@@ -39,19 +39,37 @@
 
 ### PLAN
 
+The owner asked for a CSS comment page on the Stopwatch holding that label's six run cards, and chose the
+general form: a page per prompt label, with the overview showing one card per label (October 24, 2026).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/stopwatch-lib.ps1`: `Get-StopwatchLabelSets`, `Find-StopwatchLabel`, the run card and label card
+  helpers, `Format-StopwatchLabelPageHtml`, the overview as label cards, and `-LabelCrumb` on the run page
+- [x] `scripts/dashboard/serve-connector-dashboard.ps1`: `/stopwatch/<slug>` serves a run's page, else a label's, else 404
+- [x] Tests: `stopwatch.tests.ps1` and `connector-dashboard.tests.ps1` updated to the label overview and label page
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1` (162 passed), `connector-dashboard.tests.ps1` (206), `logbook.tests.ps1` (43),
+  `dev-pages.tests.ps1` (313), all green locally
+- [ ] The owner has looked at `/stopwatch` and `/stopwatch/css-comment-start-to-end` in the hub
+
 ### DEPLOY: feat/stopwatch-label-pages
 
-**Score:**
+The Stopwatch overview on the dev server now shows one card per prompt label: the label, how many runs it has
+and when the newest started, and the newest run's time with its change, or its live clock. Each card opens the
+label's own page, `/stopwatch/<label slug>`, which holds a card per run of that label, newest first, each opening
+the run's page as before. A run's page now leads back through its label in the breadcrumb. A label's slug used to
+redirect to its newest run; it addresses the label page instead.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the Stopwatch is a page of this repo's own dev server and ships to no consumer.
+
+**Score:** N/A
 
 #### Pull Request
 
