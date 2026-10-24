@@ -39,19 +39,33 @@
 
 ### PLAN
 
+The owner asked for every h1 without capitals and in a sans face (October 24, 2026). Stacked on
+`feat/stopwatch-label-pages` so both can be judged in the hub at once; that PR merges first.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: h1 in the body sans at 700, no `text-transform`, tracking -0.01em; comments updated
+- [x] `README.md` of the house style and the skill's sha256 pin follow the new bytes
+- [x] `general-pages-lib.ps1`: the template masthead h1, which mirrored the serif house h1, follows it
 
 ### TEST
 
+- [x] `check-house-style`, `connector-dashboard`, `dev-preview-sessionstart`, `dev-pages`, `house-palette` suites green locally
+- [ ] The owner has looked at an h1 in the hub
+
 ### DEPLOY: feat/house-style-h1-sans
 
-**Score:**
+The house `h1` is set in the body sans at weight 700 and in its own case: the serif face and the capitals are
+gone. The template masthead of the general pages follows it. `--font-serif` stays as a token for a title that
+keeps that face.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every DKJ-Solutions app that takes the next house-style copy shows its page titles in the sans, in ordinary case.
+
+**Score:** 3
 
 #### Pull Request
 
