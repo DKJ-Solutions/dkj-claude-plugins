@@ -170,11 +170,11 @@ Assert-True ($twinSlugs.Count -eq 2 -and $twinSlugs[0] -ne $twinSlugs[1] -and $t
 Write-Host '-- the page' -ForegroundColor Cyan
 $page = Format-StopwatchPageHtml -Model $m -StorePath 'C:\x\stopwatch.json' -Now (& $at 5065)
 Assert-True ($page -match 'aria-current="page">Stopwatch</span>' -and $page -match '<li><a href="/">Home</a></li>') 'the page has the house shell and its crumb back to the hub'
-Assert-True ($page -notmatch '<h1|class="lead"|Runs recorded|id="now"|class="sw-clock') 'the overview is bare: no h1, lead, tiles or Now section above the cards; the breadcrumb names the page'
-Assert-True (([regex]::Matches($page, 'id="hub-banner"')).Count -eq 1 -and $page.IndexOf('id="hub-banner"') -lt $page.IndexOf('<h2>')) 'but it carries the airsquats banner once, above the first heading, as every hub page does (#3356)'
-Assert-True ($page -notmatch '<h2>Measurements</h2>' -and $page.IndexOf('<h2>') -lt $page.IndexOf('card--link')) 'it opens on a heading, then the cards'
-Assert-Equal 'Labels' (([regex]::Matches($page, '<h2>([^<]+)</h2>') | ForEach-Object { $_.Groups[1].Value }) -join '|') 'the overview has one heading, Labels, over a card per prompt label'
-Assert-True ($page -match '<div class="grid__head"><h2>Labels</h2></div>' -and $page -notmatch 'card__sub') 'its head is its h2 alone: the overview carries no sub line'
+Assert-True ($page -notmatch 'class="lead"|Runs recorded|id="now"|class="sw-clock') 'the overview is bare: no lead, tiles or Now section above the cards'
+Assert-True (([regex]::Matches($page, 'id="hub-banner"')).Count -eq 1 -and $page.IndexOf('id="hub-banner"') -lt $page.IndexOf('<h1>')) 'but it carries the airsquats banner once, above the first heading, as every hub page does (#3356)'
+Assert-True ($page -notmatch '<h2>' -and $page.IndexOf('<h1>') -lt $page.IndexOf('card--link')) 'it opens on its heading, then the cards'
+Assert-Equal 'Stopwatch' (([regex]::Matches($page, '<h1>([^<]+)</h1>') | ForEach-Object { $_.Groups[1].Value }) -join '|') 'the overview has one heading, an h1 naming the page, over a card per prompt label'
+Assert-True ($page -match '<div class="grid__head"><h1>Stopwatch</h1></div>' -and $page -notmatch 'card__sub') 'its head is its h1 alone: the overview carries no sub line'
 Assert-True ($page -match 'querySelectorAll\("\[data-start\]"\)') 'the clock script ticks every [data-start] element, the card''s live time included'
 Assert-Equal 3 ([regex]::Matches($page, '<section class="card card--link sw-card">')).Count 'one card per prompt label, case-insensitively: the three CSS comment runs are one card'
 Assert-True ($page -match '<div class="sw-groups">\r?\n<div class="sw-grid">' -and $page -notmatch 'class="grid-3' -and $page -match '\.sw-groups \{ display: grid; gap: var\(--spacing-7\); \}' -and $page -match '\.sw-grid \{ display: grid; grid-template-columns: repeat\(5, minmax\(0, 1fr\)\); gap: var\(--spacing-4\); \}' -and $page -notmatch 'max-width: 1400px') 'the cards stand five to a row, two and one only on a narrow screen, in grids of the page''s own with no top margin, spaced apart by their wrapper''s gap'

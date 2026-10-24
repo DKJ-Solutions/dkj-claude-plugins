@@ -19,9 +19,9 @@
         turn's end. A turn that only answers leaves HEAD where it was, and a branch parked for the owner's eye is
         not on the trunk, so the run keeps going in both.
 
-    THREE PAGES, ALL READ-ONLY AND BARE (no h1, lead or tiles above their content, only the hub's airsquats banner,
+    THREE PAGES, ALL READ-ONLY AND BARE (no lead or tiles above their content, only the hub's airsquats banner,
     which is on every hub page, #3356; the plugin's Format-GeneralPageHtml -Bare). '/stopwatch' is an overview of
-    cards, ONE PER PROMPT LABEL (the owner, October 24, 2026): the label, how many runs it has, and its newest run's
+    cards under an h1 naming the page, ONE PER PROMPT LABEL (the owner, October 24, 2026): the label, how many runs it has, and its newest run's
     time with its change, or the live clock of the run going now. Each links to '/stopwatch/<label slug>'
     (Get-StopwatchSlugs), the label's page, which holds ONE CARD PER RUN of that label, never merged (the owner,
     October 23, 2026: runs of one label were merged into one card twice): named by the run's start, with its label,
@@ -771,8 +771,8 @@ function Format-StopwatchLabelCard {
 
 function Format-StopwatchPageHtml {
     <#
-        The overview on '/stopwatch', read-only, and bare (no h1, lead or tiles; the general banner stays, #3356): it opens on the
-        banner, then a Labels h2 with one card per prompt label (Format-StopwatchLabelCard), linking the label's own
+        The overview on '/stopwatch', read-only, and bare (no lead or tiles; the general banner stays, #3356): it opens on the
+        banner, then a Stopwatch h1 with one card per prompt label (Format-StopwatchLabelCard), linking the label's own
         page (Format-StopwatchLabelPageHtml), which holds that label's run cards (the owner, October 24, 2026). -Flat,
         the Logbook's, shows the run cards themselves (Format-StopwatchRunCard) under one Measurements h2 instead. Five
         cards to a row on a full screen. -ReadError is set when the
@@ -812,7 +812,7 @@ function Format-StopwatchPageHtml {
         [void]$body.AppendLine('<p class="msg" role="status">The other machines'' runs are being fetched from origin. This page reloads in a few seconds to show them.</p>')
         [void]$body.AppendLine('<script>setTimeout(function () { location.reload(); }, 4000);</script>')
     }
-    # One card per prompt label under a Labels heading, each linking the label's page (the owner, October 24, 2026). -Flat
+    # One card per prompt label under the page's h1, each linking the label's page (the owner, October 24, 2026). -Flat
     # keeps every run card under one Measurements heading, for the Logbook, whose labels are the first lines of prompts and
     # rarely repeat.
     if (-not @($Model.Groups).Count) {
@@ -826,7 +826,8 @@ function Format-StopwatchPageHtml {
             [void]$body.AppendLine('<div class="grid__head"><h2>Measurements</h2></div>')
             foreach ($g in @($Model.Groups)) { [void]$body.AppendLine((Format-StopwatchRunCard -Group $g -Route $Route -Now $Now -NoDelta:$NoDelta -CardNotes $CardNotes)) }
         } else {
-            [void]$body.AppendLine('<div class="grid__head"><h2>Labels</h2></div>')
+            # The overview's one heading is an h1 naming the page (the owner, October 24, 2026).
+            [void]$body.AppendLine('<div class="grid__head"><h1>Stopwatch</h1></div>')
             foreach ($set in @(Get-StopwatchLabelSets -Model $Model)) { [void]$body.AppendLine((Format-StopwatchLabelCard -Set $set -Now $Now)) }
         }
         [void]$body.AppendLine('</div>')
@@ -843,7 +844,7 @@ function Format-StopwatchPageHtml {
         'A prompt whose first line begins with <code>stopwatch:</code> starts a run in a session of this checkout, labelled with the rest of that line, and discards a run still going; ' +
         'a Stop hook ends it once Claude is back on the trunk, clean, with HEAD moved since the start (that suggests the work landed; it does not prove it). Both are <code>scripts/dashboard/stopwatch-hook.ps1</code>. ' +
         'Built by <code>scripts/lib/stopwatch-lib.ps1</code>.' }
-    # Bare, with no h1 or lead (the owner, October 24, 2026): the breadcrumb's current page names it, and the footer says
+    # Bare, with no lead (the owner, October 24, 2026): the overview's h1 names it, the Logbook's breadcrumb does, and the footer says
     # how a run starts.
     return Format-DevPageHtml -Title $PageTitle -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare `
         -FooterNote $note

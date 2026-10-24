@@ -57,7 +57,7 @@ general form: a page per prompt label, with the overview showing one card per la
 
 ### DEPLOY: feat/stopwatch-label-pages
 
-The Stopwatch overview on the dev server now shows one card per prompt label: the label, how many runs it has
+The Stopwatch overview on the dev server now opens on a Stopwatch h1 and shows one card per prompt label: the label, how many runs it has
 and when the newest started, and the newest run's time with its change, or its live clock. Each card opens the
 label's own page, `/stopwatch/<label slug>`, which holds a card per run of that label, newest first, each opening
 the run's page as before. A run's page now leads back through its label in the breadcrumb. A label's slug used to
