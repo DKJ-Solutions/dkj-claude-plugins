@@ -41,19 +41,29 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-DevPreviewWaitOutcome` in `dev-preview-rules.ps1` reads a start that exited beside another listener as `lost`
+- [x] The SessionStart hook's wait ends on it and names the port's holder, for the hub and for a repo's own server
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1` covers every outcome, the measured unreadable listener among them
+
 ### DEPLOY: fix/3378-hub-lost-bind
 
-**Score:**
+The dev-preview SessionStart line no longer says a server is "not listening after 15s" when its port is
+listening. Where the started server lost its bind to another process (one whose command line cannot be
+read), the wait ends at once and the line names the port's holder, for the hub and for a repo's own
+server alike ([#3378](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3378)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A user of the plugin who opens two sessions at once is told which process holds the port, instead of a
+false "not listening" after a 15-second wait.
+
+**Score:** 1
 
 #### Pull Request
 
 The dev-preview hook names a hub port lost to another process instead of 'not listening'
-

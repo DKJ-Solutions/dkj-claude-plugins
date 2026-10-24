@@ -170,6 +170,18 @@ Assert-Equal 'other' (Get-DevPreviewPortState -Port 5175 -Listeners @((& $L 5175
 Assert-Equal 'other' (Get-DevPreviewPortState -Port 5175 -Listeners @((& $L 5175 999)) -Processes $procs -Root $root) 'a listener whose process is gone is other'
 Assert-Equal 'other' (Get-DevPreviewPortState -Port 5175 -Listeners @((& $L 5175 505)) -Processes $procs -Root $root) 'an editor five ancestors up does not make a server ours'
 
+# The wait's outcome (#3378). The measured case: our start lost its bind and exited while a listener
+# whose command line read back EMPTY held the port -- that is 'lost', not a 15s "not listening".
+$procsLost = @{ 42924 = @{ CommandLine = ''; ParentId = 1 } }
+$lostState = Get-DevPreviewPortState -Port 4871 -Listeners @((& $L 4871 42924)) -Processes $procsLost -Root $root
+Assert-Equal 'other'   $lostState 'a listener with an unreadable command line is other'
+Assert-Equal 'lost'    (Get-DevPreviewWaitOutcome -State $lostState -Exited $true) 'our start exited while another process holds the port: lost'
+Assert-Equal 'pending' (Get-DevPreviewWaitOutcome -State 'other' -Exited $false) 'our start still running beside another listener: keep waiting'
+Assert-Equal 'exited'  (Get-DevPreviewWaitOutcome -State 'free' -Exited $true) 'our start exited and nobody listens: exited'
+Assert-Equal 'pending' (Get-DevPreviewWaitOutcome -State 'free' -Exited $false) 'nobody listens yet and the start runs: keep waiting'
+Assert-Equal 'ok'      (Get-DevPreviewWaitOutcome -State 'ours' -Exited $true) 'our own listener is up: ok, whatever the launcher did'
+Assert-Equal '4871 by pid 42924' (Format-DevPreviewPortHolders -Ports @(4871) -Listeners @((& $L 4871 42924)) -Processes $procsLost) 'the lost port names its holder by pid where no name can be read'
+
 $pick = Select-DevPreviewPort -Ports @(5173, 5174, 5175) -Listeners @((& $L 5173 200), (& $L 5174 103)) -Processes $procs -Root $root
 Assert-True ($pick.Action -eq 'reuse' -and $pick.Port -eq 5174) 'ours on a later port is reused, past a foreign one'
 $pick = Select-DevPreviewPort -Ports @(5173, 5174, 5175) -Listeners @((& $L 5173 200)) -Processes $procs -Root $root
