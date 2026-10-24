@@ -492,15 +492,48 @@ if ($DryRun) {
 
 # --- step 1: refresh each distinct marketplace clone, once ---------------------------------------
 
+function Get-CloneHeadIfCurrent {
+    <#
+        The clone's HEAD sha where it equals the sha its origin's HEAD answers, else '' -- '' also for
+        anything that cannot be read (no clone, no git, no network). INBOUND #3406: on Windows the refresh
+        renames the clone directory, and a running Claude Code session holding it fails that rename with
+        EBUSY -- measured with the clone already at origin's HEAD, so the run exited 1 under a receipt that
+        read all current. Asked of origin itself, not of the clone's tracking ref, which the failed refresh
+        never moved.
+    #>
+    param([Parameter(Mandatory = $true)][string]$CloneDir)
+    if (-not (Test-Path -LiteralPath (Join-Path $CloneDir '.git') -PathType Container)) { return '' }
+    $h = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $CloneDir, 'rev-parse', 'HEAD') -DiscardStderr
+    if ($h.ExitCode -ne 0) { return '' }
+    $head = (@($h.Output) -join "`n").Trim()
+    $o = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $CloneDir, 'ls-remote', 'origin', 'HEAD') -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    # An unmeasured exit is not a yes: the refresh then stays the failure it was.
+    if (-not (Test-NativeExitMeasured -Capture $o) -or $o.ExitCode -ne 0) { return '' }
+    $remote = ((@($o.Output) -join "`n").Trim() -split '\s+')[0]
+    if ($head -match '^[0-9a-f]{40}$' -and $head -eq $remote) { return $head }
+    return ''
+}
+
 Write-Host ""
 Write-Host "Step 1/3 -- refreshing the marketplace clone(s):" -ForegroundColor Cyan
 $marketplaceFailures = 0
+$marketplaceCurrent = 0
+$userHome = Get-UserClaudeHome -UserHomeOverride $UserHomeOverride
+$cloneRoot = if ($userHome) { Join-Path $userHome (Join-Path '.claude' (Join-Path 'plugins' 'marketplaces')) } else { '' }
 foreach ($mp in $marketplaces) {
     Write-Host ""
     Write-Host "  claude plugin marketplace update $mp"
     $r = Invoke-NativeCapture -FilePath 'claude' -Arguments @('plugin', 'marketplace', 'update', $mp) -Utf8 -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
     foreach ($line in @($r.Output)) { Write-Host "    $line" }
     if ($r.ExitCode -ne 0) {
+        # A REFRESH THAT HAD NOTHING TO MOVE IS NOT A FAILURE (#3406): where the clone already sits at its
+        # origin's HEAD, the run's answer to "is every update in" is yes, whatever the refresh exited with.
+        $current = if ($cloneRoot) { Get-CloneHeadIfCurrent -CloneDir (Join-Path $cloneRoot $mp) } else { '' }
+        if ($current) {
+            $marketplaceCurrent++
+            Write-Host "    WARNING ($(Get-NativeExitLabel -Capture $r)) -- but the clone is already at its origin's HEAD ($($current.Substring(0, 12))), so nothing was left to refresh" -ForegroundColor Yellow
+            continue
+        }
         $marketplaceFailures++
         # THE REASON IS COMPOSED RATHER THAN INTERPOLATED (issue #1931, audited under #2081), at this
         # line and at its twin in step 2. An unmeasurable exit code satisfies `-ne 0` and prints as
@@ -520,6 +553,10 @@ foreach ($mp in $marketplaces) {
         # touch this script's own exit code, and a caller reading that still gets the conservative
         # verdict above.
         Write-Host "    FAILED ($(Get-NativeExitLabel -Capture $r))$(if ($r.TimedOut) { ' -- timed out' })" -ForegroundColor Red
+        # EBUSY names its likely holder (#3406): a session with this marketplace loaded, this one included.
+        if ((@($r.Output) -join "`n") -match 'EBUSY') {
+            Write-Host "    the clone is locked (EBUSY) -- most likely by a running Claude Code session; close the others and rerun" -ForegroundColor Red
+        }
     }
 }
 
@@ -591,7 +628,8 @@ if ($totalFailures -eq 0) {
     $installText = if ($installed -gt 0) { ", $installed installed into this checkout (it had no install record)" } else { '' }
     $currentText = if ($alreadyCurrent -gt 0) { ", $alreadyCurrent already at the latest version" } else { '' }
     $retiredText = if ($retiredIds.Count -gt 0) { ", $($retiredIds.Count) retired id(s) skipped" } else { '' }
-    Write-Host "update-plugins: $($marketplaces.Count) marketplace(s) refreshed, $($targets.Count - $installed - $alreadyCurrent) plugin(s) updated$shadowText$currentText$installText$retiredText, 0 failed." -ForegroundColor Green
+    $mpCurrentText = if ($marketplaceCurrent -gt 0) { " ($marketplaceCurrent of them already current after a failed refresh)" } else { '' }
+    Write-Host "update-plugins: $($marketplaces.Count) marketplace(s) refreshed$mpCurrentText,$($targets.Count - $installed - $alreadyCurrent) plugin(s) updated$shadowText$currentText$installText$retiredText, 0 failed." -ForegroundColor Green
     exit 0
 }
 Write-Host "update-plugins: $marketplaceFailures marketplace refresh(es) failed, $updateFailures plugin update(s) failed -- see FAILED lines above." -ForegroundColor Red

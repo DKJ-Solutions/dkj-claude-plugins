@@ -438,6 +438,41 @@ try {
     Assert-Has $r 'FIXTURE-RECEIPT' '6: the receipt still ran'
     Assert-Has $r '1 marketplace refresh(es) failed, 0 plugin update(s) failed' '6: the summary attributes the failure correctly'
 
+    # --- 6b-6d. a failed refresh is judged by the clone (#3406) ---------------------------------
+    # The measured case: EBUSY on the clone's rename while the clone was already at origin's HEAD.
+    Write-Host "6b-6d. a failed refresh whose clone is already at origin's HEAD is a warning (#3406)" -ForegroundColor Cyan
+    $c = New-Case 'mktcurrent'
+    $origin = Join-Path $c.Home 'origin.git'
+    $clone = Join-Path $c.Home '.claude\plugins\marketplaces\ccs-fixture'
+    # Through Invoke-NativeCapture: under 'Stop' a bare & git turns git's stderr chatter into a throw.
+    $fg = { param([string[]]$A) Invoke-NativeCapture -FilePath 'git' -Arguments $A }
+    $null = & $fg @('init', '-q', '--bare', $origin)
+    $null = & $fg @('clone', '-q', $origin, $clone)
+    $null = & $fg @('-C', $clone, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'one')
+    $null = & $fg @('-C', $clone, 'push', '-q', 'origin', 'HEAD')
+    $branchRef = (@((& $fg @('-C', $clone, 'symbolic-ref', 'HEAD')).Output) -join '').Trim()
+    $null = & $fg @('-C', $origin, 'symbolic-ref', 'HEAD', $branchRef)
+    $ebusy = "@echo off`r`necho CLAUDE-SHIM-CALLED %*`r`necho %* | findstr /C:`"marketplace update`" >nul`r`nif errorlevel 1 (exit /b 0)`r`necho EBUSY: resource busy or locked, rename`r`nexit /b 1`r`n"
+    [System.IO.File]::WriteAllText((Join-Path $c.Bin 'claude.cmd'), $ebusy, $Utf8Ascii)
+    New-Receipt -Path $c.Receipt
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID1)
+    Set-HereRecords -Case $c -Ids @($ID1)
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
+    Assert-Equal 0 $r.Code '6b: exit 0 -- the clone is at origin''s HEAD, so nothing is out of date'
+    Assert-Has $r 'already at its origin''s HEAD' '6b: the refresh is reported as a warning naming why'
+    Assert-Lacks $r 'FAILED' '6b: and no FAILED line'
+    Assert-Has $r '1 of them already current after a failed refresh' '6b: the summary says so'
+
+    # 6c: origin moves on -- the same failure is a failure again, and the EBUSY line names its holder.
+    $side = Join-Path $c.Home 'side'
+    $null = & $fg @('clone', '-q', $origin, $side)
+    $null = & $fg @('-C', $side, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '--allow-empty', '-m', 'two')
+    $null = & $fg @('-C', $side, 'push', '-q', 'origin', 'HEAD')
+    $r = Invoke-UP -Repo $c.Repo -UserHome $c.Home -BinDir $c.Bin -ReceiptPath $c.Receipt
+    Assert-Equal 1 $r.Code '6c: exit 1 -- the clone is behind origin'
+    Assert-Has $r 'FAILED' '6c: the refresh is FAILED'
+    Assert-Has $r 'the clone is locked (EBUSY)' '6d: and an EBUSY failure names the lock and its likely holder'
+
     # --- 7. one of two plugin updates fails ------------------------------------------------------
     Write-Host "7. one plugin update fails -- the other still runs, receipt still runs" -ForegroundColor Cyan
     $c = New-Case 'updfail'

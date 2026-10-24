@@ -68,6 +68,13 @@ hand, in the order plugin-versions' own verdict table already prescribes.
 the rest. Every `FAILED` line names the exit code; the run's own exit code is non-zero only if
 something failed, and `-DryRun` never runs anything and always exits 0.
 
+**A failed refresh is asked of the clone before it counts** (#3406). On Windows, a running session can
+hold the marketplace clone, and the refresh's rename then fails with `EBUSY`. Measured: this happened with
+the clone already at its origin's HEAD, and the run exited 1 under a receipt that read all current. Where
+`git ls-remote origin HEAD` answers the clone's own HEAD, the refresh is printed as a `WARNING` and does not
+count as a failure. Otherwise it stays `FAILED`, and an `EBUSY` one says to close the other sessions and
+rerun.
+
 ## The boundary -- this checkout, unless you ask for all of them
 
 Named in [#1890](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1890). A default run
