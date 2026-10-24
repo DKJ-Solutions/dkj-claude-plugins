@@ -167,7 +167,7 @@ function Format-GeneralPageHtml {
 function Format-RepoHubBanner {
     <#
         The hub's general banner (#3250, Dave, October 21, 2026): a countdown to the next full hour,
-        and once an hour has passed a checkbox for '10 airsquats', with a short tone when it comes due.
+        and once an hour has passed a checkbox for the 10 airsquats due, with a short tone when it comes due.
         The countdown keeps running whether or not the box is ticked, and every hour that passes unticked
         adds another 10, so the box shows the total owed; ticking it clears the total.
 
@@ -175,6 +175,10 @@ function Format-RepoHubBanner {
         Format-GeneralPageHtml draws, a -Bare one included (#3356), the Connectors page (Format-ConnectorDashboardHtml), and the release notes (Format-ReleaseNotesDevPage), so the hubs carry the
         same banner wherever the visitor is. It sits directly under the intro, inside <main>, and uses house
         classes only (.notice, .msg, .num), because the hub restyles nothing.
+
+        ONE ROW, ALWAYS (Dave, October 24, 2026): the countdown and the box owed share a single .msg line,
+        the box an inline span after the timer rather than a paragraph of its own, and its label is short
+        ('30 due') so the line still fits a phone's column.
 
         THE STATE IS THE BROWSER'S, in localStorage under one key: the total owed and the last time a page
         ticked. An hour counts only while a hub page is open -- the tick of the previous second, or a reload
@@ -185,8 +189,7 @@ function Format-RepoHubBanner {
     #>
     return @'
 <div class="notice" id="hub-banner" role="region" aria-label="Airsquats">
-<p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong></p>
-<p class="msg msg--warn" data-hub-due hidden><label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> airsquats</label></p>
+<p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong><span class="msg--warn" data-hub-due hidden> &middot; <label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> due</label></span></p>
 </div>
 <script>
 (function () {

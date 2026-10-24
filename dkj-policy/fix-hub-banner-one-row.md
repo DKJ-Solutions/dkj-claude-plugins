@@ -41,17 +41,25 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-RepoHubBanner`: the countdown and the airsquats owed share one `.msg` paragraph, the box an inline span with a short label
+- [x] `dev-pages.tests.ps1`: the banner holds exactly one paragraph
 
 ### TEST
 
+- [x] dev-pages suite green (311 passed)
+- [ ] Dave looks at the banner on the hub (http://localhost:4871/), with airsquats due, before the merge
+
 ### DEPLOY: fix/hub-banner-one-row
 
-**Score:**
+The hub's airsquats banner never takes more than one row: once airsquats are due, the checkbox (`☐ 30 due`) now sits on the same line as the countdown instead of on a second line below it, and a test holds the banner to one paragraph.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the banner is this repo's own dev hub; nothing a consumer takes from a release changes.
+
+**Score:** N/A
 
 #### Pull Request
 
