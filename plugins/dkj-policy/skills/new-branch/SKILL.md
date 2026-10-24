@@ -209,14 +209,39 @@ body yet to scan. This is a **separate declaration** from `open-pr`'s own `-Reso
 answers a different question (does the PR body declare what it closes) at a different time (once the
 PR exists) -- passing one here says nothing to the other, and both are typed independently.
 
-**`gh` is optional, and this is the only place on this page that asks for it.** It is asked for only
-once `-Resolves` is given -- the ordinary run, with no issue number, asks nothing of `gh` and stays
-exactly as usable offline as the rest of this script.
+**`gh` is optional here.** This check asks for it only once `-Resolves` is given; the one other `gh`
+question on this page is the used-up name check below, and it is skipped wherever `gh` cannot be asked.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/new-branch.ps1" `
   -Name "fix/1402-something" -Title "Fix something" -Resolves 1402
 ```
+
+## A name a merged PR has used up is refused (issue #3376)
+
+**Measured October 24, 2026:** `-Name docs/stopwatch-css-comment` cut the branch, committed and pushed
+its document without a word, while that name already belonged to merged PR #3334 (and `-v2` to `-v4` to
+three more). `open-pr` was the first to say so, after the commit and the push, and the repair was a hand
+rename of the branch, its document, its heading and its remote ref.
+
+So `new-branch` now asks `open-pr`'s own question -- *is there a merged PR for this head name?* --
+before the checkout, and **refuses** where the answer is yes. Nothing is created, and the run names the
+first free follow-up name:
+
+```text
+Refused: 'docs/stopwatch-css-comment' is used up -- PR #3334 for it is already merged. https://...
+  The first free follow-up name is 'docs/stopwatch-css-comment-v5' -- run this command again with -Name docs/stopwatch-css-comment-v5
+```
+
+- **A refusal with no valve**, because a name whose PR is merged is never a resume, and `open-pr`
+  refuses the same name at the end anyway.
+- **An open PR on the name wins**, as it does in `open-pr`: a name recycled after its merge is resumable
+  work. A closed, unmerged PR does not use a name up.
+- **A `-v<N>` is free** when no PR of any state has it as its head and no local or remote ref of that
+  name exists. It is probed from `-v2` upwards, whatever suffix the refused name already carries.
+- **It asks `gh` only where an answer can exist**: a `Get-RepoName` in `scripts\repo-config.ps1` and a
+  hosted `origin`. A repo with neither, or a fixture with a local-path remote, asks nothing, and a `gh`
+  that cannot answer is said in one dim line and passed -- `open-pr` asks again before anything opens.
 
 ## Resuming a branch that exists only on `origin` (issue #1139)
 

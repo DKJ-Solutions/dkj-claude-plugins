@@ -440,8 +440,14 @@ So a merged PR is now its own outcome, asked for as a fallback when the open loo
 
 ```text
 PR #9 for 'docs/audience-note-v1' is already merged -- nothing to open. https://github.com/.../pull/9
-A follow-up cycle on the same subject gets its own branch -- name it with a -v2 suffix by hand.
+A follow-up cycle on the same subject gets its own branch -- the first free name is 'docs/audience-note-v2'.
 ```
+
+**The name it gives is the first FREE one, probed rather than assumed**
+([#3376](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3376)): a `-v<N>` is taken while
+any PR of any state has it as its head, or a local or remote ref of that name exists. The hint once said
+`-v2` on a name whose `-v2` to `-v4` had all merged. And it is now the second door: `new-branch` asks the
+same question before the checkout and refuses a used-up name there, with the same suggestion.
 
 It exits **0** — nothing failed — and it stops **before** the gates, the push and the create, because
 there is nothing to lint, push or open for work that has landed. The state is not exotic: a second

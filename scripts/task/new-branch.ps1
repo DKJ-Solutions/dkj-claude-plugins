@@ -646,6 +646,44 @@ $branchExists   = ($localRef.ExitCode -eq 0)
 $branchOnOrigin = ((-not $branchExists) -and ($remoteRef.ExitCode -eq 0))
 $resuming       = ($branchExists -or $branchOnOrigin)
 
+# --- IS THE NAME USED UP BY A MERGED PR? ASKED BEFORE THE CHECKOUT (issue #3376) --------------------
+#
+# MEASURED October 24, 2026: '-Name docs/stopwatch-css-comment' cut the branch, committed and pushed its
+# document without a word, while that name already belonged to merged PR #3334 (and -v2 to -v4 to three
+# more). open-pr.ps1 was the first to say so -- after the work was committed -- and the repair was a hand
+# rename of the branch, its document, its heading and its remote ref. This asks open-pr's own question
+# (Get-MergedHeadRecord) while nothing has been touched yet.
+#
+# A REFUSAL, NOT A WARNING, and with no valve: a name whose PR is MERGED is never a resume, and open-pr
+# refuses the same name at the end anyway, so there is no run on the far side of it. An OPEN PR on the
+# name wins -- a name recycled after its merge is resumable work -- which is open-pr's order too.
+#
+# ONLY WHERE THE ANSWER CAN EXIST: a Get-RepoName to ask under and a HOSTED origin, the same predicate
+# the #2805 guard above uses. A fixture with no remote or a local-path origin asks gh nothing, and so does
+# a repo with no seam, which keeps the ordinary offline run exactly as it was. A gh that cannot answer is
+# said and passed: open-pr asks again before anything is opened.
+$mergedNameOrigin = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'remote', 'get-url', 'origin') -DiscardStderr
+$mergedNameHosted = ($mergedNameOrigin.ExitCode -eq 0 -and ((@($mergedNameOrigin.Output) -join '').Trim()) -match '^(https?://|ssh://|git@)')
+if ($ghRepoName -and $mergedNameHosted) {
+    $headQuery = Invoke-NativeCapture -FilePath 'gh' -Arguments @('pr', 'list', '--repo', $ghRepoName, '--head', $Name, '--base', $trunk, '--state', 'all', '--json', 'number,state,url', '--limit', '20') -DiscardStderr
+    if (-not (Test-NativeExitMeasured -Capture $headQuery) -or $headQuery.ExitCode -ne 0) {
+        Write-Host "Name not checked against merged PRs: gh could not answer ($(Get-NativeExitLabel -Capture $headQuery)). open-pr asks again before anything is opened." -ForegroundColor DarkGray
+    } else {
+        $usedBy = Get-MergedHeadRecord -Json ($headQuery.Output -join "`n")
+        if ($usedBy) {
+            Write-Host "Refused: '$Name' is used up -- PR #$($usedBy.number) for it is already merged. $($usedBy.url)" -ForegroundColor Red
+            Write-Host "  A follow-up cycle on the same subject gets its own branch. Nothing was created: no branch, no document, nothing on origin." -ForegroundColor DarkGray
+            $freeName = Get-FreeFollowUpBranchName -RepoRoot $repoRoot -Repo $ghRepoName -Name $Name
+            if ($freeName) {
+                Write-Host "  The first free follow-up name is '$freeName' -- run this command again with -Name $freeName" -ForegroundColor DarkGray
+            } else {
+                Write-Host "  No free '-v<N>' name could be confirmed -- pick a new name by hand." -ForegroundColor DarkGray
+            }
+            exit 1
+        }
+    }
+}
+
 # --- AND IS THE BRANCH YOU ARE RESUMING BEHIND ITS OWN REMOTE HEAD? (issue #1439) ------------------
 #
 # THE DUPLICATE SIGNAL NOTHING READ. Two sessions built feat/plugin-policy-precedence in full -- both
@@ -896,9 +934,9 @@ if ($gap.Measured -and -not $resuming) {
 # proposal. There is no PR body yet to scan for a mention, so an issue only named in -Intent, or decided
 # after the branch is cut, is invisible here; that gap is unaddressed and may not be addressable.
 #
-# GH IS OPTIONAL, AND THIS IS THE ONLY PLACE IN THE SCRIPT THAT ASKS FOR IT. -Resolves is opt-in, so the
-# ordinary run -- no issue number given -- still asks nothing of gh and stays exactly as usable offline as
-# this script's own docstring promises for scripts\lib\branch-info.ps1.
+# GH IS OPTIONAL HERE. -Resolves is opt-in, so the ordinary run -- no issue number given -- asks this
+# block nothing. The used-up name check above (#3376) is the script's one other gh question, and it is
+# skipped wherever there is no repo name or no hosted origin to ask about.
 $alreadyDoneNote = ''
 $resolveList = @(ConvertTo-IssueNumberList -Value $Resolves)
 if ($resolveList.Count -gt 0) {

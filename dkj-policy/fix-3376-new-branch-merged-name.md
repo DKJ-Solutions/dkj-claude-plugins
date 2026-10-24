@@ -41,19 +41,33 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-MergedHeadRecord` and `Select-FollowUpBranchName` in `pr-issues-lib.ps1`, the gh/git probe `Get-FreeFollowUpBranchName` in `remote-ahead-lib.ps1`
+- [x] `new-branch.ps1` refuses a used-up name before the checkout, under a repo name and a hosted origin only
+- [x] `open-pr.ps1` names the first free `-vN` instead of `-v2` unconditionally
+- [x] The `new-branch` and `open-pr` skill pages say so; the plugin mirrors are synced
 
 ### TEST
 
+- [x] `pr-issues.tests.ps1` covers both pure functions; `new-branch-base.tests.ps1` cases x10-x12 cover the wiring
+
 ### DEPLOY: fix/3376-new-branch-merged-name
 
-**Score:**
+`new-branch` now refuses a branch name whose pull request has already merged, before it checks anything
+out, and names the first free follow-up name (`<name>-v<N>`). Until now that branch was cut, committed and
+pushed, and only `open-pr` noticed, after the work, with a hint that always said `-v2` even where `-v2`
+was taken. `open-pr`'s hint now names the first free name too
+([#3376](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3376)).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer re-using a branch name after its merge is stopped at `new-branch` instead of after a commit and
+a push, and is told the exact name to use. The check only asks `gh` where the repo names itself and has a
+hosted origin, so an offline run is unchanged.
+
+**Score:** 2
 
 #### Pull Request
 
 new-branch refuses a branch name a merged PR has used up, and names the first free -vN
-

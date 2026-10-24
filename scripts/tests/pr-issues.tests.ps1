@@ -835,6 +835,32 @@ Assert-Equal 1  $oldShapeEmpty.Count      'the replaced @(text | ConvertFrom-Jso
 Assert-Equal '' "$($oldShapeEmpty[0].number)" 'and yields the empty string as a PR number'
 Assert-True ($null -eq (Get-ExistingPrRecord -Json '[]')) 'Get-ExistingPrRecord answers $null there, so the guard can fire'
 
+Write-Host ""
+Write-Host "Get-MergedHeadRecord + Select-FollowUpBranchName (#3376)" -ForegroundColor Cyan
+
+# The measured case: one merged PR on the name -- used up, and the record names it.
+$usedUp = Get-MergedHeadRecord -Json '[{"number":3334,"state":"MERGED","url":"https://github.com/o/r/pull/3334"}]'
+Assert-Equal 3334 $usedUp.number 'a single MERGED record uses the name up'
+# An OPEN PR wins wherever it sits in the payload: a recycled name with an open PR is resumable work.
+Assert-True ($null -eq (Get-MergedHeadRecord -Json '[{"number":1,"state":"MERGED"},{"number":2,"state":"OPEN"}]')) 'an OPEN record anywhere means the name is not used up'
+# A CLOSED, unmerged PR does not use a name up -- open-pr does not refuse it either.
+Assert-True ($null -eq (Get-MergedHeadRecord -Json '[{"number":5,"state":"CLOSED"}]')) 'a CLOSED record alone does not use the name up'
+$pastClosed = Get-MergedHeadRecord -Json '[{"number":5,"state":"CLOSED"},{"number":6,"state":"MERGED"}]'
+Assert-Equal 6 $pastClosed.number 'the first MERGED record is found past a CLOSED one'
+# Unreadable answers are "not used up", never an error -- open-pr asks again later.
+Assert-True ($null -eq (Get-MergedHeadRecord -Json '[]'))       'an empty list does not use the name up'
+Assert-True ($null -eq (Get-MergedHeadRecord -Json 'not json'))  'unparseable JSON does not use the name up'
+Assert-True ($null -eq (Get-MergedHeadRecord -Json ''))          'empty input does not use the name up'
+
+# The measured walk: -v2 to -v4 taken, -v5 free. The old hint said -v2.
+$takenSet = @('docs/x-v2', 'docs/x-v3', 'docs/x-v4')
+Assert-Equal 'docs/x-v5' (Select-FollowUpBranchName -Name 'docs/x' -IsTaken { param($c) $takenSet -contains $c }) 'the first FREE -vN is named, not -v2'
+Assert-Equal 'docs/x-v2' (Select-FollowUpBranchName -Name 'docs/x' -IsTaken { param($c) $false }) 'with nothing taken it is -v2'
+# A name that already carries a suffix is walked from its base, not suffixed twice.
+Assert-Equal 'docs/x-v5' (Select-FollowUpBranchName -Name 'docs/x-v4' -IsTaken { param($c) $takenSet -contains $c }) 'a refused -v4 proposes -v5, never -v4-v2'
+# Past the limit: $null, which the caller reports rather than guessing.
+Assert-True ($null -eq (Select-FollowUpBranchName -Name 'docs/x' -IsTaken { param($c) $true } -Limit 4)) 'every candidate taken returns $null'
+
 # The append path: what open-pr writes back when this run declares an issue the existing body lacks.
 # Idempotent per issue, so a rerun does not stack duplicate blocks -- asserted here because the caller
 # decides whether to call `gh pr edit` by comparing against the original string.
