@@ -41,17 +41,23 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Overview cards in four rows (start, label, time, change in percent), four to a row (`Format-StopwatchPageHtml`, new `Format-StopwatchChangePercent`)
 
 ### TEST
 
+- [x] stopwatch and logbook suites updated and green
+
 ### DEPLOY: feat/stopwatch-cards-readable
 
-**Score:**
+The cards on the `/stopwatch` overview (and the Logbook, which draws its overview with the same function) read in four rows: the run's start, its label as the link to the run's page, its total time in large type, and its change against the previous run of the same label in percent, green when faster and red when slower. They stand four to a row, stepping down to two and one on narrower screens. The four-column grid is a page-own class (`.sw-grid-4`) on top of the house `.grid-3`, so no house token or class changes.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+The stopwatch page is a dev-server page of this repo; no consumer sees it.
+
+**Score:** N/A
 
 #### Pull Request
 

@@ -635,18 +635,35 @@ function Format-StopwatchDelta {
     return '<span class="badge badge--sm badge--bad">' + (Format-DevSeconds ([double]$Seconds)) + ' slower</span>'
 }
 
-function Format-StopwatchChangeText {
-    <# A run's change against the run of its label before it, in words, for a card's line. #>
-    param($Seconds)
-    if ($null -eq $Seconds) { return 'first run' }
-    if ([Math]::Abs([double]$Seconds) -lt 0.5) { return 'same as the run before' }
-    if ($Seconds -lt 0) { return (Format-DevSeconds (-[double]$Seconds)) + ' faster than the run before' }
-    return (Format-DevSeconds ([double]$Seconds)) + ' slower than the run before'
+function Format-StopwatchChangePercent {
+    <#
+        A run's change against the run of its label before it, in percent of that run's time, as a card's last row:
+        faster in the positive colour, slower in the negative one. Under half a second is the same, and a label's first
+        run says so.
+    #>
+    param([double]$Seconds, $DeltaSeconds)
+    if ($null -eq $DeltaSeconds) { return '<p class="sw-change">first run</p>' }
+    $before = $Seconds - [double]$DeltaSeconds
+    if ([Math]::Abs([double]$DeltaSeconds) -lt 0.5 -or $before -le 0) { return '<p class="sw-change">same as the run before</p>' }
+    $pct = [Math]::Round([Math]::Abs([double]$DeltaSeconds) / $before * 100)
+    $pctText = if ($pct -lt 1) { '&lt;1%' } else { [string]$pct + '%' }
+    if ($DeltaSeconds -lt 0) { return '<p class="sw-change sw-change--good">' + $pctText + ' faster than the run before</p>' }
+    return '<p class="sw-change sw-change--bad">' + $pctText + ' slower than the run before</p>'
 }
 
 function Format-StopwatchPageShell {
     <# The pieces the two pages share: the page's own style layer and the live-clock script. Names are the page's (sw-), house tokens only. #>
     $style = '.sw-clock { font-size: var(--text-h1); font-weight: 600; margin: var(--spacing-2) 0; }' + "`n" +
+        '.sw-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }' + "`n" +
+        '@media (max-width: 1000px) { .sw-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }' + "`n" +
+        '@media (max-width: 760px) { .sw-grid-4 { grid-template-columns: 1fr; } }' + "`n" +
+        '.sw-stamp { margin: 0; font-size: var(--text-sm); color: var(--muted); }' + "`n" +
+        '.sw-label { margin: var(--spacing-1) 0 0; font-size: var(--text-h4); font-weight: 600; color: var(--fg-3); overflow-wrap: anywhere; }' + "`n" +
+        '.sw-label a { color: inherit; text-decoration: none; }' + "`n" +
+        '.sw-total { margin: var(--spacing-2) 0 0; font-size: var(--text-h2); font-weight: 600; color: var(--fg-3); }' + "`n" +
+        '.sw-change { margin: var(--spacing-1) 0 0; font-size: var(--text-sm); color: var(--muted); }' + "`n" +
+        '.sw-change--good { color: var(--positive-5); }' + "`n" +
+        '.sw-change--bad { color: var(--negative-5); }' + "`n" +
         '.sw-left { text-align: left; }' + "`n" +
         '.sw-bar { display: block; min-width: var(--spacing-24); height: var(--spacing-2); background: var(--paper-3); border-radius: var(--spacing-1); overflow: hidden; }' + "`n" +
         '.sw-bar > span { display: block; height: 100%; background: var(--primary); }'
@@ -668,9 +685,9 @@ function Format-StopwatchPageShell {
 function Format-StopwatchPageHtml {
     <#
         The overview on '/stopwatch', read-only, and bare (no h1, lead or tiles; the general banner stays, #3356): it opens on the
-        banner, then the Measurements heading and one card per run, newest first, named by its start, with its label, its time and its change
-        against the previous run of the same label, and a link to the run's own page (Format-StopwatchRunPageHtml), in
-        the hub's card markup. The run going now shows its live clock on its card. -ReadError is set when the
+        banner, then the Measurements heading and one card per run, newest first, four to a row, in four rows: its start,
+        its label (the link to the run's own page, Format-StopwatchRunPageHtml), its time, and its change in percent
+        against the previous run of the same label (Format-StopwatchChangePercent). The run going now shows its live clock as its time. -ReadError is set when the
         store could not be read. -StorePath is named in the footer, so a run can be read and evaluated outside
         the page. The Logbook (scripts/lib/logbook-lib.ps1, #3364) draws its overview here too: -Route, -PageTitle,
         -Sub and -FooterNote are its own, -NoDelta leaves out the change against the run before, which only means
@@ -702,22 +719,24 @@ function Format-StopwatchPageHtml {
 
     [void]$body.AppendLine('<div class="grid__head"><h2>Measurements</h2><p class="card__sub">' + (& $e $Sub) + '</p></div>')
     if (@($Model.Groups).Count) {
-        [void]$body.AppendLine('<div class="grid-3">')
+        [void]$body.AppendLine('<div class="grid-3 sw-grid-4">')
         foreach ($g in @($Model.Groups)) {
-            # The run's start is the card's name, as it is its page's; the label stands under it (the owner, October 23, 2026).
+            # Four rows, four cards to a row (the owner, October 24, 2026): the run's start, its label, its time, and its
+            # change against the run before in percent. The label is the card's one link, stretched over the card.
             $stamp = & $e ($g.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))
-            $parts = @([string]$g.Label)
-            if (@($g.Rows).Count) {
-                $parts += (Format-DevSeconds $g.Rows[0].Seconds)
-                if ($CardNotes[$g.Rows[0].Run.Id]) { $parts += [string]$CardNotes[$g.Rows[0].Run.Id] }
-                if (-not $NoDelta) { $parts += (Format-StopwatchChangeText $g.Rows[0].DeltaSeconds) }
-            }
-            $sub = (& $e ($parts -join ' - '))
+            $href = (& $e $Route) + '/' + (& $e $g.PageSlug)
+            $card = '<section class="card card--link"><p class="sw-stamp">' + $stamp + '</p>' +
+                '<h3 class="sw-label"><a href="' + $href + '">' + (& $e $g.Label) + '</a></h3>'
             if ($g.Running) {
-                $sub += ' - going now <span class="num" data-start="' + (Format-StopwatchStamp $g.Running.Start) + '">' + (Format-DevSeconds ($Now - $g.Running.Start).TotalSeconds) + '</span>'
+                $card += '<p class="sw-total num" data-start="' + (Format-StopwatchStamp $g.Running.Start) + '">' + (Format-DevSeconds ($Now - $g.Running.Start).TotalSeconds) + '</p>'
+                $card += '<p class="sw-change">going now</p>'
+            } elseif (@($g.Rows).Count) {
+                $row = $g.Rows[0]
+                $card += '<p class="sw-total num">' + (Format-DevSeconds $row.Seconds) + '</p>'
+                if ($CardNotes[$row.Run.Id]) { $card += '<p class="card__sub">' + (& $e ([string]$CardNotes[$row.Run.Id])) + '</p>' }
+                if (-not $NoDelta) { $card += (Format-StopwatchChangePercent -Seconds $row.Seconds -DeltaSeconds $row.DeltaSeconds) }
             }
-            [void]$body.AppendLine('<section class="card card--link"><nav class="menu-list" aria-label="' + $stamp + '"><a class="menu-item" href="' + (& $e $Route) + '/' + (& $e $g.PageSlug) +
-                '"><span class="menu-item__label">' + $stamp + '<span class="menu-item__sub">' + $sub + '</span></span>' + $script:RepoHubChevron + '</a></nav></section>')
+            [void]$body.AppendLine($card + '</section>')
         }
         [void]$body.AppendLine('</div>')
     } else {
