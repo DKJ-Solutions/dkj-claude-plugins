@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**9 / 22 minor entries** <!-- pending-tally -->
+**9 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3377-stopwatch-first-sync-fetching · 20261024-145203Z
+
+The Stopwatch overview on a machine's first visit no longer says that no other machine has shared a run
+while its first sync is still fetching them. Until that sync has ended it says the other machines' runs
+are being fetched, and reloads every few seconds to show them
+([#3377](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3377)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the Stopwatch is this repo's own hub page and ships in no plugin.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch: say the other machines' runs are being fetched while the first sync runs
+
+[PR #3388](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3388)
+
+---
 
 ### DEPLOY: fix/3386-claim-unmarked-branch · 20261024-144309Z
 
