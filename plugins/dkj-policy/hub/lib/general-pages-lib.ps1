@@ -1132,7 +1132,7 @@ function Format-ReleaseNotesDevPage {
         '/* The template''s tokens, read from the house ones (#3108). */'
         ':root { --bg: var(--paper-1); --panel: var(--paper-2); --ink: var(--fg-1); --ink-soft: var(--fg-2); --ink-faint: var(--muted);'
         '  --line: var(--paper-3); --accent: var(--primary); --accent-soft: var(--paper-2); --code-bg: var(--paper-1); }'
-        'header.masthead h1 { font-family: var(--font-serif); font-weight: 600; color: var(--primary); }'
+        'header.masthead h1 { font-family: inherit; font-weight: 700; text-transform: none; color: var(--primary); }'
         '</style>'
     ) -join "`n"
     $bar = @(
