@@ -51,7 +51,7 @@ The owner asked for every h1 without capitals and in a sans face (October 24, 20
 ### TEST
 
 - [x] `check-house-style`, `connector-dashboard`, `dev-preview-sessionstart`, `dev-pages`, `house-palette` suites green locally
-- [ ] The owner has looked at an h1 in the hub
+- [x] The owner has looked at an h1 in the hub
 
 ### DEPLOY: feat/house-style-h1-sans
 
