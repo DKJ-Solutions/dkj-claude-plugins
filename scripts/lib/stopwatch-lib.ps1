@@ -23,8 +23,8 @@
 
     THREE PAGES, ALL READ-ONLY AND BARE (no lead or tiles above their content, only the hub's airsquats banner,
     which is on every hub page, #3356; the plugin's Format-GeneralPageHtml -Bare). '/stopwatch' is an overview of
-    cards under an h1 naming the page, ONE PER PROMPT LABEL (the owner, October 24, 2026): the label, how many runs it has, and its newest run's
-    time with its change, or the live clock of the run going now. Each links to '/stopwatch/<label slug>'
+    cards under an h1 naming the page, ONE PER PROMPT LABEL, three to a row (the owner, October 24, 2026): an h2 with the
+    label's short title, when a run of it starts and stops, and its fastest time (or the live clock of its only run). Each links to '/stopwatch/<label slug>'
     (Get-StopwatchSlugs), the label's page, which holds ONE CARD PER RUN of that label, never merged (the owner,
     October 23, 2026: runs of one label were merged into one card twice): named by the run's start, with its label,
     its time and its change against the previous run of the same label, in the hub's own card markup. Each run card
@@ -719,8 +719,12 @@ function Format-StopwatchPageShell {
         '.sw-groups { display: grid; gap: var(--spacing-7); }' + "`n" +
         '.sw-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--spacing-4); }' + "`n" +
         '.sw-grid > .card { margin-top: 0; }' + "`n" +
+        # The overview's label cards are larger: three to a row at most (the owner, October 24, 2026). Before the
+        # media rules, so a narrow screen still takes two and then one.
+        '.sw-grid--wide { grid-template-columns: repeat(3, minmax(0, 1fr)); }' + "`n" +
         '@media (max-width: 1000px) { .sw-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }' + "`n" +
         '@media (max-width: 760px) { .sw-grid { grid-template-columns: 1fr; } }' + "`n" +
+        '.sw-card > h2 a { color: inherit; text-decoration: none; }' + "`n" +
         # A card's lines are built from the house text sizes (--text-lg, -base, -sm, -xs), the text colour or --muted, and the
         # weights 300 to 800, and nothing else: no heading (the owner, October 24, 2026). The start is the card's
         # header (base, 800), the prompt label the least visible line under it (sm, regular, muted, its version likewise),
@@ -786,24 +790,33 @@ function Format-StopwatchRunCard {
 
 function Format-StopwatchLabelCard {
     <#
-        One prompt label's card on the overview (the owner, October 24, 2026), in the run card's three lines: the
-        label, how many runs it has and when the newest started (the card's one link, to the label's page), and the
-        newest run's time with its change, or its live clock while it is going.
+        One prompt label's card on the overview (the owner, October 24, 2026): an h2 with the label's short title
+        (Get-StopwatchShortTitle), the card's one link, to the label's page; a line saying when a run of it starts and
+        when it stops; and its fastest finished time, with no change beside it, or the live clock while its only run
+        is still going. The run dates are on the label's page, not here.
     #>
     param([Parameter(Mandatory = $true)][hashtable]$Set, [datetime]$Now = [datetime]::UtcNow)
     $e = { param($v) ConvertTo-DashboardText $v }
-    $newest = $Set.Groups[0]
-    $count = @($Set.Groups).Count
-    $stamp = $newest.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
-    return '<section class="card card--link sw-card"><p class="sw-stamp">' + (& $e $Set.Title) + '</p>' +
-        '<p class="sw-instruction"><a href="/stopwatch/' + (& $e $Set.Slug) + '">' + $count + $(if ($count -eq 1) { ' run' } else { ' runs' }) + ', newest ' + (& $e $stamp) + '</a></p>' +
-        (Format-StopwatchCardTime -Group $newest -Now $Now) + '</section>'
+    $stop = if ([string]$Set.Title -match '^release') { 'the release notes of the cut are committed' } else { 'Claude is back on main, clean, with a commit of its own' }
+    $fastest = @($Set.Groups | ForEach-Object { $_.Rows } | Where-Object { $_ } | Sort-Object { $_.Seconds }) | Select-Object -First 1
+    $time = if ($fastest) { '<p class="sw-time num">' + (Format-DevSeconds $fastest.Seconds) + '</p>' } else { Format-StopwatchCardTime -Group $Set.Groups[0] -Now $Now }
+    return '<section class="card card--link sw-card"><h2><a href="/stopwatch/' + (& $e $Set.Slug) + '">' + (& $e (Get-StopwatchShortTitle $Set.Title)) + '</a></h2>' +
+        '<p class="sw-instruction">From the prompt <code>stopwatch: ' + (& $e $Set.Title) + '</code> until ' + $stop + '.</p>' +
+        $time + '</section>'
+}
+
+function Get-StopwatchShortTitle {
+    <# A label's short title for its card: the label up to its first comma or opening parenthesis, else the whole label. #>
+    param([AllowEmptyString()][string]$Label = '')
+    $short = ($Label -split '[,(]', 2)[0].Trim()
+    if ($short) { return $short }
+    return $Label
 }
 
 function Format-StopwatchPageHtml {
     <#
         The overview on '/stopwatch', read-only, and bare (no lead or tiles; the general banner stays, #3356): it opens on the
-        banner, then a Stopwatch h1 with one card per prompt label (Format-StopwatchLabelCard), linking the label's own
+        banner, then a Stopwatch h1 with one card per prompt label, three to a row (Format-StopwatchLabelCard), linking the label's own
         page (Format-StopwatchLabelPageHtml), which holds that label's run cards (the owner, October 24, 2026). -Flat,
         the Logbook's, shows the run cards themselves (Format-StopwatchRunCard) under one Measurements h2 instead. Five
         cards to a row on a full screen. -ReadError is set when the
@@ -852,7 +865,7 @@ function Format-StopwatchPageHtml {
         # The grid stands in a wrapper whose gap is the space between grids, so no grid carries a top margin (the owner,
         # October 24, 2026). A head is its h2 alone, with no sub line under it.
         [void]$body.AppendLine('<div class="sw-groups">')
-        [void]$body.AppendLine('<div class="sw-grid">')
+        [void]$body.AppendLine($(if ($Flat) { '<div class="sw-grid">' } else { '<div class="sw-grid sw-grid--wide">' }))
         if ($Flat) {
             [void]$body.AppendLine('<div class="grid__head"><h2>Measurements</h2></div>')
             foreach ($g in @($Model.Groups)) { [void]$body.AppendLine((Format-StopwatchRunCard -Group $g -Route $Route -Now $Now -NoDelta:$NoDelta -CardNotes $CardNotes)) }
