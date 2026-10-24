@@ -3,8 +3,8 @@
     Serve this repo's dev server on http://localhost:<Port>/ -- the hub on '/', which links the hub's own
     pages (#3097): /test-gate, the per-suite CI durations, grouped by the workflow step each suite guards
     (scripts/tests/suite-groups.json); and /stopwatch, how long each assignment took: a read-only overview of cards, one per
-    run, and /stopwatch/<slug>, each run's page, from the runs the hooks of scripts/dashboard/stopwatch-hook.ps1 record (#3315, #3323); and /logbook
-    and /logbook/<slug>, the same pages for every session that began on a clean trunk, from the runs of scripts/dashboard/logbook-hook.ps1 (#3364). The server takes no POST at all. It also builds three pages the product relays, which the hub does not link (below):
+    prompt label, and /stopwatch/<slug>, each label's page with a card per run, or each run's page, from the runs the hooks of scripts/dashboard/stopwatch-hook.ps1 record (#3315, #3323); and /logbook
+    and /logbook/<slug>, the same pages for every session that began on a clean trunk, from the runs of scripts/dashboard/logbook-hook.ps1 (#3364), a /sweep-issues run cut into one run per issue at its folds (#3405). The server takes no POST at all. It also builds three pages the product relays, which the hub does not link (below):
     /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
     check-connectors.ps1 reports for it on this machine (#2976); /specialists, every specialist the
     dkj-subagents plugins ship and the context each one costs, read from this tree; and /dkj-repos, every
@@ -527,7 +527,7 @@ try {
                 continue
             }
             if ($path -match '^/stopwatch/([a-z0-9-]{1,60})$') {
-                # One run's page (#3323). A slug no run has is a 404, like any other path.
+                # One run's page (#3323), else one label's page. A slug neither has is a 404, like any other path.
                 $sw = Get-StopwatchPageRuns; $store = $sw.Store
                 if ($store.Error) {
                     # The same read error the overview shows, not a bare 404 for a page that may well exist.
@@ -535,23 +535,32 @@ try {
                     Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                     continue
                 }
-                $group = Find-StopwatchGroup -Model (ConvertTo-StopwatchModel -Runs $sw.Runs) -Slug $Matches[1]
+                $swModel = ConvertTo-StopwatchModel -Runs $sw.Runs
+                $group = Find-StopwatchGroup -Model $swModel -Slug $Matches[1]
                 if (-not $group) {
-                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
+                    $labelSet = Find-StopwatchLabel -Model $swModel -Slug $Matches[1]
+                    if ($labelSet) {
+                        $html = Format-StopwatchLabelPageHtml -Set $labelSet -StorePath $StopwatchPath
+                        Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                    } else {
+                        Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
+                    }
                     continue
                 }
                 # Only this machine's runs are read from its transcripts; another machine's carry the phases it read from its own.
                 $phases = Get-StopwatchTranscriptCache -Runs @($group.Rows | ForEach-Object { $_.Run } | Where-Object { -not $_.Machine }) -CachePath $StopwatchPhasesPath -TranscriptDir $TranscriptDir -StepLogPath $StopwatchStepLogPath -RepoRoot $root
                 foreach ($k in $sw.Shared.Phases.Keys) { if (-not $phases.ContainsKey($k)) { $phases[$k] = $sw.Shared.Phases[$k] } }
-                $html = Format-StopwatchRunPageHtml -Group $group -StorePath $StopwatchPath -Transcript $phases
+                $html = Format-StopwatchRunPageHtml -Group $group -StorePath $StopwatchPath -Transcript $phases -LabelCrumb
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
             if ($LogbookAvailable -and $path -eq '/logbook') {
                 $lb = Read-StopwatchStore -Path $LogbookPath
+                # A sweep is shown per issue, cut at its folds (#3405).
+                $lbRuns = Get-LogbookRuns -Runs $lb.Runs -StepLogPath $StopwatchStepLogPath -RepoRoot $root
                 # Every finished run's phases, for its work time on its card: read from the transcripts once, then cached.
-                $phases = Get-StopwatchTranscriptCache -Runs @($lb.Runs | Where-Object { $_.End }) -CachePath $LogbookPhasesPath -TranscriptDir $TranscriptDir -StepLogPath $StopwatchStepLogPath -RepoRoot $root
-                $html = Format-LogbookPageHtml -Runs $lb.Runs -ReadError $lb.Error -Skipped $lb.Skipped -StorePath $LogbookPath -Transcript $phases
+                $phases = Get-StopwatchTranscriptCache -Runs @($lbRuns | Where-Object { $_.End }) -CachePath $LogbookPhasesPath -TranscriptDir $TranscriptDir -StepLogPath $StopwatchStepLogPath -RepoRoot $root
+                $html = Format-LogbookPageHtml -Runs $lbRuns -ReadError $lb.Error -Skipped $lb.Skipped -StorePath $LogbookPath -Transcript $phases
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
@@ -563,7 +572,7 @@ try {
                     Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                     continue
                 }
-                $group = Find-StopwatchGroup -Model (ConvertTo-LogbookModel -Runs $lb.Runs) -Slug $Matches[1]
+                $group = Find-StopwatchGroup -Model (ConvertTo-LogbookModel -Runs (Get-LogbookRuns -Runs $lb.Runs -StepLogPath $StopwatchStepLogPath -RepoRoot $root)) -Slug $Matches[1]
                 if (-not $group) {
                     Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
                     continue
