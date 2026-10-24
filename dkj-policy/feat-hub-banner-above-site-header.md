@@ -41,7 +41,7 @@
 
 ### CREATE
 
-- [x] `Format-RepoHubBanner` brings its own `.container`; every hub page writes it straight after `<body>`, above the site header (general pages, both home pages, release notes, Connectors)
+- [x] `Format-RepoHubBanner` stands with no margin (`margin: 0`, no wrapper); every hub page writes it straight after `<body>`, above the site header (general pages, both home pages, release notes, Connectors)
 - [x] Asserts on the old order in `dev-pages`, `dev-preview-sessionstart` and `connector-dashboard` moved to the new one
 - [x] House-style README home-page table, both patterns and the hub README follow
 
@@ -52,7 +52,7 @@
 
 ### DEPLOY: feat/hub-banner-above-site-header
 
-The airsquats banner is now the first thing on every hub page, above the site header rather than under the breadcrumb bar (owner, October 24, 2026). It sits in a `.container` of its own, so it follows the page-width setting.
+The airsquats banner is now the first thing on every hub page, above the site header rather than under the breadcrumb bar (owner, October 24, 2026). It stands with no margin around it, edge to edge and flush against the header.
 
 **Score:** 2
 

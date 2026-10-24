@@ -196,8 +196,8 @@ function Format-RepoHubBanner {
         Format-GeneralPageHtml draws, a -Bare one included (#3356), the Connectors page (Format-ConnectorDashboardHtml), and the release notes (Format-ReleaseNotesDevPage), so the hubs carry the
         same banner wherever the visitor is. It is the first thing in <body>, ABOVE the site header (owner,
         October 24, 2026; it was the first block of <main>, under the breadcrumb bar), so every caller writes it
-        straight after '<body>'. It brings its own column -- a .container, whose top and bottom padding it trims so
-        the strip is the notice and a gap -- and otherwise uses house classes only (.notice, .msg, .num), because
+        straight after '<body>'. It stands there with no margin of its own, edge to edge and flush against the
+        header (owner, October 24, 2026), and otherwise uses house classes only (.notice, .msg, .num), because
         the hub restyles nothing.
 
         ONE ROW, ALWAYS (Dave, October 24, 2026): the countdown and the box owed share a single .msg line,
@@ -212,10 +212,8 @@ function Format-RepoHubBanner {
         not this page's.
     #>
     return @'
-<div class="container" style="padding-top: 0; padding-bottom: var(--spacing-4)">
-<div class="notice" id="hub-banner" role="region" aria-label="Airsquats">
+<div class="notice" id="hub-banner" role="region" aria-label="Airsquats" style="margin: 0">
 <p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong><span class="msg--warn" data-hub-due hidden> &middot; <label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> due</label></span></p>
-</div>
 </div>
 <script>
 (function () {
@@ -1150,7 +1148,7 @@ function Format-ReleaseNotesDevPage {
     $bar = if ($RepoName) { (Format-SiteHeaderHtml -Name (ConvertTo-SiteHeaderName -RepoName $RepoName) -Href $HubHref -Tag 'hub') + $bar }
             else { $bar + "`n" + '<div id="settings" class="theme-settings--floating"></div>' }
     # The general banner above the site header, as on every other hub page (#3297; owner, October 24, 2026). It
-    # brings its own column, so the template's layout is left alone.
+    # stands outside the template's layout, so that is left alone.
     $bar = (Format-RepoHubBanner) + $bar
     $settings = '<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>'
 
