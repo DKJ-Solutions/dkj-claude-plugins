@@ -698,7 +698,7 @@ function Format-StopwatchPageShell {
 
 function Format-StopwatchPageHtml {
     <#
-        The overview on '/stopwatch', read-only, and bare (no h1, lead or tiles; the general banner stays, #3356): it opens on the
+        The overview on '/stopwatch', read-only, and bare (no tiles; the general banner stays, #3356): it opens on its h1 and lead (-Flat: bare, no h1 or lead), the
         banner, then an h2 per prompt label (-Flat: one Measurements h2 for all) and under it one card per run of that
         label, newest first, four to a row, in three lines: its start,
         its label (the link to the run's own page, Format-StopwatchRunPageHtml), its time, and its change in percent
@@ -740,7 +740,6 @@ function Format-StopwatchPageHtml {
     if ($Flat) {
         $sets += @{ Title = 'Measurements'; Sub = $Sub; Groups = @($Model.Groups) }
     } else {
-        if (@($Model.Groups).Count) { [void]$body.AppendLine('<p class="note">' + (& $e $Sub) + '</p>') }
         foreach ($set in @($Model.Groups | Group-Object { $_.Label.ToLowerInvariant() } | Sort-Object { ($_.Group | ForEach-Object { $_.Latest } | Measure-Object -Maximum).Maximum } -Descending)) {
             $newest = @($set.Group | Sort-Object { $_.Latest } -Descending)
             $sets += @{ Title = $newest[0].Label; Sub = [string]$set.Count + $(if ($set.Count -eq 1) { ' run' } else { ' runs, newest first' }); Groups = $newest }
@@ -786,7 +785,10 @@ function Format-StopwatchPageHtml {
         'A prompt whose first line begins with <code>stopwatch:</code> starts a run in a session of this checkout, labelled with the rest of that line, and discards a run still going; ' +
         'a Stop hook ends it once Claude is back on the trunk, clean, with HEAD moved since the start (that suggests the work landed; it does not prove it). Both are <code>scripts/dashboard/stopwatch-hook.ps1</code>. ' +
         'Built by <code>scripts/lib/stopwatch-lib.ps1</code>.' }
-    return Format-DevPageHtml -Title $PageTitle -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare `
+    # The grouped overview opens on its h1 (the house sets it in capitals: STOPWATCH) with -Sub as its lead (the owner,
+    # October 24, 2026); the flat one stays bare.
+    $lead = if ($Flat) { '' } else { & $e $Sub }
+    return Format-DevPageHtml -Title $PageTitle -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead $lead -Bare:$Flat `
         -FooterNote $note
 }
 

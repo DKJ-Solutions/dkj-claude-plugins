@@ -167,7 +167,8 @@ Assert-True ($twinSlugs.Count -eq 2 -and $twinSlugs[0] -ne $twinSlugs[1] -and $t
 Write-Host '-- the page' -ForegroundColor Cyan
 $page = Format-StopwatchPageHtml -Model $m -StorePath 'C:\x\stopwatch.json' -Now (& $at 5065)
 Assert-True ($page -match 'aria-current="page">Stopwatch</span>' -and $page -match '<li><a href="/">Home</a></li>') 'the page has the house shell and its crumb back to the hub'
-Assert-True ($page -notmatch '<h1|class="lead"|Runs recorded|id="now"|class="sw-clock') 'the overview is bare: no h1, lead, tiles or Now section above the cards'
+Assert-True ($page -match '<h1>Stopwatch</h1>\r?\n<p class="lead">One card per run' -and $page.IndexOf('<h1>') -lt $page.IndexOf('id="hub-banner"') -and $page -notmatch 'Runs recorded|id="now"|class="sw-clock') 'the overview opens on its h1 (set in capitals by the house: STOPWATCH) with the how-to as its lead, and no tiles or Now section above the cards'
+Assert-True (([regex]::Matches($page, '<h1')).Count -eq 1 -and $page -notmatch '<p class="note">One card per run') 'one h1, and the how-to stands in the lead only'
 Assert-True (([regex]::Matches($page, 'id="hub-banner"')).Count -eq 1 -and $page.IndexOf('id="hub-banner"') -lt $page.IndexOf('<h2>')) 'but it carries the airsquats banner once, above the first heading, as every hub page does (#3356)'
 Assert-True ($page -notmatch '<h2>Measurements</h2>' -and $page.IndexOf('<h2>') -lt $page.IndexOf('card--link')) 'it opens on a heading, then the cards'
 Assert-Equal 'Live|CSS comment|Docs' (([regex]::Matches($page, '<h2>([^<]+)</h2>') | ForEach-Object { $_.Groups[1].Value }) -join '|') 'one h2 per prompt label, case-insensitively, in the order of each label''s newest run, named by that run''s label'
