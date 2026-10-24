@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**4 / 7 minor entries** <!-- pending-tally -->
+**5 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3404-product-exits-after-bind · 20261024-203430Z
+
+The dev-preview line no longer reports a product as `(started)` when it quits right after it starts listening
+([#3404](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3404)). A started product counts as started
+only once it is still listening two seconds after its first answer, and otherwise reads
+`the server on port N stopped right after it started listening -- see <log>`. Measured: Next.js 16.4.0 under an
+agent printed `Ready`, then exited to show an upgrade nudge, while the line said `(started)`. A `Requires`
+entry that is a `node_modules` folder older than the `package-lock.json` beside it now adds
+`'node_modules' is older than its package-lock.json -- run npm install` to the product's clause. That was the
+cause here: a pull had moved the lock to 16.4.3 while this machine's install stayed on 16.4.0.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer whose dev server dies right after it starts, or whose install fell behind a pull, is told so on
+the session's first line instead of getting a `(started)` link to nothing.
+
+**Score:** 3
+
+#### Pull Request
+
+dev-preview catches a product that exits right after binding, and an install older than its lock
+
+Plugins: dkj-policy
+
+[PR #3416](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3416)
+
+---
 
 ### DEPLOY: feat/house-style-h2-in-card · 20261024-202517Z
 
