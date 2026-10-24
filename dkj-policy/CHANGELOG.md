@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**10 / 25 minor entries** <!-- pending-tally -->
+**10 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3393-ci-selection-parse-cache · 20261024-160911Z
+
+CI now keeps the suite selection's parse cache between runs, so an asset-only pull request no longer
+pays a cold parse of every script before its suites start
+([#3393](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3393)). Every push to `main` warms
+the cache and saves it, and shard 1 of a pull request restores it. Measured locally: 27.3s cold
+against 3.3s warm, with the same selection. On CI the step took 59s.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: this repo's own CI, which ships in no plugin.
+
+**Score:** N/A
+
+#### Pull Request
+
+CI: keep the suite selection's parse cache between runs
+
+[PR #3396](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3396)
+
+---
 
 ### DEPLOY: feat/3390-hub-default-theme · 20261024-155325Z
 
