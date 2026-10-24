@@ -1,4 +1,4 @@
-## fix/3379-gate-branch-document-walk-scope
+﻿## fix/3379-gate-branch-document-walk-scope
 
 > **How this file is read.** A step is `- [ ]` until it is resolved -- `- [x]` done, or
 > `- [~]` dropped with the reason, which exists so nobody ticks a box for work they did not do.
@@ -55,7 +55,7 @@ closure, and neither `check-script-contract.ps1` nor `connector-sessioncheck.ps1
 
 ### TEST
 
-- [x] `affected-suites.tests.ps1`: three asserts (document alone scopes nothing; another `.md` still does; empty name removes nothing) -- 166 pass
+- [x] `affected-suites.tests.ps1`: four asserts (document alone scopes nothing, whatever its case or slashes; another `.md` still does; empty name removes nothing) -- 167 pass; `dev-pages.tests.ps1` 311 pass
 - [x] The issue's case remeasured: `showcase.css` + the branch document now selects `ci-suite-selection-lib` and `dev-pages`, against seven before
 
 ### DEPLOY: fix/3379-gate-branch-document-walk-scope
