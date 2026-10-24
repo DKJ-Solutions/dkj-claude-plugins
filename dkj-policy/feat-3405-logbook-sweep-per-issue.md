@@ -39,21 +39,38 @@
 
 ### PLAN
 
+A `/sweep-issues` run is timed as one Logbook run, the whole sweep; the owner wants each issue timed from a clean
+trunk back to a clean trunk (#3405). The step log already marks every ship-pr fold per checkout, so the pages cut
+a sweep there and name each piece from its fold commit. The store and the hooks stay as they are.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Split-LogbookSweepRuns`, `Get-LogbookFolds` and `Get-LogbookRuns` in `scripts/lib/logbook-lib.ps1`, and both Logbook routes of the dev server read their runs through it
+- [x] Measured on this machine's own store: the 77-minute sweep of October 24 reads as #3392 (43.3 min) and #3397 (33.0 min)
 
 ### TEST
 
+- [x] `scripts/tests/logbook.tests.ps1`: the fold matching and the cut, finished, going, plugin-qualified, without a fold, not a sweep, without a step log (52 passed)
+
 ### DEPLOY: feat/3405-logbook-sweep-per-issue
 
-**Score:**
+The Logbook now times a `/sweep-issues` session per issue
+([#3405](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3405)). A sweep used to be one run of the
+whole sweep, whose length only said how many issues the backlog held. Its pages now cut it at every `ship-pr` fold
+of this checkout, the moment the trunk is clean again: each issue gets a card and a page of its own, from the
+previous clean trunk to its fold, named after the issue its fold commit names (`/sweep-issues #3397`), with its own
+transcript phases and work time. The time after the last fold belongs to no issue and is not shown; in a sweep
+still going, the issue in progress shows as going. The store and the hooks are unchanged.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the Logbook is this repo's own hub tooling under `scripts/`, and no plugin ships it.
+
+**Score:** N/A
 
 #### Pull Request
 
-Logbook: a sweep timed per issue
+The Logbook times a /sweep-issues run per issue, clean trunk to clean trunk
 
