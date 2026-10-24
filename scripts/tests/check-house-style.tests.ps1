@@ -26,6 +26,7 @@ $Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "house-style-$PID-$([gui
 
 . (Join-Path $Plugin 'scripts\lib\house-style-rules.ps1')
 . (Join-Path $PSScriptRoot '..\lib\fixture-git-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\command-probe-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -123,7 +124,7 @@ $h = @(Find-HouseStyleClassHit -Text "x { }`n/* a`n b */`n.card { }" -Classes $g
 Assert-Equal 4 $h[0].Line 'a blanked comment keeps the line number of the rule after it'
 
 # The heading check, check 4 (#3175), was retired on October 24, 2026 (Maikel): an h2 may title a card.
-Assert-True (-not (Get-Command Find-HouseStyleHeadingHit -ErrorAction SilentlyContinue)) 'the retired heading check is gone from the rules'
+Assert-True (-not (Test-FunctionDefined 'Find-HouseStyleHeadingHit')) 'the retired heading check is gone from the rules'
 
 
 Write-Host '-- group 1e: the allowlist and the quoted path' -ForegroundColor Cyan
