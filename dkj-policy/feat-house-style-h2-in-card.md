@@ -39,19 +39,34 @@
 
 ### PLAN
 
+Maikel asked for an h2 inside the Stopwatch's label cards and, asked about the conflict with #3175, chose to
+retire that rule (October 24, 2026). Stacked on `feat/house-style-h1-sans`, which merges first.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style-rules.ps1`: check 4, `heading`, and `Find-HouseStyleHeadingHit` removed; the counts say three
+- [x] `check-house-style.ps1`, `house-style-sessioncheck.ps1`, the skill page and the house-style README follow
+- [x] `scripts/repo-config.ps1`: the two allowlist entries that answered the heading check are gone
+- [x] `check-house-style.tests.ps1`: the heading asserts replaced by one that the check is gone and an h2 card passes
 
 ### TEST
 
+- [x] `check-house-style` (79), `dev-pages`, `connector-dashboard`, `dev-preview-sessionstart`, `stopwatch` green
+  locally; the gate and `check-plugin-integrity` pass on this repo
+
 ### DEPLOY: feat/house-style-h2-in-card
 
-**Score:**
+The house rule that an `h2` never stands inside a card (#3175) is retired, and with it `check-house-style`'s
+fourth check, `heading`. An `h2` may now title a card; the grouping form with an `h2` in a `.grid__head` above
+`h3`-titled cards stays where a page groups cards.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions app whose CI runs the house-style gate no longer fails on an `h2` inside a card.
+
+**Score:** 3
 
 #### Pull Request
 

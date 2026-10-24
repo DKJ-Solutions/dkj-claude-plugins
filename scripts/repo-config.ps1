@@ -1521,9 +1521,7 @@ function Get-HouseStyleAllowlist {
         @{ Path = 'plugins/dkj-policy/hub/lib/general-pages-lib.ps1'; Name = '--ink'; Reason = 'the release-notes template''s own token, which Format-ReleaseNotesDevPage points AT a house token (#3108, moved to the plugin in #3119, to dkj-policy in #3198)' }
         @{ Path = 'scripts/tests/check-house-style.tests.ps1';  Reason = "the gate's own suite: every name in it is a fixture" }
         @{ Path = 'scripts/tests/house-palette.tests.ps1';      Reason = 'the palette suite: every name in it is a pattern or a fixture of the stylesheet it holds' }
-        @{ Path = 'plugins/dkj-policy/dkj-solutions/scripts/lib/house-style-rules.ps1'; Name = 'h2'; Reason = "the gate's own heading check (#3175): its patterns and their comments spell the shape they look for" }
         @{ Path = 'brandbook/src/showcase/sections/HouseStyle.tsx'; Name = '.theme-swatch'; Reason = 'the brand book''s themes table READS the house stylesheet''s theme blocks by their selector, not a rule of its own' }
-        @{ Path = 'scripts/tests/dev-pages.tests.ps1'; Name = 'h2'; Reason = 'the hub''s own suite asserts that no card carries an h2, so it spells the shape it refuses' }
         @{ Path = 'plugins/dkj-policy/dkj-solutions/assets/brandbook/*'; Reason = 'the brand book app''s build, which the cut ships into the plugin (#3210): the house stylesheet bundled with the app''s own layer, minified, not a layer of its own' }
         # The brandbook app (#3131): five deliberate extensions it brought from dkj-brandbook, which never ran this gate.
         @{ Path = 'brandbook/src/components/dialog.css'; Name = '--paper-2'; Reason = 'the dialog tint, the one exception house-style/README.md rule 3 grants' }

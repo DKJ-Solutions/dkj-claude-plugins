@@ -122,21 +122,8 @@ Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text ".my-comp`n  .card 
 $h = @(Find-HouseStyleClassHit -Text "x { }`n/* a`n b */`n.card { }" -Classes $gridClasses)
 Assert-Equal 4 $h[0].Line 'a blanked comment keeps the line number of the rule after it'
 
-# The heading check, check 4 (#3175): no h2 inside a card.
-Assert-Equal 'heads h2' (Get-HitNames (Find-HouseStyleHeadingHit -Text '<div class="card__head"><h2 class="card__title">Issues</h2></div>')) 'an h2 card title is one finding, not two'
-Assert-Equal 'heads h2' (Get-HitNames (Find-HouseStyleHeadingHit -Text "<div class=`"card__head`">`n  <h2>Issues</h2>")) 'a bare h2 opening a card head'
-Assert-Equal 'heads h2' (Get-HitNames (Find-HouseStyleHeadingHit -Text '<H2 className="dkj-card-title x">T</H2>')) 'the brand book''s card title, in JSX, any case'
-Assert-Equal 'heads h2' (Get-HitNames (Find-HouseStyleHeadingHit -Text "sb.AppendLine('<div class=`"dkj-card-head`"><h2>T</h2>')")) 'inside a string a script builds the page from'
-Assert-Equal '' (Get-HitNames (Find-HouseStyleHeadingHit -Text '<div class="grid__head"><h2>Issues</h2><p class="card__sub">x</p></div><section class="card grid__full">')) 'an h2 in a grid__head stands above the card'
-Assert-Equal '' (Get-HitNames (Find-HouseStyleHeadingHit -Text '<div class="card__head"><h3 class="card__title">Issues</h3></div>')) 'an h3 card title'
-Assert-Equal '' (Get-HitNames (Find-HouseStyleHeadingHit -Text '<div class="card__header"><h2>x</h2></div><h2 class="card__titles">y</h2>')) 'a longer class name is not the house one'
-Assert-Equal '' (Get-HitNames (Find-HouseStyleHeadingHit -Text '<div class="card__head"><p>x</p></div><h2>Next group</h2>')) 'an h2 after a card head is not inside it'
-$h = @(Find-HouseStyleHeadingHit -Text "a`nb`n<div class=`"card__head`"><h2>T</h2>")
-Assert-Equal 3 $h[0].Line 'a heading hit carries its line number'
-# A hostile file -- tag starts with no `>` after them -- took minutes before the runs were bounded and possessive.
-$sw = [System.Diagnostics.Stopwatch]::StartNew()
-$null = @(Find-HouseStyleHeadingHit -Text (('<h2 class="x ' * 20000) + ('<div class="card__head x ' * 10000)))
-Assert-True ($sw.Elapsed.TotalSeconds -lt 5) "the heading check stays linear on a hostile file ($([Math]::Round($sw.Elapsed.TotalSeconds, 2))s)"
+# The heading check, check 4 (#3175), was retired on October 24, 2026 (Maikel): an h2 may title a card.
+Assert-True (-not (Get-Command Find-HouseStyleHeadingHit -ErrorAction SilentlyContinue)) 'the retired heading check is gone from the rules'
 
 
 Write-Host '-- group 1e: the allowlist and the quoted path' -ForegroundColor Cyan
@@ -207,15 +194,15 @@ try {
     Assert-True ($r.Out -match '\[redefine\] web/page\.py:1 defines the house token --primary') 'check 2: a redefined token, in CSS embedded in Python'
     Assert-True ($r.Out -match '\[redefine\] web/page\.py:1 styles the house class \.card') 'check 2: a restyled house class'
     Assert-True ($r.Out -match '\[retired\] web/page\.py:1 reads --ink-4') 'check 3: a retired name in use'
-    Assert-True ($r.Out -match '\[heading\] web/hub\.html:1 puts an h2 inside a card') 'check 4: an h2 inside a card (#3175)'
+    Assert-True ($r.Out -notmatch '\[heading\]|web/hub\.html') 'an h2 titling a card is no finding: the heading check was retired'
     $r = Invoke-Child $Hook $drift 'RepoRootOverride'
-    Assert-True ($r.Code -eq 0 -and $r.Out -match '\[WARN\] 5 finding') 'the session check reports the findings and still exits 0'
+    Assert-True ($r.Code -eq 0 -and $r.Out -match '\[WARN\] 4 finding') 'the session check reports the findings and still exits 0'
 
     New-Item -ItemType Directory -Force -Path (Join-Path $drift 'scripts') | Out-Null
-    $config = "function Get-HouseStyleAllowlist { @(@{ Path = 'web/page.py'; Reason = 'a fixture' }, @{ Path = 'web/hub.html'; Name = 'h2'; Reason = 'a fixture' }, @{ Path = 'web/house-theme.js'; Reason = 'no use: a pin is never answered here' }) }"
+    $config = "function Get-HouseStyleAllowlist { @(@{ Path = 'web/page.py'; Reason = 'a fixture' }, @{ Path = 'web/house-theme.js'; Reason = 'no use: a pin is never answered here' }) }"
     Set-Content -LiteralPath (Join-Path $drift 'scripts\repo-config.ps1') -Value $config -Encoding ascii
     $r = Invoke-Child $Gate $drift 'RepoRoot'
-    Assert-True ($r.Code -eq 1 -and $r.Out -match '4 answered by Get-HouseStyleAllowlist' -and $r.Out -match '\[pin\]') 'the allowlist answers checks 2 to 4, never a drifted copy'
+    Assert-True ($r.Code -eq 1 -and $r.Out -match '3 answered by Get-HouseStyleAllowlist' -and $r.Out -match '\[pin\]') 'the allowlist answers checks 2 and 3, never a drifted copy'
     Set-Content -LiteralPath (Join-Path $drift 'scripts\repo-config.ps1') -Value "function Get-HouseStyleAllowlist { @(@{ Path = 'web/*' }) }" -Encoding ascii
     $r = Invoke-Child $Gate $drift 'RepoRoot'
     Assert-Equal 2 $r.Code 'an allowlist entry without a Reason stops the gate'
