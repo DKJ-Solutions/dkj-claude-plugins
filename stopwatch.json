@@ -180,6 +180,55 @@
                                         "seconds":  0.603
                                     }
                                 ]
+                 },
+                 {
+                     "id":  "20261024-124804-b732",
+                     "label":  "CSS comment, start to end",
+                     "start":  "2026-10-24T12:48:04.839Z",
+                     "end":  "2026-10-24T12:56:08.876Z",
+                     "sessions":  1,
+                     "phases":  [
+                                    {
+                                        "name":  "Ship: checks before the PR",
+                                        "seconds":  2.518
+                                    },
+                                    {
+                                        "name":  "Ship: local gates and opening the PR",
+                                        "seconds":  206.591
+                                    },
+                                    {
+                                        "name":  "Ship: CI wait",
+                                        "seconds":  9.138
+                                    },
+                                    {
+                                        "name":  "Ship: merge",
+                                        "seconds":  5.04
+                                    },
+                                    {
+                                        "name":  "Ship: fold and close-out",
+                                        "seconds":  10.943
+                                    },
+                                    {
+                                        "name":  "Local gates and tests",
+                                        "seconds":  158.248
+                                    },
+                                    {
+                                        "name":  "Branch and claim",
+                                        "seconds":  7.166
+                                    },
+                                    {
+                                        "name":  "Other tool calls",
+                                        "seconds":  20.015
+                                    },
+                                    {
+                                        "name":  "Claude thinking and writing",
+                                        "seconds":  63.676
+                                    },
+                                    {
+                                        "name":  "Waiting on you",
+                                        "seconds":  0.702
+                                    }
+                                ]
                  }
              ]
 }
