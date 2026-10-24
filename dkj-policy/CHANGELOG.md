@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**4 / 17 minor entries** <!-- pending-tally -->
+**5 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3376-new-branch-merged-name · 20261024-134302Z
+
+`new-branch` now refuses a branch name whose pull request has already merged, before it checks anything
+out, and names the first free follow-up name (`<name>-v<N>`). Until now that branch was cut, committed and
+pushed, and only `open-pr` noticed, after the work, with a hint that always said `-v2` even where `-v2`
+was taken. `open-pr`'s hint now names the first free name too
+([#3376](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3376)).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer re-using a branch name after its merge is stopped at `new-branch` instead of after a commit and
+a push, and is told the exact name to use. The check only asks `gh` where the repo names itself and has a
+hosted origin, so an offline run is unchanged.
+
+**Score:** 2
+
+#### Pull Request
+
+new-branch refuses a branch name a merged PR has used up, and names the first free -vN
+
+Plugins: dkj-policy
+
+[PR #3381](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3381)
+
+---
 
 ### DEPLOY: fix/hub-banner-one-row · 20261024-133354Z
 
