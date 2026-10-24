@@ -76,6 +76,33 @@ function Get-StaticAssetVerdict {
     return $verdict
 }
 
+function Remove-BranchDocumentPath {
+    <#
+    .SYNOPSIS
+        The changed paths without the branch's own development document. Issue #3370.
+
+    .DESCRIPTION
+        EVERY PR CARRIES ONE, SO WITHOUT THIS THE ASSET-ONLY LANE NEVER OPENS. new-branch writes
+        dkj-policy/<branch>.md and only the fold after the merge removes it, so every PR diff holds one
+        .md, and Get-StaticAssetVerdict answered 'full' for all of them. Measured on PR #3369, a one-line
+        CSS comment: the whole pool over five shards, 'first: dkj-policy/docs-stopwatch-css-comment-v4.md'.
+
+        ONE PATH, EXACTLY, and only the one the caller resolved. The document is the workflow's own
+        scaffolding, not a change to anything a suite runs, and the branch-entry gate reads it as a
+        workflow of its own. Any other .md still makes the change not asset-only. An empty
+        -BranchDocument removes nothing, which is the fail-closed direction: the document stays in, and
+        the verdict stays 'full'.
+    #>
+    param(
+        [AllowNull()][AllowEmptyCollection()][string[]]$ChangedPaths,
+        [AllowNull()][AllowEmptyString()][string]$BranchDocument
+    )
+
+    $doc = "$BranchDocument".Trim().Replace('\', '/')
+    if (-not $doc) { return @($ChangedPaths) }
+    return @($ChangedPaths | Where-Object { -not [string]::Equals("$_".Trim().Replace('\', '/'), $doc, [System.StringComparison]::Ordinal) })
+}
+
 function Get-StaticAssetSuiteSelection {
     <#
     .SYNOPSIS
