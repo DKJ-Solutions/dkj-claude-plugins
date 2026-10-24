@@ -47,7 +47,7 @@
 ### TEST
 
 - [x] dev-pages suite green (311 passed)
-- [ ] Dave looks at the banner on the hub (http://localhost:4871/), with airsquats due, before the merge
+- [x] Dave approved the banner on the hub (October 24, 2026)
 
 ### DEPLOY: fix/hub-banner-one-row
 
