@@ -168,8 +168,12 @@ Write-Host '-- the page' -ForegroundColor Cyan
 $page = Format-StopwatchPageHtml -Model $m -StorePath 'C:\x\stopwatch.json' -Now (& $at 5065)
 Assert-True ($page -match 'aria-current="page">Stopwatch</span>' -and $page -match '<li><a href="/">Home</a></li>') 'the page has the house shell and its crumb back to the hub'
 Assert-True ($page -notmatch '<h1|class="lead"|Runs recorded|id="now"|class="sw-clock') 'the overview is bare: no h1, lead, tiles or Now section above the cards'
-Assert-True (([regex]::Matches($page, 'id="hub-banner"')).Count -eq 1 -and $page.IndexOf('id="hub-banner"') -lt $page.IndexOf('<h2>Measurements</h2>')) 'but it carries the airsquats banner once, above the Measurements heading, as every hub page does (#3356)'
-Assert-True ($page -match '<h2>Measurements</h2>' -and $page.IndexOf('<h2>Measurements</h2>') -lt $page.IndexOf('card--link')) 'it opens on the Measurements heading, then the cards'
+Assert-True (([regex]::Matches($page, 'id="hub-banner"')).Count -eq 1 -and $page.IndexOf('id="hub-banner"') -lt $page.IndexOf('<h2>')) 'but it carries the airsquats banner once, above the first heading, as every hub page does (#3356)'
+Assert-True ($page -notmatch '<h2>Measurements</h2>' -and $page.IndexOf('<h2>') -lt $page.IndexOf('card--link')) 'it opens on a heading, then the cards'
+Assert-Equal 'Live|CSS comment|Docs' (([regex]::Matches($page, '<h2>([^<]+)</h2>') | ForEach-Object { $_.Groups[1].Value }) -join '|') 'one h2 per prompt label, case-insensitively, in the order of each label''s newest run, named by that run''s label'
+$cssSet = $page.Substring($page.IndexOf('<h2>CSS comment</h2>'), $page.IndexOf('<h2>Docs</h2>') - $page.IndexOf('<h2>CSS comment</h2>'))
+Assert-True (([regex]::Matches($cssSet, '<section class="card')).Count -eq 3 -and $cssSet -match '<p class="card__sub">3 runs, newest first</p>' -and $cssSet.IndexOf('v3</span>') -lt $cssSet.IndexOf('v2</span>') -and $cssSet.IndexOf('v2</span>') -lt $cssSet.IndexOf('v1</span>')) 'a label''s heading holds every card of that label, the three CSS comment runs, newest first'
+Assert-True ($page -match '<h2>Docs</h2><p class="card__sub">1 run</p>') 'a label run once says so'
 Assert-True ($page -match 'querySelectorAll\("\[data-start\]"\)') 'the clock script ticks every [data-start] element, the card''s live time included'
 Assert-Equal 5 ([regex]::Matches($page, '<section class="card card--link sw-card">')).Count 'one card per run, also for the three runs that share a label'
 Assert-True ($page -match '<div class="grid-3 sw-grid-4">' -and $page -match '\.sw-grid-4 \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); \}') 'the cards stand four to a row'

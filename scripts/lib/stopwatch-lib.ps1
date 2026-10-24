@@ -699,7 +699,8 @@ function Format-StopwatchPageShell {
 function Format-StopwatchPageHtml {
     <#
         The overview on '/stopwatch', read-only, and bare (no h1, lead or tiles; the general banner stays, #3356): it opens on the
-        banner, then the Measurements heading and one card per run, newest first, four to a row, in four rows: its start,
+        banner, then an h2 per prompt label (-Flat: one Measurements h2 for all) and under it one card per run of that
+        label, newest first, four to a row, in three lines: its start,
         its label (the link to the run's own page, Format-StopwatchRunPageHtml), its time, and its change in percent
         against the previous run of the same label (Format-StopwatchChangePercent). The run going now shows its live clock as its time. -ReadError is set when the
         store could not be read. -StorePath is named in the footer, so a run can be read and evaluated outside
@@ -720,7 +721,8 @@ function Format-StopwatchPageHtml {
         [string]$Sub = 'One card per run, newest first. Begin a prompt to Claude with stopwatch: and a label to time it.',
         [AllowEmptyString()][string]$FooterNote = '',
         [switch]$NoDelta,
-        [hashtable]$CardNotes = @{}
+        [hashtable]$CardNotes = @{},
+        [switch]$Flat
     )
     $e = { param($v) ConvertTo-DashboardText $v }
     $body = New-Object System.Text.StringBuilder
@@ -731,10 +733,27 @@ function Format-StopwatchPageHtml {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">' + $Skipped + ' run(s) in the store could not be read and are not shown. The next write by a hook drops them; the file as it was is kept beside the store as a .bak.</p>')
     }
 
-    [void]$body.AppendLine('<div class="grid__head"><h2>Measurements</h2><p class="card__sub">' + (& $e $Sub) + '</p></div>')
-    if (@($Model.Groups).Count) {
+    # One h2 per prompt label, compared case-insensitively, with that label's cards under it (the owner, October 24, 2026);
+    # the labels in the order of their newest run. -Flat keeps every card under one Measurements heading, for the Logbook,
+    # whose labels are the first lines of prompts and rarely repeat.
+    $sets = @()
+    if ($Flat) {
+        $sets += @{ Title = 'Measurements'; Sub = $Sub; Groups = @($Model.Groups) }
+    } else {
+        if (@($Model.Groups).Count) { [void]$body.AppendLine('<p class="note">' + (& $e $Sub) + '</p>') }
+        foreach ($set in @($Model.Groups | Group-Object { $_.Label.ToLowerInvariant() } | Sort-Object { ($_.Group | ForEach-Object { $_.Latest } | Measure-Object -Maximum).Maximum } -Descending)) {
+            $newest = @($set.Group | Sort-Object { $_.Latest } -Descending)
+            $sets += @{ Title = $newest[0].Label; Sub = [string]$set.Count + $(if ($set.Count -eq 1) { ' run' } else { ' runs, newest first' }); Groups = $newest }
+        }
+    }
+    if (-not @($Model.Groups).Count) {
+        [void]$body.AppendLine('<div class="grid__head"><h2>Measurements</h2><p class="card__sub">' + (& $e $Sub) + '</p></div>')
+    }
+    foreach ($set in $sets) {
+        if (-not @($set.Groups).Count) { continue }
         [void]$body.AppendLine('<div class="grid-3 sw-grid-4">')
-        foreach ($g in @($Model.Groups)) {
+        [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $set.Title) + '</h2><p class="card__sub">' + (& $e $set.Sub) + '</p></div>')
+        foreach ($g in @($set.Groups)) {
             # Three lines with no header above them, four cards to a row (the owner, October 24, 2026): the run's start, its
             # prompt label (with its version behind it once the label has run more than once), and its time with its change
             # against the run before in percent beside it. The label is the card's one link, stretched over the card. A run
@@ -755,7 +774,8 @@ function Format-StopwatchPageHtml {
             [void]$body.AppendLine($card + '</section>')
         }
         [void]$body.AppendLine('</div>')
-    } else {
+    }
+    if (-not @($Model.Groups).Count) {
         [void]$body.AppendLine('<p class="note">No run yet.' + $(if ($NoDelta) { '' } else { ' The first one sets the baseline for its label.' }) + '</p>')
     }
 

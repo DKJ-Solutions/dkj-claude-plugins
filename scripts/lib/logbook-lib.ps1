@@ -156,7 +156,7 @@ function Format-LogbookPageHtml {
         'Built by <code>scripts/lib/logbook-lib.ps1</code> on the Stopwatch''s pages.'
     return Format-StopwatchPageHtml -Model (ConvertTo-LogbookModel -Runs $Runs -Now $Now) -ReadError $ReadError -Skipped $Skipped -StorePath $StorePath -Now $Now `
         -Route '/logbook' -PageTitle 'Logbook' -Sub 'One card per session that began on a clean trunk, newest first, timed from its first prompt until Claude was back on the trunk.' `
-        -FooterNote $note -NoDelta -CardNotes $notes
+        -FooterNote $note -NoDelta -CardNotes $notes -Flat
 }
 
 function Format-LogbookRunPageHtml {
