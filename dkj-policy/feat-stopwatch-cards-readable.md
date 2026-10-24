@@ -41,7 +41,7 @@
 
 ### CREATE
 
-- [x] Overview cards in four rows (start, label, time, change in percent), four to a row (`Format-StopwatchPageHtml`, new `Format-StopwatchChangePercent`)
+- [x] Overview cards in three rows (start, label with its version, time with its change in percent), four to a row (`Format-StopwatchPageHtml`, new `Format-StopwatchChangePercent`)
 
 ### TEST
 
@@ -49,7 +49,7 @@
 
 ### DEPLOY: feat/stopwatch-cards-readable
 
-The cards on the `/stopwatch` overview (and the Logbook, which draws its overview with the same function) read in four rows: the run's start, its label as the link to the run's page, its total time in large type, and its change against the previous run of the same label in percent, green when faster and red when slower. They stand four to a row, stepping down to two and one on narrower screens. The four-column grid is a page-own class (`.sw-grid-4`) on top of the house `.grid-3`, so no house token or class changes.
+The cards on the `/stopwatch` overview (and the Logbook, which draws its overview with the same function) read in three rows: the run's start; its label as the link to the run's page, with the run's version behind it (`v3`) once the label has run more than once; and its total time in large type with its change against the previous run of the same label beside it, as a signed percent only (`-31%` in green when faster, `+25%` in red when slower). They stand four to a row, stepping down to two and one on narrower screens. The four-column grid is a page-own class (`.sw-grid-4`) on top of the house `.grid-3`, so no house token or class changes.
 
 **Score:** 2
 
@@ -61,5 +61,5 @@ The stopwatch page is a dev-server page of this repo; no consumer sees it.
 
 #### Pull Request
 
-Stopwatch overview cards read in four rows, four to a row
+Stopwatch overview cards read in three rows, four to a row
 

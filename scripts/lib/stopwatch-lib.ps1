@@ -250,7 +250,8 @@ function ConvertTo-StopwatchModel {
         yyyy-MM-dd-HHmm, with the run's id after it when another run started in the same minute), its Rows (the run,
         when finished, with Seconds and its DeltaSeconds against the run of the same label before it, compared
         case-insensitively, $null for the first; no rows while it is going), Latest (its start) and Running (the run
-        going now when this is it, else $null). A run without an end that is not the one going (a run a later prompt
+        going now when this is it, else $null), and its Version of Versions: the run's place among the shown runs of
+        its label, oldest first, and how many there are. A run without an end that is not the one going (a run a later prompt
         discarded) is not shown, unless -KeepOpenRuns: the Logbook's runs are one per session and several can be
         open at once (two sessions side by side, a branch parked for the owner's eye), so each is shown as going.
     #>
@@ -270,6 +271,11 @@ function ConvertTo-StopwatchModel {
         }
     }
     $shown = @($all | Where-Object { $_.End -or (& $isGoing $_) })
+    # Each shown run's place among the shown runs of its label, so a card can say which run of it this is.
+    $versionOf = @{}; $versionsOf = @{}
+    foreach ($g in @($shown | Group-Object { $_.Label.ToLowerInvariant() })) {
+        $n = 0; foreach ($r in @($g.Group)) { $n++; $versionOf[$r.Id] = $n; $versionsOf[$r.Id] = $g.Count }
+    }
     $stampOf = @{}; $stamps = @{}
     foreach ($r in $shown) {
         $stampOf[$r.Id] = $r.Start.ToLocalTime().ToString('yyyy-MM-dd-HHmm', [Globalization.CultureInfo]::InvariantCulture)
@@ -282,7 +288,7 @@ function ConvertTo-StopwatchModel {
         # Assigned apart: a $( ) around a one-row array would unroll it to the row itself.
         $rows = @(); if ($rowOf.ContainsKey($r.Id)) { $rows = @($rowOf[$r.Id]) }
         $groups += @{ Label = $r.Label; LabelSlug = $labelSlugs[$r.Label.ToLowerInvariant()]; Slug = $slug; PageSlug = $slug
-            Rows = $rows; Latest = $r.Start
+            Rows = $rows; Latest = $r.Start; Version = $versionOf[$r.Id]; Versions = $versionsOf[$r.Id]
             Running = $(if (& $isGoing $r) { $r } else { $null }) }
     }
     return @{
@@ -637,18 +643,18 @@ function Format-StopwatchDelta {
 
 function Format-StopwatchChangePercent {
     <#
-        A run's change against the run of its label before it, in percent of that run's time, as a card's last row:
-        faster in the positive colour, slower in the negative one. Under half a second is the same, and a label's first
-        run says so.
+        A run's change against the run of its label before it, in percent of that run's time, beside the time on a
+        card: only a sign and the number (the owner, October 24, 2026), - for less time in the positive colour and + for
+        more in the negative one. Under half a second is 0%, and a label's first run has nothing to compare with.
     #>
     param([double]$Seconds, $DeltaSeconds)
-    if ($null -eq $DeltaSeconds) { return '<p class="sw-change">first run</p>' }
+    if ($null -eq $DeltaSeconds) { return '' }
     $before = $Seconds - [double]$DeltaSeconds
-    if ([Math]::Abs([double]$DeltaSeconds) -lt 0.5 -or $before -le 0) { return '<p class="sw-change">same as the run before</p>' }
+    if ([Math]::Abs([double]$DeltaSeconds) -lt 0.5 -or $before -le 0) { return ' <span class="sw-change">0%</span>' }
     $pct = [Math]::Round([Math]::Abs([double]$DeltaSeconds) / $before * 100)
     $pctText = if ($pct -lt 1) { '&lt;1%' } else { [string]$pct + '%' }
-    if ($DeltaSeconds -lt 0) { return '<p class="sw-change sw-change--good">' + $pctText + ' faster than the run before</p>' }
-    return '<p class="sw-change sw-change--bad">' + $pctText + ' slower than the run before</p>'
+    if ($DeltaSeconds -lt 0) { return ' <span class="sw-change sw-change--good">-' + $pctText + '</span>' }
+    return ' <span class="sw-change sw-change--bad">+' + $pctText + '</span>'
 }
 
 function Format-StopwatchPageShell {
@@ -660,8 +666,9 @@ function Format-StopwatchPageShell {
         '.sw-stamp { margin: 0; font-size: var(--text-sm); color: var(--muted); }' + "`n" +
         '.sw-label { margin: var(--spacing-1) 0 0; font-size: var(--text-h4); font-weight: 600; color: var(--fg-3); overflow-wrap: anywhere; }' + "`n" +
         '.sw-label a { color: inherit; text-decoration: none; }' + "`n" +
+        '.sw-version { font-weight: 400; color: var(--muted); }' + "`n" +
         '.sw-total { margin: var(--spacing-2) 0 0; font-size: var(--text-h2); font-weight: 600; color: var(--fg-3); }' + "`n" +
-        '.sw-change { margin: var(--spacing-1) 0 0; font-size: var(--text-sm); color: var(--muted); }' + "`n" +
+        '.sw-change { margin-left: var(--spacing-2); font-size: var(--text-base); color: var(--muted); }' + "`n" +
         '.sw-change--good { color: var(--positive-5); }' + "`n" +
         '.sw-change--bad { color: var(--negative-5); }' + "`n" +
         '.sw-left { text-align: left; }' + "`n" +
@@ -721,20 +728,21 @@ function Format-StopwatchPageHtml {
     if (@($Model.Groups).Count) {
         [void]$body.AppendLine('<div class="grid-3 sw-grid-4">')
         foreach ($g in @($Model.Groups)) {
-            # Four rows, four cards to a row (the owner, October 24, 2026): the run's start, its label, its time, and its
-            # change against the run before in percent. The label is the card's one link, stretched over the card.
+            # Three rows, four cards to a row (the owner, October 24, 2026): the run's start, its label (with its version
+            # behind it once the label has run more than once), and its time with its change against the run before in
+            # percent beside it. The label is the card's one link, stretched over the card. A run going shows its live clock.
             $stamp = & $e ($g.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))
             $href = (& $e $Route) + '/' + (& $e $g.PageSlug)
             $card = '<section class="card card--link"><p class="sw-stamp">' + $stamp + '</p>' +
-                '<h3 class="sw-label"><a href="' + $href + '">' + (& $e $g.Label) + '</a></h3>'
+                '<h3 class="sw-label"><a href="' + $href + '">' + (& $e $g.Label) + '</a>' +
+                $(if ($g.Versions -gt 1) { ' <span class="sw-version">v' + $g.Version + '</span>' } else { '' }) + '</h3>'
             if ($g.Running) {
                 $card += '<p class="sw-total num" data-start="' + (Format-StopwatchStamp $g.Running.Start) + '">' + (Format-DevSeconds ($Now - $g.Running.Start).TotalSeconds) + '</p>'
-                $card += '<p class="sw-change">going now</p>'
             } elseif (@($g.Rows).Count) {
                 $row = $g.Rows[0]
-                $card += '<p class="sw-total num">' + (Format-DevSeconds $row.Seconds) + '</p>'
+                $change = if ($NoDelta) { '' } else { Format-StopwatchChangePercent -Seconds $row.Seconds -DeltaSeconds $row.DeltaSeconds }
+                $card += '<p class="sw-total num">' + (Format-DevSeconds $row.Seconds) + $change + '</p>'
                 if ($CardNotes[$row.Run.Id]) { $card += '<p class="card__sub">' + (& $e ([string]$CardNotes[$row.Run.Id])) + '</p>' }
-                if (-not $NoDelta) { $card += (Format-StopwatchChangePercent -Seconds $row.Seconds -DeltaSeconds $row.DeltaSeconds) }
             }
             [void]$body.AppendLine($card + '</section>')
         }
