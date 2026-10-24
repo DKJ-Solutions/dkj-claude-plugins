@@ -39,19 +39,41 @@
 
 ### PLAN
 
+#3419, a false positive from #3404 (PR #3416), reproduced on this repo's `brandbook/`: the lock was rewritten
+18 minutes after the install and `npm ls` was clean, yet the line said `run npm install`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The mtime stays as the cheap filter; a lock newer than the install record is then compared by content --
+  every `node_modules/*` version it pins against npm's `node_modules/.package-lock.json`. Optional, devOptional
+  and peer packages may be absent; an unreadable file claims nothing.
+- [x] Parsed with `JavaScriptSerializer`, because 5.1's `ConvertFrom-Json` refuses the lock's `""` root key
+  (measured).
+- [x] The hub README row says so.
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: another version is named, a rewritten lock with the same versions is
+  not, an optional package for another platform may be missing, a missing package is named, an unreadable
+  record claims nothing (359 passed standalone). The measured `brandbook/` case now reads as matching, in 55 ms.
+
 ### DEPLOY: fix/3419-stale-install-by-content
 
-**Score:**
+dev-preview's `run npm install` note now fires only where the install really differs from the lock
+([#3419](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3419)). The note added in #3404 compared
+file times, and git rewrites `package-lock.json` on any commit or checkout that touches it. In this repo it fired
+on an install that `npm ls` called clean. A lock newer than npm's own install record is now compared by content:
+every package version it pins against `node_modules/.package-lock.json`. The note appears only where a package is
+installed at another version, or not at all. Optional packages for other platforms never count.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer no longer gets a `run npm install` note on every session after a pull or checkout that rewrote the
+lock without changing what it pins.
+
+**Score:** 2
 
 #### Pull Request
 

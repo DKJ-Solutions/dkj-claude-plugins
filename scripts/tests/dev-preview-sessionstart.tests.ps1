@@ -212,11 +212,26 @@ try {
     $nm = New-Item -ItemType Directory -Path (Join-Path $stale 'app\node_modules') -Force
     $lockFile = Join-Path $stale 'app\package-lock.json'
     $marker = Join-Path $nm.FullName '.package-lock.json'
-    Set-Content -LiteralPath $lockFile -Value '{}'; Set-Content -LiteralPath $marker -Value '{}'
+    # The shapes npm writes (#3419): the lock carries the root package under "", which ConvertFrom-Json in 5.1 refuses.
+    $lockNew = '{"name":"app","lockfileVersion":3,"packages":{"":{"name":"app"},"node_modules/next":{"version":"16.4.3"},"node_modules/@esbuild/linux-x64":{"version":"0.25.0","optional":true}}}'
+    $installedOld = '{"name":"app","lockfileVersion":3,"packages":{"node_modules/next":{"version":"16.4.0"}}}'
+    $installedSame = '{"name":"app","lockfileVersion":3,"packages":{"node_modules/next":{"version":"16.4.3"}}}'
+    Set-Content -LiteralPath $lockFile -Value $lockNew; Set-Content -LiteralPath $marker -Value $installedOld
     (Get-Item -LiteralPath $marker).LastWriteTimeUtc = [datetime]::UtcNow.AddHours(-1)
-    Assert-Equal 'app/node_modules' (Get-DevPreviewStaleInstall -Root $stale -Requires @('data', 'app/node_modules')) 'a node_modules older than its lock is named, past an entry that is no node_modules'
+    Assert-Equal 'app/node_modules' (Get-DevPreviewStaleInstall -Root $stale -Requires @('data', 'app/node_modules')) 'an install at another version than its lock pins is named, past an entry that is no node_modules (#3404)'
+    Set-Content -LiteralPath $marker -Value $installedSame
+    (Get-Item -LiteralPath $marker).LastWriteTimeUtc = [datetime]::UtcNow.AddHours(-1)
+    Assert-Equal '' (Get-DevPreviewStaleInstall -Root $stale -Requires @('app/node_modules')) 'a lock only REWRITTEN after the install, same versions, is not -- and an optional package for another platform need not be installed (#3419)'
+    Assert-Equal $true (Test-DevPreviewLockMatchesInstall -LockPath $lockFile -InstalledPath $marker) 'the content check reads the lock''s empty root key without refusing it'
+    Set-Content -LiteralPath $marker -Value '{"packages":{}}'
+    (Get-Item -LiteralPath $marker).LastWriteTimeUtc = [datetime]::UtcNow.AddHours(-1)
+    Assert-Equal 'app/node_modules' (Get-DevPreviewStaleInstall -Root $stale -Requires @('app/node_modules')) 'a package the lock pins and the install lacks is named'
+    Set-Content -LiteralPath $marker -Value 'not json'
+    (Get-Item -LiteralPath $marker).LastWriteTimeUtc = [datetime]::UtcNow.AddHours(-1)
+    Assert-Equal '' (Get-DevPreviewStaleInstall -Root $stale -Requires @('app/node_modules')) 'an install record that cannot be read claims nothing'
+    Set-Content -LiteralPath $marker -Value $installedOld
     (Get-Item -LiteralPath $marker).LastWriteTimeUtc = [datetime]::UtcNow.AddHours(1)
-    Assert-Equal '' (Get-DevPreviewStaleInstall -Root $stale -Requires @('app/node_modules')) 'an install newer than its lock is not'
+    Assert-Equal '' (Get-DevPreviewStaleInstall -Root $stale -Requires @('app/node_modules')) 'an install newer than its lock is not read at all'
     Remove-Item -LiteralPath $marker
     Assert-Equal '' (Get-DevPreviewStaleInstall -Root $stale -Requires @('app/node_modules')) 'without npm''s own install record nothing is claimed'
     Assert-Equal '' (Get-DevPreviewStaleInstall -Root $stale -Requires @()) 'no Requires, no claim'
@@ -886,8 +901,8 @@ try {
         $portS = New-FreePort
         $staleRepo2 = New-Repo 'stale-install' "function Get-DevPreview { @{ Command = 'echo {port}'; Ports = $portS; Requires = 'node_modules'; WaitSeconds = 30 } }`n"
         $nm2 = New-Item -ItemType Directory -Path (Join-Path $staleRepo2 'node_modules') -Force
-        Set-Content -LiteralPath (Join-Path $staleRepo2 'package-lock.json') -Value '{}'
-        Set-Content -LiteralPath (Join-Path $nm2.FullName '.package-lock.json') -Value '{}'
+        Set-Content -LiteralPath (Join-Path $staleRepo2 'package-lock.json') -Value '{"packages":{"":{},"node_modules/next":{"version":"16.4.3"}}}'
+        Set-Content -LiteralPath (Join-Path $nm2.FullName '.package-lock.json') -Value '{"packages":{"node_modules/next":{"version":"16.4.0"}}}'
         (Get-Item -LiteralPath (Join-Path $nm2.FullName '.package-lock.json')).LastWriteTimeUtc = [datetime]::UtcNow.AddHours(-1)
         $m = Get-Message (Invoke-Hook $staleRepo2).Text
         Assert-True ($m -match "exited at start -- see .+; 'node_modules' is older than its package-lock\.json -- run npm install$") "an install older than its lock is named on the product's clause (got '$m')"
