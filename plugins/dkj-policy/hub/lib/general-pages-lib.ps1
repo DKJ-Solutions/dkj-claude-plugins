@@ -39,8 +39,29 @@
     what every repo has, whichever organisation it belongs to; DKJ-Solutions is what only the DKJ-Solutions
     repos share, the house style first.
 
+    THE DEFAULT THEME IS THE ONE VALUE THAT ARRIVES BY A SETTER, not a parameter (#3390): every page of the
+    server opens in it, so threading it through each formatter would add one parameter to all of them for a
+    value that is the same on every page. The server reads it from the hub's state file per request
+    (DefaultTheme in the repo's Get-DevPreview) and hands it in with Set-GeneralPagesThemeDefault; where
+    nothing is handed in, every page falls back to lilac (#3162).
+
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/dev-pages.tests.ps1 in the source repo -- change one, run the other.
 #>
+
+$script:GeneralPagesThemeDefault = ''
+
+function Set-GeneralPagesThemeDefault {
+    <# The theme every page opens in when the visitor has picked none (#3390); '' or $null restores lilac. #>
+    param([AllowNull()][AllowEmptyString()][string]$Theme)
+    $script:GeneralPagesThemeDefault = [string]$Theme
+}
+
+function Get-GeneralPagesThemeDefault {
+    <# The theme Set-GeneralPagesThemeDefault handed in, or lilac (#3162) where it handed in nothing. #>
+    $t = Get-Variable -Name GeneralPagesThemeDefault -Scope Script -ValueOnly -ErrorAction SilentlyContinue
+    if ($t) { return [string]$t }
+    return 'lilac'
+}
 
 function ConvertTo-GeneralPageText {
     <# HTML-escapes one value for text or a quoted attribute. #>
@@ -119,7 +140,7 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine('<!doctype html>')
     # The theme key is shared by every page of one server, so a theme picked on one page holds on the next.
     # With no width picked yet the pages open full width: a hub is tables and cards, not a reading column.
-    [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="' + (& $e $ThemeKey) + '">')
+    [void]$sb.AppendLine('<html lang="en" data-theme-default="' + (& $e (Get-GeneralPagesThemeDefault)) + '" data-width-default="full" data-theme-key="' + (& $e $ThemeKey) + '">')
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
@@ -1134,7 +1155,8 @@ function Format-ReleaseNotesDevPage {
     $styleEnd = $out.IndexOf('</style>') + '</style>'.Length
     $out = $out.Substring(0, $styleEnd) + "`n" + $head + $out.Substring($styleEnd)
     # The theme key is the server's, so a theme picked on one page holds on this one too, and with no
-    # choice stored it falls back to the defaults every other dev page uses: lilac (#3162) and full width.
-    $out = $htmlRx.Replace($out, ('<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="' + (& $e $ThemeKey) + '">'), 1)
+    # choice stored it falls back to the defaults every other dev page uses: the repo's stated theme or lilac
+    # (#3162, #3390) and full width.
+    $out = $htmlRx.Replace($out, ('<html lang="en" data-theme-default="' + (& $e (Get-GeneralPagesThemeDefault)) + '" data-width-default="full" data-theme-key="' + (& $e $ThemeKey) + '">'), 1)
     return $out
 }

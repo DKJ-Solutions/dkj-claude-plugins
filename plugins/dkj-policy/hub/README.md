@@ -135,6 +135,7 @@ function Get-DevPreview {
         WaitSeconds  = 20               # optional: how long to wait until it listens (1-45, default 20)
         OpenInVsCode = $false           # optional: also hand the hub's URL to VS Code (see below)
         OwnHub       = $false           # optional: $true when this server IS the repo's hub (default: the plugin's)
+        DefaultTheme = 'teal'           # optional: the theme the plugin's hub and general pages open in (default lilac)
     }
 }
 ```
@@ -143,6 +144,14 @@ function Get-DevPreview {
   the repo's `scripts/repo-config.ps1` already gets from every hook that reads it. Enable this plugin only
   in repos you own.
 - **`OwnHub` is a real boolean.** Anything else is a problem the line names, not a silent default.
+- **`DefaultTheme` is the theme the plugin's pages open in while the visitor has picked none**
+  ([#3390](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3390)): a house theme id, such as
+  `teal`. A repo whose own product or hub opens in its own theme states it here, so the hub and the general
+  pages it links do not open in another. Unstated, they keep lilac (#3162). It must have a theme id's shape
+  (a lowercase letter, then lowercase letters, digits or hyphens); anything else is a problem the line
+  names. It belongs to the hub alone, so a `Product` may not state it. The hook writes it into the state
+  file, and the general pages server reads it per request, so a change reaches the next page after a
+  session start without a restart.
 - **The `Command` runs under `cmd.exe`:** it expands `%VAR%`, and where it chains commands with `&&` the
   log captures the last one's output only. A `Write-Host` in the config is harmless.
 - **Bind to `127.0.0.1` in the `Command`** wherever the server shows something private, e.g.

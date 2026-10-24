@@ -421,6 +421,11 @@ $rn = Format-ReleaseNotesDevPage -Html $tpl
 Assert-True ($rn -ne $tpl) 'the template has the shape the dressing needs'
 Assert-True ($rn.Contains((Format-RepoHubBanner)) -and $rn.IndexOf('id="hub-banner"') -gt $rn.IndexOf('class="breadcrumbs-bar"') -and ([regex]::Matches($rn, 'id="hub-banner"')).Count -eq 1) 'the release notes carry the general banner once, under the bar (#3297)'
 Assert-True ($rn -match '<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">') 'it takes the theme key and the lilac default every other page of the general server uses (#3162)'
+Set-GeneralPagesThemeDefault 'teal'
+Assert-True ((Format-ReleaseNotesDevPage -Html $tpl) -match 'data-theme-default="teal"' -and (Format-GeneralPageHtml -Title 't' -Lead '' -Body '') -match 'data-theme-default="teal"') 'a repo''s DefaultTheme reaches the release notes and every general page (#3390)'
+Set-GeneralPagesThemeDefault 'x"y'
+Assert-True ((Format-GeneralPageHtml -Title 't' -Lead '' -Body '') -match 'data-theme-default="x&quot;y"') 'and is escaped there, whatever was handed in'
+Set-GeneralPagesThemeDefault ''
 Assert-True ((Format-ReleaseNotesDevPage -Html $tpl -ThemeKey 'k"x' -HubHref '/') -match 'data-theme-key="k&quot;x"' -and (Format-ReleaseNotesDevPage -Html $tpl -HubHref '/') -match '<li><a href="/">Home</a></li>') 'a caller may name the theme key and the hub crumb''s target, both escaped'
 $tplStyleEnd = $rn.IndexOf('</style>')
 $houseAt = $rn.IndexOf('<link rel="stylesheet" href="/house-style.css">')
