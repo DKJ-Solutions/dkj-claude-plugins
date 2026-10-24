@@ -196,7 +196,7 @@ function Format-RepoHubBanner {
         Format-GeneralPageHtml draws, a -Bare one included (#3356), the Connectors page (Format-ConnectorDashboardHtml), and the release notes (Format-ReleaseNotesDevPage), so the hubs carry the
         same banner wherever the visitor is. It is the first thing in <body>, ABOVE the site header (owner,
         October 24, 2026; it was the first block of <main>, under the breadcrumb bar), so every caller writes it
-        straight after '<body>'. It stands there with no margin and no radius of its own, a square strip flush against the
+        straight after '<body>'. It stands there with no margin, border or radius of its own, a bare strip flush against the
         header (owner, October 24, 2026), and otherwise uses house classes only (.notice, .msg, .num), because
         the hub restyles nothing.
 
@@ -212,7 +212,7 @@ function Format-RepoHubBanner {
         not this page's.
     #>
     return @'
-<div class="notice" id="hub-banner" role="region" aria-label="Airsquats" style="margin: 0; border-radius: 0">
+<div class="notice" id="hub-banner" role="region" aria-label="Airsquats" style="margin: 0; border: 0; border-radius: 0">
 <p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong><span class="msg--warn" data-hub-due hidden> &middot; <label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> due</label></span></p>
 </div>
 <script>
