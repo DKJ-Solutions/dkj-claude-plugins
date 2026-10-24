@@ -200,6 +200,10 @@ Assert-True ($idle -notmatch 'going now' -and $idle -notmatch 'data-start=') 'wi
 Assert-True ((Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's') -match 'No run yet') 'with no run at all it says so, with no card'
 $evil = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk '<script>x</script>' 0 10))) -StorePath 's'
 Assert-True ($evil -notmatch '<script>x</script>' -and $evil -match '&lt;script&gt;x&lt;/script&gt;' -and $evil -match 'href="/stopwatch/[0-9-]+"' -and (ConvertTo-StopwatchModel -Runs @((& $mk '<script>x</script>' 0 10))).Groups[0].LabelSlug -eq 'script-x-script') 'a label is escaped wherever it is shown, and its slugs are URL-safe'
+$empty = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's'
+Assert-True ($empty -match 'no other machine has shared a run yet' -and $empty -notmatch 'being fetched|location\.reload') 'with no sync under way an empty origin is stated, and the page does not reload'
+$fetching = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's' -Fetching
+Assert-True ($fetching -match 'being fetched' -and $fetching -match 'still being fetched' -and $fetching -notmatch 'no other machine has shared' -and $fetching -match 'location\.reload') 'while the first sync fetches, the page says so instead of an empty origin, and reloads (#3377)'
 $broken = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -ReadError 'it is not valid JSON' -StorePath 's'
 Assert-True ($broken -match 'could not be read') 'a store that does not read says so'
 

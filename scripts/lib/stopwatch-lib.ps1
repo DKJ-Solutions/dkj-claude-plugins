@@ -712,7 +712,8 @@ function Format-StopwatchPageHtml {
         the page. The Logbook (scripts/lib/logbook-lib.ps1, #3364) draws its overview here too: -Route, -PageTitle
         and -FooterNote are its own, -NoDelta leaves out the change against the run before, which only means
         something between runs that share a label on purpose, and -CardNotes (text by run id) adds a part to a finished
-        run's card line: its work time.
+        run's card line: its work time. -Fetching says the other machines' runs are still being fetched, in place of
+        "no other machine has shared a run yet", and reloads the page until they are in (#3377).
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Model,
@@ -720,6 +721,7 @@ function Format-StopwatchPageHtml {
         [int]$Skipped = 0,
         [AllowEmptyString()][string]$StorePath = '',
         [int]$SharedMachines = 0,
+        [switch]$Fetching,
         [datetime]$Now = [datetime]::UtcNow,
         [string]$Route = '/stopwatch',
         [string]$PageTitle = 'Stopwatch',
@@ -737,6 +739,11 @@ function Format-StopwatchPageHtml {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">' + $Skipped + ' run(s) in the store could not be read and are not shown. The next write by a hook drops them; the file as it was is kept beside the store as a .bak.</p>')
     }
 
+    if ($Fetching) {
+        # The first sync is still fetching the other machines' runs (#3377): say so, and reload until it has ended.
+        [void]$body.AppendLine('<p class="msg" role="status">The other machines'' runs are being fetched from origin. This page reloads in a few seconds to show them.</p>')
+        [void]$body.AppendLine('<script>setTimeout(function () { location.reload(); }, 4000);</script>')
+    }
     # One h2 per prompt label, compared case-insensitively, with that label's cards under it (the owner, October 24, 2026);
     # the labels in the order of their newest run. -Flat keeps every card under one Measurements heading, for the Logbook,
     # whose labels are the first lines of prompts and rarely repeat.
@@ -790,7 +797,7 @@ function Format-StopwatchPageHtml {
     $shell = Format-StopwatchPageShell
     $note = if ($FooterNote) { $FooterNote } else { 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout, so a run never dirties the tree it is timing. ' +
         'Every finished run is also shared through a ref of this machine''s own on origin, <code>refs/stopwatch/&lt;machine&gt;</code> (<code>scripts/lib/stopwatch-sync-lib.ps1</code>), ' +
-        $(if ($SharedMachines -eq 1) { 'and the runs of one other machine are shown with these. ' } elseif ($SharedMachines -gt 1) { 'and the runs of ' + $SharedMachines + ' other machines are shown with these. ' } else { 'and no other machine has shared a run yet. ' }) +
+        $(if ($SharedMachines -eq 1) { 'and the runs of one other machine are shown with these. ' } elseif ($SharedMachines -gt 1) { 'and the runs of ' + $SharedMachines + ' other machines are shown with these. ' } elseif ($Fetching) { 'and the other machines'' runs are still being fetched. ' } else { 'and no other machine has shared a run yet. ' }) +
         'A prompt whose first line begins with <code>stopwatch:</code> starts a run in a session of this checkout, labelled with the rest of that line, and discards a run still going; ' +
         'a Stop hook ends it once Claude is back on the trunk, clean, with HEAD moved since the start (that suggests the work landed; it does not prove it). Both are <code>scripts/dashboard/stopwatch-hook.ps1</code>. ' +
         'Built by <code>scripts/lib/stopwatch-lib.ps1</code>.' }

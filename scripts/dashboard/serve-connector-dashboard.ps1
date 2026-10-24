@@ -154,6 +154,8 @@ function Get-StopwatchPageRuns {
         [void](Start-StopwatchSync -RepoRoot $root)
     }
     $shared = Read-StopwatchShared -RepoRoot $root -MachineId $StopwatchMachineId
+    # No other machine read yet while a sync runs: on a first visit that is the fetch still under way, not an empty origin (#3377).
+    $shared.Fetching = ($shared.Machines -eq 0) -and (Test-StopwatchSyncRunning -StampPath $stamp -LogPath (Join-Path (Split-Path -Parent $StopwatchPath) 'stopwatch-sync.log'))
     return @{ Store = $store; Runs = (Merge-StopwatchRuns -Local $store.Runs -Shared $shared.Runs); Shared = $shared }
 }
 # The test gate's own selection and CI's, so /test-gate shows what they decide for this checkout (#3309).
@@ -520,7 +522,7 @@ try {
             }
             if ($path -eq '/stopwatch') {
                 $sw = Get-StopwatchPageRuns; $store = $sw.Store
-                $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs $sw.Runs) -ReadError $store.Error -Skipped $store.Skipped -StorePath $StopwatchPath -SharedMachines $sw.Shared.Machines
+                $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs $sw.Runs) -ReadError $store.Error -Skipped $store.Skipped -StorePath $StopwatchPath -SharedMachines $sw.Shared.Machines -Fetching:([bool]$sw.Shared.Fetching)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
