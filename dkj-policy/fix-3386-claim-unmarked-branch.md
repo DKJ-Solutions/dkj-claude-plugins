@@ -41,19 +41,31 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `claim-issue.ps1 -Tag` refuses a free issue with an unmarked `<prefix>/<n>-*` branch on origin, whoever wrote it, and names `-TakeOver`
+- [x] The `sweep-issues` skill's step 2 says so
 
 ### TEST
 
+- [x] `claim-issue.tests.ps1` pins the arm: reached only on a fresh claim, no author test, refusal above the marker write
+
 ### DEPLOY: fix/3386-claim-unmarked-branch
 
-**Score:**
+A `-Tag` claim now asks origin for a `<prefix>/<n>-*` branch before it writes its marker, and refuses
+when it finds one carrying no claim marker, whoever wrote it. Until now the claim printed `[OK]` over
+such a branch when its author was this account, although `-Candidates` calls that state `branch` and not
+free. Measured: a sweep claimed #3379 an hour after its candidate list, the other session's branch
+merged first, and the sweep's pull request was a duplicate. `-TakeOver` stays the way to resume your own
+unmarked branch ([#3386](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3386)).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A team that sweeps the same tracker from several checkouts no longer builds an issue twice when one
+session pushed its branch without a claim.
+
+**Score:** 2
 
 #### Pull Request
 
 claim-issue -Tag refuses a free issue with an unmarked branch on origin, whoever wrote it
-
