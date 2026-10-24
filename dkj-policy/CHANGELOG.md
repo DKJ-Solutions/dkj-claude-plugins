@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**0 / 3 patch entries** <!-- pending-tally -->
+**1 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/house-style-h1-sans · 20261024-195118Z
+
+The house `h1` is set in the body sans at weight 700 and in its own case: the serif face and the capitals are
+gone. The template masthead of the general pages follows it. `--font-serif` stays as a token for a title that
+keeps that face.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions app that takes the next house-style copy shows its page titles in the sans, in ordinary case.
+
+**Score:** 3
+
+#### Pull Request
+
+The house h1 in the body sans, in its own case
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3413](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3413)
+
+---
 
 ### DEPLOY: feat/stopwatch-label-pages · 20261024-194102Z
 
