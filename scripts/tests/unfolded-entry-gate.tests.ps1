@@ -280,6 +280,31 @@ try {
     Assert-True ($f.Count -eq 1 -and $f[0].DeclaredBranch -eq 'feat/gamma' -and $f[0].Rel -match 'development\.md$') `
         'the pre-#1255 shared name development.md is checked too, though the glob would miss it'
 
+    # #3408: a STACKED branch carries its unmerged parents' documents by design. Measured three deep with
+    # the trunk clean, they were reported as stranded on the trunk, with a remedy that folds them onto it.
+    # One real leftover rides on the trunk beside them here, so the narrowing is shown not to hide it.
+    $stack = New-Tree -Label 'stacked'
+    Set-Doc -Dir $stack -Branch 'fix/stray'
+    $null = Initialize-GitTree -Dir $stack
+    Invoke-GitStep -GitArgs @('-C', $stack, 'checkout', '--quiet', '-b', 'feat/parent')
+    Set-Doc -Dir $stack -Branch 'feat/parent'
+    Invoke-GitStep -GitArgs @('-C', $stack, 'add', '-A')
+    Invoke-GitStep -GitArgs @('-C', $stack, 'commit', '-m', 'parent', '--quiet')
+    Invoke-GitStep -GitArgs @('-C', $stack, 'checkout', '--quiet', '-b', 'feat/child')
+    Set-Doc -Dir $stack -Branch 'feat/child'
+    Invoke-GitStep -GitArgs @('-C', $stack, 'add', '-A')
+    Invoke-GitStep -GitArgs @('-C', $stack, 'commit', '-m', 'child', '--quiet')
+    $f = @(Get-UnfoldedTrunkEntry -RepoRoot $stack -CurrentBranch 'feat/child')
+    Assert-True ($f.Count -eq 1 -and $f[0].DeclaredBranch -eq 'fix/stray') `
+        "on a stacked branch, the unmerged parent's document is not a trunk leftover, and the trunk's real one still is (#3408)"
+    $f = @(Get-UnfoldedTrunkEntry -RepoRoot $stack)
+    Assert-True ($f.Count -eq 1 -and $f[0].DeclaredBranch -eq 'fix/stray') `
+        'the same with the branch resolved from HEAD, the way the session hook calls it'
+    Invoke-GitStep -GitArgs @('-C', $stack, 'checkout', '--quiet', 'main')
+    $f = @(Get-UnfoldedTrunkEntry -RepoRoot $stack -CurrentBranch 'main')
+    Assert-True ($f.Count -eq 1 -and $f[0].DeclaredBranch -eq 'fix/stray') `
+        'and on the trunk nothing is narrowed: every written document there is a leftover'
+
     # --- check-unfolded-entry.ps1, the gate ------------------------------------------------------
     Write-Host ''
     Write-Host 'check-unfolded-entry.ps1'

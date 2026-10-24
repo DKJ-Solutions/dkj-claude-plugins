@@ -8092,6 +8092,14 @@ function Get-UnfoldedTrunkEntry {
         per-branch document path and is a known-shape branch document, so the -OpeningHeadingOnly narrowing
         the release cut's ROOT scan needs (inbound #1099) does not apply -- there is no arbitrary prose
         to misread here.
+
+        OFF THE TRUNK, ONLY A DOCUMENT THE TRUNK CARRIES IS A LEFTOVER (#3408). A branch stacked on unmerged
+        branches carries their documents by design, and they were reported as stranded on the trunk -- with
+        a remedy that folds and pushes unmerged work's entries onto it. Measured October 24, 2026, three
+        deep, with the trunk clean. So off the trunk a document counts only where it is also in the tree at
+        HEAD's merge-base with the trunk (origin's ref first, the local one second): a leftover that rode in
+        from the trunk is there, a stacked parent's is not. Where no merge-base can be read, nothing is
+        narrowed, which is the answer this function gave before.
     #>
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
@@ -8111,6 +8119,22 @@ function Get-UnfoldedTrunkEntry {
                 if ($head -and $head -ne 'HEAD') { $CurrentBranch = $head }
             }
         } catch { }
+    }
+
+    # Off the trunk: the tree where HEAD forked from it (#3408). Offline, from refs already fetched.
+    # 'Continue' for this function only -- the #107 pitfall: under a caller's 'Stop', Windows PowerShell 5.1
+    # turns cat-file's "does not exist" on stderr into a throw despite 2>$null, and the catch below would
+    # then keep every parent's document as a leftover (measured in the suite).
+    $ErrorActionPreference = 'Continue'
+    $trunkBase = ''
+    $trunk = Get-BranchTrunkName
+    if ($CurrentBranch -and $CurrentBranch -ne $trunk) {
+        foreach ($ref in @("refs/remotes/origin/$trunk", "refs/heads/$trunk")) {
+            try {
+                $mb = (& git -C $RepoRoot merge-base HEAD $ref 2>$null)
+                if ($LASTEXITCODE -eq 0 -and $mb) { $trunkBase = ([string]$mb).Trim(); break }
+            } catch { }
+        }
     }
 
     $paths = Get-BranchFilePaths
@@ -8135,6 +8159,14 @@ function Get-UnfoldedTrunkEntry {
         $declared = Get-BranchFileDeclaredBranch -Text $text
         if (-not $declared) { continue }
         if ($declared -eq $CurrentBranch) { continue }
+        if ($trunkBase) {
+            $onTrunk = $true
+            try {
+                & git -C $RepoRoot cat-file -e "${trunkBase}:$($rel -replace '\\', '/')" 2>$null
+                $onTrunk = ($LASTEXITCODE -eq 0)
+            } catch { }
+            if (-not $onTrunk) { continue }
+        }
         $findings.Add([pscustomobject]@{
             Rel            = $rel
             DeclaredBranch = $declared
