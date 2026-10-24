@@ -418,18 +418,36 @@ function Format-DevPreviewPortHolders {
     <#
         Who holds each of -Ports, as '3000 by dkj-lifehub (pid 19544)' joined with '; ', or '' when no
         listener on them is known. One entry per port: its first listener names it.
+
+        AN UNREADABLE HOLDER SAYS WHY (INBOUND #3401). A listener in another Windows logon session of the
+        same account reads back with an empty command line, so it can never be named or recognised as ours,
+        and the bare pid sent the owner hunting for a foreign app -- measured: it was this checkout's own
+        product, started from the other session. Where the listener's command line is empty, the entry says
+        so, and names the other logon session where the table's SessionId differs from -SessionId (the
+        hook's own, by default). A pid absent from the table is a process that is gone, and stays bare.
     #>
     param(
         [Parameter(Mandatory = $true)][int[]]$Ports,
         [AllowEmptyCollection()][object[]]$Listeners,
-        [Parameter(Mandatory = $true)][hashtable]$Processes
+        [Parameter(Mandatory = $true)][hashtable]$Processes,
+        [int]$SessionId = [Diagnostics.Process]::GetCurrentProcess().SessionId
     )
     $parts = @(foreach ($port in $Ports) {
         $l = @($Listeners | Where-Object { $_ -and [int]$_.LocalPort -eq $port }) | Select-Object -First 1
         if (-not $l) { continue }
         $procId = [int]$l.OwningProcess
         $name = Get-DevPreviewHolderName -ProcessId $procId -Processes $Processes
-        if ($name) { "$port by $name (pid $procId)" } else { "$port by pid $procId" }
+        if ($name) { "$port by $name (pid $procId)"; continue }
+        $p = $Processes[$procId]
+        if ($p -and -not ([string]$p.CommandLine).Trim()) {
+            if ($null -ne $p.SessionId -and [int]$p.SessionId -ne $SessionId) {
+                "$port by pid $procId (another logon session -- its command line cannot be read)"
+            } else {
+                "$port by pid $procId (its command line cannot be read)"
+            }
+        } else {
+            "$port by pid $procId"
+        }
     })
     return ($parts -join '; ')
 }
