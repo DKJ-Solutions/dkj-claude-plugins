@@ -57,9 +57,9 @@ The hub's airsquats banner never takes more than one row: once airsquats are due
 
 #### What makes this deploy extra special
 
-N/A -- the banner is this repo's own dev hub; nothing a consumer takes from a release changes.
+Every repo hub that runs `dkj-policy` carries this banner, so after the update its airsquats line stays one row high instead of pushing the page down a line every hour.
 
-**Score:** N/A
+**Score:** 2
 
 #### Pull Request
 
