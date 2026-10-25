@@ -455,7 +455,11 @@ try {
     Assert-True ((Format-StopwatchPhaseCard $null 60 -Title '<b>') -match 'No phases read' -and (Format-StopwatchPhaseCard $null 60 -Title '<b>') -notmatch '<b>') 'a run with no phases yet says so, and the title is escaped'
     $tm = ConvertTo-StopwatchModel -Runs @($run)
     $tp = Format-StopwatchRunPageHtml -Group $tm.Groups[0] -StorePath 's' -Transcript $first
-    Assert-True ($tp -match '<h2>Phases</h2>[\s\S]*<section class="card"><div class="card__head"><h3 class="card__title">[^<]+</h3>[\s\S]*Ship: CI wait, merge, fold</td><td class="num">2:50') 'a run page shows its phases in a card of their own, under the Phases heading'
+    Assert-True ($tp -match '<h2>Phases</h2>[\s\S]*<section class="card"><div class="table-wrap">[\s\S]*Ship: CI wait, merge, fold</td><td class="num">2:50') 'a run page shows its phases in a card of their own, under the Phases heading'
+    $startOnce = (& $at 0).ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
+    Assert-Equal 1 ([regex]::Matches(($tp -replace '<title>[\s\S]*?</title>' -replace '<nav[\s\S]*?</nav>'), [regex]::Escape($startOnce))).Count 'the run''s start shows once on its page, in the heading, not again on the Time or the phase card'
+    Assert-Equal 1 ([regex]::Matches($tp, '>5:30<').Count) 'the run''s time shows once, on the Time card'
+    Assert-True ((Format-StopwatchPhaseCard @{ Sessions = 1; Phases = @(@{ Name = 'x'; Seconds = 1 }) } 60) -notmatch 'card__head|<h3') 'a phase card with no title and one session has no empty head'
     Assert-True ($tp -notmatch 'From the transcripts') 'and the runs table no longer crams them into one cell'
     Assert-True ($tp -notmatch '<h2>Runs</h2>' -and $tp -notmatch 'Against the run before' -and $tp -match '<h3 class="card__title">Time</h3>[\s\S]*class="sw-clock num">5:30</p>') 'a run shows its time on a card, with no Runs heading and no comparison table'
     $startText = (& $at 0).ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)

@@ -39,19 +39,29 @@
 
 ### PLAN
 
+The owner saw a run's start three times and its time twice on `/stopwatch/css-comment/2026-10-24-1657`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-StopwatchRunPageHtml`: the Time card drops its "Started ..." line and keeps only "On another machine."; the phase card gets no title
+- [x] `Format-StopwatchPhaseCard`: `-Title` optional, and with none (and one session) no empty card head
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1`: the start and the time each appear once on a run page; 213 passed
+- [x] Live page counted: the date once, 5:29 once
+
 ### DEPLOY: fix/stopwatch-run-page-no-duplicates
 
-**Score:**
+A Stopwatch run page names the run's start once, in its heading, and its time once, on the Time card. The Time card no longer repeats the start beneath its title, and the phase card no longer carries a title restating both, so the page stays compact.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the Stopwatch is this repo's own dev hub page, which no consumer runs.
+
+**Score:** N/A
 
 #### Pull Request
 

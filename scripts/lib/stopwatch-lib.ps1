@@ -694,14 +694,15 @@ function Get-StopwatchTranscriptCache {
 
 function Format-StopwatchPhaseCard {
     <#
-        One run's transcript phases as a card of their own: a heading with the run's start and time (-Title, already
-        formatted by the caller) and, when more than one session took part, how many; then a table with a row per
+        One run's transcript phases as a card of their own: a heading (-Title, already formatted by the caller; none
+        when empty) and, when more than one session took part, how many; then a table with a row per
         phase, longest first, each with its time, its share of the run and a bar of that share. A run with no
         phases says why instead.
     #>
-    param($Entry, [double]$Total, [Parameter(Mandatory = $true)][string]$Title)
+    param($Entry, [double]$Total, [AllowEmptyString()][string]$Title = '')
     $sub = if ($Entry -and $Entry.Sessions -gt 1) { '<p class="card__sub">' + $Entry.Sessions + ' sessions</p>' } else { '' }
-    $card = '<section class="card"><div class="card__head"><h3 class="card__title">' + (ConvertTo-DashboardText $Title) + '</h3>' + $sub + '</div>'
+    $h3 = if ($Title) { '<h3 class="card__title">' + (ConvertTo-DashboardText $Title) + '</h3>' } else { '' }
+    $card = '<section class="card">' + $(if ($h3 -or $sub) { '<div class="card__head">' + $h3 + $sub + '</div>' } else { '' })
     if ($null -eq $Entry) { return $card + '<p class="note">No phases read for this run yet.</p></section>' }
     if (-not $Entry.Sessions) { return $card + '<p class="note">No session of this repo was active during this run.</p></section>' }
     if (-not @($Entry.Phases | Where-Object { $_ }).Count) { return $card + '<p class="note">No phases read for this run yet.</p></section>' }
@@ -1089,14 +1090,16 @@ function Format-StopwatchRunPageHtml {
     }
     if (@($Group.Rows).Count) {
         $row = $Group.Rows[0]
-        [void]$body.AppendLine('<section class="card"><div class="card__head"><h3 class="card__title">Time</h3><p class="card__sub">Started ' + (& $local $row.Run.Start) + $(if ($row.Run.Machine) { ' on another machine' } else { '' }) + '.</p></div>')
+        # The start is the page's own heading, so the card names only where the run was timed when that is elsewhere.
+        [void]$body.AppendLine('<section class="card"><div class="card__head"><h3 class="card__title">Time</h3>' + $(if ($row.Run.Machine) { '<p class="card__sub">On another machine.</p>' } else { '' }) + '</div>')
         [void]$body.AppendLine('<p class="sw-clock num">' + (Format-DevSeconds $row.Seconds) + '</p>')
         if ($TimeNote) { [void]$body.AppendLine('<p class="note">' + (& $e $TimeNote) + '</p>') }
         if (-not $NoDelta) { [void]$body.AppendLine('<p>' + (Format-StopwatchDelta $row.DeltaSeconds) + $(if ($null -ne $row.DeltaSeconds) { ' <span class="note">than the previous run of this label</span>' } else { '' }) + '</p>') }
         [void]$body.AppendLine('</section>')
         [void]$body.AppendLine('<div class="grid-2">')
         [void]$body.AppendLine('<div class="grid__head"><h2>Phases</h2><p class="card__sub">This run split into phases from the session transcripts, longest first</p></div>')
-        [void]$body.AppendLine((Format-StopwatchPhaseCard $Transcript[$row.Run.Id] $row.Seconds -Title ((& $local $row.Run.Start) + ' - ' + (Format-DevSeconds $row.Seconds))))
+        # No title: the heading above already carries the start and the Time card the time.
+        [void]$body.AppendLine((Format-StopwatchPhaseCard $Transcript[$row.Run.Id] $row.Seconds -Title ''))
         [void]$body.AppendLine('</div>')
     }
     $shell = Format-StopwatchPageShell
