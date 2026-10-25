@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**10 / 18 minor entries** <!-- pending-tally -->
+**10 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3430-card-h2-comment · 20261025-095642Z
+
+The comment above `.card__head` in `house-style.css` no longer says an `h2` never stands inside a card, a
+rule the house style retired on October 24, 2026; it now agrees with the `house-style` skill. A comment
+only, so nothing renders differently, but the file's checksum in the skill moves with it.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing for an app to do: no rule or value changed.
+
+**Score:** N/A
+
+#### Pull Request
+
+house-style.css comment still states the retired no-h2-in-a-card rule
+
+Plugins: dkj-solutions
+
+[PR #3433](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3433)
+
+---
 
 ### DEPLOY: feat/stopwatch-ship-pr-card · 20261025-094821Z
 
