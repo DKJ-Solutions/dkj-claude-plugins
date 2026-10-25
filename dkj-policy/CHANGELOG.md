@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**10 / 22 minor entries** <!-- pending-tally -->
+**10 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/stopwatch-label-short-title · 20261025-104944Z
+
+On the Stopwatch's label and run pages, a label such as `hub lib comment, start to end` is named by its short
+title, `hub lib comment`, as its card on the overview already was; the prompt to type still shows the whole
+label. A label's URL is made of that short title too (`/stopwatch/hub-lib-comment`; two labels sharing one keep
+the hash suffix that already kept clashing slugs apart). A run's page now lives under its label's,
+`/stopwatch/<label>/<run>`, matching its crumbs, and an old `/stopwatch/<run>` link redirects there.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the Stopwatch is this repo's own dev hub page; no plugin user sees it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch: a label page and its runs are titled with the short title
+
+[PR #3437](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3437)
+
+---
 
 ### DEPLOY: fix/3423-hub-release-notes-eyebrow · 20261025-103104Z
 
