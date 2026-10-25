@@ -39,19 +39,43 @@
 
 ### PLAN
 
+#### The three open points #3475 handed to this repo
+
+- **Does the DKJ-Solutions card keep anything?** No. Its one page was the Brandbook, and no hub called
+  `Format-DkjSolutionsPagesCardHtml` any more, so the card and the whole `dkj-solutions-pages-lib.ps1` go.
+- **Does `dkj-solutions/assets/brandbook/` still need to ship?** Nothing reads it after this branch. Removing
+  it changes the release machinery (`Get-ReleaseBuilds`, its cut tests), so it is its own issue, not this one.
+- **What do the docs say afterwards?** That no hub shows or serves the Brandbook, and since when.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `serve-general-pages.ps1`: no `/brandbook` routes, and no `dkj-solutions` read at start
+- [x] `repo-hub-page.ps1`: no Brand book card, and no `-DkjSolutions` switch
+- [x] `dkj-solutions-pages-lib.ps1` removed, with `Get-DkjSolutionsPagesLibPath` and the unused `brandbook` icon
+- [x] Tests flipped to pin the absence, in a fixture that enables `dkj-solutions` too
+- [x] Docs: `hub/README.md`, `dkj-solutions/README.md`, the house-style README, skill and hub pattern,
+  `this-repo.md`, Sylvester's lens and the `repo-session` skill
 
 ### TEST
 
+- [ ] The owner has looked at a consumer hub served from this branch: no Brandbook card, `/brandbook` a 404
+
 ### DEPLOY: feat/3475-consumer-hub-no-brandbook
 
-**Score:**
+No hub shows or serves the Brandbook any more, whether or not the repo enables `dkj-solutions`
+([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475)). The brand book is a product of
+`dkj-claude-plugins`, and only that repo shows it, on its own product port. A consumer hub's home page loses its
+Brand book card, and `/brandbook` on its general pages server is now a plain 404. The extension's
+`dkj-solutions-pages-lib.ps1`, which existed only to draw that card and serve the build, is removed.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A maintainer of a DKJ-Solutions repo no longer finds the Brandbook card on that repo's hub after the update.
+The brand book stays reachable from `dkj-claude-plugins`.
+
+**Score:** 1
 
 #### Pull Request
 

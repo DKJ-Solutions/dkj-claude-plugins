@@ -1022,7 +1022,8 @@ fact of which plugins are enabled, and this is the harness consequence behind it
 in on October 13, 2026 (Maikel, [#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976))
 for its dev-preview hook, which is `dkj-policy`'s since
 [#3198](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3198); it stays for the house style,
-its session check and the hub's DKJ-Solutions card. The hook starts the connector dashboard
+and its session check (the hub's DKJ-Solutions card it also gave ended with
+[#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475)). The hook starts the connector dashboard
 (`scripts/dashboard/serve-connector-dashboard.ps1`) through this repo's `Get-DevPreview` (which states `OwnHub = $true`, since the plugin serves a hub of its own
 in every other repo, [#3245](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3245)), and the general
 pages server beside it

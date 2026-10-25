@@ -68,7 +68,7 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    with the repo's own server as its first card, #3245) **takes the one form the README lays down
    under "Page patterns", "The hub"**: its blocks and their order, with only the content the repo's own.
    The site header names the repo; the page is one grid of card links with no heading (its products, its
-   own pages, the general ones and the Brand book), and its facts, its Issues and what is in flight sit on a
+   own pages and the general ones), and its facts, its Issues and what is in flight sit on a
    separate **Repository** page on `/repository` (#3383). A repo without a build starts from
    [`patterns/repo-dashboard.html`](../../assets/house-style/patterns/repo-dashboard.html) and
    [`patterns/repo-repository.html`](../../assets/house-style/patterns/repo-repository.html)

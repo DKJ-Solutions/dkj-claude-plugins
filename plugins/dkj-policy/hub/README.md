@@ -5,8 +5,9 @@ General pages linked from it: Artifacts, Issues, Release notes and SessionStart.
 BWJ-Development's repos too. Until [#3198](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3198)
 (the owner's decision, October 20, 2026) all of this shipped with `dkj-solutions`, which BWJ-Development
 never enables, so a General page reached only the DKJ-Solutions repos. **"General" means what every repo
-has, whichever organisation it belongs to**, so the machinery moved here. Only the DKJ-Solutions card and
-its Brandbook stay in [`dkj-solutions`](../dkj-solutions/README.md).
+has, whichever organisation it belongs to**, so the machinery moved here. The DKJ-Solutions card and its
+Brandbook stayed in [`dkj-solutions`](../dkj-solutions/README.md) until #3475 took them off every consumer
+hub (below).
 
 | Part | Where |
 |---|---|
@@ -29,10 +30,11 @@ plugin's payload (`Get-HouseStyleDir`, `dkj-solutions/assets/house-style/`). Eve
 `dkj-policy` carries that folder, whether or not the repo enables `dkj-solutions`. A repo's own pages are
 another matter: BWJ-Development styles those itself.
 
-**What a repo gets from enabling `dkj-solutions` is the home page's Brand book card** (#3270; one card in
-the grid since #3383) and the Brandbook page it links. Both are read from `.claude/settings.json` and
-`.claude/settings.local.json` (`Test-DkjSolutionsEnabled`; the local file wins where it names the plugin too)
-when each server starts. Without it, `/brandbook` is a plain 404 and the home page has no Brand book card.
+**No hub shows or serves the Brandbook, whether or not the repo enables `dkj-solutions`**
+([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475), the owner, October 25, 2026). The
+brand book is a product of `dkj-claude-plugins`, and only that repo shows it, on its own product port
+(#3283). On every other hub `/brandbook` is a plain 404 and the home page has no Brand book card. Until
+then, a repo enabling `dkj-solutions` got both (#3198, #3270).
 
 ## The hub and the product
 
@@ -56,8 +58,7 @@ which names the repo, and under the breadcrumb bar the home page carries one `.g
 - **Repository**, the page on `/repository` holding the facts (the GitHub repo where the `origin` remote is
   on github.com, the folder, the dev preview, where it is stated and who serves the hub) and a card for
   **Issues** and, on GitHub, for the pull requests and the CI runs;
-- the **General** pages but Issues, by bare path;
-- the **Brandbook**, where the repo enables `dkj-solutions`, by bare path.
+- the **General** pages but Issues, by bare path.
 
 Under the grid, only where the repo states no `Get-DevPreview` at all, two **setup cards**: how to add one,
 and which port to route to VS Code's Simple Browser. A footer names the serving script.
@@ -192,22 +193,16 @@ October 18, 2026, [#3119](https://github.com/DKJ-Solutions/dkj-claude-plugins/is
 4899**, under the same rules as every server here: loopback only, reused and never doubled (its `cmd.exe`
 names the checkout), started hidden and detached.
 
-**In a DKJ-Solutions repo it serves a fifth, the Brandbook, which is not a general page** (the owner's
-split, October 20, 2026). The house style belongs to every DKJ-Solutions repo and to no other, so the page
-is not one repo's own; but "General" means what *every* repo has, so it is not general either. A hub
-therefore lists it in a third card, **DKJ-Solutions**, after General, and both the page and the card are
-the `dkj-solutions` extension's ([`dkj-solutions-pages-lib.ps1`](../dkj-solutions/scripts/lib/dkj-solutions-pages-lib.ps1)).
-**The page is the source repo's `brandbook/` React app** (the owner's decision on
-[#3210](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3210), October 20, 2026): its cut builds
-the app and copies the build into `dkj-solutions/assets/brandbook/`, and this server serves that folder
-under `/brandbook/`. The PowerShell Brandbook page it replaces is retired, so there is one brand book.
+**It serves no Brandbook, in any repo** ([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475),
+the owner, October 25, 2026). From #3198 to #3475 a DKJ-Solutions repo's server served a fifth page, the
+brand book app's build from `dkj-solutions/assets/brandbook/`, under `/brandbook/`. The brand book is the
+source repo's product, though, so that repo alone shows it, on its own product port.
 
 | Page | Reads, from the repo it was started in | When it is absent |
 |---|---|---|
 | `/`, `/index.html`, `/hub` | The state file below, on every request: the home page of this plugin's hub; `/about` answers 303 to `/` (#3289). Under `OwnHub` a 303 to the repo's own hub instead | Under `OwnHub` with no hub known, a short 404 text |
 | `/repository` | The state file and the `origin` remote: the hub's Repository page, its facts and a card for Issues and, where the remote is on github.com, its pull requests and CI runs (#3383) | Always answers; with no github.com remote the facts carry no GitHub row and the page no GitHub cards |
 | `/artifacts` | `scripts/dashboard/artifacts.json`, on every request | The page says the file is not there |
-| `/brandbook/` | Only where the repo enables `dkj-solutions`: the brand book app's build in the `dkj-solutions/assets/brandbook/` this server runs from, its own routes answered with its `index.html`; `/brandbook` is a 303 to it | A plain 404 in a repo without `dkj-solutions`; a plugin copy that ships no build gets a page saying so |
 | `/issues` | `gh issue list`, three calls (the open issues, and those opened and closed in the last 28 days), for `--repo <owner/name>` taken from the `origin` remote when it is on github.com, else for the repo `gh` finds in the working directory; kept for five minutes | A `gh` that fails or is missing is a warning on the page |
 | `/release-notes` | `dkj-policy/releases/page/release-notes.html`, dressed in the house style on the way out. Built first where it is absent or older than a file under `dkj-policy/releases`, by `build-release-notes-page.ps1` in a child process (bounded at 60 s), the repo's own copy else this plugin's: the page is a gitignored snapshot that nothing else builds (#3189) | A plain 404 text naming why it could not be built; where a rebuild fails, the older page is served |
 | `/sessionstart` | The always-on path, measured in a child process (bounded at 60 s) by `always-on-budget-lib.ps1`, the repo's own copy else this plugin's; kept for a minute | The reason it could not measure, on the page |
