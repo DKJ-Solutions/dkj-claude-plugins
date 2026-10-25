@@ -10,7 +10,7 @@
     or send '/hub' on to the repo's own, #3245) and a repo's own hub (reads, to render its General card). A
     state file that is absent, unreadable or about another root reads as nothing, never as an error: a hub
     then shows the card's "not running" form. Beside it,
-    Test-DkjSolutionsEnabled: the one other thing the plugin's servers read from the repo to decide a page.
+    Test-DkjSolutionsEnabled: whether the repo enables dkj-solutions, which the dev-preview hook asks.
 
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/dev-preview-sessionstart.tests.ps1 in the source repo.
 #>
@@ -98,9 +98,10 @@ function Test-DkjSolutionsEnabled {
     <#
         True when the checkout at -Root enables the dkj-solutions plugin: an enabledPlugins key
         'dkj-solutions@<marketplace>' set to true in its .claude/settings.json, or in .claude/settings.local.json,
-        which wins where it names the plugin too. Decides whether a hub shows the DKJ-Solutions card and the
-        general server serves /brandbook (#3198): the house style is the DKJ-Solutions repos' alone. A file that
-        is absent or not valid JSON says nothing, so the answer is then the other file's, else false.
+        which wins where it names the plugin too. The dev-preview hook asks it, to name the hub roll-out drift
+        only in a DKJ-Solutions repo; it decided the hub's Brand book card too, until #3475 took that off every
+        consumer hub. A file that is absent or not valid JSON says nothing, so the answer is then the other
+        file's, else false.
     #>
     param([Parameter(Mandatory = $true)][string]$Root)
     $enabled = $false

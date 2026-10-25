@@ -3,8 +3,7 @@
     Tests for scripts/lib/dev-pages-lib.ps1 -- the hub and the test-gate page of the dev server
     (#3097) -- and for the plugin libs it reuses: plugins/dkj-policy/hub/lib/general-pages-lib.ps1 -- the page
     shell, the number formats and the four general pages (SessionStart, Artifacts, Issues, Release notes) that
-    moved there in #3119, and to dkj-policy in #3198 -- and plugins/dkj-policy/dkj-solutions/scripts/lib/
-    dkj-solutions-pages-lib.ps1, the Brandbook's card and how the general server serves its build (#3210). Pure: the servers that serve them are
+    moved there in #3119, and to dkj-policy in #3198. Pure: the servers that serve them are
     exercised by connector-dashboard.tests.ps1 and dev-preview-sessionstart.tests.ps1.
 
     Pure ASCII (repo convention for .ps1).
@@ -13,8 +12,6 @@ $ErrorActionPreference = 'Continue'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 . (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1')
-# The hub no longer loads the DKJ-Solutions lib (it shows no brand book), so its own tests load it here.
-. (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\scripts\lib\dkj-solutions-pages-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -73,7 +70,6 @@ Write-Host '-- the hub: the home page on / and About this repo on /about (#3270)
 $pages = @(Get-RepoHubPages)
 Assert-Equal '/repository' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links one page of its own, Repository: Test gate, Stopwatch and Logbook are general pages since #3470, and Connectors, Specialists and the Brandbook are the product''s'
 Assert-Equal '/artifacts,/issues,/release-notes,/sessionstart,/test-gate,/stopwatch,/logbook' ((Get-GeneralPages | ForEach-Object { $_.Href }) -join ',') 'the plugin lists the seven general pages, in order: Test gate, Stopwatch and Logbook every repo''s since #3470'
-Assert-Equal '/brandbook' ((Get-DkjSolutionsPages | ForEach-Object { $_.Href }) -join ',') 'and the one page only DKJ-Solutions repos share, the Brandbook'
 $hub = Format-RepoHubHtml
 Assert-True ($hub -match '<title>dkj-claude-plugins -- Home</title>' -and $hub -notmatch '<h1' -and $hub -notmatch 'class="lead"' -and $hub -notmatch '<main class="page-column">\s*<div>\s*<h1') 'under the site header the home page has no intro at all, and its title says Home'
 Assert-True ($hub -match '(?s)<body>\s*<div class="notice" id="hub-banner".*?</script>\s*<header class="site-header">.*?</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Home</span></li>\s*</ol>') 'the banner opens <body>, the site header under it and the bar right under that, its trail the one crumb Home (owner, October 24, 2026)'
@@ -104,7 +100,7 @@ foreach ($bad in @('https://localhost:5174/', 'http://example.com:5174/', 'http:
     Assert-True ((Format-RepoHubHtml -Pages $pages -ProductUrl $bad) -notmatch 'aria-label="Product"') "a product url that is no plain loopback url is not linked: $bad"
 }
 # CARD ICONS: every card on the home page draws its page's icon before the label, from a key the hub knows.
-Assert-True (@(@($pages) + @(Get-GeneralPages) + @(Get-DkjSolutionsPages) | Where-Object { -not (Get-HubIconSvg -Name $_.Icon) }).Count -eq 0) 'every page a hub links names an icon the hub has'
+Assert-True (@(@($pages) + @(Get-GeneralPages) | Where-Object { -not (Get-HubIconSvg -Name $_.Icon) }).Count -eq 0) 'every page a hub links names an icon the hub has'
 Assert-Equal ([regex]::Matches($about, 'class="card card--link"')).Count ([regex]::Matches($about, '<a class="menu-item" href="[^"]+"><svg class="menu-item__icon"')).Count 'every card on the home page carries its icon, first thing in its row'
 Assert-True ((Get-HubIconSvg -Name '') -eq '' -and (Get-HubIconSvg -Name 'nope') -eq '' -and (Format-HubCardLinkHtml -Href '/x' -Label 'X') -notmatch 'menu-item__icon') 'a card that names no icon, or one the hub lacks, draws none'
 Assert-True ($about -match '<title>dkj-claude-plugins -- Home</title>' -and $about -notmatch '<h1' -and $about -notmatch 'class="eyebrow"' -and $about -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/"') 'it is the home page: the site header names the repo and goes home, no h1 and no eyebrow'
@@ -142,28 +138,6 @@ Assert-True ((@($ix | Where-Object { $_ -lt 0 }).Count -eq 0) -and ((($ix | Sort
 $evil = Format-RepoHubHtml -Pages @(@{ Href = '/x"><script>'; Label = '<b>'; Sub = '' })
 Assert-True ($evil -notmatch 'x"><script>' -and $evil -match 'href="/x&quot;&gt;&lt;script&gt;"' -and $evil -notmatch '<b>') 'every value is escaped'
 Assert-True ($evil -notmatch 'menu-item__sub">[^<]*</span></span><svg[^>]*><path[^>]*/></svg></a>\r?\n</nav>\r?\n</section>\r?\n<section class="card">\r?\n<div') 'and an empty description is left out'
-
-Write-Host '-- the Brandbook: the brandbook/ app''s build, served under /brandbook/' -ForegroundColor Cyan
-Assert-Equal 'index.html' (ConvertTo-BrandbookRelPath -Path '/brandbook/') 'the base is the app''s page'
-Assert-Equal 'assets/index-abc.js' (ConvertTo-BrandbookRelPath -Path '/brandbook/assets/index-abc.js') 'a file is named relative to dist/'
-Assert-Equal 'dashboards/etf' (ConvertTo-BrandbookRelPath -Path '/brandbook/dashboards/etf/') 'a route''s trailing slash goes'
-Assert-True ($null -eq (ConvertTo-BrandbookRelPath -Path '/brandbook') -and $null -eq (ConvertTo-BrandbookRelPath -Path '/connectors')) 'a path outside the base is not the brand book''s'
-Assert-Equal 0 @('/brandbook/../x', '/brandbook/a/../../x', '/brandbook/%2e%2e/x', '/brandbook/a\..\x', '/brandbook/C:/x', '/brandbook//x', '/brandbook/./x' |
-    Where-Object { $null -ne (ConvertTo-BrandbookRelPath -Path $_) }).Count 'a path that could climb out of dist/ is refused, encoded or not'
-$bbDir = Join-Path ([System.IO.Path]::GetTempPath()) "dev-pages-bb-$PID-$([guid]::NewGuid().ToString('n'))"
-New-Item -ItemType Directory -Path (Join-Path $bbDir 'assets') -Force | Out-Null
-Set-Content -LiteralPath (Join-Path $bbDir 'index.html') -Value '<div id="root"></div>'
-Set-Content -LiteralPath (Join-Path $bbDir 'assets\a.js') -Value 'x'
-try {
-    Assert-Equal 'assets/a.js' (Resolve-BrandbookFile -Path '/brandbook/assets/a.js' -BuildDir $bbDir).Rel 'a file of the build is served as itself'
-    Assert-Equal 'index.html' (Resolve-BrandbookFile -Path '/brandbook/repository' -BuildDir $bbDir).Rel 'one of the app''s routes is answered with its page'
-    Assert-Equal 'assets/gone.js' (Resolve-BrandbookFile -Path '/brandbook/assets/gone.js' -BuildDir $bbDir).Rel 'a missing file stays a missing file, so it is a 404 rather than the page'
-    Assert-True ($null -eq (Resolve-BrandbookFile -Path '/brandbook/../x' -BuildDir $bbDir)) 'and an unsafe path resolves to nothing'
-} finally { Remove-Item -LiteralPath $bbDir -Recurse -Force -ErrorAction SilentlyContinue }
-Assert-True ((Get-BrandbookBuildDir -PluginRoot 'C:\p\dkj-policy\') -eq 'C:\p\dkj-policy\dkj-solutions\assets\brandbook') 'the shipped build is the dkj-solutions extension''s assets/brandbook/ (#3210)'
-$bm = Format-BrandbookMissingHtml -RepoName 'Org/<r>'
-Assert-True ($bm -match '<h1>Brandbook</h1>' -and $bm -match '<a href="/hub">Home</a>' -and $bm -match 'ships no build of the brand book' -and $bm -match 'Org/&lt;r&gt;') 'a payload with no build says so, as a general page, and escapes the repo name'
-Assert-Equal 'text/javascript; charset=utf-8|text/css; charset=utf-8|image/svg+xml|application/octet-stream' (('a.js', 'b.css', 'c.svg', 'd.map' | ForEach-Object { Get-BrandbookContentType -RelPath $_ }) -join '|') 'each file is sent with its type'
 
 Write-Host '-- the test-gate model' -ForegroundColor Cyan
 $json = '{ "seconds": { "a.tests.ps1": 10, "b.tests.ps1": 30, "gone.tests.ps1": 5 }, "recordedFrom": { "runs": ["111", "222"], "date": "2026-10-07", "machine": "m", "method": "mean" } }' | ConvertFrom-Json
@@ -595,8 +569,7 @@ Assert-True ($sp.Contains('~' + (Format-DevNumber ([Math]::Round(1000 / 3.12))) 
 Assert-True ($sp.Contains('3.12 characters per token')) 'the footer names the factor, so the estimate is labelled as one'
 Assert-True ((Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3.12).Contains('No specialist was found')) 'none found says so instead of an empty table'
 Assert-True ((Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3.12 -ReadError 'x.md').Contains('msg--warn')) 'a failed read is a warning on the page'
-Write-Host '-- the DKJ repos page (#3231): in the DKJ-Solutions card, and what it shows' -ForegroundColor Cyan
-Assert-True ((Format-DkjSolutionsPagesCardHtml -PagesUrl 'http://localhost:4890' -SameOrigin) -notmatch 'dkj-repos' -and (Format-DkjSolutionsPagesCardHtml -PagesUrl 'http://localhost:4890' -SameOrigin) -match 'the house style they are all built from') 'a hub that passes no local page draws the card as it always was'
+Write-Host '-- the DKJ repos page (#3231): what it shows' -ForegroundColor Cyan
 $gql = '{"data":{"organization":{"repositories":{"nodes":[' +
     '{"name":"dkj-lifehub","nameWithOwner":"DKJ-Solutions/dkj-lifehub","url":"https://github.com/DKJ-Solutions/dkj-lifehub","description":"<b>life</b>","visibility":"PRIVATE","isArchived":false,"pushedAt":"2026-10-20T10:00:00Z","issues":{"totalCount":3},"pullRequests":{"totalCount":0}},' +
     '{"name":"old","nameWithOwner":"DKJ-Solutions/old","url":"https://github.com/DKJ-Solutions/old","description":null,"visibility":"PUBLIC","isArchived":true,"pushedAt":"2025-01-01T00:00:00Z","issues":{"totalCount":0},"pullRequests":{"totalCount":0}}]}}}}'

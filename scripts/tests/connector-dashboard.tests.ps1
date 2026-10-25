@@ -22,7 +22,6 @@ $Server   = Join-Path $RepoRoot 'scripts\dashboard\serve-connector-dashboard.ps1
 . (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1')
 # The state file's reader and writer, which the server and these fixtures share (#3119).
 $PluginLib = Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib'
-$SolutionsPagesLib = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\scripts\lib\dkj-solutions-pages-lib.ps1'
 $GeneralServer = Join-Path $RepoRoot 'plugins\dkj-policy\hub\pages\serve-general-pages.ps1'
 . (Join-Path $PluginLib 'general-pages-state.ps1')
 . (Join-Path $PluginLib 'loopback-server-lib.ps1')
@@ -412,9 +411,8 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $src 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $src 'scripts\lib\')
         # dev-pages-lib reads the plugins' libs from the plugin tree beside scripts/, and the server its state reader.
-        New-Item -ItemType Directory -Force -Path (Join-Path $src 'plugins\dkj-policy\hub\lib'), (Join-Path $src 'plugins\dkj-policy\dkj-solutions\scripts\lib') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $src 'plugins\dkj-policy\hub\lib') | Out-Null
         Copy-Item (Join-Path $PluginLib '*.ps1') (Join-Path $src 'plugins\dkj-policy\hub\lib\')
-        Copy-Item $SolutionsPagesLib (Join-Path $src 'plugins\dkj-policy\dkj-solutions\scripts\lib\')
         Copy-Item $Server (Join-Path $src 'scripts\dashboard\')
         Set-Content -LiteralPath (Join-Path $src 'connectors\noup.json') -Encoding ASCII -Value '{ "repo": "Org/noup", "visibility": "private", "localCheckout": "../noup", "plugins": [] }'
         Set-Content -LiteralPath (Join-Path $src 'connectors\far.json') -Encoding ASCII -Value ('{ "repo": "Org/far", "visibility": "public", "localCheckout": "../../../' + (Split-Path -Leaf $outside) + '", "plugins": [] }')
@@ -492,8 +490,8 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
                 '-StopwatchPath', "`"$(Join-Path $fixture 'timing\stopwatch.json')`"", '-LogbookPath', "`"$(Join-Path $fixture 'timing\logbook.json')`"", '-TranscriptDir', "`"$(Join-Path $fixture 'timing\transcripts')`"")
             try {
                 Assert-True (Wait-ServerUp $genPort3) 'the fixture''s general pages server listens'
-                # The fixture enables no dkj-solutions, the way a BWJ-Development repo does not (#3198): no Brandbook.
-                Assert-True ((Get-Raw 'GET' '/brandbook' "localhost:$genPort3" '' $genPort3) -match 'HTTP/1.1 404') 'the general server serves no Brandbook in a repo that does not enable dkj-solutions'
+                # The brand book is the source repo's product, so the general server serves it in no repo (#3475).
+                Assert-True ((Get-Raw 'GET' '/brandbook' "localhost:$genPort3" '' $genPort3) -match 'HTTP/1.1 404') 'the general server serves no Brandbook'
                 # SERVED FROM THIS ORIGIN (#3168): the general server builds the page, this server relays its answer
                 # as it came -- so the browser stays on one origin, and one theme choice holds on every page.
                 $r = if ($up) { Get-Raw 'GET' '/artifacts' "localhost:$port3" '' $port3 } else { '' }
@@ -567,9 +565,8 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'scripts\lib'), (Join-Path $fixture4 'scripts\dashboard'),(Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\assets\house-style') | Out-Null
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
-        New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'plugins\dkj-policy\hub\lib'), (Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\scripts\lib') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'plugins\dkj-policy\hub\lib') | Out-Null
         Copy-Item (Join-Path $PluginLib '*.ps1') (Join-Path $fixture4 'plugins\dkj-policy\hub\lib\')
-        Copy-Item $SolutionsPagesLib (Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\scripts\lib\')
         Copy-Item $Server (Join-Path $fixture4 'scripts\dashboard\')
         # The stylesheet is there and the theme script is not: a present and a missing static file side by side.
         [System.IO.File]::WriteAllText((Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\assets\house-style\house-style.css'), 'body{}')
@@ -672,7 +669,7 @@ $rsHub = Join-Path $rsRoot 'org\hub'
 New-Item -ItemType Directory -Force -Path (Join-Path $rsHub 'connectors'), (Join-Path $rsHub 'scripts\lib'), (Join-Path $rsRoot 'org\dkj-lifehub') | Out-Null
 # repo-session.ps1 loads the hub's page lib, which loads the connector lib and the plugin libs beside it
 # (dev-preview-rules.ps1 for the Product card's url rule, #3468; test-gate-lib.ps1, the Test gate's page, #3470).
-foreach ($lib in 'scripts\lib\connector-dashboard-lib.ps1', 'scripts\lib\dev-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\general-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\dev-preview-rules.ps1', 'plugins\dkj-policy\hub\lib\test-gate-lib.ps1', 'plugins\dkj-policy\dkj-solutions\scripts\lib\dkj-solutions-pages-lib.ps1') {
+foreach ($lib in 'scripts\lib\connector-dashboard-lib.ps1', 'scripts\lib\dev-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\general-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\dev-preview-rules.ps1', 'plugins\dkj-policy\hub\lib\test-gate-lib.ps1') {
     $to = Join-Path $rsHub (Split-Path -Parent $lib)
     New-Item -ItemType Directory -Force -Path $to | Out-Null
     Copy-Item -LiteralPath (Join-Path $RepoRoot $lib) -Destination $to

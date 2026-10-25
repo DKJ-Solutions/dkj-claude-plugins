@@ -660,7 +660,7 @@ the open issues and the pull requests moved to the **Repository** page on `/repo
 | 0 | The general banner, the first thing on the page, above the site header, with no margin, border or radius (owner, October 24, 2026): a countdown to the next full hour, and once an hour has passed a tone and a **10 airsquats** checkbox that shows the total owed ([#3250](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3250)), the same on every machine ([#3438](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3438)) | a `.notice` holding one `.msg` line, written by `Format-RepoHubBanner` in `dkj-policy`'s `hub/lib/general-pages-lib.ps1` | fixed: a hub a repo builds itself carries it only if it calls that function |
 | 1 | The site header: the mark and the repo's name with `hub` after it, linking home, and the settings button on the far right ([above](#the-site-header-above-the-bar)). It names the repo, so there is **no intro**: no `h1`, no lead, no eyebrow | `.site-header`, `DKJTheme.settings(el)` mounted in its `#settings` | fixed; the name is the repo's own |
 | 2 | The breadcrumb bar under it: the one crumb **Home** ([above](#every-page-the-breadcrumb-bar)) | `.breadcrumbs-bar` / `.breadcrumbs` | fixed |
-| 3 | **The pages**, every one a card of its own, in this order: the repo's products, its own pages with **Repository** among them, the general pages but Issues, and the Brand book pages (below) | one `.grid-3`, **no** `.grid__head`, holding one `.card.card--link` per page | fixed form; the products and the repo's own pages are the repo's own |
+| 3 | **The pages**, every one a card of its own, in this order: the repo's products, its own pages with **Repository** among them, and the general pages but Issues (below) | one `.grid-3`, **no** `.grid__head`, holding one `.card.card--link` per page | fixed form; the products and the repo's own pages are the repo's own |
 | 4 | Only where the plugin's hub serves a repo that states no product: the two **Set up a product** cards, under their own `h2` | a `.grid-2` with a `.grid__head`, then one `.card.grid__full` per step | the plugin's own text |
 | 5 | A footer note naming where the data comes from | `.footer-note` | the repo's own source |
 
@@ -695,9 +695,9 @@ saying so, in the place its card would take. `Format-HubCardLinkHtml` in `dkj-po
 
 **The order of the cards.** The products come first, because they are what the repo offers its visitors; a
 product is never the page on `/`. Then the repo's own pages, **Repository** among them; then the general
-pages every repo has (Artifacts, Release notes, SessionStart), Issues left to the Repository page; and in a
-repo under the DKJ brand, one that enables `dkj-solutions`, the Brand book pages last. A repo may add
-DKJ-Solutions pages it serves itself to that last group.
+pages every repo has (Artifacts, Release notes, SessionStart), Issues left to the Repository page. No hub
+carries a Brand book card: the brand book is a product of `dkj-claude-plugins`, shown only there
+([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475)).
 
 **The in-flight lists, where a repo has them:** open pull requests, newest first, with the branch as the
 sub line (and "(draft)" on a draft); open issues by their `prio-N` label, unprioritised last and the highest

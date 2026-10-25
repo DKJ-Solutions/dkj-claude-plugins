@@ -23,7 +23,8 @@ them, and this file points there
   versioning *within* it is correct: [Tessa's lens](../specialists/lenses/specialist-06-16-lens.md#one-product-one-repository).
 - **It consumes itself, with three of the seven plugins enabled** in
   [`.claude/settings.json`](../settings.json): the core team, `dkj-policy` and `dkj-solutions`, the last
-  for the house style and the hub's DKJ-Solutions card (#2976, #3198). The three add-on teams
+  for the house style and its session check (#2976, #3198; the hub's DKJ-Solutions card it also gave
+  ended with #3475). The three add-on teams
   (Dave, September 30, 2026) and the BWJ extension, then `dkj-policy-bwj` (October 1), are set to `false`. That reverses the
   September 8 choice to enable every plugin for validation, because none of the four has work here, so
   an issue here is filed with a plain `gh issue create`. The roster is in

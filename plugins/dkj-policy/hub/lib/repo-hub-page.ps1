@@ -14,8 +14,7 @@
 
     THE HOUSE HUB FORM (#3383, the owner, October 24, 2026), which the source repo's own hub took first: under
     the site header the home page is ONE .grid-3 of card links with no heading above them -- the product, the
-    Repository page, the General pages but Issues and, in a DKJ-Solutions repo (-DkjSolutions), the Brand book
-    pages -- each a .card.card--link (Format-HubCardLinkHtml). A repo that states no product gets the two setup
+    Repository page and the General pages but Issues -- each a .card.card--link (Format-HubCardLinkHtml). A repo that states no product gets the two setup
     cards under the grid. The facts and the Issues page are the Repository page's (Format-PluginRepoRepositoryHtml),
     not the home page's: the home page only gets you somewhere.
 
@@ -39,8 +38,6 @@
 
 . (Join-Path $PSScriptRoot 'dev-preview-rules.ps1')
 . (Join-Path $PSScriptRoot 'general-pages-lib.ps1')
-$dkjSolutionsPagesLib = Get-DkjSolutionsPagesLibPath -PluginRoot (Join-Path $PSScriptRoot '..\..')
-if (Test-Path -LiteralPath $dkjSolutionsPagesLib -PathType Leaf) { . $dkjSolutionsPagesLib }
 
 function ConvertTo-PluginRepoHubName {
     <#
@@ -60,19 +57,18 @@ function Format-PluginRepoHubHtml {
         the setup cards show) or 'product' (a server of its own: the first card links it). -ProductUrl is that
         server's url, or empty where it is not running (its card says so). -PagesUrl is this server's own base
         url; it is always the general server that serves this page, so every card links by bare path, and
-        without one the General cards give way to a line saying the server is not running. -DkjSolutions adds
-        the Brand book pages, for a repo that enables that plugin. -Folder is kept for the callers: the facts it
-        named are the Repository page's now.
+        without one the General cards give way to a line saying the server is not running. -Folder is kept for
+        the callers: the facts it named are the Repository page's now. No Brand book card: the brand book is the
+        source repo's product, and a consumer hub neither links nor serves it (#3475).
     #>
     param(
         [AllowNull()][AllowEmptyString()][string]$RepoName,
         [AllowNull()][AllowEmptyString()][string]$Folder = '',
         [ValidateSet('none', 'product')][string]$Mode = 'none',
         [AllowEmptyString()][string]$ProductUrl = '',
-        [AllowEmptyString()][string]$PagesUrl = '',
-        [switch]$DkjSolutions
+        [AllowEmptyString()][string]$PagesUrl = ''
     )
-    $n = ConvertTo-GeneralPageText (ConvertTo-PluginRepoHubName $RepoName)
+    $n =ConvertTo-GeneralPageText (ConvertTo-PluginRepoHubName $RepoName)
     $product = if (Test-RepoHubLocalUrl $ProductUrl) { $ProductUrl } else { '' }
     $general = $PagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z'
     $e = { param($v) ConvertTo-GeneralPageText $v }
@@ -100,7 +96,7 @@ function Format-PluginRepoHubHtml {
     [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName $n -Lead $lead -Brand (ConvertTo-SiteHeaderName -RepoName (ConvertTo-PluginRepoHubName $RepoName)) -BrandTag 'hub'))
 
     # Every page a card of its own, three to a row, with no heading above them (#3383): the product first, then
-    # the Repository page, the General pages but Issues (the Repository page's), and the Brand book pages.
+    # the Repository page, and the General pages but Issues (the Repository page's).
     [void]$sb.AppendLine('<div class="grid-3">')
     if ($Mode -eq 'product') {
         if ($product) {
@@ -112,9 +108,6 @@ function Format-PluginRepoHubHtml {
     [void]$sb.AppendLine((Format-HubCardLinkHtml -Href '/repository' -Label 'Repository' -Sub 'This repo''s facts and its open issues' -Icon 'repository'))
     if ($general) {
         foreach ($p in @(Get-GeneralPages | Where-Object { $_.Href -ne '/issues' })) { [void]$sb.AppendLine((Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon)) }
-        if ($DkjSolutions -and (Get-Command Get-DkjSolutionsPages -ErrorAction SilentlyContinue)) {
-            foreach ($p in @(Get-DkjSolutionsPages)) { [void]$sb.AppendLine((Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon)) }
-        }
     } else {
         [void]$sb.AppendLine('<section class="card grid__full"><p class="msg" role="status">The general pages server is not running. It starts at the next session start, and its pages are linked here from then on.</p></section>')
     }
