@@ -2,7 +2,27 @@
 
 ## [Unreleased]
 
-**16 / 35 minor entries** <!-- pending-tally -->
+**16 / 36 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/stopwatch-run-page-no-duplicates · 20261025-143558Z
+
+A Stopwatch run page names the run's start once, in its heading, and its total time once, as the closing Total row of its phases table with its change against the previous run beside it as the label page writes it, a sign and a percent (+32%). The separate Time card is gone, and the phase card no longer carries a title restating the start and the time, and the label beneath the heading and the Phases heading with its explanation are gone too, the label staying in the crumbs, so the page stays compact. The Logbook's run page, which shares the layout, gets the same total row with its work time beside it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the Stopwatch is this repo's own dev hub page, which no consumer runs.
+
+**Score:** N/A
+
+#### Pull Request
+
+A stopwatch run page shows its start and time once
+
+[PR #3450](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3450)
+
+---
 
 ### DEPLOY: feat/3439-airsquats-gist-opt-in · 20261025-143257Z
 
