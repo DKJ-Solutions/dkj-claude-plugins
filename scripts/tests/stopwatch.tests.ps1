@@ -175,6 +175,9 @@ Assert-Equal 40 (Get-StopwatchSlugs -Labels @('a' * 100))['a' * 100].Length 'a s
 $clash = Get-StopwatchSlugs -Labels @('A b', 'a-b', 'Other')
 Assert-True ($clash['a b'] -ne $clash['a-b'] -and $clash['a b'] -match '^a-b-[0-9a-f]{6}$' -and $clash['a-b'] -match '^a-b-[0-9a-f]{6}$') 'two labels that slug the same each take a hash suffix and do not merge'
 Assert-Equal 'other' $clash['other'] 'a label that collides with nobody keeps its plain slug'
+Assert-Equal 'hub-lib-comment' (Get-StopwatchSlugs -Labels @('Hub lib comment, start to end'))['hub lib comment, start to end'] 'a slug is made of the label''s short title (the owner, October 25, 2026)'
+$short2 = Get-StopwatchSlugs -Labels @('Hub lib comment, start to end', 'Hub lib comment')
+Assert-True ($short2['hub lib comment'] -ne $short2['hub lib comment, start to end'] -and $short2['hub lib comment'] -match '^hub-lib-comment-[0-9a-f]{6}$') 'two labels with one short title are kept apart by the hash suffix'
 $clash2 = Get-StopwatchSlugs -Labels @('Other', 'a-b', 'A b')
 Assert-True ($clash2['a b'] -ceq $clash['a b'] -and $clash2['a-b'] -ceq $clash['a-b']) 'the suffixes depend on the label, not on the order'
 foreach ($g in @($m.Groups)) { Assert-Equal $g.Latest (Find-StopwatchGroup -Model $m -Slug $g.PageSlug).Latest ("the slug '$($g.PageSlug)' finds its run again") }
@@ -221,9 +224,9 @@ Assert-True ($lab -match '\.sw-grid \{ display: grid; grid-template-columns: rep
 Assert-True ($labs -match ('<section class="card card--link sw-card"><p class="sw-stamp">' + [regex]::Escape((& $sp 3000)) + '</p><p class="sw-instruction"><a href="/stopwatch/css-comment/' + (& $stampAt 3000) + '">CSS comment</a> <span class="muted">v3</span></p><p class="sw-time num">4:10 <span class="sw-change sw-change--bad">-25%</span></p></section>')) 'a run card holds three lines: the run''s start, its label linking the run''s page under the label''s, and its time with its change in percent beside it'
 $longSet = @(Get-StopwatchLabelSets -Model (ConvertTo-StopwatchModel -Runs @((& $mk 'Hub lib comment, start to end' 0 10))))[0]
 $long = Format-StopwatchLabelPageHtml -Set $longSet -StorePath 's'
-Assert-True ($long -match '<h2>Hub lib comment</h2>' -and $long -match '<title>[^<]*Hub lib comment</title>' -and $long -match '<span aria-current="page">Hub lib comment</span>' -and $long -match ('href="/stopwatch/hub-lib-comment-start-to-end/[^"]+">Hub lib comment</a>') -and $long -notmatch '>Hub lib comment, start to end<') 'a label page names the label by its short title, in its heading, its title, its crumb and its run cards (the owner, October 25, 2026)'
+Assert-True ($long -match '<h2>Hub lib comment</h2>' -and $long -match '<title>[^<]*Hub lib comment</title>' -and $long -match '<span aria-current="page">Hub lib comment</span>' -and $long -match ('href="/stopwatch/hub-lib-comment/[^"]+">Hub lib comment</a>') -and $long -notmatch '>Hub lib comment, start to end<') 'a label page names the label by its short title, in its heading, its title, its crumb and its run cards (the owner, October 25, 2026)'
 $longRun = Format-StopwatchRunPageHtml -Group $longSet.Groups[0] -StorePath 's' -LabelCrumb
-Assert-True ($longRun -match '<p class="card__sub">Hub lib comment</p>' -and $longRun -match '<a href="/stopwatch/hub-lib-comment-start-to-end">Hub lib comment</a>') 'with -LabelCrumb a run page names its label by its short title, beneath the heading and in the crumb'
+Assert-True ($longRun -match '<p class="card__sub">Hub lib comment</p>' -and $longRun -match '<a href="/stopwatch/hub-lib-comment">Hub lib comment</a>') 'with -LabelCrumb a run page names its label by its short title, beneath the heading and in the crumb'
 Assert-True ($labs -match '<p class="sw-time num">3:20 <span class="sw-change sw-change--good">\+33%</span></p>') 'a faster run carries a plus and the percent of the run before'
 Assert-True ($labs -match ('<p class="sw-stamp">' + [regex]::Escape((& $sp 2000)) + '</p><p class="sw-instruction"><a href="[^"]+">Docs</a></p><p class="sw-time num">8:20</p></section>')) 'a label''s first run has no change beside its time'
 Assert-True ($labs -notmatch 'than the run before|first run' -and $page -notmatch 'than the run before|first run') 'a card carries no words for its change'

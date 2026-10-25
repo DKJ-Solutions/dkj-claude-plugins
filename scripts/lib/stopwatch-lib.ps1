@@ -248,8 +248,9 @@ function Invoke-StopwatchHookEvent {
 function Get-StopwatchSlugs {
     <#
         The URL slug of each label in -Labels, as a hashtable from the label lower-cased (labels group
-        case-insensitively) to its slug (#3323). A slug is the label's lower-case letters and digits with every other
-        run turned into one dash, cut at 40 characters, and 'run' for a label with none. Two labels that give the
+        case-insensitively) to its slug (#3323). A slug is the lower-case letters and digits of the label's short
+        title (Get-StopwatchShortTitle, the owner, October 25, 2026), with every other run turned into one dash, cut at
+        40 characters, and 'run' for a label with none. Two labels that give the
         same slug are never merged: each of them takes a suffix, the first hex digits of the SHA-1 of its
         lower-cased label, as many as it takes for every slug to differ. So a slug depends only on the label and on
         whether another label shares its base, never on the order the runs came in.
@@ -258,7 +259,7 @@ function Get-StopwatchSlugs {
     $keys = @($Labels | Where-Object { $_ } | ForEach-Object { $_.ToLowerInvariant() } | Sort-Object -Unique)
     $base = @{}
     foreach ($k in $keys) {
-        $b = ($k -replace '[^a-z0-9]+', '-').Trim('-')
+        $b = ((Get-StopwatchShortTitle $k) -replace '[^a-z0-9]+', '-').Trim('-')
         if ($b.Length -gt 40) { $b = $b.Substring(0, 40).Trim('-') }
         if (-not $b) { $b = 'run' }
         $base[$k] = $b

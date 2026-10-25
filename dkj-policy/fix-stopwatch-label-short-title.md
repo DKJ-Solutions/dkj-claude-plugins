@@ -43,6 +43,7 @@
 
 - [x] `stopwatch-lib.ps1`: the label page's heading and title, its run cards, and a run page's label line and
   crumb use the short title (`Get-StopwatchShortTitle`), as the overview card already did
+- [x] `Get-StopwatchSlugs`: a label's slug is made of its short title
 - [x] `serve-connector-dashboard.ps1`: a run's page moves to `/stopwatch/<label>/<run>`, so the URL reads as the
   crumbs do; a bare `/stopwatch/<run>` answers 301 to it, and a run under a label it is not of is a 404
 
@@ -56,8 +57,9 @@
 
 On the Stopwatch's label and run pages, a label such as `hub lib comment, start to end` is named by its short
 title, `hub lib comment`, as its card on the overview already was; the prompt to type still shows the whole
-label. A run's page now lives under its label's, `/stopwatch/<label>/<run>`, matching its crumbs, and an old
-`/stopwatch/<run>` link redirects there.
+label. A label's URL is made of that short title too (`/stopwatch/hub-lib-comment`; two labels sharing one keep
+the hash suffix that already kept clashing slugs apart). A run's page now lives under its label's,
+`/stopwatch/<label>/<run>`, matching its crumbs, and an old `/stopwatch/<run>` link redirects there.
 
 **Score:** 2
 
