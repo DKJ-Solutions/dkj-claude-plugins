@@ -48,15 +48,18 @@ stops for the owner's look instead of merging.
 - [x] An icon key on every page a hub card links: the general pages, this repo's hub pages, the Brandbook, and the plugin hub's Product, Repository, Issues, Pull requests and Actions cards
 - [x] The product port's root page (`brandbook/root.html`): an icon on its Brandbook, Connectors, Specialists and DKJ repos cards -- the home page the owner looked at first
 
+- [x] House style, at the owner's word: `.menu-item` loses its padding and its gap grows from `--spacing-3` to `--spacing-4`; `.card` padding grows from `--spacing-5` to `--spacing-6`; the sha256 in the `house-style` skill repinned
+
 ### TEST
 
 - [x] `dev-pages.tests.ps1`: every linked page names a known icon, every home card draws one, and a card naming none draws none; the row-shape assert now reads icon, label, description, chevron -- 319 passed
 - [x] `dev-preview-sessionstart.tests.ps1` -- 359 passed
+- [x] `check-house-style`, `connector-dashboard`, `house-palette` suites green after the repin, and `check-house-style.ps1` holds
 - [x] The live hub on 4871 restarted: the home page draws 7 icons, one per card
 
 ### DEPLOY: feat/hub-card-icons
 
-Every card on a hub's home page now carries an icon before its label -- Test gate, Stopwatch, Logbook, Repository and the general pages here, and the Product, Repository, general and Brandbook cards on the plugin's hub in every other repo -- as do the cards on the Repository page. The product port's root page gives its Brandbook, Connectors, Specialists and DKJ repos cards one too. The icons are line drawings stroked in the text colour, like the chevron, set in the house style's existing `.menu-item__icon` slot, so the house stylesheet is unchanged.
+Every card on a hub's home page now carries an icon before its label -- Test gate, Stopwatch, Logbook, Repository and the general pages here, and the Product, Repository, general and Brandbook cards on the plugin's hub in every other repo -- as do the cards on the Repository page. The product port's root page gives its Brandbook, Connectors, Specialists and DKJ repos cards one too. The house style moves with it: a `.menu-item` row has no padding of its own and a wider gap (`--spacing-4`) between icon, label and chevron, and a `.card` is padded at `--spacing-6` instead of `--spacing-5` -- in every app that renders the house style. The icons are line drawings stroked in the text colour, like the chevron, set in the house style's existing `.menu-item__icon` slot, so the house stylesheet is unchanged.
 
 **Score:** 2
 
