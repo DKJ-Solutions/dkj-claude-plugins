@@ -88,10 +88,10 @@ function Get-RepoHubPages {
         not listed here.
     #>
     @(
-        @{ Href = '/test-gate';   Label = 'Test gate';   Sub = 'What each test suite costs on CI' },
-        @{ Href = '/stopwatch';   Label = 'Stopwatch';   Sub = 'How long an assignment takes, timed from a stopwatch: prompt to back on the trunk, with the transcript phases' },
-        @{ Href = '/logbook';     Label = 'Logbook';     Sub = 'Every assignment of a clean session, timed by itself: first prompt to back on the trunk, with the transcript phases' },
-        @{ Href = '/repository';  Label = 'Repository';  Sub = 'The GitHub repo: its facts, its open issues and its pull requests' }
+        @{ Href = '/test-gate';   Label = 'Test gate';   Sub = 'What each test suite costs on CI'; Icon = 'test-gate' },
+        @{ Href = '/stopwatch';   Label = 'Stopwatch';   Sub = 'How long an assignment takes, timed from a stopwatch: prompt to back on the trunk, with the transcript phases'; Icon = 'stopwatch' },
+        @{ Href = '/logbook';     Label = 'Logbook';     Sub = 'Every assignment of a clean session, timed by itself: first prompt to back on the trunk, with the transcript phases'; Icon = 'logbook' },
+        @{ Href = '/repository';  Label = 'Repository';  Sub = 'The GitHub repo: its facts, its open issues and its pull requests'; Icon = 'repository' }
     )
 }
 
@@ -116,15 +116,15 @@ function Format-RepoGitHubPageHtml {
     if ($SourceCommit) { [void]$sb.AppendLine('<div><dt>Source at</dt><dd><code>' + (& $e $SourceCommit) + '</code></dd></div>') }
     [void]$sb.AppendLine('</dl>')
     # Each page a card of its own: the plugin's Format-HubCardLinkHtml, the house hub card (#3383).
-    $card = { param($href, $label, $sub) Format-HubCardLinkHtml -Href $href -Label $label -Sub $sub }
+    $card = { param($href, $label, $sub, $icon) Format-HubCardLinkHtml -Href $href -Label $label -Sub $sub -Icon $icon }
     [void]$sb.AppendLine('<div class="grid-3">')
     if ($GeneralPagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z') {
-        [void]$sb.AppendLine((& $card '/issues' 'Issues' 'The open issues, grouped by what they wait on'))
+        [void]$sb.AppendLine((& $card '/issues' 'Issues' 'The open issues, grouped by what they wait on' 'issues'))
     } else {
         [void]$sb.AppendLine('<section class="card"><p class="msg" role="status">Issues is a general page, and the general pages server is not running. It starts at the next session start.</p></section>')
     }
-    [void]$sb.AppendLine((& $card "$gh/pulls" 'Pull requests' 'On GitHub'))
-    [void]$sb.AppendLine((& $card "$gh/actions" 'Actions' 'The CI runs, on GitHub'))
+    [void]$sb.AppendLine((& $card "$gh/pulls" 'Pull requests' 'On GitHub' 'pull-request'))
+    [void]$sb.AppendLine((& $card "$gh/actions" 'Actions' 'The CI runs, on GitHub' 'actions'))
     [void]$sb.AppendLine('</div>')
     return Format-DevPageHtml -Title 'Repository' -Body $sb.ToString() `
         -Lead 'The GitHub repo this hub serves: its facts, its open issues and its pull requests.' `
@@ -185,7 +185,7 @@ function Format-RepoAboutBodyHtml {
     # menu-item row (the plugin's Format-HubCardLinkHtml). The general pages are linked by bare path, since this hub
     # relays them (#3168), and only when a plain loopback server answers -- the rule Format-GeneralPagesCardHtml
     # applies; otherwise one card says the server is not running.
-    $pageCard = { param($p) Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub }
+    $pageCard = { param($p) Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon }
     $general = $GeneralPagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z'
     [void]$sb.AppendLine('<div class="grid-3">')
     foreach ($p in @($Pages)) { [void]$sb.AppendLine((& $pageCard $p)) }

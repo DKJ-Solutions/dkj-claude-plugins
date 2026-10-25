@@ -39,19 +39,31 @@
 
 ### PLAN
 
+Owner's ask (October 25, 2026): give every card on the home page an icon. A visible result, so the branch
+stops for the owner's look instead of merging.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `general-pages-lib.ps1`: a set of line icons (`$script:HubIcons`), `Get-HubIconSvg`, and an optional `-Icon` on `Format-HubCardLinkHtml`, drawn before the label in the house `.menu-item__icon` slot
+- [x] An icon key on every page a hub card links: the general pages, this repo's hub pages, the Brandbook, and the plugin hub's Product, Repository, Issues, Pull requests and Actions cards
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: every linked page names a known icon, every home card draws one, and a card naming none draws none; the row-shape assert now reads icon, label, description, chevron -- 319 passed
+- [x] `dev-preview-sessionstart.tests.ps1` -- 359 passed
+- [x] The live hub on 4871 restarted: the home page draws 7 icons, one per card
+
 ### DEPLOY: feat/hub-card-icons
 
-**Score:**
+Every card on a hub's home page now carries an icon before its label -- Test gate, Stopwatch, Logbook, Repository and the general pages here, and the Product, Repository, general and Brandbook cards on the plugin's hub in every other repo -- as do the cards on the Repository page. The icons are line drawings stroked in the text colour, like the chevron, set in the house style's existing `.menu-item__icon` slot, so the house stylesheet is unchanged.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer's hub home page gains an icon on every card once the plugin is updated; nothing else changes.
+
+**Score:** 2
 
 #### Pull Request
 

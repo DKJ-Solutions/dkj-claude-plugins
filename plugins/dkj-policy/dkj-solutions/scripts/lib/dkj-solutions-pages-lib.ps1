@@ -36,7 +36,7 @@ function Get-DkjSolutionsPages {
         server, listed in a card of their own because a repo of another organisation has none of them.
     #>
     @(
-        @{ Href = '/brandbook'; Label = 'Brandbook'; Sub = 'The house style: its tokens, its twelve themes and its components, as the dkj-solutions plugin ships them' }
+        @{ Href = '/brandbook'; Label = 'Brandbook'; Sub = 'The house style: its tokens, its twelve themes and its components, as the dkj-solutions plugin ships them'; Icon = 'brandbook' }
     )
 }
 
