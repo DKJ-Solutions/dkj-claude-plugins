@@ -1035,11 +1035,13 @@ $script:AdoptionRecords = @(
            '.github/workflows/fold-on-merge.yml',
            '.github/workflows/verify-resolved.yml',
            '.github/workflows/repo-settings.yml',
-           '.github/workflows/merge-on-green.yml'
+           '.github/workflows/merge-on-green.yml',
+           '.github/workflows/close-parked-recurrences.yml'
        );
        Gained = @{
            '.github/workflows/repo-settings.yml' = 'joined this command under #1843 in September 2026, and is not queue machinery at all -- it asks whether a GitHub-side repo setting still matches what scripts/repo-config.ps1 declares';
-           '.github/workflows/merge-on-green.yml' = 'joined this command under #2329 in September 2026 -- ship-pr arms a CI-refused pull request with merge-when-green in every consumer, and without this sweep nothing reads that label'
+           '.github/workflows/merge-on-green.yml' = 'joined this command under #2329 in September 2026 -- ship-pr arms a CI-refused pull request with merge-when-green in every consumer, and without this sweep nothing reads that label';
+           '.github/workflows/close-parked-recurrences.yml' = 'joined this command under #3422 in October 2026 -- it closes an issue parked on a recurrence label as not planned, a rule that had been prose only'
        };
        NotPlaced = @{
            '.github/workflows/ci.yml' = 'offered only to a repo with NO pull_request check at all, so its absence is the ordinary state rather than a gap -- and a repo that has its own CI never wants this one'

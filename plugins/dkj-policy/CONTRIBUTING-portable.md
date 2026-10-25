@@ -221,6 +221,10 @@ label's name moved. Six things follow from being a record:
   then a comment on the record and a **reopen**. The two closing reasons keep their meanings apart: *completed* says the root cause is
   repaired, *not planned* says only that nothing is being built until the next instance. Because a closed
   record drops out of the default issue list, the search before filing reads closed issues too (below).
+  **Where the CI floor is adopted, this close is automatic**
+  ([#3422](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3422)): the
+  `close-parked-recurrences.yml` runner closes an open issue the moment it is filed with or given either
+  recurrence label, and adds the `[RECORD]` prefix where it is missing. A reopen does not wake it.
 - **A record is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,
   and no single repair closes it, so a sweep that picks one up finds nothing to build. Both pickup routes
   skip `awaiting-recurrences` by default, exactly as they skip `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-review-dev`, `awaiting-review-client`, `awaiting-pull`, `awaiting-pull-external`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release` and
@@ -272,7 +276,8 @@ skip `awaiting-decision-dev`.
   `[RECORD]` prefix kept** (Maikel, October 21, 2026, sharpening
   [#2904](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2904)'s *may be closed*): the label is
   the marker, so the open list holds only work. Filed that way from the start, it never shows as open at
-  all; a parked one found open is closed by whoever finds it.
+  all; a parked one found open is closed by whoever finds it. Where the CI floor is adopted, the
+  `close-parked-recurrences.yml` runner does both the close and the prefix (#3422, above).
 - **The recurrence takes the label off.** Record the new instance as a comment, reopen the issue if it was
   closed, remove the label and the `[RECORD]` prefix, and the issue is ordinary work again. If it keeps
   recurring, it becomes a record (`awaiting-recurrences`), and the prefix goes back on.
@@ -730,6 +735,10 @@ scheduled `repo-settings.yml` runner that checks whether a GitHub-side repo sett
 your own `scripts/repo-config.ps1` declares (`Get-ExpectedRepoSettings`). It needs neither a queue nor a
 merge to matter — it runs on a schedule — and it never touches `FOLD_PUSH_TOKEN`. See the skill page's
 own section on it for what it checks and why it travels here.
+
+**It also places one runner that is about the tracker** (issue #3422): `close-parked-recurrences.yml` closes an issue as not
+planned, with its `[RECORD]` prefix, the moment it is parked on a recurrence label. It reads no tree and
+needs no secret.
 
 **And it does not report a missing queue as a gap.** Adopting one is a choice, and for most repos it is not
 even an available one, so a repo with no `merge_queue` rule is in the ordinary state rather than an
