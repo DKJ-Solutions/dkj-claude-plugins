@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Tests for scripts/lib/stopwatch-sync-lib.ps1 -- the Stopwatch's shared copy (#3349): the machine id, the ASCII
+    Tests for plugins/dkj-policy/hub/lib/stopwatch-sync-lib.ps1 -- the Stopwatch's shared copy (#3349): the machine id, the ASCII
     payload and its round trip, the merge, the sync interval, and a publish and a read between two clones of a
     bare origin of their own, which must leave each clone's index, working tree and HEAD as they were.
 
@@ -10,8 +10,8 @@ $ErrorActionPreference = 'Continue'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 . (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1')
-. (Join-Path $RepoRoot 'scripts\lib\stopwatch-lib.ps1')
-. (Join-Path $RepoRoot 'scripts\lib\stopwatch-sync-lib.ps1')
+. (Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\stopwatch-lib.ps1')
+. (Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\stopwatch-sync-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -196,7 +196,16 @@ try {
     $syncStore = Join-Path $tmp 'syncstore\stopwatch.json'
     Save-StopwatchStore -Path $syncStore -Runs @($done1, $going)
     [void](New-Item -ItemType Directory -Path (Join-Path $tmp 'transcripts') -Force)
-    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\dashboard\stopwatch-sync.ps1') -StorePath $syncStore -TranscriptDir (Join-Path $tmp 'transcripts') -RepoRoot $b *> $null
+    # A repo that has not opted in (#3470): the script says so in its log and neither fetches nor pushes.
+    $savedShare = $env:DKJ_STOPWATCH_SHARE
+    $env:DKJ_STOPWATCH_SHARE = $null
+    $refsBefore = @(& git -C $origin for-each-ref --format='%(refname)' refs/stopwatch)
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'plugins\dkj-policy\hub\pages\stopwatch-sync.ps1') -StorePath $syncStore -TranscriptDir (Join-Path $tmp 'transcripts') -RepoRoot $b *> $null
+    $notShared = [System.IO.File]::ReadAllText((Join-Path $tmp 'syncstore\stopwatch-sync.log'))
+    Assert-True ($LASTEXITCODE -eq 0 -and $notShared -match ' not shared: ' -and (@(& git -C $origin for-each-ref --format='%(refname)' refs/stopwatch) -join ',') -eq ($refsBefore -join ',') -and -not (Test-Path -LiteralPath (Join-Path $tmp 'syncstore\stopwatch-machine.txt'))) 'without DKJ_STOPWATCH_SHARE=1 the sync logs not shared and touches no ref (#3470)'
+    Assert-True (-not (Start-StopwatchSync -RepoRoot $b)) 'and Start-StopwatchSync does not even start one'
+    $env:DKJ_STOPWATCH_SHARE = '1'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'plugins\dkj-policy\hub\pages\stopwatch-sync.ps1') -StorePath $syncStore -TranscriptDir (Join-Path $tmp 'transcripts') -RepoRoot $b *> $null
     $logLine = [System.IO.File]::ReadAllText((Join-Path $tmp 'syncstore\stopwatch-sync.log'))
     $syncId = ([System.IO.File]::ReadAllText((Join-Path $tmp 'syncstore\stopwatch-machine.txt'))).Trim()
     Assert-True ($LASTEXITCODE -eq 0 -and $logLine -match ' pushed: [0-9a-f]{40}$') 'stopwatch-sync.ps1 publishes the store''s finished runs and logs it'
@@ -204,25 +213,26 @@ try {
     $fromScript = Read-StopwatchShared -RepoRoot $a -MachineId 'aaaaaaa1'
     Assert-True (@($fromScript.Runs | Where-Object { $_.Machine -eq $syncId }).Count -eq 1) 'and the other machine reads that one finished run under the script''s machine id'
     # The hide script, end to end: machine b hides a run machine a recorded, a reads the entry, then b shows it again.
-    $hideOut = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\dashboard\stopwatch-hide.ps1') -RunId $done2.Id -StorePath $syncStore -RepoRoot $b 2>&1
+    $hideOut = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'plugins\dkj-policy\hub\pages\stopwatch-hide.ps1') -RunId $done2.Id -StorePath $syncStore -RepoRoot $b 2>&1
     Assert-True ($LASTEXITCODE -eq 0 -and ($hideOut -join "`n") -match ('\[OK\] hidden: run "' + $done2.Id + '"') -and ($hideOut -join "`n") -match 'sync: .* pushed: ') 'stopwatch-hide.ps1 writes the entry and syncs it'
     [void](Receive-StopwatchShared -RepoRoot $a)
     $seenA = Read-StopwatchShared -RepoRoot $a -MachineId 'aaaaaaa1'
     Assert-True (-not @(Select-StopwatchVisibleRuns -Runs @($done1, $done2) -Entries $seenA.Hidden | Where-Object { $_.Id -eq $done2.Id }).Count) 'and the machine that recorded the run leaves it out of its pages'
-    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\dashboard\stopwatch-hide.ps1') -RunId $done2.Id -Show -StorePath $syncStore -RepoRoot $b *> $null
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'plugins\dkj-policy\hub\pages\stopwatch-hide.ps1') -RunId $done2.Id -Show -StorePath $syncStore -RepoRoot $b *> $null
     [void](Receive-StopwatchShared -RepoRoot $a)
     Assert-Equal 2 @(Select-StopwatchVisibleRuns -Runs @($done1, $done2) -Entries (Read-StopwatchShared -RepoRoot $a -MachineId 'aaaaaaa1').Hidden).Count '-Show undoes it on every machine'
     # Hiding a run this machine recorded: its own sync erases it from the store and publishes without it (#3453).
-    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\dashboard\stopwatch-hide.ps1') -RunId $done1.Id -StorePath $syncStore -RepoRoot $b *> $null
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'plugins\dkj-policy\hub\pages\stopwatch-hide.ps1') -RunId $done1.Id -StorePath $syncStore -RepoRoot $b *> $null
     $afterErase = @((Read-StopwatchStore -Path $syncStore).Runs)
     Assert-True (-not @($afterErase | Where-Object { $_.Id -eq $done1.Id }).Count -and @($afterErase | Where-Object { $_.Id -eq $going.Id }).Count) 'the recording machine erases a run it hid from its own store, and keeps the run still going'
     [void](Receive-StopwatchShared -RepoRoot $a)
     Assert-Equal 0 @((Read-StopwatchShared -RepoRoot $a -MachineId 'aaaaaaa1').Runs | Where-Object { $_.Machine -eq $syncId }).Count 'and publishes without it, so no other machine reads it any more'
-    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\dashboard\stopwatch-hide.ps1') -StorePath $syncStore -RepoRoot $b -NoSync *> $null
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'plugins\dkj-policy\hub\pages\stopwatch-hide.ps1') -StorePath $syncStore -RepoRoot $b -NoSync *> $null
     Assert-Equal 1 $LASTEXITCODE 'naming neither a run nor a label is refused'
     $free = $false
     try { [System.IO.File]::Open((Join-Path $tmp 'syncstore\stopwatch-sync.lock'), 'OpenOrCreate', 'ReadWrite', 'None').Dispose(); $free = $true } catch { }
     Assert-True $free 'and releases its lock when it ends'
+    $env:DKJ_STOPWATCH_SHARE = $savedShare
     Assert-Equal 'failed' (Publish-StopwatchShared -RepoRoot $a -MachineId 'nope' -Json $json -TempDir (Join-Path $tmp 'ta')).Status 'no machine id, no publish'
     Assert-True (-not (Receive-StopwatchShared -RepoRoot $a -Remote 'no-such-remote')) 'a fetch from a remote that does not answer says so instead of throwing'
     Assert-Equal 0 @(Get-ChildItem -LiteralPath (Join-Path $tmp 'ta') -Filter 'stopwatch-sync-*' -ErrorAction SilentlyContinue).Count 'the blob file and the throwaway index are removed after a publish'

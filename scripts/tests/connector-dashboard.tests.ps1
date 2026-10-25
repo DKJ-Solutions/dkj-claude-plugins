@@ -410,7 +410,6 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         New-Item -ItemType Directory -Force -Path (Join-Path $src 'scripts\lib'), (Join-Path $src 'scripts\dashboard'),(Join-Path $src 'plugins\dkj-policy\dkj-solutions\assets\house-style'), (Join-Path $src 'connectors'), $noup, $outside | Out-Null
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $src 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $src 'scripts\lib\')
-        Copy-Item (Join-Path $RepoRoot 'scripts\lib\stopwatch-lib.ps1') (Join-Path $src 'scripts\lib\')
         # dev-pages-lib reads the plugins' libs from the plugin tree beside scripts/, and the server its state reader.
         New-Item -ItemType Directory -Force -Path (Join-Path $src 'plugins\dkj-policy\hub\lib') | Out-Null
         Copy-Item (Join-Path $PluginLib '*.ps1') (Join-Path $src 'plugins\dkj-policy\hub\lib\')
@@ -429,7 +428,9 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         $probe.Start(); $genPort3 = $probe.LocalEndpoint.Port; $probe.Stop()
         $env:DKJ_GENERAL_PAGES_PORTS = [string]$genPort3
         $proc3 = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
-            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $src 'scripts\dashboard\serve-connector-dashboard.ps1')`"", '-Port', $port3)
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $src 'scripts\dashboard\serve-connector-dashboard.ps1')`"", '-Port', $port3,
+                # A store of its own, never this machine's real one (#3470).
+                '-StopwatchPath', "`"$(Join-Path $fixture 'timing\stopwatch.json')`"", '-LogbookPath', "`"$(Join-Path $fixture 'timing\logbook.json')`"", '-TranscriptDir', "`"$(Join-Path $fixture 'timing\transcripts')`"")
         try {
             # Asserted on its own, so a recurrence says whether the server never came up or the page did not
             # come back -- the question #3038 could not answer from four asserts failing together.
@@ -485,7 +486,8 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             # The real general server for this fixture, which answers /whoami with this root's hash. The fixture is an
             # OwnHub repo (#3245), as this repo is: the state file's mode ownhub is what makes /hub a 303 to its hub.
             $gen3 = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
-                '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$GeneralServer`"", '-Port', $genPort3, '-RepoRootOverride', "`"$src`"")
+                '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$GeneralServer`"", '-Port', $genPort3, '-RepoRootOverride', "`"$src`"",
+                '-StopwatchPath', "`"$(Join-Path $fixture 'timing\stopwatch.json')`"", '-LogbookPath', "`"$(Join-Path $fixture 'timing\logbook.json')`"", '-TranscriptDir', "`"$(Join-Path $fixture 'timing\transcripts')`"")
             try {
                 Assert-True (Wait-ServerUp $genPort3) 'the fixture''s general pages server listens'
                 # The brand book is the source repo's product, so the general server serves it in no repo (#3475).
@@ -533,7 +535,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Remove-Item -LiteralPath $srcState -Force -ErrorAction SilentlyContinue
             Assert-True ($page -match 'HTTP/1.1 200' -and $page -match '<h1>Connectors</h1>' -and $page -match '<a href="/">Home</a>') '/connectors serves the overview as a page under the hub'
             $tg = if ($up) { Get-Raw 'GET' '/test-gate' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($tg -match 'HTTP/1.1 200' -and $tg -match 'the file is not there') '/test-gate reports a missing suite-durations.json, rather than failing'
+            Assert-True ($tg -match 'HTTP/1.1 200' -and $tg -match 'No test gate has been measured in this repo yet') '/test-gate shows a missing suite-durations.json as its empty state, rather than failing'
         } finally {
             if (-not $proc3.HasExited) { Stop-Process -Id $proc3.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
         }
@@ -563,7 +565,6 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'scripts\lib'), (Join-Path $fixture4 'scripts\dashboard'),(Join-Path $fixture4 'plugins\dkj-policy\dkj-solutions\assets\house-style') | Out-Null
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
-        Copy-Item (Join-Path $RepoRoot 'scripts\lib\stopwatch-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
         New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'plugins\dkj-policy\hub\lib') | Out-Null
         Copy-Item (Join-Path $PluginLib '*.ps1') (Join-Path $fixture4 'plugins\dkj-policy\hub\lib\')
         Copy-Item $Server (Join-Path $fixture4 'scripts\dashboard\')
@@ -576,7 +577,8 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         $probe = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
         $probe.Start(); $port4 = $probe.LocalEndpoint.Port; $probe.Stop()
         $proc4 = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
-            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $fixture4 'scripts\dashboard\serve-connector-dashboard.ps1')`"", '-Port', $port4)
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $fixture4 'scripts\dashboard\serve-connector-dashboard.ps1')`"", '-Port', $port4,
+            '-StopwatchPath', "`"$(Join-Path $fixture4 'timing\stopwatch.json')`"", '-LogbookPath', "`"$(Join-Path $fixture4 'timing\logbook.json')`"", '-TranscriptDir', "`"$(Join-Path $fixture4 'timing\transcripts')`"")
         $up = Wait-ServerUp $port4
         Assert-True $up 'the group-4 server listens on the port it was given'
         $hub = if ($up) { Get-Raw 'GET' '/repository' "localhost:$port4" '' $port4 } else { '' }
@@ -666,8 +668,8 @@ $rsRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('repo-session-' + [guid]:
 $rsHub = Join-Path $rsRoot 'org\hub'
 New-Item -ItemType Directory -Force -Path (Join-Path $rsHub 'connectors'), (Join-Path $rsHub 'scripts\lib'), (Join-Path $rsRoot 'org\dkj-lifehub') | Out-Null
 # repo-session.ps1 loads the hub's page lib, which loads the connector lib and the plugin libs beside it
-# (dev-preview-rules.ps1 for the Product card's url rule, #3468).
-foreach ($lib in 'scripts\lib\connector-dashboard-lib.ps1', 'scripts\lib\dev-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\general-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\dev-preview-rules.ps1') {
+# (dev-preview-rules.ps1 for the Product card's url rule, #3468; test-gate-lib.ps1, the Test gate's page, #3470).
+foreach ($lib in 'scripts\lib\connector-dashboard-lib.ps1', 'scripts\lib\dev-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\general-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\dev-preview-rules.ps1', 'plugins\dkj-policy\hub\lib\test-gate-lib.ps1') {
     $to = Join-Path $rsHub (Split-Path -Parent $lib)
     New-Item -ItemType Directory -Force -Path $to | Out-Null
     Copy-Item -LiteralPath (Join-Path $RepoRoot $lib) -Destination $to

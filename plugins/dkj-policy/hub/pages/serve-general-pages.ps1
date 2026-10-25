@@ -1,8 +1,9 @@
 <#
 .SYNOPSIS
     Serve the plugin's REPOSITORY (#3245) and the GENERAL pages (#3119) on http://localhost:<Port>/ -- the hub on
-    '/', then /artifacts, /issues, /release-notes and /sessionstart -- from the repo this server was started in.
-    Not /brandbook: the brand book is the source repo's product, served by that repo's own server (#3475).
+    '/', then /artifacts, /issues, /release-notes, /sessionstart, /test-gate, /stopwatch and /logbook -- from
+    the repo this server was started in. Not /brandbook: the brand book is the source repo's product, served by
+    that repo's own server (#3475).
 
 .DESCRIPTION
     Started by hooks/dev-preview-sessionstart.ps1 in EVERY repo, beside the repo's own dev server where it
@@ -28,6 +29,15 @@
                       the repo's own scripts/lib, else in this plugin's own. Kept for -CacheSeconds.
                       The child first dot-sources the repo's own scripts/repo-config.ps1, the trust the
                       dev-preview hook already gives it, and is bounded at 60 s.
+      /test-gate      scripts/tests/suite-durations.json, grouped by suite-groups.json where the repo keeps one, and
+                      each suite's own header (Read-TestGateModel, hub/lib/test-gate-lib.ps1, #3470). Absent, the page
+                      says no test gate has been measured in this repo yet.
+      /stopwatch, /stopwatch/<label>[/<run>], /logbook, /logbook/<slug>
+                      this repo's timing stores on this machine (%LOCALAPPDATA%\dkj-claude-plugins\repos\<repo>\),
+                      which the plugin's UserPromptSubmit and Stop hooks write, and the session transcripts under
+                      ~/.claude/projects (Resolve-HubTimingPage, hub/lib/timing-pages.ps1, #3470). The Stopwatch also
+                      shows this repo's other machines' runs and starts a background sync, where the repo opts in
+                      with DKJ_STOPWATCH_SHARE=1 (Test-StopwatchShareEnabled: the environment, else the repo's .claude/settings.json).
       /hub, / and /index.html
                       the plugin's hub (Format-PluginRepoHubHtml), built per request from the state file
                       the hook wrote (%TEMP%\dkj-repo-hub-<leaf>-<hash>.json): the repo's own server as the
@@ -82,6 +92,16 @@
 
 .PARAMETER RepoRootOverride
     (For tests) The repo root instead of the working directory.
+
+.PARAMETER StopwatchPath
+    (For tests) The Stopwatch's store instead of this repo's own under LOCALAPPDATA; a store passed in is never
+    shared, so a test neither reads the checkout's refs nor reaches the network.
+
+.PARAMETER LogbookPath
+    (For tests) The Logbook's store instead of the one beside the Stopwatch's.
+
+.PARAMETER TranscriptDir
+    (For tests) The session transcripts instead of this checkout's own under ~/.claude/projects.
 #>
 [CmdletBinding()]
 param(
@@ -90,7 +110,10 @@ param(
     [ValidateRange(0, 86400)][int]$IssuesCacheSeconds = 300,
     [ValidateRange(100, 60000)][int]$ReadTimeoutMs = 1000,
     [ValidateRange(0, 3600)][int]$MinRefreshSeconds = 10,
-    [string]$RepoRootOverride
+    [string]$RepoRootOverride,
+    [string]$StopwatchPath,
+    [string]$LogbookPath,
+    [string]$TranscriptDir
 )
 
 $ErrorActionPreference = 'Stop'
@@ -104,6 +127,9 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\lib\repo-hub-page.ps1')
 # The banner's airsquats state, shared by every hub and every machine (#3438).
 . (Join-Path $PSScriptRoot '..\lib\airsquats-lib.ps1')
+# The Test gate, the Stopwatch and the Logbook, every repo's pages since #3470.
+. (Join-Path $PSScriptRoot '..\lib\test-gate-lib.ps1')
+. (Join-Path $PSScriptRoot '..\lib\timing-pages.ps1')
 
 $pluginRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride).TrimEnd('\', '/') }
@@ -361,6 +387,7 @@ $json = $o | ConvertTo-Json -Compress -Depth 4
 
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $rootHash = Get-DevPreviewRootHash -Root $root
+$timing = New-HubTimingContext -RepoRoot $root -RepoName (Get-RepoIdentity).Name -StopwatchPath $StopwatchPath -LogbookPath $LogbookPath -TranscriptDir $TranscriptDir
 $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $Port)
 $listener.Start()
 Write-Host "general pages for $((Get-RepoIdentity).Name): http://localhost:$Port/"
@@ -455,8 +482,20 @@ try {
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = "/$page" } -Method $method
                 continue
             }
+            # The Stopwatch's and the Logbook's routes (#3470): a page, a moved run slug, or a slug no run has.
+            $tp = Resolve-HubTimingPage -Path $path -Context $timing
+            if ($null -ne $tp) {
+                if ($tp.Status -eq 301) { Send-LoopbackResponse $stream 301 'Moved Permanently' 'text/plain; charset=utf-8' ($utf8.GetBytes('Moved.')) @{ Location = $tp.Location } -Method $method }
+                elseif ($tp.Status -eq 404) { Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method }
+                else { Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($tp.Html)) -Method $method }
+                continue
+            }
             $html = $null
-            if ($path -eq '/artifacts') {
+            if ($path -eq '/test-gate') {
+                $id = Get-RepoIdentity
+                $tg = Read-TestGateModel -RepoRoot $root
+                $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error -GroupsError $tg.GroupsError -RepoName $id.Name -RepoSlug $id.Slug
+            } elseif ($path -eq '/artifacts') {
                 $ar = Get-JsonFileModel (Join-Path $root 'scripts\dashboard\artifacts.json')
                 $html = Format-ArtifactsPageHtml -Model (ConvertFrom-ArtifactRegister -Register $ar.Json) -ReadError $ar.Error -RepoName (Get-RepoIdentity).Name
             } elseif ($path -eq '/issues') {

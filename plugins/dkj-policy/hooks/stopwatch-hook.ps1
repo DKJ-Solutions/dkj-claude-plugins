@@ -4,9 +4,10 @@
     when Claude is back on the trunk, clean, with HEAD moved since the start.
 
 .DESCRIPTION
-    Wired up in .claude/settings.json as a UserPromptSubmit hook (-Hook Prompt) and a Stop hook (-Hook Stop):
+    Wired up in this plugin's hooks/hooks.json as a UserPromptSubmit hook (-Hook Prompt) and a Stop hook (-Hook Stop),
+    in every repo that runs dkj-policy (#3470; until then in the source repo's .claude/settings.json alone):
 
-        powershell -NoProfile -ExecutionPolicy Bypass -File "scripts/dashboard/stopwatch-hook.ps1" -Hook Prompt
+        powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/hooks/stopwatch-hook.ps1" -Hook Prompt
 
     THE MARKER IS THE ONLY WAY A RUN STARTS: the Prompt hook reads the UserPromptSubmit JSON from stdin (only parses
     its `prompt` field, never prints it) and a prompt whose first line begins with `stopwatch:` starts an Auto run
@@ -14,20 +15,27 @@
     `<pasted_content>` wrapper, #3336), discarding a run still going. The page is
     read-only.
 
-    The rules are Invoke-StopwatchHookEvent's in scripts/lib/stopwatch-lib.ps1 (pure, tested by
+    The rules are Invoke-StopwatchHookEvent's in hub/lib/stopwatch-lib.ps1 (pure, tested by
     scripts/tests/stopwatch.tests.ps1); this script only gathers what they need (the store, the checkout's
     branch, cleanliness and HEAD) and writes the store back when the decision changed it.
 
     IT ALWAYS EXITS 0, PRINTS NOTHING AND NEVER BLOCKS. A UserPromptSubmit hook's stdout is injected into the
     session's context and a Stop hook that fails or prints can hold a turn open, so every error is swallowed:
     a timing aid must never cost the owner a turn. There is no network and no gh call in this process, only local
-    git: a Stop that ended a run starts scripts/dashboard/stopwatch-sync.ps1 as a process of its own to share it
+    git: a Stop that ended a run starts hub/pages/stopwatch-sync.ps1 as a process of its own to share it, where the
+    repo opts in (DKJ_STOPWATCH_SHARE=1)
     (#3349) and does not wait for it. Git is asked only when a decision needs it (an unmarked Prompt, or a Stop with no Auto run going, never shells out). A store that does not read is left alone, as everywhere (Read-StopwatchStore).
 
-    The store is outside the tree (Get-StopwatchStorePath), so a hook writing it dirties nothing. The hub only
-    reads it. A store holding a run that does not parse is copied to a .bak beside it before the write drops it.
+    The store is outside the tree, one per repo (Get-StopwatchStorePath), so a hook writing it dirties nothing. The
+    hub only reads it. A store holding a run that does not parse is copied to a .bak beside it before the write drops
+    it. The repo is CLAUDE_PROJECT_DIR, else the working directory.
 
-    -StorePath and -RepoRoot are for the tests; settings.json passes neither.
+    ONE HOOK AT A TIME PER STORE (Get-HubTimingLock): a repo can still wire this script itself beside the plugin's
+    copy (the source repo does until the release that ships it reaches its sessions, #3470), and two copies racing
+    on one event would each start a run. Serialised, the second reads the first one's write: a repeated Stop does
+    nothing, and a repeated marked Prompt replaces the run with one started moments later, so there is one run.
+
+    -StorePath and -RepoRoot are for the tests; hooks.json passes neither.
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -51,9 +59,12 @@ try {
         }
         if ($raw -notmatch 'stopwatch:') { exit 0 }
     }
-    $root = if ($RepoRoot) { $RepoRoot } else { (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path }
-    . (Join-Path $root 'scripts\lib\stopwatch-lib.ps1')
-    if (-not $StorePath) { $StorePath = Get-StopwatchStorePath }
+    $root = if ($RepoRoot) { $RepoRoot } elseif ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { (Get-Location).Path }
+    $root = [System.IO.Path]::GetFullPath($root).TrimEnd('\', '/')
+    . (Join-Path $PSScriptRoot '..\hub\lib\stopwatch-lib.ps1')
+    $ownStore = -not $StorePath
+    if ($ownStore) { [void](Move-HubTimingLegacyStore -RepoRoot $root); $StorePath = Get-StopwatchStorePath -RepoRoot $root }
+    $lock = Get-HubTimingLock -StorePath $StorePath
     $store = Read-StopwatchStore -Path $StorePath
     if ($store.Error) { exit 0 }
     $running = @($store.Runs | Where-Object { -not $_.End }) | Select-Object -Last 1
@@ -65,7 +76,7 @@ try {
     $trunk = 'main'
     $cfg = Join-Path $root 'scripts\repo-config.ps1'
     if (Test-Path -LiteralPath $cfg -PathType Leaf) {
-        try { . (Join-Path $root 'scripts\lib\command-probe-lib.ps1'); . $cfg *> $null; if (Test-FunctionDefined 'Get-TrunkBranchName') { $t = [string](Get-TrunkBranchName); if ($t.Trim()) { $trunk = $t.Trim() } } } catch { }
+        try { . (Join-Path $PSScriptRoot '..\scripts\lib\command-probe-lib.ps1'); . $cfg *> $null; if (Test-FunctionDefined 'Get-TrunkBranchName') { $t = [string](Get-TrunkBranchName); if ($t.Trim()) { $trunk = $t.Trim() } } } catch { }
     }
     # Windows PowerShell 5.1 turns a native command's stderr line into a terminating error under 'Stop', so the
     # git calls run under 'Continue' and are judged by their exit code and output (Victor, #3323).
@@ -94,10 +105,13 @@ try {
         Save-StopwatchStore -Path $StorePath -Runs $r.Runs
         # A run that ended is shared with the other machines (#3349), in a process of its own so the turn never
         # waits on the network. Not when the tests pass a store of their own: a test must never push.
-        if ($Hook -eq 'Stop' -and -not $PSBoundParameters.ContainsKey('StorePath')) {
-            . (Join-Path $root 'scripts\lib\stopwatch-sync-lib.ps1')
+        if ($Hook -eq 'Stop' -and $ownStore) {
+            . (Join-Path $PSScriptRoot '..\hub\lib\stopwatch-sync-lib.ps1')
             [void](Start-StopwatchSync -RepoRoot $root)
         }
     }
-} catch { }
+} catch {
+} finally {
+    if ($lock) { try { $lock.ReleaseMutex() } catch { }; $lock.Dispose() }
+}
 exit 0

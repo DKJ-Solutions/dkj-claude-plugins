@@ -341,7 +341,7 @@ Assert-True ($html -notmatch '4880') 'and no longer name the retired 4880-4889 r
 # Repository page's.
 Assert-True ($html -notmatch 'href="/about"' -and $html -notmatch '<h2>About this repo</h2>') 'no About this repo link: the hub is one page (#3289)'
 $grid = [regex]::Match($html, '(?s)<div class="grid-3">(.*?)</div>\s*<div class="grid-2">').Groups[1].Value
-Assert-True ($grid -and $grid -notmatch '<h2' -and ([regex]::Matches($grid, '<section class="card card--link">')).Count -eq 4) 'the pages are one grid of four card links with no heading: Repository and the three General pages but Issues'
+Assert-True ($grid -and $grid -notmatch '<h2' -and ([regex]::Matches($grid, '<section class="card card--link">')).Count -eq 7 -and $grid -match 'href="/test-gate"' -and $grid -match 'href="/stopwatch"' -and $grid -match 'href="/logbook"') 'the pages are one grid of seven card links with no heading: Repository and the six General pages but Issues, Test gate, Stopwatch and Logbook among them (#3470)'
 Assert-True ($grid -match 'href="/repository"' -and $grid -match 'href="/release-notes"' -and $grid -notmatch 'href="/issues"' -and $grid -notmatch 'localhost:4890/') 'by bare path, Issues left to the Repository page: the hub and its pages are one origin (#3245)'
 Assert-True ($html -notmatch '<h2>General pages</h2>' -and $html -notmatch '<h2>Facts</h2>' -and $html -notmatch '<dl class="facts') 'no General pages section and no facts on the home page'
 Assert-True ($html.IndexOf('class="grid-3"') -lt $html.IndexOf('<h2>Set up a product</h2>')) 'the setup cards stand under the grid'

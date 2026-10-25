@@ -1,16 +1,18 @@
 <#
 .SYNOPSIS
-    Serve this repo's dev server on http://localhost:<Port>/ -- the hub on '/', which links the hub's own
-    pages (#3097): /test-gate, the per-suite CI durations, grouped by the workflow step each suite guards
-    (scripts/tests/suite-groups.json); and /stopwatch, how long each assignment took: a read-only overview of cards, one per
-    prompt label, /stopwatch/<label>, each label's page with a card per run, and /stopwatch/<label>/<run>, each run's page, from the runs the hooks of scripts/dashboard/stopwatch-hook.ps1 record (#3315, #3323); and /logbook
-    and /logbook/<slug>, the same pages for every session that began on a clean trunk, from the runs of scripts/dashboard/logbook-hook.ps1 (#3364), a /sweep-issues run cut into one run per issue at its folds (#3405). The server takes no POST at all. It also builds three pages the product relays, which the hub does not link (below):
+    Serve this repo's dev server on http://localhost:<Port>/ -- the hub on '/', which serves three pages that began
+    here and are every repo's since #3470, the dkj-policy plugin's: /test-gate, the per-suite CI durations, grouped by
+    the workflow step each suite guards (scripts/tests/suite-groups.json), with this checkout's suite selection,
+    which only this hub shows (#3097, #3309); and /stopwatch and /logbook with their label, run and slug pages, how
+    long each assignment took, from the runs the plugin's hooks record (#3315, #3323, #3364, #3405), answered by the
+    plugin's own router (Resolve-HubTimingPage) as the plugin's server answers them. The server takes no POST at all.
+    It also builds three pages the product relays, which the hub does not link (below):
     /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
     check-connectors.ps1 reports for it on this machine (#2976); /specialists, every specialist the
     dkj-subagents plugins ship and the context each one costs, read from this tree; and /dkj-repos, every
     DKJ-Solutions repo on GitHub with its checkout here and a session to open there (#3231). The rules of
-    the hub and of each page are in scripts/lib/dev-pages-lib.ps1, the Stopwatch's in
-    scripts/lib/stopwatch-lib.ps1.
+    the hub and of each page are in scripts/lib/dev-pages-lib.ps1; the Test gate's, the Stopwatch's and the
+    Logbook's in plugins/dkj-policy/hub/lib/.
 
     NO /brandbook HERE. The brand book is this repo's product: the brandbook/ app's Vite dev server, which the
     dev-preview hook starts on a port of its own (#3283). This server built and served the same app at
@@ -96,11 +98,11 @@
     (For tests) The repo root instead of the one this script sits in.
 
 .PARAMETER StopwatchPath
-    (For tests) The Stopwatch's store instead of the one under LOCALAPPDATA (Get-StopwatchStorePath). The
+    (For tests) The Stopwatch's store instead of this repo's own under LOCALAPPDATA (Get-StopwatchStorePath). The
     transcript phases are cached beside it, as stopwatch-phases.json.
 
 .PARAMETER LogbookPath
-    (For tests) The Logbook's store instead of the one under LOCALAPPDATA (Get-LogbookStorePath). Its transcript
+    (For tests) The Logbook's store instead of the one beside the Stopwatch's (Get-LogbookStorePath). Its transcript
     phases are cached beside it, as logbook-phases.json.
 
 .PARAMETER TranscriptDir
@@ -125,49 +127,10 @@ $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride
         else { (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path }
 . (Join-Path $root 'scripts\lib\connector-dashboard-lib.ps1')
 . (Join-Path $root 'scripts\lib\dev-pages-lib.ps1')
-. (Join-Path $root 'scripts\lib\stopwatch-lib.ps1')
-if (-not $StopwatchPath) { $StopwatchPath = Get-StopwatchStorePath }
-if (-not $TranscriptDir) { $TranscriptDir = Get-StopwatchTranscriptDir -RepoRoot $root }
-$StopwatchPhasesPath = Join-Path (Split-Path -Parent $StopwatchPath) 'stopwatch-phases.json'
-# The Logbook (#3364), guarded: a tree that copies the Stopwatch's lib alone serves no /logbook.
-$logbookLib = Join-Path $root 'scripts\lib\logbook-lib.ps1'
-$LogbookAvailable = Test-Path -LiteralPath $logbookLib -PathType Leaf
-if ($LogbookAvailable) {
-    . $logbookLib
-    if (-not $LogbookPath) { $LogbookPath = Get-LogbookStorePath }
-    $LogbookPhasesPath = Join-Path (Split-Path -Parent $LogbookPath) 'logbook-phases.json'
-}
-# ship-pr's step marks (#3338): the writer's own path, from the lib stopwatch-lib.ps1 loads beside itself.
-$StopwatchStepLogPath = if ($script:StopwatchStepLogAvailable) { Get-RunStepLogPath } else { '' }
-# The other machines' runs (#3349), read from refs/stopwatch-origin/* and refreshed in the background at most every
-# few minutes. Only for the real store: a test that passes a store of its own must neither read this checkout's
-# refs nor reach the network. GUARDED like the test gate's libs below, so a tree without it serves this machine's runs.
-$swSyncLib = Join-Path $root 'scripts\lib\stopwatch-sync-lib.ps1'
-$StopwatchShared = (-not $PSBoundParameters.ContainsKey('StopwatchPath')) -and (Test-Path -LiteralPath $swSyncLib -PathType Leaf)
-if ($StopwatchShared) { . $swSyncLib }
-$StopwatchMachineId = if ($StopwatchShared) { Get-StopwatchMachineId -StoreDir (Split-Path -Parent $StopwatchPath) } else { '' }
-function Get-StopwatchPageRuns {
-    <# This machine's store, and when shared, the other machines' runs merged in (Merge-StopwatchRuns) with their phases, less what any machine hid (#3446); starts a background sync when one is due. #>
-    $store = Read-StopwatchStore -Path $StopwatchPath
-    $shared = @{ Runs = @(); Phases = @{}; Machines = 0 }
-    if (-not $StopwatchShared) { return @{ Store = $store; Runs = $store.Runs; Shared = $shared } }
-    $stamp = Join-Path (Split-Path -Parent $StopwatchPath) 'stopwatch-sync.stamp'
-    if (Test-StopwatchSyncDue -StampPath $stamp) {
-        # Stamped here as well as by the sync itself, so the loads before it starts do not start more.
-        try { [System.IO.File]::WriteAllText($stamp, (Format-StopwatchStamp ([datetime]::UtcNow))) } catch { }
-        [void](Start-StopwatchSync -RepoRoot $root)
-    }
-    $shared = Read-StopwatchShared -RepoRoot $root -MachineId $StopwatchMachineId
-    # A sync under way is said on every visit, not only the first (#3377, #3403): the page renders the refs LAST
-    # fetched, so a run published since is missing until the sync ends. The log a sync writes as it ends dates that copy.
-    $syncLog = Join-Path (Split-Path -Parent $StopwatchPath) 'stopwatch-sync.log'
-    $shared.Fetching = Test-StopwatchSyncRunning -StampPath $stamp -LogPath $syncLog
-    $shared.LastFetched = if (Test-Path -LiteralPath $syncLog -PathType Leaf) { (Get-Item -LiteralPath $syncLog).LastWriteTimeUtc } else { $null }
-    # What any machine hid (#3446): this machine's own entries straight from its hide file, so a hide shows before it is synced.
-    $hidden = @((Read-StopwatchHidden -Path (Get-StopwatchHiddenPath -StorePath $StopwatchPath)).Entries) + @($shared.Hidden)
-    $runs = Select-StopwatchVisibleRuns -Runs (Merge-StopwatchRuns -Local $store.Runs -Shared $shared.Runs) -Entries $hidden
-    return @{ Store = $store; Runs = $runs; Shared = $shared }
-}
+# The Stopwatch and the Logbook (#3315, #3364): the dkj-policy plugin's since #3470, read from this tree because
+# this repo is the plugin's source, through the router the plugin's own server uses (Resolve-HubTimingPage).
+. (Join-Path $root 'plugins\dkj-policy\hub\lib\timing-pages.ps1')
+$timing = New-HubTimingContext -RepoRoot $root -RepoName 'dkj-claude-plugins' -HubHref '/' -StopwatchPath $StopwatchPath -LogbookPath $LogbookPath -TranscriptDir $TranscriptDir
 # The test gate's own selection and CI's, so /test-gate shows what they decide for this checkout (#3309).
 # GUARDED, unlike the libs above: they serve one section of one page, and gate-lib.ps1 loads a chain of its
 # own, so a tree without them (this script's own test fixtures) still serves every page, and the section
@@ -359,26 +322,10 @@ function Get-DkjReposModel {
 }
 
 function Get-TestGateModel {
-    <# scripts/tests/suite-durations.json, suite-groups.json and the suite files beside them, read on every request: two small files. #>
-    $testsDir = Join-Path $root 'scripts\tests'
-    $files = @(Get-ChildItem -LiteralPath $testsDir -Filter '*.tests.ps1' -File -ErrorAction SilentlyContinue | ForEach-Object { $_.Name })
-    $read = {
-        param($Name)
-        $p = Join-Path $testsDir $Name
-        if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { return @{ Json = $null; Error = 'the file is not there' } }
-        try { return @{ Json = (Get-Content -LiteralPath $p -Raw -Encoding UTF8 | ConvertFrom-Json); Error = '' } } catch { return @{ Json = $null; Error = 'it is not valid JSON' } }
-    }
-    $d = & $read 'suite-durations.json'
-    $g = & $read 'suite-groups.json'
-    $groups = if ($g.Json) { $g.Json.groups } else { $null }
-    if (-not $g.Error -and -not @($groups | Where-Object { $_ }).Count) { $g.Error = 'it holds no groups' }
-    # What each suite protects, off its own header (#3309, lever 3): ~165 small reads.
-    $synopses = @{}
-    foreach ($f in $files) {
-        try { $synopses[$f] = Get-SuiteSynopsis -Text ([System.IO.File]::ReadAllText((Join-Path $testsDir $f))) } catch { }
-    }
-    return @{ Model = (ConvertFrom-SuiteDurations -Durations $d.Json -SuiteFiles $files -Groups $groups -Synopses $synopses); Error = $d.Error; GroupsError = $g.Error
-              Selection = (Get-TestGateSelection) }
+    <# The plugin's reader of scripts/tests (Read-TestGateModel, #3470), and this checkout's selection, which only this repo's hub shows. #>
+    $tg = Read-TestGateModel -RepoRoot $root
+    $tg.Selection = Get-TestGateSelection
+    return $tg
 }
 
 function Get-TestGateSelection {
@@ -591,80 +538,17 @@ try {
             }
             if ($path -eq '/test-gate') {
                 $tg = Get-TestGateModel
-                $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error -GroupsError $tg.GroupsError -Selection $tg.Selection
+                $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error -GroupsError $tg.GroupsError -Selection $tg.Selection -RepoName 'dkj-claude-plugins' -HubHref '/' -RepoSlug 'DKJ-Solutions/dkj-claude-plugins'
                 $body = $utf8.GetBytes($html)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }
-            if ($path -eq '/stopwatch') {
-                $sw = Get-StopwatchPageRuns; $store = $sw.Store
-                $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs $sw.Runs) -ReadError $store.Error -Skipped $store.Skipped -StorePath $StopwatchPath -SharedMachines $sw.Shared.Machines -Fetching:([bool]$sw.Shared.Fetching) -LastFetched $(if ($sw.Shared.ContainsKey('LastFetched')) { $sw.Shared.LastFetched } else { $null })
-                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
-                continue
-            }
-            if ($path -match '^/stopwatch/([a-z0-9-]{1,60})(?:/([a-z0-9-]{1,60}))?$') {
-                # One label's page, or one run's page under its label's (#3323), so the URL reads as the crumbs do. A
-                # bare run slug redirects to that, and a slug neither has is a 404, like any other path.
-                $swSlug = $Matches[1]; $swRunSlug = $Matches[2]
-                $sw = Get-StopwatchPageRuns; $store = $sw.Store
-                if ($store.Error) {
-                    # The same read error the overview shows, not a bare 404 for a page that may well exist.
-                    $html = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -ReadError $store.Error -StorePath $StopwatchPath
-                    Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
-                    continue
-                }
-                $swModel = ConvertTo-StopwatchModel -Runs $sw.Runs
-                $labelSet = Find-StopwatchLabel -Model $swModel -Slug $swSlug
-                if (-not $swRunSlug) {
-                    $group = Find-StopwatchGroup -Model $swModel -Slug $swSlug
-                    if ($group -and $group.LabelSlug) {
-                        Send-LoopbackResponse $stream 301 'Moved Permanently' 'text/plain; charset=utf-8' ($utf8.GetBytes('Moved.')) -Headers @{ Location = "/stopwatch/$($group.LabelSlug)/$($group.PageSlug)" } -Method $method
-                    } elseif ($labelSet) {
-                        $html = Format-StopwatchLabelPageHtml -Set $labelSet -StorePath $StopwatchPath
-                        Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
-                    } else {
-                        Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
-                    }
-                    continue
-                }
-                $group = if ($labelSet) { @($labelSet.Groups | Where-Object { $_.PageSlug -ceq $swRunSlug }) | Select-Object -First 1 } else { $null }
-                if (-not $group) {
-                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
-                    continue
-                }
-                # Only this machine's runs are read from its transcripts; another machine's carry the phases it read from its own.
-                $phases = Get-StopwatchTranscriptCache -Runs @($group.Rows | ForEach-Object { $_.Run } | Where-Object { -not $_.Machine }) -CachePath $StopwatchPhasesPath -TranscriptDir $TranscriptDir -StepLogPath $StopwatchStepLogPath -RepoRoot $root
-                foreach ($k in $sw.Shared.Phases.Keys) { if (-not $phases.ContainsKey($k)) { $phases[$k] = $sw.Shared.Phases[$k] } }
-                $html = Format-StopwatchRunPageHtml -Group $group -StorePath $StopwatchPath -Transcript $phases -LabelCrumb
-                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
-                continue
-            }
-            if ($LogbookAvailable -and $path -eq '/logbook') {
-                $lb = Read-StopwatchStore -Path $LogbookPath
-                # A sweep is shown per issue, cut at its folds (#3405).
-                $lbRuns = Get-LogbookRuns -Runs $lb.Runs -StepLogPath $StopwatchStepLogPath -RepoRoot $root
-                # Every finished run's phases, for its work time on its card: read from the transcripts once, then cached.
-                $phases = Get-StopwatchTranscriptCache -Runs @($lbRuns | Where-Object { $_.End }) -CachePath $LogbookPhasesPath -TranscriptDir $TranscriptDir -StepLogPath $StopwatchStepLogPath -RepoRoot $root
-                $html = Format-LogbookPageHtml -Runs $lbRuns -ReadError $lb.Error -Skipped $lb.Skipped -StorePath $LogbookPath -Transcript $phases
-                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
-                continue
-            }
-            if ($LogbookAvailable -and $path -match '^/logbook/([a-z0-9-]{1,60})$') {
-                # One run's page. A store that does not read shows the overview's warning; a slug no run has is a 404.
-                $lb = Read-StopwatchStore -Path $LogbookPath
-                if ($lb.Error) {
-                    $html = Format-LogbookPageHtml -Runs @() -ReadError $lb.Error -StorePath $LogbookPath
-                    Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
-                    continue
-                }
-                $group = Find-StopwatchGroup -Model (ConvertTo-LogbookModel -Runs (Get-LogbookRuns -Runs $lb.Runs -StepLogPath $StopwatchStepLogPath -RepoRoot $root)) -Slug $Matches[1]
-                if (-not $group) {
-                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
-                    continue
-                }
-                $phases = Get-StopwatchTranscriptCache -Runs @($group.Rows | ForEach-Object { $_.Run }) -CachePath $LogbookPhasesPath -TranscriptDir $TranscriptDir -StepLogPath $StopwatchStepLogPath -RepoRoot $root
-                $html = Format-LogbookRunPageHtml -Group $group -StorePath $LogbookPath -Transcript $phases
-                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+            # The Stopwatch's and the Logbook's routes (#3470): a page, a moved run slug, or a slug no run has.
+            $tp = Resolve-HubTimingPage -Path $path -Context $timing
+            if ($null -ne $tp) {
+                if ($tp.Status -eq 301) { Send-LoopbackResponse $stream 301 'Moved Permanently' 'text/plain; charset=utf-8' ($utf8.GetBytes('Moved.')) -Headers @{ Location = $tp.Location } -Method $method }
+                elseif ($tp.Status -eq 404) { Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method }
+                else { Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($tp.Html)) -Method $method }
                 continue
             }
             if ($path -eq '/specialists') {
