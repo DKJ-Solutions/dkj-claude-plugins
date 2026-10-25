@@ -2,7 +2,53 @@
 
 ## [Unreleased]
 
-**10 / 15 minor entries** <!-- pending-tally -->
+**10 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/hub-banner-stopwatch-comment · 20261025-093839Z
+
+A `stopwatch test run` timestamp line at the top of `Format-RepoHubBanner`'s docstring, a marker for
+timing the branch-to-fold chain end to end. Comment only; nothing the hub renders changes.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- a code comment reaches no user of the plugins.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch test-run line in the hub banner docstring
+
+Plugins: dkj-policy
+
+[PR #3429](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3429)
+
+---
+
+### DEPLOY: feat/heading-h2-18px · 20261025-092551Z
+
+`h2` in the house style is now 18px instead of 24px, so a section heading sits closer to the body text
+under it. Nothing else in the scale moves.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing for an app to do: the token keeps its name, so every `h2` takes the new size with the next copy.
+
+**Score:** N/A
+
+#### Pull Request
+
+House style: h2 at 18px
+
+Plugins: dkj-solutions
+
+[PR #3427](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3427)
+
+---
 
 ### DEPLOY: feat/3422-close-parked-recurrences · 20261025-091440Z
 
