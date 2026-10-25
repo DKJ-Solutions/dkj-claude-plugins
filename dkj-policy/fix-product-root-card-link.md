@@ -41,17 +41,27 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `brandbook/root.html`: the four page cards are `card card--link`, the hub's form since #3298
+- [x] `scripts/tests/dev-pages.tests.ps1`: pin the product root's cards to `.card--link`
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` green (314 passed)
+
 ### DEPLOY: fix/product-root-card-link
 
-**Score:**
+The product port's home page (`brandbook/root.html`) wrote its four page cards as a plain `.card`, so
+only the link row tinted on hover and took a click, while the hub's cards, `.card--link` since #3298,
+tint and click over their whole area. That hand-written file was missed by #3298; it now carries the
+same class, and `dev-pages.tests.ps1` pins it so the two ports cannot drift apart again.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the product port is this repo's own dev server; nothing a consumer installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
