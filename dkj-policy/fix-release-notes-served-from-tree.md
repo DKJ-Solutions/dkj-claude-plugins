@@ -39,19 +39,34 @@
 
 ### PLAN
 
+The hub banner on `/release-notes` stood in the wrong place although `main` already had the fix: the hub
+relayed that page to the general pages server, which runs from the installed plugin (v5.30.0). The owner
+wants the release notes, which are this repo's own, to follow this tree without a cut (October 25, 2026).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `serve-connector-dashboard.ps1` builds and serves `/release-notes` itself, from this tree's builder and `Format-ReleaseNotesDevPage`; it is no longer one of the relayed routes
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1`: the route answers here with and without a page on disk, the banner stands above the site header, and the HEAD relay assert moved to `/artifacts` (212 passed)
+- [x] Checked by hand on `:4873`: the banner is the first thing in `<body>`, as on `/stopwatch`, and a removed page is rebuilt on request
+
 ### DEPLOY: fix/release-notes-served-from-tree
 
-**Score:**
+**This repo's hub builds the release-notes page from its own tree.** `/release-notes` on the hub was relayed
+to the general pages server, which runs from the installed plugin, so a change to that page showed here only
+after a release. The hub now builds and dresses the page with this tree's `build-release-notes-page.ps1` and
+`Format-ReleaseNotesDevPage`, under the same rebuild rule the general server uses, and the hub banner stands
+above the site header there as on every other hub page. Artifacts, Issues and SessionStart are still relayed.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: only this repo's own hub changes; consumers' hubs keep serving the page from the plugin.
+
+**Score:** N/A
 
 #### Pull Request
 
