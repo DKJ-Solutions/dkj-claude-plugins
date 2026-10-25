@@ -8,7 +8,8 @@
     at every sync, so deleting it anywhere else does not stick. This script writes a hide entry into THIS machine's
     stopwatch-hidden.json instead, then runs the sync, which publishes the entry in this machine's own payload. Every
     machine's pages leave out what any machine hid; the newest entry for a run id or label wins, so -Show undoes a
-    hide from whichever machine wrote it. Nothing is erased from any store. The rules are in
+    hide from whichever machine wrote it. The machine that recorded a hidden run erases it from its own store at its
+    next sync (#3453), and from then on -Show cannot bring it back. The rules are in
     scripts/lib/stopwatch-sync-lib.ps1.
 
       -RunId <id>      hide one run (its id, e.g. 20261023-112047-da87)
@@ -81,7 +82,8 @@ $written = $entries[-1]
 $known = @(@((Read-StopwatchStore -Path $StorePath).Runs) + @($shared.Runs) | Where-Object { if ($kind -eq 'run') { $_.Id -ceq $written.Value } else { $_.Label -ceq $written.Value } })
 Save-StopwatchHidden -Path $hidePath -Entries $entries
 Write-Host ('[OK] ' + $(if ($Show) { 'shown again' } else { 'hidden' }) + ": $kind `"$($written.Value)`" ($(@($known).Count) run(s) this machine can see).")
-if (-not @($known).Count) { Write-Host '     No run this machine can see matches it: check the spelling (a label is matched exactly, in full).' }
+if (-not @($known).Count) { Write-Host "     No run this machine can see matches it: check the spelling (a label is matched exactly, in full)$(if ($Show) { ', or it has already been erased' })." }
+if (-not $Show) { Write-Host '     The machine that recorded it erases it at its next sync; -Show brings it back only until then.' }
 
 if ($NoSync) { Write-Host '     Not synced (-NoSync): the next sync publishes it.'; exit 0 }
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $here 'scripts\dashboard\stopwatch-sync.ps1') -StorePath $StorePath -RepoRoot $root -Remote $Remote *> $null

@@ -39,19 +39,43 @@
 
 ### PLAN
 
+#3453: the owner wants a hidden run gone, not just hidden. The recording machine erases a hidden
+finished run from its own store at its sync, so one writer per ref still holds.
+
+Settled in the work:
+
+- **No grace period.** The erase waits for the recording machine's next sync anyway, and the owner
+  asked for the run gone; `-Show` undoes a hide only until then, and the script and skill say so.
+- **A label hide erases later runs too**, as they finish: the entry stays in force, consistent with
+  "gone". To record under the label again, `-Show` it first.
+- **A store holding a run that does not parse is not rewritten**, since the rewrite would drop it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Remove-StopwatchHiddenFromStore` in `scripts/lib/stopwatch-sync-lib.ps1`, called by
+  `stopwatch-sync.ps1` after the fetch with this machine's and every other machine's hide entries
+- [x] `stopwatch-hide.ps1` says the erase is coming and that `-Show` is only good until then
+- [x] the `stopwatch-hide` skill and the lib's header rewritten: a hidden run is erased
 
 ### TEST
 
+- [x] `scripts/tests/stopwatch-sync.tests.ps1`: the erase keeps a running run, writes nothing when
+  nothing is hidden, refuses a store with an unparseable run, and end to end the recording machine's
+  sync erases the run and publishes without it -- 72 passed, 0 failed
+
 ### DEPLOY: feat/3453-stopwatch-erase-hidden
 
-**Score:**
+A hidden Stopwatch run is now erased, not only hidden: at its next sync the machine that recorded it
+drops it from its own `stopwatch.json` and publishes without it, and a label hide erases that label's
+later runs as they finish. `-Show` brings a run back only until that sync (the `stopwatch-hide` skill).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the Stopwatch is this repo's own dev server and ships to no consumer.
+
+**Score:** N/A
 
 #### Pull Request
 
