@@ -720,15 +720,6 @@ function Format-StopwatchPhaseCard {
     return $card + '</table></div></section>'
 }
 
-function Format-StopwatchDelta {
-    <# Faster or slower than the run before, as a badge; nothing for a label's first run. #>
-    param($Seconds)
-    if ($null -eq $Seconds) { return '<span class="note">first run</span>' }
-    if ([Math]::Abs([double]$Seconds) -lt 0.5) { return '<span class="badge badge--sm badge--neutral">same</span>' }
-    if ($Seconds -lt 0) { return '<span class="badge badge--sm badge--good">' + (Format-DevSeconds (-[double]$Seconds)) + ' faster</span>' }
-    return '<span class="badge badge--sm badge--bad">' + (Format-DevSeconds ([double]$Seconds)) + ' slower</span>'
-}
-
 function Format-StopwatchChangePercent {
     <#
         A run's change against the run of its label before it, in percent of that run's time, beside the time on a
@@ -1099,7 +1090,9 @@ function Format-StopwatchRunPageHtml {
         # before (or -TimeNote) beside it; the start is the page's own heading, so neither is said twice.
         $notes = @()
         if ($TimeNote) { $notes += '<span class="note">' + (& $e $TimeNote) + '</span>' }
-        if (-not $NoDelta) { $notes += (Format-StopwatchDelta $row.DeltaSeconds) + $(if ($null -ne $row.DeltaSeconds) { ' <span class="note">than the previous run of this label</span>' } else { '' }) }
+        # The change in the label page's own form, a sign and a percent (the owner, October 25, 2026); a first run has none.
+        $change = (Format-StopwatchChangePercent $row.Seconds $row.DeltaSeconds).Trim()
+        if (-not $NoDelta -and $change) { $notes += $change }
         if ($row.Run.Machine) { $notes += '<span class="note">on another machine</span>' }
         [void]$body.AppendLine('<div class="grid-2">')
         [void]$body.AppendLine((Format-StopwatchPhaseCard $Transcript[$row.Run.Id] $row.Seconds -TotalNote ($notes -join ' &middot; ')))

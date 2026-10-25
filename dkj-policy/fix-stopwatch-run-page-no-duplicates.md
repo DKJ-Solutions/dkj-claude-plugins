@@ -45,6 +45,7 @@ The owner saw a run's start three times and its time twice on `/stopwatch/css-co
 
 - [x] `Format-StopwatchRunPageHtml`: the Time card is gone (owner, round 2); its total, change against the run before, work-time note and other-machine note close the phases card; the phase card gets no title
 - [x] Round 3 (owner): the label beneath the heading goes where the crumb already names it (the Stopwatch, not the Logbook), and the Phases heading and its explanation go
+- [x] Round 4 (owner): the change against the run before is the label page's sign and percent (`Format-StopwatchChangePercent`), not the old "2:35 faster" badge; `Format-StopwatchDelta` had no caller left and is removed
 - [x] `Format-StopwatchPhaseCard`: `-Title` optional with no empty card head; `-TotalNote` adds a Total row in the table's `tfoot`, or a Total line under the reason when there is no table
 
 ### TEST
@@ -54,7 +55,7 @@ The owner saw a run's start three times and its time twice on `/stopwatch/css-co
 
 ### DEPLOY: fix/stopwatch-run-page-no-duplicates
 
-A Stopwatch run page names the run's start once, in its heading, and its total time once, as the closing Total row of its phases table with its change against the previous run beside it. The separate Time card is gone, and the phase card no longer carries a title restating the start and the time, and the label beneath the heading and the Phases heading with its explanation are gone too, the label staying in the crumbs, so the page stays compact. The Logbook's run page, which shares the layout, gets the same total row with its work time beside it.
+A Stopwatch run page names the run's start once, in its heading, and its total time once, as the closing Total row of its phases table with its change against the previous run beside it as the label page writes it, a sign and a percent (+32%). The separate Time card is gone, and the phase card no longer carries a title restating the start and the time, and the label beneath the heading and the Phases heading with its explanation are gone too, the label staying in the crumbs, so the page stays compact. The Logbook's run page, which shares the layout, gets the same total row with its work time beside it.
 
 **Score:** 2
 
