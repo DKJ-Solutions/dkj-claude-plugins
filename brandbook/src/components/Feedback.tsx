@@ -36,10 +36,10 @@ export function Alert({ tone = 'danger', title, children }: { tone?: 'danger'; t
   const id = useId()
   return (
     <section className={cx('dkj-alert', `dkj-alert--${tone}`)} aria-labelledby={id}>
-      <h4 className="dkj-alert-title" id={id}>
+      <h3 className="dkj-alert-title" id={id}>
         <Icon name="warning" className="dkj-alert-icon" />
         {title}
-      </h4>
+      </h3>
       {children}
     </section>
   )

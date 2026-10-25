@@ -52,10 +52,10 @@ URLs, with `<tag>` the release tag the skill pins, which the release cut writes 
 | Status | `--positive-3`, `--warning-3`, `--negative-3`, `--warning-5`, `--warning-1`, `--negative-1`, `--positive-1` | badges, meters, notices. `--warning-1`, `--negative-1` and `--positive-1` are the backgrounds of a warning, negative or positive message. The mark inside a status icon (check, cross, "!") is `--paper-1` |
 | Primary | `--primary` | the theme's colour, **one** step (owner, #3235, October 21, 2026): the most saturated colour of the theme's hue that reads on all four paper steps, so the paper reads on it too. **The highlight**: `h1`, the fill of `.btn--primary` (a filled main action, like the filled icon button; #109) and of `.fill-primary`, a state (hover, pressed, sorted, active, today), `strong`, list markers, links, a value meant to stand out, the accent dialog's title and the settings panel's title, and native controls through `accent-color` |
 | Greys | `--muted`, `--muted-inverse` | a grey of the theme's colour, for what may recede: `--muted` reads extra well (7:1) on the page, `--muted-inverse` on the far end (7:1 on `--fg-1`). `--muted` is the eyebrow, every sub line (`.sub`, `.dialog__sub`, a component's `-sub`), every note (`.note`, `.footer-note`, `.muted`, on a `<p>` too), the tile label, the pressed `.seg` button, `.badge--info`, `.meter--info`, focus rings, meters and the `--accent` modifiers ([below](#how-far-a-theme-reaches)); `--muted-inverse` the same roles on an inverted surface (`.fill-inverse`, the showcase's panel). Never a status or a number |
-| Text | `--fg-1` … `--fg-4` | what sits **on** the paper: four colours near black on light (near white on dark), in **very small** steps, so `fg-4` is still very dark, only a little less so than `fg-1` (owner, #3235). `fg-1` is **all text**, every paragraph and everything else: labels, table heads, legends, quiet icons, the text on a tinted surface, and the ground of an inverted surface; `fg-2` is `h2` and `.meta` on a span; `fg-3` is `h3`–`h5`; `fg-4` has no role yet (the breadcrumb's current page took it until the bar turned `--primary`, #3235). On a fill the text switches to the paper ([Fills](#fills-the-text-switches-with-the-ground)) |
+| Text | `--fg-1` … `--fg-4` | what sits **on** the paper: four colours near black on light (near white on dark), in **very small** steps, so `fg-4` is still very dark, only a little less so than `fg-1` (owner, #3235). `fg-1` is **all text**, every paragraph and everything else: labels, table heads, legends, quiet icons, the text on a tinted surface, and the ground of an inverted surface; `fg-2` is `h2` and `.meta` on a span; `fg-3` is `h3`; `fg-4` has no role yet (the breadcrumb's current page took it until the bar turned `--primary`, #3235). On a fill the text switches to the paper ([Fills](#fills-the-text-switches-with-the-ground)) |
 | Elevation | `--shadow-pop` | tooltips |
 | Spacing | `--spacing-0-5` … `--spacing-96` | the spacing scale, same in both modes: `--spacing-N` is N × 4px, a half step (`-0-5`, `-1-5`, …) adds 2px. Every gap, margin and padding uses one, and a repo layer spaces its own components from the same scale |
-| Type | `--text-h1` … `--text-h5`, `--text-lg`, `--text-base`, `--text-sm`, `--text-xs`, `--font-serif` | the type scale, same in both modes: 32/24/22/18/16 for the headings (`h2` 24px at weight 700 since October 24, 2026, the owner; it was 32 at 600), and `.lead` is `--text-base` since the same day (it was `--text-lg`), 18/14/12/11 for running text. `h1`–`h5` each take the token of their own level, body text is `--text-base`. No heading is larger than 32px (owner's decision, October 22, 2026: as much content as possible on a 900px-high screen), so `h1` stands apart by its size and colour (by its capitals too until October 24, 2026); it was 48px from October 20, when `--text-h0` was retired. The hero figure is set at `--text-h1`. There is no `h6` either: the 24px `h3` was retired the same day, because it stood too close to `h2`, and every level below moved up one ([below](#the-heading-shift-of-october-20-2026)). The one exception is a section label (`GroupHeading`): it stays a heading for the document outline, but every level renders at `--text-base`, uppercase and muted (owner's decision, October 15, 2026). `--font-serif` was the face of `h1` and `h2` until October 24, 2026, when the owner moved both to the sans; it stays for a title that keeps that face |
+| Type | `--text-h1` … `--text-h3`, `--text-lg`, `--text-base`, `--text-sm`, `--text-xs`, `--font-serif` | the type scale, same in both modes: 32/24/14 for the headings (`h3` at 14px, the body size, and no `h4` or `h5` since October 25, 2026, the owner: [below](#the-heading-cut-of-october-25-2026)) (`h2` 24px at weight 700 since October 24, 2026, the owner; it was 32 at 600), and `.lead` is `--text-base` since the same day (it was `--text-lg`), 18/14/12/11 for running text. `h1`–`h3` each take the token of their own level, body text is `--text-base`. No heading is larger than 32px (owner's decision, October 22, 2026: as much content as possible on a 900px-high screen), so `h1` stands apart by its size and colour (by its capitals too until October 24, 2026); it was 48px from October 20, when `--text-h0` was retired. The hero figure is set at `--text-h1`. There is no `h6` either: the 24px `h3` was retired the same day, because it stood too close to `h2`, and every level below moved up one ([below](#the-heading-shift-of-october-20-2026)). The one exception is a section label (`GroupHeading`): it stays a heading for the document outline, but every level renders at `--text-base`, uppercase and muted (owner's decision, October 15, 2026). `--font-serif` was the face of `h1` and `h2` until October 24, 2026, when the owner moved both to the sans; it stays for a title that keeps that face |
 | App shell | `--control-h`, `--tap`, `--topbar-h`, `--column-narrow` | sizes for a mobile-first app, same in both modes: 38px for a value field and the button beside it, 44px as the smallest touch target, 56px for the top bar, 512px for the narrow app column |
 
 `--gain` was removed (October 14, 2026). A gain in a chart is `--positive-3` (owner's decision, October 15, 2026, #131); before that it was `--cat-1`.
@@ -204,7 +204,7 @@ gate tells `--primary-9` from it.
 on the dark themes (the ground end) and `-5` the opposite (the text end). The theme's own colour has two numbered
 groups (#3235), and each counts from its own start: `--paper-1` … `--paper-4` from the page outward (page, cards,
 lines and tinted surfaces, a stronger border), and `--fg-1` … `--fg-4` from the strongest text outward (all text,
-`h2`, `h3`–`h5`, and one step with no role yet), both in very small steps. `--primary`, `--muted` and
+`h2`, `h3`, and one step with no role yet), both in very small steps. `--primary`, `--muted` and
 `--muted-inverse` carry no number: there is one of each. There are no untinted neutrals: the
 greys are the theme's own, a greyed step of its colour. For the status families:
 `-1` is the background of a message, `-3` the fill (icon, badge, meter, a
@@ -252,6 +252,25 @@ up in its own layer, lowest first so nothing moves twice: `--text-h4` → `--tex
 `h6` → `h5`). An `h3` that was an `h3` (a card title) stays one and simply renders at 22px. `--text-h6` is a
 retired token, so the gate reports a use left behind; a missed `--text-h4` or `--text-h5` shows a size one
 step too small rather than an error.
+
+### The heading cut of October 25, 2026
+
+**`h3` is 14px, the body size, and `h4` and `h5` are gone with their tokens** (owner's decision, October 25,
+2026). Three heading levels remain, and `h3` stands apart from running text by its weight (600) and its colour
+(`--fg-3`) alone:
+
+| Was | Now |
+|---|---|
+| `h3`, `--text-h3`, 22px | `h3`, `--text-h3`, 14px |
+| `h4`, `--text-h4`, 18px | retired: an `h3` |
+| `h5`, `--text-h5`, 16px | retired: an `h3` |
+
+**An app that takes this update makes every `h4` and `h5` an `h3`**, and moves each use of a retired token in its
+own layer: a heading-like use (a title) to `--text-h3`, running text that borrowed `--text-h5` to `--text-base`. A
+large figure that borrowed `--text-h3` for its size (a tile value, a secondary hero value, a large stepper) moves to
+`--text-lg`, because a figure at the body size no longer stands out. `--text-h4` and `--text-h5` are retired tokens,
+so the gate reports a use left behind. The house rules for an `h4` and an `h5` are gone, so one left in markup
+renders at the browser's default size.
 
 ## Themes: the user picks the colour
 
@@ -432,7 +451,7 @@ out). Three more things follow it by default, in light and in dark (and a measur
   (a separate grid colour was dropped on October 14, 2026: it was too close to the border to tell apart).
 - **The theme picker previews it:** each swatch shows its own theme's page, with the primary as the dot.
 - **Links are the theme's colour**, as `--primary` (owner's decision, October 15, 2026). **`h1` and `h2` are
-  `--primary`, `.meta` on a span is `--fg-2` and `h3`–`h5` are `--fg-3`** (the owner, October 24, 2026, for `h2`:
+  `--primary`, `.meta` on a span is `--fg-2` and `h3` is `--fg-3`** (the owner, October 24, 2026, for `h2`:
   from #3235 until then it was `--fg-2`, and before #3235 `h2` and `h3`–`h5` were steps of the colour).
 - **On a fill the text switches** (#3235, the owner: *"h2 heeft niet altijd dezelfde kleur"*, an h2 does not always have the same colour). See
   [Fills](#fills-the-text-switches-with-the-ground).
@@ -502,8 +521,8 @@ and a side drawer, a top bar and a menu list. The group sits at the end of
   phone and, on a computer, the same width.
 - **Buttons.** `.btn--touch` and `.btn--block` are modifiers of `.btn`, so the `.btn:disabled` state
   covers them too, `.btn--touch.btn--primary` included.
-- **Dialog.** A native `<dialog>` opened with `showModal`. Put `.dialog__title` on an `h5` (an `h4` in a
-  `.dialog--drawer`, whose title is `--text-h4`) or a `p`: a heading element takes the token of its own level. The page stands still behind a modal
+- **Dialog.** A native `<dialog>` opened with `showModal`. Put `.dialog__title` on an `h3` or a `p`; in a
+  `.dialog--drawer` it is bold. The page stands still behind a modal
   (`html:has(dialog:modal)`), and `html:has(.topbar)` adds the scroll padding for the top bar.
   `.dialog--drawer` slides in from the side. A dialog on top of a dialog sets `--dialog-scale` (default
   0.95) smaller on itself: a hook the app sets, not a house token.

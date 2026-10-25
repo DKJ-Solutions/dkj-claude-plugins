@@ -24,7 +24,7 @@ export type DialogProps = {
   onSave?: () => void
   /** drawer: a full-height panel sliding in from the right, swipe right to close. */
   variant?: 'dialog' | 'drawer'
-  /** heading: card (an <h3>, --text-h3, bold) or plain (an <h5>, --text-h5). A drawer's title is an <h4> (--text-h4). */
+  /** heading: card (bold) or plain; the title is an <h3> (--text-h3) either way, and a drawer's title is a bold <h3> too. */
   heading?: 'card' | 'plain'
   children: ReactNode
 }
@@ -52,8 +52,8 @@ export function Dialog({
   const [infoOpen, setInfoOpen] = useState(false)
   const swipeStart = useRef<number | null>(null)
   const titleId = useId()
-  // A heading takes the token of its own level: the drawer's title is --text-h4, a card heading --text-h3, a plain one --text-h5.
-  const Title = variant === 'drawer' ? 'h4' : heading === 'card' ? 'h3' : 'h5'
+  // h3 is the lowest heading the house style has (October 25, 2026), so every dialog title is one.
+  const Title = 'h3'
 
   useEffect(() => {
     const d = ref.current

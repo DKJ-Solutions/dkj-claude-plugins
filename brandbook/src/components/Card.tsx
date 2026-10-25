@@ -1,10 +1,7 @@
-import { createContext, useContext, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { cx } from './cx'
 import { Icon, type IconName } from './Icon'
 import './surfaces.css'
-
-/** The card's variant, so CardHead picks the heading element whose token its title is set in. */
-const CardVariant = createContext<'default' | 'data'>('default')
 
 /**
  * Card -- the main surface. flush: no padding, the head and body bring their own.
@@ -31,14 +28,14 @@ export function Card({
     <section
       className={cx('dkj-card', flush && 'dkj-card--flush', variant === 'data' && 'dkj-card--data', invalid && 'dkj-card--invalid', open && 'dkj-card--open', className)}
     >
-      <CardVariant.Provider value={variant}>{children}</CardVariant.Provider>
+      {children}
     </section>
   )
 }
 
 /**
  * CardHead -- a centred title (optionally with an accent icon), and below it the card's actions over the full width.
- * The title is an <h5> (--text-h5), or an <h3> (--text-h3) in a data card: a heading takes the token of its own level.
+ * The title is an <h3> (--text-h3), in a data card too: h3 is the lowest heading the house style has.
  * Never an <h2>: an h2 never stands inside a card, it stands above the card(s) in a CardGroup (#3175).
  * subtitle: a muted line under the title. info: a slot after the title text, for an inline RoundToggle.
  * badge: a status Badge before the title text (#153). The Badge is decorative, so say the status in the subtitle too.
@@ -61,9 +58,8 @@ export function CardHead({
   info?: ReactNode
   actions?: ReactNode
 }) {
-  const variant = useContext(CardVariant)
   const plainH3 = level === 3
-  const Title = plainH3 || variant === 'data' ? 'h3' : 'h5'
+  const Title = 'h3'
   return (
     <div className="dkj-card-head">
       <Title className={plainH3 ? undefined : cx('dkj-card-title', icon && 'dkj-card-title--icon')}>

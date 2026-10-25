@@ -18,7 +18,7 @@ const HOUSE_COLORS = {
 
 
 const TEXT_SIZES = [
-  '--text-h1', '--text-h2', '--text-h3', '--text-h4', '--text-h5',
+  '--text-h1', '--text-h2', '--text-h3',
   '--text-lg', '--text-base', '--text-sm', '--text-xs',
 ] as const
 const WEIGHTS = ['regular', 'medium', 'semibold', 'bold'] as const
@@ -132,7 +132,7 @@ function SwatchGrid({ items }: { items: Swatch[] }) {
   )
 }
 
-const HEADINGS = ['h1', 'h2', 'h3', 'h4', 'h5'] as const
+const HEADINGS = ['h1', 'h2', 'h3'] as const
 type HeadingLevel = (typeof HEADINGS)[number]
 type HeadingFacts = { face: string; stack: string; size: string; weight: string; token: string; hex: string }
 
@@ -149,7 +149,7 @@ function HeadingOverview({ theme }: { theme: string }) {
     const serif = root.getPropertyValue('--font-serif').trim().replace(/\s+/g, ' ')
     const steps = THEME_STEPS.map((s) => `--${s}`)
     const stepHex = steps.map((t) => [t, resolveHex(root.getPropertyValue(t).trim())] as const)
-    const sizes = ['--text-h1', '--text-h2', '--text-h3', '--text-h4', '--text-h5']
+    const sizes = ['--text-h1', '--text-h2', '--text-h3']
     const next: Partial<Record<HeadingLevel, HeadingFacts>> = {}
     for (const level of HEADINGS) {
       const el = refs.current[level]
@@ -250,7 +250,7 @@ export function Foundations() {
           ))}
         </div>
       </Demo>
-      <Demo label="Headings -- h1 to h5: font family, colour, size and weight, read live" wide>
+      <Demo label="Headings -- h1 to h3: font family, colour, size and weight, read live" wide>
         <HeadingOverview theme={theme} />
       </Demo>
       <Demo label="Type -- weights, line heights, tracking and mono (--dkj-*)" wide>

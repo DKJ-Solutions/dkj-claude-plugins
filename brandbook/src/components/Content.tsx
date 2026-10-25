@@ -32,8 +32,8 @@ export function GroupHeading({
 }
 
 /**
- * QuestionBlock -- a heading (h4) with a verdict chip on the same line (the chip shrinks or wraps below),
- * then a verdict line (h5 size) and supporting text.
+ * QuestionBlock -- a heading (h3) with a verdict chip on the same line (the chip shrinks or wraps below),
+ * then a verdict line (body size) and supporting text.
  */
 export function QuestionBlock({
   title,
@@ -51,7 +51,7 @@ export function QuestionBlock({
   return (
     <div className="dkj-question">
       <div className="dkj-question-head">
-        <h4>{title}</h4>
+        <h3>{title}</h3>
         <Chip tone={chip}>{chipText}</Chip>
       </div>
       {verdict && <p className="dkj-verdict">{verdict}</p>}

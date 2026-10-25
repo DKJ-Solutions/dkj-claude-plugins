@@ -98,7 +98,7 @@ export function Overlap() {
           <ul className="dkj-views">
             {g.findings.map((f) => (
               <li key={f.title} className="dkj-view">
-                <h4 className="dkj-view-title">{f.title}</h4>
+                <h3 className="dkj-view-title">{f.title}</h3>
                 <p>{f.why}</p>
                 {f.proposal && (
                   <p>

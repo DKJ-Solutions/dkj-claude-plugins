@@ -25,7 +25,7 @@
    the cards and tiles stand on the paper (--paper-1, --paper-2), every line and tinted surface is --paper-3, and
    the text on them is --fg-1 to --fg-4. There are no untinted neutrals: text is --fg-1, and --primary is the
    highlight (h1, a state, a value that stands out) (owner's decisions, October 14 and 15, 2026; h2 is --fg-2 and
-   h3-h5 --fg-3, #3235).
+   h3 --fg-3, #3235).
    Status, direction and categorical colours are never tinted. The
    --accent modifiers (header, table) carry it further where an app opts in.
 
@@ -70,7 +70,7 @@
      highlight: links (owner's decision, October 15, 2026), the primary button's fill (#109), the picker's dot, h1,
      the states (hover, sorted) and native controls through accent-color. --muted the eyebrow, sub lines, notes,
      .muted, the tile label, the fills (switches, info badges, a pressed .seg), most focus
-     rings and meters (a ring on a sort header, a .seg button, a chart bar or the read-more toggle is --primary). fg-1 every paragraph and an inverted surface (.fill-inverse, the showcase's panel); fg-2 h2 and .meta on a span; fg-3 h3-h5;
+     rings and meters (a ring on a sort header, a .seg button, a chart bar or the read-more toggle is --primary). fg-1 every paragraph and an inverted surface (.fill-inverse, the showcase's panel); fg-2 h2 and .meta on a span; fg-3 h3;
      fg-4 no role yet. The breadcrumb bar stands on --primary, with the paper steps as its text. On a fill the text switches: on .fill-primary the paper is the text, so an h2
      is --paper-1 there and --fg-2 on the page (owner, #3235: "h2 heeft niet altijd dezelfde kleur", an h2 does not always have the same colour).
      Measured (WCAG relative luminance, October 21, 2026), worst and best over the twelve themes: primary on paper-1
@@ -119,12 +119,13 @@
   /* type scale: the Figma library's text variables (same file and collection as the spacing
      scale), with two deliberate departures: the library's h0 is retired and h1 takes its 48px, so
      h1 stands clearly above h2; and the library's 24px h3 is retired and every level below moved
-     up one, so h3 stands clearly below h2 and there is no h6 (owner's decision, October 20, 2026).
+     up one, so h3 stands clearly below h2 and there is no h6 (owner's decision, October 20, 2026). On October 25,
+     2026 the owner cut the scale to three headings: h3 is 14px, the body size, set apart by weight and
+     colour alone, and h4 and h5 were retired with their tokens.
      Headings take the heading token of their own level; body text is --text-base. Same in both modes. */
   /* No heading above 32px (owner, October 22, 2026): a page shows as much content as it can on a 900px-high screen,
      so h1 is the top step and stands apart by its size and the theme's colour. The hero figure takes it too. */
-  --text-h1: 32px; --text-h2: 24px; --text-h3: 22px;
-  --text-h4: 18px; --text-h5: 16px;
+  --text-h1: 32px; --text-h2: 24px; --text-h3: 14px;
   --text-lg: 18px; --text-base: 14px; --text-sm: 12px; --text-xs: 11px;
   /* the serif h1 and h2 were set in until October 24, 2026 (both are in the sans now); a component whose title keeps that face takes it from here */
   --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Noto Serif", serif;
@@ -235,15 +236,15 @@ body > header, main > header { display: flex; justify-content: space-between; al
    with its tracking pulled in slightly, as a large sans wants. */
 h1 { font-weight: 700; letter-spacing: -0.01em; }
 h2 { font-weight: 700; }   /* 700 since October 24, 2026 (owner); it was 600 */
-/* h1 and h2 are --primary, h3-h5 --fg-3 (owner, October 24, 2026: h2 back in the colour, now 24px in the sans under
+/* h1 and h2 are --primary, h3 --fg-3 (owner, October 24, 2026: h2 back in the colour, now 24px in the sans under
    the h1; from October 19 it was --fg-2, because an h2 in the h1's colour read too much like it, and #3235 moved h2
-   and h3-h5 to the text steps). On a fill the paper is the text: .fill-primary and
+   and h3 to the text steps). On a fill the paper is the text: .fill-primary and
    .fill-inverse at the end of this file switch every heading to --paper-1, so an h2 reads on the page and on the
    primary alike (owner, #3235). :where() keeps them at
    zero specificity, so a heading inside a coloured container (or one an app colours itself) wins without an override. */
 :where(h1) { color: var(--primary); }
 :where(h2) { color: var(--primary); }
-:where(h3, h4, h5) { color: var(--fg-3); }
+:where(h3) { color: var(--fg-3); }
 /* h1 is in its own case (owner, October 24, 2026; it was set in capitals from #3247). */
 h1 { font-size: var(--text-h1); margin: 0; }
 h2 { font-size: var(--text-h2); margin: 0 0 var(--spacing-1); }
@@ -252,9 +253,7 @@ h2 { font-size: var(--text-h2); margin: 0 0 var(--spacing-1); }
 h2 { display: flex; align-items: center; }
 h2 .info-button { top: 1px; }
 h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; }
-/* h4 and h5 take the token of their own level too, in the body sans like h3. There is no h6 (October 20, 2026). */
-h4 { font-size: var(--text-h4); margin: 0 0 var(--spacing-1-5); font-weight: 600; }
-h5 { font-size: var(--text-h5); margin: 0 0 var(--spacing-1); font-weight: 600; }
+/* There is no h4, h5 or h6: the scale ends at h3 (owner, October 25, 2026; h6 went on October 20). */
 .sub { color: var(--muted); font-size: var(--text-sm); margin: 0 0 var(--spacing-4); }   /* line under a heading */
 .muted { color: var(--muted); font-size: var(--text-sm); }
 .meta { font-size: var(--text-sm); color: var(--fg-2); white-space: nowrap; }
@@ -306,7 +305,7 @@ p, p.meta { color: var(--fg-1); }
 .hero .value { font-size: var(--text-h1); font-weight: 600; line-height: 1.1; color: var(--fg-1); }
 .tile { background: var(--paper-2); border: 1px solid var(--paper-3); border-radius: 12px; padding: var(--spacing-3-5) var(--spacing-4); }
 .tile .label { color: var(--muted); font-size: var(--text-sm); }   /* a muted grey, as .muted: the figure leads (owner, October 20, 2026) */
-.tile .v { font-size: var(--text-h3); font-weight: 600; margin-top: var(--spacing-0-5); }
+.tile .v { font-size: var(--text-lg); font-weight: 600; margin-top: var(--spacing-0-5); }
 .mini-card { border: 1px solid var(--paper-3); border-radius: 10px; padding: var(--spacing-3) var(--spacing-3-5); }
 .mini-card--highlight { border-color: var(--warning-3); }
 .mini-card__label { font-size: var(--text-sm); color: var(--fg-1); }
@@ -582,7 +581,7 @@ html:has(dialog:modal) { overflow: hidden; }
 /* The head keeps the right edge free for the close button and is at least as tall, so a
    one-line title sits level with it. */
 .dialog__head { display: flex; align-items: center; min-height: var(--tap); padding-right: calc(var(--tap) + var(--spacing-2)); margin-bottom: var(--spacing-4); }
-.dialog__title { margin: 0; min-width: 0; font-size: var(--text-h5); font-weight: 600; overflow-wrap: anywhere; }
+.dialog__title { margin: 0; min-width: 0; font-size: var(--text-h3); font-weight: 600; overflow-wrap: anywhere; }
 .dialog__sub { margin: var(--spacing-0-5) 0 0; font-size: var(--text-sm); color: var(--muted); }
 /* The close button, top right, with no visible border. Variants: --save (a filled plate, the
    check that saves), --cancel (an outlined plate to the left of save, the undo arrow), --back
@@ -614,7 +613,7 @@ html:has(dialog:modal) { overflow: hidden; }
   padding: 0 calc(var(--spacing-4) + var(--tap) + var(--spacing-2)) 0 var(--spacing-4); border-bottom: 1px solid var(--paper-3); }
 .dialog--drawer .dialog__head--two { padding-right: calc(var(--spacing-4) + 2 * var(--tap) + var(--spacing-4)); }
 .dialog--drawer .dialog__head--back { padding: 0 var(--spacing-4) 0 calc(var(--spacing-4) + var(--tap) + var(--spacing-2)); }
-.dialog--drawer .dialog__title { font-size: var(--text-h4); font-weight: 700; }   /* as the name in the top bar */
+.dialog--drawer .dialog__title { font-weight: 700; }   /* as the name in the top bar */
 .dialog--drawer .dialog__close { top: calc((var(--topbar-h) - var(--tap)) / 2 + env(safe-area-inset-top)); }
 .dialog--drawer::backdrop { animation: house-backdrop-in 220ms ease-out; }
 @keyframes house-drawer-in { from { transform: translateX(100%); } }
@@ -690,8 +689,8 @@ html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + va
 .menu-list { margin: 0; padding: 0; list-style: none; }
 .menu-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: var(--spacing-3); min-height: var(--tap); padding: var(--spacing-2); }
 .menu-row + .menu-row { border-top: 1px solid var(--paper-3); }
-.menu-row__label { font-size: var(--text-h5); font-weight: 600; }
-.menu-row__value { min-width: 0; font-size: var(--text-h5); text-align: right; overflow-wrap: anywhere; }
+.menu-row__label { font-size: var(--text-base); font-weight: 600; }
+.menu-row__value { min-width: 0; font-size: var(--text-base); text-align: right; overflow-wrap: anywhere; }
 /* A button at the end of the row is control-h tall and its centre sits under a close button's. */
 .menu-row .icon-btn { height: var(--control-h); margin-right: calc((var(--tap) - var(--control-h)) / 2); }
 /* A navigation row: a full-width button with icon, label and chevron; a line between items.
@@ -730,8 +729,8 @@ a.menu-item:hover { background: var(--paper-3); }
    .fill-primary does not show: use an outline button there. */
 .fill-primary { background: var(--primary); color: var(--paper-1); }
 .fill-inverse { background: var(--fg-1); color: var(--paper-1); }
-.fill-primary :is(h1, h2, h3, h4, h5, p, .lead, .msg, .meta, .card__title),
-.fill-inverse :is(h1, h2, h3, h4, h5, p, .lead, .msg, .meta, .card__title) { color: var(--paper-1); }
+.fill-primary :is(h1, h2, h3, p, .lead, .msg, .meta, .card__title),
+.fill-inverse :is(h1, h2, h3, p, .lead, .msg, .meta, .card__title) { color: var(--paper-1); }
 .fill-primary :is(.sub, .muted, .note, .footer-note, .card__sub, .eyebrow) { color: var(--paper-3); }
 .fill-inverse :is(.sub, .muted, .note, .footer-note, .card__sub, .eyebrow) { color: var(--muted-inverse); }
 .fill-primary :where(a:any-link), .fill-inverse :where(a:any-link) { color: var(--paper-1); }
