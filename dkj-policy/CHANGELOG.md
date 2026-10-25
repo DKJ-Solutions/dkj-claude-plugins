@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**4 / 8 minor entries** <!-- pending-tally -->
+**4 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3477-stop-shipping-brandbook-build · 20261025-215949Z
+
+A release no longer builds the `brandbook/` app or copies it into the `dkj-solutions` plugin
+([#3477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3477)). Since #3475 no consumer hub served
+that copy, so the cut paid an `npm ci` and a build for a folder nothing read. `Get-ReleaseBuilds` now names no
+build, and `assets/brandbook/` is gone from the plugin.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+Stop building and shipping the brand book into dkj-solutions/assets/brandbook/
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3483](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3483)
+
+---
 
 ### DEPLOY: feat/3475-consumer-hub-no-brandbook · 20261025-213612Z
 
