@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**11 / 24 minor entries** <!-- pending-tally -->
+**12 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3438-hub-banner-sync · 20261025-112350Z
+
+The hub banner's airsquats count is now kept by the hub servers instead of each browser: every repo hub on
+a machine shares one file, and a private GitHub gist (`dkj-hub-airsquats`) carries it to every other
+machine, so ticking the box anywhere clears it everywhere within about half a minute. The page asks
+`GET /api/airsquats` and ticks off with `POST /api/airsquats/clear`, the one POST the hub serves, and only
+same-origin. The state merges without conflict, and an hour still counts only where a hub saw it begin.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Whoever runs the hub on more than one machine, or with several repo hubs open, now sees one airsquats
+count everywhere: tick it off on the laptop and the desktop's box clears too. Machines on the same `gh`
+account find the shared gist with nothing configured; machines on different accounts pin it with
+`DKJ_HUB_AIRSQUATS_GIST`.
+
+**Score:** 3
+
+#### Pull Request
+
+Hub airsquats banner in sync across machines
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3441](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3441)
+
+---
 
 ### DEPLOY: feat/hub-card-icons · 20261025-111020Z
 
