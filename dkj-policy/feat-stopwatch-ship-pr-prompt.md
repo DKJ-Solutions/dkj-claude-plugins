@@ -53,7 +53,7 @@ look, with no PR.
   empty or flat (Logbook) overview, beside the overview's existing `Stopwatch` h1.
 - [x] `scripts/tests/stopwatch.tests.ps1`: the prompt block, its place above the steps, the copy button, no
   write path; the first heading of every page is an `h1`.
-- [ ] The owner has looked at `/stopwatch/ship-pr` on the hub and approved it.
+- [x] The owner has looked at `/stopwatch/ship-pr` on the hub and approved it (October 25, 2026).
 
 ### TEST
 
