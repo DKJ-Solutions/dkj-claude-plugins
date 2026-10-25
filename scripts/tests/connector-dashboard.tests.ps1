@@ -444,13 +444,25 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $at = $page.IndexOf('id="repo-org-far"')
             $far = if ($at -ge 0) { $page.Substring($at, $page.IndexOf('</section>', $at) - $at) } else { '' }
             Assert-True ($far -and $far -notmatch 'class="meta"') 'a checkout outside the scope root is not read'
-            # THE GENERAL PAGES MOVED (#3119): Artifacts, Issues, Release notes and SessionStart are the dkj-policy
-            # general pages server's now, so this server sends each on when the state file names that server AND
-            # that server says it is this checkout's, and says so in a short 404 text when it does not.
-            foreach ($moved in '/artifacts', '/issues', '/release-notes', '/sessionstart') {
+            # THE GENERAL PAGES MOVED (#3119): Artifacts, Issues and SessionStart are the dkj-policy general pages
+            # server's now, so this server sends each on when the state file names that server AND that server says
+            # it is this checkout's, and says so in a short 404 text when it does not.
+            foreach ($moved in '/artifacts', '/issues', '/sessionstart') {
                 $r = if ($up) { Get-Raw 'GET' $moved "localhost:$port3" '' $port3 } else { '' }
                 Assert-True ($r -match 'HTTP/1.1 404' -and $r -match 'general pages server') "$moved is a 404 text naming the general pages server while no state file names one"
             }
+            # /RELEASE-NOTES IS BUILT HERE, FROM THIS TREE (owner, October 25, 2026): never relayed, so a change to
+            # the page shows without a cut. The fixture has no builder and no page, so it says why it has none.
+            $r = if ($up) { Get-Raw 'GET' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($r -match 'HTTP/1.1 404' -and $r -match 'Not built yet' -and $r -match 'is not in this tree' -and $r -notmatch 'general pages server') '/release-notes is answered here, naming the missing builder, with no general pages server at all'
+            $rnDir = Join-Path $src 'dkj-policy\releases\page'
+            New-Item -ItemType Directory -Force -Path $rnDir | Out-Null
+            [System.IO.File]::WriteAllText((Join-Path $rnDir 'release-notes.html'), '<!doctype html><html lang="en"><head><style>.wrap{}</style></head><body><div class="wrap">fixture notes</div></body></html>')
+            $r = if ($up) { Get-Raw 'GET' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
+            $iBanner = $r.IndexOf('id="hub-banner"'); $iHeader = $r.IndexOf('<header class="site-header"'); $iWrap = $r.IndexOf('<div class="wrap">')
+            Assert-True ($r -match 'HTTP/1.1 200' -and $r -match 'fixture notes' -and $r -match '/house-style.css') 'with a page on disk it is served from here, dressed by this tree''s Format-ReleaseNotesDevPage'
+            Assert-True ($iBanner -ge 0 -and $iBanner -lt $iHeader -and $iHeader -lt $iWrap) 'the hub banner stands above the site header, as on every other hub page'
+            Assert-True ($r -match 'site-header__brand" href="/"' -and $r -match '<li><a href="/">Home</a></li>') 'and its header and Home crumb lead to this hub on /'
             $srcState = Get-RepoHubStatePath -Root $src
             # The hub on '/' and the pages under it (#3097). The fixture has no
             # suite-durations.json, so the test-gate page takes its failure path, and is still served.
@@ -478,9 +490,10 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
                 $r = if ($up) { Get-Raw 'GET' '/artifacts' "localhost:$port3" '' $port3 } else { '' }
                 Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Artifacts</h1>' -and $r -match 'data-theme-key="general-pages"' -and $r -notmatch 'Location:') '/artifacts is relayed from the general pages server, on this origin, under the shared theme key'
                 $r = if ($up) { Get-Raw 'GET' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
-                Assert-True ($r -match 'HTTP/1.1 404' -and $r -match 'Not built yet') 'and its answer is relayed as it came, a 404 included'
+                Assert-True ($r -match 'HTTP/1.1 200' -and $r -match 'fixture notes') 'the release notes stay this server''s own while a general pages server answers'
+                $r = if ($up) { Get-Raw 'GET' '/artifacts' "localhost:$port3" '' $port3 } else { '' }
                 $len = if ($r -match 'Content-Length: ([0-9]+)\r') { [int]$Matches[1] } else { -1 }
-                $r = if ($up) { Get-Raw 'HEAD' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
+                $r = if ($up) { Get-Raw 'HEAD' '/artifacts' "localhost:$port3" '' $port3 } else { '' }
                 Assert-True ($r -match "Content-Length: $len\r" -and $r.EndsWith("`r`n`r`n")) 'a relayed HEAD keeps the real Content-Length and carries no body'
                 $r = if ($up) { Get-Raw 'GET' '/refresh?page=issues' "localhost:$port3" '' $port3 } else { '' }
                 Assert-True ($r -match 'HTTP/1.1 303' -and $r -match 'Location: /issues\r') 'a general page''s refresh is relayed too, and its 303 names a path on this origin'

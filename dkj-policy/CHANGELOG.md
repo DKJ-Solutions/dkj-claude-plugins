@@ -2,7 +2,80 @@
 
 ## [Unreleased]
 
-**13 / 28 minor entries** <!-- pending-tally -->
+**14 / 31 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/release-notes-served-from-tree · 20261025-132418Z
+
+**This repo's hub builds the release-notes page from its own tree.** `/release-notes` on the hub was relayed
+to the general pages server, which runs from the installed plugin, so a change to that page showed here only
+after a release. The hub now builds and dresses the page with this tree's `build-release-notes-page.ps1` and
+`Format-ReleaseNotesDevPage`, and rebuilds it when a release document, the builder or its template changed.
+The hub banner stands above the site header there, as on every other hub page. Artifacts, Issues and SessionStart are still relayed.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: only this repo's own hub changes; consumers' hubs keep serving the page from the plugin.
+
+**Score:** N/A
+
+#### Pull Request
+
+the hub builds /release-notes from this tree, not from the installed plugin
+
+[PR #3452](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3452)
+
+---
+
+### DEPLOY: feat/3446-stopwatch-tombstones · 20261025-124423Z
+
+A Stopwatch run, or every run of a label, can now be hidden from every machine's `/stopwatch` pages,
+whichever machine recorded it, and shown again from any machine:
+`scripts/dashboard/stopwatch-hide.ps1 -RunId <id>` or `-Label "<label>"`, `-Show` to undo, `-List` to
+see what is hidden (the `stopwatch-hide` skill). The entry goes into the hiding machine's own
+`refs/stopwatch/<machine id>`, so one writer per ref still holds, and nothing is erased from any store.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- the Stopwatch is this repo's own dev server and ships to no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch: delete a run or a label from any machine
+
+[PR #3451](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3451)
+
+---
+
+### DEPLOY: fix/release-notes-match-stopwatch · 20261025-121115Z
+
+The release-notes page on a dev hub now reads like the Stopwatch page: the same column width and
+spacing, the same heading, the list in a card with the house border and corners, and the closing note
+in the same muted small print. The page the Worker publishes is unchanged.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo running the dkj-policy hub sees its release-notes page in the same layout as the rest of its
+hub pages, instead of the narrower serif column it had.
+
+**Score:** 2
+
+#### Pull Request
+
+Release notes page styled like the Stopwatch page
+
+Plugins: dkj-policy
+
+[PR #3447](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3447)
+
+---
 
 ### DEPLOY: fix/3442-ship-pr-clearance-line · 20261025-114705Z
 
