@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**9 / 14 minor entries** <!-- pending-tally -->
+**10 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3422-close-parked-recurrences · 20261025-091440Z
+
+An issue filed with, or given, `awaiting-recurrences` or `awaiting-recurrences-first` is now closed as not
+planned automatically, with its `[RECORD]` title prefix added where missing and the label kept
+([#3422](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3422)). The rule in
+[`CONTRIBUTING-portable.md`](../plugins/dkj-policy/CONTRIBUTING-portable.md) was prose only, and #3410 stayed
+open after it was filed parked. The new `close-parked-recurrences.yml` runner does it on `opened` and
+`labeled`, never on `reopened`, so a recurrence can reopen and unlabel in either order. Every other label
+event is skipped at the job level. `adopt-ci-floor` places the same file in a consumer as its fifth runner;
+it checks nothing out and needs no secret.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A consumer who re-runs `adopt-ci-floor -Apply` gets parked recurrence issues closed for them, instead of
+the open list filling with issues that wait on their next instance.
+
+**Score:** 2
+
+#### Pull Request
+
+Close parked recurrence issues as not planned automatically
+
+Plugins: dkj-policy
+
+[PR #3426](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3426)
+
+---
 
 ### DEPLOY: feat/heading-scale-h3-14px · 20261025-090538Z
 
