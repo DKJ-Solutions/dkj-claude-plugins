@@ -393,6 +393,30 @@ foreach ($file in 'house-style.css', 'house-theme.js') {
     Assert-True ($pinned -and $actual -eq $pinned) "the plugin's canonical $file is the copy the house-style skill pins"
 }
 
+Write-Host '-- group 1d2: the config drift that keeps a DKJ-Solutions repo from following a hub change (#3463)' -ForegroundColor Cyan
+$hubRoute = '{ "workbench.externalUriOpeners": { "localhost:4891": "simpleBrowser.open" } }'
+$productRoute = '{ "workbench.externalUriOpeners": { "localhost:8765": "simpleBrowser.open" } }'
+$plain = (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 8765 }).Config
+$vsc = (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 8765; OpenInVsCode = $true }).Config
+$named = (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 8765; Name = 'Showcase' }).Config
+$own = (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4860; OwnHub = $true }).Config
+Assert-True ($named.NameStated -and -not $plain.NameStated) 'a Name still stated is recorded, though not read'
+Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $plain -SettingsText '').Count 'a clean product config names nothing'
+$d = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'ownhub' -Config $own -SettingsText '')
+Assert-True ($d.Count -eq 1 -and $d[0] -match 'OwnHub' -and $d[0] -notmatch 'drift|delete|route') 'OwnHub is named as a plain fact, with no repair in it (the owner''s decision)'
+Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $true -SourceTree $true -Mode 'ownhub' -Config $own -SettingsText '').Count 'and not in the source repo, which runs the hub from its own tree'
+$d = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $vsc -SettingsText $productRoute -HubPorts (4890..4899))
+Assert-True ($d.Count -eq 1 -and $d[0] -match '^config drift: OpenInVsCode is on, but .+ routes no hub port \(4890-4899\)$') 'OpenInVsCode with only the product routed is drift: the hub opens in the system browser'
+Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $vsc -SettingsText $hubRoute -HubPorts (4890..4899)).Count 'and any one hub port routed is enough'
+Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'ownhub' -Config (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4860; OwnHub = $true; OpenInVsCode = $true }).Config -SourceTree $true -SettingsText '').Count 'under OwnHub OpenInVsCode opens the own server, so no hub route is owed'
+$d = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $named -SettingsText '')
+Assert-True ($d.Count -eq 1 -and $d[0] -match '^config drift: .*states Name.*delete it$') 'a Name still stated is drift'
+$both = (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 8765; OpenInVsCode = $true; Name = 'x' }).Config
+$d = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $both -SettingsText '' -HubPorts (4890..4899))
+Assert-True ($d.Count -eq 1 -and $d[0] -match 'OpenInVsCode.+; Get-DevPreview still states Name') 'two defects share one clause'
+Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $false -Mode 'ownhub' -Config $own -SettingsText '').Count 'outside a DKJ-Solutions repo nothing is named'
+Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'none' -Config $null -SettingsText '').Count 'and a repo that states no server has nothing to drift'
+
 Write-Host '-- group 1e: the state file the two servers share (#3119)' -ForegroundColor Cyan
 
 $stateRoot = 'C:\Users\x\GitHub\repo'

@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Issue #3463, with the owner's decision recorded on it (October 25, 2026): name all three, `OwnHub` neutrally
+as a fact, the other two as config defects. The source repo's own `OwnHub` is exempt.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-DevPreviewDriftClauses` in `hub/lib/dev-preview-rules.ps1` (pure), and `NameStated` on the parsed config
+- [x] The dev-preview hook appends the clauses to its product and OwnHub lines, in a DKJ-Solutions repo only
+- [x] Asserts in `dev-preview-sessionstart.tests.ps1`, group 1d2
 
 ### TEST
 
+- [x] Smoke run of the hook in this repo: the source repo's `OwnHub` is not named; the clauses read as intended
+
 ### DEPLOY: feat/3463-hub-config-drift
 
-**Score:**
+In a DKJ-Solutions repo, the dev-preview SessionStart line now names three things that keep a repo from
+following a hub change ([#3463](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3463)). `OwnHub = $true`
+is named as a plain fact (`this repo runs its own hub (OwnHub), so hub releases do not reach it`), because it
+stays a supported opt-out. `OpenInVsCode` with no hub port (4890-4899) routed in `.vscode/settings.json`, and a
+`Name` still stated in `Get-DevPreview`, are named together as `config drift`. The source repo, which runs the
+hub from its own tree, is not named for its `OwnHub`.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A maintainer of a DKJ-Solutions repo sees on the next session's first line why a hub change did not reach
+that repo, or why the hub opens in the system browser, and what to delete or route.
+
+**Score:** 2
 
 #### Pull Request
 
