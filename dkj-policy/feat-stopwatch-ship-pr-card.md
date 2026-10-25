@@ -52,7 +52,7 @@ no run had nowhere to stand. A visible result: this branch parks for the owner's
   The Logbook's flat overview is unchanged.
 - [x] `scripts/tests/stopwatch.tests.ps1`: the card and its resolving page with no run, the steps on the page and
   never on a card, one card once a run exists, nothing in the Logbook.
-- [ ] The owner has looked at `/stopwatch` on the hub and approved the card.
+- [x] The owner has looked at `/stopwatch` and `/stopwatch/ship-pr` on the hub and approved them (October 25, 2026).
 
 ### TEST
 
