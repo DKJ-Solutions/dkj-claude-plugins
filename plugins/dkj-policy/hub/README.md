@@ -1,7 +1,8 @@
 # The hub — the dev-preview hook and the general pages server
 
 **Every repo that runs `dkj-policy` gets a hub at session start**, served by the plugin, with the
-General pages linked from it: Artifacts, Issues, Release notes and SessionStart. That covers
+General pages linked from it: Artifacts, Issues, Release notes, SessionStart, Test gate, Stopwatch and Logbook
+(the last three since [#3470](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3470)). That covers
 BWJ-Development's repos too. Until [#3198](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3198)
 (the owner's decision, October 20, 2026) all of this shipped with `dkj-solutions`, which BWJ-Development
 never enables, so a General page reached only the DKJ-Solutions repos. **"General" means what every repo
@@ -15,10 +16,12 @@ its Brandbook stay in [`dkj-solutions`](../dkj-solutions/README.md).
 | The general pages server, which is the hub | [`pages/serve-general-pages.ps1`](pages/serve-general-pages.ps1), its pages in [`lib/general-pages-lib.ps1`](lib/general-pages-lib.ps1), the hub's page in [`lib/repo-hub-page.ps1`](lib/repo-hub-page.ps1) |
 | The request rules the servers share | [`lib/loopback-server-lib.ps1`](lib/loopback-server-lib.ps1) |
 | The banner's airsquats state, and its sync with every other machine | [`lib/airsquats-lib.ps1`](lib/airsquats-lib.ps1), [`pages/sync-airsquats.ps1`](pages/sync-airsquats.ps1) |
+| The Test gate page | [`lib/test-gate-lib.ps1`](lib/test-gate-lib.ps1) |
+| The Stopwatch and the Logbook: their pages, their router, the hooks that time a run, and the Stopwatch's sync | [`lib/stopwatch-lib.ps1`](lib/stopwatch-lib.ps1), [`lib/logbook-lib.ps1`](lib/logbook-lib.ps1), [`lib/timing-pages.ps1`](lib/timing-pages.ps1), [`../hooks/stopwatch-hook.ps1`](../hooks/stopwatch-hook.ps1), [`../hooks/logbook-hook.ps1`](../hooks/logbook-hook.ps1), [`lib/stopwatch-sync-lib.ps1`](lib/stopwatch-sync-lib.ps1), [`pages/stopwatch-sync.ps1`](pages/stopwatch-sync.ps1), [`pages/stopwatch-hide.ps1`](pages/stopwatch-hide.ps1) and the [`stopwatch-hide`](../skills/stopwatch-hide/SKILL.md) skill |
 
 These are plugin-only files, like [`../worker/`](../worker/): no root copy in the source repo mirrors
-them. They are tested there by `dev-preview-sessionstart.tests.ps1`, `dev-pages.tests.ps1` and
-`connector-dashboard.tests.ps1`.
+them. They are tested there by `dev-preview-sessionstart.tests.ps1`, `dev-pages.tests.ps1`,
+`connector-dashboard.tests.ps1`, `stopwatch.tests.ps1`, `stopwatch-sync.tests.ps1` and `logbook.tests.ps1`.
 
 ## One look in every repo
 
@@ -186,7 +189,7 @@ function Get-DevPreview {
 
 ## The general pages server
 
-**Four pages are the same in every repo, so the plugin serves them, not the repo** (the owner's decision,
+**These pages are the same in every repo, so the plugin serves them, not the repo** (the owner's decision,
 October 18, 2026, [#3119](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3119)).
 [`pages/serve-general-pages.ps1`](pages/serve-general-pages.ps1) runs on the first free port from **4890 to
 4899**, under the same rules as every server here: loopback only, reused and never doubled (its `cmd.exe`
@@ -211,6 +214,9 @@ under `/brandbook/`. The PowerShell Brandbook page it replaces is retired, so th
 | `/issues` | `gh issue list`, three calls (the open issues, and those opened and closed in the last 28 days), for `--repo <owner/name>` taken from the `origin` remote when it is on github.com, else for the repo `gh` finds in the working directory; kept for five minutes | A `gh` that fails or is missing is a warning on the page |
 | `/release-notes` | `dkj-policy/releases/page/release-notes.html`, dressed in the house style on the way out. Built first where it is absent or older than a file under `dkj-policy/releases`, by `build-release-notes-page.ps1` in a child process (bounded at 60 s), the repo's own copy else this plugin's: the page is a gitignored snapshot that nothing else builds (#3189) | A plain 404 text naming why it could not be built; where a rebuild fails, the older page is served |
 | `/sessionstart` | The always-on path, measured in a child process (bounded at 60 s) by `always-on-budget-lib.ps1`, the repo's own copy else this plugin's; kept for a minute | The reason it could not measure, on the page |
+| `/test-gate` | `scripts/tests/suite-durations.json`, grouped by `scripts/tests/suite-groups.json` where the repo keeps one, and each suite's own `.SYNOPSIS` (#3470) | The page says no test gate has been measured in this repo yet |
+| `/stopwatch`, `/stopwatch/<label>[/<run>]` | This repo's Stopwatch store on this machine, and the session transcripts for a run's phases (#3470; see the timing pages below) | An empty overview |
+| `/logbook`, `/logbook/<slug>` | This repo's Logbook store on this machine, and the session transcripts (#3470; see the timing pages below) | An empty overview |
 | `/api/airsquats` | The banner's state as JSON; `POST /api/airsquats/clear` ticks its box off, the one `POST` the server takes, served same-origin only (#3438). Below | A state that cannot be read is a 503, and the banner keeps its countdown and shows no box |
 
 **Two things to know about what these pages read and who can read them.** `/sessionstart` and
@@ -296,13 +302,42 @@ catches up.
 started is reused until it exits, and it answers `/` with its old 303 or 404 until then. Stop it (or restart
 the machine) once. And a product's `Ports` must not overlap 4890-4899, which the hub takes first.
 
+## The timing pages, in every repo
+
+**They time how long an assignment takes, from the prompt to the moment Claude is back on the trunk**, and
+both were the source repo's own pages until the owner moved them here
+([#3470](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3470), October 25, 2026). The
+**Stopwatch** times a prompt whose first line begins with `stopwatch:`; the **Logbook** times every session
+that begins on a clean trunk, without anybody marking it. This plugin's `UserPromptSubmit` and `Stop` hooks
+record the runs (`hooks/stopwatch-hook.ps1`, `hooks/logbook-hook.ps1`), and the pages only read them.
+
+- **One store per repo, on each machine**: `%LOCALAPPDATA%\dkj-claude-plugins\repos\<repo>-<hash>\`, named by
+  the checkout's folder and a hash of its path, so two repos in folders of one name never share one (a
+  `worktree-lane` lane and a Claude Code worktree count as the repo they were cut from). It is outside the tree, so a hook writing it never dirties the checkout it is timing.
+- **Not shared unless the repo opts in.** A run's label is the first line of a prompt, so the Stopwatch
+  publishes its finished runs to `refs/stopwatch/<machine>` on the repo's `origin` only where the repo sets
+  `DKJ_STOPWATCH_SHARE` to `1` in the `env` block of its `.claude/settings.json`. Then each machine's
+  Stopwatch shows the others' runs too, and the push runs with your own git credentials. **The repo decides,**
+  so a repo you clone can turn it on; a machine answers otherwise with `DKJ_STOPWATCH_SHARE` set to `0` in
+  that repo's `.claude/settings.local.json`, which wins. The Logbook is never shared.
+- **The Logbook keeps the first line of every logged session's first prompt** in that store, unencrypted, on
+  this machine. Do not open a session with a secret on its first line.
+- **The hooks cost every prompt and every turn's end two short PowerShell processes.** An unmarked prompt
+  ends the Stopwatch's hook before it loads anything, and a session already seen ends the Logbook's at its
+  store read.
+- **The Test gate needs a measurement the repo takes itself**: `scripts/tests/suite-durations.json`, the
+  mean CI duration per suite. The source repo writes it with its own `record-suite-durations.ps1`; a repo
+  without the file sees the page's empty state.
+
 ## In the source repo
 
 This repo's `Get-DevPreview` states `OwnHub = $true`: its own hub, whose pages are the **connector
-dashboard** (every repo registered under `connectors/` and what `check-connectors.ps1` reports for it), the
-specialists and their context cost and the test-gate durations, is served on `127.0.0.1` by
+dashboard** (every repo registered under `connectors/` and what `check-connectors.ps1` reports for it) and
+the specialists and their context cost, is served on `127.0.0.1` by
 `scripts/dashboard/serve-connector-dashboard.ps1` with the house style from this tree. The General pages
 are the ones above, relayed through that hub, and `scripts/lib/dev-pages-lib.ps1` reads
-`lib/general-pages-lib.ps1` and the DKJ-Solutions pages lib from this tree. That server uses a
+`lib/general-pages-lib.ps1` and the DKJ-Solutions pages lib from this tree. It serves the Test gate, the
+Stopwatch and the Logbook itself, from this plugin's libs in its tree and through the same router
+(`Resolve-HubTimingPage`), and its Test gate adds the suites this checkout's change selects. That server uses a
 `TcpListener` rather than an `HttpListener`: under the latter the socket belongs to `http.sys` (PID 4), and
 the hook could never recognise the server as this checkout's.

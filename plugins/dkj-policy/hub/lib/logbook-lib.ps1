@@ -1,15 +1,15 @@
 <#
 .SYNOPSIS
-    The Logbook page of this repo's dev server (#3364): every assignment given in a clean session, timed from its
+    The Logbook page of every repo's hub (#3364; in dkj-policy since #3470): every assignment given in a clean session, timed from its
     first prompt until Claude is back on the trunk, without anybody marking it.
 
 .DESCRIPTION
     THE STOPWATCH'S MACHINERY WITH ANOTHER TRIGGER. The store format, the model, the transcript phases and both pages
-    are scripts/lib/stopwatch-lib.ps1's, which this file loads; what is the Logbook's own is when a run starts and
+    are stopwatch-lib.ps1's, beside this file, which this file loads; what is the Logbook's own is when a run starts and
     stops, its store, and the words on its pages. The Stopwatch times what a prompt marks with `stopwatch:`; the
     Logbook times every session, so the two never compete for a run.
 
-    THE RULES (Invoke-LogbookHookEvent, called by the hooks of scripts/dashboard/logbook-hook.ps1), as the owner chose
+    THE RULES (Invoke-LogbookHookEvent, called by the hooks of this plugin's hooks/logbook-hook.ps1), as the owner chose
     them on October 24, 2026:
 
       - The FIRST prompt of a new Claude Code session (a new session id, so also after /clear) starts a run, but only
@@ -23,7 +23,7 @@
       - EXCEPT WHILE A SHIP IS IN FLIGHT. ship-pr returns the checkout to the trunk as soon as the PR exists (#1073)
         and then waits on CI, often backgrounded, so at the end of that turn the checkout reads as a clean trunk
         while the merge and the fold are still owed. Its CI wait publishes a run-progress record
-        (scripts/lib/run-progress-lib.ps1), and a live one holds the run open; the turn the finished ship wakes
+        (dkj-policy's scripts/lib/run-progress-lib.ps1), and a live one holds the run open; the turn the finished ship wakes
         ends it.
       - Runs are keyed by session id, so two sessions side by side each keep their own run, and every open run shows
         as going (ConvertTo-StopwatchModel -KeepOpenRuns), up to a day old (ConvertTo-LogbookModel).
@@ -35,12 +35,14 @@
     its fold commit names. The time after the last fold belongs to no issue and is not shown. The store and the
     hooks do not change; the cut is made where the pages are built.
 
-    THE STORE IS THIS MACHINE'S AND STAYS HERE: %LOCALAPPDATA%\dkj-claude-plugins\logbook.json, outside the tree
-    for the Stopwatch's reason (a run must not dirty the checkout it is timing). Unlike the Stopwatch's runs it is
-    NOT shared to origin (#3349): a label is the first line of a prompt, and this repo is public.
+    THE STORE IS THIS MACHINE'S AND STAYS HERE: logbook.json beside the repo's Stopwatch store
+    (%LOCALAPPDATA%\dkj-claude-plugins\repos\<repo>\, one per repo since #3470), outside the tree for the
+    Stopwatch's reason (a run must not dirty the checkout it is timing). Unlike the Stopwatch's runs it is NEVER
+    shared to origin, not even where a repo opts in (#3349): a label is the first line of a prompt, and every
+    prompt of a clean session is logged, not only the ones marked for it.
 
     Pure. Every value that reaches the page is escaped by the Stopwatch's page functions. Pure ASCII (repo
-    convention for .ps1). Tested by scripts/tests/logbook.tests.ps1.
+    convention for .ps1). Tested by scripts/tests/logbook.tests.ps1 in the source repo.
 #>
 
 . (Join-Path $PSScriptRoot 'stopwatch-lib.ps1')
@@ -52,8 +54,9 @@ $script:LogbookSessionsKept = 500
 $script:LogbookOpenRunMaxHours = 24
 
 function Get-LogbookStorePath {
-    <# The Logbook's store on this machine, beside the Stopwatch's. #>
-    return (Join-Path (Split-Path -Parent (Get-StopwatchStorePath)) 'logbook.json')
+    <# The Logbook's store on this machine for the repo at -RepoRoot, beside its Stopwatch's. #>
+    param([Parameter(Mandatory = $true)][string]$RepoRoot)
+    return (Join-Path (Split-Path -Parent (Get-StopwatchStorePath -RepoRoot $RepoRoot)) 'logbook.json')
 }
 
 function Get-LogbookPromptLabel {
@@ -243,19 +246,21 @@ function Format-LogbookPageHtml {
         [int]$Skipped = 0,
         [AllowEmptyString()][string]$StorePath = '',
         [hashtable]$Transcript = @{},
-        [datetime]$Now = [datetime]::UtcNow
+        [datetime]$Now = [datetime]::UtcNow,
+        [AllowEmptyString()][string]$RepoName = '',
+        [string]$HubHref = '/hub'
     )
     $notes = @{}
     $work = Get-LogbookWorkTimes -Runs $Runs -Transcript $Transcript
     foreach ($id in $work.Keys) { $notes[$id] = 'work ' + (Format-DevSeconds $work[$id].Work) }
-    $note = 'Kept on this machine in <code>' + (ConvertTo-DashboardText $StorePath) + '</code>, outside the checkout, and not shared: a label is the first line of a prompt. ' +
+    $note = 'Kept on this machine in <code>' + (ConvertTo-GeneralPageText $StorePath) + '</code>, outside the checkout, and not shared: a label is the first line of a prompt. ' +
         'The first prompt of a new Claude Code session starts a run when the checkout is on the trunk and clean; a Stop hook ends it once a turn ends with the checkout back on the trunk and clean, ' +
-        'also when nothing was merged, and not while a ship-pr is still waiting on CI. Both are <code>scripts/dashboard/logbook-hook.ps1</code>. ' +
+        'also when nothing was merged, and not while a ship-pr is still waiting on CI. Both are the dkj-policy plugin''s <code>hooks/logbook-hook.ps1</code>. ' +
         'A <code>/sweep-issues</code> run is shown per issue: cut at each ship-pr fold of this checkout, the moment the trunk is clean again, and named after the issue its fold commit names; the time after the last fold belongs to no issue. ' +
-        'Built by <code>scripts/lib/logbook-lib.ps1</code> on the Stopwatch''s pages.'
+        'Built by its <code>hub/lib/logbook-lib.ps1</code> on the Stopwatch''s pages.'
     return Format-StopwatchPageHtml -Model (ConvertTo-LogbookModel -Runs $Runs -Now $Now) -ReadError $ReadError -Skipped $Skipped -StorePath $StorePath -Now $Now `
         -Route '/logbook' -PageTitle 'Logbook' `
-        -FooterNote $note -NoDelta -CardNotes $notes -Flat
+        -FooterNote $note -NoDelta -CardNotes $notes -Flat -RepoName $RepoName -HubHref $HubHref
 }
 
 function Format-LogbookRunPageHtml {
@@ -264,15 +269,17 @@ function Format-LogbookRunPageHtml {
         [Parameter(Mandatory = $true)][hashtable]$Group,
         [AllowEmptyString()][string]$StorePath = '',
         [hashtable]$Transcript = @{},
-        [datetime]$Now = [datetime]::UtcNow
+        [datetime]$Now = [datetime]::UtcNow,
+        [AllowEmptyString()][string]$RepoName = '',
+        [string]$HubHref = '/hub'
     )
-    $note = 'Kept on this machine in <code>' + (ConvertTo-DashboardText $StorePath) + '</code>, outside the checkout, and not shared. ' +
+    $note = 'Kept on this machine in <code>' + (ConvertTo-GeneralPageText $StorePath) + '</code>, outside the checkout, and not shared. ' +
         'The phases are read from this repo''s Claude Code session transcripts once a run has stopped, as the Stopwatch reads them: each second goes to the first phase going at that moment, ' +
-        'and a second in which no session was busy is time spent waiting on you. Built by <code>scripts/lib/logbook-lib.ps1</code>.'
+        'and a second in which no session was busy is time spent waiting on you. Built by the dkj-policy plugin''s <code>hub/lib/logbook-lib.ps1</code>.'
     $timeNote = ''
     if (@($Group.Rows).Count) {
         $w = (Get-LogbookWorkTimes -Runs @($Group.Rows[0].Run) -Transcript $Transcript)[$Group.Rows[0].Run.Id]
         if ($w) { $timeNote = 'Work ' + (Format-DevSeconds $w.Work) + ', waiting on you ' + (Format-DevSeconds $w.Waiting) + '.' }
     }
-    return Format-StopwatchRunPageHtml -Group $Group -StorePath $StorePath -Transcript $Transcript -Now $Now -Route '/logbook' -ParentLabel 'Logbook' -FooterNote $note -NoDelta -TimeNote $timeNote
+    return Format-StopwatchRunPageHtml -Group $Group -StorePath $StorePath -Transcript $Transcript -Now $Now -Route '/logbook' -ParentLabel 'Logbook' -FooterNote $note -NoDelta -TimeNote $timeNote -RepoName $RepoName -HubHref $HubHref
 }

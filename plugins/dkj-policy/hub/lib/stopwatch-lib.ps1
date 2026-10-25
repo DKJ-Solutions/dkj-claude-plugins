@@ -1,12 +1,13 @@
 <#
 .SYNOPSIS
-    The Stopwatch page of this repo's dev server (#3315, #3323): a read-only view of how long each assignment took,
-    from the prompt that gave it to the moment Claude was back on the trunk, with each run compared against the
-    previous run of the same label, so the slow steps of the workflow show and every next run can be made shorter.
+    The Stopwatch page of every repo's hub (#3315, #3323; in dkj-policy since #3470): a read-only view of how long
+    each assignment took, from the prompt that gave it to the moment Claude was back on the trunk, with each run
+    compared against the previous run of the same label, so the slow steps of the workflow show and every next run
+    can be made shorter.
 
 .DESCRIPTION
     THE PAGE ONLY SHOWS. It has no button and the server takes no POST for it. The runs are written by two Claude
-    Code hooks, scripts/dashboard/stopwatch-hook.ps1, which call Invoke-StopwatchHookEvent here:
+    Code hooks, this plugin's hooks/stopwatch-hook.ps1, which call Invoke-StopwatchHookEvent here:
 
       - A prompt whose first line begins with `stopwatch:` (any case, leading whitespace allowed) starts an Auto
         run at once, labelled with the rest of that line (Get-StopwatchPromptMarker; "Assignment" when empty),
@@ -38,12 +39,17 @@
     (#3122), and the workflow a run measures moves HEAD at every branch switch, merge and fold, so a clock kept in
     the page would be lost halfway through the very run it is timing.
 
-    THE STORE IS OUTSIDE THE TREE: %LOCALAPPDATA%\dkj-claude-plugins\stopwatch.json (Get-StopwatchStorePath).
-    A file in the checkout would dirty it in the middle of the workflow being measured, and the scripts
-    that ship a branch refuse a dirty tree. So the store is this machine's, like the session transcripts the
-    transcript phases read (below). ITS FINISHED RUNS ARE SHARED (#3349): each machine publishes them, with the phases
-    it read for them, to a ref of its own on origin, and the pages show every other machine's beside this one's
-    (scripts/lib/stopwatch-sync-lib.ps1). A run from another machine carries a Machine field; this machine's do not.
+    THE STORE IS OUTSIDE THE TREE, ONE PER REPO: %LOCALAPPDATA%\dkj-claude-plugins\repos\<repo>-<hash>\stopwatch.json
+    (Get-StopwatchStorePath, the repo named by Get-HubRepoKey). A file in the checkout would dirty it in the middle of
+    the workflow being measured, and the scripts that ship a branch refuse a dirty tree. So the store is this
+    machine's, like the session transcripts the transcript phases read (below). It is one per repo since the page is
+    every repo's (#3470): one store per machine would show every repo's runs on each repo's hub. The machine-wide
+    store of before, which only the source repo's own hooks ever wrote, is taken over as that repo's own
+    (Move-HubTimingLegacyStore). A REPO MAY SHARE ITS FINISHED RUNS (#3349): with DKJ_STOPWATCH_SHARE=1 in its
+    .claude/settings.json env block, each machine publishes them, with the phases it read for them, to a ref of its
+    own on origin, and the pages show every other machine's beside this one's (stopwatch-sync-lib.ps1). It is an
+    opt-in because a label is the first line of a prompt, and a public repo's refs are public. A run from another
+    machine carries a Machine field; this machine's do not.
 
     OLD STORES STILL READ. Earlier versions of the page also kept laps, notes and an armed label, written by
     buttons that are gone. A field this file does not know is ignored on read and is not written back, so the
@@ -55,22 +61,149 @@
 
     Pure except Read-StopwatchStore and Save-StopwatchStore (the store's own file), Read-StopwatchTranscriptEvents
     (one session transcript, read only) and Get-StopwatchTranscriptCache (the transcripts, and stopwatch-phases.json
-    beside the store). Every
-    value that reaches the page is escaped through ConvertTo-DashboardText. Pure ASCII (repo convention for
-    .ps1). Tested by scripts/tests/stopwatch.tests.ps1.
+    beside the store), Move-HubTimingLegacyStore (the store of before #3470, moved once). Every value that reaches
+    the page is escaped through the general pages' ConvertTo-GeneralPageText, and the page shell is theirs
+    (Format-GeneralPageHtml), so a caller loads hub/lib/general-pages-lib.ps1 before it builds a page. Pure ASCII
+    (repo convention for .ps1). Tested by scripts/tests/stopwatch.tests.ps1 in the source repo.
 #>
 
 $script:StopwatchLabelMax = 80
 
-# The step log's reader (#3338), for a ship's steps. Guarded: a tree that copies this file alone keeps one ship phase.
-$swRunProgressLib = Join-Path $PSScriptRoot 'run-progress-lib.ps1'
+# The step log's reader (#3338), for a ship's steps: dkj-policy's own copy, beside hub/ in the plugin. Guarded: a
+# tree that copies this file alone keeps one ship phase.
+$swRunProgressLib = Join-Path $PSScriptRoot '..\..\scripts\lib\run-progress-lib.ps1'
 $script:StopwatchStepLogAvailable = $false
 if (Test-Path -LiteralPath $swRunProgressLib -PathType Leaf) { . $swRunProgressLib; $script:StopwatchStepLogAvailable = $true }
 
-function Get-StopwatchStorePath {
-    <# The store's path on this machine: under LOCALAPPDATA, else the per-user local data folder .NET names. #>
+function Get-HubTimingBaseDir {
+    <# This machine's folder for the hub's timing stores: under LOCALAPPDATA, else the per-user local data folder .NET names. #>
     $base = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { [Environment]::GetFolderPath('LocalApplicationData') }
-    return (Join-Path $base 'dkj-claude-plugins\stopwatch.json')
+    return (Join-Path $base 'dkj-claude-plugins')
+}
+
+function Get-HubRepoName {
+    <#
+        The name part of Get-HubRepoKey: the main checkout's folder name, lowercased, anything but a letter, digit,
+        dot, dash or underscore a dash. Pure.
+    #>
+    param([Parameter(Mandatory = $true)][string]$RepoRoot)
+    $key = ((Split-Path -Leaf (Get-HubMainCheckout -RepoRoot $RepoRoot)).ToLowerInvariant() -replace '[^a-z0-9._-]', '-').Trim('.')
+    if (-not $key) { $key = 'repo' }
+    return $key
+}
+
+function Get-HubMainCheckout {
+    <#
+        The checkout a checkout at -RepoRoot was cut from: a worktree-lane lane (<parent>\<repo>-lanes\<lane>) is
+        <parent>\<repo>, and a Claude Code worktree (<repo>\.claude\worktrees\<name>) is <repo>; any other root is
+        itself. Separators as backslashes, no trailing one. Pure.
+    #>
+    param([Parameter(Mandatory = $true)][string]$RepoRoot)
+    $root = $RepoRoot.Replace('/', '\').TrimEnd('\')
+    $m = [regex]::Match($root, '^(.*)\\\.claude\\worktrees\\[^\\]+$', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
+    if ($m.Success) { return $m.Groups[1].Value }
+    $parent = Split-Path -Parent $root
+    if ((Split-Path -Leaf $parent) -match '^(.+)-lanes$') { return (Join-Path (Split-Path -Parent $parent) $Matches[1]) }
+    return $root
+}
+
+function Get-HubRepoKey {
+    <#
+        The repo a checkout at -RepoRoot belongs to, as the folder its timing stores are kept under (#3470):
+        <name>-<hash>, the main checkout's folder name (Get-HubRepoName) and the first eight hex of the SHA1 of its
+        full path, lowercased. So every session of one repo writes one store, a lane or a Claude Code worktree
+        included (Get-HubMainCheckout), and two unrelated repos that happen to share a folder name ('app' under two
+        clients) never do: by name alone, their runs would mix, and a repo that shares its runs would publish the
+        other repo's labels to its own origin (Sebastian, #3470). Pure.
+    #>
+    param([Parameter(Mandatory = $true)][string]$RepoRoot)
+    $main = Get-HubMainCheckout -RepoRoot $RepoRoot
+    $sha = [System.Security.Cryptography.SHA1]::Create()
+    try { $hash = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($main.ToLowerInvariant())) | ForEach-Object { $_.ToString('x2') }) } finally { $sha.Dispose() }
+    return ((Get-HubRepoName -RepoRoot $RepoRoot) + '-' + $hash.Substring(0, 8))
+}
+
+function Get-StopwatchStorePath {
+    <# The Stopwatch's store on this machine for the repo at -RepoRoot: repos\<Get-HubRepoKey>\stopwatch.json under Get-HubTimingBaseDir. #>
+    param([Parameter(Mandatory = $true)][string]$RepoRoot)
+    return (Join-Path (Get-HubTimingBaseDir) ('repos\' + (Get-HubRepoKey -RepoRoot $RepoRoot) + '\stopwatch.json'))
+}
+
+function Move-HubTimingLegacyStore {
+    <#
+        Takes over the machine-wide stores of before #3470 as the source repo's own, once: until then the Stopwatch and
+        the Logbook were the source repo's pages alone, and their stores sat straight in Get-HubTimingBaseDir. Only a
+        checkout of the source repo takes them: its name is dkj-claude-plugins AND it carries this plugin's source
+        (plugins\dkj-policy\hub under -RepoRoot), so no other repo's hub ever shows that repo's runs. Both, because
+        either alone was not enough: a test fixture carries the plugin's tree under a folder of another name, and
+        measured on this branch, a fixture checkout called 'src' took this machine's real stores as its own. Each file
+        moves only where the repo's own copy is not there yet, and a failed move is left for the next call. The machine
+        id (stopwatch-machine.txt) stays where it is: it names this machine, not a repo. Returns the names it moved.
+    #>
+    param([Parameter(Mandatory = $true)][string]$RepoRoot)
+    if ((Get-HubRepoName -RepoRoot $RepoRoot) -cne 'dkj-claude-plugins') { return @() }
+    if (-not (Test-Path -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\hub') -PathType Container)) { return @() }
+    $base = Get-HubTimingBaseDir
+    $dir = Split-Path -Parent (Get-StopwatchStorePath -RepoRoot $RepoRoot)
+    $moved = @()
+    foreach ($name in 'stopwatch.json', 'logbook.json', 'stopwatch-phases.json', 'logbook-phases.json', 'stopwatch-hidden.json', 'stopwatch-sync.stamp', 'stopwatch-sync.log') {
+        $old = Join-Path $base $name
+        $new = Join-Path $dir $name
+        if (-not (Test-Path -LiteralPath $old -PathType Leaf) -or (Test-Path -LiteralPath $new)) { continue }
+        try {
+            if (-not (Test-Path -LiteralPath $dir -PathType Container)) { [void](New-Item -ItemType Directory -Path $dir -Force) }
+            Move-Item -LiteralPath $old -Destination $new -ErrorAction Stop
+            $moved += $name
+        } catch { }
+    }
+    return $moved
+}
+
+function Test-StopwatchShareEnabled {
+    <#
+        Whether the repo at -RepoRoot shares its finished runs with its other machines (#3349, an opt-in since #3470):
+        DKJ_STOPWATCH_SHARE is '1'. Off by default because a label is the first line of a prompt, and a public repo's
+        refs are public. A repo opts in in the env block of its .claude/settings.json, and a machine can answer
+        otherwise in .claude/settings.local.json, which Claude Code lets win.
+        THE ENVIRONMENT DECIDES WHERE IT IS SET: Claude Code hands the env block to every hook, so a hook reads it
+        there. Where it is not set, the two files are read as JSON (the local one winning where it names the key, as
+        Test-DkjSolutionsEnabled reads them), because a hub server outlives the session that started it and keeps the
+        environment it was started in: measured on #3470, this repo's own hub, started before its opt-in was written,
+        said 'not shared' until it read the file itself. Nothing in either file is run.
+    #>
+    param([AllowEmptyString()][string]$RepoRoot = '')
+    $fromEnv = ([string]$env:DKJ_STOPWATCH_SHARE).Trim()
+    if ($fromEnv) { return $fromEnv -eq '1' }
+    if (-not $RepoRoot) { return $false }
+    $value = ''
+    foreach ($name in 'settings.json', 'settings.local.json') {
+        $path = Join-Path $RepoRoot ".claude\$name"
+        try {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
+            $block = (ConvertFrom-Json -InputObject ([System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8))).env
+            if ($null -ne $block -and $block.PSObject.Properties.Name -contains 'DKJ_STOPWATCH_SHARE') { $value = ([string]$block.DKJ_STOPWATCH_SHARE).Trim() }
+        } catch { }
+    }
+    return $value -eq '1'
+}
+
+function Get-HubTimingLock {
+    <#
+        A named mutex for the store at -StorePath, held while a hook reads, decides and writes it, so two hooks firing
+        on one event -- the plugin's and a copy a repo still wires itself (#3470) -- take turns instead of racing:
+        the second then reads what the first wrote. A repeated Stop and a repeated Logbook Prompt are then no-ops; a
+        repeated marked Prompt replaces the run with one started moments later, so there is still one run. Waits
+        at most -TimeoutMs; $null when it could not be taken, and the caller goes on without it.
+    #>
+    param([Parameter(Mandatory = $true)][string]$StorePath, [int]$TimeoutMs = 5000)
+    $sha = [System.Security.Cryptography.SHA1]::Create()
+    try { $hash = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($StorePath.ToLowerInvariant())) | ForEach-Object { $_.ToString('x2') }) } finally { $sha.Dispose() }
+    try {
+        $m = New-Object System.Threading.Mutex($false, ('Local\dkj-hub-timing-' + $hash.Substring(0, 16)))
+        try { if ($m.WaitOne($TimeoutMs)) { return $m } } catch [System.Threading.AbandonedMutexException] { return $m }
+        $m.Dispose()
+    } catch { }
+    return $null
 }
 
 function ConvertTo-StopwatchTime {
@@ -104,7 +237,7 @@ function Read-StopwatchStore {
         The runs in the store at -Path, oldest first, and an Error that is empty when it read. A missing file is
         an empty store, not an error. A run that does not parse is skipped and counted in Skipped; a field of an
         older version (laps, notes, an armed label) is ignored. Sessions is the store's list of session ids seen,
-        which only the Logbook's store keeps (scripts/lib/logbook-lib.ps1, #3364); empty for the Stopwatch's.
+        which only the Logbook's store keeps (logbook-lib.ps1 beside this file, #3364); empty for the Stopwatch's.
     #>
     param([Parameter(Mandatory = $true)][string]$Path)
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return @{ Runs = @(); Error = ''; Skipped = 0; Sessions = @() } }
@@ -416,7 +549,7 @@ $script:StopwatchBusyPhase = 'Claude thinking and writing'
 # A SHIP CALL SPLIT BY ITS OWN STEPS (#3338). A ship-pr call is one tool call, and its command line cannot say
 # which of its local gates, its CI wait, a forwarded head's re-certification or its merge and fold a moment
 # belongs to. ship-pr marks each step it enters in the opt-in step log (Add-RunStepMark in run-progress-lib.ps1,
-# on when DKJ_RUN_STEP_LOG is set, as this repo's .claude/settings.json does), and a ship call with marks inside
+# on when DKJ_RUN_STEP_LOG is set, as the source repo's .claude/settings.json does), and a ship call with marks inside
 # it is cut at them (Split-StopwatchShipTool): each step lasts until the next mark or the call's end, and the
 # moments before the first mark are its checks before the PR. A ship call with no marks -- a run from before
 # the log, or from a machine without it -- stays the one phase above.
@@ -622,7 +755,7 @@ function Get-StopwatchTranscriptCache {
 
         A SHIP'S STEPS come from the step log at -StepLogPath (#3338; Read-RunStepMarks): the ship-pr marks
         whose checkout is -RepoRoot's, so a ship in another checkout on this machine never cuts this one's.
-        Without -StepLogPath, or where run-progress-lib.ps1 is not beside this file, a ship stays one phase.
+        Without -StepLogPath, or where dkj-policy's scripts/lib/run-progress-lib.ps1 is not found, a ship stays one phase.
     #>
     param([AllowEmptyCollection()][object[]]$Runs = @(), [Parameter(Mandatory = $true)][string]$CachePath, [Parameter(Mandatory = $true)][string]$TranscriptDir,
         [string]$StepLogPath = '', [string]$RepoRoot = '')
@@ -703,7 +836,7 @@ function Format-StopwatchPhaseCard {
     param($Entry, [double]$Total, [AllowEmptyString()][string]$Title = '', $TotalNote = $null)
     $close = if ($null -eq $TotalNote) { '' } else { '<p><strong>Total</strong> <span class="num">' + (Format-DevSeconds $Total) + '</span>' + $(if ($TotalNote) { ' ' + $TotalNote } else { '' }) + '</p>' }
     $sub = if ($Entry -and $Entry.Sessions -gt 1) { '<p class="card__sub">' + $Entry.Sessions + ' sessions</p>' } else { '' }
-    $h3 = if ($Title) { '<h3 class="card__title">' + (ConvertTo-DashboardText $Title) + '</h3>' } else { '' }
+    $h3 = if ($Title) { '<h3 class="card__title">' + (ConvertTo-GeneralPageText $Title) + '</h3>' } else { '' }
     $card = '<section class="card">' + $(if ($h3 -or $sub) { '<div class="card__head">' + $h3 + $sub + '</div>' } else { '' })
     if ($null -eq $Entry) { return $card + '<p class="note">No phases read for this run yet.</p>' + $close + '</section>' }
     if (-not $Entry.Sessions) { return $card + '<p class="note">No session of this repo was active during this run.</p>' + $close + '</section>' }
@@ -712,7 +845,7 @@ function Format-StopwatchPhaseCard {
     foreach ($p in @($Entry.Phases | Sort-Object -Property @{ Expression = { [double]$_.Seconds }; Descending = $true })) {
         # Capped at 100 so the bar never overflows its track; a phase is at most the run, so the cap only meets rounding.
         $share = if ($Total -gt 0) { [Math]::Min(100, [Math]::Round(100 * $p.Seconds / $Total)) } else { 0 }
-        $card += '<tr><td class="sw-left">' + (ConvertTo-DashboardText $p.Name) + '</td><td class="num">' + (Format-DevSeconds $p.Seconds) + '</td><td class="num">' + $share + '%</td>' +
+        $card += '<tr><td class="sw-left">' + (ConvertTo-GeneralPageText $p.Name) + '</td><td class="num">' + (Format-DevSeconds $p.Seconds) + '</td><td class="num">' + $share + '%</td>' +
             '<td class="sw-left"><span class="sw-bar" role="img" aria-label="' + $share + '%"><span style="width: ' + $share + '%"></span></span></td></tr>'
     }
     $card += '</tbody>'
@@ -812,7 +945,7 @@ function Format-StopwatchRunCard {
         by its short title (Get-StopwatchShortTitle).
     #>
     param([Parameter(Mandatory = $true)][hashtable]$Group, [string]$Route = '/stopwatch', [datetime]$Now = [datetime]::UtcNow, [switch]$NoDelta, [hashtable]$CardNotes = @{}, [switch]$ShortLabel)
-    $e = { param($v) ConvertTo-DashboardText $v }
+    $e = { param($v) ConvertTo-GeneralPageText $v }
     $stamp = & $e ($Group.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))
     $href = (& $e $Route) + '/' + (& $e $Group.PageSlug)
     $label = if ($ShortLabel) { Get-StopwatchShortTitle $Group.Label } else { $Group.Label }
@@ -832,8 +965,8 @@ function Format-StopwatchLabelCard {
         is still going. The run dates are on the label's page, not here.
     #>
     param([Parameter(Mandatory = $true)][hashtable]$Set, [datetime]$Now = [datetime]::UtcNow)
-    $e = { param($v) ConvertTo-DashboardText $v }
-    $stop = if ([string]$Set.Title -match '^release') { 'the release notes of the cut are committed' } else { 'Claude is back on main, clean, with a commit of its own' }
+    $e = { param($v) ConvertTo-GeneralPageText $v }
+    $stop = if ([string]$Set.Title -match '^release') { 'the release notes of the cut are committed' } else { 'Claude is back on the trunk, clean, with a commit of its own' }
     $fastest = @($Set.Groups | ForEach-Object { $_.Rows } | Where-Object { $_ } | Sort-Object { $_.Seconds }) | Select-Object -First 1
     # A pinned label with no run yet (Get-StopwatchOverviewSets) has no time to show, and says so.
     $time = if ($fastest) { '<p class="sw-time num">' + (Format-DevSeconds $fastest.Seconds) + '</p>' }
@@ -858,7 +991,7 @@ $script:StopwatchPinnedLabels = @(
         Steps = @(
             'Get a branch ready first, outside the clock: its change committed, its DEPLOY section written, and the checkout left on it.',
             'Start the run by pasting the prompt above into a session of this checkout. Its first line is exactly "stopwatch: Ship PR", and its second only asks to ship that branch, so the run times the ship and nothing else.',
-            'The run ends when Claude is back on main after the merge and the fold. Each run''s own page splits the ship into its steps: the checks before the PR, the local gates and opening the PR, the CI wait, the merge, and the fold.',
+            'The run ends when Claude is back on the trunk after the merge and the fold. Each run''s own page splits the ship into its steps: the checks before the PR, the local gates and opening the PR, the CI wait, the merge, and the fold.',
             'Repeat with the next ready branch under the same first line. Every run lands on this page and is compared with the run before it.',
             'To try a speed-up, change one thing between two runs, say which on the prompt''s second line, and compare the steps of the two runs.'
         )
@@ -876,7 +1009,7 @@ function Format-StopwatchPinnedSteps {
     param([AllowEmptyString()][string]$Label = '')
     $pinned = Get-StopwatchPinnedLabel -Label $Label
     if (-not $pinned) { return '' }
-    $items = @($pinned.Steps | ForEach-Object { '<li>' + (ConvertTo-DashboardText $_) + '</li>' })
+    $items = @($pinned.Steps | ForEach-Object { '<li>' + (ConvertTo-GeneralPageText $_) + '</li>' })
     return '<ol class="sw-steps">' + ($items -join '') + '</ol>'
 }
 
@@ -889,7 +1022,7 @@ function Format-StopwatchPinnedPrompt {
     param([AllowEmptyString()][string]$Label = '')
     $pinned = Get-StopwatchPinnedLabel -Label $Label
     if (-not $pinned -or -not $pinned.Contains('Prompt')) { return '' }
-    $text = ConvertTo-DashboardText (@($pinned.Prompt) -join "`n")
+    $text = ConvertTo-GeneralPageText (@($pinned.Prompt) -join "`n")
     return '<pre class="sw-prompt" id="sw-prompt">' + $text + '</pre>' +
         '<p class="sw-copy"><button type="button" class="btn" data-copy="sw-prompt">Copy the prompt</button></p>' +
         '<script>(function () {' +
@@ -915,7 +1048,7 @@ function Format-StopwatchPageHtml {
         the Logbook's, shows the run cards themselves (Format-StopwatchRunCard) under one Measurements h2 instead. Five
         cards to a row on a full screen. -ReadError is set when the
         store could not be read. -StorePath is named in the footer, so a run can be read and evaluated outside
-        the page. The Logbook (scripts/lib/logbook-lib.ps1, #3364) draws its overview here too: -Route, -PageTitle
+        the page. The Logbook (logbook-lib.ps1 beside this file, #3364) draws its overview here too: -Route, -PageTitle
         and -FooterNote are its own, -NoDelta leaves out the change against the run before, which only means
         something between runs that share a label on purpose, and -CardNotes (text by run id) adds a part to a finished
         run's card line: its work time. -Fetching says the other machines' runs are still being fetched, in place of
@@ -939,9 +1072,12 @@ function Format-StopwatchPageHtml {
         [AllowEmptyString()][string]$FooterNote = '',
         [switch]$NoDelta,
         [hashtable]$CardNotes = @{},
-        [switch]$Flat
+        [switch]$Flat,
+        [AllowEmptyString()][string]$RepoName = '',
+        [string]$HubHref = '/hub',
+        [switch]$Shared
     )
-    $e = { param($v) ConvertTo-DashboardText $v }
+    $e = { param($v) ConvertTo-GeneralPageText $v }
     $body = New-Object System.Text.StringBuilder
     if ($ReadError) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The store could not be read: ' + (& $e $ReadError) + '. Nothing is written over it until it reads again, so no new run is recorded.</p>')
@@ -988,16 +1124,20 @@ function Format-StopwatchPageHtml {
     $shell = Format-StopwatchPageShell
     # When the copy of the other machines' runs was last fetched (#3403), in local time like every time on these pages.
     $fetchedAt = if ($null -ne $LastFetched) { ', as last fetched ' + (& $e (([datetime]$LastFetched).ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))) } else { '' }
-    $note = if ($FooterNote) { $FooterNote } else { 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout, so a run never dirties the tree it is timing. ' +
-        'Every finished run is also shared through a ref of this machine''s own on origin, <code>refs/stopwatch/&lt;machine&gt;</code> (<code>scripts/lib/stopwatch-sync-lib.ps1</code>), ' +
-        $(if ($SharedMachines -eq 1) { "and the runs of one other machine are shown with these$fetchedAt. " } elseif ($SharedMachines -gt 1) { 'and the runs of ' + $SharedMachines + " other machines are shown with these$fetchedAt. " } elseif ($Fetching) { 'and the other machines'' runs are still being fetched. ' } else { "and no other machine has shared a run yet$fetchedAt. " }) +
+    $shareNote = if ($Shared) {
+        'Every finished run is also shared through a ref of this machine''s own on origin, <code>refs/stopwatch/&lt;machine&gt;</code> (<code>hub/lib/stopwatch-sync-lib.ps1</code>), ' +
+        $(if ($SharedMachines -eq 1) { "and the runs of one other machine are shown with these$fetchedAt. " } elseif ($SharedMachines -gt 1) { 'and the runs of ' + $SharedMachines + " other machines are shown with these$fetchedAt. " } elseif ($Fetching) { 'and the other machines'' runs are still being fetched. ' } else { "and no other machine has shared a run yet$fetchedAt. " })
+    } else {
+        'Not shared with this repo''s other machines: a label is the first line of a prompt, so a repo opts in with <code>DKJ_STOPWATCH_SHARE=1</code> in the env block of its <code>.claude/settings.json</code>. '
+    }
+    $note = if ($FooterNote) { $FooterNote } else { 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout, so a run never dirties the tree it is timing. ' + $shareNote +
         'A prompt whose first line begins with <code>stopwatch:</code> starts a run in a session of this checkout, labelled with the rest of that line, and discards a run still going; ' +
-        'a Stop hook ends it once Claude is back on the trunk, clean, with HEAD moved since the start (that suggests the work landed; it does not prove it). Both are <code>scripts/dashboard/stopwatch-hook.ps1</code>. ' +
-        'Built by <code>scripts/lib/stopwatch-lib.ps1</code>.' }
+        'a Stop hook ends it once Claude is back on the trunk, clean, with HEAD moved since the start (that suggests the work landed; it does not prove it). Both are the dkj-policy plugin''s <code>hooks/stopwatch-hook.ps1</code>. ' +
+        'Built by its <code>hub/lib/stopwatch-lib.ps1</code>.' }
     # Bare, with no lead (the owner, October 24, 2026): the overview's h1 names it, the Logbook's breadcrumb does, and the footer says
     # how a run starts.
-    return Format-DevPageHtml -Title $PageTitle -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare `
-        -FooterNote $note
+    return Format-GeneralPageHtml -Title $PageTitle -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare `
+        -SiteName $RepoName -HubHref $HubHref -FooterNote $note
 }
 
 function Format-StopwatchLabelPageHtml {
@@ -1010,9 +1150,12 @@ function Format-StopwatchLabelPageHtml {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Set,
         [AllowEmptyString()][string]$StorePath = '',
-        [datetime]$Now = [datetime]::UtcNow
+        [datetime]$Now = [datetime]::UtcNow,
+        [AllowEmptyString()][string]$RepoName = '',
+        [string]$HubHref = '/hub',
+        [switch]$Shared
     )
-    $e = { param($v) ConvertTo-DashboardText $v }
+    $e = { param($v) ConvertTo-GeneralPageText $v }
     $body = New-Object System.Text.StringBuilder
     [void]$body.AppendLine('<div class="sw-groups">')
     [void]$body.AppendLine('<div class="sw-grid">')
@@ -1041,9 +1184,9 @@ function Format-StopwatchLabelPageHtml {
     [void]$body.AppendLine('</div>')
     $shell = Format-StopwatchPageShell
     $note = 'Every run whose prompt began with <code>stopwatch: ' + (& $e $Set.Title) + '</code>, labels compared case-insensitively, each against the run of this label before it. ' +
-        'Kept on this machine in <code>' + (& $e $StorePath) + '</code> and shared with the other machines through <code>refs/stopwatch/&lt;machine&gt;</code> on origin. Built by <code>scripts/lib/stopwatch-lib.ps1</code>.'
-    return Format-DevPageHtml -Title $title -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare -ParentCrumbs @(@{ Label = 'Stopwatch'; Href = '/stopwatch' }) `
-        -FooterNote $note
+        'Kept on this machine in <code>' + (& $e $StorePath) + '</code>' + $(if ($Shared) { ' and shared with the other machines through <code>refs/stopwatch/&lt;machine&gt;</code> on origin' } else { ', not shared with other machines' }) + '. Built by the dkj-policy plugin''s <code>hub/lib/stopwatch-lib.ps1</code>.'
+    return Format-GeneralPageHtml -Title $title -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare -ParentCrumbs @(@{ Label = 'Stopwatch'; Href = '/stopwatch' }) `
+        -SiteName $RepoName -HubHref $HubHref -FooterNote $note
 }
 
 function Format-StopwatchRunPageHtml {
@@ -1068,12 +1211,15 @@ function Format-StopwatchRunPageHtml {
         [AllowEmptyString()][string]$FooterNote = '',
         [switch]$NoDelta,
         [AllowEmptyString()][string]$TimeNote = '',
-        [switch]$LabelCrumb
+        [switch]$LabelCrumb,
+        [AllowEmptyString()][string]$RepoName = '',
+        [string]$HubHref = '/hub',
+        [switch]$Shared
     )
     $crumbs = @(@{ Label = $ParentLabel; Href = $Route })
     $label = if ($LabelCrumb) { Get-StopwatchShortTitle $Group.Label } else { [string]$Group.Label }
     if ($LabelCrumb -and $Group.LabelSlug) { $crumbs += @{ Label = $label; Href = $Route + '/' + $Group.LabelSlug } }
-    $e = { param($v) ConvertTo-DashboardText $v }
+    $e = { param($v) ConvertTo-GeneralPageText $v }
     $local = { param($t) (& $e ($t.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))) }
     $body = New-Object System.Text.StringBuilder
     $pageTitle = $Group.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
@@ -1099,9 +1245,9 @@ function Format-StopwatchRunPageHtml {
         [void]$body.AppendLine('</div>')
     }
     $shell = Format-StopwatchPageShell
-    $note = if ($FooterNote) { $FooterNote } else { 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout, and shared with the other machines through <code>refs/stopwatch/&lt;machine&gt;</code> on origin. ' +
+    $note = if ($FooterNote) { $FooterNote } else { 'Kept on this machine in <code>' + (& $e $StorePath) + '</code>, outside the checkout' + $(if ($Shared) { ', and shared with the other machines through <code>refs/stopwatch/&lt;machine&gt;</code> on origin. ' } else { ', and not shared with other machines. ' }) +
         'The phases are read from this repo''s Claude Code session transcripts once a run has stopped: each second goes to the first phase going at that moment, ' +
-        'so a ship running in the background counts as the ship, and a second in which no session was busy is time spent waiting on you. Built by <code>scripts/lib/stopwatch-lib.ps1</code>.' }
-    return Format-DevPageHtml -Title ([string]$pageTitle) -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare -ParentCrumbs $crumbs `
-        -FooterNote $note
+        'so a ship running in the background counts as the ship, and a second in which no session was busy is time spent waiting on you. Built by the dkj-policy plugin''s <code>hub/lib/stopwatch-lib.ps1</code>.' }
+    return Format-GeneralPageHtml -Title ([string]$pageTitle) -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare -ParentCrumbs $crumbs `
+        -SiteName $RepoName -HubHref $HubHref -FooterNote $note
 }

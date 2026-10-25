@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Tests for scripts/lib/stopwatch-lib.ps1 -- the Stopwatch page of the dev server (#3315, #3323): the store, the
+    Tests for plugins/dkj-policy/hub/lib/stopwatch-lib.ps1 -- the Stopwatch page of the dev server (#3315, #3323): the store, the
     hook's rules and the hook script itself, the model the page draws and the read-only page.
 
     Pure ASCII (repo convention for .ps1).
@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Continue'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 . (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1')
-. (Join-Path $RepoRoot 'scripts\lib\stopwatch-lib.ps1')
+. (Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\stopwatch-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -116,7 +116,7 @@ try {
     Assert-Equal 'it is not valid JSON' (Read-StopwatchStore -Path $store).Error 'a store that is not JSON is an error, so nothing writes over it'
 
     # The hook script itself, against stores of its own: the prompt arrives as JSON on stdin; silent, exit 0.
-    $hookScript = Join-Path $RepoRoot 'scripts\dashboard\stopwatch-hook.ps1'
+    $hookScript = Join-Path $RepoRoot 'plugins\dkj-policy\hooks\stopwatch-hook.ps1'
     $hookStore = Join-Path $dir 'hook\stopwatch.json'
     $out = '{"session_id":"s","prompt":"  Stopwatch: From the terminal\nand the rest"}' | & powershell -NoProfile -ExecutionPolicy Bypass -File $hookScript -Hook Prompt -StorePath $hookStore 2>&1
     $exit = $LASTEXITCODE
@@ -149,6 +149,71 @@ try {
     Remove-Item -LiteralPath $dir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
+Write-Host '-- one store per repo (#3470)' -ForegroundColor Cyan
+Assert-Equal 'dkj-claude-plugins' (Get-HubRepoName -RepoRoot 'C:\src\dkj-solutions\dkj-claude-plugins') 'a checkout is named by its folder'
+Assert-Equal 'life-hub' (Get-HubRepoName -RepoRoot 'C:\src\Life-Hub\') 'lowercased, a trailing slash ignored'
+Assert-Equal 'my-repo-x' (Get-HubRepoName -RepoRoot 'C:\src\my repo&x') 'anything but a letter, digit, dot, dash or underscore becomes a dash'
+Assert-True ((Get-HubRepoKey -RepoRoot 'C:\src\dkj-recipes') -cmatch '^dkj-recipes-[0-9a-f]{8}\z') 'its store key is the name and eight hex of a hash of its path'
+Assert-Equal (Get-HubRepoKey -RepoRoot 'C:\src\dkj-recipes') (Get-HubRepoKey -RepoRoot 'C:\src\dkj-recipes-lanes\fix-1') 'a worktree-lane lane is the repo it was cut from'
+Assert-Equal (Get-HubRepoKey -RepoRoot 'C:\src\dkj-recipes') (Get-HubRepoKey -RepoRoot 'C:\src\dkj-recipes\.claude\worktrees\agent-a1') 'a Claude Code worktree is the repo it lives in'
+Assert-Equal (Get-HubRepoKey -RepoRoot 'C:\src\dkj-recipes') (Get-HubRepoKey -RepoRoot 'c:/SRC/dkj-recipes/') 'the same path in another case or with other slashes is the same repo'
+Assert-True ((Get-HubRepoKey -RepoRoot 'C:\a\acme\app') -ne (Get-HubRepoKey -RepoRoot 'C:\b\other\app')) 'two unrelated repos in folders of one name never share a store (Sebastian, #3470)'
+$swBase = Join-Path ([System.IO.Path]::GetTempPath()) ('sw-base-' + [guid]::NewGuid().ToString('N'))
+$savedLocal = $env:LOCALAPPDATA
+try {
+    $env:LOCALAPPDATA = $swBase
+    $repoA = Join-Path $swBase 'src\repo-a'; $source = Join-Path $swBase 'src\dkj-claude-plugins'
+    Assert-Equal (Join-Path $swBase ('dkj-claude-plugins\repos\' + (Get-HubRepoKey -RepoRoot $repoA) + '\stopwatch.json')) (Get-StopwatchStorePath -RepoRoot $repoA) 'the store is the repo''s own, under repos\<repo>-<hash>'
+    Assert-True ((Get-StopwatchStorePath -RepoRoot $repoA) -ne (Get-StopwatchStorePath -RepoRoot $source)) 'so two repos on one machine never share a store'
+    [void](New-Item -ItemType Directory -Path (Join-Path $swBase 'dkj-claude-plugins') -Force)
+    foreach ($n in 'stopwatch.json', 'logbook.json', 'stopwatch-machine.txt') { [System.IO.File]::WriteAllText((Join-Path $swBase "dkj-claude-plugins\$n"), "old $n") }
+    Assert-Equal 0 @(Move-HubTimingLegacyStore -RepoRoot $repoA).Count 'a repo that does not carry the plugin''s source takes none of the old machine-wide store'
+    $fixtureLike = Join-Path $swBase 'src\fixture'
+    [void](New-Item -ItemType Directory -Path (Join-Path $fixtureLike 'plugins\dkj-policy\hub') -Force)
+    Assert-Equal 0 @(Move-HubTimingLegacyStore -RepoRoot $fixtureLike).Count 'nor does a tree that carries the plugin''s source under another name, as a test fixture does (measured on #3470)'
+    [void](New-Item -ItemType Directory -Path (Join-Path $source 'plugins\dkj-policy\hub') -Force)
+    $movedNow = @(Move-HubTimingLegacyStore -RepoRoot $source)
+    $srcDir = Split-Path -Parent (Get-StopwatchStorePath -RepoRoot $source)
+    Assert-True ($movedNow -contains 'stopwatch.json' -and $movedNow -contains 'logbook.json' -and (Get-Content -LiteralPath (Join-Path $srcDir 'stopwatch.json') -Raw) -eq 'old stopwatch.json' -and -not (Test-Path -LiteralPath (Join-Path $swBase 'dkj-claude-plugins\stopwatch.json'))) 'the source repo takes the old store over as its own, moved rather than copied'
+    Assert-True ((Test-Path -LiteralPath (Join-Path $swBase 'dkj-claude-plugins\stopwatch-machine.txt')) -and -not (Test-Path -LiteralPath (Join-Path $srcDir 'stopwatch-machine.txt'))) 'the machine id stays where it was: it names the machine, not a repo'
+    [System.IO.File]::WriteAllText((Join-Path $swBase 'dkj-claude-plugins\stopwatch.json'), 'stray')
+    Assert-True (@(Move-HubTimingLegacyStore -RepoRoot $source).Count -eq 0 -and (Get-Content -LiteralPath (Join-Path $srcDir 'stopwatch.json') -Raw) -eq 'old stopwatch.json') 'and never moves one over a store the repo already has'
+} finally {
+    $env:LOCALAPPDATA = $savedLocal
+    Remove-Item -LiteralPath $swBase -Recurse -Force -ErrorAction SilentlyContinue
+}
+$savedShare = $env:DKJ_STOPWATCH_SHARE
+try {
+    $env:DKJ_STOPWATCH_SHARE = $null
+    Assert-True (-not (Test-StopwatchShareEnabled)) 'a repo shares nothing until it opts in'
+    $env:DKJ_STOPWATCH_SHARE = '1'
+    Assert-True (Test-StopwatchShareEnabled) 'DKJ_STOPWATCH_SHARE=1 opts it in'
+    $env:DKJ_STOPWATCH_SHARE = 'yes'
+    Assert-True (-not (Test-StopwatchShareEnabled)) 'and nothing but 1 does'
+    # A hub server keeps the environment it was started in, so the repo's own settings files are read too (#3470).
+    $shareRepo = Join-Path ([System.IO.Path]::GetTempPath()) ('sw-share-' + [guid]::NewGuid().ToString('N'))
+    [void](New-Item -ItemType Directory -Path (Join-Path $shareRepo '.claude') -Force)
+    $env:DKJ_STOPWATCH_SHARE = $null
+    Assert-True (-not (Test-StopwatchShareEnabled -RepoRoot $shareRepo)) 'a repo with no settings file does not share'
+    [System.IO.File]::WriteAllText((Join-Path $shareRepo '.claude\settings.json'), '{ "env": { "DKJ_STOPWATCH_SHARE": "1" } }')
+    Assert-True (Test-StopwatchShareEnabled -RepoRoot $shareRepo) 'with no variable set, the repo''s .claude/settings.json opts it in'
+    [System.IO.File]::WriteAllText((Join-Path $shareRepo '.claude\settings.local.json'), '{ "env": { "DKJ_STOPWATCH_SHARE": "0" } }')
+    Assert-True (-not (Test-StopwatchShareEnabled -RepoRoot $shareRepo)) 'and settings.local.json wins where it names the key, so a machine can answer otherwise'
+    $env:DKJ_STOPWATCH_SHARE = '1'
+    Assert-True (Test-StopwatchShareEnabled -RepoRoot $shareRepo) 'the environment decides wherever it is set, as Claude Code hands it to a hook'
+    [System.IO.File]::WriteAllText((Join-Path $shareRepo '.claude\settings.local.json'), '{ not json')
+    $env:DKJ_STOPWATCH_SHARE = $null
+    Assert-True (Test-StopwatchShareEnabled -RepoRoot $shareRepo) 'a settings file that is not JSON says nothing, so the other one answers'
+    Remove-Item -LiteralPath $shareRepo -Recurse -Force -ErrorAction SilentlyContinue} finally { $env:DKJ_STOPWATCH_SHARE = $savedShare }
+$lockPath = Join-Path ([System.IO.Path]::GetTempPath()) ('sw-lock-' + [guid]::NewGuid().ToString('N') + '.json')
+$held = Get-HubTimingLock -StorePath $lockPath
+$other = Start-Job -ScriptBlock { param($lib, $p) . $lib; $m = Get-HubTimingLock -StorePath $p -TimeoutMs 300; [bool]$m } -ArgumentList (Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\stopwatch-lib.ps1'), $lockPath
+$otherGot = Receive-Job -Job $other -Wait -AutoRemoveJob
+Assert-True ($null -ne $held -and $otherGot -eq $false) 'while one hook holds a store''s lock, a second waits and does not get it'
+$held.ReleaseMutex(); $held.Dispose()
+$again = Get-HubTimingLock -StorePath $lockPath
+Assert-True ($null -ne $again) 'and gets it once the first has let go'
+$again.ReleaseMutex(); $again.Dispose()
 Write-Host '-- the model' -ForegroundColor Cyan
 $mk = { param($label, $start, $end) @{ Id = "id$start"; Label = $label; Start = (& $at $start); End = $(if ($null -ne $end) { & $at $end } else { $null }); Auto = $true; StartHead = 'a' } }
 $stampAt = { param($s) (& $at $s).ToLocalTime().ToString('yyyy-MM-dd-HHmm', [Globalization.CultureInfo]::InvariantCulture) }
@@ -194,7 +259,8 @@ Assert-True ($twinSlugs.Count -eq 2 -and $twinSlugs[0] -ne $twinSlugs[1] -and $t
 
 Write-Host '-- the page' -ForegroundColor Cyan
 $page = Format-StopwatchPageHtml -Model $m -StorePath 'C:\x\stopwatch.json' -Now (& $at 5065)
-Assert-True ($page -match 'aria-current="page">Stopwatch</span>' -and $page -match '<li><a href="/">Home</a></li>') 'the page has the house shell and its crumb back to the hub'
+Assert-True ($page -match 'aria-current="page">Stopwatch</span>' -and $page -match '<li><a href="/hub">Home</a></li>') 'the page has the house shell and its crumb back to the hub'
+Assert-True ((Format-StopwatchPageHtml -Model $m -StorePath 's' -HubHref '/' -RepoName 'dkj-claude-plugins') -match '<li><a href="/">Home</a></li>') 'a hub that answers Home itself passes its own -HubHref, as the source repo''s does (#3470)'
 Assert-True ($page -notmatch 'class="lead"|Runs recorded|id="now"|class="sw-clock') 'the overview is bare: no lead, tiles or Now section above the cards'
 Assert-True (([regex]::Matches($page, 'id="hub-banner"')).Count -eq 1 -and $page.IndexOf('id="hub-banner"') -lt $page.IndexOf('<h1>')) 'but it carries the airsquats banner once, above the first heading, as every hub page does (#3356)'
 Assert-True ($page.IndexOf('<h1>') -lt $page.IndexOf('card--link')) 'it opens on its heading, then the cards'
@@ -203,7 +269,7 @@ Assert-True ($page -match '<div class="grid__head"><h1>Stopwatch</h1></div>' -an
 Assert-True ($page -match 'querySelectorAll\("\[data-start\]"\)') 'the clock script ticks every [data-start] element, the card''s live time included'
 Assert-Equal 4 ([regex]::Matches($page, '<section class="card card--link sw-card">')).Count 'one card per prompt label, case-insensitively: the three CSS comment runs are one card (three labels with runs, plus the pinned Ship PR)'
 Assert-True ($page -match '<div class="sw-groups">\r?\n<div class="sw-grid[^"]*">' -and $page -notmatch 'class="grid-3' -and $page -match '\.sw-groups \{ display: grid; gap: var\(--spacing-7\); \}' -and $page -match '\.sw-grid \{ display: grid; grid-template-columns: repeat\(5, minmax\(0, 1fr\)\); gap: var\(--spacing-4\); \}' -and $page -notmatch 'max-width: 1400px') 'the cards stand five to a row, two and one only on a narrow screen, in grids of the page''s own with no top margin, spaced apart by their wrapper''s gap'
-Assert-True ($page -match '<section class="card card--link sw-card"><h2><a href="/stopwatch/css-comment">CSS comment</a></h2><p class="sw-instruction">From the prompt <code>stopwatch: CSS comment</code> until Claude is back on main, clean, with a commit of its own\.</p><p class="sw-time num">3:20</p></section>') 'a label card holds an h2 with the label linking its page, when a run starts and stops, and the fastest time with no change beside it'
+Assert-True ($page -match '<section class="card card--link sw-card"><h2><a href="/stopwatch/css-comment">CSS comment</a></h2><p class="sw-instruction">From the prompt <code>stopwatch: CSS comment</code> until Claude is back on the trunk, clean, with a commit of its own\.</p><p class="sw-time num">3:20</p></section>') 'a label card holds an h2 with the label linking its page, when a run starts and stops, and the fastest time with no change beside it'
 Assert-True ($page -match '<h2><a href="/stopwatch/docs">Docs</a></h2>[^\n]*<p class="sw-time num">8:20</p>') 'a label run once shows that run''s time'
 Assert-True ($page -match ('<h2><a href="/stopwatch/live">Live</a></h2><p class="sw-instruction">[^\n]+</p><p class="sw-time num" data-start="2026-10-23T11:23:20.000Z">1:05</p></section>')) 'a label whose only run is going carries its live clock'
 Assert-True ($page -notmatch ('href="/stopwatch/' + (& $stampAt 3000) + '"') -and $page -notmatch 'class="sw-change|class="sw-stamp|newest') 'the overview links no run page and shows no run date or change: those are on the label''s page'
@@ -217,7 +283,7 @@ Assert-True ($rel -match 'until the release notes of the cut are committed\.') '
 Write-Host '-- the label page' -ForegroundColor Cyan
 $labs = (@(Get-StopwatchLabelSets -Model $m) | ForEach-Object { Format-StopwatchLabelPageHtml -Set $_ -StorePath 'C:\x\stopwatch.json' -Now (& $at 5065) }) -join "`n"
 $lab = Format-StopwatchLabelPageHtml -Set $cssLabel -StorePath 's'
-Assert-True ($lab -match '<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">CSS comment</span></li>') 'the trail reads Home, Stopwatch (linking /stopwatch), then the label'
+Assert-True ($lab -match '<li><a href="/hub">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">CSS comment</span></li>') 'the trail reads Home, Stopwatch (linking /stopwatch), then the label'
 Assert-True ($lab -notmatch 'class="lead"' -and ([regex]::Matches($lab, 'id="hub-banner"')).Count -eq 1 -and $lab.IndexOf('id="hub-banner"') -lt $lab.IndexOf('<h1>')) 'it is bare like the overview, and carries the banner once, above its heading'
 Assert-Equal 'CSS comment' (([regex]::Matches($lab, '<h1>([^<]+)</h1>') | ForEach-Object { $_.Groups[1].Value }) -join '|') 'it opens with an h1, the label, and has no other h1 (the owner, October 25, 2026: a page always begins with an h1)'
 Assert-True ($lab -notmatch '<h2>') 'and a label that is not pinned has no h2 under it'
@@ -293,15 +359,17 @@ Assert-True ($flatNone -notmatch 'Ship PR') 'the Logbook''s flat overview carrie
 Assert-True ($none -match '\.sw-steps \{ [^}]*font-size: var\(--text-sm\); font-weight: 400; color: var\(--muted\); \}') 'the steps take the instruction line''s house size, weight and colour'
 $evil = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk '<script>x</script>' 0 10))) -StorePath 's'
 Assert-True ($evil -notmatch '<script>x</script>' -and $evil -match '&lt;script&gt;x&lt;/script&gt;' -and $evil -match 'href="/stopwatch/script-x-script"' -and (ConvertTo-StopwatchModel -Runs @((& $mk '<script>x</script>' 0 10))).Groups[0].LabelSlug -eq 'script-x-script') 'a label is escaped wherever it is shown, and its slugs are URL-safe'
-$empty = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's'
+$empty = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's' -Shared
 Assert-True ($empty -match 'no other machine has shared a run yet' -and $empty -notmatch 'being fetched|location\.reload') 'with no sync under way an empty origin is stated, and the page does not reload'
-$fetching = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's' -Fetching
+$unshared = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's'
+Assert-True ($unshared -match 'Not shared with this repo''s other machines' -and $unshared -match 'DKJ_STOPWATCH_SHARE=1' -and $unshared -notmatch 'refs/stopwatch/') 'a repo that does not opt in is told its runs stay on this machine, and how to share them (#3470)'
+$fetching = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's' -Fetching -Shared
 Assert-True ($fetching -match 'being fetched' -and $fetching -match 'still being fetched' -and $fetching -notmatch 'no other machine has shared' -and $fetching -match 'location\.reload') 'while the first sync fetches, the page says so instead of an empty origin, and reloads (#3377)'
 # #3403: a later visit's fetch is said too, and the copy of the other machines' runs carries its age.
 $later = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's' -SharedMachines 2 -Fetching
 Assert-True ($later -match 'Checking origin for newer runs' -and $later -match 'location\.reload' -and $later -notmatch 'are being fetched from origin') 'a fetch on a later visit, with machines already shown, says it checks for newer runs and reloads (#3403)'
 $when = [datetime]::SpecifyKind([datetime]'2026-10-24 09:30:00', 'Utc')
-$aged = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's' -SharedMachines 2 -LastFetched $when
+$aged = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's' -SharedMachines 2 -LastFetched $when -Shared
 Assert-True ($aged -match ('the runs of 2 other machines are shown with these, as last fetched ' + [regex]::Escape($when.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)) + '\.') -and $aged -notmatch 'location\.reload') 'the footer names when the other machines'' runs were last fetched, in local time (#3403)'
 Assert-True ($empty -notmatch 'as last fetched') 'with no fetch on record no time is claimed'
 $broken = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -ReadError 'it is not valid JSON' -StorePath 's'
@@ -310,7 +378,7 @@ Assert-True ($broken -match 'could not be read') 'a store that does not read say
 Write-Host '-- the run page (#3323)' -ForegroundColor Cyan
 $lp = Format-StopwatchRunPageHtml -Group (Find-StopwatchGroup -Model $m -Slug (& $stampAt 3000)) -StorePath 's'
 Assert-True ($lp -match ('<h1>' + [regex]::Escape((& $sp 3000)) + '</h1><p class="card__sub">CSS comment</p>') -and ([regex]::Matches($lp, '<h1>')).Count -eq 1 -and ([regex]::Matches($lp, 'id="hub-banner"')).Count -eq 1 -and $lp.IndexOf('id="hub-banner"') -lt $lp.IndexOf('<h1>')) 'a run''s page is named by its start, its label beneath, and carries the banner once, above its heading (#3356)'
-Assert-True ($lp -match ('<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">' + [regex]::Escape((& $sp 3000)) + '</span></li>')) 'the trail reads Home, Stopwatch (linking /stopwatch), then the run''s start'
+Assert-True ($lp -match ('<li><a href="/hub">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">' + [regex]::Escape((& $sp 3000)) + '</span></li>')) 'the trail reads Home, Stopwatch (linking /stopwatch), then the run''s start'
 $lpLabel = Format-StopwatchRunPageHtml -Group (Find-StopwatchGroup -Model $m -Slug (& $stampAt 3000)) -StorePath 's' -LabelCrumb
 Assert-True ($lpLabel -match ('<a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch/css-comment">CSS comment</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">' + [regex]::Escape((& $sp 3000)) + '</span></li>')) 'with -LabelCrumb the trail passes the run''s label page on the way to the run'
 Assert-True ($lpLabel -match ('<h1>' + [regex]::Escape((& $sp 3000)) + '</h1></div>')) 'with -LabelCrumb the label is not said again beneath the heading'

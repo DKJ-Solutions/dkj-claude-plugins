@@ -17,24 +17,31 @@ that **recorded** the run erases it from its own `stopwatch.json` and publishes 
 ([#3453](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3453): the owner wanted the run
 gone, not hidden). Per run id or label the **newest entry wins**, so `-Show` undoes a hide from any
 machine **until that sync**; after it the run no longer exists to show. The pages stay read-only
-(#3323). The rules are in `scripts/lib/stopwatch-sync-lib.ps1`.
+(#3323). The rules are in this plugin's `hub/lib/stopwatch-sync-lib.ps1`.
 
-**It is repo-local**, beside `harvest-artifacts`: the Stopwatch is this repo's own dev server.
+**It ships with `dkj-policy`** since the Stopwatch is every repo's hub page
+([#3470](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3470)). The runs it hides are the repo
+the session runs in: its own store on this machine. Where the repo does not share its runs with its
+other machines (`DKJ_STOPWATCH_SHARE=1` in the env block of its `.claude/settings.json` opts in), the
+entry hides the run on this machine's pages only, and the sync says `not shared`.
+
+**In the source repo, run its own copy instead** -- `plugins/dkj-policy/hub/pages/stopwatch-hide.ps1`
+-- since `${CLAUDE_PLUGIN_ROOT}` resolves into the plugin cache, which holds the last released copy.
 
 ## Run it
 
 ```powershell
 # delete one run, by its id (the run page's crumbs and the store name it)
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dashboard/stopwatch-hide.ps1 -RunId 20261023-112047-da87
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/hub/pages/stopwatch-hide.ps1" -RunId 20261023-112047-da87
 
 # delete every finished run of a label: the exact label, in full
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dashboard/stopwatch-hide.ps1 -Label "CSS comment change (reconstructed)"
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/hub/pages/stopwatch-hide.ps1" -Label "CSS comment change (reconstructed)"
 
 # undo either one, while the recording machine has not synced yet
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dashboard/stopwatch-hide.ps1 -Label "CSS comment change (reconstructed)" -Show
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/hub/pages/stopwatch-hide.ps1" -Label "CSS comment change (reconstructed)" -Show
 
 # what is hidden now, and what this machine wrote
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dashboard/stopwatch-hide.ps1 -List
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/hub/pages/stopwatch-hide.ps1" -List
 ```
 
 It writes the entry and then runs `stopwatch-sync.ps1` in the foreground, printing its outcome. When
