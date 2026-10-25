@@ -437,6 +437,7 @@ $tplStyleEnd = $rn.IndexOf('</style>')
 $houseAt = $rn.IndexOf('<link rel="stylesheet" href="/house-style.css">')
 Assert-True ($houseAt -gt $tplStyleEnd -and $tplStyleEnd -gt 0) 'the house stylesheet loads after the template''s own style, so the house body wins'
 Assert-True ($rn.IndexOf('--panel: var(--paper-2)') -gt $houseAt) 'and the template''s tokens are pointed at house tokens after it'
+Assert-True ($rn.IndexOf('.wrap { max-width: 1080px; display: grid;') -gt $houseAt -and $rn.Contains('header.masthead h1 { font-family: inherit; font-size: var(--text-h1);') -and $rn.Contains('footer.colophon { margin: 0; padding: 0; border: 0; color: var(--muted);')) 'and its column, h1 and colophon take the Stopwatch page''s measures (owner, October 25, 2026)'
 Assert-True ($rn.IndexOf('<script src="/house-theme.js"></script>') -lt $rn.IndexOf('<body')) 'the theme script loads in the head'
 $bodyAt = $rn.IndexOf('<body>')
 $barAt = $rn.IndexOf('<div class="breadcrumbs-bar">')
