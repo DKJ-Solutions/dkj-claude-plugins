@@ -444,14 +444,40 @@ $barAt = $rn.IndexOf('<div class="breadcrumbs-bar">')
 Assert-True ($barAt -gt $bodyAt -and $rn.Substring($bodyAt + 6, $barAt - $bodyAt - 6).Trim() -eq (Format-RepoHubBanner).Trim()) 'the banner is the first thing in <body>, and with no repo named the breadcrumb bar comes straight after it'
 Assert-True ($rn -match '<li><a href="/hub">Home</a></li>\s*<li><span class="breadcrumbs__sep" aria-hidden="true"><svg\ viewBox="0\ 0\ 24\ 24"><path\ fill="currentColor"\ fill-rule="evenodd"\ d="M9\.793\ 16\.707a1\ 1\ 0\ 0\ 1\ 0-1\.414L13\.086\ 12\ 9\.793\ 8\.707a1\ 1\ 0\ 0\ 1\ 1\.414-1\.414l4\ 4a1\ 1\ 0\ 0\ 1\ 0\ 1\.414l-4\ 4a1\ 1\ 0\ 0\ 1-1\.414\ 0"\ clip-rule="evenodd"/></svg></span><span aria-current="page">Release notes</span></li>') 'its trail runs from the hub, on /hub of the general server, to this page'
 Assert-True ($rn.IndexOf('DKJTheme.settings(') -gt $rn.IndexOf('id="settings"') -and $rn.IndexOf('DKJTheme.settings(') -lt $rn.LastIndexOf('</body>')) 'the settings button is mounted before </body>'
-Assert-True ($rn.Contains('<div class="wrap">') -and $rn.Contains('@@RELEASE_ROWS@@') -and $rn.Contains('@@PAGE_STYLE@@')) 'the template''s own content is left alone'
+Assert-True ($rn.Contains('<div class="wrap">') -and $rn.Contains('@@PAGE_MAIN@@') -and $rn.Contains('@@PAGE_STYLE@@')) 'the template''s own content is left alone'
 # The settings panel's width reaches main and .container only, and the template's column is neither, so the
 # template answers data-width itself -- every width the theme script offers but fluid, which is its own column.
 Assert-True ($tpl.Contains(':root[data-width="phone"] .wrap {') -and $tpl.Contains(':root[data-width="full"] .wrap { max-width: none; }')) 'the template''s column follows the page-width setting'
 Assert-Equal '<html>fixture</html>' (Format-ReleaseNotesDevPage -Html '<html>fixture</html>') 'a page without the template''s shape is served as it came'
 $rnNamed = Format-ReleaseNotesDevPage -Html $tpl -RepoName 'Org/repo'
-Assert-True ($rnNamed -match 'class="site-header"' -and $rnNamed -notmatch 'class="eyebrow"' -and $rnNamed -match '<header class="masthead">\s*@@PAGE_MASTHEAD@@\s*<h1>Release notes</h1>') 'under a site header the masthead opens with its h1, with no eyebrow (#3423)'
+Assert-True ($rnNamed -match 'class="site-header"' -and $rnNamed -notmatch 'class="eyebrow"' -and $rnNamed -match '<header class="masthead">\s*@@PAGE_BACK@@\s*@@PAGE_MASTHEAD@@\s*<h1>@@PAGE_HEADING@@</h1>') 'under a site header the masthead opens with its h1, with no eyebrow (#3423)'
 Assert-True ($rn -match '<span class="eyebrow">@@PAGE_TITLE@@</span>' -and $tpl -match '<span class="eyebrow">@@PAGE_TITLE@@</span>') 'and with no site header the eyebrow stays, as it does in the template the Worker serves'
+
+Write-Host '-- a release''s own page, as the dev server serves it (owner, October 25, 2026)' -ForegroundColor Cyan
+$relPage = $tpl.Replace('@@PAGE_BACK@@', '<a class="back" href="/release-notes">&larr; All releases</a>').Replace('@@PAGE_HEADING@@', 'Version 2.39')
+$rel = Format-ReleaseNotesDevPage -Html $relPage -Release
+Assert-True ($rel -match '<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/release-notes">Release notes</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">Version 2\.39</span></li>') 'its trail runs Home > Release notes > the version read off its own h1, with Release notes a link'
+Assert-True ($rel -notmatch 'class="back"') 'and its own way back is taken out, because that crumb already is one'
+Assert-True ($rn.IndexOf('.cards > .card { padding: var(--spacing-3) var(--spacing-4); margin-top: 0; }') -gt $rn.IndexOf('/house-style.css')) 'the release cards take a tighter padding than the house .card, after the house file so it holds (owner, October 25, 2026)'
+Assert-True ((Format-ReleaseNotesDevPage -Html ($tpl.Replace('@@PAGE_HEADING@@', '<b>x</b>')) -Release) -match 'aria-current="page">Release</span>') 'an h1 not of the builder''s own shape never reaches the crumb'
+Assert-True ((Format-ReleaseNotesDevPage -Html $relPage) -match 'class="back"') 'while the index keeps whatever the page carries'
+$rnIdx = 'C:\r\dkj-policy\releases\page\release-notes.html'
+$q = Resolve-ReleaseNotesRequest -Path '/release-notes' -IndexFile $rnIdx
+Assert-True ($q.File -eq $rnIdx -and $q.Version -eq '') '/release-notes is the index'
+$q = Resolve-ReleaseNotesRequest -Path '/release-notes/v2.39.0/' -IndexFile $rnIdx
+Assert-True ($q.File -eq 'C:\r\dkj-policy\releases\page\release-notes\v2.39.0.html' -and $q.Version -eq '2.39.0') 'a release''s address is its page in the folder named after the index, a trailing slash ignored'
+Assert-Equal 'C:\r\dkj-policy\releases\page\release-notes\v2.39.0.html' (Resolve-ReleaseNotesRequest -Path '/release-notes/v2.39' -IndexFile $rnIdx).File 'and the version as the page shows it reaches the same page'
+Assert-True ($null -eq (Resolve-ReleaseNotesRequest -Path '/release-notes/..\..\x' -IndexFile $rnIdx) -and $null -eq (Resolve-ReleaseNotesRequest -Path '/release-notesx' -IndexFile $rnIdx) -and $null -eq (Resolve-ReleaseNotesRequest -Path '/issues' -IndexFile $rnIdx)) 'anything but a version is not the release notes'' to answer, so no request names a file outside that folder'
+$rnFix = Join-Path ([System.IO.Path]::GetTempPath()) ('rn-built-' + [guid]::NewGuid().ToString('N'))
+try {
+    New-Item -ItemType Directory -Force -Path $rnFix | Out-Null
+    $rnFixIdx = Join-Path $rnFix 'release-notes.html'
+    [System.IO.File]::WriteAllText($rnFixIdx, 'x')
+    Assert-True ($null -eq (Get-ReleaseNotesBuiltTime -IndexFile $rnFixIdx)) 'an index built before releases had pages of their own counts as not built, so it is rebuilt'
+    New-Item -ItemType Directory -Force -Path (Join-Path $rnFix 'release-notes') | Out-Null
+    Assert-True ($null -ne (Get-ReleaseNotesBuiltTime -IndexFile $rnFixIdx)) 'and one with its release folder beside it is built'
+    Assert-True ($null -eq (Get-ReleaseNotesBuiltTime -IndexFile (Join-Path $rnFix 'absent.html'))) 'and no index is not built either'
+} finally { Remove-Item -Recurse -Force -LiteralPath $rnFix -ErrorAction SilentlyContinue }
 
 Write-Host '-- the Issues model' -ForegroundColor Cyan
 $now = [DateTime]::new(2026, 10, 18, 12, 0, 0, [DateTimeKind]::Utc)

@@ -1,8 +1,9 @@
 ---
 name: release-notes-page
 description: >-
-  Build the hand-written release notes into one browsable page -- a picker per release, the document
-  rendered -- and, optionally, into a Cloudflare Worker that serves it at an unguessable path. Use
+  Build the hand-written release notes into a browsable index of cards, one per release, with a page
+  of its own for every release, the document rendered -- and, optionally, into a Cloudflare Worker that
+  serves them at an unguessable path. Use
   this when the people a release is written for are not developers: the note is markdown in a
   repository, which is the right home for it and the wrong place to read it. The page is a SNAPSHOT,
   so it is rebuilt and redeployed after a release rather than following one. The script builds and
@@ -20,7 +21,7 @@ source repo, shared here so consumers do not each write their own.
 *outside* the development work — management, a commissioner, a subscriber. It lives as markdown under
 your note root, which is the right home for it and the wrong place to read it: that reader has to find
 a directory, pick a version out of a filename, and read raw markdown in a code host. This turns the
-same documents into one page they can open.
+same documents into an index of cards and a page per release, which they can open and send on.
 
 ## What the skill does
 
@@ -55,7 +56,8 @@ already says where this repo keeps its release documents:
 
 ```text
 <note root>/../page/
-  release-notes.html      the page                        (generated)
+  release-notes.html      the index: one card per release  (generated)
+  release-notes/          one page per release, v<X.Y.Z>.html (generated)
   worker.js               the worker bundle, with -Worker  (generated)
   wrangler.toml           written ONCE, then yours
   worker-path-token.txt   the path token -- see below
@@ -251,7 +253,8 @@ can make.
 
 | parameter | what it does |
 |---|---|
-| `-OutFile <path>` | where the page lands, instead of `release-notes.html` in the page directory |
+| `-OutFile <path>` | where the index lands, instead of `release-notes.html` in the page directory; the release pages go in a folder of the same name beside it |
+| `-LinkBase <path>` | the address the index is served at, which the links between the pages carry; `/release-notes` by default, where both hubs serve it. The Worker bundle uses its own route regardless, so you rarely type this |
 | `-Worker` | also write `worker.js`, and `wrangler.toml` if it is not there yet |
 | `-InitToken` | create the path token when there is none; refuses to replace one |
 

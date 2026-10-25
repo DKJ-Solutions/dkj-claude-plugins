@@ -46,7 +46,8 @@
                       -MinRefreshSeconds, and per 60 s for issues) and goes back to the page.
       /api/airsquats  the banner's state as JSON (GET), and POST /api/airsquats/clear ticks its box off (#3438):
                       the machine's file under %LOCALAPPDATA%\dkj-hub, synced with a private gist by a child
-                      (sync-airsquats.ps1). The one route that takes a POST, served same-origin only.
+                      (sync-airsquats.ps1) where DKJ_HUB_AIRSQUATS_GIST opts in (#3439). The one route that
+                      takes a POST, served same-origin only.
       /whoami         the hash of the repo root this server was started in (Get-DevPreviewRootHash): the
                       hubs ask it before they link here, because an open port does not say whose server it is.
       /house-style.css, /house-theme.js   the canonical copy under dkj-solutions/assets/house-style/ in this
@@ -270,7 +271,7 @@ function Update-ReleaseNotesPage {
     #>
     $releasesDir = Split-Path -Parent (Split-Path -Parent $releaseNotesFile)
     $pageDir = Split-Path -Parent $releaseNotesFile
-    $pageTime = if (Test-Path -LiteralPath $releaseNotesFile -PathType Leaf) { (Get-Item -LiteralPath $releaseNotesFile).LastWriteTimeUtc } else { $null }
+    $pageTime = Get-ReleaseNotesBuiltTime -IndexFile $releaseNotesFile
     $newest = $null
     if (Test-Path -LiteralPath $releasesDir -PathType Container) {
         $prefix = $pageDir.TrimEnd('\') + '\'
@@ -493,13 +494,18 @@ try {
                 if ($null -eq $ssCache -or ((Get-Date) - $ssCache.At).TotalSeconds -ge $CacheSeconds) { $ssCache = Get-SessionStartModel }
                 $snap = Get-SessionStartSnapshot
                 $html = Format-SessionStartPageHtml -Model $ssCache.Model -ReadError $ssCache.Error -RepoName (Get-RepoIdentity).Name -Snapshot $snap.Data -SnapshotError $snap.Error
-            } elseif ($path -eq '/release-notes') {
+            } elseif ($rn = Resolve-ReleaseNotesRequest -Path $path -IndexFile $releaseNotesFile) {
+                # The index, or one release's own page beside it (owner, October 25, 2026).
                 $buildError = Update-ReleaseNotesPage
                 if (-not (Test-Path -LiteralPath $releaseNotesFile -PathType Leaf)) {
                     Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("Not built yet: this repo has no dkj-policy/releases/page/release-notes.html, and this server could not build it ($buildError).")) -Method $method
                     continue
                 }
-                $html = Format-ReleaseNotesDevPage -Html ([System.IO.File]::ReadAllText($releaseNotesFile, $utf8)) -RepoName (Get-RepoIdentity).Name
+                if (-not (Test-Path -LiteralPath $rn.File -PathType Leaf)) {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("No release v$($rn.Version) carries a note here.")) -Method $method
+                    continue
+                }
+                $html = Format-ReleaseNotesDevPage -Html ([System.IO.File]::ReadAllText($rn.File, $utf8)) -RepoName (Get-RepoIdentity).Name -Release:([bool]$rn.Version)
             }
             if ($null -ne $html) {
                 $body = $utf8.GetBytes($html)

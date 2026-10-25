@@ -217,7 +217,7 @@ function Update-DashboardReleaseNotesPage {
     #>
     $releasesDir = Split-Path -Parent (Split-Path -Parent $releaseNotesFile)
     $pageDir = Split-Path -Parent $releaseNotesFile
-    $pageTime = if (Test-Path -LiteralPath $releaseNotesFile -PathType Leaf) { (Get-Item -LiteralPath $releaseNotesFile).LastWriteTimeUtc } else { $null }
+    $pageTime = Get-ReleaseNotesBuiltTime -IndexFile $releaseNotesFile
     $newest = $null
     if (Test-Path -LiteralPath $releasesDir -PathType Container) {
         $prefix = $pageDir.TrimEnd('\') + '\'
@@ -673,14 +673,20 @@ try {
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }
-            if ($path -eq '/release-notes') {
-                # This repo's own page, built from this tree (Update-DashboardReleaseNotesPage).
+            $rn = Resolve-ReleaseNotesRequest -Path $path -IndexFile $releaseNotesFile
+            if ($rn) {
+                # This repo's own pages, built from this tree (Update-DashboardReleaseNotesPage): the index, or
+                # one release's own page beside it (owner, October 25, 2026).
                 $buildError = Update-DashboardReleaseNotesPage
                 if (-not (Test-Path -LiteralPath $releaseNotesFile -PathType Leaf)) {
                     Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("Not built yet: this repo has no dkj-policy/releases/page/release-notes.html, and this server could not build it ($buildError).")) -Method $method
                     continue
                 }
-                $html = Format-ReleaseNotesDevPage -Html ([System.IO.File]::ReadAllText($releaseNotesFile, $utf8)) -HubHref '/' -RepoName 'dkj-claude-plugins'
+                if (-not (Test-Path -LiteralPath $rn.File -PathType Leaf)) {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("No release v$($rn.Version) carries a note here.")) -Method $method
+                    continue
+                }
+                $html = Format-ReleaseNotesDevPage -Html ([System.IO.File]::ReadAllText($rn.File, $utf8)) -HubHref '/' -RepoName 'dkj-claude-plugins' -Release:([bool]$rn.Version)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
