@@ -39,19 +39,32 @@
 
 ### PLAN
 
+Resolves #3461. Rendall's lens said every cut passes `-Title "Release version X.Y.Z"`; the `cut-release`
+skill and every cut since 5.26.0 omit `-Title`, because the Release name has come from the tag since
+September 21, 2026. The issue named one paragraph; the same claim also stood in a second one (line 252).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Rewrite both lens paragraphs: the name comes from the tag, `-Title` is omitted unless a release has one theme.
 
 ### TEST
 
+- [x] Verified against `dkj-policy/releases/history.md`: 5.26.0-5.31.0 read `Minor release` except 5.29.0.
+- [x] No other `Release version X.Y.Z` left outside the release documents.
+
 ### DEPLOY: docs/3461-release-title-lens
 
-**Score:**
+Rendall's lens no longer tells a cut to pass `-Title "Release version X.Y.Z"`: it says the Release name
+comes from the tag and `-Title` is omitted unless the release has one theme, matching the `cut-release`
+skill and the cuts since 5.26.0 (#3461).
+
+**Score:** 1 -- prevents a cut from following the lens and writing `Release version X.Y.Z` into `history.md`'s description column again.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 

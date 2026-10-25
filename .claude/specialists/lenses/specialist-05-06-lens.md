@@ -249,12 +249,11 @@ unrelated product would get its own repository and marketplace rather than joini
   instruction and Rendall had to say so in prose. The generated body's pointer line does that
   structurally, and the acting instructions live in the attachment where they always did.
 
-**Pass `-Title "Release version X.Y.Z"` on every cut here** (Dave, September 10, 2026, at the `v4.33.0`
-cut). A release rolls up everything merged since the last one, and one sentence cannot describe a large
-multi-theme one — so this repo does not try. That string lands in `history.md`'s title column and in the
-generated Release body verbatim; [Local decisions](#local-decisions-on-how-a-release-is-cut-here) below carries the reasoning.
-It is the repo's choice, not the skill's rule: `-Title` still accepts a descriptive sentence, and a
-`-SummaryFile` milestone is unaffected.
+**Omit `-Title` on a cut here, unless the release has one theme.** A release rolls up everything merged
+since the last one, and one sentence cannot describe a large multi-theme one — so this repo does not try,
+and the description row then reads `<Type> release`. The Release's **name** comes from the tag
+(`Release Version vX.Y.Z`) either way; [Local decisions](#local-decisions-on-how-a-release-is-cut-here)
+below carries the reasoning. A `-SummaryFile` milestone is unaffected.
 
 Never inline the development notes regardless: `gh release create`'s body has a hard
 125,000-character limit and this repo's development notes have exceeded that.
@@ -662,14 +661,15 @@ the development notes alone.
 > here. `v3.2.0`'s `.html` was removed from `main`; the `v3.2.0` **tag** still contains it, because a tag is
 > a record of a moment and is not rewritten.
 
-**Every release is titled `Release version X.Y.Z`, and nothing more** (Dave, September 10, 2026, at the
+**A release carries no descriptive sentence unless it has one theme** (Dave, September 10, 2026, at the
 `v4.33.0` cut). A `cut-release.ps1` release rolls up every entry merged since the last one, and a large one
 rolls up dozens with nothing in common — so a forced one-sentence `-Title` describes none of them and reads
-as filler in `history.md`'s title column. This repo therefore passes `-Title "Release version X.Y.Z"` on
-every cut, and `history.md` and the generated GitHub Release body carry that same string. The `-Title`
-mechanism is unchanged and a descriptive sentence is still valid — a repo whose releases each carry a
-single theme should use one — and `-SummaryFile` still turns a genuine milestone into its own authored
-block regardless of the title.
+as filler in `history.md`'s title column. Until September 21, 2026 this repo therefore passed
+`-Title "Release version X.Y.Z"` on every cut. Since then the Release's **name** is derived from the tag
+(`Release Version vX.Y.Z`) and `-Title` is only the short description, so this repo **omits `-Title`** and
+`history.md`'s row reads `<Type> release` (5.26.0 to 5.31.0, except 5.29.0). A release that does carry a
+single theme still takes a descriptive sentence, as 5.29.0 did, and `-SummaryFile` still turns a genuine
+milestone into its own authored block regardless.
 
 #### Measured instances behind the portable release rules
 
