@@ -636,13 +636,13 @@ Assert-Equal 'ok,ok,ok,error,error,warn,warn,warn' ((@('match', 'ver-match', 'un
 Assert-Equal 'error' (Get-PluginRowStatus -Code 'match' -InstallPathMissing $true).Level 'an install folder gone from disk is an error whatever the version says'
 $pp = Format-PluginsPageHtml -Model $pv -RepoName 'r'
 Assert-True ($pp -match '<span aria-current="page">Plugins</span>' -and $pp -match '<h1>Plugins</h1>') 'the overview opens with the breadcrumb bar and its own h1'
-Assert-Equal 4 ([regex]::Matches($pp, '<section class="card card--link"><h3 class="card__title"><span class="badge badge--sm badge--(good|warn|bad)">[^<]+</span><a href="/plugins/[a-z-]+">')).Count 'a card per plugin: its state as a badge, its name the one link, to its own page'
-Assert-True ($pp -notmatch '<table' -and $pp -notmatch 'id="problems"' -and -not $pp.Contains('claude plugin update')) 'the overview stays compact: no table, no problems block, no command -- those are on the plugin''s page'
+Assert-Equal 4 ([regex]::Matches($pp, '<section class="card card--link"><h3 class="card__title"><span class="badge badge--sm badge--(good|warn|bad)" aria-hidden="true">(&#10003;|!|&#10007;)</span><a href="/plugins/[a-z-]+">[a-z-]+</a></h3><p class="card__sub">(Up to date|Behind|Install folder missing|Clone behind): ')).Count 'a card per plugin: its state as a decorative mark in the round badge, its name the one link, and the state in words on the sub line (the owner, October 25, 2026)'
+Assert-True ($pp -notmatch 'class="tiles"' -and $pp -notmatch '<table' -and $pp -notmatch 'id="problems"' -and -not $pp.Contains('claude plugin update')) 'the overview stays compact: no tiles, no table, no problems block, no command -- those are on the plugin''s page'
 Assert-True ($pp.IndexOf('/plugins/alpha"') -lt $pp.IndexOf('/plugins/beta"') -and $pp.IndexOf('/plugins/beta"') -lt $pp.IndexOf('/plugins/gamma"') -and $pp.IndexOf('/plugins/gamma"') -lt $pp.IndexOf('/plugins/zeta"')) 'errors first, then warnings, then the rest, each by name'
-Assert-True ($pp -match '3 of 4 plugins have a problem' -and $pp.Contains('no longer on disk') -and $pp.Contains('Installed 1.0.0, project scope')) 'one line counts the problems, and a card says what is wrong or which version is installed'
+Assert-True ($pp.Contains('no longer on disk') -and $pp.Contains('Up to date: 1.0.0, project scope')) 'a card says what is wrong or which version is installed'
 Assert-True ($pp.Contains('the clone is &lt;b&gt;ahead&lt;/b&gt;') -and $pp -notmatch '<b>ahead') 'every value from the script is escaped'
 $ppOk = Format-PluginsPageHtml -Model (ConvertFrom-PluginVersionsJson -Text '{"Consulted":"c","Plugins":[{"Id":"a@m","Name":"a","Marketplace":"m","Code":"match"}],"Clones":[]}')
-Assert-True ($ppOk -notmatch 'class="msg msg--warn"' -and $ppOk -match 'installed and up to date') 'with no problem the overview says so'
+Assert-True ($ppOk.Substring($ppOk.IndexOf('<main')) -notmatch '<p class="msg' -and $ppOk -notmatch 'class="lead"' -and $ppOk -match 'card--link') 'the overview is its cards alone: no status line and no lead (the owner, October 25, 2026)'
 Assert-True ((Format-PluginsPageHtml -Model (ConvertFrom-PluginVersionsJson -Text '{"Consulted":"c","Plugins":[],"Clones":[]}')) -match 'No plugin is enabled') 'no enabled plugin says so'
 $ppErr = Format-PluginsPageHtml -Model (ConvertFrom-PluginVersionsJson -Text '') -ReadError 'it <broke>'
 Assert-True ($ppErr -match 'msg--warn' -and $ppErr.Contains('it &lt;broke&gt;') -and $ppErr -notmatch 'card--link') 'a failed read is an escaped warning, with no cards'
@@ -660,6 +660,7 @@ $zeta = Format-PluginPageHtml -Row (Find-PluginsPageRow -Model $pv -Name 'zeta')
 Assert-True ($zeta.Contains('&lt;i&gt;z&lt;/i&gt;') -and $zeta -notmatch 'class="msg msg--warn"' -and $zeta -notmatch 'To close it' -and $zeta -match 'committed 2026-10-25') 'a healthy plugin shows its description and the clone, and no command'
 $beta = Format-PluginPageHtml -Row (Find-PluginsPageRow -Model $pv -Name 'beta') -Model $pv
 Assert-True ($beta.Contains('no longer on disk') -and $beta -notmatch 'To close it') 'a missing install folder says to reinstall, with no update command'
+Assert-True ($one.Contains('<span class="badge-row"><span class="badge badge--sm badge--bad" aria-hidden="true">&#10007;</span>Behind</span>') -and $one -notmatch 'aria-hidden="true">Behind') 'the plugin page shows its state as the house badge row: the mark, then the word'
 Write-Host ''
 Write-Host "dev-pages: $script:pass passed, $script:fail failed"
 if ($script:fail -gt 0) { exit 1 }

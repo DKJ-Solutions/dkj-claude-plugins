@@ -174,7 +174,8 @@ function Format-GeneralPageHtml {
         [void]$sb.AppendLine('<div>')
         if ($Eyebrow -and -not $Brand) { [void]$sb.AppendLine('<p class="eyebrow">' + (& $e $Eyebrow) + '</p>') }
         [void]$sb.AppendLine('<h1>' + (& $e $Title) + '</h1>')
-        [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>')
+        # An empty -Lead draws no empty paragraph (the Plugins overview, #3482).
+        if ($Lead) { [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>') }
         [void]$sb.AppendLine('</div>')
     }
     [void]$sb.Append($Body)

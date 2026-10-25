@@ -140,12 +140,21 @@ function Get-PluginProblemText {
     return $Row.Verdict
 }
 
-$script:PluginBadge = @{ ok = 'badge--good'; warn = 'badge--warn'; error = 'badge--bad' }
+function Format-PluginBadgeHtml {
+    <#
+        The status badge for -Level: the house .badge is an 18px round icon, so it holds a mark -- a check, a '!' or a
+        cross -- and never the label, and it is decorative (aria-hidden); the text beside it says the status (the
+        owner, October 25, 2026; the house rule for a badge before a title).
+    #>
+    param([Parameter(Mandatory = $true)][string]$Level)
+    $badge = @{ ok = @('badge--good', '&#10003;'); warn = @('badge--warn', '!'); error = @('badge--bad', '&#10007;') }[$Level]
+    return '<span class="badge badge--sm ' + $badge[0] + '" aria-hidden="true">' + $badge[1] + '</span>'
+}
 
 function Format-PluginsPageHtml {
     <#
-        The Plugins overview, as compact as the Stopwatch's (the owner, October 25, 2026): the tiles, one line saying
-        whether anything is wrong, and a card per plugin -- its state as a badge, its name as the card's one link to
+        The Plugins overview, as compact as the Stopwatch's (the owner, October 25, 2026): no tiles, lead or status
+        line, only a card per plugin -- its state as a badge, its name as the card's one link to
         its own page (Format-PluginPageHtml), and its installed version or what is wrong. Problems first, then by
         name. Everything else -- the description, the command, the clone -- is on the plugin's page. -Model is
         ConvertFrom-PluginVersionsJson's; -ReadError is set when the script could not be found or run. -RepoName
@@ -163,40 +172,30 @@ function Format-PluginsPageHtml {
     foreach ($r in $rows) { $r.Status = Get-PluginRowStatus -Code $r.Code -InstallPathMissing $r.InstallPathMissing }
     $rank = @{ error = 0; warn = 1; ok = 2 }
     $rows = @($rows | Sort-Object @{ Expression = { $rank[$_.Status.Level] } }, @{ Expression = { $_.Name } })
-    $errors = @($rows | Where-Object { $_.Status.Level -eq 'error' })
-    $warns = @($rows | Where-Object { $_.Status.Level -eq 'warn' })
-    $versions = @($rows | ForEach-Object { $_.InstVersion } | Where-Object { $_ } | Sort-Object -Unique)
 
+    # No tile row, no lead and no status line (the owner, October 25, 2026): the cards' badges already say it. A
+    # message is drawn only where there are no cards to say anything: a failed read, or no plugin enabled.
     $body = New-Object System.Text.StringBuilder
-    [void]$body.Append((Format-DevTiles @(
-        @{ L = 'Enabled here'; V = $rows.Count },
-        @{ L = 'Errors'; V = $errors.Count },
-        @{ L = 'Warnings'; V = $warns.Count },
-        @{ L = 'Installed version'; V = $(if ($versions.Count -eq 1) { $versions[0] } elseif ($versions.Count) { "$($versions.Count) different" } else { '--' }) })))
     if ($ReadError -or $Model.Error) {
         $why = if ($ReadError) { $ReadError } else { $Model.Error }
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The plugins could not be read: ' + (& $e $why) + '.</p>')
     } elseif (-not $rows.Count) {
         [void]$body.AppendLine('<p class="msg" role="status">No plugin is enabled in this repo. Consulted: ' + (& $e $Model.Consulted) + '.</p>')
-    } elseif ($errors.Count -or $warns.Count) {
-        $n = $errors.Count + $warns.Count
-        [void]$body.AppendLine('<p class="msg msg--warn" role="status">' + $n + ' of ' + $rows.Count + ' plugins ' + $(if ($n -eq 1) { 'has a problem' } else { 'have a problem' }) + ' on this machine. Its card comes first, and its page names the command that closes it.</p>')
-    } else {
-        [void]$body.AppendLine('<p class="msg" role="status">Every plugin enabled here is installed and up to date on this machine.</p>')
     }
     if ($rows.Count) {
         [void]$body.AppendLine('<div class="grid-3" id="plugins">')
         foreach ($r in $rows) {
-            $sub = if ($r.Status.Level -ne 'ok') { & $e (Get-PluginProblemText $r) }
-                   elseif ($r.InstVersion) { 'Installed ' + (& $e $r.InstVersion) + $(if ($r.InstScope) { ', ' + (& $e $r.InstScope) + ' scope' } else { '' }) }
-                   else { & $e $r.InstText }
-            [void]$body.AppendLine('<section class="card card--link"><h3 class="card__title"><span class="badge badge--sm ' + $script:PluginBadge[$r.Status.Level] + '">' + (& $e $r.Status.Label) + '</span>' +
+            # The sub line says the status in words, since the badge is only its mark.
+            $sub = (& $e $r.Status.Label) + ': ' + $(if ($r.Status.Level -ne 'ok') { & $e (Get-PluginProblemText $r) }
+                   elseif ($r.InstVersion) { (& $e $r.InstVersion) + $(if ($r.InstScope) { ', ' + (& $e $r.InstScope) + ' scope' } else { '' }) }
+                   else { & $e $r.InstText })
+            [void]$body.AppendLine('<section class="card card--link"><h3 class="card__title">' + (Format-PluginBadgeHtml $r.Status.Level) +
                 '<a href="/plugins/' + (& $e $r.Name) + '">' + (& $e $r.Name) + '</a></h3><p class="card__sub">' + $sub + '</p></section>')
         }
         [void]$body.AppendLine('</div>')
     }
     return Format-GeneralPageHtml -Title 'Plugins' -Body $body.ToString() -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
-        -Lead 'Every plugin this repo enables, and whether it is installed and current for this checkout on this machine. Each card opens the plugin''s own page.' `
+        -Lead '' `
         -FooterNote 'Read on every request by the plugin-versions skill''s own script, <code>plugin-versions.ps1 -Json</code>: the enable state from the settings files, the install record from <code>~/.claude/plugins/installed_plugins.json</code>, and the marketplace clone under <code>~/.claude/plugins/marketplaces</code>.'
 }
 
@@ -215,11 +214,13 @@ function Format-PluginPageHtml {
     $e = { param($v) ConvertTo-GeneralPageText $v }
     if (-not $Row.Status) { $Row.Status = Get-PluginRowStatus -Code $Row.Code -InstallPathMissing $Row.InstallPathMissing }
     $body = New-Object System.Text.StringBuilder
-    $badge = '<span class="badge badge--sm ' + $script:PluginBadge[$Row.Status.Level] + '">' + (& $e $Row.Status.Label) + '</span> '
+    # The house badge row: the mark, then the status in words (as the Issues page's Done row does).
+    $badge = '<span class="badge-row">' + (Format-PluginBadgeHtml $Row.Status.Level) + (& $e $Row.Status.Label) + '</span>'
+    [void]$body.AppendLine('<p>' + $badge + '</p>')
     if ($Row.Status.Level -eq 'ok') {
-        [void]$body.AppendLine('<p class="msg" role="status">' + $badge + (& $e $Row.Verdict) + '.</p>')
+        [void]$body.AppendLine('<p class="msg" role="status">' + (& $e $Row.Verdict) + '.</p>')
     } else {
-        [void]$body.AppendLine('<p class="msg msg--warn" role="status">' + $badge + (& $e (Get-PluginProblemText $Row)) + '.</p>')
+        [void]$body.AppendLine('<p class="msg msg--warn" role="status">' + (& $e (Get-PluginProblemText $Row)) + '.</p>')
         if ($Row.Action -and -not $Row.InstallPathMissing) { [void]$body.AppendLine('<p class="note">To close it: <code>' + (& $e $Row.Action) + '</code></p>') }
     }
     if ($Row.Description) {
