@@ -4,6 +4,7 @@
 
 | Version | Date | Type | Title |
 |---|---|---|---|
+| [5.31.0](audience/5.x/5.31.0.md) | 2026-10-25 | Minor | Minor release |
 | [5.30.0](audience/5.x/5.30.0.md) | 2026-10-24 | Minor | Minor release |
 | [5.29.0](audience/5.x/5.29.0.md) | 2026-10-23 | Minor | A shared Stopwatch, a one-page hub, and path-aware CI suites |
 | [5.28.0](audience/5.x/5.28.0.md) | 2026-10-22 | Minor | Minor release |
