@@ -41,17 +41,25 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] One `stopwatch test run <date time>` line at the top of `Format-RepoHubBanner`'s docstring
+  in `plugins/dkj-policy/hub/lib/general-pages-lib.ps1`
 
 ### TEST
 
+- [x] Comment-only change; the gates run in open-pr and CI
+
 ### DEPLOY: docs/hub-banner-stopwatch-comment
 
-**Score:**
+A `stopwatch test run` timestamp line at the top of `Format-RepoHubBanner`'s docstring, a marker for
+timing the branch-to-fold chain end to end. Comment only; nothing the hub renders changes.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a code comment reaches no user of the plugins.
+
+**Score:** N/A
 
 #### Pull Request
 
