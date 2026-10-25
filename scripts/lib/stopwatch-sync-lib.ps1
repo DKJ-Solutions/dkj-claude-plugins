@@ -29,10 +29,22 @@
     page load waits on the network. Everything that reads or writes a ref runs git; every failure is returned,
     never thrown.
 
+    HIDING A RUN OR A LABEL (#3446). A run cannot be deleted from another machine's ref: that machine owns it and
+    would publish it back on its next sync. So a machine hides it instead, with an entry in stopwatch-hidden.json
+    beside its own store, published in its OWN payload and honoured by every reader (Select-StopwatchVisibleRuns).
+    An entry names one run id or a whole label, and carries the time it was written and whether it hides or shows.
+    A label entry hides every finished run of that label, a run finished after it included, until it is shown again;
+    a run still going is never hidden.
+    Per run id or label the newest entry across all machines wins, so a hide written on one machine is undone from
+    any other by a newer show entry. Nothing is erased from any store, so every hide is undoable. The entries are
+    written by scripts/dashboard/stopwatch-hide.ps1 (the stopwatch-hide skill); the pages stay read-only (#3323).
+
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/stopwatch-sync.tests.ps1.
 #>
 
 $script:StopwatchRefPrefix = 'refs/stopwatch/'
+$script:StopwatchHiddenFile = 'stopwatch-hidden.json'
+$script:StopwatchSharedMaxHidden = 2000
 $script:StopwatchOriginRefPrefix = 'refs/stopwatch-origin/'
 $script:StopwatchSharedFile = 'stopwatch.json'
 $script:StopwatchSyncIntervalMinutes = 5
@@ -73,13 +85,107 @@ function ConvertTo-StopwatchAsciiJson {
     return [regex]::Replace($json, '[^\x00-\x7E]', { param($m) '\u' + ([int][char]$m.Value).ToString('x4') })
 }
 
+function ConvertTo-StopwatchHiddenEntry {
+    <#
+        One hide entry (#3446) as @{ Kind; Value; At; Hidden }, or $null when it does not parse: Kind 'run' (Value a
+        run id) or 'label' (Value a label, cut to the label maximum), At a readable time. Pure.
+    #>
+    param($Raw)
+    if ($null -eq $Raw) { return $null }
+    $kind = [string]$Raw.kind; $value = ([string]$Raw.value).Trim()
+    $at = ConvertTo-StopwatchTime $Raw.at
+    if (-not $at) { return $null }
+    if ($kind -ceq 'run') { if ($value -cnotmatch '^[0-9A-Za-z-]{1,40}\z') { return $null } }
+    elseif ($kind -ceq 'label') {
+        $value = ($value -replace ('[' + [char]0 + '-' + [char]31 + [char]127 + ']'), ' ').Trim()
+        if ($value.Length -gt $script:StopwatchLabelMax) { $value = $value.Substring(0, $script:StopwatchLabelMax).Trim() }
+        if (-not $value) { return $null }
+    } else { return $null }
+    return @{ Kind = $kind; Value = $value; At = $at; Hidden = [bool]$Raw.hidden }
+}
+
+function ConvertTo-StopwatchHiddenRaw {
+    <# -Entries as the plain objects the hide file and the payload hold, sorted by kind and value so the same entries always give the same text. Pure. #>
+    param([AllowEmptyCollection()][object[]]$Entries = @())
+    return [object[]]@(foreach ($e in @($Entries | Where-Object { $_ } | Sort-Object { $_.Kind }, { $_.Value })) {
+            [ordered]@{ kind = $e.Kind; value = $e.Value; at = (Format-StopwatchStamp $e.At); hidden = [bool]$e.Hidden }
+        })
+}
+
+function Get-StopwatchHiddenPath {
+    <# The hide file beside the store at -StorePath. #>
+    param([Parameter(Mandatory = $true)][string]$StorePath)
+    return (Join-Path (Split-Path -Parent $StorePath) $script:StopwatchHiddenFile)
+}
+
+function Read-StopwatchHidden {
+    <# This machine's hide entries from -Path, as @{ Entries; Error }. A missing file is no entries; an entry that does not parse is skipped. #>
+    param([Parameter(Mandatory = $true)][string]$Path)
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return @{ Entries = @(); Error = '' } }
+    try {
+        $text = [System.IO.File]::ReadAllText($Path, (New-Object System.Text.UTF8Encoding($false)))
+        $json = if ($text.Trim()) { $text | ConvertFrom-Json } else { $null }
+    } catch { return @{ Entries = @(); Error = 'it is not valid JSON' } }
+    $entries = @(foreach ($r in @($(if ($json) { $json.hidden } else { @() }))) { $e = ConvertTo-StopwatchHiddenEntry $r; if ($e) { $e } })
+    return @{ Entries = $entries; Error = '' }
+}
+
+function Save-StopwatchHidden {
+    <# Writes -Entries to -Path through a file beside it, as ASCII JSON. #>
+    param([Parameter(Mandatory = $true)][string]$Path, [AllowEmptyCollection()][object[]]$Entries = @())
+    $dir = Split-Path -Parent $Path
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) { [void](New-Item -ItemType Directory -Path $dir -Force) }
+    $tmp = "$Path.tmp"
+    [System.IO.File]::WriteAllText($tmp, (ConvertTo-StopwatchAsciiJson ([ordered]@{ hidden = (ConvertTo-StopwatchHiddenRaw $Entries) })), (New-Object System.Text.UTF8Encoding($false)))
+    Move-Item -LiteralPath $tmp -Destination $Path -Force
+}
+
+function Set-StopwatchHiddenEntry {
+    <# -Entries with this machine's entry for -Kind/-Value replaced by one written at -Now that hides (-Hidden) or shows it. Pure. #>
+    param([AllowEmptyCollection()][object[]]$Entries = @(), [Parameter(Mandatory = $true)][string]$Kind, [Parameter(Mandatory = $true)][string]$Value,
+        [bool]$Hidden = $true, [datetime]$Now = [datetime]::UtcNow)
+    $new = ConvertTo-StopwatchHiddenEntry ([pscustomobject]@{ kind = $Kind; value = $Value; at = (Format-StopwatchStamp $Now); hidden = $Hidden })
+    if (-not $new) { return $null }
+    $kept = @($Entries | Where-Object { $_ -and -not ($_.Kind -ceq $new.Kind -and $_.Value -ceq $new.Value) })
+    return [object[]]@($kept + $new)
+}
+
+function Get-StopwatchHiddenState {
+    <#
+        What -Entries (from every machine) hide, as @{ Runs; Labels }, each a hashtable of the hidden run ids or
+        labels. Per kind and value the newest entry wins; at the same time a hide wins over a show. Pure.
+    #>
+    param([AllowEmptyCollection()][object[]]$Entries = @())
+    $win = @{}
+    foreach ($e in @($Entries | Where-Object { $_ })) {
+        $key = $e.Kind + [char]0 + $e.Value
+        $cur = $win[$key]
+        if (-not $cur -or $e.At -gt $cur.At -or ($e.At -eq $cur.At -and $e.Hidden -and -not $cur.Hidden)) { $win[$key] = $e }
+    }
+    $runs = @{}; $labels = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
+    foreach ($e in $win.Values) {
+        if (-not $e.Hidden) { continue }
+        if ($e.Kind -ceq 'run') { $runs[$e.Value] = $true } else { $labels[$e.Value] = $true }
+    }
+    return @{ Runs = $runs; Labels = $labels }
+}
+
+function Select-StopwatchVisibleRuns {
+    <# -Runs without the ones -Entries hide, by run id or by label (Get-StopwatchHiddenState). A run still going is never hidden: it ends on its own machine. Pure. #>
+    param([AllowEmptyCollection()][object[]]$Runs = @(), [AllowEmptyCollection()][object[]]$Entries = @())
+    $state = Get-StopwatchHiddenState -Entries $Entries
+    return @($Runs | Where-Object { $_ -and (-not $_.End -or -not ($state.Runs.ContainsKey($_.Id) -or $state.Labels.ContainsKey($_.Label))) })
+}
+
 function ConvertTo-StopwatchSharedJson {
     <#
         The payload this machine publishes: its id, its finished -Runs, and for each the phases from -Phases (by run
-        id, as Get-StopwatchTranscriptCache returns them), as ASCII JSON. Runs are sorted by start, so the same runs
-        always give the same text and an unchanged store is never pushed again. Pure.
+        id, as Get-StopwatchTranscriptCache returns them), as ASCII JSON, and its hide entries -Hidden (#3446) when
+        it has any. Runs are sorted by start, so the same runs always give the same text and an unchanged store is
+        never pushed again. Pure.
     #>
-    param([Parameter(Mandatory = $true)][string]$MachineId, [AllowEmptyCollection()][object[]]$Runs = @(), [hashtable]$Phases = @{})
+    param([Parameter(Mandatory = $true)][string]$MachineId, [AllowEmptyCollection()][object[]]$Runs = @(), [hashtable]$Phases = @{},
+        [AllowEmptyCollection()][object[]]$Hidden = @())
     $done = @($Runs | Where-Object { $_ -and $_.End } | Sort-Object { $_.Start }, { $_.Id })
     $doc = [ordered]@{
         machine = $MachineId
@@ -101,14 +207,18 @@ function ConvertTo-StopwatchSharedJson {
                 }
             })
     }
+    # Only when there are any, so a machine that never hid anything publishes the same text as before #3446.
+    $raw = ConvertTo-StopwatchHiddenRaw $Hidden
+    if ($raw.Count) { $doc.hidden = $raw }
     return (ConvertTo-StopwatchAsciiJson $doc)
 }
 
 function ConvertFrom-StopwatchSharedJson {
     <#
-        One machine's payload as @{ Machine; Runs; Phases }: its finished runs, parsed as the store's own are
-        (ConvertTo-StopwatchRun; a run without an end, or that does not parse, is dropped), and their phases by run
-        id where the payload carried them. $null when -Text is not a payload. Pure.
+        One machine's payload as @{ Machine; Runs; Phases; Hidden }: its finished runs, parsed as the store's own are
+        (ConvertTo-StopwatchRun; a run without an end, or that does not parse, is dropped), their phases by run
+        id where the payload carried them, and its hide entries (ConvertTo-StopwatchHiddenEntry, bounded in number).
+        $null when -Text is not a payload. Pure.
     #>
     param([AllowEmptyString()][string]$Text = '')
     try { $json = $Text | ConvertFrom-Json } catch { return $null }
@@ -136,7 +246,12 @@ function ConvertFrom-StopwatchSharedJson {
             if ($entry) { $phases[$run.Id] = $entry }
         } catch { continue }
     }
-    return @{ Machine = [string]$json.machine; Runs = $runs; Phases = $phases }
+    $hidden = @(foreach ($h in @(@($json.hidden) | Select-Object -First $script:StopwatchSharedMaxHidden)) {
+            $e = $null
+            try { $e = ConvertTo-StopwatchHiddenEntry $h } catch { $e = $null }
+            if ($e) { $e }
+        })
+    return @{ Machine = [string]$json.machine; Runs = $runs; Phases = $phases; Hidden = $hidden }
 }
 
 function Merge-StopwatchRuns {
@@ -220,14 +335,15 @@ function Receive-StopwatchShared {
 function Read-StopwatchShared {
     <#
         Every OTHER machine's runs, from the refs last fetched into refs/stopwatch-origin/* (no network): @{ Runs;
-        Phases (by run id); Machines (how many machines had a payload) }. -MachineId is this machine's, whose own
-        copy is skipped because the local store is newer. A ref whose payload does not parse is skipped.
+        Phases (by run id); Hidden (their hide entries, #3446); Machines (how many machines had a payload) }.
+        -MachineId is this machine's, whose own copy is skipped because the local store is newer. A ref whose
+        payload does not parse is skipped.
     #>
     param([Parameter(Mandatory = $true)][string]$RepoRoot, [AllowEmptyString()][string]$MachineId = '')
-    $none = @{ Runs = @(); Phases = @{}; Machines = 0 }
+    $none = @{ Runs = @(); Phases = @{}; Hidden = @(); Machines = 0 }
     $refs = Invoke-StopwatchGit -RepoRoot $RepoRoot -Arguments @('for-each-ref', '--format=%(refname)', $script:StopwatchOriginRefPrefix.TrimEnd('/'))
     if (-not $refs.Ok) { return $none }
-    $runs = @(); $phases = @{}; $machines = 0
+    $runs = @(); $phases = @{}; $hidden = @(); $machines = 0
     foreach ($ref in @($refs.Out | Where-Object { $_ })) {
         $id = $ref.Substring($script:StopwatchOriginRefPrefix.Length)
         if (-not ($id -cmatch '^[0-9a-f]{8}\z') -or $id -ceq $MachineId) { continue }
@@ -241,9 +357,10 @@ function Read-StopwatchShared {
         if (-not $p -or $p.Machine -cne $id) { continue }
         $machines++
         $runs += @($p.Runs)
+        $hidden += @($p.Hidden)
         foreach ($k in $p.Phases.Keys) { $phases[$k] = $p.Phases[$k] }
     }
-    return @{ Runs = $runs; Phases = $phases; Machines = $machines }
+    return @{ Runs = $runs; Phases = $phases; Hidden = $hidden; Machines = $machines }
 }
 
 function Publish-StopwatchShared {

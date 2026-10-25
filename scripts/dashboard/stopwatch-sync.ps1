@@ -65,7 +65,11 @@ try {
         $done = @($store.Runs | Where-Object { $_.End })
         $stepLog = if ($script:StopwatchStepLogAvailable) { Get-RunStepLogPath } else { '' }
         $phases = Get-StopwatchTranscriptCache -Runs $done -CachePath (Join-Path $dir 'stopwatch-phases.json') -TranscriptDir $TranscriptDir -StepLogPath $stepLog -RepoRoot $root
-        $json = ConvertTo-StopwatchSharedJson -MachineId $machine -Runs $done -Phases $phases
+        # This machine's hide entries (#3446) travel in its own payload. A hide file that does not read stops the
+        # publish, as a store that does not read does: publishing none would show everything it hides again.
+        $hidden = Read-StopwatchHidden -Path (Get-StopwatchHiddenPath -StorePath $StorePath)
+        if ($hidden.Error) { $outcome = 'not published: the hide file does not read'; break }
+        $json = ConvertTo-StopwatchSharedJson -MachineId $machine -Runs $done -Phases $phases -Hidden $hidden.Entries
         $p = Publish-StopwatchShared -RepoRoot $root -MachineId $machine -Json $json -TempDir $dir -Remote $Remote
         $outcome = $p.Status + $(if ($p.Message) { ': ' + $p.Message } else { '' }) + $(if ($try -gt 1) { ' (second try)' } else { '' })
         if ($p.Status -ne 'failed') { break }

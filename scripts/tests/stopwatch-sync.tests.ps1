@@ -78,6 +78,37 @@ try {
     Assert-True (@($merged).Count -eq 3 -and $merged[0].Id -eq $other.Id) 'the merge keeps every run once, oldest first'
     Assert-Equal $accent ((@($merged | Where-Object { $_.Id -eq $done1.Id }))[0].Label) 'a shared run with a local run''s id loses to the local one'
 
+    # --- Hiding a run or a label (#3446) ---
+    $h1 = @(Set-StopwatchHiddenEntry -Entries @() -Kind 'run' -Value $done1.Id -Now (& $at 100))
+    Assert-True (@($h1).Count -eq 1 -and $h1[0].Hidden) 'a hide entry is written for a run id'
+    Assert-True ($null -eq (Set-StopwatchHiddenEntry -Kind 'run' -Value 'not an id!' -Now (& $at 100)) -and $null -eq (Set-StopwatchHiddenEntry -Kind 'other' -Value 'x')) 'a value that is no run id, or an unknown kind, writes nothing'
+    $vis = Select-StopwatchVisibleRuns -Runs @($done1, $done2, $going) -Entries $h1
+    Assert-True (@($vis).Count -eq 2 -and -not @($vis | Where-Object { $_.Id -eq $done1.Id }).Count) 'a hidden run is left out, the others stay'
+    $byLabel = Set-StopwatchHiddenEntry -Entries @() -Kind 'label' -Value 'Docs' -Now (& $at 100)
+    $vis = Select-StopwatchVisibleRuns -Runs @($done1, $done2, $going) -Entries $byLabel
+    Assert-True (@($vis).Count -eq 2 -and @($vis | Where-Object { $_.Id -eq $going.Id }).Count) 'a label hide leaves out its finished runs, but never a run still going'
+    Assert-Equal 3 @(Select-StopwatchVisibleRuns -Runs @($done1, $done2, $going) -Entries (Set-StopwatchHiddenEntry -Kind 'label' -Value 'docs' -Now (& $at 100))).Count 'a label is matched exactly, case included'
+    $shownElsewhere = @(Set-StopwatchHiddenEntry -Kind 'run' -Value $done1.Id -Hidden $false -Now (& $at 200))
+    Assert-Equal 3 @(Select-StopwatchVisibleRuns -Runs @($done1, $done2, $going) -Entries (@($h1) + $shownElsewhere)).Count 'a newer show entry from another machine undoes the hide'
+    $olderShow = @(Set-StopwatchHiddenEntry -Kind 'run' -Value $done1.Id -Hidden $false -Now (& $at 50))
+    Assert-Equal 2 @(Select-StopwatchVisibleRuns -Runs @($done1, $done2, $going) -Entries (@($h1) + $olderShow)).Count 'an older show entry does not'
+    $again = @(Set-StopwatchHiddenEntry -Entries $h1 -Kind 'run' -Value $done1.Id -Hidden $false -Now (& $at 300))
+    Assert-True (@($again).Count -eq 1 -and -not $again[0].Hidden) 'this machine''s own entry for a run is replaced, not added to'
+    $hidePath = Join-Path $tmp 'hide\stopwatch-hidden.json'
+    Assert-Equal 0 @((Read-StopwatchHidden -Path $hidePath).Entries).Count 'a missing hide file is no entries'
+    $accentHide = Set-StopwatchHiddenEntry -Entries $h1 -Kind 'label' -Value $accent -Now (& $at 100)
+    Save-StopwatchHidden -Path $hidePath -Entries $accentHide
+    $readHide = Read-StopwatchHidden -Path $hidePath
+    Assert-True ([System.IO.File]::ReadAllText($hidePath) -cmatch '^[\x00-\x7E]*$' -and @($readHide.Entries).Count -eq 2 -and @($readHide.Entries | Where-Object { $_.Value -ceq $accent }).Count) 'the hide file is ASCII and reads back, an accented label included'
+    [System.IO.File]::WriteAllText($hidePath, 'not json')
+    Assert-Equal 'it is not valid JSON' (Read-StopwatchHidden -Path $hidePath).Error 'a hide file that does not read is an error, so nothing publishes or writes over it'
+    Assert-Equal $json (ConvertTo-StopwatchSharedJson -MachineId 'abcdef01' -Runs @($done1, $done2) -Phases $phases -Hidden @()) 'a machine with no hide entries publishes the same text as before'
+    $hj = ConvertFrom-StopwatchSharedJson -Text (ConvertTo-StopwatchSharedJson -MachineId 'abcdef01' -Runs @($done1) -Phases @{} -Hidden $accentHide)
+    Assert-True (@($hj.Hidden).Count -eq 2 -and @($hj.Hidden | Where-Object { $_.Kind -eq 'run' -and $_.Value -eq $done1.Id -and $_.Hidden }).Count) 'hide entries travel in the payload and read back'
+    $badHide = '{"machine":"abcdef01","runs":[],"hidden":[{"kind":"run","value":"../x","at":"2026-10-23T10:00:00.000Z","hidden":true},{"kind":"label","value":"' + ('L' * 300) + '","at":"2026-10-23T10:00:00.000Z","hidden":true},{"kind":"run","value":"ok-1","at":"never","hidden":true}]}'
+    $bh = ConvertFrom-StopwatchSharedJson -Text $badHide
+    Assert-True (@($bh.Hidden).Count -eq 1 -and $bh.Hidden[0].Value.Length -eq 80) 'another machine''s hide entries are bounded: a bad run id or time is dropped, a long label cut'
+
     # --- The interval ---
     $stamp = Join-Path $tmp 'sync.stamp'
     Assert-True (Test-StopwatchSyncDue -StampPath $stamp) 'with no stamp a sync is due'
@@ -151,6 +182,17 @@ try {
     [void](Receive-StopwatchShared -RepoRoot $a)
     $fromScript = Read-StopwatchShared -RepoRoot $a -MachineId 'aaaaaaa1'
     Assert-True (@($fromScript.Runs | Where-Object { $_.Machine -eq $syncId }).Count -eq 1) 'and the other machine reads that one finished run under the script''s machine id'
+    # The hide script, end to end: machine b hides a run machine a recorded, a reads the entry, then b shows it again.
+    $hideOut = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\dashboard\stopwatch-hide.ps1') -RunId $done2.Id -StorePath $syncStore -RepoRoot $b 2>&1
+    Assert-True ($LASTEXITCODE -eq 0 -and ($hideOut -join "`n") -match ('\[OK\] hidden: run "' + $done2.Id + '"') -and ($hideOut -join "`n") -match 'sync: .* pushed: ') 'stopwatch-hide.ps1 writes the entry and syncs it'
+    [void](Receive-StopwatchShared -RepoRoot $a)
+    $seenA = Read-StopwatchShared -RepoRoot $a -MachineId 'aaaaaaa1'
+    Assert-True (-not @(Select-StopwatchVisibleRuns -Runs @($done1, $done2) -Entries $seenA.Hidden | Where-Object { $_.Id -eq $done2.Id }).Count) 'and the machine that recorded the run leaves it out of its pages'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\dashboard\stopwatch-hide.ps1') -RunId $done2.Id -Show -StorePath $syncStore -RepoRoot $b *> $null
+    [void](Receive-StopwatchShared -RepoRoot $a)
+    Assert-Equal 2 @(Select-StopwatchVisibleRuns -Runs @($done1, $done2) -Entries (Read-StopwatchShared -RepoRoot $a -MachineId 'aaaaaaa1').Hidden).Count '-Show undoes it on every machine'
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\dashboard\stopwatch-hide.ps1') -StorePath $syncStore -RepoRoot $b -NoSync *> $null
+    Assert-Equal 1 $LASTEXITCODE 'naming neither a run nor a label is refused'
     $free = $false
     try { [System.IO.File]::Open((Join-Path $tmp 'syncstore\stopwatch-sync.lock'), 'OpenOrCreate', 'ReadWrite', 'None').Dispose(); $free = $true } catch { }
     Assert-True $free 'and releases its lock when it ends'
