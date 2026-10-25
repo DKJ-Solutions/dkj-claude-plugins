@@ -6,7 +6,8 @@
 .DESCRIPTION
     Started in the background, never waited on: by the Stop hook (scripts/dashboard/stopwatch-hook.ps1) once a run
     has ended, and by the hub (serve-connector-dashboard.ps1) when a Stopwatch page is loaded and the last sync is
-    more than a few minutes old. Either way the run is the same: fetch, then compute the phases of this machine's
+    more than a few minutes old. Either way the run is the same: fetch, then erase from this machine's store every
+    finished run a hide entry of any machine names (#3453), then compute the phases of this machine's
     finished runs from its own transcripts (Get-StopwatchTranscriptCache, which also fills the local cache), then
     publish them when they differ from what origin holds.
 
@@ -62,10 +63,18 @@ try {
         if ($store.Error) { $outcome = 'not published: the store does not read'; break }
         if (-not $machine) { $outcome = 'not published: no machine id'; break }
         if (-not $fetched) { $outcome = 'not published: the fetch did not answer, so the copy to build on is unknown'; break }
+        # This machine's hide entries (#3446) travel in its own payload. A hide file that does not read stops the
+        # publish, as a store that does not read does: publishing none would show everything it hides again.
+        $hidden = Read-StopwatchHidden -Path (Get-StopwatchHiddenPath -StorePath $StorePath)
+        if ($hidden.Error) { $outcome = 'not published: the hide file does not read'; break }
+        # A run any machine hides is erased from this machine's own store before the publish (#3453).
+        $erase = Remove-StopwatchHiddenFromStore -StorePath $StorePath -Entries (@($hidden.Entries) + @((Read-StopwatchShared -RepoRoot $root -MachineId $machine).Hidden))
+        if ($erase.Error) { $outcome = 'not published: ' + $erase.Error; break }
+        if ($erase.Erased.Count) { $store = Read-StopwatchStore -Path $StorePath }
         $done = @($store.Runs | Where-Object { $_.End })
         $stepLog = if ($script:StopwatchStepLogAvailable) { Get-RunStepLogPath } else { '' }
         $phases = Get-StopwatchTranscriptCache -Runs $done -CachePath (Join-Path $dir 'stopwatch-phases.json') -TranscriptDir $TranscriptDir -StepLogPath $stepLog -RepoRoot $root
-        $json = ConvertTo-StopwatchSharedJson -MachineId $machine -Runs $done -Phases $phases
+        $json = ConvertTo-StopwatchSharedJson -MachineId $machine -Runs $done -Phases $phases -Hidden $hidden.Entries
         $p = Publish-StopwatchShared -RepoRoot $root -MachineId $machine -Json $json -TempDir $dir -Remote $Remote
         $outcome = $p.Status + $(if ($p.Message) { ': ' + $p.Message } else { '' }) + $(if ($try -gt 1) { ' (second try)' } else { '' })
         if ($p.Status -ne 'failed') { break }
