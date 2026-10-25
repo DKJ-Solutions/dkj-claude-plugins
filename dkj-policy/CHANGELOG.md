@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**10 / 19 minor entries** <!-- pending-tally -->
+**10 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3431-release-notes-page-ignored · 20261025-100806Z
+
+The release-notes page directory (`dkj-policy/releases/page/`) now ignores itself: the build writes a
+`.gitignore` holding `*` into it when there is none. A repo whose hub built the page no longer finds it as
+an untracked folder after every session, and a `git add -A` can no longer commit it, whether or not that
+repo ever added the line to its own `.gitignore`.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Nothing to do: a repo that already ignores the directory keeps working, and the new file is ignored by
+itself. An existing `page/.gitignore` is never overwritten.
+
+**Score:** N/A
+
+#### Pull Request
+
+The release-notes page directory ignores itself
+
+Plugins: dkj-policy
+
+[PR #3434](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3434)
+
+---
 
 ### DEPLOY: fix/3430-card-h2-comment · 20261025-095642Z
 
