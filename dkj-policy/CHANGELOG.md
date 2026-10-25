@@ -2,7 +2,39 @@
 
 ## [Unreleased]
 
-**2 / 6 minor entries** <!-- pending-tally -->
+**3 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3470-hub-pages-into-plugin · 20261025-211844Z
+
+The Test gate, the Stopwatch and the Logbook are now pages of every repo's hub, served by the `dkj-policy`
+plugin, where until now only this source repo had them
+([#3470](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3470)). The plugin's `UserPromptSubmit` and
+`Stop` hooks record the runs in a store per repo on each machine, and this repo's existing runs are taken over as
+its own. A repo shares its Stopwatch runs with its other machines only where it sets `DKJ_STOPWATCH_SHARE=1`,
+which this repo does. Both hub servers answer the timing pages through one router in the plugin, and the
+`stopwatch-hide` skill ships with the plugin too.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo's hub gains three cards: Test gate, Stopwatch and Logbook. A prompt whose first line begins with
+`stopwatch:` is timed until Claude is back on the trunk, and every session that starts on a clean trunk is logged
+by itself, with each run's time split into its phases on its own page. The runs stay on the machine unless the
+repo opts in with `DKJ_STOPWATCH_SHARE=1`. The Test gate shows an empty state until the repo has a
+`scripts/tests/suite-durations.json`; the plugin ships no writer for it yet (#3474).
+
+**Score:** 3
+
+#### Pull Request
+
+Stopwatch, Logbook and Test gate move into the dkj-policy hub
+
+Plugins: dkj-policy
+
+[PR #3479](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3479)
+
+---
 
 ### DEPLOY: feat/3472-sessionstart-dispatcher · 20261025-202249Z
 
