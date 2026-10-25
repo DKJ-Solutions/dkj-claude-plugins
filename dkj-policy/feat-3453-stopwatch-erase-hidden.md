@@ -61,7 +61,8 @@ Settled in the work:
 
 - [x] `scripts/tests/stopwatch-sync.tests.ps1`: the erase keeps a running run, writes nothing when
   nothing is hidden, refuses a store with an unparseable run, and end to end the recording machine's
-  sync erases the run and publishes without it -- 72 passed, 0 failed
+  sync erases the run and publishes without it, and a hidden running run survives even by its own id -- 73 passed, 0 failed
+- [x] Victor's review: the hook writes the store unlocked, so the erase re-reads it just before the write and skips when it changed (narrowed, not closed; said in the docstring); the running-run test now hides that run by its own id
 
 ### DEPLOY: feat/3453-stopwatch-erase-hidden
 

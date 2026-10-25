@@ -118,6 +118,8 @@ try {
     $er = Remove-StopwatchHiddenFromStore -StorePath $eraseStore -Entries $byLabel
     $left = @((Read-StopwatchStore -Path $eraseStore).Runs)
     Assert-True (@($er.Erased).Count -eq 1 -and $er.Erased[0] -eq $done2.Id -and $left.Count -eq 2 -and @($left | Where-Object { $_.Id -eq $going.Id }).Count) 'a label hide erases its finished run from the store, and keeps the run still going'
+    $goingHide = @(Set-StopwatchHiddenEntry -Kind 'run' -Value $going.Id -Now (& $at 100))
+    Assert-True (-not @((Remove-StopwatchHiddenFromStore -StorePath $eraseStore -Entries $goingHide).Erased).Count -and @((Read-StopwatchStore -Path $eraseStore).Runs | Where-Object { $_.Id -eq $going.Id }).Count) 'a run still going is not erased even when its own run id is hidden'
     $before = [System.IO.File]::GetLastWriteTimeUtc($eraseStore)
     Start-Sleep -Milliseconds 20
     $none = Remove-StopwatchHiddenFromStore -StorePath $eraseStore -Entries (@($byLabel) + $shownElsewhere)

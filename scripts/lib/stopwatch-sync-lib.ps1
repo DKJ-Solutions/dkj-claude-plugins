@@ -188,11 +188,15 @@ function Select-StopwatchVisibleRuns {
 function Remove-StopwatchHiddenFromStore {
     <#
         Erases from the store at -StorePath every finished run -Entries (from every machine) hide (#3453), as
-        @{ Erased (the run ids); Error }. The store is read here, right before the write, so a run the hook wrote a
-        moment ago is kept. It writes only when a run is erased, and not at all when the store does not read or holds
-        a run that does not parse: the rewrite would drop that run too.
+        @{ Erased (the run ids); Error }. It writes only when a run is erased, and not at all when the store does not
+        read or holds a run that does not parse: the rewrite would drop that run too.
+        THE HOOK WRITES THE SAME FILE WITHOUT A LOCK, so the store is read here, and read again just before the write:
+        when the hook changed it in between, nothing is written and the next sync erases instead (Victor, #3453). That
+        narrows the lost-update window to the write itself; it does not close it.
     #>
     param([Parameter(Mandatory = $true)][string]$StorePath, [AllowEmptyCollection()][object[]]$Entries = @())
+    $readText = { if (Test-Path -LiteralPath $StorePath -PathType Leaf) { [System.IO.File]::ReadAllText($StorePath) } else { '' } }
+    $text = & $readText
     $store = Read-StopwatchStore -Path $StorePath
     if ($store.Error) { return @{ Erased = @(); Error = 'the store does not read' } }
     $kept = @(Select-StopwatchVisibleRuns -Runs $store.Runs -Entries $Entries)
@@ -200,6 +204,7 @@ function Remove-StopwatchHiddenFromStore {
     $erased = @($store.Runs | ForEach-Object { $_.Id } | Where-Object { $keptIds -cnotcontains $_ })
     if (-not $erased.Count) { return @{ Erased = @(); Error = '' } }
     if ($store.Skipped) { return @{ Erased = @(); Error = "the store holds $($store.Skipped) run(s) that do not parse" } }
+    if ((& $readText) -cne $text) { return @{ Erased = @(); Error = '' } }
     Save-StopwatchStore -Path $StorePath -Runs $kept
     return @{ Erased = $erased; Error = '' }
 }
