@@ -34,9 +34,9 @@
     data is given an href only when its url matches a fixed shape (an Artifact link, a GitHub issue
     link), so a register or a tracker cannot put a script url on a page.
 
-    THE HUB'S "GENERAL" CARD is rendered here too (Format-GeneralPagesCardHtml), because two hubs show it:
-    the source repo's own, and the placeholder's. Given the general server's base url it links its pages
-    there; given none it says the server is not running.
+    THE HUB'S CARDS are rendered here too (Format-HubCardLinkHtml), one per page, because every hub draws its
+    home page as one grid of card links (#3383). The "General" card that grouped the general pages went with
+    its last caller (#3478).
 
     THE DEFAULT THEME IS THE ONE VALUE THAT ARRIVES BY A SETTER, not a parameter (#3390): every page of the
     server opens in it, so threading it through each formatter would add one parameter to all of them for a
@@ -311,68 +311,6 @@ function Get-GeneralPages {
         # #3482: plugin-versions' verdict per enabled plugin, so a problem with one is visible from the hub.
         @{ Href = '/plugins';       Label = 'Plugins';       Sub = 'Every plugin this repo enables, and any problem with one on this machine'; Icon = 'plugins' }
     )
-}
-
-function Format-GeneralPagesCardHtml {
-    <#
-        The hub's "General" card, shared by every hub that shows it. -PagesUrl is the general server's base
-        url ('http://localhost:4890'), or empty when the hub does not know a server that answers: then the
-        card says the server is not running and starts at the next session start. -InRow is $true where the
-        card stands beside another on the house .grid-2 (its title an h3, under the row's own h2), and
-        $false where it stands alone: then it brings its own .grid-2 with the h2 above the card, because an
-        h2 never stands inside a card (#3175). A url that is not a plain loopback base is treated as none,
-        so a state file cannot point a hub's links elsewhere. -SameOrigin is for a hub that relays the
-        general pages from its own origin (#3168): the card then links each page by its bare path, so the
-        visitor stays on the hub's origin and its theme choice. -Pages, -Heading and -HeadSub make it the
-        same card with other rows (the DKJ-Solutions card was one, until #3475 took it off). -LocalPages are
-        pages the hub serves ITSELF (the source repo's DKJ repos page, #3231): linked by their bare path after
-        the server's rows, and drawn whether or not the general pages server answers. -Title is the h2 of a
-        card standing alone, '<Heading> pages' when not given (the home page's Brand book section, #3270). With
-        no -Pages the card never names the server, since it links nothing of it.
-    #>
-    param(
-        [AllowEmptyString()][string]$PagesUrl = '',
-        [bool]$InRow = $true,
-        [object[]]$Pages = @(Get-GeneralPages),
-        [switch]$SameOrigin,
-        [string]$Heading = 'General',
-        [string]$HeadSub = 'Not specific to this repo: every repo has them',
-        [object[]]$LocalPages = @(),
-        [AllowEmptyString()][string]$Title = ''
-    )
-    $e = { param($v) ConvertTo-GeneralPageText $v }
-    $base = ''
-    if ($PagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z') { $base = $PagesUrl.TrimEnd('/') }
-    $linkBase = if ($SameOrigin) { '' } else { $base }
-    $headSub = '<p class="card__sub">' + (& $e $HeadSub) + '</p>'
-    $sb = New-Object System.Text.StringBuilder
-    if ($InRow) {
-        [void]$sb.AppendLine('<section class="card">')
-        [void]$sb.AppendLine('<div class="card__head"><h3>' + (& $e $Heading) + '</h3>' + $headSub + '</div>')
-    } else {
-        [void]$sb.AppendLine('<div class="grid-2">')
-        $h2 = if ($Title) { $Title } else { $Heading + ' pages' }
-        [void]$sb.AppendLine('<div class="grid__head"><h2>' + (& $e $h2) + '</h2>' + $headSub + '</div>')
-        [void]$sb.AppendLine('<section class="card grid__full">')
-    }
-    $rows = @()
-    if ($base) { $rows += @(@($Pages) | Where-Object { $_ } | ForEach-Object { @{ Href = $linkBase + $_.Href; Label = $_.Label; Sub = $_.Sub } }) }
-    $rows += @(@($LocalPages) | Where-Object { $_ })
-    # A card with no server rows (-Pages @()) has nothing to say about the server.
-    if (-not $base -and @(@($Pages) | Where-Object { $_ }).Count) {
-        [void]$sb.AppendLine('<p class="msg" role="status">The general pages server is not running. It starts at the next session start, and these pages are linked here from then on.</p>')
-    }
-    if ($rows.Count) {
-        [void]$sb.AppendLine('<nav class="menu-list" aria-label="' + (& $e $Heading) + ' pages">')
-        foreach ($p in $rows) {
-            $sub = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
-            [void]$sb.AppendLine('<a class="menu-item" href="' + (& $e $p.Href) + '"><span class="menu-item__label">' + (& $e $p.Label) + $sub + '</span>' + $script:RepoHubChevron + '</a>')
-        }
-        [void]$sb.AppendLine('</nav>')
-    }
-    [void]$sb.AppendLine('</section>')
-    if (-not $InRow) { [void]$sb.AppendLine('</div>') }
-    return $sb.ToString()
 }
 
 function Format-HubCardLinkHtml {

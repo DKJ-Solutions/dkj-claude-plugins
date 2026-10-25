@@ -88,7 +88,6 @@ Assert-True ($bannerJs -notmatch 'localStorage' -and $bannerJs -match 'fetch\(pa
 Assert-True ($bannerJs -match 'ask\("POST", API \+ "/clear"\)' -and $bannerJs -match '\(s\.per \|\| 10\) \* s\.owed' -and $bannerJs -match 'if \(s\.announce\) \{ tone\(\); \}') 'ticking the box is a POST to /clear, the box shows 10 per hour owed, and the server says when to play the tone'
 Assert-True ($hub -notmatch '<style>' -and $hub -notmatch 'grid__card') 'the home page restyles nothing (#3133)'
 Assert-Equal ([regex]::Matches($hub, '<h2[ >]')).Count ([regex]::Matches($hub, '</h2><p class="card__sub">[^<]+</p>')).Count 'every h2 on the home page carries a sub line'
-Assert-True ((Format-GeneralPagesCardHtml -Pages @() -LocalPages @(@{ Href = '/x'; Label = 'X' })) -notmatch 'is not running') 'a card with no server rows says nothing about the server'
 
 $about = Format-RepoHubHtml -Pages $pages -SourceCommit 'abc1234' -GeneralPagesUrl 'http://localhost:4890' -ProductUrl 'http://localhost:5174/'
 # THE PRODUCT CARD (#3468): the first card links the product port, as on the plugin's hub every consumer runs.
@@ -118,7 +117,7 @@ Assert-True ($about -notmatch 'grid__head') 'and no group heading anywhere on th
 Assert-True ($about -notmatch 'DKJ-Solutions</h3>' -and $about -notmatch 'href="/brandbook"') 'the Brand book is the home page''s, not About''s'
 Assert-True ($about.IndexOf('href="/repository"') -lt $about.IndexOf('href="/artifacts"') -and $about.IndexOf('href="/artifacts"') -lt $about.IndexOf('href="/test-gate"') -and $about.IndexOf('href="/test-gate"') -lt $about.IndexOf('href="/logbook"') -and $about -notmatch 'href="/issues"') 'this repo''s pages first, then the general ones, and Issues is the Repository page''s'
 $rp = Format-RepoGitHubPageHtml -SourceCommit 'abc1234' -GeneralPagesUrl 'http://localhost:4890'
-Assert-True ($rp -match '<h1>Repository</h1>' -and $rp -match '<dl class="facts facts--row">\r?\n<div><dt>GitHub</dt><dd><a href="https://github.com/DKJ-Solutions/dkj-claude-plugins">' -and $rp -match '<dt>Trunk</dt><dd>main</dd>' -and $rp -notmatch 'Facts</h') 'the Repository page opens on the GitHub repo''s facts, a .facts--row, not a card'
+Assert-True ($rp -match '<h1>Repository</h1>' -and $rp -match '<dl class="facts facts--row">\r?\n<div><dt>GitHub</dt><dd><a href="https://github.com/DKJ-Solutions/dkj-claude-plugins">' -and $rp -match '<dt>Trunk</dt><dd>main</dd>' -and $rp -notmatch 'Facts</h') 'the Repository page opens on the GitHub repo''s facts, a facts--row list, not a card'
 Assert-True ($rp -match 'href="/issues"' -and $rp -match 'href="https://github.com/DKJ-Solutions/dkj-claude-plugins/pulls"' -and $rp -match '>hub</span>') 'and links Issues on this origin and the pull requests on GitHub, a card each, under the hub''s header'
 Assert-True ((Format-RepoGitHubPageHtml) -match 'Issues is a general page, and the general pages server is not running' -and (Format-RepoGitHubPageHtml) -notmatch 'href="/issues"') 'with no general server it says Issues is not there, rather than linking a 404'
 Assert-Equal ([regex]::Matches($about, '<h2[ >]')).Count ([regex]::Matches($about, '</h2><p class="card__sub">[^<]+</p>')).Count 'every h2 on About carries a sub line'
@@ -126,9 +125,6 @@ $down = Format-RepoHubHtml -Pages $pages
 Assert-True ($down -match '<section class="card grid__full"><p class="msg" role="status">The general pages server is not running' -and $down -notmatch 'href="http://localhost' -and $down -notmatch 'href="/artifacts"') 'with no general server one card says it is not running, and nothing it relays is linked'
 Assert-True ($down -match 'href="/test-gate"' -and $down -match 'href="/stopwatch"' -and $down -match 'href="/logbook"') 'but the general pages this hub serves itself stay linked (#3470)'
 Assert-True ((Format-RepoHubHtml -Pages $pages -GeneralPagesUrl 'http://evil.example:4890') -match 'is not running') 'a pages url that is not plain loopback is no server at all'
-Assert-True ((Format-GeneralPagesCardHtml -PagesUrl 'http://localhost:4890/') -match 'href="http://localhost:4890/issues"') 'a trailing slash on the base url is cut'
-Assert-True ((Format-GeneralPagesCardHtml -PagesUrl 'http://localhost:4890' -SameOrigin) -match 'href="/issues"' -and (Format-GeneralPagesCardHtml -PagesUrl '' -SameOrigin) -match 'is not running') '-SameOrigin links each page by its bare path, and still only when a server answers (#3168)'
-Assert-True ((Format-GeneralPagesCardHtml -InRow $false -Title 'X <y>') -match '<h2>X &lt;y&gt;</h2>' -and (Format-GeneralPagesCardHtml -InRow $false) -match '<h2>General pages</h2>') 'a card standing alone takes -Title as its h2, escaped, and "<Heading> pages" without one'
 $alone = Format-RepoHubHtml -Pages @() -GeneralPagesUrl 'http://localhost:4890'
 Assert-True ($alone -match 'class="grid-3"' -and $alone -notmatch 'href="/repository"' -and $alone -match 'href="/release-notes"' -and $alone -match 'href="/stopwatch"') 'with no page of its own, the home page holds the general cards alone'
 Assert-True ($rp -match '<dt>Source at</dt><dd><code>abc1234</code></dd>') 'the Repository page names the commit the hub serves from'

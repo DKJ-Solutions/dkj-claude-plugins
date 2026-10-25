@@ -226,8 +226,8 @@ every local process, not only by the browser of whoever started the session.
 
 Every page's first crumb is `/hub`, the hub on the same origin. A repo's own hub (`OwnHub`) may instead
 **relay** these pages from its own origin with `Copy-LoopbackUpstream` (in
-[`lib/loopback-server-lib.ps1`](lib/loopback-server-lib.ps1)) and link them by bare path
-(`Format-GeneralPagesCardHtml -SameOrigin`), answering `/hub` itself. The pages then share that hub's
+[`lib/loopback-server-lib.ps1`](lib/loopback-server-lib.ps1)) and link them by bare path,
+answering `/hub` itself. The pages then share that hub's
 `localStorage`, and with it the theme and width choice under their key, `general-pages`. The source repo's
 own hub does this ([#3168](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3168)). The pages
 carry the repo's name, `owner/name` from the `origin` remote, else the folder's. Each issue links to the

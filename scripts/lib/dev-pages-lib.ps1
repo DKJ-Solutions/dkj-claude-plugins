@@ -20,9 +20,9 @@
     ones only this repo has. The GENERAL pages -- Artifacts, Issues, Release notes and SessionStart, which
     every repo has -- are no longer built here (#3119), and the Test gate, Stopwatch and Logbook are built from the
     plugin's libs (see above): the dkj-policy plugin ships them (since #3198) as
-    a server of its own, and the hub's second card, General, links that server, through the plugin's
-    shared Format-GeneralPagesCardHtml, so a page that is this repo's own is never read as one every repo
-    has. This file dot-sources the plugin's general-pages-lib.ps1 for the page shell, the number formats and
+    a server of its own, and the hub links each of its pages as a card of its own, through the plugin's
+    shared Format-HubCardLinkHtml, after this repo's own, so a page that is this repo's own is never read as
+    one every repo has. This file dot-sources the plugin's general-pages-lib.ps1 for the page shell, the number formats and
     the tile and bar helpers this hub's own pages share with those pages, so nothing is written twice.
 
     NO BRAND BOOK HERE. The brand book is this repo's product: the brandbook/ app's Vite dev server, which
@@ -195,8 +195,8 @@ function Format-RepoAboutBodyHtml {
     # Pages: every page a card of its own, three to a row (.grid-3), with no heading above them (owner, October 22,
     # 2026; the house hub form since #3383): this repo's own first, then the general ones. A card holds the page's one
     # menu-item row (the plugin's Format-HubCardLinkHtml). The general pages are linked by bare path, since this hub
-    # relays them (#3168), and only when a plain loopback server answers -- the rule Format-GeneralPagesCardHtml
-    # applies; otherwise one card says the server is not running.
+    # relays them (#3168), and only when a plain loopback server answers; otherwise one card says the server is not
+    # running.
     $pageCard = { param($p) Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon }
     $general = $GeneralPagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z'
     [void]$sb.AppendLine('<div class="grid-3">')
