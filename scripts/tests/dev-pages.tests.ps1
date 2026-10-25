@@ -69,7 +69,7 @@ Assert-True ($bshell -notmatch 'class="eyebrow"' -and $bshell -notmatch 'theme-s
 Write-Host '-- the hub: the home page on / and About this repo on /about (#3270)' -ForegroundColor Cyan
 $pages = @(Get-RepoHubPages)
 Assert-Equal '/repository' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links one page of its own, Repository: Test gate, Stopwatch and Logbook are general pages since #3470, and Connectors, Specialists and the Brandbook are the product''s'
-Assert-Equal '/artifacts,/issues,/release-notes,/sessionstart,/test-gate,/stopwatch,/logbook' ((Get-GeneralPages | ForEach-Object { $_.Href }) -join ',') 'the plugin lists the seven general pages, in order: Test gate, Stopwatch and Logbook every repo''s since #3470'
+Assert-Equal '/artifacts,/issues,/release-notes,/sessionstart,/test-gate,/stopwatch,/logbook,/plugins' ((Get-GeneralPages | ForEach-Object { $_.Href }) -join ',') 'the plugin lists the eight general pages, in order: Test gate, Stopwatch and Logbook every repo''s since #3470, Plugins since #3482'
 $hub = Format-RepoHubHtml
 Assert-True ($hub -match '<title>dkj-claude-plugins -- Home</title>' -and $hub -notmatch '<h1' -and $hub -notmatch 'class="lead"' -and $hub -notmatch '<main class="page-column">\s*<div>\s*<h1') 'under the site header the home page has no intro at all, and its title says Home'
 Assert-True ($hub -match '(?s)<body>\s*<div class="notice" id="hub-banner".*?</script>\s*<header class="site-header">.*?</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Home</span></li>\s*</ol>') 'the banner opens <body>, the site header under it and the bar right under that, its trail the one crumb Home (owner, October 24, 2026)'
@@ -105,10 +105,10 @@ Assert-Equal ([regex]::Matches($about, 'class="card card--link"')).Count ([regex
 Assert-True ((Get-HubIconSvg -Name '') -eq '' -and (Get-HubIconSvg -Name 'nope') -eq '' -and (Format-HubCardLinkHtml -Href '/x' -Label 'X') -notmatch 'menu-item__icon') 'a card that names no icon, or one the hub lacks, draws none'
 Assert-True ($about -match '<title>dkj-claude-plugins -- Home</title>' -and $about -notmatch '<h1' -and $about -notmatch 'class="eyebrow"' -and $about -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/"') 'it is the home page: the site header names the repo and goes home, no h1 and no eyebrow'
 Assert-True ($about -match '<li><span aria-current="page">Home</span></li>' -and $about -notmatch 'About this repo</span>') 'its trail is the one crumb, Home'
-Assert-Equal 7 ([regex]::Matches($about, '<a class="menu-item" href="(http://localhost:4890)?/[a-z-]+"><svg class="menu-item__icon"[^>]*>.*?</svg><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: icon, label, description, chevron -- this repo''s Repository and the six general ones but Issues'
+Assert-Equal 8 ([regex]::Matches($about, '<a class="menu-item" href="(http://localhost:4890)?/[a-z-]+"><svg class="menu-item__icon"[^>]*>.*?</svg><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: icon, label, description, chevron -- this repo''s Repository and the seven general ones but Issues'
 Assert-Equal 3 ([regex]::Matches($about, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="/(artifacts|release-notes|sessionstart)"')).Count 'every general page but Issues is a card of its own on the home page'
 Assert-True ($about -match '</section>\r?\n<section class="card card--link"><nav class="menu-list" aria-label="Repository"><a class="menu-item" href="/repository"' -and $about -match '<div class="grid-3">' -and $about -notmatch '<h2') 'the pages are a .grid-3, three cards to a row, with no heading above them: this repo''s own first page follows the Product card'
-Assert-Equal 7 ([regex]::Matches($about, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="/[a-z-]+"')).Count 'every page is a card of its own, this repo''s and the general ones alike, with no group card or h3 around them'
+Assert-Equal 8 ([regex]::Matches($about, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="/[a-z-]+"')).Count 'every page is a card of its own, this repo''s and the general ones alike, with no group card or h3 around them'
 Assert-True ($about -notmatch '<section class="card">') 'and every one of them is a .card--link, clickable over its whole area (#3298)'
 $houseCss = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\assets\house-style\house-style.css'))
 $productRoot = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'brandbook\root.html'))
@@ -592,6 +592,48 @@ Assert-True ((Format-DkjReposPageHtml -Query $evil -Checkouts @() -Meta @{ Gener
 $pageErr = Format-DkjReposPageHtml -Query (ConvertFrom-DkjRepoQuery -Json '') -Checkouts $co -Meta @{ GeneratedAt = 'x'; Seconds = $null }
 Assert-True ($pageErr -match 'msg--warn' -and $pageErr -match '>dkj-lifehub</a>') 'when GitHub cannot be read the page says so and still lists the checkouts'
 Assert-True ((Format-DkjReposPageHtml -Query $q -Checkouts @() -Meta @{ GeneratedAt = 'x' }) -match 'No DKJ-Solutions checkout was found') 'no checkout at all says so'
+Write-Host '-- the Plugins page (#3482): plugin-versions -Json read into a model, and the page it draws' -ForegroundColor Cyan
+. (Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\plugins-page-lib.ps1')
+Assert-True ((Get-HubIconSvg -Name 'plugins') -match '<svg') 'the Plugins card has an icon'
+Assert-True ($script:RepoHubOwnGeneralRoutes -contains '/plugins') 'this repo''s hub serves /plugins itself, from this tree, so it stays linked without the general pages server'
+$pvJson = '{"Root":"C:\r","Consulted":"user and repo","Plugins":[' +
+    '{"Id":"zeta@m","Name":"zeta","Marketplace":"m","InstVersion":"1.0.0","InstScope":"project","Code":"match","Verdict":"up to date","Action":"the clone advances only on: x","Description":"<i>z</i>"},' +
+    '{"Id":"alpha@m","Name":"alpha","Marketplace":"m","InstVersion":"0.9.0","InstScope":"project","Code":"behind","Verdict":"the clone is <b>ahead</b>","Action":"claude plugin update alpha@m --scope project"},' +
+    '{"Id":"beta@m","Name":"beta","Marketplace":"m","InstVersion":"1.0.0","Code":"match","InstallPathMissing":true,"Verdict":"up to date"},' +
+    '{"Id":"gamma@m","Name":"gamma","Marketplace":"m","Code":"clone-behind","Verdict":"the clone is stale"}],' +
+    '"Clones":[{"Marketplace":"m","Exists":true,"Head":"0123456789abcdef","HeadDate":"2026-10-25"}]}'
+$pv = ConvertFrom-PluginVersionsJson -Text ("noise`n" + $pvJson)
+Assert-True (-not $pv.Error -and $pv.Plugins.Count -eq 4 -and $pv.Clones.Count -eq 1 -and $pv.Consulted -eq 'user and repo') 'the last JSON line is the model, a stray line before it is harmless'
+Assert-True ((ConvertFrom-PluginVersionsJson -Text '').Error -and (ConvertFrom-PluginVersionsJson -Text '{nope').Error -and (ConvertFrom-PluginVersionsJson -Text '').Plugins.Count -eq 0) 'no output or broken JSON is an Error and no plugins, never a throw'
+Assert-Equal 'ok,ok,ok,error,error,warn,warn,warn' ((@('match', 'ver-match', 'unreleased', 'behind', 'not-installed', 'clone-behind', 'retired', 'indeterminate') | ForEach-Object { (Get-PluginRowStatus -Code $_).Level }) -join ',') 'each plugin-versions code is fine, an error or a warning'
+Assert-Equal 'error' (Get-PluginRowStatus -Code 'match' -InstallPathMissing $true).Level 'an install folder gone from disk is an error whatever the version says'
+$pp = Format-PluginsPageHtml -Model $pv -RepoName 'r'
+Assert-True ($pp -match '<span aria-current="page">Plugins</span>' -and $pp -match '<h1>Plugins</h1>') 'the overview opens with the breadcrumb bar and its own h1'
+Assert-Equal 4 ([regex]::Matches($pp, '<section class="card card--link"><h3 class="card__title"><span class="badge badge--sm badge--(good|warn|bad)" aria-hidden="true">(&#10003;|!|&#10007;)</span><a href="/plugins/[a-z-]+">[a-z-]+</a></h3><p class="card__sub">(Up to date|Behind|Install folder missing|Clone behind): ')).Count 'a card per plugin: its state as a decorative mark in the round badge, its name the one link, and the state in words on the sub line (the owner, October 25, 2026)'
+Assert-True ($pp -notmatch 'class="tiles"' -and $pp -notmatch '<table' -and $pp -notmatch 'id="problems"' -and -not $pp.Contains('claude plugin update')) 'the overview stays compact: no tiles, no table, no problems block, no command -- those are on the plugin''s page'
+Assert-True ($pp.IndexOf('/plugins/alpha"') -lt $pp.IndexOf('/plugins/beta"') -and $pp.IndexOf('/plugins/beta"') -lt $pp.IndexOf('/plugins/gamma"') -and $pp.IndexOf('/plugins/gamma"') -lt $pp.IndexOf('/plugins/zeta"')) 'errors first, then warnings, then the rest, each by name'
+Assert-True ($pp.Contains('no longer on disk') -and $pp.Contains('Up to date: 1.0.0, project scope')) 'a card says what is wrong or which version is installed'
+Assert-True ($pp.Contains('the clone is &lt;b&gt;ahead&lt;/b&gt;') -and $pp -notmatch '<b>ahead') 'every value from the script is escaped'
+$ppOk = Format-PluginsPageHtml -Model (ConvertFrom-PluginVersionsJson -Text '{"Consulted":"c","Plugins":[{"Id":"a@m","Name":"a","Marketplace":"m","Code":"match"}],"Clones":[]}')
+Assert-True ($ppOk.Substring($ppOk.IndexOf('<main')) -notmatch '<p class="msg' -and $ppOk -notmatch 'class="lead"' -and $ppOk -match 'card--link') 'the overview is its cards alone: no status line and no lead (the owner, October 25, 2026)'
+Assert-True ((Format-PluginsPageHtml -Model (ConvertFrom-PluginVersionsJson -Text '{"Consulted":"c","Plugins":[],"Clones":[]}')) -match 'No plugin is enabled') 'no enabled plugin says so'
+$ppErr = Format-PluginsPageHtml -Model (ConvertFrom-PluginVersionsJson -Text '') -ReadError 'it <broke>'
+Assert-True ($ppErr -match 'msg--warn' -and $ppErr.Contains('it &lt;broke&gt;') -and $ppErr -notmatch 'card--link') 'a failed read is an escaped warning, with no cards'
+Assert-True ((Read-PluginsPageModel -Script (Join-Path $RepoRoot 'no-such.ps1') -RepoRoot $RepoRoot).Error -match 'not found') 'a missing script is a sentence, not a throw'
+Assert-True ((Format-PluginsPageHtml -Model $pv -HubHref '/') -match 'href="/"') 'a hub that serves the page itself points Home at its own root'
+Write-Host '-- one plugin''s page (#3482): /plugins/<name>' -ForegroundColor Cyan
+Assert-Equal '' (Resolve-PluginsPageRequest -Path '/plugins').Name 'the overview is /plugins'
+Assert-Equal 'dkj-policy' (Resolve-PluginsPageRequest -Path '/plugins/dkj-policy').Name 'a plugin''s page is /plugins/<name>'
+Assert-True ($null -eq (Resolve-PluginsPageRequest -Path '/plugins/../x') -and $null -eq (Resolve-PluginsPageRequest -Path '/plugins/A') -and $null -eq (Resolve-PluginsPageRequest -Path '/pluginsx')) 'anything that is not a plugin slug is no Plugins page'
+Assert-True ($null -eq (Find-PluginsPageRow -Model $pv -Name 'nope') -and (Find-PluginsPageRow -Model $pv -Name 'alpha').Status.Level -eq 'error') 'a name is found among the enabled plugins, with its state, or not at all'
+$one = Format-PluginPageHtml -Row (Find-PluginsPageRow -Model $pv -Name 'alpha') -Model $pv -RepoName 'r'
+Assert-True ($one -match '<a href="/hub">Home</a>' -and $one -match '<a href="/plugins">Plugins</a>' -and $one -match '<span aria-current="page">alpha</span>' -and $one -match '<h1>alpha</h1>') 'its crumbs read Home > Plugins > the plugin'
+Assert-True ($one.Contains('<code>claude plugin update alpha@m --scope project</code>') -and $one.Contains('the clone is &lt;b&gt;ahead&lt;/b&gt;') -and $one -match 'msg--warn') 'a problem is named, escaped, with the command that closes it'
+$zeta = Format-PluginPageHtml -Row (Find-PluginsPageRow -Model $pv -Name 'zeta') -Model $pv
+Assert-True ($zeta.Contains('&lt;i&gt;z&lt;/i&gt;') -and $zeta -notmatch 'class="msg msg--warn"' -and $zeta -notmatch 'To close it' -and $zeta -match 'committed 2026-10-25') 'a healthy plugin shows its description and the clone, and no command'
+$beta = Format-PluginPageHtml -Row (Find-PluginsPageRow -Model $pv -Name 'beta') -Model $pv
+Assert-True ($beta.Contains('no longer on disk') -and $beta -notmatch 'To close it') 'a missing install folder says to reinstall, with no update command'
+Assert-True ($one.Contains('<span class="badge-row"><span class="badge badge--sm badge--bad" aria-hidden="true">&#10007;</span>Behind</span>') -and $one -notmatch 'aria-hidden="true">Behind') 'the plugin page shows its state as the house badge row: the mark, then the word'
 Write-Host ''
 Write-Host "dev-pages: $script:pass passed, $script:fail failed"
 if ($script:fail -gt 0) { exit 1 }

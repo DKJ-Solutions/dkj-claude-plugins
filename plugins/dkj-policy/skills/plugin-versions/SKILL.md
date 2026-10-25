@@ -172,12 +172,13 @@ match normalises both sides.
 
 ## Parameters
 
-The default view takes no arguments. `-Brief` is the one a caller might genuinely pass; the other two
-are **test seams** a consumer never types.
+The default view takes no arguments. `-Brief` and `-Json` are the ones a caller might genuinely pass;
+the other two are **test seams** a consumer never types.
 
 | parameter | what it does |
 |---|---|
 | `-Brief` | emit one marker-prefixed line per plugin that has something to say, plus a `[SUMMARY]` tally, and nothing else -- no header, no per-plugin block, no colour. The shape a SessionStart hook can put in front of a session. |
+| `-Json` | emit the same rows as one line of JSON, with each plugin's description, whether its install folder is still on disk, and the clones consulted. The hub's **Plugins** page reads this ([#3482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3482)), so the page and this skill never disagree. |
 | `-RootOverride` | the repo root to resolve the enable state and the install record against. |
 | `-UserHomeOverride` | the home directory `~/.claude` hangs off -- points the enable state's user layer, the install record, and the marketplace clone at one fixture tree. |
 

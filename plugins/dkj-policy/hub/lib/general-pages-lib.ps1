@@ -172,7 +172,8 @@ function Format-GeneralPageHtml {
         [void]$sb.AppendLine('<div>')
         if ($Eyebrow -and -not $Brand) { [void]$sb.AppendLine('<p class="eyebrow">' + (& $e $Eyebrow) + '</p>') }
         [void]$sb.AppendLine('<h1>' + (& $e $Title) + '</h1>')
-        [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>')
+        # An empty -Lead draws no empty paragraph (the Plugins overview, #3482).
+        if ($Lead) { [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>') }
         [void]$sb.AppendLine('</div>')
     }
     [void]$sb.Append($Body)
@@ -281,6 +282,7 @@ $script:HubIcons = @{
     'test-gate'     = '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>'
     'stopwatch'     = '<circle cx="12" cy="14" r="7"/><path d="M12 14v-4M10 3h4M12 3v4"/>'
     'logbook'       = '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>'
+    'plugins'       = '<path d="M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0z"/><path d="M12 16v5"/>'
 }
 
 function Get-HubIconSvg {
@@ -305,7 +307,9 @@ function Get-GeneralPages {
         # Every repo's since #3470 (the owner, October 25, 2026): the source repo's own pages until then.
         @{ Href = '/test-gate';     Label = 'Test gate';     Sub = 'What each test suite costs on CI'; Icon = 'test-gate' },
         @{ Href = '/stopwatch';     Label = 'Stopwatch';     Sub = 'How long an assignment takes, timed from a stopwatch: prompt to back on the trunk, with the transcript phases'; Icon = 'stopwatch' },
-        @{ Href = '/logbook';       Label = 'Logbook';       Sub = 'Every assignment of a clean session, timed by itself: first prompt to back on the trunk, with the transcript phases'; Icon = 'logbook' }
+        @{ Href = '/logbook';       Label = 'Logbook';       Sub = 'Every assignment of a clean session, timed by itself: first prompt to back on the trunk, with the transcript phases'; Icon = 'logbook' },
+        # #3482: plugin-versions' verdict per enabled plugin, so a problem with one is visible from the hub.
+        @{ Href = '/plugins';       Label = 'Plugins';       Sub = 'Every plugin this repo enables, and any problem with one on this machine'; Icon = 'plugins' }
     )
 }
 

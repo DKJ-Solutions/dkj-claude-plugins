@@ -77,6 +77,13 @@
     nothing else -- no header, no per-plugin block, no colour. This is the shape a SessionStart hook
     can put in front of a session (#1591); a person reading the answer wants the default view.
 
+.PARAMETER Json
+    Emit the same rows as ONE line of JSON and nothing else, for the hub's Plugins page (#3482), so the
+    page shows this script's own verdict rather than a second reading of the same files. Every non-ASCII
+    character is escaped, so the console code page of the process reading it cannot garble a field.
+    Adds what only a page shows: each plugin's description and its marketplace's clone line, and whether
+    the install record's installPath is still on disk.
+
 .EXAMPLE
     ./scripts/task/plugin-versions.ps1
 #>
@@ -84,7 +91,8 @@
 param(
     [string]$RootOverride = '',
     [string]$UserHomeOverride = '',
-    [switch]$Brief
+    [switch]$Brief,
+    [switch]$Json
 )
 
 Set-StrictMode -Version Latest
@@ -158,6 +166,8 @@ function Resolve-Clone {
         HeadDate      = ''
         FetchTime     = ''
         PluginVersion = @{}
+        # The plugin.json .description, keyed like PluginVersion; only -Json shows it.
+        PluginDescription = @{}
         # DECLARED BUT NOT IN THIS CLONE: the plugins the manifest lists with a url source instead of a
         # path. Their payload is fetched from elsewhere, so the clone holds no plugin.json for them and
         # PluginVersion cannot carry them -- but they ARE listed, and the verdict below owes them a
@@ -214,13 +224,16 @@ function Resolve-Clone {
         foreach ($r in @(Get-RepoPluginRoots -RepoRoot $dir -IncludeRemote)) {
             if (-not $r.IsLocal) { $info.RemoteNames[$r.Name] = $true; continue }
             $v = ''
+            $desc = ''
             if (Test-Path -LiteralPath $r.ManifestPath -PathType Leaf) {
                 try {
                     $mj = Get-Content -LiteralPath $r.ManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
                     $v = [string](Get-JsonField $mj 'version')
+                    $desc = [string](Get-JsonField $mj 'description')
                 } catch { $v = '' }
             }
             $info.PluginVersion[$r.Name] = $v
+            $info.PluginDescription[$r.Name] = $desc
         }
     } catch {
         $info.Error = $_.Exception.Message
@@ -248,7 +261,27 @@ function Compare-Version {
 $enabled = Get-EnabledPlugins -RepoRoot $repoRoot -UserHomeOverride $UserHomeOverride
 $ids = @($enabled.Ids)
 
-if (-not $Brief) {
+function Write-PluginVersionsJson {
+    <#
+        -Json's one line (#3482): the rows, each clone consulted, and where the enable state was read. The
+        reader is a page that HTML-escapes every field, so nothing is sanitized here beyond the escape of
+        every non-ASCII character, which keeps the line readable under any console code page.
+    #>
+    param([AllowEmptyCollection()][object[]]$Rows = @(), [AllowEmptyCollection()][object[]]$Clones = @(), [string]$Consulted = '')
+    $o = [pscustomobject]@{
+        Root      = [string]$repoRoot
+        Consulted = $Consulted
+        Plugins   = @($Rows)
+        Clones    = @($Clones | ForEach-Object {
+            [pscustomobject]@{ Marketplace = [string]$_.Marketplace; Dir = [string]$_.Dir; Exists = [bool]$_.Exists
+                Head = [string]$_.Head; HeadDate = [string]$_.HeadDate; FetchTime = [string]$_.FetchTime; IsShallow = [bool]$_.IsShallow; Error = [string]$_.Error }
+        })
+    }
+    $text = $o | ConvertTo-Json -Compress -Depth 5
+    [Console]::Out.WriteLine([regex]::Replace($text, '[^\x00-\x7F]', { param($x) '\u{0:x4}' -f [int][char]$x.Value }))
+}
+
+if (-not $Brief -and -not $Json) {
     # The header names the checkout being reported on, which is the first thing a person reading the
     # default view needs and the last thing a session start does: -Brief is read by a hook that
     # already knows which repo it is in, and an absolute path is the one thing worth not repeating
@@ -258,6 +291,10 @@ if (-not $Brief) {
 }
 
 if ($ids.Count -eq 0) {
+    if ($Json) {
+        Write-PluginVersionsJson -Consulted ([string]$enabled.Summary)
+        exit 0
+    }
     if ($Brief) {
         Write-Host "[INFO] no plugins are enabled for this checkout -- nothing to compare."
         exit 0
@@ -780,11 +817,20 @@ foreach ($id in $ids) {
         $action = "no paste-ready command -- the 'enabledPlugins' key is not a valid plugin id (bad slug); fix it in .claude/settings.json and re-run"
     }
 
+    # Only -Json reports it: a record whose installPath is gone loads nothing, whatever its version says.
+    $instPath = if ($recs.Count -eq 1) { [string]$recs[0].InstallPath } else { '' }
     $rows.Add([pscustomobject]@{
         Id        = $id
+        Name      = $name
+        Marketplace = $mp
+        InstVersion = $instVer
+        InstSha   = $instSha
+        InstScope = $instScope
         InstText  = $instText
+        InstallPathMissing = [bool]($instPath -and -not (Test-Path -LiteralPath $instPath -PathType Container))
         CloneText = $cloneText
         CloneVer  = $cloneVer
+        Description = $(if ($clone.PluginDescription.ContainsKey($name)) { [string]$clone.PluginDescription[$name] } else { '' })
         Code      = $code
         Verdict   = $verdict
         Action    = $action
@@ -810,6 +856,11 @@ $unknown = @($rows | Where-Object { @('indeterminate', 'not-installed') -contain
 # 'behind', since no update command moves a name the marketplace no longer declares.
 $retired = @($rows | Where-Object { $_.Code -eq 'retired' })
 $total = $rows.Count
+
+if ($Json) {
+    Write-PluginVersionsJson -Rows $rows.ToArray() -Clones @($marketplaces | ForEach-Object { $clones[$_] }) -Consulted ([string]$enabled.Summary)
+    exit 0
+}
 
 # --- brief mode: marker lines a session start can carry, and nothing else -----------------------
 
