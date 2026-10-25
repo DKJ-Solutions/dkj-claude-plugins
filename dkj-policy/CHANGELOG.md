@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**2 / 4 minor entries** <!-- pending-tally -->
+**2 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3468-own-hub-product-card · 20261025-191149Z
+
+This repo's own hub now opens its grid with a Product card linking the brand book's dev server, as the plugin's
+hub does in every consumer ([#3468](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3468)). The url
+comes from the dev-preview hook's state file and is believed only as a plain loopback url, the plugin hub's own
+rule. Where the file names none, the card says the server is not running.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+The source repo's own hub links its product, as the plugin's hub does
+
+[PR #3469](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3469)
+
+---
 
 ### DEPLOY: feat/3462-cut-stops-own-product · 20261025-184331Z
 
