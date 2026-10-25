@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**4 / 10 minor entries** <!-- pending-tally -->
+**4 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3478-drop-general-pages-card · 20261025-223236Z
+
+`Format-GeneralPagesCardHtml`, the hub's grouped "General" card, is removed from the `dkj-policy` hub library
+([#3478](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3478)). Every hub draws its home page as one
+grid of card links since #3383, and its last caller went with #3475, so only its own tests still called it.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+Remove Format-GeneralPagesCardHtml, which no hub calls any more
+
+Plugins: dkj-policy
+
+[PR #3486](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3486)
+
+---
 
 ### DEPLOY: feat/3482-hub-plugins-page · 20261025-222319Z
 
