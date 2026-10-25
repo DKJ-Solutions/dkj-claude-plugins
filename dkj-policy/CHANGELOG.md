@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**13 / 28 minor entries** <!-- pending-tally -->
+**14 / 29 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/release-notes-match-stopwatch · 20261025-121115Z
+
+The release-notes page on a dev hub now reads like the Stopwatch page: the same column width and
+spacing, the same heading, the list in a card with the house border and corners, and the closing note
+in the same muted small print. The page the Worker publishes is unchanged.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo running the dkj-policy hub sees its release-notes page in the same layout as the rest of its
+hub pages, instead of the narrower serif column it had.
+
+**Score:** 2
+
+#### Pull Request
+
+Release notes page styled like the Stopwatch page
+
+Plugins: dkj-policy
+
+[PR #3447](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3447)
+
+---
 
 ### DEPLOY: fix/3442-ship-pr-clearance-line · 20261025-114705Z
 
