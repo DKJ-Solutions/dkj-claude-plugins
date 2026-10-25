@@ -60,6 +60,8 @@ under it. Nothing else in the scale moves.
 
 #### What makes this deploy extra special
 
+Nothing for an app to do: the token keeps its name, so every `h2` takes the new size with the next copy.
+
 **Score:** N/A
 
 #### Pull Request
