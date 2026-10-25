@@ -25,8 +25,9 @@
     the dev-preview hook starts beside this hub on a port of its own (#3283) and which shows the tree as it
     is edited. The hub served a build of the same app at /brandbook and linked it from its home page, so
     one brand book was visible on two ports; the owner put it on the product port alone (October 22, 2026).
-    So the hub neither links nor serves it. Every other DKJ-Solutions repo still gets it from the
-    dkj-solutions plugin, through the general server.
+    So the hub does not serve it, and links it only as the product: its first card is the product port,
+    read from the hook's state file, as on the plugin's hub every consumer runs (#3468). Every other
+    DKJ-Solutions repo still gets the brand book from the dkj-solutions plugin, through the general server.
 
     ONE SHELL FOR EVERY PAGE BELOW THE HUB. Each page opens with the house breadcrumb bar, its trail
     starting at the hub on '/' and ending at the page itself, unlinked ("Every page: the breadcrumb
@@ -53,6 +54,8 @@
 # The plugin's lib: this repo is its source, so it reads it from its own tree -- dkj-policy's page shell and
 # General card (#3198).
 . (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\general-pages-lib.ps1')
+# And its believe-rule for a state-file url (Test-RepoHubLocalUrl), for the Product card (#3468). No I/O.
+. (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\dev-preview-rules.ps1')
 
 function Format-DevPageHtml {
     <#
@@ -135,12 +138,14 @@ function Format-RepoHubHtml {
         The repo's home page on '/' (#3270): under the site header and the bar, everything that was About this
         repo (Format-RepoAboutBodyHtml: the Pages block and the facts) and its footer note; '/about' now sends
         here (owner, October 22, 2026). The brand book, Connectors, Specialists and DKJ repos are the product
-        port's, so they are not here. The parameters are Format-RepoAboutBodyHtml's.
+        port's, so they are not here -- but the product port itself is, as the first card (#3468). The parameters
+        are Format-RepoAboutBodyHtml's.
     #>
     param(
         [AllowEmptyCollection()][object[]]$Pages = @(Get-RepoHubPages),
         [AllowEmptyString()][string]$SourceCommit = '',
-        [AllowEmptyString()][string]$GeneralPagesUrl = ''
+        [AllowEmptyString()][string]$GeneralPagesUrl = '',
+        [AllowEmptyString()][string]$ProductUrl = ''
     )
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')
@@ -157,7 +162,7 @@ function Format-RepoHubHtml {
     [void]$sb.AppendLine('<body>')
     [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName 'dkj-claude-plugins' -Brand 'dkj-claude-plugins' -BrandTag 'hub' -Lead 'The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.'))
     # Everything that was About this repo, on the home page itself (owner, October 22, 2026).
-    [void]$sb.Append((Format-RepoAboutBodyHtml -Pages $Pages -SourceCommit $SourceCommit -GeneralPagesUrl $GeneralPagesUrl))
+    [void]$sb.Append((Format-RepoAboutBodyHtml -Pages $Pages -SourceCommit $SourceCommit -GeneralPagesUrl $GeneralPagesUrl -ProductUrl $ProductUrl))
     [void]$sb.AppendLine('<p class="footer-note">Each page names its own source. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
@@ -172,12 +177,16 @@ function Format-RepoAboutBodyHtml {
         block: every page a card of its own, this repo's then the general ones but Issues, with no heading above
         them. The facts and Issues are the Repository page's (Format-RepoGitHubPageHtml). -Pages is
         Get-RepoHubPages' shape; -SourceCommit is unused here and kept for the callers; -GeneralPagesUrl is the general pages server's base url when it answers, or
-        empty (one card then says it is not running).
+        empty (one card then says it is not running). -ProductUrl is the product port's url from the state file
+        the hook writes (the brand book's dev server, #3468), believed only as a plain loopback url
+        (Test-RepoHubLocalUrl, the plugin hub's own rule), so the first card links it as the plugin's hub does;
+        empty, that card says the server is not running, since this repo always states one.
     #>
     param(
         [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Pages,
         [AllowEmptyString()][string]$SourceCommit = '',
-        [AllowEmptyString()][string]$GeneralPagesUrl = ''
+        [AllowEmptyString()][string]$GeneralPagesUrl = '',
+        [AllowEmptyString()][string]$ProductUrl = ''
     )
     $sb = New-Object System.Text.StringBuilder
     # Pages: every page a card of its own, three to a row (.grid-3), with no heading above them (owner, October 22,
@@ -188,6 +197,12 @@ function Format-RepoAboutBodyHtml {
     $pageCard = { param($p) Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon }
     $general = $GeneralPagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z'
     [void]$sb.AppendLine('<div class="grid-3">')
+    # The product first, as on the plugin's hub (#3468): the card and its not-running line are that hub's.
+    if (Test-RepoHubLocalUrl $ProductUrl) {
+        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href $ProductUrl -Label 'Product' -Sub ($ProductUrl + ' -- the server this repo states in Get-DevPreview') -Icon 'product'))
+    } else {
+        [void]$sb.AppendLine('<section class="card"><p class="msg" role="status">This repo''s own server is not running. The session-start line says why, and it is started again at the next session start.</p></section>')
+    }
     foreach ($p in @($Pages)) { [void]$sb.AppendLine((& $pageCard $p)) }
     if ($general) {
         # Issues is the Repository page's (owner, October 22, 2026), so the home page links the other three.

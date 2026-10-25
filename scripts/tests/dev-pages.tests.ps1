@@ -94,7 +94,15 @@ Assert-True ($hub -notmatch '<style>' -and $hub -notmatch 'grid__card') 'the hom
 Assert-Equal ([regex]::Matches($hub, '<h2[ >]')).Count ([regex]::Matches($hub, '</h2><p class="card__sub">[^<]+</p>')).Count 'every h2 on the home page carries a sub line'
 Assert-True ((Format-GeneralPagesCardHtml -Pages @() -LocalPages @(@{ Href = '/x'; Label = 'X' })) -notmatch 'is not running') 'a card with no server rows says nothing about the server'
 
-$about = Format-RepoHubHtml -Pages $pages -SourceCommit 'abc1234' -GeneralPagesUrl 'http://localhost:4890'
+$about = Format-RepoHubHtml -Pages $pages -SourceCommit 'abc1234' -GeneralPagesUrl 'http://localhost:4890' -ProductUrl 'http://localhost:5174/'
+# THE PRODUCT CARD (#3468): the first card links the product port, as on the plugin's hub every consumer runs.
+Assert-True ($about -match '<div class="grid-3">\r?\n<section class="card card--link"><nav class="menu-list" aria-label="Product"><a class="menu-item" href="http://localhost:5174/"><svg class="menu-item__icon"') 'the product port is the first card, with the product icon'
+Assert-True ($about.IndexOf('aria-label="Product"') -lt $about.IndexOf('aria-label="Test gate"')) 'and it comes before this repo''s own pages'
+$noProduct = Format-RepoHubHtml -Pages $pages -GeneralPagesUrl 'http://localhost:4890'
+Assert-True ($noProduct -notmatch 'aria-label="Product"' -and $noProduct -match '<div class="grid-3">\r?\n<section class="card"><p class="msg" role="status">This repo''s own server is not running') 'with no product url the first card says the server is not running, as the plugin''s hub does'
+foreach ($bad in @('https://localhost:5174/', 'http://example.com:5174/', 'http://localhost:80/', 'http://localhost:5174//evil', 'javascript:alert(1)')) {
+    Assert-True ((Format-RepoHubHtml -Pages $pages -ProductUrl $bad) -notmatch 'aria-label="Product"') "a product url that is no plain loopback url is not linked: $bad"
+}
 # CARD ICONS: every card on the home page draws its page's icon before the label, from a key the hub knows.
 Assert-True (@(@($pages) + @(Get-GeneralPages) + @(Get-DkjSolutionsPages) | Where-Object { -not (Get-HubIconSvg -Name $_.Icon) }).Count -eq 0) 'every page a hub links names an icon the hub has'
 Assert-Equal ([regex]::Matches($about, 'class="card card--link"')).Count ([regex]::Matches($about, '<a class="menu-item" href="[^"]+"><svg class="menu-item__icon"')).Count 'every card on the home page carries its icon, first thing in its row'
@@ -103,7 +111,7 @@ Assert-True ($about -match '<title>dkj-claude-plugins -- Home</title>' -and $abo
 Assert-True ($about -match '<li><span aria-current="page">Home</span></li>' -and $about -notmatch 'About this repo</span>') 'its trail is the one crumb, Home'
 Assert-Equal 7 ([regex]::Matches($about, '<a class="menu-item" href="(http://localhost:4890)?/[a-z-]+"><svg class="menu-item__icon"[^>]*>.*?</svg><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: icon, label, description, chevron -- this repo''s three (Test gate, Stopwatch, Logbook) and the four general ones'
 Assert-Equal 3 ([regex]::Matches($about, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="/(artifacts|release-notes|sessionstart)"')).Count 'every general page but Issues is a card of its own on the home page'
-Assert-True ($about -match '<div class="grid-3">\r?\n<section class="card card--link"><nav class="menu-list" aria-label="Test gate"><a class="menu-item" href="/test-gate"' -and $about -notmatch '<h2') 'the pages are a .grid-3, three cards to a row, with no heading above them: this repo''s own page is the first card'
+Assert-True ($about -match '</section>\r?\n<section class="card card--link"><nav class="menu-list" aria-label="Test gate"><a class="menu-item" href="/test-gate"' -and $about -match '<div class="grid-3">' -and $about -notmatch '<h2') 'the pages are a .grid-3, three cards to a row, with no heading above them: this repo''s own first page follows the Product card'
 Assert-Equal 7 ([regex]::Matches($about, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="/[a-z-]+"')).Count 'every page is a card of its own, this repo''s and the general ones alike, with no group card or h3 around them'
 Assert-True ($about -notmatch '<section class="card">') 'and every one of them is a .card--link, clickable over its whole area (#3298)'
 $houseCss = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\assets\house-style\house-style.css'))
