@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-**12 / 26 minor entries** <!-- pending-tally -->
+**12 / 27 minor entries** <!-- pending-tally -->
 
 ### DEPLOY: fix/3271-fixture-git-wrapper-dispatch · 20261025-113358Z
 
@@ -27,6 +27,28 @@ N/A -- `scripts/tests/` ships to no consumer; this changes only this repo's own 
 Retry a fixture git call once when Git's own launcher hands it its own path as the subcommand
 
 [PR #3444](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3444)
+
+---
+
+### DEPLOY: fix/stopwatch-cards-slowest-first · 20261025-113356Z
+
+The Stopwatch overview's label cards now stand from slowest to fastest, by the fastest time each card
+shows, instead of by their newest run. A label with no finished run yet (one going now, or the pinned Ship
+PR before its first run) follows the timed cards.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the Stopwatch is this repo's own dev hub page; no plugin user sees it.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch: the overview's cards stand slowest first
+
+[PR #3443](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3443)
 
 ---
 
