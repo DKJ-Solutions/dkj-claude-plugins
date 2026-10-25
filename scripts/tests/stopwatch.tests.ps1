@@ -197,7 +197,7 @@ Assert-True ($page.IndexOf('<h1>') -lt $page.IndexOf('card--link')) 'it opens on
 Assert-Equal 'Stopwatch' (([regex]::Matches($page, '<h1>([^<]+)</h1>') | ForEach-Object { $_.Groups[1].Value }) -join '|') 'the overview has one h1, naming the page, over a card per prompt label'
 Assert-True ($page -match '<div class="grid__head"><h1>Stopwatch</h1></div>' -and $page -notmatch 'card__sub') 'its head is its h1 alone: the overview carries no sub line'
 Assert-True ($page -match 'querySelectorAll\("\[data-start\]"\)') 'the clock script ticks every [data-start] element, the card''s live time included'
-Assert-Equal 3 ([regex]::Matches($page, '<section class="card card--link sw-card">')).Count 'one card per prompt label, case-insensitively: the three CSS comment runs are one card'
+Assert-Equal 4 ([regex]::Matches($page, '<section class="card card--link sw-card">')).Count 'one card per prompt label, case-insensitively: the three CSS comment runs are one card (three labels with runs, plus the pinned Ship PR)'
 Assert-True ($page -match '<div class="sw-groups">\r?\n<div class="sw-grid[^"]*">' -and $page -notmatch 'class="grid-3' -and $page -match '\.sw-groups \{ display: grid; gap: var\(--spacing-7\); \}' -and $page -match '\.sw-grid \{ display: grid; grid-template-columns: repeat\(5, minmax\(0, 1fr\)\); gap: var\(--spacing-4\); \}' -and $page -notmatch 'max-width: 1400px') 'the cards stand five to a row, two and one only on a narrow screen, in grids of the page''s own with no top margin, spaced apart by their wrapper''s gap'
 Assert-True ($page -match '<section class="card card--link sw-card"><h2><a href="/stopwatch/css-comment">CSS comment</a></h2><p class="sw-instruction">From the prompt <code>stopwatch: CSS comment</code> until Claude is back on main, clean, with a commit of its own\.</p><p class="sw-time num">3:20</p></section>') 'a label card holds an h2 with the label linking its page, when a run starts and stops, and the fastest time with no change beside it'
 Assert-True ($page -match '<h2><a href="/stopwatch/docs">Docs</a></h2>[^\n]*<p class="sw-time num">8:20</p>') 'a label run once shows that run''s time'
@@ -240,21 +240,32 @@ Assert-True ($page -match 'stopwatch:') 'the page says how a run starts'
 $idle = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk 'Docs' 0 10))) -StorePath 's'
 Assert-True ($idle -notmatch 'going now' -and $idle -notmatch 'data-start=') 'with nothing running no card carries a clock'
 $none = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's'
-Assert-True ($none -match 'No run yet' -and $none -notmatch 'card--link') 'with no run at all it says so, with no label card'
+Assert-True ($none -match 'No run yet' -and ([regex]::Matches($none, 'card--link')).Count -eq 1) 'with no run at all it says so, and the only label card is the pinned one'
 
-Write-Host '-- the pinned Ship PR card (the owner, October 25, 2026)' -ForegroundColor Cyan
-# Before its first run the label has a card of its own, with the steps that time a ship the same way every time.
-$pinnedCard = [regex]::Match($none, '<section class="card sw-card"><h2>Ship PR</h2>.*?</section>')
-Assert-True $pinnedCard.Success 'with no Ship PR run the overview still carries a Ship PR card'
-Assert-True ($pinnedCard.Value -match '<code>stopwatch: Ship PR</code>' -and $pinnedCard.Value -match '<ol class="sw-steps">(<li>[^<]+</li>){5}</ol>' -and $pinnedCard.Value -match 'No run yet') 'it names the prompt, lists the five steps, and says no run has been made'
-Assert-True ($pinnedCard.Value -match 'exactly &quot;stopwatch: Ship PR&quot;|exactly "stopwatch: Ship PR"' -and $pinnedCard.Value -match 'ship-pr\.ps1' -and $pinnedCard.Value -match 'the CI wait') 'its steps say which first line to use, what to ship, and which steps the run page splits out'
-Assert-True ($none -notmatch 'href="/stopwatch/ship-pr"') 'and it links nothing: a label without runs has no page'
-# Once a run of it exists, its ordinary label card carries the steps, and the pinned card goes.
-$shipRun = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk 'ship pr' 0 10))) -StorePath 's'
-Assert-Equal 0 ([regex]::Matches($shipRun, '<section class="card sw-card">')).Count 'with a Ship PR run, case aside, there is no separate pinned card'
-Assert-True ($shipRun -match '<section class="card card--link sw-card"><h2><a href="/stopwatch/ship-pr">ship pr</a></h2>.*?<ol class="sw-steps">.*?</ol></section>') 'its label card carries the steps after its time'
-Assert-True (@([regex]::Matches($page, '<section class="card card--link sw-card">.*?</section>') | Where-Object { $_.Value -match 'sw-steps' }).Count -eq 0) 'none of the ordinary label cards carries steps'
-$flatNone = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's' -Flat
+Write-Host '-- the pinned Ship PR label: a card and a page of its own, the steps on the page (the owner, October 25, 2026)' -ForegroundColor Cyan
+# Before its first run the label already has its card, linking its own page, and that page holds the steps.
+$pinnedCard = [regex]::Match($none, '<section class="card card--link sw-card"><h2><a href="/stopwatch/ship-pr">Ship PR</a></h2>.*?</section>')
+Assert-True $pinnedCard.Success 'with no Ship PR run the overview still carries a Ship PR card, linking its own page'
+Assert-True ($pinnedCard.Value -match '<code>stopwatch: Ship PR</code>' -and $pinnedCard.Value -match '<p class="sw-time">No run yet</p>') 'it names the prompt and says no run has been made'
+Assert-True ($none -notmatch 'sw-steps">') 'the steps are not on the overview: a card is the way in'
+$noneModel = ConvertTo-StopwatchModel -Runs @()
+$shipSet = Find-StopwatchLabel -Model $noneModel -Slug 'ship-pr'
+Assert-True ($null -ne $shipSet -and $shipSet.Title -eq 'Ship PR' -and @($shipSet.Groups).Count -eq 0) 'its page resolves before its first run, so the card''s link is never a 404'
+$shipPage = Format-StopwatchLabelPageHtml -Set $shipSet -StorePath 's'
+Assert-True ($shipPage -match '<div class="grid__head"><h2>Ship PR</h2></div>' -and $shipPage -match 'No run yet\. The first one sets the baseline') 'the page heads its runs with the label and says none has been made'
+Assert-True ($shipPage -match '<div class="grid__head"><h2>How to time it</h2></div>\s*<section class="card sw-card"><ol class="sw-steps">(<li>[^<]+</li>){5}</ol></section>') 'and holds the five steps in one card, under an h2 of their own above it'
+Assert-True ($shipPage -match 'exactly &quot;stopwatch: Ship PR&quot;' -and $shipPage -match 'ship-pr\.ps1' -and $shipPage -match 'the CI wait') 'the steps say which first line to use, what to ship, and which steps a run''s page splits out'
+Assert-True ($shipPage -notmatch '<section class="card[^"]*">\s*<h2') 'no h2 stands inside a card on that page'
+# Once a run of it exists, it is an ordinary label: the run card on its page, the steps still under it.
+$shipModel = ConvertTo-StopwatchModel -Runs @((& $mk 'ship pr' 0 10))
+$shipRun = Format-StopwatchPageHtml -Model $shipModel -StorePath 's'
+Assert-Equal 1 ([regex]::Matches($shipRun, '>(?i:ship pr)</a></h2>')).Count 'with a Ship PR run, case aside, the overview has one card for it, not two'
+Assert-True ($shipRun -notmatch 'sw-steps">') 'and that card carries no steps either'
+$shipRunPage = Format-StopwatchLabelPageHtml -Set (Find-StopwatchLabel -Model $shipModel -Slug 'ship-pr') -StorePath 's'
+Assert-True ($shipRunPage -match 'card card--link sw-card' -and $shipRunPage -notmatch 'No run yet' -and $shipRunPage -match '<ol class="sw-steps">') 'its page holds the run card and the steps, and no longer says no run was made'
+$cssPage = Format-StopwatchLabelPageHtml -Set $cssLabel -StorePath 's'
+Assert-True ($cssPage -notmatch 'sw-steps">|How to time it') 'a label that is not pinned has no steps on its page'
+$flatNone = Format-StopwatchPageHtml -Model $noneModel -StorePath 's' -Flat
 Assert-True ($flatNone -notmatch 'Ship PR') 'the Logbook''s flat overview carries no pinned card'
 Assert-True ($none -match '\.sw-steps \{ [^}]*font-size: var\(--text-sm\); font-weight: 400; color: var\(--muted\); \}') 'the steps take the instruction line''s house size, weight and colour'
 $evil = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk '<script>x</script>' 0 10))) -StorePath 's'

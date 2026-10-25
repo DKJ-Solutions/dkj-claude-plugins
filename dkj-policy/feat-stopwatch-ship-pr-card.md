@@ -45,26 +45,28 @@ no run had nowhere to stand. A visible result: this branch parks for the owner's
 
 ### CREATE
 
-- [x] `scripts/lib/stopwatch-lib.ps1`: `$script:StopwatchPinnedLabels` with Ship PR and its five steps; a
-  pinned label with no run gets a card of its own on the overview (`Format-StopwatchPinnedCard`), and once it
-  has runs its ordinary label card carries the steps (`Format-StopwatchPinnedSteps`). One `.sw-steps` rule,
-  house tokens only. The Logbook's flat overview is unchanged.
-- [x] `scripts/tests/stopwatch.tests.ps1`: the pinned card with no run, the steps on the label card once a
-  run exists, no link without runs, nothing in the Logbook.
+- [x] `scripts/lib/stopwatch-lib.ps1`: `$script:StopwatchPinnedLabels` with Ship PR and its five steps. A
+  pinned label is a label set from the start (`Get-StopwatchOverviewSets`), so its card links its own page
+  before its first run, and the steps stand on that page under a How to time it heading, never on the card
+  (the owner, October 25, 2026: a new card comes with its own page). One `.sw-steps` rule, house tokens only.
+  The Logbook's flat overview is unchanged.
+- [x] `scripts/tests/stopwatch.tests.ps1`: the card and its resolving page with no run, the steps on the page and
+  never on a card, one card once a run exists, nothing in the Logbook.
 - [ ] The owner has looked at `/stopwatch` on the hub and approved the card.
 
 ### TEST
 
-- [x] `stopwatch.tests.ps1` 188/188, `logbook.tests.ps1` 52/52, `dev-pages.tests.ps1` 314/314, run alone
+- [x] `stopwatch.tests.ps1` 193/193, `logbook.tests.ps1` 52/52, `dev-pages.tests.ps1` 314/314, run alone
   while building; the full gate is `ship-pr`'s, after the owner's look.
 
 ### DEPLOY: feat/stopwatch-ship-pr-card
 
-The Stopwatch overview now carries a Ship PR card before its first run, with the five steps that time a ship the
-same way every time: a branch made ready outside the clock, a prompt whose first line is exactly
-`stopwatch: Ship PR`, and the run page's split of the ship into its checks, local gates, CI wait, merge and fold.
-Once a Ship PR run exists, the steps move onto that label's ordinary card. Runs of one label are compared with
-each other, so the card is where a slow step and a speed-up attempt show.
+The Stopwatch overview now carries a Ship PR card before its first run, linking a page of its own that holds the
+five steps that time a ship the same way every time: a branch made ready outside the clock, a prompt whose first
+line is exactly `stopwatch: Ship PR`, and the run page's split of the ship into its checks, local gates, CI wait,
+merge and fold.
+Runs of one label are compared with each other on that page, so it is where a slow step and a speed-up attempt
+show.
 
 **Score:** 2
 
