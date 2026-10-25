@@ -5,7 +5,9 @@
     the workflow step each suite guards (scripts/tests/suite-groups.json), with this checkout's suite selection,
     which only this hub shows (#3097, #3309); and /stopwatch and /logbook with their label, run and slug pages, how
     long each assignment took, from the runs the plugin's hooks record (#3315, #3323, #3364, #3405), answered by the
-    plugin's own router (Resolve-HubTimingPage) as the plugin's server answers them. The server takes no POST at all.
+    plugin's own router (Resolve-HubTimingPage) as the plugin's server answers them; and /plugins, every plugin this
+    repo enables and its state on this machine, from this tree's plugin-versions.ps1 -Json (#3482). The server takes
+    no POST but the banner's.
     It also builds three pages the product relays, which the hub does not link (below):
     /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
     check-connectors.ps1 reports for it on this machine (#2976); /specialists, every specialist the
@@ -151,6 +153,8 @@ try { . (Join-Path $root 'scripts\lib\entry-scaffold-lib.ps1') } catch { }
 . (Join-Path $root 'plugins\dkj-policy\hub\lib\loopback-server-lib.ps1')
 # The banner's airsquats state, the same file and gist as every other hub's (#3438).
 . (Join-Path $root 'plugins\dkj-policy\hub\lib\airsquats-lib.ps1')
+# The Plugins page (#3482): the plugin's, served from this tree with this tree's plugin-versions.ps1, like /test-gate.
+. (Join-Path $root 'plugins\dkj-policy\hub\lib\plugins-page-lib.ps1')
 
 $scopeRoot = [System.IO.Path]::GetFullPath((Join-Path $root '..\..'))
 # The canonical copy lives in the plugin (#3130); the hub no longer vendors its own.
@@ -541,6 +545,20 @@ try {
                 $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error -GroupsError $tg.GroupsError -Selection $tg.Selection -RepoName 'dkj-claude-plugins' -HubHref '/' -RepoSlug 'DKJ-Solutions/dkj-claude-plugins'
                 $body = $utf8.GetBytes($html)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
+                continue
+            }
+            $plReq = Resolve-PluginsPageRequest -Path $path
+            if ($plReq) {
+                # The overview, or one plugin's page; a name no enabled plugin has is a 404.
+                $pl = Read-PluginsPageModel -Script (Join-Path $root 'scripts\task\plugin-versions.ps1') -RepoRoot $root
+                $plRow = if ($plReq.Name) { Find-PluginsPageRow -Model $pl.Model -Name $plReq.Name } else { $null }
+                if ($plReq.Name -and -not $plRow) {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('No plugin of that name is enabled in this repo.')) -Method $method
+                    continue
+                }
+                $html = if ($plRow) { Format-PluginPageHtml -Row $plRow -Model $pl.Model -RepoName 'dkj-claude-plugins' -HubHref '/' }
+                        else { Format-PluginsPageHtml -Model $pl.Model -ReadError $pl.Error -RepoName 'dkj-claude-plugins' -HubHref '/' }
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
             # The Stopwatch's and the Logbook's routes (#3470): a page, a moved run slug, or a slug no run has.
