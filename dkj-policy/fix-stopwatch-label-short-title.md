@@ -51,7 +51,7 @@
 
 - [x] `stopwatch.tests.ps1` and `connector-dashboard.tests.ps1` green, with asserts for the short title, the
   nested route, the redirect and the wrong-label 404
-- [ ] The owner judges the pages in the running hub (a visible result)
+- [x] The owner judges the pages in the running hub (a visible result) -- seen and approved, October 25, 2026
 
 ### DEPLOY: fix/stopwatch-label-short-title
 
