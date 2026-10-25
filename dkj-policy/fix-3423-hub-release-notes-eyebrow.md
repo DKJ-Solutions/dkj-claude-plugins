@@ -55,7 +55,7 @@ stays as it is.
 ### TEST
 
 - [x] `dev-pages.tests.ps1`: 316 passed
-- [ ] The owner's look at `/release-notes` from this branch's hub server
+- [x] The owner's look at `/release-notes` from this branch's hub server: approved (October 25, 2026)
 
 ### DEPLOY: fix/3423-hub-release-notes-eyebrow
 
