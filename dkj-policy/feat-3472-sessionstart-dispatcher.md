@@ -50,7 +50,9 @@ Measured before choosing, n=2, this repo: the ten checks in a loop 7529 / 7659 m
 3124 / 2967 ms. The harness runs entries in parallel, so a loop would have traded the cold starts for
 ~4.5 s on every start. A pool keeps the wall-clock at the slowest check.
 
-Re-measured later under load (CPU ~38 %, other sessions on the box), interleaved, n=3: ten parallel`nprocesses 6151 / 6584 / 9445 ms, the dispatcher 7090 / 10944 / 7951 ms. Same range within the noise, so`nthe claim is robustness, not speed.
+Re-measured later under load (CPU ~38 %, other sessions on the box), interleaved, n=3: ten parallel
+processes 6151 / 6584 / 9445 ms, the dispatcher 7090 / 10944 / 7951 ms. Same range within the noise, so
+the claim is robustness, not speed.
 
 ### CREATE
 
