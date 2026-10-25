@@ -39,19 +39,37 @@
 
 ### PLAN
 
+#3431 (inbound): the hub builds the release-notes page into `<note root>/../page/` in every consumer
+(#3189), while the ignore line for that directory reached only consumers that read the
+`release-notes-page` skill. Of the issue's options this takes none of the three: the build script writes a
+`*` `.gitignore` into the page directory itself, which needs no adopt step, no warning and no session
+check, and reaches every builder (the hub and a manual run alike).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `build-release-notes-page.ps1` (plugin and repo mirror): write `page/.gitignore` with `*` when absent
+- [x] `release-notes-page` skill: the directory ignores itself, instead of "add it to your `.gitignore`"
+- [x] `release-notes-page.tests.ps1`: the file is written, holds `*`, and an existing one is left alone
 
 ### TEST
 
+- [x] `release-notes-page.tests.ps1`: 180 passed
+
 ### DEPLOY: fix/3431-release-notes-page-ignored
 
-**Score:**
+The release-notes page directory (`dkj-policy/releases/page/`) now ignores itself: the build writes a
+`.gitignore` holding `*` into it when there is none. A repo whose hub built the page no longer finds it as
+an untracked folder after every session, and a `git add -A` can no longer commit it, whether or not that
+repo ever added the line to its own `.gitignore`.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing to do: a repo that already ignores the directory keeps working, and the new file is ignored by
+itself. An existing `page/.gitignore` is never overwritten.
+
+**Score:** N/A
 
 #### Pull Request
 
