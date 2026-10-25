@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**10 / 16 minor entries** <!-- pending-tally -->
+**10 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/hub-banner-stopwatch-comment · 20261025-093839Z
+
+A `stopwatch test run` timestamp line at the top of `Format-RepoHubBanner`'s docstring, a marker for
+timing the branch-to-fold chain end to end. Comment only; nothing the hub renders changes.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- a code comment reaches no user of the plugins.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch test-run line in the hub banner docstring
+
+Plugins: dkj-policy
+
+[PR #3429](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3429)
+
+---
 
 ### DEPLOY: feat/heading-h2-18px · 20261025-092551Z
 
