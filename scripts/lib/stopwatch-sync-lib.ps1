@@ -107,7 +107,8 @@ function ConvertTo-StopwatchHiddenEntry {
 function ConvertTo-StopwatchHiddenRaw {
     <# -Entries as the plain objects the hide file and the payload hold, sorted by kind and value so the same entries always give the same text. Pure. #>
     param([AllowEmptyCollection()][object[]]$Entries = @())
-    return [object[]]@(foreach ($e in @($Entries | Where-Object { $_ } | Sort-Object { $_.Kind }, { $_.Value })) {
+    # The comma keeps the array whole through the output pipeline, so one entry is still written as an array (Victor, #3446).
+    return , [object[]]@(foreach ($e in @($Entries | Where-Object { $_ } | Sort-Object { $_.Kind }, { $_.Value })) {
             [ordered]@{ kind = $e.Kind; value = $e.Value; at = (Format-StopwatchStamp $e.At); hidden = [bool]$e.Hidden }
         })
 }
@@ -156,13 +157,14 @@ function Get-StopwatchHiddenState {
         labels. Per kind and value the newest entry wins; at the same time a hide wins over a show. Pure.
     #>
     param([AllowEmptyCollection()][object[]]$Entries = @())
-    $win = @{}
+    # Ordinal tables, not @{}: PowerShell's default hashtable ignores case, and labels and run ids are matched exactly (Victor, #3446).
+    $win = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
     foreach ($e in @($Entries | Where-Object { $_ })) {
         $key = $e.Kind + [char]0 + $e.Value
         $cur = $win[$key]
         if (-not $cur -or $e.At -gt $cur.At -or ($e.At -eq $cur.At -and $e.Hidden -and -not $cur.Hidden)) { $win[$key] = $e }
     }
-    $runs = @{}; $labels = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
+    $runs = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal); $labels = New-Object System.Collections.Hashtable ([StringComparer]::Ordinal)
     foreach ($e in $win.Values) {
         if (-not $e.Hidden) { continue }
         if ($e.Kind -ceq 'run') { $runs[$e.Value] = $true } else { $labels[$e.Value] = $true }
@@ -246,10 +248,12 @@ function ConvertFrom-StopwatchSharedJson {
             if ($entry) { $phases[$run.Id] = $entry }
         } catch { continue }
     }
+    # An entry dated more than a day ahead is dropped: the newest entry wins, so a far-future hide could never be shown again (Sebastian, #3446).
+    $latest = [datetime]::UtcNow.AddDays(1)
     $hidden = @(foreach ($h in @(@($json.hidden) | Select-Object -First $script:StopwatchSharedMaxHidden)) {
             $e = $null
             try { $e = ConvertTo-StopwatchHiddenEntry $h } catch { $e = $null }
-            if ($e) { $e }
+            if ($e -and $e.At -le $latest) { $e }
         })
     return @{ Machine = [string]$json.machine; Runs = $runs; Phases = $phases; Hidden = $hidden }
 }

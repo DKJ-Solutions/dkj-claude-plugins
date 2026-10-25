@@ -57,7 +57,8 @@ and a hide/show flag, and per run id or label the newest entry across all machin
 
 ### TEST
 
-- [x] `stopwatch-sync.tests.ps1`: newest-wins, label vs. run, exact label match, a running run never hidden, the payload round trip and its bounds, the unchanged payload without entries, and the script end to end between two clones (hide, read by the recording machine, show again, refusal): 64 passed
+- [x] `stopwatch-sync.tests.ps1`: newest-wins, label vs. run, exact label match, a running run never hidden, the payload round trip and its bounds, the unchanged payload without entries, and the script end to end between two clones (hide, read by the recording machine, show again, refusal): 67 passed
+- [x] Review: Victor found case-insensitive state tables (two labels differing in case collapsed) and a one-entry list serialized as an object, both repaired and tested; Sebastian found a far-future hide could never be undone (now dropped on read) and `-List` printed foreign labels raw (now escaped)
 - [x] `stopwatch.tests.ps1`: 210 passed; `check-plugin-integrity.ps1`: 0 errors
 
 ### DEPLOY: feat/3446-stopwatch-tombstones

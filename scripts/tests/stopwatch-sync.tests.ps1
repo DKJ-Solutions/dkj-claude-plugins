@@ -108,6 +108,12 @@ try {
     $badHide = '{"machine":"abcdef01","runs":[],"hidden":[{"kind":"run","value":"../x","at":"2026-10-23T10:00:00.000Z","hidden":true},{"kind":"label","value":"' + ('L' * 300) + '","at":"2026-10-23T10:00:00.000Z","hidden":true},{"kind":"run","value":"ok-1","at":"never","hidden":true}]}'
     $bh = ConvertFrom-StopwatchSharedJson -Text $badHide
     Assert-True (@($bh.Hidden).Count -eq 1 -and $bh.Hidden[0].Value.Length -eq 80) 'another machine''s hide entries are bounded: a bad run id or time is dropped, a long label cut'
+    $twoCases = @(Set-StopwatchHiddenEntry -Kind 'label' -Value 'Docs' -Now (& $at 100)) + @(Set-StopwatchHiddenEntry -Kind 'label' -Value 'docs' -Hidden $false -Now (& $at 200))
+    Assert-True ((Get-StopwatchHiddenState -Entries $twoCases).Labels.ContainsKey('Docs')) 'a show of a label in other case does not undo the hide: two cases are two labels'
+    Save-StopwatchHidden -Path $hidePath -Entries $h1
+    Assert-True ([System.IO.File]::ReadAllText($hidePath) -match '"hidden":\s*\[') 'one hide entry is written as an array, not a bare object'
+    $future ='{"machine":"abcdef01","runs":[],"hidden":[{"kind":"label","value":"Docs","at":"9999-12-31T00:00:00.000Z","hidden":true}]}'
+    Assert-Equal 0 @((ConvertFrom-StopwatchSharedJson -Text $future).Hidden).Count 'a hide entry dated far ahead is dropped, since no show could ever be newer'
 
     # --- The interval ---
     $stamp = Join-Path $tmp 'sync.stamp'

@@ -50,14 +50,16 @@ if ($own.Error) {
 $shared = Read-StopwatchShared -RepoRoot $root -MachineId $machine
 
 if ($List) {
+    # A label from another machine's payload is printed with every non-ASCII character as \uXXXX, so no control or bidi character reaches the console.
+    $safe = { param([string]$s) [regex]::Replace($s, '[^\x20-\x7E]', { param($m) '\u' + ([int][char]$m.Value).ToString('x4') }) }
     $state = Get-StopwatchHiddenState -Entries (@($own.Entries) + @($shared.Hidden))
     Write-Host "Hide entries this machine ($machine) wrote:"
     if (-not @($own.Entries).Count) { Write-Host '  (none)' }
-    foreach ($e in @($own.Entries | Sort-Object { $_.At })) { Write-Host ('  ' + $(if ($e.Hidden) { 'hide' } else { 'show' }) + ' ' + $e.Kind + ' "' + $e.Value + '" at ' + (Format-StopwatchStamp $e.At)) }
+    foreach ($e in @($own.Entries | Sort-Object { $_.At })) { Write-Host ('  ' + $(if ($e.Hidden) { 'hide' } else { 'show' }) + ' ' + $e.Kind + ' "' + (& $safe $e.Value) + '" at ' + (Format-StopwatchStamp $e.At)) }
     Write-Host "Hidden on every machine now (newest entry wins, other machines as last fetched):"
     if (-not ($state.Runs.Count + $state.Labels.Count)) { Write-Host '  (nothing)' }
     foreach ($k in @($state.Runs.Keys | Sort-Object)) { Write-Host "  run   $k" }
-    foreach ($k in @($state.Labels.Keys | Sort-Object)) { Write-Host "  label `"$k`"" }
+    foreach ($k in @($state.Labels.Keys | Sort-Object)) { Write-Host ('  label "' + (& $safe $k) + '"') }
     exit 0
 }
 
