@@ -57,6 +57,9 @@
       19 -Brief on an 'indeterminate' row                     -> [INFO], never [ERROR]
       20 -Brief on 'match' (20a) and 'ver-match' (20b)        -> the whole run is the [SUMMARY] line
                                                                   alone: an up-to-date plugin is silent
+      20j-l -Json (#3482)                                  -> one JSON line: the row, its fields, an
+                                                                  install folder gone from disk flagged,
+                                                                  and an empty list when nothing is enabled
       21 -Brief with no plugins enabled                       -> one [INFO] line and no [SUMMARY]
       22 -Brief on a mix of every code                        -> exactly one [SUMMARY], whose counts
                                                                   partition all the rows (now SEVEN codes,
@@ -372,10 +375,12 @@ function New-Rec {
         [Parameter(Mandatory = $true)][string]$ProjectPath,
         [string]$Version = '4.32.0',
         [string]$Sha = '',
-        [string]$Scope = 'project'
+        [string]$Scope = 'project',
+        [string]$InstallPath = ''
     )
     $h = @{ scope = $Scope; projectPath = $ProjectPath; version = $Version }
     if ($Sha) { $h['gitCommitSha'] = $Sha }
+    if ($InstallPath) { $h['installPath'] = $InstallPath }
     return $h
 }
 
@@ -397,7 +402,7 @@ function Write-BadAdmin {
 }
 
 function Invoke-PV {
-    param([Parameter(Mandatory = $true)][string]$Repo, [Parameter(Mandatory = $true)][string]$UserHome, [switch]$Brief)
+    param([Parameter(Mandatory = $true)][string]$Repo, [Parameter(Mandatory = $true)][string]$UserHome, [switch]$Brief, [switch]$Json)
     # CLAUDE_PROJECT_DIR is pinned to the fixture checkout so the source-repo guard resolves a
     # deterministic root (a dir with no .claude-plugin/marketplace.json -> condition 2 fails -> the
     # guard returns nothing) instead of depending on the ambient env or `git rev-parse`. -RootOverride
@@ -408,6 +413,7 @@ function Invoke-PV {
         $a = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $Script,
                '-RootOverride', $Repo, '-UserHomeOverride', $UserHome)
         if ($Brief) { $a += '-Brief' }
+        if ($Json) { $a += '-Json' }
         $run = Invoke-NativeCapture -FilePath 'powershell' -Arguments $a -Utf8
         $joined = ($run.Output | ForEach-Object { "$_" }) -join "`n"
         return [pscustomobject]@{
@@ -819,6 +825,39 @@ try {
     $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home -Brief
     Assert-Equal 0 $r.Code '20b: exit 0'
     Assert-Equal '[SUMMARY] 1 plugin(s) enabled here: 0 behind, 1 up to date.' $r.Text.Trim() '20b: ver-match emits nothing but the summary -- indistinguishable from match, by contract'
+
+    # --- 20j. -Json (#3482): the same rows as one JSON line, for the hub's Plugins page ---------------
+    Write-Host "20j. -Json: one JSON line with the row, its description, and nothing else" -ForegroundColor Cyan
+    $c = New-Case 'json-match'
+    $head = New-Clone -Dir $c.Clone -Version '4.32.0'
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( (New-Rec -ProjectPath $c.Repo -Version '4.32.0' -Sha $head -InstallPath $c.Repo) ) }
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home -Json
+    Assert-Equal 0 $r.Code '20j: exit 0'
+    Assert-Equal 1 @($r.Text.Trim() -split "`n").Count '20j: exactly one line -- no header, no summary'
+    $j = $r.Text.Trim() | ConvertFrom-Json
+    Assert-Equal $ID ([string]$j.Plugins[0].Id) '20j: the row is the enabled plugin'
+    Assert-Equal 'match' ([string]$j.Plugins[0].Code) '20j: with the verdict code the default view draws from'
+    Assert-Equal '4.32.0' ([string]$j.Plugins[0].InstVersion) '20j: and the installed version as a field of its own'
+    Assert-Equal 'False' ([string]$j.Plugins[0].InstallPathMissing) '20j: an install path that is on disk is not missing'
+    Assert-Equal 1 @($j.Clones).Count '20j: the clone consulted is listed'
+
+    Write-Host "20k. -Json: an install record whose installPath is gone is flagged" -ForegroundColor Cyan
+    $c = New-Case 'json-gone'
+    $head = New-Clone -Dir $c.Clone -Version '4.32.0'
+    Set-Enabled -RepoDir $c.Repo -Ids @($ID)
+    Write-Admin -Path $c.Admin -Plugins @{ $ID = @( (New-Rec -ProjectPath $c.Repo -Version '4.32.0' -Sha $head -InstallPath (Join-Path $c.Repo 'no-such-folder')) ) }
+    $j = (Invoke-PV -Repo $c.Repo -UserHome $c.Home -Json).Text.Trim() | ConvertFrom-Json
+    Assert-Equal 'True' ([string]$j.Plugins[0].InstallPathMissing) '20k: a folder gone from disk is flagged'
+    Assert-Equal 'match' ([string]$j.Plugins[0].Code) '20k: and the verdict itself is untouched -- the page weighs the two'
+
+    Write-Host "20l. -Json: no plugins enabled -> an empty list, still one JSON line" -ForegroundColor Cyan
+    $c = New-Case 'json-none'
+    Set-Enabled -RepoDir $c.Repo -Ids @()
+    $r = Invoke-PV -Repo $c.Repo -UserHome $c.Home -Json
+    $j = $r.Text.Trim() | ConvertFrom-Json
+    Assert-Equal 0 @($j.Plugins).Count '20l: no rows'
+    Assert-True ([bool]$j.Consulted) '20l: and where the enable state was read, so the page can say so'
 
     # --- 21. -Brief: no plugins enabled -> a single [INFO] line, no [SUMMARY], exit 0 -----------------
     Write-Host "21. -Brief: no plugins enabled -> one [INFO] line, no [SUMMARY]" -ForegroundColor Cyan

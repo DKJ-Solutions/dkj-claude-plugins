@@ -61,7 +61,7 @@
 
 # The general pages this repo's hub answers itself rather than relays (#3470): every repo's since they moved into the
 # dkj-policy plugin, built here from its libs in this tree.
-$script:RepoHubOwnGeneralRoutes = @('/test-gate', '/stopwatch', '/logbook')
+$script:RepoHubOwnGeneralRoutes = @('/test-gate', '/stopwatch', '/logbook', '/plugins')
 
 function Format-DevPageHtml {
     <#

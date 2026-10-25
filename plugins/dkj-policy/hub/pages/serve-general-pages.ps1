@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Serve the plugin's REPOSITORY (#3245) and the GENERAL pages (#3119) on http://localhost:<Port>/ -- the hub on
-    '/', then /artifacts, /issues, /release-notes, /sessionstart, /test-gate, /stopwatch and /logbook, and
+    '/', then /artifacts, /issues, /release-notes, /sessionstart, /test-gate, /stopwatch, /logbook and /plugins, and
     /brandbook in a DKJ-Solutions repo -- from the repo this server was started in.
 
 .DESCRIPTION
@@ -37,6 +37,9 @@
       /test-gate      scripts/tests/suite-durations.json, grouped by suite-groups.json where the repo keeps one, and
                       each suite's own header (Read-TestGateModel, hub/lib/test-gate-lib.ps1, #3470). Absent, the page
                       says no test gate has been measured in this repo yet.
+      /plugins        every plugin the repo enables and its state on this machine: plugin-versions.ps1 -Json, the repo's
+                      own copy first, then this plugin's, run in a CHILD process bounded at 30 s (Read-PluginsPageModel,
+                      hub/lib/plugins-page-lib.ps1, #3482). A script that fails or is missing is a warning on the page.
       /stopwatch, /stopwatch/<label>[/<run>], /logbook, /logbook/<slug>
                       this repo's timing stores on this machine (%LOCALAPPDATA%\dkj-claude-plugins\repos\<repo>\),
                       which the plugin's UserPromptSubmit and Stop hooks write, and the session transcripts under
@@ -135,6 +138,8 @@ $ErrorActionPreference = 'Stop'
 # The Test gate, the Stopwatch and the Logbook, every repo's pages since #3470.
 . (Join-Path $PSScriptRoot '..\lib\test-gate-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\timing-pages.ps1')
+# The Plugins page (#3482).
+. (Join-Path $PSScriptRoot '..\lib\plugins-page-lib.ps1')
 
 $pluginRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride).TrimEnd('\', '/') }
@@ -520,6 +525,9 @@ try {
                 $id = Get-RepoIdentity
                 $tg = Read-TestGateModel -RepoRoot $root
                 $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error -GroupsError $tg.GroupsError -RepoName $id.Name -RepoSlug $id.Slug
+            } elseif ($path -eq '/plugins') {
+                $pl = Read-PluginsPageModel -Script (Resolve-DkjPolicyScript -RelativePath 'scripts\task\plugin-versions.ps1') -RepoRoot $root
+                $html = Format-PluginsPageHtml -Model $pl.Model -ReadError $pl.Error -RepoName (Get-RepoIdentity).Name
             } elseif ($path -eq '/artifacts') {
                 $ar = Get-JsonFileModel (Join-Path $root 'scripts\dashboard\artifacts.json')
                 $html = Format-ArtifactsPageHtml -Model (ConvertFrom-ArtifactRegister -Register $ar.Json) -ReadError $ar.Error -RepoName (Get-RepoIdentity).Name

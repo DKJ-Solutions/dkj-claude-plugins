@@ -1,8 +1,9 @@
 # The hub — the dev-preview hook and the general pages server
 
 **Every repo that runs `dkj-policy` gets a hub at session start**, served by the plugin, with the
-General pages linked from it: Artifacts, Issues, Release notes, SessionStart, Test gate, Stopwatch and Logbook
-(the last three since [#3470](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3470)). That covers
+General pages linked from it: Artifacts, Issues, Release notes, SessionStart, Test gate, Stopwatch, Logbook
+(those three since [#3470](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3470)) and Plugins
+(since [#3482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3482)). That covers
 BWJ-Development's repos too. Until [#3198](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3198)
 (the owner's decision, October 20, 2026) all of this shipped with `dkj-solutions`, which BWJ-Development
 never enables, so a General page reached only the DKJ-Solutions repos. **"General" means what every repo
@@ -17,6 +18,7 @@ its Brandbook stay in [`dkj-solutions`](../dkj-solutions/README.md).
 | The request rules the servers share | [`lib/loopback-server-lib.ps1`](lib/loopback-server-lib.ps1) |
 | The banner's airsquats state, and its sync with every other machine | [`lib/airsquats-lib.ps1`](lib/airsquats-lib.ps1), [`pages/sync-airsquats.ps1`](pages/sync-airsquats.ps1) |
 | The Test gate page | [`lib/test-gate-lib.ps1`](lib/test-gate-lib.ps1) |
+| The Plugins page: every enabled plugin and its problems, from `plugin-versions.ps1 -Json` | [`lib/plugins-page-lib.ps1`](lib/plugins-page-lib.ps1) |
 | The Stopwatch and the Logbook: their pages, their router, the hooks that time a run, and the Stopwatch's sync | [`lib/stopwatch-lib.ps1`](lib/stopwatch-lib.ps1), [`lib/logbook-lib.ps1`](lib/logbook-lib.ps1), [`lib/timing-pages.ps1`](lib/timing-pages.ps1), [`../hooks/stopwatch-hook.ps1`](../hooks/stopwatch-hook.ps1), [`../hooks/logbook-hook.ps1`](../hooks/logbook-hook.ps1), [`lib/stopwatch-sync-lib.ps1`](lib/stopwatch-sync-lib.ps1), [`pages/stopwatch-sync.ps1`](pages/stopwatch-sync.ps1), [`pages/stopwatch-hide.ps1`](pages/stopwatch-hide.ps1) and the [`stopwatch-hide`](../skills/stopwatch-hide/SKILL.md) skill |
 
 These are plugin-only files, like [`../worker/`](../worker/): no root copy in the source repo mirrors

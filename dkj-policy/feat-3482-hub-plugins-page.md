@@ -43,19 +43,34 @@ Add a Plugins card and a /plugins General page to the hub: every plugin enabled 
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `plugin-versions.ps1 -Json` (root copy and plugin mirror): the same rows as one JSON line, plus each plugin's description, whether its install folder is still on disk, and the clones consulted
+- [x] `hub/lib/plugins-page-lib.ps1`: reads that line in a bounded child process and draws the page, problems first
+- [x] The Plugins card in `Get-GeneralPages` with its icon, the `/plugins` route in the plugin's general server and in this repo's own hub (served from this tree, like `/test-gate`)
+- [x] Docs: the hub README, the plugin-versions skill page
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: the model, the status per verdict code, the page (problems first, escaping, empty and failed states), and the two card counts on the home page
+- [x] `plugin-versions.tests.ps1`: scenarios 20j-20l for `-Json`
+- [x] Rendered against this checkout: three plugins, all up to date, no problems block
+
 ### DEPLOY: feat/3482-hub-plugins-page
 
-**Score:**
+Every repo's hub gains a **Plugins** card
+([#3482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3482)). Its page lists every plugin the
+repo enables, with the version installed for this checkout and the one the marketplace clone holds. A
+problem is named at the top with the command that closes it: a plugin behind its clone or not installed here,
+an install folder gone from disk, a stale clone, a retired name. The verdicts are the `plugin-versions` skill's
+own, through its new `-Json` mode, so the page and the skill never disagree.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
 Hub: a Plugins page listing every enabled plugin and its problems
-
