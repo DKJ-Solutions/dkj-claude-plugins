@@ -122,6 +122,9 @@ Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "css = 
 Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text ".my-comp`n  .card { }" -Classes $gridClasses)) 'a domain class on the line above still scopes the rule'
 $h = @(Find-HouseStyleClassHit -Text "x { }`n/* a`n b */`n.card { }" -Classes $gridClasses)
 Assert-Equal 4 $h[0].Line 'a blanked comment keeps the line number of the rule after it'
+# Measured on this repo (#3485): prose whose middle member is selector-shaped, because `a` is an element name.
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text "Assert-True (`$x) 'the repo''s facts, a .card, not a list'`nif (`$y) { }" -Classes $gridClasses)) 'a selector list is all or nothing: one prose member makes none of them a finding'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "section p,`nmain > a .card { color: red }" -Classes $gridClasses)) 'and a list whose every member is a selector still counts'
 
 # The heading check, check 4 (#3175), was retired on October 24, 2026 (Maikel): an h2 may title a card.
 Assert-True (-not (Test-FunctionDefined 'Find-HouseStyleHeadingHit')) 'the retired heading check is gone from the rules'
