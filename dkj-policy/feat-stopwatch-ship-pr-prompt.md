@@ -39,19 +39,41 @@
 
 ### PLAN
 
+The owner asked (October 25, 2026) for the Ship PR page to carry the prompt itself, ready to copy and paste, and
+for every page to begin with an `h1` rather than an `h2`. A visible result: this branch parks for the owner's
+look, with no PR.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/stopwatch-lib.ps1`: the pinned Ship PR label gains a `Prompt` (the marker line and one line
+  asking for the ship of the checked-out branch, so it pastes unchanged); its page shows it under a The prompt
+  heading, above the steps, in a `.sw-prompt` block drawn from house tokens, with a house `.btn` that copies it
+  to the clipboard. Steps 1 and 2 now say to leave the checkout on the branch and to paste the prompt.
+- [x] Every page the lib draws begins with an `h1`: a label's page, a run's page, and the Measurements head of an
+  empty or flat (Logbook) overview, beside the overview's existing `Stopwatch` h1.
+- [x] `scripts/tests/stopwatch.tests.ps1`: the prompt block, its place above the steps, the copy button, no
+  write path; the first heading of every page is an `h1`.
+- [ ] The owner has looked at `/stopwatch/ship-pr` on the hub and approved it.
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1` 205/205, `logbook.tests.ps1` 52/52, `dev-pages.tests.ps1` 314/314, run alone
+  while building; the full gate is `ship-pr`'s, after the owner's look.
+
 ### DEPLOY: feat/stopwatch-ship-pr-prompt
 
-**Score:**
+The Ship PR page on the Stopwatch now carries the prompt that starts a timed ship, in a block with a copy button:
+`stopwatch: Ship PR`, then one line asking to ship the branch that is checked out, so it pastes unchanged. And
+every Stopwatch page now begins with an `h1` (a label's page, a run's page, and an empty overview), where several
+opened with an `h2`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the Stopwatch is this repo's own dev-server page; no plugin ships it.
+
+**Score:** N/A
 
 #### Pull Request
 
