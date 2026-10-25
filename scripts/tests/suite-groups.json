@@ -235,6 +235,7 @@
                                       "connector-dashboard.tests.ps1",
                                       "dev-pages.tests.ps1",
                                       "dev-preview-sessionstart.tests.ps1",
+                                      "hub-airsquats.tests.ps1",
                                       "issue-dashboard.tests.ps1",
                                       "logbook.tests.ps1",
                                       "stopwatch.tests.ps1",

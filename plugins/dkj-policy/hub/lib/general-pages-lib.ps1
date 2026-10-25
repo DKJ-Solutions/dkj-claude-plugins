@@ -206,12 +206,15 @@ function Format-RepoHubBanner {
         the box an inline span after the timer rather than a paragraph of its own, and its label is short
         ('30 due') so the line still fits a phone's column.
 
-        THE STATE IS THE BROWSER'S, in localStorage under one key: the total owed and the last time a page
-        ticked. An hour counts only while a hub page is open -- the tick of the previous second, or a reload
-        within two minutes -- so a hub left closed overnight does not greet you with a stack it never
-        announced. Several open tabs share the key, so an hour is counted once; the tab that counts it
-        plays the tone. A browser may hold the tone back until the page has had a click, which is its rule,
-        not this page's.
+        THE STATE IS THE SERVER'S, AND EVERY MACHINE'S (#3438, Dave, October 25, 2026). It lived in localStorage
+        until then, one count per origin, so two repo hubs on one machine already disagreed. Now the page asks its
+        own server, GET /api/airsquats every 15 s and at the turn of the hour, and ticking the box is a POST to
+        /api/airsquats/clear; the server answers from one file per machine, which a child merges with a private
+        gist every machine shares. The rules are in airsquats-lib.ps1. The countdown is the page's own and needs
+        nothing. An hour still counts only where a hub saw it begin, so a night with every hub closed adds nothing,
+        and the server says when to play the tone: once per machine, within two minutes of the hour. A page on a
+        server without the API (a request that fails) keeps the countdown and shows no box. A browser may hold the
+        tone back until the page has had a click, which is its rule, not this page's.
     #>
     return @'
 <div class="notice" id="hub-banner" role="region" aria-label="Airsquats" style="margin: 0; border: 0; border-radius: 0">
@@ -221,11 +224,10 @@ function Format-RepoHubBanner {
 (function () {
   var box = document.getElementById("hub-banner");
   if (!box) { return; }
-  var KEY = "dkj-repo-hub-airsquats", HOUR = 3600000, AWAY = 120000, PER = 10;
+  var API = "/api/airsquats", HOUR = 3600000, POLL = 15000;
   var timer = box.querySelector("[data-hub-timer]"), due = box.querySelector("[data-hub-due]");
   var done = box.querySelector("[data-hub-done]"), count = box.querySelector("[data-hub-count]");
-  function load() { try { var s = JSON.parse(localStorage.getItem(KEY)) || {}; return { owed: s.owed | 0, tick: +s.tick || 0 }; } catch (e) { return { owed: 0, tick: 0 }; } }
-  function save(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) { } }
+  var asked = 0, hour = Math.floor(Date.now() / HOUR);
   function tone() {
     try {
       var C = window.AudioContext || window.webkitAudioContext, a = new C(), o = a.createOscillator(), g = a.createGain();
@@ -233,22 +235,31 @@ function Format-RepoHubBanner {
       o.start(); o.stop(a.currentTime + 0.4);
     } catch (e) { }
   }
-  function step(announce) {
-    var now = Date.now(), s = load(), passed = 0;
-    if (s.tick && now - s.tick < AWAY) { passed = Math.floor(now / HOUR) - Math.floor(s.tick / HOUR); }
-    if (passed > 0) { s.owed += passed; if (announce) { tone(); } }
-    s.tick = now; save(s);
-    var left = HOUR - (now % HOUR), m = Math.floor(left / 60000), sec = Math.floor(left / 1000) % 60;
-    timer.textContent = m + ":" + (sec < 10 ? "0" : "") + sec;
+  function show(s) {
+    if (!s || typeof s.owed !== "number") { return; }
     due.hidden = s.owed < 1;
-    count.textContent = String(PER * s.owed);
+    count.textContent = String((s.per || 10) * s.owed);
+    if (s.announce) { tone(); }
+  }
+  function ask(method, path) {
+    if (!window.fetch) { return; }
+    fetch(path, { method: method, cache: "no-store", credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(show, function () { });
   }
   done.addEventListener("change", function () {
     if (!done.checked) { return; }
-    var s = load(); s.owed = 0; save(s); done.checked = false; step(false);
+    done.checked = false; due.hidden = true; asked = Date.now();
+    ask("POST", API + "/clear");
   });
-  step(false);
-  setInterval(function () { step(true); }, 1000);
+  function step() {
+    var now = Date.now(), left = HOUR - (now % HOUR), m = Math.floor(left / 60000), sec = Math.floor(left / 1000) % 60;
+    timer.textContent = m + ":" + (sec < 10 ? "0" : "") + sec;
+    var h = Math.floor(now / HOUR);
+    if (h !== hour || now - asked >= POLL) { hour = h; asked = now; ask("GET", API); }
+  }
+  step();
+  setInterval(step, 1000);
 })();
 </script>
 '@

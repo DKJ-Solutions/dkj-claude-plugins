@@ -179,6 +179,8 @@ try { . (Join-Path $root 'scripts\lib\entry-scaffold-lib.ps1') } catch { }
 # The request reader, the response writer and the two refusals: the same ones the plugin's servers use, so a
 # fix to any of them lands in all three (#3163).
 . (Join-Path $root 'plugins\dkj-policy\hub\lib\loopback-server-lib.ps1')
+# The banner's airsquats state, the same file and gist as every other hub's (#3438).
+. (Join-Path $root 'plugins\dkj-policy\hub\lib\airsquats-lib.ps1')
 
 $scopeRoot = [System.IO.Path]::GetFullPath((Join-Path $root '..\..'))
 # The canonical copy lives in the plugin (#3130); the hub no longer vendors its own.
@@ -431,6 +433,13 @@ try {
             }
             if (Test-LoopbackCrossSite -SecFetchSite $request.SecFetchSite -SecFetchMode $request.SecFetchMode -Method $method) {
                 Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.')) -Method $method
+                continue
+            }
+            if ($path -eq '/api/airsquats' -or $path.StartsWith('/api/airsquats/')) {
+                # The banner's state (#3438): before the GET-only rule, since ticking the box is a POST.
+                $as = Invoke-AirsquatsApi -Method $method -Path $path -SecFetchSite $request.SecFetchSite
+                $asHeaders = if ($as.Allow) { @{ Allow = $as.Allow } } else { @{} }
+                Send-LoopbackResponse $stream $as.Status $as.Reason 'application/json; charset=utf-8' ($utf8.GetBytes($as.Body)) $asHeaders -Method $method
                 continue
             }
             if ($method -ne 'GET' -and $method -ne 'HEAD') {
