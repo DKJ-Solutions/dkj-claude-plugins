@@ -1053,7 +1053,7 @@ function Format-StopwatchLabelPageHtml {
 function Format-StopwatchRunPageHtml {
     <#
         One run's page on '/stopwatch/<slug>' (#3323), titled with the run's start and its label beneath. A run going
-        now shows its live clock; a finished one its time on a card of its own, with its change against the previous
+        now shows its live clock; a finished one its time in a table of its own, with its change against the previous
         run of the same label, and under Phases its transcript phases, a row and a bar each (-Transcript, by run id,
         from Get-StopwatchTranscriptCache; a run it lacks says so). -Group is one group of ConvertTo-StopwatchModel.
         The crumbs lead back to '/stopwatch', or to -Route under -ParentLabel for the Logbook (#3364), whose
@@ -1089,11 +1089,13 @@ function Format-StopwatchRunPageHtml {
     }
     if (@($Group.Rows).Count) {
         $row = $Group.Rows[0]
-        [void]$body.AppendLine('<section class="card"><div class="card__head"><h3 class="card__title">Time</h3><p class="card__sub">Started ' + (& $local $row.Run.Start) + $(if ($row.Run.Machine) { ' on another machine' } else { '' }) + '.</p></div>')
-        [void]$body.AppendLine('<p class="sw-clock num">' + (Format-DevSeconds $row.Seconds) + '</p>')
-        if ($TimeNote) { [void]$body.AppendLine('<p class="note">' + (& $e $TimeNote) + '</p>') }
-        if (-not $NoDelta) { [void]$body.AppendLine('<p>' + (Format-StopwatchDelta $row.DeltaSeconds) + $(if ($null -ne $row.DeltaSeconds) { ' <span class="note">than the previous run of this label</span>' } else { '' }) + '</p>') }
-        [void]$body.AppendLine('</section>')
+        # The run's time as a table, a column per fact, in the Phases card's own markup (the owner, October 25, 2026).
+        $head = '<th class="sw-left">Started</th><th>Time</th>'
+        $cells = '<td class="sw-left">' + (& $local $row.Run.Start) + $(if ($row.Run.Machine) { ' <span class="note">on another machine</span>' } else { '' }) + '</td><td class="num">' + (Format-DevSeconds $row.Seconds) + '</td>'
+        if ($TimeNote) { $head += '<th class="sw-left">Note</th>'; $cells += '<td class="sw-left">' + (& $e $TimeNote) + '</td>' }
+        if (-not $NoDelta) { $head += '<th class="sw-left">Against the previous run of this label</th>'; $cells += '<td class="sw-left">' + (Format-StopwatchDelta $row.DeltaSeconds) + '</td>' }
+        [void]$body.AppendLine('<section class="card"><div class="card__head"><h3 class="card__title">Time</h3></div>' +
+            '<div class="table-wrap"><table class="table"><thead><tr>' + $head + '</tr></thead><tbody><tr>' + $cells + '</tr></tbody></table></div></section>')
         [void]$body.AppendLine('<div class="grid-2">')
         [void]$body.AppendLine('<div class="grid__head"><h2>Phases</h2><p class="card__sub">This run split into phases from the session transcripts, longest first</p></div>')
         [void]$body.AppendLine((Format-StopwatchPhaseCard $Transcript[$row.Run.Id] $row.Seconds -Title ((& $local $row.Run.Start) + ' - ' + (Format-DevSeconds $row.Seconds))))
