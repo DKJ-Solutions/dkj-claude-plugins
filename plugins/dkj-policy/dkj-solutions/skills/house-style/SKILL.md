@@ -75,8 +75,8 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    in this plugin's `assets/house-style/`, which carry no CSS of their own
    ([#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)).
    **Every page a repo's dev server serves opens with the breadcrumb bar**, the home page and the
-   product alike, its trail starting at **Home**, as the README lays it down under "Page
-   patterns", "Every page: the breadcrumb bar"
+   product alike, its trail starting at **Home**, and the page's `h1` reads exactly what its current
+   crumb reads, as the README lays it down under "Page patterns", "Every page: the breadcrumb bar"
    ([#3088](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3088)).
 2. **Add the repo's own layer after it, in a separate block or file.** Domain colours and components go
    there. They **use** house tokens and may add tokens of their own, under a name the house file does

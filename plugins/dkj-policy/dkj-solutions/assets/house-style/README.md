@@ -577,6 +577,11 @@ its own.
   still there, so it sits in the same place on every page.
 - **The labels** are the pages' own names, short, in the app's language. A crumb names a page, never a
   section on a page: an in-page anchor is not a level.
+- **The page's `h1` reads exactly what its current crumb reads** (owner, October 25, 2026): the same words,
+  the same case, so the bar and the page never name one page twice in two ways. Write the name once and
+  render both from it. A page whose current crumb is a label or a run (a Stopwatch label, a single run)
+  takes that same text as its `h1`. The one page without an `h1` is the home page under a site header
+  ([below](#the-site-header-above-the-bar)), and the rule has nothing to match there.
 - **Without React:** `.breadcrumbs-bar` > `.container` > `nav.breadcrumbs[aria-label="Breadcrumb"]` > `ol`,
   one `li` per crumb, and a `<span class="breadcrumbs__sep" aria-hidden="true">` holding the chevron at the start
   of every `li` but the first (the stylesheet sizes it to `1.25rem` and thickens it with a stroke):
