@@ -694,17 +694,20 @@ function Get-StopwatchTranscriptCache {
 
 function Format-StopwatchPhaseCard {
     <#
-        One run's transcript phases as a card of their own: a heading with the run's start and time (-Title, already
-        formatted by the caller) and, when more than one session took part, how many; then a table with a row per
+        One run's transcript phases as a card of their own: a heading (-Title, already formatted by the caller; none
+        when empty) and, when more than one session took part, how many; then a table with a row per
         phase, longest first, each with its time, its share of the run and a bar of that share. A run with no
-        phases says why instead.
+        phases says why instead. -TotalNote (HTML, already escaped by the caller) adds the run's total time as the
+        table's closing row with that note beside it, or as a line under the reason when there is no table.
     #>
-    param($Entry, [double]$Total, [Parameter(Mandatory = $true)][string]$Title)
+    param($Entry, [double]$Total, [AllowEmptyString()][string]$Title = '', $TotalNote = $null)
+    $close = if ($null -eq $TotalNote) { '' } else { '<p><strong>Total</strong> <span class="num">' + (Format-DevSeconds $Total) + '</span>' + $(if ($TotalNote) { ' ' + $TotalNote } else { '' }) + '</p>' }
     $sub = if ($Entry -and $Entry.Sessions -gt 1) { '<p class="card__sub">' + $Entry.Sessions + ' sessions</p>' } else { '' }
-    $card = '<section class="card"><div class="card__head"><h3 class="card__title">' + (ConvertTo-DashboardText $Title) + '</h3>' + $sub + '</div>'
-    if ($null -eq $Entry) { return $card + '<p class="note">No phases read for this run yet.</p></section>' }
-    if (-not $Entry.Sessions) { return $card + '<p class="note">No session of this repo was active during this run.</p></section>' }
-    if (-not @($Entry.Phases | Where-Object { $_ }).Count) { return $card + '<p class="note">No phases read for this run yet.</p></section>' }
+    $h3 = if ($Title) { '<h3 class="card__title">' + (ConvertTo-DashboardText $Title) + '</h3>' } else { '' }
+    $card = '<section class="card">' + $(if ($h3 -or $sub) { '<div class="card__head">' + $h3 + $sub + '</div>' } else { '' })
+    if ($null -eq $Entry) { return $card + '<p class="note">No phases read for this run yet.</p>' + $close + '</section>' }
+    if (-not $Entry.Sessions) { return $card + '<p class="note">No session of this repo was active during this run.</p>' + $close + '</section>' }
+    if (-not @($Entry.Phases | Where-Object { $_ }).Count) { return $card + '<p class="note">No phases read for this run yet.</p>' + $close + '</section>' }
     $card += '<div class="table-wrap"><table class="table"><thead><tr><th class="sw-left">Phase</th><th>Time</th><th>Share</th><th class="sw-left">Of the run</th></tr></thead><tbody>'
     foreach ($p in @($Entry.Phases | Sort-Object -Property @{ Expression = { [double]$_.Seconds }; Descending = $true })) {
         # Capped at 100 so the bar never overflows its track; a phase is at most the run, so the cap only meets rounding.
@@ -712,16 +715,9 @@ function Format-StopwatchPhaseCard {
         $card += '<tr><td class="sw-left">' + (ConvertTo-DashboardText $p.Name) + '</td><td class="num">' + (Format-DevSeconds $p.Seconds) + '</td><td class="num">' + $share + '%</td>' +
             '<td class="sw-left"><span class="sw-bar" role="img" aria-label="' + $share + '%"><span style="width: ' + $share + '%"></span></span></td></tr>'
     }
-    return $card + '</tbody></table></div></section>'
-}
-
-function Format-StopwatchDelta {
-    <# Faster or slower than the run before, as a badge; nothing for a label's first run. #>
-    param($Seconds)
-    if ($null -eq $Seconds) { return '<span class="note">first run</span>' }
-    if ([Math]::Abs([double]$Seconds) -lt 0.5) { return '<span class="badge badge--sm badge--neutral">same</span>' }
-    if ($Seconds -lt 0) { return '<span class="badge badge--sm badge--good">' + (Format-DevSeconds (-[double]$Seconds)) + ' faster</span>' }
-    return '<span class="badge badge--sm badge--bad">' + (Format-DevSeconds ([double]$Seconds)) + ' slower</span>'
+    $card += '</tbody>'
+    if ($null -ne $TotalNote) { $card += '<tfoot><tr><th class="sw-left" scope="row">Total</th><td class="num"><strong>' + (Format-DevSeconds $Total) + '</strong></td><td></td><td class="sw-left">' + $TotalNote + '</td></tr></tfoot>' }
+    return $card + '</table></div></section>'
 }
 
 function Format-StopwatchChangePercent {
@@ -1053,14 +1049,14 @@ function Format-StopwatchLabelPageHtml {
 function Format-StopwatchRunPageHtml {
     <#
         One run's page on '/stopwatch/<slug>' (#3323), titled with the run's start and its label beneath. A run going
-        now shows its live clock; a finished one its time in a table of its own, with its change against the previous
-        run of the same label, and under Phases its transcript phases, a row and a bar each (-Transcript, by run id,
+        now shows its live clock; a finished one its transcript phases, a row and a bar each, closed by
+        its total time with its change against the previous run of the same label (-Transcript, by run id,
         from Get-StopwatchTranscriptCache; a run it lacks says so). -Group is one group of ConvertTo-StopwatchModel.
         The crumbs lead back to '/stopwatch', or to -Route under -ParentLabel for the Logbook (#3364), whose
         -FooterNote is its own, whose -NoDelta leaves out the change against the run before, and whose -TimeNote stands
-        under the run's time: its work time. -LabelCrumb puts the run's label page (Format-StopwatchLabelPageHtml)
+        beside the run's total: its work time. -LabelCrumb puts the run's label page (Format-StopwatchLabelPageHtml)
         between the parent and the run, as the Stopwatch's run pages have it, and names the label by its short title
-        there and beneath the heading, as that page does.
+        there, as that page does -- and only there, so the heading has no label beneath it.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Group,
@@ -1081,7 +1077,8 @@ function Format-StopwatchRunPageHtml {
     $local = { param($t) (& $e ($t.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))) }
     $body = New-Object System.Text.StringBuilder
     $pageTitle = $Group.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
-    [void]$body.AppendLine('<div class="grid__head"><h1>' + (& $e $pageTitle) + '</h1><p class="card__sub">' + (& $e $label) + '</p></div>')
+    # Under -LabelCrumb the label is already the crumb before this run, so it is not said again beneath the heading.
+    [void]$body.AppendLine('<div class="grid__head"><h1>' + (& $e $pageTitle) + '</h1>' + $(if ($LabelCrumb -and $Group.LabelSlug) { '' } else { '<p class="card__sub">' + (& $e $label) + '</p>' }) + '</div>')
     if ($Group.Running) {
         [void]$body.AppendLine('<section class="card"><h3>Going now</h3>')
         [void]$body.AppendLine('<p class="sw-clock num" data-start="' + (Format-StopwatchStamp $Group.Running.Start) + '">' + (Format-DevSeconds ($Now - $Group.Running.Start).TotalSeconds) + '</p>')
@@ -1089,15 +1086,16 @@ function Format-StopwatchRunPageHtml {
     }
     if (@($Group.Rows).Count) {
         $row = $Group.Rows[0]
-        # The run's time as a table of its own, a column per fact, in no card (the owner, October 25, 2026).
-        $head = '<th class="sw-left">Started</th><th>Time</th>'
-        $cells = '<td class="sw-left">' + (& $local $row.Run.Start) + $(if ($row.Run.Machine) { ' <span class="note">on another machine</span>' } else { '' }) + '</td><td class="num">' + (Format-DevSeconds $row.Seconds) + '</td>'
-        if ($TimeNote) { $head += '<th class="sw-left">Note</th>'; $cells += '<td class="sw-left">' + (& $e $TimeNote) + '</td>' }
-        if (-not $NoDelta) { $head += '<th class="sw-left">Against the previous run of this label</th>'; $cells += '<td class="sw-left">' + (Format-StopwatchDelta $row.DeltaSeconds) + '</td>' }
-        [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead><tr>' + $head + '</tr></thead><tbody><tr>' + $cells + '</tr></tbody></table></div>')
+        # The run's total closes its phases table, the sum of the rows above it, with its change against the run
+        # before (or -TimeNote) beside it; the start is the page's own heading, so neither is said twice.
+        $notes = @()
+        if ($TimeNote) { $notes += '<span class="note">' + (& $e $TimeNote) + '</span>' }
+        # The change in the label page's own form, a sign and a percent (the owner, October 25, 2026); a first run has none.
+        $change = (Format-StopwatchChangePercent $row.Seconds $row.DeltaSeconds).Trim()
+        if (-not $NoDelta -and $change) { $notes += $change }
+        if ($row.Run.Machine) { $notes += '<span class="note">on another machine</span>' }
         [void]$body.AppendLine('<div class="grid-2">')
-        [void]$body.AppendLine('<div class="grid__head"><h2>Phases</h2><p class="card__sub">This run split into phases from the session transcripts, longest first</p></div>')
-        [void]$body.AppendLine((Format-StopwatchPhaseCard $Transcript[$row.Run.Id] $row.Seconds -Title ((& $local $row.Run.Start) + ' - ' + (Format-DevSeconds $row.Seconds))))
+        [void]$body.AppendLine((Format-StopwatchPhaseCard $Transcript[$row.Run.Id] $row.Seconds -TotalNote ($notes -join ' &middot; ')))
         [void]$body.AppendLine('</div>')
     }
     $shell = Format-StopwatchPageShell
