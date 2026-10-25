@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**8 / 12 minor entries** <!-- pending-tally -->
+**9 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/heading-scale-h3-14px · 20261025-090538Z
+
+The house style keeps three heading levels. `h3` is now 14px, the body size, and stands apart only by its weight
+and colour. `h4` and `h5` are gone along with `--text-h4` and `--text-h5`, which the gate now reports as retired.
+The brand book and the connector dashboard follow suit. Large figures that borrowed `--text-h3` for their size
+move to `--text-lg`. The README's new section "The heading cut of October 25, 2026" tells an app how to move over.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions app that takes the next house-style copy has to turn its `h4` and `h5` into `h3` and move off
+the two retired tokens. The gate names each use that is left behind.
+
+**Score:** 4
+
+#### Pull Request
+
+House style headings: h3 at 14px, h4 and h5 retired
+
+Plugins: dkj-solutions
+
+[PR #3425](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3425)
+
+---
 
 ### DEPLOY: fix/3419-stale-install-by-content · 20261024-222029Z
 
