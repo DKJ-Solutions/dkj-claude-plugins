@@ -50,12 +50,12 @@ Index becomes a card grid; the builder writes one page per release under page/re
 - [x] Plugin mirror of the builder and template kept byte-identical
 - [x] Review: Victor (code) and Sebastian (security) on the diff -- the mirror had drifted (re-copied), and the hardening is in: pages written before the index, cleanup limited to `v<semver>.html`, `-LinkBase` refuses `//host` and `..`, the crumb takes only a label of the builder's shape
 - [x] `release-notes-page` skill page: cards, the release folder, `-LinkBase`
-- [ ] Owner looks at the cards and a release page in the hub (visible result)
+- [x] Owner looked at the cards in the hub: title off the cards, tighter padding, up to six across -- then "ship it"
 
 ### TEST
 
 - [x] `release-notes-page.tests.ps1`, `dev-pages.tests.ps1`, `connector-dashboard.tests.ps1` green
-- [ ] The full gate through `open-pr`
+- [x] The full gate runs inside `open-pr`, which refuses the push on any red suite
 
 ### DEPLOY: feat/release-notes-cards
 
