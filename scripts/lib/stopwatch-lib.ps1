@@ -759,6 +759,10 @@ function Format-StopwatchPageShell {
         # A pinned label's steps (Format-StopwatchPinnedSteps): the instruction line's size and colour, numbered.
         '.sw-steps { margin: var(--spacing-2) 0 0; padding-left: var(--spacing-5); font-size: var(--text-sm); font-weight: 400; color: var(--muted); }' + "`n" +
         '.sw-steps > li + li { margin-top: var(--spacing-1); }' + "`n" +
+        # A pinned label's prompt to copy (Format-StopwatchPinnedPrompt): the house has no code block, so this layer draws
+        # one from house tokens, in a monospace face so the prompt reads as the text to paste.
+        '.sw-prompt { margin: 0; padding: var(--spacing-3); background: var(--paper-2); color: var(--fg-1); border-radius: var(--spacing-2); font-family: ui-monospace, Consolas, monospace; font-size: var(--text-sm); white-space: pre-wrap; overflow-wrap: anywhere; }' + "`n" +
+        '.sw-card > .sw-copy { margin-top: var(--spacing-3); }' + "`n" +
         '.sw-change { margin-left: var(--spacing-2); font-size: var(--text-xs); font-weight: 400; color: var(--muted); }' + "`n" +
         '.sw-change--good { color: var(--positive-5); }' + "`n" +
         '.sw-change--bad { color: var(--negative-5); }' + "`n" +
@@ -839,9 +843,12 @@ function Format-StopwatchLabelCard {
 $script:StopwatchPinnedLabels = @(
     @{
         Label = 'Ship PR'
+        # The prompt the label's page offers to copy (the owner, October 25, 2026): the marker line, then one line that
+        # asks for the ship alone. It names no branch, so it pastes unchanged: step 1 leaves the checkout on the branch.
+        Prompt = @('stopwatch: Ship PR', 'Ship the branch that is checked out now with ship-pr.ps1. Change nothing else.')
         Steps = @(
-            'Get a branch ready first, outside the clock: its change committed and its DEPLOY section written.',
-            'Start the run with a prompt whose first line is exactly "stopwatch: Ship PR", and whose second line only asks to ship that branch with ship-pr.ps1. The run then times the ship and nothing else.',
+            'Get a branch ready first, outside the clock: its change committed, its DEPLOY section written, and the checkout left on it.',
+            'Start the run by pasting the prompt above into a session of this checkout. Its first line is exactly "stopwatch: Ship PR", and its second only asks to ship that branch, so the run times the ship and nothing else.',
             'The run ends when Claude is back on main after the merge and the fold. Each run''s own page splits the ship into its steps: the checks before the PR, the local gates and opening the PR, the CI wait, the merge, and the fold.',
             'Repeat with the next ready branch under the same first line. Every run lands on this page and is compared with the run before it.',
             'To try a speed-up, change one thing between two runs, say which on the prompt''s second line, and compare the steps of the two runs.'
@@ -862,6 +869,25 @@ function Format-StopwatchPinnedSteps {
     if (-not $pinned) { return '' }
     $items = @($pinned.Steps | ForEach-Object { '<li>' + (ConvertTo-DashboardText $_) + '</li>' })
     return '<ol class="sw-steps">' + ($items -join '') + '</ol>'
+}
+
+function Format-StopwatchPinnedPrompt {
+    <#
+        A pinned label's prompt to copy, or '' for a label without one: the prompt in a block, and a copy button whose
+        script puts the block's text on the clipboard. The button writes nothing anywhere else, so the page stays
+        read-only.
+    #>
+    param([AllowEmptyString()][string]$Label = '')
+    $pinned = Get-StopwatchPinnedLabel -Label $Label
+    if (-not $pinned -or -not $pinned.Contains('Prompt')) { return '' }
+    $text = ConvertTo-DashboardText (@($pinned.Prompt) -join "`n")
+    return '<pre class="sw-prompt" id="sw-prompt">' + $text + '</pre>' +
+        '<p class="sw-copy"><button type="button" class="btn" data-copy="sw-prompt">Copy the prompt</button></p>' +
+        '<script>(function () {' +
+        ' var b = document.querySelector("[data-copy]"); if (!b || !navigator.clipboard) { return; }' +
+        ' b.addEventListener("click", function () {' +
+        '  navigator.clipboard.writeText(document.getElementById(b.getAttribute("data-copy")).textContent).then(function () {' +
+        '   b.textContent = "Copied"; setTimeout(function () { b.textContent = "Copy the prompt"; }, 2000); }); }); })();</script>'
 }
 
 function Get-StopwatchShortTitle {
@@ -929,14 +955,14 @@ function Format-StopwatchPageHtml {
     # The overview's labels, the pinned ones with no run yet included (not in -Flat, the Logbook's).
     $sets = if ($Flat) { @() } else { @(Get-StopwatchOverviewSets -Model $Model) }
     if (-not @($Model.Groups).Count -and -not $sets.Count) {
-        [void]$body.AppendLine('<div class="grid__head"><h2>Measurements</h2></div>')
+        [void]$body.AppendLine('<div class="grid__head"><h1>Measurements</h1></div>')
     } else {
         # The grid stands in a wrapper whose gap is the space between grids, so no grid carries a top margin (the owner,
         # October 24, 2026). A head is its h2 alone, with no sub line under it.
         [void]$body.AppendLine('<div class="sw-groups">')
         [void]$body.AppendLine($(if ($Flat) { '<div class="sw-grid">' } else { '<div class="sw-grid sw-grid--wide">' }))
         if ($Flat) {
-            [void]$body.AppendLine('<div class="grid__head"><h2>Measurements</h2></div>')
+            [void]$body.AppendLine('<div class="grid__head"><h1>Measurements</h1></div>')
             foreach ($g in @($Model.Groups)) { [void]$body.AppendLine((Format-StopwatchRunCard -Group $g -Route $Route -Now $Now -NoDelta:$NoDelta -CardNotes $CardNotes)) }
         } else {
             # The overview's one heading is an h1 naming the page (the owner, October 24, 2026).
@@ -980,12 +1006,20 @@ function Format-StopwatchLabelPageHtml {
     $body = New-Object System.Text.StringBuilder
     [void]$body.AppendLine('<div class="sw-groups">')
     [void]$body.AppendLine('<div class="sw-grid">')
-    [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $Set.Title) + '</h2></div>')
+    [void]$body.AppendLine('<div class="grid__head"><h1>' + (& $e $Set.Title) + '</h1></div>')
     foreach ($g in @($Set.Groups)) { [void]$body.AppendLine((Format-StopwatchRunCard -Group $g -Now $Now)) }
     # A pinned label before its first run (Get-StopwatchOverviewSets): one card saying so, where the runs will stand.
     if (-not @($Set.Groups).Count) { [void]$body.AppendLine('<section class="card sw-card"><p class="sw-instruction">No run yet. The first one sets the baseline for this label.</p></section>') }
     [void]$body.AppendLine('</div>')
-    # A pinned label's steps stand here, on its page, under an h2 of their own above the one card that holds them.
+    # A pinned label's prompt to copy and its steps stand here, on its page, each under an h2 of its own above the one
+    # card that holds it: the prompt first, since it is what a run starts from.
+    $prompt = Format-StopwatchPinnedPrompt -Label $Set.Title
+    if ($prompt) {
+        [void]$body.AppendLine('<div class="sw-howto">')
+        [void]$body.AppendLine('<div class="grid__head"><h2>The prompt</h2></div>')
+        [void]$body.AppendLine('<section class="card sw-card">' + $prompt + '</section>')
+        [void]$body.AppendLine('</div>')
+    }
     $steps = Format-StopwatchPinnedSteps -Label $Set.Title
     if ($steps) {
         [void]$body.AppendLine('<div class="sw-howto">')
@@ -1030,7 +1064,7 @@ function Format-StopwatchRunPageHtml {
     $local = { param($t) (& $e ($t.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))) }
     $body = New-Object System.Text.StringBuilder
     $pageTitle = $Group.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
-    [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $pageTitle) + '</h2><p class="card__sub">' + (& $e $Group.Label) + '</p></div>')
+    [void]$body.AppendLine('<div class="grid__head"><h1>' + (& $e $pageTitle) + '</h1><p class="card__sub">' + (& $e $Group.Label) + '</p></div>')
     if ($Group.Running) {
         [void]$body.AppendLine('<section class="card"><h3>Going now</h3>')
         [void]$body.AppendLine('<p class="sw-clock num" data-start="' + (Format-StopwatchStamp $Group.Running.Start) + '">' + (Format-DevSeconds ($Now - $Group.Running.Start).TotalSeconds) + '</p>')
