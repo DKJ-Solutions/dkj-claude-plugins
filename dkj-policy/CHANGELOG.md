@@ -2,7 +2,27 @@
 
 ## [Unreleased]
 
-**14 / 31 minor entries** <!-- pending-tally -->
+**14 / 32 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/stopwatch-run-time-table · 20261025-134945Z
+
+A Stopwatch run's page shows its time as a table in no card: the start, the time and the change against the previous run of its label are columns of one row, straight under the page heading, where a Time card with a large clock stood before. The Logbook's run pages, built by the same function, take the same table, with its work-time note as a column and no change column.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The Stopwatch is this repo's own hub page; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+A run's time on its page as a table instead of a card
+
+[PR #3454](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3454)
+
+---
 
 ### DEPLOY: fix/release-notes-served-from-tree · 20261025-132418Z
 
