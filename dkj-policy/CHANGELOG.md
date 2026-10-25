@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**15 / 34 minor entries** <!-- pending-tally -->
+**16 / 35 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3439-airsquats-gist-opt-in · 20261025-143257Z
+
+The hub's airsquats gist is now an opt-in. With `DKJ_HUB_AIRSQUATS_GIST` unset, the hub servers start no
+sync child, call no `gh` and write nothing to the logged-in GitHub account: the banner agrees across the
+repo hubs of one machine only. `auto` finds the `dkj-hub-airsquats` gist, or creates it, private, as #3438
+did by default; a gist id pins that gist; any other value syncs nothing and reports it as `syncError`. This
+replaces #3438's "with nothing configured", which never reached a release.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Whoever runs the hub gets the cross-machine airsquats sync only after setting `DKJ_HUB_AIRSQUATS_GIST` to
+`auto` (or to a shared gist id) in the `env` block of their own `~/.claude/settings.json`. Without it, no
+gist is created on their GitHub account.
+
+**Score:** 2
+
+#### Pull Request
+
+Hub airsquats sync: the gist only on an opt-in
+
+Plugins: dkj-policy
+
+[PR #3449](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3449)
+
+---
 
 ### DEPLOY: feat/release-notes-cards · 20261025-141944Z
 
