@@ -48,6 +48,9 @@ cite it.
 - [x] `Format-GeneralPagesCardHtml` removed from `hub/lib/general-pages-lib.ps1`, its header paragraph rewritten
 - [x] Its four asserts removed from `dev-pages.tests.ps1`
 - [x] The two comments in `dev-pages-lib.ps1` and the `hub/README.md` line corrected
+- [x] One assert message reworded ("a .facts--row" to "a facts--row list"): with the four asserts gone, the
+  house-style gate read that message as a selector restyling a house class, a false positive the removed
+  lines' unbalanced parens had been masking
 
 ### TEST
 
