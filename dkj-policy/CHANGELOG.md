@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**12 / 25 minor entries** <!-- pending-tally -->
+**12 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3271-fixture-git-wrapper-dispatch · 20261025-113358Z
+
+A test-suite fixture git call that Git for Windows' launcher refuses with its own path as the subcommand
+(`git: '...\cmd\git.exe' is not a git command`) is now retried once, for any verb, instead of turning a
+suite red under the parallel gate. That refusal comes from git's dispatcher before any subcommand runs,
+so repeating it is safe where repeating a failed commit otherwise is not. The retry line names the cause
+and prints the argument vector element by element, so the next occurrence carries the evidence
+[#3271](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3271) asked for. A genuinely mistyped
+subcommand is still a failure.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- `scripts/tests/` ships to no consumer; this changes only this repo's own gate runs.
+
+**Score:** N/A
+
+#### Pull Request
+
+Retry a fixture git call once when Git's own launcher hands it its own path as the subcommand
+
+[PR #3444](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3444)
+
+---
 
 ### DEPLOY: feat/3438-hub-banner-sync · 20261025-112350Z
 
