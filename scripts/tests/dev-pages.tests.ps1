@@ -103,6 +103,8 @@ Assert-True ($about -match '<div class="grid-3">\r?\n<section class="card card--
 Assert-Equal 7 ([regex]::Matches($about, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="/[a-z-]+"')).Count 'every page is a card of its own, this repo''s and the general ones alike, with no group card or h3 around them'
 Assert-True ($about -notmatch '<section class="card">') 'and every one of them is a .card--link, clickable over its whole area (#3298)'
 $houseCss = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\assets\house-style\house-style.css'))
+$productRoot = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'brandbook\root.html'))
+Assert-True (([regex]::Matches($productRoot, '<section class="card card--link"><nav class="menu-list"')).Count -eq 4 -and $productRoot -notmatch '<section class="card">') 'the product root''s hand-written cards are .card--link too, so both ports hover and click alike'
 Assert-True ($houseCss -match '\.card--link \{ position: relative; \}' -and $houseCss -match '\.card--link a::after \{ content: ""; position: absolute; inset: 0; \}') 'the house style stretches a .card--link''s one link over the card'
 Assert-True ($about -notmatch 'grid__head') 'and no group heading anywhere on the page'
 Assert-True ($about -notmatch 'DKJ-Solutions</h3>' -and $about -notmatch 'href="/brandbook"') 'the Brand book is the home page''s, not About''s'
