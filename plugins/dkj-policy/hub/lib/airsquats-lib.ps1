@@ -40,6 +40,7 @@ $script:AirsquatsGistDescription = 'dkj-hub-airsquats'
 $script:AirsquatsGistFile = 'airsquats.json'
 $script:AirsquatsSyncScript = Join-Path $PSScriptRoot '..\pages\sync-airsquats.ps1'
 $script:AirsquatsSyncProcess = $null
+$script:AirsquatsSyncStartedAt = [int64]0
 
 function Get-AirsquatsNow { [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds() }
 
@@ -54,16 +55,24 @@ function ConvertTo-AirsquatsState {
     <#
         Any parsed object (or $null) as a well-formed state: hours a sorted, distinct int64 list, clearedAt an
         int64, the local fields kept where present. Anything unreadable reads as nothing, never as an error.
+        A gist is somebody else's text once DKJ_HUB_AIRSQUATS_GIST pins one, so the input is bounded: at most the
+        first 1000 hours are read, and an hour or a time more than a day in the future is dropped -- it could
+        otherwise pin or silence the banner for good, and overflow the hour-to-ms product.
     #>
     param($InputObject)
     $s = @{ hours = @(); clearedAt = [int64]0; lastSeen = [int64]0; announced = [int64]0; syncedAt = [int64]0; syncError = ''; gist = '' }
     if ($null -eq $InputObject) { return $s }
     $get = { param($n) if ($InputObject -is [hashtable]) { $InputObject[$n] } else { $InputObject.$n } }
-    $h = New-Object System.Collections.Generic.List[int64]
-    foreach ($x in @(& $get 'hours')) { $v = [int64]0; if ($null -ne $x -and [int64]::TryParse([string]$x, [ref]$v) -and $v -gt 0 -and -not $h.Contains($v)) { $h.Add($v) } }
-    $h.Sort()
+    $maxMs = (Get-AirsquatsNow) + 86400000
+    $maxHour = [Math]::Floor($maxMs / $script:AirsquatsHourMs)
+    $h = New-Object 'System.Collections.Generic.SortedSet[int64]'
+    foreach ($x in @(& $get 'hours' | Select-Object -First 1000)) { $v = [int64]0; if ($null -ne $x -and [int64]::TryParse([string]$x, [ref]$v) -and $v -gt 0 -and $v -le $maxHour) { [void]$h.Add($v) } }
     $s.hours = @($h)
-    foreach ($n in 'clearedAt', 'lastSeen', 'announced', 'syncedAt') { $v = [int64]0; if ([int64]::TryParse([string](& $get $n), [ref]$v) -and $v -gt 0) { $s[$n] = $v } }
+    foreach ($n in 'clearedAt', 'lastSeen', 'announced', 'syncedAt') {
+        $v = [int64]0
+        $limit = if ($n -eq 'announced') { $maxHour } else { $maxMs }
+        if ([int64]::TryParse([string](& $get $n), [ref]$v) -and $v -gt 0 -and $v -le $limit) { $s[$n] = $v }
+    }
     foreach ($n in 'syncError', 'gist') { $v = & $get $n; if ($v) { $s[$n] = [string]$v } }
     return $s
 }
@@ -156,17 +165,21 @@ function Use-AirsquatsFile {
 function Start-AirsquatsSync {
     <#
         Starts sync-airsquats.ps1 in a hidden child, unless this server's last one is still running. -Due says
-        whether a sync is owed (the last one is older than AirsquatsSyncEveryMs, or the state just changed). The
-        child takes a lock of its own, so a second server's child simply exits. DKJ_HUB_NO_SYNC (the tests) and a
-        missing script start nothing.
+        whether a sync is owed (the last one is older than AirsquatsSyncEveryMs, or the state just changed), and
+        -Changed that the state did change. The child takes a lock of its own, so a second server's child simply
+        exits. This server also keeps its own start time and starts no child within AirsquatsSyncEveryMs of the
+        last unless the state changed: a child that dies before it records its attempt would otherwise be started
+        again at every poll. DKJ_HUB_NO_SYNC (the tests) and a missing script start nothing.
     #>
-    param([bool]$Due)
+    param([bool]$Due, [bool]$Changed = $false, [int64]$Now = (Get-AirsquatsNow))
     if (-not $Due -or $env:DKJ_HUB_NO_SYNC) { return $false }
     if ($script:AirsquatsSyncProcess -and -not $script:AirsquatsSyncProcess.HasExited) { return $false }
+    if (-not $Changed -and ($Now - $script:AirsquatsSyncStartedAt) -lt $script:AirsquatsSyncEveryMs) { return $false }
     if (-not (Test-Path -LiteralPath $script:AirsquatsSyncScript -PathType Leaf)) { return $false }
     try {
         $script:AirsquatsSyncProcess = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -PassThru -ArgumentList @(
             '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + (Resolve-Path -LiteralPath $script:AirsquatsSyncScript).Path + '"'))
+        $script:AirsquatsSyncStartedAt = $Now
         return $true
     } catch { return $false }
 }
@@ -178,7 +191,10 @@ function Invoke-AirsquatsApi {
         off. A POST is served only same-origin or with no Sec-Fetch-Site at all (curl, a relay such as the product
         port's): a page on another port or site cannot clear the box.
         announce is true once per machine per hour, and only within two minutes of that hour's start, so opening
-        a hub later on a count another machine made plays no tone.
+        a hub later on a count another machine made plays no tone. Once per machine means the first poll to see
+        the hour: where that is a background tab, or a browser holding audio back, no other tab plays it.
+        The hours and tick-offs are each machine's own clock, so a machine whose clock runs ahead clears its
+        hours a little early on the others; Windows' time sync keeps that to seconds.
     #>
     param([string]$Method, [string]$Path, [string]$SecFetchSite = '', [int64]$Now = (Get-AirsquatsNow))
     $m = ([string]$Method).ToUpperInvariant()
@@ -212,7 +228,7 @@ function Invoke-AirsquatsApi {
     } catch {
         return @{ Status = 503; Reason = 'Service Unavailable'; Body = '{"error":"the airsquats state could not be read"}' }
     }
-    [void](Start-AirsquatsSync -Due ($flags.Changed -or ($Now - $state.syncedAt) -ge $script:AirsquatsSyncEveryMs))
+    [void](Start-AirsquatsSync -Due ($flags.Changed -or ($Now - $state.syncedAt) -ge $script:AirsquatsSyncEveryMs) -Changed $flags.Changed -Now $Now)
     $err = ($state.syncError -replace '[^\x20-\x7E]', '' -replace '["\\]', '')
     if ($err.Length -gt 160) { $err = $err.Substring(0, 160) }
     $body = '{"owed":' + (Get-AirsquatsOwedHours $state) + ',"per":' + $script:AirsquatsPer + ',"announce":' + $(if ($flags.Announce) { 'true' } else { 'false' }) +
@@ -224,8 +240,8 @@ function Sync-AirsquatsGist {
     <#
         One sync of the machine's file with the gist, through -Gh: a scriptblock taking gh's arguments and returning
         @{ ExitCode; Out } (the tests pass a fake). syncedAt records the ATTEMPT, failed or not, so an offline machine
-        tries again every AirsquatsSyncEveryMs rather than at every poll; syncError says whether it landed. Finds the gist by DKJ_HUB_AIRSQUATS_GIST, else the id the file
-        remembers, else by its description among this account's gists, else creates it (private). Reads it,
+        tries again every AirsquatsSyncEveryMs rather than at every poll; syncError says whether it landed.
+        Finds the gist by DKJ_HUB_AIRSQUATS_GIST, else the id the file remembers, else by its description among this account's gists, else creates it (private). Reads it,
         merges it into the file under the lock, and writes it back only where the merge changed it. Returns
         @{ Ok; Error; Gist; Pushed }. Never throws.
     #>
@@ -234,18 +250,20 @@ function Sync-AirsquatsGist {
     try {
         $local = Use-AirsquatsFile -Change { param($s) $s }
         $gist = if ($env:DKJ_HUB_AIRSQUATS_GIST) { [string]$env:DKJ_HUB_AIRSQUATS_GIST } else { $local.gist }
-        if ($gist -notmatch '^[0-9a-fA-F]{8,64}$') { $gist = '' }
+        if ($gist -notmatch '^[0-9a-fA-F]{8,64}\z') { $gist = '' }
         $remote = $null
         if ($gist) {
             $r = & $Gh @('api', "gists/$gist")
             if ($r.ExitCode -eq 0) { $remote = $r.Out | ConvertFrom-Json } elseif (-not $env:DKJ_HUB_AIRSQUATS_GIST) { $gist = '' } else { throw "gh could not read gist $gist" }
         }
         if (-not $gist) {
-            $r = & $Gh @('api', 'gists?per_page=100')
+            # Every page of the account's gists, filtered by gh itself: one id per line, the id held to its shape.
+            $filter = '.[] | select(.description == "' + $script:AirsquatsGistDescription + '") | select(.files["' + $script:AirsquatsGistFile + '"]) | .id'
+            $r = & $Gh @('api', '--paginate', 'gists?per_page=100', '--jq', $filter)
             if ($r.ExitCode -ne 0) { throw 'gh could not list the gists (is gh logged in?)' }
-            $found = @($r.Out | ConvertFrom-Json | Where-Object { $_.description -eq $script:AirsquatsGistDescription -and $_.files.PSObject.Properties.Name -contains $script:AirsquatsGistFile } | Select-Object -First 1)
+            $found = @(([string]$r.Out -split "`r?`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^[0-9a-fA-F]{8,64}\z' } | Select-Object -First 1)
             if ($found.Count) {
-                $gist = [string]$found[0].id
+                $gist = [string]$found[0]
                 $r = & $Gh @('api', "gists/$gist")
                 if ($r.ExitCode -ne 0) { throw "gh could not read gist $gist" }
                 $remote = $r.Out | ConvertFrom-Json

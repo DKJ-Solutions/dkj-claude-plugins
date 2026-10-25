@@ -88,9 +88,10 @@ try {
         param([string[]]$a)
         $script:calls.Add(($a -join ' '))
         if ($a[0] -ne 'api') { return @{ ExitCode = 1; Out = '' } }
-        if ($a[1] -eq 'gists?per_page=100') {
-            $list = @($script:gists.Keys | ForEach-Object { @{ id = $_; description = 'dkj-hub-airsquats'; files = @{ 'airsquats.json' = @{} } } })
-            return @{ ExitCode = 0; Out = (ConvertTo-Json -InputObject $list -Depth 5 -Compress) }
+        if ($a[1] -eq '--paginate') {
+            # gh's own --jq filter, as the list answers it: one matching id per line.
+            $script:filter = $a[4]
+            return @{ ExitCode = 0; Out = (@($script:gists.Keys) -join "`n") }
         }
         if ($a[1] -eq '-X') {
             $body = [System.IO.File]::ReadAllText($a[5]) | ConvertFrom-Json
@@ -106,6 +107,7 @@ try {
     $r = Sync-AirsquatsGist -Gh $fake
     Assert-True ($r.Ok -and $r.Pushed -and $r.Gist -eq 'abcdef0123456789') 'with no gist anywhere, the first sync creates it'
     Assert-True ($script:posted.public -eq $false -and $script:posted.description -eq 'dkj-hub-airsquats') 'private, under the description a second machine finds it by'
+    Assert-True ($script:filter -match 'description == "dkj-hub-airsquats"' -and $script:filter -match 'files\["airsquats\.json"\]' -and $script:calls[0] -match '--paginate') 'and the search reads every page of the account''s gists, for that description and that file'
     $local = Use-AirsquatsFile -Change { param($s) $s }
     Assert-True ($local.gist -eq 'abcdef0123456789' -and -not $local.syncError -and $local.syncedAt -gt 0) 'the machine remembers the gist, and that the sync landed'
 
@@ -137,7 +139,18 @@ try {
     $script:calls.Clear()
     [void](Sync-AirsquatsGist -Gh $fake)
     Assert-True (-not ($script:calls -match '\.\.')) 'a pinned gist id that is not an id is never put in a gh call'
+    $env:DKJ_HUB_AIRSQUATS_GIST = "abcdef0123456789`n"
+    $script:calls.Clear()
+    [void](Sync-AirsquatsGist -Gh $fake)
+    Assert-True (-not ($script:calls -match "`n")) 'nor one carrying a trailing newline'
     $env:DKJ_HUB_AIRSQUATS_GIST = ''
+
+    Write-Host '-- a gist is bounded input' -ForegroundColor Cyan
+    $now = Get-AirsquatsNow
+    $future = ConvertTo-AirsquatsState ('{"hours":[' + ([Math]::Floor($now / $H) + 48) + ',9223372036854775807],"clearedAt":' + ($now + 30 * 86400000) + '}' | ConvertFrom-Json)
+    Assert-True ($future.hours.Count -eq 0 -and $future.clearedAt -eq 0) 'an hour or a tick-off more than a day ahead is dropped, so it cannot pin or silence the banner'
+    $huge = ConvertTo-AirsquatsState @{ hours = @(1..5000 | ForEach-Object { 490000 + $_ }) }
+    Assert-True ($huge.hours.Count -eq 1000 -and $huge.hours[-1] -eq 491000) 'and at most the first 1000 hours of a list are read'
 } finally {
     $env:DKJ_HUB_STATE_DIR = $oldDir; $env:DKJ_HUB_NO_SYNC = $oldNoSync; $env:DKJ_HUB_AIRSQUATS_GIST = $oldGist
     Remove-Item -LiteralPath $scratch -Recurse -Force -ErrorAction SilentlyContinue
