@@ -1,14 +1,18 @@
 <!doctype html>
 <!--
-  The release-notes page template. build-release-notes-page.ps1 fills in six placeholders, each
-  written in the markup below as the name doubled between at-signs:
+  The release-notes page template. build-release-notes-page.ps1 fills it in once for the index and
+  once for every release's own page, through ten placeholders, each written in the markup below as the
+  name doubled between at-signs:
 
-      PAGE_TITLE     whose releases these are -- the product's name, in the eyebrow and the window title
-      PAGE_SUBTITLE  one line under it: how many releases the page carries
+      WINDOW_TITLE   the browser tab's title
+      PAGE_TITLE     whose releases these are -- the product's name, in the eyebrow
+      PAGE_BACK      on a release's page, the link back to the index; nothing on the index
+      PAGE_HEADING   'Release notes' on the index, the version on a release's page
+      PAGE_SUBTITLE  one line under it: how many releases (index), or the date and chip (a release)
       PAGE_MASTHEAD  the repo's own wordmark(s) above the title, or nothing -- Get-ReleasePageMasthead
       BUILD_STAMP    the date the page was generated, because it is a SNAPSHOT
       RELEASE_DATA   the releases, as JSON, inside a <script type="application/json">
-      RELEASE_ROWS   the index itself: one <details> per release, built server-side
+      PAGE_MAIN      the cards (index), or the note and the way to its neighbours (a release)
       PAGE_STYLE     the repo's own palette, or nothing -- see Get-ReleasePageTheme
 
   THE NAMES ARE LISTED WITHOUT THEIR SIGILS ON PURPOSE, and this comment is where the reason belongs
@@ -19,37 +23,25 @@
   HTML comment. Caught by the position assert in release-notes-page.tests.ps1, which measures WHERE
   the palette lands rather than only that it arrived.
 
-  ONE PAGE, ONE ROW PER RELEASE, ALL OF THEM CLOSED (the design pass, inbound #759). This page used to
-  show ONE release at a time behind a <select> with prev/next buttons. It now shows every release as a
-  collapsed row -- version, live/type chip, title, date -- and the row IS the index. The reasoning is
-  the reader's: somebody opening this wants the shape of a quarter before they want one version, and a
-  picker hides exactly that. Reworked from the hand-edited management edition a consumer had already
-  put through several editorial rounds, offered as reference material on #759.
+  A CARD PER RELEASE, AND A PAGE PER CARD (owner, October 25, 2026). The index is a grid of cards --
+  version, live/type chip, title, date -- and each card leads to that release's own page, which carries
+  the note. Before this the index was one collapsed row per release with the note folded inside it
+  (inbound #759, which had itself replaced a <select> picker), so a release had no address of its own.
+  The reasoning #759 gave still holds and is why the index stays one screen of everything: somebody
+  opening this wants the shape of a quarter before they want one version.
 
-  EVERY ROW STARTS CLOSED, which was that consumer's own last correction: four expanded notes at the
-  top buried the other thirty-six.
+  WHAT CAME ACROSS FROM THE ROWS (inbound #811, #813, #816): the type chip renders only where the type
+  VARIES, the version label drops a trailing '.0' where every release has one, and the note's own
+  metadata block is not rendered because the page's heading already says all of it. All three are the
+  builder's, not this file's. The note in the repository keeps its heading and its Date/Type lines,
+  because there it is read on its own -- which is why no note already published needed rewriting.
 
-  THE SECOND PASS (inbound #811, #813, #816), all of it from the same consumer reading the deployed
-  page. Five of the seven asks were subtractive and the reasoning behind each sits at the rule it
-  changed: the chevron moved to the trailing edge and stopped reserving a gutter, the sheet's top margin
-  became responsive, an open row's summary sticks so a phone reader can close it, the type chip renders
-  only where the type VARIES, the version label drops a trailing '.0' where every release has one, and
-  the note's own metadata block is no longer rendered here because the row above it already says all of
-  it. The last two are the builder's, not this file's.
-
-  WHAT THE SUPPRESSION DOES NOT TOUCH IS THE DOCUMENT. The note in the repository keeps its heading and
-  its Date/Type lines, because there it is read on its own with no row above it. This page is a reading
-  copy, so it renders what the reader does not already have -- which is also why the forty notes already
-  published needed no rewriting for any of this.
-
-  THE INDEX IS BUILT SERVER-SIDE AND THE BODIES ARE NOT, which is the one deliberate half-measure here.
-  Version, date, type and title all come from the history table, so the whole index is static HTML and
-  reads with JavaScript switched off or broken -- where this page previously rendered nothing at all.
-  The note BODIES are markdown and are still rendered in the browser by the small renderer below, on
-  first open. Rendering them at build time would need a markdown implementation in PowerShell beside
-  the one here, i.e. two renderers for one format; that is a bigger change than a design pass, and the
-  reference edition sidestepped it by being hand-written. Stated rather than hidden: without JavaScript
-  you get the complete index and empty notes, and the <noscript> line says so on the page itself.
+  THE INDEX IS STATIC AND THE NOTE IS NOT, which is the one deliberate half-measure here. The cards come
+  from the history table, so the index reads with JavaScript switched off. The note BODY is markdown and
+  is rendered in the browser by the small renderer below; rendering it at build time would need a
+  markdown implementation in PowerShell beside the one here, i.e. two renderers for one format. Stated
+  rather than hidden: without JavaScript a release's page has its heading and its neighbours but no
+  note, and the <noscript> line on that page says so.
 
   PAGE_STYLE SITS AFTER THE DARK-MODE BLOCK ON PURPOSE, so a repo's own values win over both the light
   and the dark defaults rather than being overridden by whichever matched last. A brand with no dark
@@ -78,7 +70,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>@@PAGE_TITLE@@ &middot; release notes</title>
+<title>@@WINDOW_TITLE@@</title>
 <style>
   :root {
     color-scheme: light dark;
@@ -165,21 +157,17 @@
   .chip.accent { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
 
   .noscript {
-    margin: 1.75rem 0 0; padding: .8rem 1rem;
+    margin: 0 0 1rem; padding: .8rem 1rem;
     background: var(--accent-soft); border-left: 3px solid var(--accent);
     color: var(--ink); font-size: .9rem;
   }
   .noscript p { margin: 0; }
 
-  /* ---------- the index ----------
-     THE SHEET IS A PANEL AND THE PAGE BEHIND IT IS NOT, which is what makes a long list read as one
-     document rather than as a wall. */
+  /* ---------- the panel ----------
+     THE SHEET IS A PANEL AND THE PAGE BEHIND IT IS NOT, which is what makes a long note read as one
+     document rather than as a wall. On a release's page it is the note itself. */
   .sheet {
-    /* NO TOP MARGIN AT ALL (Dave, August 21, 2026). It was 2rem, over the masthead's own 1.5rem of bottom
-       padding -- 3.5rem of air above a list, at every width, since the narrow query reduced the padding
-       around it and never this. #811 asked for the margin to become responsive; the answer it settled on
-       is that the masthead's own padding is the separation and the margin was never doing anything the
-       page needed. Removing it beats shrinking it: one value fewer to keep in step with the other. */
+    /* NO TOP MARGIN AT ALL (Dave, August 21, 2026): the masthead's own padding is the separation. */
     margin: 0;
     background: var(--panel);
     border: 1px solid var(--line);
@@ -187,89 +175,61 @@
     padding: .5rem 1.75rem 1rem;
   }
 
-  .fold { border-top: 1px solid var(--line); }
-  .fold:first-child { border-top: 0; }
+  /* ---------- the index: a grid of cards ----------
+     ONE CARD PER RELEASE, each a link to that release's own page (owner, October 25, 2026). The columns
+     fill the width they are given, so the same rule is one column on a phone and three or four on a
+     desktop, and a page whose width a reader picks (below) needs nothing of its own.
 
-  /* A GRID, SO THE FIELDS LINE UP DOWN THE WHOLE LIST: version, title, date, chevron.
-
-     THE CHEVRON IS AN ::after AND SITS IN THE LAST COLUMN (inbound #811, asks 2 and 3). It used to be
-     a ::before in column 1, which reserved 1rem plus a .9rem gap AHEAD of every row -- 1.9rem, and the
-     narrow query kept both. On a 390px phone that is 9.4% of the usable text width spent on a glyph, and
-     it was spent where space is scarcest. A trailing chevron reserves nothing ahead of the text, so the
-     version now starts at the left edge and the article indent below matches the title column exactly. */
-  .fold > summary {
+     THE DATE SITS AT THE FOOT OF EVERY CARD. The title takes the slack between the head and the date, so
+     cards side by side line their dates up whatever their titles' lengths. */
+  .cards {
     display: grid;
-    /* THE VERSION COLUMN HUGS ITS CONTENT (Dave, August 21, 2026). It was a stated 4.25rem, then 6.5rem
-       once the label became 'Version 2.39' instead of 'v2.39' -- and a number that has to be raised
-       whenever the label gets longer is a number that will one day be too small, silently, with the
-       version wrapping or colliding on a page management reads. 'auto' is one track shared by every row,
-       so the column is still as straight down the list as a fixed width made it; it is simply as wide as
-       the widest label rather than as wide as somebody guessed. */
-    grid-template-columns: auto 1fr auto auto;
-    column-gap: .9rem; row-gap: .15rem;
-    align-items: baseline;
-    padding: .85rem .15rem;
-    cursor: pointer;
-    list-style: none;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: 1rem;
   }
-  .fold > summary::-webkit-details-marker { display: none; }
-
-  .fold > summary::after {
-    content: "";
-    grid-column: 4; grid-row: 1;
-    width: .45rem; height: .45rem;
-    border-right: 1.5px solid var(--ink-faint);
-    border-bottom: 1.5px solid var(--ink-faint);
-    transform: rotate(-45deg);
-    transform-origin: 60% 60%;
-    align-self: center;
-    transition: transform .15s ease;
-  }
-  .fold[open] > summary::after { transform: rotate(45deg); }
-
-  .fold .sv {
-    grid-column: 1; grid-row: 1;
-    font-variant-numeric: tabular-nums; font-weight: 650; font-size: .85rem; color: var(--accent);
-  }
-  .fold .sd {
-    grid-column: 3; grid-row: 1;
-    font-size: .8rem; color: var(--ink-faint);
-    font-variant-numeric: tabular-nums; white-space: nowrap;
-  }
-  /* THE CHIP SITS IN THE FLEXIBLE COLUMN, hard against the version, which is what lets it cost nothing on
-     the rows that do not have one: no track of its own, so no row pays a gap for another row's chip. It
-     had to be written twice while the title held column 2 -- a grid cannot move an inline child of one
-     cell into another -- and taking the title out of the summary retired that. */
-  .fold .sc { grid-column: 2; grid-row: 1; justify-self: start; }
-
-  .fold > summary:hover .sv { color: var(--ink); }
-  .fold > summary:hover::after { border-color: var(--accent); }
-  .fold > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: .4rem; }
-
-  /* AN OPEN ROW'S SUMMARY STICKS (inbound #811, ask 7), and it is pure CSS on purpose. The only control
-     that closes a <details> is its own <summary>, and a reader who has read into a note is one to six
-     phone screens below it -- median note 317 words, longest 1,018. Their only exit was to scroll back
-     up through everything they had just read, on a page whose whole premise is "open a row to read it".
-     Sticky keeps that control in reach without a line of script, so the page keeps reading with
-     JavaScript off, which the template treats as load-bearing. */
-  .fold[open] > summary {
-    position: sticky; top: 0; z-index: 2;
+  .card {
+    display: flex; flex-direction: column; gap: .45rem;
+    padding: 1rem 1.1rem 1.05rem;
     background: var(--panel);
-    box-shadow: 0 1px 0 var(--line);
+    border: 1px solid var(--line);
+    border-radius: .75rem;
+    color: var(--ink); text-decoration: none;
+    transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
   }
+  .card:hover { border-color: var(--accent); box-shadow: 0 4px 14px rgba(0, 0, 0, .07); transform: translateY(-1px); }
+  .card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* A link somebody already holds, '#v2.39.0', still lands on its card where JavaScript is off. */
+  .card:target { border-color: var(--accent); }
+  .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; }
+  .card .ct { flex: 1; font-weight: 600; line-height: 1.4; }
 
-  /* THE NOTE STARTS AT THE ROW'S OWN LEFT EDGE, at both widths. It used to be indented to line up with
-     the title column, and there is no title column any more -- and once the version column hugs its
-     content there is no fixed number left to line up WITH either. A stated indent would be a third
-     magic value tracking the first two. What says the note belongs to the row above it is the sticky
-     summary and the rule between rows, not 7.4rem of blank space.
+  .sv { font-variant-numeric: tabular-nums; font-weight: 650; font-size: .85rem; color: var(--accent); }
+  .sd { font-size: .8rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-     THE TOP PADDING IS THE NOTE'S OWN BREATHING ROOM (Dave, August 21, 2026), and it lives on the article
-     rather than on the first paragraph's margin: the first element of a note is a paragraph today, and can
-     just as well be a heading or a list, so putting the space here means it does not depend on which. The
-     first child's own margin is still reset, because otherwise the two would add up. */
-  .fold article { padding: 1.1rem 0 1.75rem .15rem; }
-  .fold article > :first-child { margin-top: 0; }
+  /* ---------- a release's own page ----------
+     THE WAY BACK SITS ABOVE THE EYEBROW, where a reader who arrived from a link looks for where they are.
+     The heading is the version and the line under it the date and the chip, so the note below starts on
+     its own title rather than on a restatement of the page's. */
+  .back { display: inline-block; margin: 0 0 1rem; font-size: .85rem; color: var(--accent); text-decoration: none; }
+  .back:hover { text-decoration: underline; }
+  header.masthead p .chip { margin-left: .4rem; }
+  .sheet.note { padding: 1.5rem 1.75rem 1.75rem; }
+  .note > :first-child { margin-top: 0; }
+
+  /* OLDER AND NEWER, at the foot of the note: the newer one always on the right, so the pair reads as a
+     timeline even where only one of the two exists. */
+  .pager { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.25rem; }
+  .pager a {
+    display: flex; flex-direction: column; gap: .2rem;
+    padding: .85rem 1.1rem;
+    background: var(--panel); border: 1px solid var(--line); border-radius: .75rem;
+    color: var(--ink); text-decoration: none;
+  }
+  .pager a:hover { border-color: var(--accent); }
+  .pager a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .pager .ct { font-size: .9rem; color: var(--ink-soft); }
+  .pager-newer { grid-column: 2; text-align: right; align-items: flex-end; }
+  .pager-dir { font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-faint); }
 
   /* ---------- the note itself ---------- */
   article h1 { font-size: 1.35rem; letter-spacing: -.015em; margin: 0 0 .5rem; line-height: 1.25; }
@@ -312,22 +272,18 @@
   footer.colophon p { margin: .35rem 0; max-width: 70ch; }
 
   /* ---------- narrow ----------
-     ONE LINE AT EVERY WIDTH, which is what taking the title out of the summary bought (Dave,
-     August 21, 2026). The three-row reflow that #811 asked for existed because the title was the longest
-     field and needed a line of its own on a phone; with the title in the note instead, the whole row is a
-     version, a date and at most one chip -- about 16rem of the 20rem a 390px phone has, so it fits
-     without reflowing at all. What stays here is the spacing: less padding, a smaller masthead, and the
-     sheet margin that used not to move. */
+     The cards need nothing here -- their grid drops to one column on its own. What changes is the
+     spacing: less padding, a smaller masthead, and the older/newer pair stacked, newer first. */
   @media (max-width: 38rem) {
     .wrap { padding: 0 .9rem 3rem; }
     header.masthead { padding-top: 2rem; }
     header.masthead h1 { font-size: 1.7rem; }
     header.masthead .marks img { height: 1.35rem; }
-    .fold > summary { padding: .7rem .15rem .85rem; }
-    /* No margin override here any more: the base rule is 0, so there is nothing left to shrink. What
-       remains is the padding, which is the part a phone genuinely wants smaller. */
+    .cards { gap: .75rem; }
     .sheet { padding: .25rem 1rem .75rem; border-radius: .6rem; }
-    .fold article { padding: 1rem 0 1.4rem .15rem; }
+    .sheet.note { padding: 1.1rem 1rem 1.3rem; }
+    .pager { grid-template-columns: 1fr; }
+    .pager-newer { grid-column: auto; grid-row: 1; }
     header.masthead .marks { margin-bottom: .9rem; }
   }
 </style>
@@ -336,23 +292,14 @@
 <div class="wrap">
 
   <header class="masthead">
+@@PAGE_BACK@@
     <span class="eyebrow">@@PAGE_TITLE@@</span>
 @@PAGE_MASTHEAD@@
-    <h1>Release notes</h1>
-    <p>@@PAGE_SUBTITLE@@ Every release is a row; open one to read it.</p>
+    <h1>@@PAGE_HEADING@@</h1>
+    <p>@@PAGE_SUBTITLE@@</p>
   </header>
 
-  <noscript>
-    <div class="noscript">
-      <p>The index below reads without JavaScript &mdash; version, title and date all come from the
-         repository&rsquo;s own release history. The note <em>bodies</em> are rendered in the browser,
-         so with JavaScript off a row opens empty. The repository is the source either way.</p>
-    </div>
-  </noscript>
-
-  <div class="sheet" id="folds">
-@@RELEASE_ROWS@@
-  </div>
+@@PAGE_MAIN@@
 
   <footer class="colophon">
     <p>Generated from the release notes in the repository on @@BUILD_STAMP@@. This page is a
@@ -535,69 +482,38 @@
   }
 
   // --- the page -------------------------------------------------------------------------------
-  // THE INDEX IS ALREADY ON THE PAGE. Every row was written server-side from the release history, so
-  // there is nothing here that builds structure -- this only fills a note's body the first time its
-  // row is opened. That division is the whole reason the page survives without this script: what is
-  // missing then is prose, not navigation.
+  // THE STRUCTURE IS ALREADY ON THE PAGE. The cards and a release's heading and neighbours were all
+  // written server-side from the release history, so nothing here builds structure: on a release's page
+  // this fills the note, and on the index it forwards an old link. That division is the whole reason the
+  // pages survive without this script -- what is missing then is prose, not navigation.
 
   var bodies = {};
   DATA.releases.forEach(function (r) { bodies[r.version] = r.body; });
 
-  // LAZY, AND CACHED BY THE DOM ITSELF. Rendering forty notes at load would be work nobody asked
-  // for; rendering on every toggle would redo it each time a reader closes and reopens a row. The
-  // 'data-rendered' attribute is the cache, which means the cache cannot drift from what is shown.
-  function fill(el) {
-    if (el.getAttribute('data-rendered') === '1') { return; }
-    var version = el.getAttribute('data-version');
-    var md = bodies[version];
-    // A row with no body in the data is a build-time inconsistency rather than a reader's problem:
-    // say so in place instead of leaving an empty panel that looks like a rendering failure.
+  // A release's page carries exactly one note, so it is rendered at once.
+  Array.prototype.slice.call(document.querySelectorAll('article[data-version]')).forEach(function (el) {
+    var md = bodies[el.getAttribute('data-version')];
+    // A page with no body in its data is a build-time inconsistency rather than a reader's problem: say
+    // so in place instead of leaving an empty panel that looks like a rendering failure.
     el.innerHTML = md ? renderMd(md) : '<p>This release has no note in the repository.</p>';
-    el.setAttribute('data-rendered', '1');
-  }
-
-  var folds = Array.prototype.slice.call(document.querySelectorAll('details.fold'));
-  folds.forEach(function (fold) {
-    var article = fold.querySelector('article');
-    if (!article) { return; }
-    fold.addEventListener('toggle', function () {
-      if (fold.open) { fill(article); return; }
-      // CLOSING PUTS THE READER BACK ON THE ROW THEY OPENED. Without this, reading to the end of a note
-      // and closing it leaves the viewport wherever the text used to be -- the document has just got a
-      // screen or six shorter, so the reader lands in the middle of the index with no idea which row was
-      // theirs and has to scroll back up hunting for it. Reported by Dave, and it is the other half of the
-      // sticky summary: that gives them a way to close it, this says where closing leaves them.
-      //
-      // ONLY WHEN THE ROW HAS SCROLLED OFF THE TOP. Closing a row that is already in view moves nothing,
-      // because a jump the reader did not ask for is its own annoyance. Instant rather than smooth: this
-      // is restoring a position, not travelling to a new one, and an animation here reads as the page
-      // moving on its own.
-      if (fold.getBoundingClientRect().top < 0) { fold.scrollIntoView({ block: 'start' }); }
-    });
-    // Already open before this script ran -- a deep link, or a browser restoring state.
-    if (fold.open) { fill(article); }
   });
 
-  // DEEP LINK: the fragment '#v4.11.0' opens that release and scrolls to it. The id is on the
-  // <details>, so the browser has already scrolled by the time this runs; what it cannot do is open
-  // a closed element, which is the only part left here. An unknown fragment does nothing at all --
-  // the whole index is on the page, so there is no empty state to fall back FROM.
-  function openFromHash() {
+  // AN OLD LINK FORWARDS TO THE RELEASE'S OWN PAGE. Before every release had a page, a link to one was
+  // the index with a fragment, '#v4.11.0' -- and those links are in people's hands. The card keeps that
+  // id, so the fragment still finds it; this follows the card's own link, replacing the history entry so
+  // Back returns to wherever the reader came from rather than to the bare index.
+  function followHash() {
     var raw = (location.hash || '').replace(/^#/, '');
     if (!raw) { return; }
     var el = document.getElementById(raw);
-    // THE ID KEEPS THE FULL SEMVER, THE LABEL DOES NOT (inbound #813). Where every release on the page
-    // ends in '.0' the visible version reads 'Version 2.39', so a fragment somebody assembles from what
-    // the page shows is two characters short of the id. The id itself is never trimmed -- every link
-    // anyone already holds has to keep working -- so this is the one place that accepts both spellings.
+    // THE ID KEEPS THE FULL SEMVER, THE LABEL DOES NOT (inbound #813). Where every release ends in '.0'
+    // the visible version reads 'Version 2.39', so a fragment assembled from what the page shows is two
+    // characters short of the id; this is the one place that accepts both spellings.
     if (!el && /^v\d+\.\d+$/.test(raw)) { el = document.getElementById(raw + '.0'); }
-    if (el && el.tagName === 'DETAILS' && !el.open) {
-      el.open = true;
-      el.scrollIntoView({ block: 'start' });
-    }
+    if (el && el.tagName === 'A' && /(^|\s)card(\s|$)/.test(el.className)) { location.replace(el.href); }
   }
-  window.addEventListener('hashchange', openFromHash);
-  openFromHash();
+  window.addEventListener('hashchange', followHash);
+  followHash();
 })();
 </script>
 </body>

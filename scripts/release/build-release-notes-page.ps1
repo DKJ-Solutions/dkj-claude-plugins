@@ -8,8 +8,8 @@
     for somebody outside the development work, and it lives as markdown inside the repository --
     which is the right home for it and the wrong place to read it. A reader who is not a developer
     has to find a directory, pick a version, and read raw markdown in a code host. This builds those
-    same documents into one page with a picker per release, and puts that page somewhere they can
-    open.
+    same documents into an index of cards, one per release, and a page of its own for every release
+    (owner, October 25, 2026), and puts them somewhere they can open.
 
     GENERATED, NOT EDITED, and that is the design decision to know before changing anything here.
     The consumer this was ported from (smartwatchbanden) keeps TWO pages: a generated archive of
@@ -42,7 +42,8 @@
         it is the serializer's behaviour and not a documented guarantee, and the failure is silent:
         the page renders empty.
 
-    WHAT IT WRITES. The page always. With -Worker, also worker.js and (only when absent) a
+    WHAT IT WRITES. The index always, and beside it a folder of the same name holding one page per
+    release (release-notes\v2.39.0.html). With -Worker, also worker.js and (only when absent) a
     wrangler.toml beside it, in a 'page' directory next to the note root. None of the output belongs
     in version control -- it is a derivative of documents that are already tracked -- so that
     directory carries a '*' .gitignore of its own, written when absent (#3431).
@@ -92,6 +93,10 @@
 .PARAMETER RootOverride
     Test seam -- the repo root to read instead of this one. A consumer never types it.
 
+.PARAMETER LinkBase
+    The address the index is served at, which the links between the pages carry. Defaults to
+    '/release-notes', where both hubs serve it; the Worker bundle is built for its own route regardless.
+
 .EXAMPLE
     ./scripts/release/build-release-notes-page.ps1
     Builds the page and reports where it is.
@@ -107,7 +112,8 @@ param(
     [string]$OutFile,
     [switch]$Worker,
     [switch]$InitToken,
-    [string]$RootOverride
+    [string]$RootOverride,
+    [string]$LinkBase = '/release-notes'
 )
 
 Set-StrictMode -Version Latest
@@ -551,26 +557,35 @@ if ($releases.Count -eq 0) {
 }
 
 # --- 3. Into the template -------------------------------------------------------------------------
-$json = ([ordered]@{ documentCount = $releases.Count; releases = $releases } | ConvertTo-Json -Depth 6 -Compress)
+# ONE INDEX AND ONE PAGE PER RELEASE, all from this one template (owner, October 25, 2026). The index is
+# a grid of cards, each linking to its release's own page; that page carries the note. The pages are
+# built here, not in a browser, so every release has an address a reader can send.
+function ConvertTo-ReleaseDataJson {
+    <#
+        Pure: a page's data block, as JSON that cannot close its own <script> element.
 
-# ASSERTED, NOT TRUSTED. The data block is a <script> element, so an unescaped closing script tag
-# inside any note would end it early and the page would render empty -- with nothing failing here.
-# Windows PowerShell 5.1 escapes the angle brackets, and this is the assert that says so out loud
-# for whoever changes the serializer.
-if ($json -match '<') {
-    throw ('The serialized release data contains a raw "<". That would let a note close the page' +
-           ' data block early. Escape it before writing the page.')
+        ASSERTED, NOT TRUSTED. The data block is a <script> element, so an unescaped closing script tag
+        inside any note would end it early and the page would render empty -- with nothing failing here.
+        Windows PowerShell 5.1 escapes the angle brackets, and this is the assert that says so out loud
+        for whoever changes the serializer.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyCollection()][array]$Releases)
+    $json = ([ordered]@{ documentCount = $Releases.Count; releases = $Releases } | ConvertTo-Json -Depth 6 -Compress)
+    if ($json -match '<') {
+        throw ('The serialized release data contains a raw "<". That would let a note close the page' +
+               ' data block early. Escape it before writing the page.')
+    }
+    return $json
 }
 
-$subtitle = "$($releases.Count) release$(if ($releases.Count -ne 1) {'s'}), newest first."
 $stamp    = (Get-Date).ToString('yyyy-MM-dd')
 
 $template = [System.IO.File]::ReadAllText($templatePath, [System.Text.Encoding]::UTF8)
-foreach ($needle in @('@@PAGE_TITLE@@', '@@PAGE_SUBTITLE@@', '@@PAGE_MASTHEAD@@', '@@BUILD_STAMP@@', '@@RELEASE_DATA@@', '@@PAGE_STYLE@@', '@@RELEASE_ROWS@@')) {
+foreach ($needle in @('@@PAGE_TITLE@@', '@@WINDOW_TITLE@@', '@@PAGE_BACK@@', '@@PAGE_HEADING@@', '@@PAGE_SUBTITLE@@', '@@PAGE_MASTHEAD@@', '@@BUILD_STAMP@@', '@@RELEASE_DATA@@', '@@PAGE_STYLE@@', '@@PAGE_MAIN@@')) {
     if ($template -notmatch [regex]::Escape($needle)) { throw "The template no longer carries $needle." }
 }
 
-# The three text placeholders are HTML-escaped; the data placeholder is JSON and is escaped already.
+# The text placeholders are HTML-escaped; the data placeholder is JSON and is escaped already.
 function ConvertTo-HtmlText {
     param([string]$Value)
     return ($Value -replace '&', '&amp;' -replace '<', '&lt;' -replace '>', '&gt;')
@@ -721,86 +736,154 @@ function Format-ReleaseDate {
     return $parsed.ToString('d MMM yyyy', [System.Globalization.CultureInfo]::InvariantCulture)
 }
 
-function Format-ReleaseIndexRows {
+function Get-ReleaseChipHtml {
     <#
-        Pure: the index itself -- one collapsed 'details' element per release, as one string.
+        Pure: the one chip a release carries, on its card and on its own page, or ''.
 
-        BUILT HERE RATHER THAN IN THE BROWSER, and that is the design decision this function carries
-        (inbound #759). Version, date, type and title all come from the history table, so the whole
-        index can be static HTML -- which means it reads with JavaScript off or broken, where this page
-        previously rendered nothing at all. Only the note BODIES still need the renderer in the
-        template, and the noscript block on the page says so rather than leaving a reader to work it
-        out from an empty panel.
+        ONE CHIP AT MOST: 'LIVE' where the history table marks it -- or, where it marks nothing, on the
+        newest release -- and the bump type otherwise, never both. Forty cards carrying two chips each read
+        as a table of metadata rather than as a list of changes, and the version number already says
+        whether a release was major or patch.
 
-        ONE CHIP PER ROW AT MOST: 'LIVE' where the history table marks it -- or, where it marks nothing,
-        on the newest release -- and the bump type otherwise, never both. Forty rows carrying two chips each read as a table of metadata rather than as a
-        list of changes, and the version number already says whether a release was major or patch.
+        AND THE TYPE CHIP ONLY WHERE IT SAYS SOMETHING (inbound #811). -DominantType is the caller's answer
+        from Get-ReleaseDominantType: a release whose type IS the page's ordinary one renders no chip, one
+        that differs does. Read that function for why 'more than one value' was measured and rejected as
+        the test. The 'live' chip is never suppressed.
+    #>
+    param(
+        [Parameter(Mandatory)]$Release,
+        [AllowEmptyString()][string]$DominantType = '',
+        [AllowEmptyString()][string]$LiveFallbackVersion = ''
+    )
+    # The marker where the table carries one, the newest release where it carries none -- see
+    # Get-ReleaseLiveFallbackVersion for why the second half is derived and what it defers to.
+    if ($Release.live -or ($LiveFallbackVersion -and ([string]$Release.version) -eq $LiveFallbackVersion)) {
+        return '<span class="chip accent sc">LIVE</span>'
+    }
+    $type = ([string]$Release.type).Trim()
+    if ($type -and $type -ne $DominantType) { return '<span class="chip sc">' + (ConvertTo-HtmlText $type) + '</span>' }
+    return ''
+}
 
-        AND THE TYPE CHIP ONLY WHERE IT SAYS SOMETHING (inbound #811). -DominantType is the caller's
-        answer from Get-ReleaseDominantType: a row whose type IS the page's ordinary one renders no chip,
-        a row that differs does. Read that function for why 'more than one value' was measured and
-        rejected as the test. The 'live' chip is never suppressed.
+function Get-ReleasePageHref {
+    <#
+        Pure: the address of one release's own page -- '<base>/v2.39.0'.
 
-        THE TITLE IS NOT IN THE SUMMARY (Dave, August 21, 2026, reading the built page). The row is the
-        version, the date, a chip where it says something, and the chevron; the release title lives in the
-        note, which is where he asked for it. That also retired the two-span chip trick this function
-        carried for one afternoon -- with no title cell to nest in, the chip is one span sitting in the
-        flexible column, so no row pays for a track another row uses and no copy is hidden by CSS.
+        THE FULL SEMVER, as the old deep-link id was: it is the address people will send, and the visible
+        label may be shorter (Format-ReleaseVersionLabel) without the two ever having to agree. -LinkBase is
+        where the index is served: '/release-notes' on a hub, '/notes/<token>' in the Worker.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$LinkBase,
+        [Parameter(Mandatory)][string]$Version
+    )
+    return $LinkBase.TrimEnd('/') + '/v' + $Version.Trim()
+}
 
-        THE ID IS THE DEEP-LINK TARGET and is written 'v4.11.0' verbatim rather than slugified,
-        because it is what the fragment in a link people already hold has to match. The visible LABEL may
-        be shorter -- see Format-ReleaseVersionLabel -- and the two are deliberately allowed to differ.
+function Format-ReleaseIndexCards {
+    <#
+        Pure: the index itself -- one card per release, each a link to that release's own page.
+
+        A CARD PER RELEASE, AND A PAGE PER CARD (owner, October 25, 2026). The index used to be one
+        collapsed row per release with the note folded inside it, so a release had no address of its own
+        -- only a fragment on one long page. Each release is now a card here and a page of its own, built
+        by the same run, so nothing has to be added by hand when a release is cut.
+
+        THE TITLE IS BACK ON THE INDEX, and that does not reverse the August 21 decision that took it out
+        of the row. That decision removed a duplicate: the opened note began with the sentence the row had
+        just shown. A card no longer opens in place -- it leads to a page -- so on the index the title is
+        the one line that says what a release is, and on the release's page the note still opens with it.
+
+        STATIC HTML, as the rows were (inbound #759). Version, title, date and chip all come from the
+        history table, so the index reads with JavaScript switched off -- and since the cards carry no note
+        body, it now needs no JavaScript at all.
+
+        THE ID STAYS ON THE CARD, written 'v4.11.0' verbatim. It is what the fragment in a link people
+        already hold has to match: without JavaScript that link still scrolls to the card, and with it the
+        page forwards the reader to the release's own page.
 
         EVERY FIELD IS ESCAPED. A title comes out of a markdown table in the repository and may
-        legitimately carry an ampersand or a quote; unescaped, one of those ends an attribute or
-        invents an entity. The body is NOT here -- it travels as JSON and is rendered client-side.
+        legitimately carry an ampersand or a quote; unescaped, one of those ends an attribute or invents an
+        entity.
     #>
     param(
         [Parameter(Mandatory)][AllowEmptyCollection()][array]$Releases,
+        [Parameter(Mandatory)][string]$LinkBase,
         [AllowEmptyString()][string]$DominantType = '',
         [AllowEmptyString()][string]$LiveFallbackVersion = '',
         [bool]$TrimVersion = $false
     )
 
-    $rows = New-Object System.Collections.Generic.List[string]
+    if ($Releases.Count -eq 0) { return '    <p>No release on this page carries a note yet.</p>' }
+    $cards = New-Object System.Collections.Generic.List[string]
+    $cards.Add('    <div class="cards" id="cards">')
     foreach ($r in $Releases) {
-        $id      = 'v' + [string]$r.version
+        $id      = ConvertTo-HtmlText ('v' + [string]$r.version)
+        $href    = ConvertTo-HtmlText (Get-ReleasePageHref -LinkBase $LinkBase -Version ([string]$r.version))
         $version = ConvertTo-HtmlText (Format-ReleaseVersionLabel -Version ([string]$r.version) -Trim $TrimVersion)
         $title   = ConvertTo-HtmlText ([string]$r.title)
         $date    = ConvertTo-HtmlText (Format-ReleaseDate -Raw ([string]$r.date))
-
-        $chipClass = ''
-        $chipText  = ''
-        # The marker where the table carries one, the newest release where it carries none -- see
-        # Get-ReleaseLiveFallbackVersion for why the second half is derived and what it defers to.
-        if ($r.live -or ($LiveFallbackVersion -and ([string]$r.version) -eq $LiveFallbackVersion)) {
-            $chipClass = 'chip accent'
-            $chipText  = 'LIVE'
-        } elseif (([string]$r.type).Trim() -and ([string]$r.type).Trim() -ne $DominantType) {
-            $chipClass = 'chip'
-            $chipText  = ConvertTo-HtmlText ([string]$r.type)
-        }
-        $chip = if ($chipText) { '<span class="' + $chipClass + ' sc">' + $chipText + '</span>' } else { '' }
-
-        # THE TITLE TRAVELS AS THE ROW'S ACCESSIBLE NAME, not as visible text. A summary reading only
-        # 'Version 2.39' and a date is thin for anyone navigating by control rather than by eye, and the
-        # title is the one string that says what the row is -- so it goes on the element as a title
-        # attribute, where it costs no width and is still announced and shown on hover.
-        $rows.Add('    <details class="fold" id="' + (ConvertTo-HtmlText $id) + '">')
-        $rows.Add('      <summary title="' + $title + '"><span class="sv">' + $version + '</span>' +
-                  $chip +
-                  '<span class="sd">' + $date + '</span></summary>')
-        $rows.Add('      <article data-version="' + (ConvertTo-HtmlText ([string]$r.version)) + '"></article>')
-        $rows.Add('    </details>')
+        $chip    = Get-ReleaseChipHtml -Release $r -DominantType $DominantType -LiveFallbackVersion $LiveFallbackVersion
+        $cards.Add('      <a class="card" id="' + $id + '" href="' + $href + '">')
+        $cards.Add('        <span class="card-head"><span class="sv">' + $version + '</span>' + $chip + '</span>')
+        $cards.Add('        <span class="ct">' + $title + '</span>')
+        $cards.Add('        <span class="sd">' + $date + '</span>')
+        $cards.Add('      </a>')
     }
-    if ($rows.Count -eq 0) { return '    <p>No release on this page carries a note yet.</p>' }
-    return ($rows -join "`n")
+    $cards.Add('    </div>')
+    return ($cards -join "`n")
 }
 
-# THE TWO PAGE-WIDE ANSWERS, DERIVED ONCE FROM THE LIST RATHER THAN PER ROW: whether the bump type
-# carries information here at all, and whether every version on this page ends in '.0'. Both are
-# properties of the SET, so neither can be decided inside the row loop -- and both are read off the data
-# instead of a seam, which is what makes them right for a consumer whose bump policy differs or changes.
+function Format-ReleasePageMain {
+    <#
+        Pure: the body of one release's own page -- the note, and the way to the releases beside it.
+
+        THE NOTE IS AN EMPTY ARTICLE THE RENDERER FILLS, which is the one half-measure this page keeps. The
+        note is markdown, and rendering it here would need a second markdown implementation in PowerShell
+        beside the one in the template -- two renderers for one format. So without JavaScript the page has
+        its heading, its date and its neighbours, and the noscript line says why the note is missing.
+
+        OLDER AND NEWER, NOT PREVIOUS AND NEXT. The list is newest first, so 'next' would mean older on the
+        index and newer in time; a reader is never asked to work out which.
+    #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyCollection()][array]$Releases,
+        [Parameter(Mandatory)][int]$Index,
+        [Parameter(Mandatory)][string]$LinkBase,
+        [bool]$TrimVersion = $false
+    )
+    $r = $Releases[$Index]
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add('    <noscript>')
+    $lines.Add('      <div class="noscript">')
+    $lines.Add('        <p>The note itself is rendered in the browser, so with JavaScript off it stays empty. The')
+    $lines.Add('           repository is the source either way.</p>')
+    $lines.Add('      </div>')
+    $lines.Add('    </noscript>')
+    $lines.Add('    <article class="sheet note" data-version="' + (ConvertTo-HtmlText ([string]$r.version)) + '"></article>')
+
+    $pager = New-Object System.Collections.Generic.List[string]
+    foreach ($side in @(@{ At = $Index + 1; Class = 'pager-older'; Dir = '&larr; Older' }, @{ At = $Index - 1; Class = 'pager-newer'; Dir = 'Newer &rarr;' })) {
+        if ($side.At -lt 0 -or $side.At -ge $Releases.Count) { continue }
+        $n = $Releases[$side.At]
+        $pager.Add('      <a class="' + $side.Class + '" href="' + (ConvertTo-HtmlText (Get-ReleasePageHref -LinkBase $LinkBase -Version ([string]$n.version))) + '">' +
+                   '<span class="pager-dir">' + $side.Dir + '</span>' +
+                   '<span class="sv">' + (ConvertTo-HtmlText (Format-ReleaseVersionLabel -Version ([string]$n.version) -Trim $TrimVersion)) + '</span>' +
+                   '<span class="ct">' + (ConvertTo-HtmlText ([string]$n.title)) + '</span></a>')
+    }
+    if ($pager.Count -gt 0) {
+        $lines.Add('    <nav class="pager" aria-label="Other releases">')
+        foreach ($p in $pager) { $lines.Add($p) }
+        $lines.Add('    </nav>')
+    }
+    return ($lines -join "`n")
+}
+
+# THE PAGE-WIDE ANSWERS, DERIVED ONCE FROM THE LIST RATHER THAN PER CARD: whether the bump type carries
+# information here at all, which release is live where the table marks none, and whether every version on
+# this page ends in '.0'. All three are properties of the SET, so none can be decided inside the loop --
+# and all are read off the data instead of a seam, which is what makes them right for a consumer whose
+# bump policy differs or changes.
 $dominantType = Get-ReleaseDominantType           -Releases $releases
 $liveFallback = Get-ReleaseLiveFallbackVersion -Releases $releases
 $trimVersion  = Test-ReleaseVersionTrimmable -Releases $releases
@@ -811,14 +894,69 @@ foreach ($w in $masthead.Warnings) { Write-Warning $w }
 # A light pin removes the dark block before anything is written -- see Test-ReleasePageLightPin.
 if (Test-ReleasePageLightPin -Theme $config.Theme) { $template = Remove-ReleasePageDarkBlock -Template $template }
 
-$page = $template.
-    Replace('@@PAGE_TITLE@@',    (ConvertTo-HtmlText $config.Title)).
-    Replace('@@PAGE_SUBTITLE@@', (ConvertTo-HtmlText $subtitle)).
-    Replace('@@PAGE_MASTHEAD@@', $masthead.Html).
-    Replace('@@BUILD_STAMP@@',   (ConvertTo-HtmlText $stamp)).
-    Replace('@@PAGE_STYLE@@',    (Format-ReleasePageStyle -Theme $config.Theme)).
-    Replace('@@RELEASE_ROWS@@', (Format-ReleaseIndexRows -Releases $releases -DominantType $dominantType -LiveFallbackVersion $liveFallback -TrimVersion $trimVersion)).
-    Replace('@@RELEASE_DATA@@',  $json)
+$pageStyle = Format-ReleasePageStyle -Theme $config.Theme
+
+function Format-ReleasePageFromTemplate {
+    <#
+        One page out of the template: the parts every page shares (the product, the marks, the palette, the
+        stamp) and the parts that differ between the index and a release's page. -WindowTitle, -Subtitle and
+        -Main are markup this script built, every field in them already escaped; -Heading is text.
+    #>
+    param(
+        [string]$WindowTitle, [string]$Back, [string]$Heading, [string]$Subtitle, [string]$Main,
+        [Parameter(Mandatory)][AllowEmptyCollection()][array]$Data
+    )
+    return $template.
+        Replace('@@WINDOW_TITLE@@',  $WindowTitle).
+        Replace('@@PAGE_TITLE@@',    (ConvertTo-HtmlText $config.Title)).
+        Replace('@@PAGE_BACK@@',     $Back).
+        Replace('@@PAGE_HEADING@@',  (ConvertTo-HtmlText $Heading)).
+        Replace('@@PAGE_SUBTITLE@@', $Subtitle).
+        Replace('@@PAGE_MASTHEAD@@', $masthead.Html).
+        Replace('@@BUILD_STAMP@@',   (ConvertTo-HtmlText $stamp)).
+        Replace('@@PAGE_STYLE@@',    $pageStyle).
+        Replace('@@PAGE_MAIN@@',     $Main).
+        Replace('@@RELEASE_DATA@@',  (ConvertTo-ReleaseDataJson -Releases $Data))
+}
+
+function New-ReleasePageSet {
+    <#
+        The whole site for one address: the index, and one page per release keyed by its full version.
+        Called once for the hub's address and, with -Worker, again for the Worker's, because the links
+        between the pages carry the address they are served from.
+    #>
+    param([Parameter(Mandatory)][string]$LinkBase)
+
+    # THE INDEX CARRIES NO NOTE BODY: every card is static and leads elsewhere, so the bodies would only
+    # weigh the page down. Each body travels on its own release's page.
+    $indexData = @($releases | ForEach-Object {
+        [ordered]@{ version = $_.version; date = $_.date; type = $_.type; title = $_.title; live = $_.live }
+    })
+    $count    = $releases.Count
+    $subtitle = ConvertTo-HtmlText "$count release$(if ($count -ne 1) {'s'}), newest first. Every release is a card; open one to read it."
+    $index = Format-ReleasePageFromTemplate -WindowTitle ((ConvertTo-HtmlText $config.Title) + ' &middot; release notes') -Back '' `
+        -Heading 'Release notes' -Subtitle $subtitle -Data $indexData `
+        -Main (Format-ReleaseIndexCards -Releases $releases -LinkBase $LinkBase -DominantType $dominantType -LiveFallbackVersion $liveFallback -TrimVersion $trimVersion)
+
+    $pages = [ordered]@{}
+    $back = '    <a class="back" href="' + (ConvertTo-HtmlText $LinkBase) + '">&larr; All releases</a>'
+    for ($i = 0; $i -lt $releases.Count; $i++) {
+        $r = $releases[$i]
+        $label = Format-ReleaseVersionLabel -Version ([string]$r.version) -Trim $trimVersion
+        $chip  = Get-ReleaseChipHtml -Release $r -DominantType $dominantType -LiveFallbackVersion $liveFallback
+        $sub   = '<span class="sd">' + (ConvertTo-HtmlText (Format-ReleaseDate -Raw ([string]$r.date))) + '</span>' + $(if ($chip) { ' ' + $chip } else { '' })
+        $pages[[string]$r.version] = Format-ReleasePageFromTemplate -WindowTitle ((ConvertTo-HtmlText $label) + ' &middot; ' + (ConvertTo-HtmlText $config.Title) + ' release notes') `
+            -Back $back -Heading $label -Subtitle $sub -Data @($r) `
+            -Main (Format-ReleasePageMain -Releases $releases -Index $i -LinkBase $LinkBase -TrimVersion $trimVersion)
+    }
+    return @{ Index = $index; Pages = $pages }
+}
+
+if ($LinkBase -notmatch '^/[A-Za-z0-9/_.-]*$') {
+    throw "-LinkBase must be a site-absolute path ('/release-notes'), not '$LinkBase'."
+}
+$site = New-ReleasePageSet -LinkBase $LinkBase
+$page = $site.Index
 
 # --- 4. Where the output goes ---------------------------------------------------------------------
 # A 'page' directory beside the note root, derived rather than configured: the note root already
@@ -841,6 +979,16 @@ if (-not (Test-Path -LiteralPath $pageIgnore)) {
 if (-not $OutFile) { $OutFile = Join-Path $pageDir 'release-notes.html' }
 [System.IO.File]::WriteAllText($OutFile, $page, $Utf8NoBom)
 
+# ONE FILE PER RELEASE, in a folder named after the index beside it -- release-notes\v2.39.0.html next to
+# release-notes.html -- so a hub maps '/release-notes/v2.39.0' onto it without a table. A page left there by
+# an earlier build is removed first: a release taken out of the history must not stay reachable.
+$releaseDir = Join-Path (Split-Path -Parent $OutFile) ([System.IO.Path]::GetFileNameWithoutExtension($OutFile))
+if (-not (Test-Path -LiteralPath $releaseDir)) { New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null }
+Get-ChildItem -LiteralPath $releaseDir -Filter 'v*.html' -File -ErrorAction SilentlyContinue | Remove-Item -Force
+foreach ($v in $site.Pages.Keys) {
+    [System.IO.File]::WriteAllText((Join-Path $releaseDir "v$v.html"), $site.Pages[$v], $Utf8NoBom)
+}
+
 Write-Host "== build-release-notes-page ==" -ForegroundColor Cyan
 Write-Host "  releases : $($releases.Count)  (v$($releases[$releases.Count - 1].version) .. v$($releases[0].version))"
 if ($gaps.Count -gt 0) {
@@ -854,6 +1002,7 @@ if ($olderThanTheFirstNote -gt 0) {
     Write-Host "  earlier  : $olderThanTheFirstNote release(s) older than the first note -- not on the page" -ForegroundColor DarkGray
 }
 Write-Host "  page     : $OutFile ($([math]::Round((Get-Item -LiteralPath $OutFile).Length / 1KB)) KB)" -ForegroundColor Green
+Write-Host "  pages    : $($site.Pages.Count) release page(s), in $releaseDir" -ForegroundColor Green
 
 # --- 5. The worker bundle -------------------------------------------------------------------------
 $tokenPath = Join-Path $pageDir 'worker-path-token.txt'
@@ -931,18 +1080,28 @@ if ($token -notmatch '^[0-9a-f]{32}$') {
 }
 $route = "/notes/$token"
 
-# The page travels into the worker as ONE JSON string, which is why nothing here has to escape
-# anything a second time.
+# THE SITE IS BUILT AGAIN FOR THE WORKER'S ADDRESS, because the links between the pages carry the address
+# they are served from: '/notes/<token>/v2.39.0' there, '/release-notes/v2.39.0' on a hub. Every page
+# travels into the worker as one JSON string, keyed by the path under the route ('' is the index), which is
+# why nothing here has to escape anything a second time.
+$workerSite = New-ReleasePageSet -LinkBase $route
+$workerPages = [ordered]@{ '' = $workerSite.Index }
+foreach ($v in $workerSite.Pages.Keys) { $workerPages["/v$v"] = $workerSite.Pages[$v] }
 $workerJs = @"
 // GENERATED by scripts/release/build-release-notes-page.ps1 -Worker. Do not edit: rebuild instead.
 const ROUTE = $(ConvertTo-Json -InputObject $route -Compress);
-const HTML = $(ConvertTo-Json -InputObject $page -Compress);
+const PAGES = $(ConvertTo-Json -InputObject $workerPages -Compress -Depth 2);
 
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    if (url.pathname === ROUTE || url.pathname === ROUTE + "/") {
-      return new Response(HTML, {
+    let path = url.pathname;
+    if (path.length > 1 && path.endsWith("/")) path = path.slice(0, -1);
+    const rest = path === ROUTE ? "" : path.startsWith(ROUTE + "/") ? path.slice(ROUTE.length) : null;
+    // A version typed as the page shows it ('v2.39') reaches the page whose address carries '.0'.
+    const key = rest !== null && !(rest in PAGES) && /^\/v\d+\.\d+$/.test(rest) ? rest + ".0" : rest;
+    if (key !== null && Object.prototype.hasOwnProperty.call(PAGES, key)) {
+      return new Response(PAGES[key], {
         headers: {
           "content-type": "text/html; charset=utf-8",
           "cache-control": "no-store",

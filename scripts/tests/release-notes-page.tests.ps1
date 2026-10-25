@@ -253,6 +253,12 @@ function Get-PageData {
     return [pscustomobject]@{ Html = $html; Json = $m.Groups[1].Value; Data = ($m.Groups[1].Value | ConvertFrom-Json) }
 }
 
+function Get-ReleasePageData {
+    <# One release's own page, parsed the same way: release-notes\v<version>.html beside the index. #>
+    param([string]$Root, [string]$Version)
+    return Get-PageData -PagePath (Join-Path $Root "releases\page\release-notes\v$Version.html")
+}
+
 try {
     Write-Host "== release-notes-page.tests: scripts/release/build-release-notes-page.ps1 ==" -ForegroundColor Cyan
     New-Item -ItemType Directory -Force -Path $Fixture | Out-Null
@@ -278,7 +284,13 @@ try {
     Assert-Equal '2.0.0' $p1.Data.releases[1].version 'basic: oldest last'
     Assert-Equal '2026-08-14' $p1.Data.releases[0].date 'basic: the date comes from the table'
     Assert-Equal 'Major' $p1.Data.releases[1].type 'basic: the type comes from the table'
-    Assert-Match 'Body of 2\.2\.0' $p1.Data.releases[0].body 'basic: the note body travels into the page'
+    # THE BODY TRAVELS ON THE RELEASE'S OWN PAGE, not on the index (owner, October 25, 2026): every card
+    # leads elsewhere, so a body on the index would be weight nobody reads.
+    $rp1 = Get-ReleasePageData -Root $r1 -Version '2.2.0'
+    Assert-Match 'Body of 2\.2\.0' $rp1.Data.releases[0].body 'basic: the note body travels into the release''s own page'
+    Assert-Equal 1 $rp1.Data.documentCount 'basic: and that page carries its own note only'
+    Assert-True ($p1.Json -notmatch '"body"') 'basic: the index carries no note body'
+    Assert-Equal 2 @(Get-ChildItem -LiteralPath (Join-Path $r1 'releases\page\release-notes') -Filter 'v*.html').Count 'basic: one page per release that carries a note, in a folder named after the index'
     # THE SEAM IS THE EYEBROW AND HALF THE WINDOW TITLE; the heading is the template's own words (Dave,
     # August 21, 2026). It was the other way round for a day, and a repo whose title said what the page
     # was then printed those words twice -- which is what this repo's own answer did.
@@ -313,7 +325,10 @@ try {
     $p4 = Get-PageData -PagePath (Join-Path $r4 'releases\page\release-notes.html')
     Assert-Equal 0 ([regex]::Matches($p4.Json, '<').Count) 'scripttag: no raw "<" survives into the data block'
     Assert-Equal 2 $p4.Data.documentCount 'scripttag: the page still parses and carries both releases'
-    Assert-Match 'closing script tag follows' $p4.Data.releases[0].body 'scripttag: the text itself is preserved'
+    # The body is on the release's page, so that is the data block a closing script tag would end early.
+    $rp4 = Get-ReleasePageData -Root $r4 -Version '2.2.0'
+    Assert-Equal 0 ([regex]::Matches($rp4.Json, '<').Count) 'scripttag: no raw "<" survives into the release page''s data block either'
+    Assert-Match 'closing script tag follows' $rp4.Data.releases[0].body 'scripttag: the text itself is preserved'
 
     # --- 5. The grouping seam is really read ------------------------------------------------------
     Write-Host "build -- Get-ReleaseNotesGrouping decides which folder is read" -ForegroundColor Cyan
@@ -381,6 +396,11 @@ try {
 
     $workerJs = [System.IO.File]::ReadAllText((Join-Path $pageDir7 'worker.js'), [System.Text.Encoding]::UTF8)
     Assert-Match ([regex]::Escape("/notes/$token")) $workerJs 'worker: the route carries the token'
+    # EVERY RELEASE'S PAGE TRAVELS INTO THE WORKER, built again for the worker's own address so the cards
+    # lead under the token rather than to the hub's '/release-notes'.
+    Assert-Match '"/v2\.2\.0":' $workerJs 'worker: each release''s page is in the bundle, keyed under the route'
+    Assert-Match ([regex]::Escape("href=\`"/notes/$token/v2.2.0\`"")) $workerJs 'worker: and the cards in it lead under the token'
+    Assert-True ($workerJs -notmatch 'href=\\"/release-notes/') 'worker: never to the hub''s address'
     Assert-Match 'x-robots-tag' $workerJs 'worker: the response is marked noindex'
     Assert-Match 'status: 404' $workerJs 'worker: everything off the route is a 404'
 
@@ -568,63 +588,79 @@ try {
     # above reads the DATA -- order, dates, types, the escaping -- so replacing a <select> picker with
     # a collapsible index changed nothing any of them could see. A design decision no test can fail is
     # a design decision the next change quietly reverts.
-    Write-Host "build -- the index is one collapsed row per release, built server-side" -ForegroundColor Cyan
+    # A CARD PER RELEASE AND A PAGE PER CARD (owner, October 25, 2026) replaced the collapsed rows, and
+    # each claim below is the card's counterpart of one the rows were held to.
+    Write-Host "build -- the index is one card per release, each leading to its own page" -ForegroundColor Cyan
     $r13 = New-FixtureRepo -Label 'index'
     $b13 = Invoke-Build -Root $r13
     Assert-Equal 0 $b13.Code 'index: exit 0'
     $p13 = Get-PageData -PagePath (Join-Path $r13 'releases\page\release-notes.html')
 
-    # ONE ROW PER RELEASE WITH A NOTE, and the fixture has two of the four in its history table.
-    Assert-Equal 2 ([regex]::Matches($p13.Html, '<details class="fold"').Count) 'index: one details row per release carrying a note'
-    Assert-True ($p13.Html -match '<details class="fold" id="v2\.2\.0">') 'index: the id is the version verbatim, which is what a deep link in somebody hands has to match'
+    # ONE CARD PER RELEASE WITH A NOTE, and the fixture has two of the four in its history table.
+    Assert-Equal 2 ([regex]::Matches($p13.Html, '<a class="card"').Count) 'index: one card per release carrying a note'
+    # THE ID STAYS THE VERSION VERBATIM: '#v2.2.0' is what a link somebody already holds has to match.
+    Assert-True ($p13.Html -match '<a class="card" id="v2\.2\.0" href="/release-notes/v2\.2\.0">') 'index: the card keeps the old deep-link id, and leads to the release''s own page'
 
-    # ALL OF THEM CLOSED. This was the reference edition's own last correction -- four expanded notes
-    # at the top buried the other thirty-six -- so it is asserted rather than left to a default.
-    Assert-Equal 0 ([regex]::Matches($p13.Html, '<details[^>]*\sopen').Count) 'index: every row starts CLOSED'
+    # THE CARD IS STATIC HTML: version, title, date and chip are in the markup, so the index reads with
+    # JavaScript off.
+    $card = ([regex]::Match($p13.Html, '(?s)<a class="card" id="v2\.2\.0".*?</a>')).Value
+    Assert-True ($card -match '<span class="sv">Version 2\.2</span>') 'index: the card carries the version as markup'
+    # THE TITLE IS VISIBLE ON THE CARD. It left the row on August 21 because an opened row repeated it;
+    # a card opens nothing in place, so here it is the one line that says what a release is.
+    Assert-True ($card -match '<span class="ct">The live push moved to a new stage</span>') 'index: and the title, as visible text'
+    Assert-True ($card -match '<span class="sd">14 Aug 2026</span>') 'index: and the date, REFORMATTED from the table ISO for a reader who is not the team'
 
-    # THE ROW IS STATIC HTML, which is the whole point: it reads with JavaScript off. Version, title
-    # and date are in the markup rather than in the data block alone.
-    $summary = ([regex]::Match($p13.Html, '(?s)<details class="fold" id="v2\.2\.0">.*?</summary>')).Value
-    Assert-True ($summary -match '<span class="sv">Version 2\.2</span>') 'index: the row carries the version as markup'
-    # THE TITLE IS THE ROW'S ACCESSIBLE NAME, not visible text (Dave, August 21, 2026): a summary of a
-    # version and a date is thin for anyone navigating by control, and the title is the one string that
-    # says what the row is -- so it rides on the element, where it costs no width.
-    Assert-True ($summary -match 'title="The live push moved to a new stage"') 'index: and the title, as the row''s accessible name'
-    Assert-True ($summary -notmatch '<span class="st"') 'index: but no longer as visible text in the summary'
-    Assert-True ($summary -match '<span class="sd">14 Aug 2026</span>') 'index: and the date, REFORMATTED from the table ISO for a reader who is not the team'
+    # AT MOST ONE CHIP PER CARD: live where the table marks it, the bump type otherwise, never both.
+    Assert-Equal 1 ([regex]::Matches($card, '<span class="chip').Count) 'index: one chip on a non-live card'
+    Assert-True ($card -match '<span class="chip sc">Minor</span>') 'index: and it is the bump type, since this card is not the live one'
+    $liveCard = ([regex]::Match($p13.Html, '(?s)<a class="card" id="v2\.0\.0".*?</a>')).Value
+    Assert-Equal 1 ([regex]::Matches($liveCard, '<span class="chip').Count) 'index: one chip on the live card too'
+    Assert-True ($liveCard -match '<span class="chip accent sc">live</span>') 'index: and there it is the live marker, which is the fact a reader scans for'
+    Assert-True ($liveCard -notmatch '>Major<') 'index: the live card states live and NOT its type -- one chip, one fact'
 
-    # AT MOST ONE CHIP PER ROW: live where the table marks it, the bump type otherwise, never both. Since
-    # inbound #811 that one chip is written as TWO spans and the CSS shows exactly one of them -- the
-    # desktop copy inline before the title, the narrow copy in its own cell on row 1 -- so the count here
-    # is two per row rather than one. What has not changed is the rule the count was written for: the two
-    # spans always carry the SAME text, so no row ever states both a type and a live marker.
-    Assert-Equal 1 ([regex]::Matches($summary, '<span class="chip').Count) 'index: one chip on a non-live row'
-    Assert-True ($summary -match '<span class="chip sc">Minor</span>') 'index: and it is the bump type, since this row is not the live one'
-    $liveRow = ([regex]::Match($p13.Html, '(?s)<details class="fold" id="v2\.0\.0">.*?</summary>')).Value
-    Assert-Equal 1 ([regex]::Matches($liveRow, '<span class="chip').Count) 'index: one chip on the live row too'
-    Assert-True ($liveRow -match '<span class="chip accent sc">live</span>') 'index: and there it is the live marker, which is the fact a reader scans for'
-    Assert-True ($liveRow -notmatch '>Major<') 'index: the live row states live and NOT its type -- one chip, one fact'
-
-    # THE BODY IS EMPTY IN THE MARKUP and is filled by the renderer on first open. Asserted because it
-    # is the half-measure this design states out loud: the index survives without JavaScript, the
-    # prose does not.
-    Assert-True ($p13.Html -match '<article data-version="2\.2\.0"></article>') 'index: the note body is an empty article the renderer fills on open'
-    Assert-True ($p13.Html -match '(?s)<noscript>.*?index below reads without JavaScript') 'index: and the page SAYS so, rather than leaving an empty panel to be read as a failure'
-
-    # THE PICKER IS GONE. Named explicitly, because "one release at a time behind a select" is the
-    # thing being replaced and a half-reverted redesign would leave both.
-    # MEASURED WITH THE COMMENTS STRIPPED, because the template's own doc comment names the '<select>'
-    # it replaced -- mention versus use, for the third time in this page's history (the palette block
-    # and the ':root' count were the other two). A check that cannot tell a document discussing a
-    # thing from a document containing it accuses the explanation.
+    # NO ROW AND NO PICKER SURVIVES. Measured with the comments stripped, because the template's own doc
+    # comment names both things it replaced -- mention versus use. A check that cannot tell a document
+    # discussing a thing from a document containing it accuses the explanation.
     $markup13 = [regex]::Replace($p13.Html, '(?s)<!--.*?-->', '')
-    Assert-True (-not ($markup13 -match '<select')) 'index: no picker survives -- the list IS the index'
-    Assert-True (-not ($markup13 -match 'id="picker"')) 'index: nor its controller hook'
-    Assert-True ($p13.Html -match '<select') 'index: while the doc comment DOES still explain what was replaced -- the strip above is the reason this pair can be strict'
+    Assert-True (-not ($markup13 -match '<details')) 'index: no collapsed row survives -- the cards ARE the index'
+    Assert-True (-not ($markup13 -match '<select')) 'index: nor the picker before them'
+    Assert-True (-not ($markup13 -match '<article')) 'index: and no note: the index needs no JavaScript at all'
 
-    # AND THE DATA BLOCK IS STILL THERE, carrying the bodies. The index being static does not mean the
-    # page stopped needing the notes.
-    Assert-Equal 2 $p13.Data.documentCount 'index: the data block still carries both notes for the renderer'
+    # AN OLD LINK FORWARDS: '#v2.2.0' finds the card, and the script follows its link. Asserted as content,
+    # since the forwarding itself needs a browser; replace(), so Back does not land on the bare index.
+    Assert-Match 'location\.replace\(el\.href\)' $p13.Html 'index: an old #v link is forwarded to the release''s own page'
+
+    # --- 13b. A release's own page ----------------------------------------------------------------
+    Write-Host "build -- every release has a page of its own" -ForegroundColor Cyan
+    $rp13 = Get-ReleasePageData -Root $r13 -Version '2.2.0'
+    Assert-Match '<h1>Version 2\.2</h1>' $rp13.Html 'release page: the heading is the version'
+    Assert-Match '<title>Version 2\.2 &middot; Fixture Product release notes</title>' $rp13.Html 'release page: and the tab names the version first'
+    Assert-Match '<a class="back" href="/release-notes">&larr; All releases</a>' $rp13.Html 'release page: with the way back to the index'
+    Assert-Match '<span class="sd">14 Aug 2026</span> <span class="chip sc">Minor</span>' $rp13.Html 'release page: the date and the same chip as its card'
+    # THE BODY IS EMPTY IN THE MARKUP and the renderer fills it at once. The half-measure this design
+    # states out loud: the page survives without JavaScript, the prose does not -- and the page SAYS so.
+    Assert-Match '<article class="sheet note" data-version="2\.2\.0"></article>' $rp13.Html 'release page: the note is an empty article the renderer fills'
+    Assert-Match '(?s)<noscript>.*?with JavaScript off it stays empty' $rp13.Html 'release page: and the page says why it would stay empty'
+    # OLDER AND NEWER, and only the sides that exist: the newest release has no newer neighbour.
+    Assert-Match '<a class="pager-older" href="/release-notes/v2\.0\.0">' $rp13.Html 'release page: the newest one leads to the release before it'
+    Assert-True ($rp13.Html -notmatch 'class="pager-newer"') 'release page: and offers no newer one, because there is none'
+    $rp13b = Get-ReleasePageData -Root $r13 -Version '2.0.0'
+    Assert-Match '<a class="pager-newer" href="/release-notes/v2\.2\.0">' $rp13b.Html 'release page: the oldest one leads to the release after it'
+    Assert-True ($rp13b.Html -notmatch 'class="pager-older"') 'release page: and offers no older one'
+    Assert-True (-not ($rp13.Html -match '@@[A-Z_]+@@')) 'release page: no template placeholder survives'
+
+    # A PAGE LEFT BY AN EARLIER BUILD IS REMOVED: a release taken out of the history must not stay reachable.
+    $staleRelease = Join-Path $r13 'releases\page\release-notes\v9.9.9.html'
+    [System.IO.File]::WriteAllText($staleRelease, 'old')
+    $null = Invoke-Build -Root $r13
+    Assert-True (-not (Test-Path -LiteralPath $staleRelease)) 'release page: a page no release in the history carries is removed by the next build'
+
+    # -LinkBase IS THE ADDRESS THE PAGES ARE SERVED FROM, and the links carry it.
+    $b13c = Invoke-Build -Root $r13 -ScriptArgs @('-LinkBase', '/notes/abc')
+    Assert-Equal 0 $b13c.Code 'link base: exit 0'
+    Assert-Match 'href="/notes/abc/v2\.2\.0"' ([System.IO.File]::ReadAllText((Join-Path $r13 'releases\page\release-notes.html'))) 'link base: the cards lead under the address given'
+    $b13d = Invoke-Build -Root $r13 -ScriptArgs @('-LinkBase', 'javascript:alert(1)')
+    Assert-Equal 1 $b13d.Code 'link base: an address that is not a site-absolute path is refused'
 
     # A DATE THE SCRIPT CANNOT PARSE IS PASSED THROUGH rather than guessed at -- a repo may write its
     # history table in a form this script has never seen, and inventing a date is worse than showing
@@ -647,7 +683,7 @@ try {
     $b14 = Invoke-Build -Root $r14
     Assert-Equal 0 $b14.Code 'metadata: exit 0'
     $p14 = Get-PageData -PagePath (Join-Path $r14 'releases\page\release-notes.html')
-    $body14 = [string]$p14.Data.releases[0].body
+    $body14 = [string](Get-ReleasePageData -Root $r14 -Version '2.2.0').Data.releases[0].body
     Assert-True ($body14 -notmatch '# Release notes') 'metadata: the H1 that names the version is gone -- the row above says it'
     Assert-True ($body14 -notmatch '\*\*Date:\*\*')   'metadata: and the date, which the row shows in a readable format'
     Assert-True ($body14 -notmatch '\*\*Type:\*\*')   'metadata: and the type'
@@ -667,7 +703,7 @@ try {
     $b14c = Invoke-Build -Root $r14c
     Assert-Equal 0 $b14c.Code 'title/drift: exit 0'
     $p14c = Get-PageData -PagePath (Join-Path $r14c 'releases\page\release-notes.html')
-    Assert-Match 'A title somebody edited by hand' ([string]$p14c.Data.releases[0].body) 'title/drift: a title line that differs from the table is kept'
+    Assert-Match 'A title somebody edited by hand' ([string](Get-ReleasePageData -Root $r14c -Version '2.2.0').Data.releases[0].body) 'title/drift: a title line that differs from the table is kept'
 
     # CONSERVATIVE BY CONSTRUCTION: a note that does not open with an H1 naming its own version is left
     # exactly as it is. Matching bold labels near the top of any document would eventually eat a line
@@ -676,7 +712,7 @@ try {
     $b14b = Invoke-Build -Root $r14b
     Assert-Equal 0 $b14b.Code 'metadata/plain: exit 0'
     $p14b = Get-PageData -PagePath (Join-Path $r14b 'releases\page\release-notes.html')
-    Assert-Match 'Body of 2\.2\.0' ([string]$p14b.Data.releases[0].body) 'metadata/plain: a note opening some other way is untouched'
+    Assert-Match 'Body of 2\.2\.0' ([string](Get-ReleasePageData -Root $r14b -Version '2.2.0').Data.releases[0].body) 'metadata/plain: a note opening some other way is untouched'
 
     # --- 15. The version label and the id are allowed to differ (inbound #813) --------------------
     # A patch never gets a hand-written note, so every version this page can display ends in '.0' and
@@ -726,8 +762,8 @@ try {
     # THE MARKER STILL WINS. In the fixtures above the table marks 2.0.0, which is NOT the newest, and that
     # is the case the marker exists for: a Shopify repo's live theme is genuinely not always the latest cut.
     Write-Host "row -- the LIVE label, marked or derived" -ForegroundColor Cyan
-    $markedRow = ([regex]::Match($p14.Html, '(?s)<details class="fold" id="v2\.0\.0">.*?</summary>')).Value
-    $newestRow = ([regex]::Match($p14.Html, '(?s)<details class="fold" id="v2\.2\.0">.*?</summary>')).Value
+    $markedRow = ([regex]::Match($p14.Html, '(?s)<a class="card" id="v2.0.0".*?</a>')).Value
+    $newestRow = ([regex]::Match($p14.Html, '(?s)<a class="card" id="v2.2.0".*?</a>')).Value
     Assert-Match 'chip accent sc">LIVE<' $markedRow 'live/marked: the row the table marks carries it'
     # ON THE CHIP MARKUP, not on the word: PowerShell's -notmatch is case-INSENSITIVE, and this row's own
     # title is 'The live push moved to a new stage'. The first version of this assert failed for that
@@ -741,8 +777,8 @@ try {
     $b16c = Invoke-Build -Root $r16c
     Assert-Equal 0 $b16c.Code 'live/derived: exit 0'
     $p16c = Get-PageData -PagePath (Join-Path $r16c 'releases\page\release-notes.html')
-    $newestRowC = ([regex]::Match($p16c.Html, '(?s)<details class="fold" id="v2\.2\.0">.*?</summary>')).Value
-    $olderRowC  = ([regex]::Match($p16c.Html, '(?s)<details class="fold" id="v2\.0\.0">.*?</summary>')).Value
+    $newestRowC = ([regex]::Match($p16c.Html, '(?s)<a class="card" id="v2.2.0".*?</a>')).Value
+    $olderRowC  = ([regex]::Match($p16c.Html, '(?s)<a class="card" id="v2.0.0".*?</a>')).Value
     Assert-Match 'chip accent sc">LIVE<' $newestRowC 'live/derived: an unmarked table puts it on the newest release'
     Assert-True ($olderRowC -notmatch 'chip accent') 'live/derived: and on that one only'
     Assert-Equal 1 ([regex]::Matches($p16c.Html, 'chip accent sc">LIVE<').Count) 'live/derived: exactly one row carries it'
@@ -804,27 +840,22 @@ try {
     $p17e = Get-PageData -PagePath (Join-Path $r17e 'releases\page\release-notes.html')
     Assert-True ($p17e.Html -notmatch '<div class="marks">') 'masthead/size: and the oversized mark is not written'
 
-    # --- 18. The chevron is trailing, and reserves nothing ahead of the text (#811, asks 2 and 3) --
-    # A CSS assert, like the palette-position one above, because the layout claims in the issue are about
-    # WHERE things are rather than that they exist. The gutter was 1.9rem on a 390px phone -- 9.4% of the
-    # usable text width -- and the narrow query kept it.
-    Write-Host "row -- the chevron moved to the trailing edge" -ForegroundColor Cyan
-    Assert-Match '\.fold > summary::after' $p14.Html 'chevron: it is an ::after, so the grid puts it in the last column'
-    Assert-True ($p14.Html -notmatch '\.fold > summary::before') 'chevron: and no longer a ::before reserving a column ahead of the version'
-    Assert-Match '\.fold\[open\] > summary \{\s*\r?\n?\s*position: sticky' $p14.Html 'sticky: an open row keeps its own summary in reach, which is the only control that closes it'
-    # ON THE ABSENCE OF THE OLD VALUE, not on the new one: the margin is gone from the base rule rather
-    # than overridden in the narrow query, so there is no single-line declaration left to match. The
-    # masthead's own bottom padding is the separation.
+    # --- 18. The layout claims, as CSS -------------------------------------------------------------
+    # A CSS assert, like the palette-position one above, because these claims are about WHERE things are
+    # rather than that they exist.
+    Write-Host "layout -- the grid, the cards and the release page" -ForegroundColor Cyan
+    # THE GRID FILLS WHATEVER WIDTH IT IS GIVEN, so the same rule is one column on a phone and several on a
+    # desktop, and the width a reader picks needs nothing of its own.
+    Assert-Match 'grid-template-columns: repeat\(auto-fill, minmax\(14rem, 1fr\)\)' $p14.Html 'cards: the grid fills the width with as many columns as fit'
+    # THE TITLE TAKES THE SLACK, so the dates of cards side by side line up whatever their titles' lengths.
+    Assert-Match '\.card \.ct \{ flex: 1;' $p14.Html 'cards: the title takes the slack, so every date sits at the foot'
+    # A link already held still lands on its card where JavaScript is off.
+    Assert-Match '\.card:target' $p14.Html 'cards: an old #v link marks the card it lands on'
+    # ON THE ABSENCE OF THE OLD VALUE: the masthead's own bottom padding is the separation.
     Assert-True ($p14.Html -notmatch 'margin: 2rem 0 0') 'sheet: the 2rem of air above the list is gone at every width'
-    # THE OTHER HALF OF THE STICKY SUMMARY: closing a note puts the reader back on the row they opened,
-    # instead of leaving them wherever the text they were reading used to be. Asserted as content because
-    # the behaviour itself needs a browser -- what can be measured here is that the handler is on the page
-    # and that it is conditional, since an unconditional jump would move a row that is already in view.
-    Assert-Match 'getBoundingClientRect\(\)\.top < 0' $p14.Html 'close: closing scrolls back to the row -- and only when the row has left the viewport'
-    Assert-Match "scrollIntoView\(\{ block: 'start' \}\)" $p14.Html 'close: to the top of that row, which is where it was opened'
-    # The note's breathing room sits on the ARTICLE, not on its first paragraph's margin, so it does not
-    # depend on whether a note opens with a paragraph, a heading or a list.
-    Assert-Match '\.fold article \{ padding: 1\.1rem' $p14.Html 'article: an opened note has room above its first block'
+    # THE NEWER NEIGHBOUR IS ALWAYS ON THE RIGHT, and on a phone it stacks first.
+    Assert-Match '\.pager-newer \{ grid-column: 2;' $p14.Html 'pager: the newer release always sits on the right'
+    Assert-Match '\.pager-newer \{ grid-column: auto; grid-row: 1; \}' $p14.Html 'pager: and on a phone it stacks first'
 
 } finally {
     Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue

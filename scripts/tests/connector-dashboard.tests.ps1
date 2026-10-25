@@ -463,6 +463,13 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Assert-True ($r -match 'HTTP/1.1 200' -and $r -match 'fixture notes' -and $r -match '/house-style.css') 'with a page on disk it is served from here, dressed by this tree''s Format-ReleaseNotesDevPage'
             Assert-True ($iBanner -ge 0 -and $iBanner -lt $iHeader -and $iHeader -lt $iWrap) 'the hub banner stands above the site header, as on every other hub page'
             Assert-True ($r -match 'site-header__brand" href="/"' -and $r -match '<li><a href="/">Home</a></li>') 'and its header and Home crumb lead to this hub on /'
+            # EVERY RELEASE HAS A PAGE OF ITS OWN (owner, October 25, 2026), in the folder named after the index.
+            New-Item -ItemType Directory -Force -Path (Join-Path $rnDir 'release-notes') | Out-Null
+            [System.IO.File]::WriteAllText((Join-Path $rnDir 'release-notes\v1.2.0.html'), '<!doctype html><html lang="en"><head><style>.wrap{}</style></head><body><div class="wrap"><h1>Version 1.2</h1>fixture release</div></body></html>')
+            $r = if ($up) { Get-Raw 'GET' '/release-notes/v1.2' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($r -match 'HTTP/1.1 200' -and $r -match 'fixture release' -and $r -match '<a href="/release-notes">Release notes</a>' -and $r -match 'aria-current="page">Version 1\.2<') 'a release''s own page is served here too, its trail running back through the index'
+            $r = if ($up) { Get-Raw 'GET' '/release-notes/v9.9.9' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($r -match 'HTTP/1.1 404' -and $r -match 'No release v9\.9\.9') 'and a release with no page is a 404 that names it'
             $srcState = Get-RepoHubStatePath -Root $src
             # The hub on '/' and the pages under it (#3097). The fixture has no
             # suite-durations.json, so the test-gate page takes its failure path, and is still served.

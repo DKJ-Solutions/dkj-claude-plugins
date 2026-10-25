@@ -43,17 +43,35 @@ Index becomes a card grid; the builder writes one page per release under page/re
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Builder: the index as a grid of cards, and one page per release in `page/release-notes/v<semver>.html`, with a `-LinkBase` for the address the links carry
+- [x] Worker bundle: every page, keyed under the route, built again for the worker's own address
+- [x] Template: card grid, release page (back link, heading, older/newer), old `#v<semver>` links forwarded
+- [x] Hubs: both servers serve `/release-notes/v<semver>` through `Resolve-ReleaseNotesRequest`, with a crumb back to the index; an index built before release pages existed counts as not built
+- [x] Plugin mirror of the builder and template kept byte-identical
+- [ ] Review: Victor (code) and Sebastian (security) on the diff
+- [ ] Owner looks at the cards and a release page in the hub (visible result)
 
 ### TEST
 
+- [x] `release-notes-page.tests.ps1`, `dev-pages.tests.ps1`, `connector-dashboard.tests.ps1` green
+- [ ] The full gate through `open-pr`
+
 ### DEPLOY: feat/release-notes-cards
 
-**Score:**
+The release-notes page is now an index of cards, one per release, and every release has a page of its
+own: `/release-notes/v5.30.0` on both hubs and `/notes/<token>/v5.30.0` in the Worker, with older/newer
+links between them. The builder writes them all in one run, so a cut release gets its page without anyone
+adding it. A link to the old page with a `#v5.30.0` fragment is forwarded to the release's own page.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Whoever reads the release notes can now open and send one release on its own address, instead of a
+fragment on one long page, and sees every release as a card. A consumer takes it with the plugin update;
+its hub rebuilds the page on first visit.
+
+**Score:** 3
 
 #### Pull Request
 
