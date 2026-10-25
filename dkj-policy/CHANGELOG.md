@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**14 / 29 minor entries** <!-- pending-tally -->
+**14 / 30 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3446-stopwatch-tombstones · 20261025-124423Z
+
+A Stopwatch run, or every run of a label, can now be hidden from every machine's `/stopwatch` pages,
+whichever machine recorded it, and shown again from any machine:
+`scripts/dashboard/stopwatch-hide.ps1 -RunId <id>` or `-Label "<label>"`, `-Show` to undo, `-List` to
+see what is hidden (the `stopwatch-hide` skill). The entry goes into the hiding machine's own
+`refs/stopwatch/<machine id>`, so one writer per ref still holds, and nothing is erased from any store.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- the Stopwatch is this repo's own dev server and ships to no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch: delete a run or a label from any machine
+
+[PR #3451](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3451)
+
+---
 
 ### DEPLOY: fix/release-notes-match-stopwatch · 20261025-121115Z
 
