@@ -435,6 +435,10 @@ infrastructure.
     `labeled` event counts only when the label just added is a recurrence label.
   - **The job-level `if:` is the cost control.** Every label event wakes the workflow, and a job skipped
     by `if:` is unbilled.
+  - **No concurrency group, on purpose.** A group's single pending slot is filled before `if:` runs, so
+    one `--add-label` naming three labels let a skipped event cancel the run that would have closed the
+    issue (Victor's review on #3422). Each run reads the issue live instead, so a duplicate costs at most
+    a second comment.
   - **No checkout, no action, no secret**: `issues: write` on the job token, and the title reaches the
     shell only as `gh` output. That is why it is **the consumer's file byte for byte**:
     `adopt-ci-floor.ps1` places the same text as its fifth runner, and `adopt-ci-floor.tests.ps1` holds

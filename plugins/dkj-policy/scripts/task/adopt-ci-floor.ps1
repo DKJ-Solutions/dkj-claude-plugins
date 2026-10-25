@@ -99,7 +99,8 @@
     closes an issue parked on a recurrence label as not planned, with its [RECORD] prefix, the moment it
     is parked -- a rule CONTRIBUTING-portable.md states and nothing held. It reads no tree and calls no
     shared script, so it is the source repo's own file byte for byte, and it needs no secret: issues:
-    write on the job-scoped token is all it holds.
+    write on the job-scoped token is all it holds. It matches the labels' former names too, among them
+    the plain `record` and `dossier`, so a repo using either as an ordinary label renames it first.
 
     AND ONE PREREQUISITE BELONGS TO THE QUEUE ALONE (#1325): every workflow carrying a REQUIRED check
     context must trigger on `merge_group`. A required workflow without it never runs for a queue entry,
@@ -1357,9 +1358,17 @@ $closeParkedRunner = @(
     '# off, in whichever order the person doing it happens to pick. Listening to reopened would close it',
     '# again in the window between the two acts. A labeled event is acted on only when the label just added',
     '# is a recurrence label, so adding a prio-N to a reopened issue that still carries one does not close it',
-    '# either. An issue created with labels fires both opened and labeled, so two runs can be queued for one',
-    '# issue: the per-issue concurrency group serialises them, and the second reads the issue live and finds',
-    '# it already closed.',
+    '# either. An issue created with labels fires both opened and labeled, so two runs can start for one',
+    '# issue. Each reads the issue live, so a run that starts after the close finds it closed; two that race',
+    '# cost at most a second comment.',
+    '#',
+    '# NO CONCURRENCY GROUP, deliberately. A group keeps one pending run and cancels it when a newer one',
+    '# arrives, and the group is evaluated before the job''s if:. So `gh issue edit --add-label',
+    '# prio-2,awaiting-recurrences,minor` would let the minor run, which if: then skips, cancel the pending',
+    '# run that was going to close the issue. Code review on #3422 found this.',
+    '#',
+    '# A TITLE THE PREFIX WOULD PUSH PAST GITHUB''S 256-CHARACTER CAP keeps its title, and the issue is closed',
+    '# anyway: the close is the rule, and the prefix is only how it shows in a list.',
     '#',
     '# THE JOB-LEVEL if: IS THE COST CONTROL. Every label added to every issue is a labeled event, and a job',
     '# skipped by if: is not billed at all (#2487), so on a metered repo this costs one job per issue that is',
@@ -1368,7 +1377,8 @@ $closeParkedRunner = @(
     '# THE LABEL LIST MATCHES EVERY FORMER NAME, as both pickup routes do: a tracker keeps an old name until',
     '# somebody renames it there. The names are pr-issues-lib.ps1''s Get-DossierLabelNames plus',
     '# awaiting-recurrences-first and its former names (Get-FormerTriageLabelNames), and',
-    '# adopt-ci-floor.tests.ps1 holds both lists in this file equal to them.',
+    '# adopt-ci-floor.tests.ps1 holds both lists in this file equal to them. So a repo using `record` or',
+    '# `dossier` as an ordinary label of its own has those issues closed too: rename that label first.',
     '#',
     '# NO CHECKOUT, AND NO SECRET. The job calls gh against the issue and nothing else, so there is no',
     '# action to pin and no workspace for a token to be left in. issues: write on the job-scoped token is',
@@ -1382,10 +1392,6 @@ $closeParkedRunner = @(
     'on:',
     '  issues:',
     '    types: [opened, labeled]',
-    '',
-    'concurrency:',
-    '  group: close-parked-recurrences-${{ github.event.issue.number }}',
-    '  cancel-in-progress: false',
     '',
     'jobs:',
     '  close-parked:',
@@ -1413,7 +1419,7 @@ $closeParkedRunner = @(
     '          ISSUE_NUMBER: ${{ github.event.issue.number }}',
     '        run: |',
     '          $n = $env:ISSUE_NUMBER',
-    '          # READ LIVE, NOT FROM THE EVENT: a second queued run for the same issue must find it closed.',
+    '          # READ LIVE, NOT FROM THE EVENT: a second run for the same issue must find it closed.',
     '          $issue = gh issue view $n --json state,title | ConvertFrom-Json',
     '          if ($LASTEXITCODE -ne 0) { exit 1 }',
     '          if ($issue.state -ne ''OPEN'') {',
@@ -1421,8 +1427,13 @@ $closeParkedRunner = @(
     '            exit 0',
     '          }',
     '          if ($issue.title -notmatch ''^\[RECORD\]'') {',
-    '            gh issue edit $n --title (''[RECORD] '' + $issue.title)',
-    '            if ($LASTEXITCODE -ne 0) { exit 1 }',
+    '            $prefixed = ''[RECORD] '' + $issue.title',
+    '            if ($prefixed.Length -gt 256) {',
+    '              Write-Host "#$n''s title is too long for the [RECORD] prefix -- closing it without one."',
+    '            } else {',
+    '              gh issue edit $n --title $prefixed',
+    '              if ($LASTEXITCODE -ne 0) { exit 1 }',
+    '            }',
     '          }',
     '          $comment = ''Closed as not planned automatically: a recurrence label parks this issue until its next instance, and the label keeps it findable while closed. A new instance is a comment on this issue and a reopen.''',
     '          gh issue close $n --reason ''not planned'' --comment $comment',
@@ -1441,7 +1452,7 @@ $targets = @(
     @{ Rel = '.github/workflows/merge-on-green.yml';  Content = (($mergeOnGreenRunner -join $nl) + $nl); What = 'the sweep that merges a pull request ship-pr armed with merge-when-green once its check turns green'; QueueRelated = $false },
     @{ Rel = '.github/workflows/close-parked-recurrences.yml'; Content = (($closeParkedRunner -join $nl) + $nl); What = 'closes an issue parked on a recurrence label as not planned, with its [RECORD] prefix'; QueueRelated = $false }
 )
-# THE FOURTH TARGET IS CONDITIONAL, UNLIKE THE OTHER THREE (issue #1843): it is offered only when
+# THE CI SKELETON IS CONDITIONAL, UNLIKE EVERY TARGET ABOVE (issue #1843): it is offered only when
 # nothing in the tree triggers on pull_request at all, never merely because this one file is absent --
 # a consumer running CI under a different file name must not be handed a second, empty workflow beside
 # their real one. Appended rather than folded into the literal above, so that condition stays readable
@@ -1792,7 +1803,8 @@ Write-Host ''
 # 2. THE RUNNERS THIS COMMAND CAN PLACE: new files beside yours, not edits to one of them, which is the
 #    same line adopt-workflow-folder draws. Two answer an unobserved merge; the third (repo-settings)
 #    answers a GitHub-side setting drifting on its own, and needs neither a queue nor a merge to matter;
-#    the fourth (ci.yml, issue #1843) appears only on a trunk with nothing to require at all.
+#    merge-on-green finishes a ship whose session is gone; close-parked-recurrences (#3422) acts on the
+#    tracker; and ci.yml (issue #1843) appears only on a trunk with nothing to require at all.
 Write-Host '-- 2. the runners this floor places (an unobserved merge; on a schedule, GitHub-side drift; and, if nothing else exists, something to require) --' -ForegroundColor Cyan
 $created = 0
 $kept = 0

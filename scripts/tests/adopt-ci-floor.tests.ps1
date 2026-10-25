@@ -628,7 +628,14 @@ try {
     # close the issue again.
     Assert-True ($closer -match '(?m)^\s+types: \[opened, labeled\]\s*$') 'it wakes on opened and labeled'
     Assert-True (@(($closer -split "`n") | Where-Object { $_ -notmatch '^\s*#' -and $_ -match 'reopened' }).Count -eq 0) 'and never on reopened (the header names the word; no live line does)'
-    Assert-True ($closer -match "(?m)^\s+github\.event\.issue\.state == 'open' && \(") 'a closed issue is skipped at the job level'
+    Assert-True ($closer -match "(?m)^\s+github\.event\.issue\.state == 'open' && \(\s*$") 'a closed issue is skipped at the job level'
+    # THE STRUCTURE OF THE if:, not only its names: each arm is gated on its own action, joined by ||.
+    Assert-True ($closer -match "(?m)^\s+\(github\.event\.action == 'labeled' &&\r?\n\s+contains\(fromJSON\(") 'the labeled arm tests the ADDED label, and only on a labeled event'
+    Assert-True ($closer -match "(?m)github\.event\.label\.name\)\) \|\|\r?\n\s+\(github\.event\.action == 'opened' && \(") 'and is joined by || to an arm that reads every label, only on opened'
+    # NO CONCURRENCY GROUP (Victor #19 on #3422): a group's one pending slot lets a skipped label event
+    # cancel the pending run that would have closed the issue.
+    Assert-True ($closer -notmatch '(?m)^concurrency:') 'it declares no concurrency group'
+    Assert-True ($closer -match '(?ms)\$prefixed\.Length -gt 256.*?gh issue close') 'a title too long for the prefix is still closed'
     # NO CHECKOUT, NO SECRET, ONE PERMISSION.
     Assert-True ($closer -notmatch '(?m)^\s+(-\s+)?uses:') 'it uses no action at all, so there is nothing to pin'
     Assert-True ($closer -notmatch 'secrets\.') 'and holds no secret'
@@ -638,7 +645,6 @@ try {
     Assert-True ($closerRun -match "gh issue view \`$n --json state,title") 'the issue is read live, so a second queued run finds it closed'
     Assert-True ($closerRun -match "gh issue close \`$n --reason 'not planned'") 'and it closes as not planned'
     Assert-True ($closerRun -match "'\[RECORD\] ' \+ \`$issue\.title") 'adding the [RECORD] prefix where it is missing'
-    Assert-True ($closer -match '(?m)^\s+group: close-parked-recurrences-\$\{\{ github\.event\.issue\.number \}\}\s*$') 'one run at a time per issue'
     Assert-True ($rApply.Out -match '(?m)\[created\]\s+\.github/workflows/close-parked-recurrences\.yml') 'and -Apply reports it created'
 
     # --- 2b. The three corrections that landed together (inbound #1539/#1543/#1544) -----------------

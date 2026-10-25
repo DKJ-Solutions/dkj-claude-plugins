@@ -56,7 +56,11 @@ consumer's copy is the source's own file.
 
 ### TEST
 
-- [x] `adopt-ci-floor.tests.ps1` 306/306 and `workflow-timeouts.tests.ps1` 74/74, run alone while
+- [x] Review: Sebastian #23 found no blocking issue; Victor #19 found that a per-issue concurrency group
+  let a skipped label event cancel the pending closing run. The group is gone, a title too long for the
+  prefix is closed without it, the `record`/`dossier` collision is documented, and the `if:` structure
+  is pinned in test 2f.
+- [x] `adopt-ci-floor.tests.ps1` 309/309 and `workflow-timeouts.tests.ps1` 74/74, run alone while
   building; the full gate is `ship-pr`'s.
 
 ### DEPLOY: feat/3422-close-parked-recurrences

@@ -773,7 +773,9 @@ movement that parks it, and a record (`awaiting-recurrences`) may be closed the 
 `[RECORD]` prefix kept. Until this runner existed that was prose on a page a session filing a finding never
 loads. `.github/workflows/close-parked-recurrences.yml` does it on `issues: [opened, labeled]`. It adds the
 prefix where it is missing, closes the issue as not planned with one comment, and leaves the label on. It
-matches every former name of both labels too.
+matches every former name of both labels too, and two of those are plain words: **if your tracker uses
+`record` or `dossier` as an ordinary label, rename it before you adopt this runner**, or every issue
+carrying it is closed.
 
 **A reopen never wakes it.** A recurrence reopens the issue and takes the label off, in either order, so a
 run between the two acts would close it again. A `labeled` event counts only when the label just added is a

@@ -16,9 +16,17 @@
 # off, in whichever order the person doing it happens to pick. Listening to reopened would close it
 # again in the window between the two acts. A labeled event is acted on only when the label just added
 # is a recurrence label, so adding a prio-N to a reopened issue that still carries one does not close it
-# either. An issue created with labels fires both opened and labeled, so two runs can be queued for one
-# issue: the per-issue concurrency group serialises them, and the second reads the issue live and finds
-# it already closed.
+# either. An issue created with labels fires both opened and labeled, so two runs can start for one
+# issue. Each reads the issue live, so a run that starts after the close finds it closed; two that race
+# cost at most a second comment.
+#
+# NO CONCURRENCY GROUP, deliberately. A group keeps one pending run and cancels it when a newer one
+# arrives, and the group is evaluated before the job's if:. So `gh issue edit --add-label
+# prio-2,awaiting-recurrences,minor` would let the minor run, which if: then skips, cancel the pending
+# run that was going to close the issue. Code review on #3422 found this.
+#
+# A TITLE THE PREFIX WOULD PUSH PAST GITHUB'S 256-CHARACTER CAP keeps its title, and the issue is closed
+# anyway: the close is the rule, and the prefix is only how it shows in a list.
 #
 # THE JOB-LEVEL if: IS THE COST CONTROL. Every label added to every issue is a labeled event, and a job
 # skipped by if: is not billed at all (#2487), so on a metered repo this costs one job per issue that is
@@ -27,7 +35,8 @@
 # THE LABEL LIST MATCHES EVERY FORMER NAME, as both pickup routes do: a tracker keeps an old name until
 # somebody renames it there. The names are pr-issues-lib.ps1's Get-DossierLabelNames plus
 # awaiting-recurrences-first and its former names (Get-FormerTriageLabelNames), and
-# adopt-ci-floor.tests.ps1 holds both lists in this file equal to them.
+# adopt-ci-floor.tests.ps1 holds both lists in this file equal to them. So a repo using `record` or
+# `dossier` as an ordinary label of its own has those issues closed too: rename that label first.
 #
 # NO CHECKOUT, AND NO SECRET. The job calls gh against the issue and nothing else, so there is no
 # action to pin and no workspace for a token to be left in. issues: write on the job-scoped token is
@@ -41,10 +50,6 @@ permissions:
 on:
   issues:
     types: [opened, labeled]
-
-concurrency:
-  group: close-parked-recurrences-${{ github.event.issue.number }}
-  cancel-in-progress: false
 
 jobs:
   close-parked:
@@ -72,7 +77,7 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
           $n = $env:ISSUE_NUMBER
-          # READ LIVE, NOT FROM THE EVENT: a second queued run for the same issue must find it closed.
+          # READ LIVE, NOT FROM THE EVENT: a second run for the same issue must find it closed.
           $issue = gh issue view $n --json state,title | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0) { exit 1 }
           if ($issue.state -ne 'OPEN') {
@@ -80,8 +85,13 @@ jobs:
             exit 0
           }
           if ($issue.title -notmatch '^\[RECORD\]') {
-            gh issue edit $n --title ('[RECORD] ' + $issue.title)
-            if ($LASTEXITCODE -ne 0) { exit 1 }
+            $prefixed = '[RECORD] ' + $issue.title
+            if ($prefixed.Length -gt 256) {
+              Write-Host "#$n's title is too long for the [RECORD] prefix -- closing it without one."
+            } else {
+              gh issue edit $n --title $prefixed
+              if ($LASTEXITCODE -ne 0) { exit 1 }
+            }
           }
           $comment = 'Closed as not planned automatically: a recurrence label parks this issue until its next instance, and the label keeps it findable while closed. A new instance is a comment on this issue and a reopen.'
           gh issue close $n --reason 'not planned' --comment $comment
