@@ -71,5 +71,5 @@ A consumer's hub home page gains an icon on every card once the plugin is update
 
 #### Pull Request
 
-An icon on every card of the hub home page
+An icon on every hub card, and roomier menu items and cards in the house style
 
