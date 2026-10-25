@@ -11,7 +11,8 @@
     WHAT COUNTS AS A PROBLEM is Get-PluginRowStatus: an install behind its clone or missing for this checkout,
     or an install folder gone from disk, is an error; a stale clone, a retired name or a verdict that could not
     be reached is a warning; up to date, or on the released version with unreleased commits in the clone, is
-    fine. The page leads with the problems, then lists every plugin.
+    fine. The overview is a card per plugin, problems first (Format-PluginsPageHtml), and each plugin has its own
+    page on /plugins/<name> (Format-PluginPageHtml), routed by Resolve-PluginsPageRequest.
 
     Read-PluginsPageModel is the one function here that starts a process; the rest has no I/O, so every rule
     is tested without a server (dev-pages.tests.ps1). Every value that reaches the page is escaped. Pure ASCII
@@ -112,11 +113,44 @@ function Get-PluginRowStatus {
     }
 }
 
+function Resolve-PluginsPageRequest {
+    <#
+        Which Plugins page -Path asks for: @{ Name = '' } for the overview on /plugins, @{ Name = '<plugin>' } for one
+        plugin's page on /plugins/<plugin>, or $null for a path that is neither. The name is held to a plugin slug,
+        so nothing else reaches a lookup; whether a plugin of that name is enabled is the page's question (a 404 when not).
+    #>
+    param([AllowEmptyString()][string]$Path = '')
+    if ($Path -eq '/plugins' -or $Path -eq '/plugins/') { return @{ Name = '' } }
+    if ($Path -cmatch '^/plugins/([a-z0-9][a-z0-9-]{0,63})/?$') { return @{ Name = $Matches[1] } }
+    return $null
+}
+
+function Find-PluginsPageRow {
+    <# The row of -Model whose Name is -Name, with its Status set, or $null. #>
+    param([Parameter(Mandatory = $true)][hashtable]$Model, [Parameter(Mandatory = $true)][string]$Name)
+    $r = @($Model.Plugins | Where-Object { $_ -and $_.Name -ceq $Name }) | Select-Object -First 1
+    if ($r) { $r.Status = Get-PluginRowStatus -Code $r.Code -InstallPathMissing $r.InstallPathMissing }
+    return $r
+}
+
+function Get-PluginProblemText {
+    <# What is wrong with one plugin, in a sentence: the missing folder where that is the case, else the verdict. #>
+    param([Parameter(Mandatory = $true)][hashtable]$Row)
+    if ($Row.InstallPathMissing) { return 'its install record names a folder that is no longer on disk, so it loads nothing; reinstall it' }
+    return $Row.Verdict
+}
+
+$script:PluginBadge = @{ ok = 'badge--good'; warn = 'badge--warn'; error = 'badge--bad' }
+
 function Format-PluginsPageHtml {
     <#
-        The Plugins page. -Model is ConvertFrom-PluginVersionsJson's; -ReadError is set when the script could
-        not be found or run (then the model is empty and the page says why). -RepoName names the repo;
-        -HubHref is the Home crumb's target ('/hub' on the general server, '/' on a hub that serves the page itself).
+        The Plugins overview, as compact as the Stopwatch's (the owner, October 25, 2026): the tiles, one line saying
+        whether anything is wrong, and a card per plugin -- its state as a badge, its name as the card's one link to
+        its own page (Format-PluginPageHtml), and its installed version or what is wrong. Problems first, then by
+        name. Everything else -- the description, the command, the clone -- is on the plugin's page. -Model is
+        ConvertFrom-PluginVersionsJson's; -ReadError is set when the script could not be found or run. -RepoName
+        names the repo; -HubHref is the Home crumb's target ('/hub' on the general server, '/' on a hub that serves
+        the page itself).
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Model,
@@ -125,12 +159,13 @@ function Format-PluginsPageHtml {
         [string]$HubHref = '/hub'
     )
     $e = { param($v) ConvertTo-GeneralPageText $v }
-    $rows = @($Model.Plugins | Where-Object { $_ } | Sort-Object { $_.Id })
+    $rows = @($Model.Plugins | Where-Object { $_ })
     foreach ($r in $rows) { $r.Status = Get-PluginRowStatus -Code $r.Code -InstallPathMissing $r.InstallPathMissing }
+    $rank = @{ error = 0; warn = 1; ok = 2 }
+    $rows = @($rows | Sort-Object @{ Expression = { $rank[$_.Status.Level] } }, @{ Expression = { $_.Name } })
     $errors = @($rows | Where-Object { $_.Status.Level -eq 'error' })
     $warns = @($rows | Where-Object { $_.Status.Level -eq 'warn' })
     $versions = @($rows | ForEach-Object { $_.InstVersion } | Where-Object { $_ } | Sort-Object -Unique)
-    $badge = @{ ok = 'badge--good'; warn = 'badge--warn'; error = 'badge--bad' }
 
     $body = New-Object System.Text.StringBuilder
     [void]$body.Append((Format-DevTiles @(
@@ -138,60 +173,73 @@ function Format-PluginsPageHtml {
         @{ L = 'Errors'; V = $errors.Count },
         @{ L = 'Warnings'; V = $warns.Count },
         @{ L = 'Installed version'; V = $(if ($versions.Count -eq 1) { $versions[0] } elseif ($versions.Count) { "$($versions.Count) different" } else { '--' }) })))
-    $readFailed = [bool]($ReadError -or $Model.Error)
-    if ($readFailed) {
+    if ($ReadError -or $Model.Error) {
         $why = if ($ReadError) { $ReadError } else { $Model.Error }
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The plugins could not be read: ' + (& $e $why) + '.</p>')
     } elseif (-not $rows.Count) {
         [void]$body.AppendLine('<p class="msg" role="status">No plugin is enabled in this repo. Consulted: ' + (& $e $Model.Consulted) + '.</p>')
     } elseif ($errors.Count -or $warns.Count) {
-        # The problems first, each with the one command that closes it where plugin-versions names one.
-        [void]$body.AppendLine('<div class="grid-2" id="problems">')
-        [void]$body.AppendLine('<div class="grid__head"><h2>Problems</h2><p class="card__sub">Errors first. The command is the one plugin-versions hands over</p></div>')
-        foreach ($r in @($errors) + @($warns)) {
-            $level = if ($r.Status.Level -eq 'error') { 'msg--warn' } else { '' }
-            $what = if ($r.InstallPathMissing) { 'its install record names a folder that is no longer on disk, so it loads nothing; reinstall it' } else { $r.Verdict }
-            [void]$body.AppendLine('<section class="card grid__full"><p class="msg ' + $level + '" role="status"><span class="badge badge--sm ' + $badge[$r.Status.Level] + '">' + (& $e $r.Status.Label) + '</span> <strong>' + (& $e $r.Id) + '</strong>: ' + (& $e $what) + '</p>' +
-                $(if ($r.Action -and -not $r.InstallPathMissing) { '<p class="note"><code>' + (& $e $r.Action) + '</code></p>' } else { '' }) + '</section>')
-        }
-        [void]$body.AppendLine('</div>')
+        $n = $errors.Count + $warns.Count
+        [void]$body.AppendLine('<p class="msg msg--warn" role="status">' + $n + ' of ' + $rows.Count + ' plugins ' + $(if ($n -eq 1) { 'has a problem' } else { 'have a problem' }) + ' on this machine. Its card comes first, and its page names the command that closes it.</p>')
     } else {
         [void]$body.AppendLine('<p class="msg" role="status">Every plugin enabled here is installed and up to date on this machine.</p>')
     }
-
     if ($rows.Count) {
-        [void]$body.AppendLine('<div class="grid-2" id="plugins">')
-        [void]$body.AppendLine('<div class="grid__head"><h2>Plugins</h2><p class="card__sub">Every plugin this repo enables, with the version installed for this checkout and the one the marketplace clone holds</p></div>')
-        [void]$body.AppendLine('<section class="card grid__full">')
-        [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Plugin</th><th class="dp-left">State</th><th class="dp-left">Installed here</th><th class="dp-left">Marketplace clone</th></tr></thead><tbody>')
+        [void]$body.AppendLine('<div class="grid-3" id="plugins">')
         foreach ($r in $rows) {
-            $about = if ($r.Description) { '<p class="note">' + (& $e $r.Description) + '</p>' } else { '' }
-            $inst = if ($r.InstVersion) { (& $e $r.InstVersion) + $(if ($r.InstScope) { ' <span class="badge badge--sm badge--neutral">' + (& $e $r.InstScope) + '</span>' } else { '' }) } else { & $e $r.InstText }
-            $clone = if ($r.CloneVer) { & $e $r.CloneVer } else { & $e $r.CloneText }
-            [void]$body.AppendLine('<tr><td class="dp-left"><strong>' + (& $e $r.Name) + '</strong> <span class="note">@' + (& $e $r.Marketplace) + '</span>' + $about + '</td>' +
-                '<td class="dp-left"><span class="badge badge--sm ' + $badge[$r.Status.Level] + '">' + (& $e $r.Status.Label) + '</span><p class="note">' + (& $e $r.Verdict) + '</p></td>' +
-                '<td class="dp-left num">' + $inst + '</td><td class="dp-left num">' + $clone + '</td></tr>')
+            $sub = if ($r.Status.Level -ne 'ok') { & $e (Get-PluginProblemText $r) }
+                   elseif ($r.InstVersion) { 'Installed ' + (& $e $r.InstVersion) + $(if ($r.InstScope) { ', ' + (& $e $r.InstScope) + ' scope' } else { '' }) }
+                   else { & $e $r.InstText }
+            [void]$body.AppendLine('<section class="card card--link"><h3 class="card__title"><span class="badge badge--sm ' + $script:PluginBadge[$r.Status.Level] + '">' + (& $e $r.Status.Label) + '</span>' +
+                '<a href="/plugins/' + (& $e $r.Name) + '">' + (& $e $r.Name) + '</a></h3><p class="card__sub">' + $sub + '</p></section>')
         }
-        [void]$body.AppendLine('</tbody></table></div>')
-        [void]$body.AppendLine('</section>')
-        [void]$body.AppendLine('</div>')
-    }
-
-    if (-not $readFailed) {
-        [void]$body.AppendLine('<div class="grid-2" id="source">')
-        [void]$body.AppendLine('<div class="grid__head"><h2>Where this comes from</h2></div>')
-        [void]$body.AppendLine('<section class="card grid__full">')
-        [void]$body.AppendLine('<dl class="facts">')
-        [void]$body.AppendLine('<div><dt>Enabled in</dt><dd>' + $(if ($Model.Consulted) { & $e $Model.Consulted } else { '--' }) + '</dd></div>')
-        foreach ($c in @($Model.Clones)) {
-            $bits = if ($c.Exists) { @('HEAD ' + $(if ($c.Head.Length -ge 12) { $c.Head.Substring(0, 12) } else { $c.Head })) + @($(if ($c.HeadDate) { 'committed ' + $c.HeadDate })) + @($(if ($c.FetchTime) { 'last fetch ' + $c.FetchTime })) } else { @('not present') }
-            [void]$body.AppendLine('<div><dt>Clone ' + (& $e $c.Marketplace) + '</dt><dd>' + (& $e ((@($bits) | Where-Object { $_ }) -join ', ')) + '</dd></div>')
-        }
-        [void]$body.AppendLine('</dl>')
-        [void]$body.AppendLine('</section>')
         [void]$body.AppendLine('</div>')
     }
     return Format-GeneralPageHtml -Title 'Plugins' -Body $body.ToString() -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
-        -Lead 'Every plugin this repo enables, and whether it is installed and current for this checkout on this machine. A problem with a plugin is named at the top, with the command that closes it.' `
+        -Lead 'Every plugin this repo enables, and whether it is installed and current for this checkout on this machine. Each card opens the plugin''s own page.' `
         -FooterNote 'Read on every request by the plugin-versions skill''s own script, <code>plugin-versions.ps1 -Json</code>: the enable state from the settings files, the install record from <code>~/.claude/plugins/installed_plugins.json</code>, and the marketplace clone under <code>~/.claude/plugins/marketplaces</code>.'
+}
+
+function Format-PluginPageHtml {
+    <#
+        One plugin's page on /plugins/<name>, under the Plugins crumb: its state, what is wrong and the command that
+        closes it where plugin-versions names one, its description, and the facts -- installed here, the marketplace
+        clone and that clone's HEAD. -Row is Find-PluginsPageRow's; -Model the whole model, for the clone.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][hashtable]$Row,
+        [Parameter(Mandatory = $true)][hashtable]$Model,
+        [AllowEmptyString()][string]$RepoName = '',
+        [string]$HubHref = '/hub'
+    )
+    $e = { param($v) ConvertTo-GeneralPageText $v }
+    if (-not $Row.Status) { $Row.Status = Get-PluginRowStatus -Code $Row.Code -InstallPathMissing $Row.InstallPathMissing }
+    $body = New-Object System.Text.StringBuilder
+    $badge = '<span class="badge badge--sm ' + $script:PluginBadge[$Row.Status.Level] + '">' + (& $e $Row.Status.Label) + '</span> '
+    if ($Row.Status.Level -eq 'ok') {
+        [void]$body.AppendLine('<p class="msg" role="status">' + $badge + (& $e $Row.Verdict) + '.</p>')
+    } else {
+        [void]$body.AppendLine('<p class="msg msg--warn" role="status">' + $badge + (& $e (Get-PluginProblemText $Row)) + '.</p>')
+        if ($Row.Action -and -not $Row.InstallPathMissing) { [void]$body.AppendLine('<p class="note">To close it: <code>' + (& $e $Row.Action) + '</code></p>') }
+    }
+    if ($Row.Description) {
+        [void]$body.AppendLine('<div class="grid-2" id="about"><div class="grid__head"><h2>What it is</h2></div>')
+        [void]$body.AppendLine('<section class="card grid__full"><p>' + (& $e $Row.Description) + '</p></section></div>')
+    }
+    [void]$body.AppendLine('<div class="grid-2" id="facts"><div class="grid__head"><h2>On this machine</h2></div>')
+    [void]$body.AppendLine('<section class="card grid__full"><dl class="facts">')
+    [void]$body.AppendLine('<div><dt>Id</dt><dd><code>' + (& $e $Row.Id) + '</code></dd></div>')
+    [void]$body.AppendLine('<div><dt>Installed here</dt><dd>' + (& $e $Row.InstText) + '</dd></div>')
+    [void]$body.AppendLine('<div><dt>Marketplace clone</dt><dd>' + (& $e $Row.CloneText) + '</dd></div>')
+    $c = @($Model.Clones | Where-Object { $_ -and $_.Marketplace -eq $Row.Marketplace }) | Select-Object -First 1
+    if ($c) {
+        $bits = if ($c.Exists) { @($(if ($c.HeadDate) { 'committed ' + $c.HeadDate }), $(if ($c.FetchTime) { 'last fetch ' + $c.FetchTime }), $(if ($c.IsShallow) { 'shallow clone' })) } else { @('not present') }
+        [void]$body.AppendLine('<div><dt>Clone</dt><dd>' + (& $e ((@($bits) | Where-Object { $_ }) -join ', ')) + '</dd></div>')
+    }
+    [void]$body.AppendLine('<div><dt>Enabled in</dt><dd>' + $(if ($Model.Consulted) { & $e $Model.Consulted } else { '--' }) + '</dd></div>')
+    [void]$body.AppendLine('</dl></section></div>')
+    return Format-GeneralPageHtml -Title ([string]$Row.Name) -Body $body.ToString() -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
+        -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }) `
+        -Lead ('The plugin ' + (& $e $Row.Name) + ' from the ' + (& $e $Row.Marketplace) + ' marketplace, and its state for this checkout on this machine.') `
+        -FooterNote 'Read on every request by <code>plugin-versions.ps1 -Json</code>, the plugin-versions skill''s own script.'
 }

@@ -18,7 +18,7 @@ its Brandbook stay in [`dkj-solutions`](../dkj-solutions/README.md).
 | The request rules the servers share | [`lib/loopback-server-lib.ps1`](lib/loopback-server-lib.ps1) |
 | The banner's airsquats state, and its sync with every other machine | [`lib/airsquats-lib.ps1`](lib/airsquats-lib.ps1), [`pages/sync-airsquats.ps1`](pages/sync-airsquats.ps1) |
 | The Test gate page | [`lib/test-gate-lib.ps1`](lib/test-gate-lib.ps1) |
-| The Plugins page: every enabled plugin and its problems, from `plugin-versions.ps1 -Json` | [`lib/plugins-page-lib.ps1`](lib/plugins-page-lib.ps1) |
+| The Plugins page, a card per enabled plugin, and each plugin's own page on `/plugins/<name>`, from `plugin-versions.ps1 -Json` | [`lib/plugins-page-lib.ps1`](lib/plugins-page-lib.ps1) |
 | The Stopwatch and the Logbook: their pages, their router, the hooks that time a run, and the Stopwatch's sync | [`lib/stopwatch-lib.ps1`](lib/stopwatch-lib.ps1), [`lib/logbook-lib.ps1`](lib/logbook-lib.ps1), [`lib/timing-pages.ps1`](lib/timing-pages.ps1), [`../hooks/stopwatch-hook.ps1`](../hooks/stopwatch-hook.ps1), [`../hooks/logbook-hook.ps1`](../hooks/logbook-hook.ps1), [`lib/stopwatch-sync-lib.ps1`](lib/stopwatch-sync-lib.ps1), [`pages/stopwatch-sync.ps1`](pages/stopwatch-sync.ps1), [`pages/stopwatch-hide.ps1`](pages/stopwatch-hide.ps1) and the [`stopwatch-hide`](../skills/stopwatch-hide/SKILL.md) skill |
 
 These are plugin-only files, like [`../worker/`](../worker/): no root copy in the source repo mirrors

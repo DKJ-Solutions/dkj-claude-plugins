@@ -547,9 +547,17 @@ try {
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }
-            if ($path -eq '/plugins') {
+            $plReq = Resolve-PluginsPageRequest -Path $path
+            if ($plReq) {
+                # The overview, or one plugin's page; a name no enabled plugin has is a 404.
                 $pl = Read-PluginsPageModel -Script (Join-Path $root 'scripts\task\plugin-versions.ps1') -RepoRoot $root
-                $html = Format-PluginsPageHtml -Model $pl.Model -ReadError $pl.Error -RepoName 'dkj-claude-plugins' -HubHref '/'
+                $plRow = if ($plReq.Name) { Find-PluginsPageRow -Model $pl.Model -Name $plReq.Name } else { $null }
+                if ($plReq.Name -and -not $plRow) {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('No plugin of that name is enabled in this repo.')) -Method $method
+                    continue
+                }
+                $html = if ($plRow) { Format-PluginPageHtml -Row $plRow -Model $pl.Model -RepoName 'dkj-claude-plugins' -HubHref '/' }
+                        else { Format-PluginsPageHtml -Model $pl.Model -ReadError $pl.Error -RepoName 'dkj-claude-plugins' -HubHref '/' }
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
