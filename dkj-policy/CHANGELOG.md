@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**14 / 32 minor entries** <!-- pending-tally -->
+**14 / 33 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3453-stopwatch-erase-hidden · 20261025-135930Z
+
+A hidden Stopwatch run is now erased, not only hidden: at its next sync the machine that recorded it
+drops it from its own `stopwatch.json` and publishes without it, and a label hide erases that label's
+later runs as they finish. `-Show` brings a run back only until that sync (the `stopwatch-hide` skill).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the Stopwatch is this repo's own dev server and ships to no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch: erase a hidden run from the machine that recorded it
+
+[PR #3455](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3455)
+
+---
 
 ### DEPLOY: feat/stopwatch-run-time-table · 20261025-134945Z
 
