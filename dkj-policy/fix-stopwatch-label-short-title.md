@@ -41,17 +41,31 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `stopwatch-lib.ps1`: the label page's heading and title, its run cards, and a run page's label line and
+  crumb use the short title (`Get-StopwatchShortTitle`), as the overview card already did
+- [x] `serve-connector-dashboard.ps1`: a run's page moves to `/stopwatch/<label>/<run>`, so the URL reads as the
+  crumbs do; a bare `/stopwatch/<run>` answers 301 to it, and a run under a label it is not of is a 404
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1` and `connector-dashboard.tests.ps1` green, with asserts for the short title, the
+  nested route, the redirect and the wrong-label 404
+- [ ] The owner judges the pages in the running hub (a visible result)
+
 ### DEPLOY: fix/stopwatch-label-short-title
 
-**Score:**
+On the Stopwatch's label and run pages, a label such as `hub lib comment, start to end` is named by its short
+title, `hub lib comment`, as its card on the overview already was; the prompt to type still shows the whole
+label. A run's page now lives under its label's, `/stopwatch/<label>/<run>`, matching its crumbs, and an old
+`/stopwatch/<run>` link redirects there.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the Stopwatch is this repo's own dev hub page; no plugin user sees it.
+
+**Score:** N/A
 
 #### Pull Request
 
