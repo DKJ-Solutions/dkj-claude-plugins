@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**4 / 9 minor entries** <!-- pending-tally -->
+**4 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3482-hub-plugins-page · 20261025-222319Z
+
+Every repo's hub gains a **Plugins** card
+([#3482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3482)). Its page lists every plugin the
+repo enables as a card of its own, which opens that plugin's page: the version installed for this checkout, the one
+the marketplace clone holds, and what is wrong with the command that closes it. Problems come first: a plugin behind its clone or not installed here,
+an install folder gone from disk, a stale clone, a retired name. The verdicts are the `plugin-versions` skill's
+own, through its new `-Json` mode, so the page and the skill never disagree.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+Hub: a Plugins page listing every enabled plugin and its problems
+
+Plugins: dkj-policy
+
+[PR #3484](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3484)
+
+---
 
 ### DEPLOY: fix/3477-stop-shipping-brandbook-build · 20261025-215949Z
 
