@@ -58,7 +58,7 @@
 
 ### TEST
 
-- [ ] The owner has looked at a consumer hub served from this branch: no Brandbook card, `/brandbook` a 404
+- [x] The owner has looked at a consumer hub served from this branch: no Brandbook card, `/brandbook` a 404
 
 ### DEPLOY: feat/3475-consumer-hub-no-brandbook
 
