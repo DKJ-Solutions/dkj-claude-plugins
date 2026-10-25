@@ -22,12 +22,12 @@
     its root page and relays each request here, finding this server by /whoami. So this server still answers
     all three, for that relay, and the hub links none of them.
 
-    THE GENERAL PAGES ARE BUILT ELSEWHERE AND SERVED FROM HERE (#3119, #3168): Artifacts, Issues, Release
-    notes and SessionStart belong to every repo, so the dkj-policy plugin builds them in a server of its own
+    THE GENERAL PAGES ARE BUILT ELSEWHERE AND SERVED FROM HERE (#3119, #3168): Artifacts, Issues and
+    SessionStart belong to every repo, so the dkj-policy plugin builds them in a server of its own
     (hub/pages/serve-general-pages.ps1; dkj-solutions' until #3198), which the dev-preview hook starts beside
     this one. The hook writes both servers' urls to a state file in %TEMP%; the hub reads it on every request,
     asking the server named there who it is (its /whoami, the hash of this root) for at most ~500 ms. When
-    it answers as this checkout's, a request for /artifacts, /issues, /release-notes or /sessionstart -- and
+    it answers as this checkout's, a request for /artifacts, /issues or /sessionstart -- and
     /refresh?page=issues or =sessionstart -- is relayed to it and its answer sent back as it came
     (Copy-LoopbackUpstream), and the General card links those paths on this origin. A short 404 text naming
     the general pages server answers when it does not, and a 502 when it stops answering mid-request.
@@ -36,6 +36,10 @@
     general pages and back. Served from one origin, under one data-theme-key ('general-pages', the key the
     plugin's pages already carry in every repo), one choice holds on every page. The general pages' "Repo
     hub" crumb is '/hub', which this server answers with a 303 to '/'.
+
+    /RELEASE-NOTES IS BUILT HERE, FROM THIS TREE (owner, October 25, 2026). The release notes are this repo's
+    own, and relayed they came out of the installed plugin, so a fix to the page showed only after a cut. This
+    server builds and dresses the page with this tree's scripts instead (Update-DashboardReleaseNotesPage).
 
 .DESCRIPTION
     Normally started by the dkj-policy dev-preview SessionStart hook, through this repo's
@@ -190,7 +194,63 @@ $static = @{
     '/house-theme.js'  = @{ File = (Join-Path $styleDir 'house-theme.js');  Type = 'text/javascript; charset=utf-8' }
 }
 # The routes that moved to the general pages server (#3119): each is sent on, or answered with a 404 text.
-$generalRoutes = @('/artifacts', '/issues', '/release-notes', '/sessionstart')
+# /release-notes is not among them: it is built here, from this tree (below).
+$generalRoutes = @('/artifacts', '/issues', '/sessionstart')
+$releaseNotesFile = Join-Path $root 'dkj-policy\releases\page\release-notes.html'
+$script:rnFailure = $null
+
+function Update-DashboardReleaseNotesPage {
+    <#
+        THE RELEASE NOTES ARE THIS REPO'S OWN PAGE, BUILT FROM THIS TREE (owner, October 25, 2026). Relayed to
+        the general pages server, they came out of the INSTALLED plugin's general-pages-lib.ps1, so a change to
+        the page on main showed only after a cut. Here they are built by this tree's own
+        build-release-notes-page.ps1 and dressed by this tree's Format-ReleaseNotesDevPage, as every other hub page
+        here is. The rule for when to build is the general server's (Get-ReleaseNotesPageNeed): the page is absent,
+        or a release document changed after it was built -- and here the builder and its template count as inputs
+        too, so a change to how the page is built shows without a cut as well. The build runs in a CHILD process, bounded at 60 s,
+        because it dot-sources scripts/repo-config.ps1, whose functions must not land in this server's scope.
+        Returns '' when the page on disk is current or was just built, else why not; a failed build is kept for
+        30 s, and an older page stays served.
+    #>
+    $releasesDir = Split-Path -Parent (Split-Path -Parent $releaseNotesFile)
+    $pageDir = Split-Path -Parent $releaseNotesFile
+    $pageTime = if (Test-Path -LiteralPath $releaseNotesFile -PathType Leaf) { (Get-Item -LiteralPath $releaseNotesFile).LastWriteTimeUtc } else { $null }
+    $newest = $null
+    if (Test-Path -LiteralPath $releasesDir -PathType Container) {
+        $prefix = $pageDir.TrimEnd('\') + '\'
+        $newest = Get-ChildItem -LiteralPath $releasesDir -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object { -not $_.FullName.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) } |
+            ForEach-Object { $_.LastWriteTimeUtc } | Sort-Object -Descending | Select-Object -First 1
+    }
+    # The builder and its template are inputs too, so a change to how the page is BUILT rebuilds it as well.
+    $builder = Join-Path $root 'scripts\release\build-release-notes-page.ps1'
+    foreach ($source in @($builder, (Join-Path $root 'scripts\release\release-notes-page-template.html'))) {
+        if (Test-Path -LiteralPath $source -PathType Leaf) {
+            $t = (Get-Item -LiteralPath $source).LastWriteTimeUtc
+            if ($null -eq $newest -or $t -gt $newest) { $newest = $t }
+        }
+    }
+    if (-not (Get-ReleaseNotesPageNeed -PageTime $pageTime -NewestInputTime $newest)) { return '' }
+    if ($script:rnFailure -and ((Get-Date) - $script:rnFailure.At).TotalSeconds -lt 30) { return $script:rnFailure.Error }
+
+    $err = ''
+    if (-not (Test-Path -LiteralPath $builder -PathType Leaf)) { $err = 'scripts/release/build-release-notes-page.ps1 is not in this tree' }
+    else { try {
+        $psi = New-Object System.Diagnostics.ProcessStartInfo
+        $psi.FileName = Join-Path $PSHOME 'powershell.exe'
+        $psi.Arguments = '-NoProfile -ExecutionPolicy Bypass -File "' + $builder + '" -RootOverride "' + $root + '" -OutFile "' + $releaseNotesFile + '"'
+        $psi.UseShellExecute = $false
+        $psi.CreateNoWindow = $true
+        $psi.WorkingDirectory = $root
+        $p = [System.Diagnostics.Process]::Start($psi)
+        try {
+            if (-not $p.WaitForExit(60000)) { try { $p.Kill() } catch { }; $err = 'the build did not finish within 60 s' }
+            elseif ($p.ExitCode -ne 0) { $err = "the build exited $($p.ExitCode)" }
+        } finally { $p.Dispose() }
+    } catch { $err = (([string]$_.Exception.Message) -replace '\s+', ' ') } }
+    $script:rnFailure = if ($err) { @{ Error = $err; At = Get-Date } } else { $null }
+    return $err
+}
 
 function Get-GeneralPagesPort {
     <# The general pages server's port when the state file names one that answers as this checkout's, else 0. #>
@@ -608,6 +668,17 @@ try {
                 $html = Format-SpecialistsPageHtml -Rows $sp.Rows -ReadError $sp.Error -CharsPerToken $sp.CharsPerToken
                 $body = $utf8.GetBytes($html)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
+                continue
+            }
+            if ($path -eq '/release-notes') {
+                # This repo's own page, built from this tree (Update-DashboardReleaseNotesPage).
+                $buildError = Update-DashboardReleaseNotesPage
+                if (-not (Test-Path -LiteralPath $releaseNotesFile -PathType Leaf)) {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("Not built yet: this repo has no dkj-policy/releases/page/release-notes.html, and this server could not build it ($buildError).")) -Method $method
+                    continue
+                }
+                $html = Format-ReleaseNotesDevPage -Html ([System.IO.File]::ReadAllText($releaseNotesFile, $utf8)) -HubHref '/' -RepoName 'dkj-claude-plugins'
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
             if ($generalRoutes -contains $path) {

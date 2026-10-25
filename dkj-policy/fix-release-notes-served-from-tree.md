@@ -50,15 +50,16 @@ wants the release notes, which are this repo's own, to follow this tree without 
 ### TEST
 
 - [x] `connector-dashboard.tests.ps1`: the route answers here with and without a page on disk, the banner stands above the site header, and the HEAD relay assert moved to `/artifacts` (212 passed)
-- [x] Checked by hand on `:4873`: the banner is the first thing in `<body>`, as on `/stopwatch`, and a removed page is rebuilt on request
+- [x] Checked by hand on `:4873`: the banner is the first thing in `<body>`, as on `/stopwatch`; a removed page, and a touched builder, rebuild the page on request
+- [x] Victor's review: nothing blocking; his point that a builder or template change did not rebuild the page is repaired
 
 ### DEPLOY: fix/release-notes-served-from-tree
 
 **This repo's hub builds the release-notes page from its own tree.** `/release-notes` on the hub was relayed
 to the general pages server, which runs from the installed plugin, so a change to that page showed here only
 after a release. The hub now builds and dresses the page with this tree's `build-release-notes-page.ps1` and
-`Format-ReleaseNotesDevPage`, under the same rebuild rule the general server uses, and the hub banner stands
-above the site header there as on every other hub page. Artifacts, Issues and SessionStart are still relayed.
+`Format-ReleaseNotesDevPage`, and rebuilds it when a release document, the builder or its template changed.
+The hub banner stands above the site header there, as on every other hub page. Artifacts, Issues and SessionStart are still relayed.
 
 **Score:** 2
 
