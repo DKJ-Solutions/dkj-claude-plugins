@@ -143,7 +143,7 @@ $StopwatchShared = (-not $PSBoundParameters.ContainsKey('StopwatchPath')) -and (
 if ($StopwatchShared) { . $swSyncLib }
 $StopwatchMachineId = if ($StopwatchShared) { Get-StopwatchMachineId -StoreDir (Split-Path -Parent $StopwatchPath) } else { '' }
 function Get-StopwatchPageRuns {
-    <# This machine's store, and when shared, the other machines' runs merged in (Merge-StopwatchRuns) with their phases; starts a background sync when one is due. #>
+    <# This machine's store, and when shared, the other machines' runs merged in (Merge-StopwatchRuns) with their phases, less what any machine hid (#3446); starts a background sync when one is due. #>
     $store = Read-StopwatchStore -Path $StopwatchPath
     $shared = @{ Runs = @(); Phases = @{}; Machines = 0 }
     if (-not $StopwatchShared) { return @{ Store = $store; Runs = $store.Runs; Shared = $shared } }
@@ -159,7 +159,10 @@ function Get-StopwatchPageRuns {
     $syncLog = Join-Path (Split-Path -Parent $StopwatchPath) 'stopwatch-sync.log'
     $shared.Fetching = Test-StopwatchSyncRunning -StampPath $stamp -LogPath $syncLog
     $shared.LastFetched = if (Test-Path -LiteralPath $syncLog -PathType Leaf) { (Get-Item -LiteralPath $syncLog).LastWriteTimeUtc } else { $null }
-    return @{ Store = $store; Runs = (Merge-StopwatchRuns -Local $store.Runs -Shared $shared.Runs); Shared = $shared }
+    # What any machine hid (#3446): this machine's own entries straight from its hide file, so a hide shows before it is synced.
+    $hidden = @((Read-StopwatchHidden -Path (Get-StopwatchHiddenPath -StorePath $StopwatchPath)).Entries) + @($shared.Hidden)
+    $runs = Select-StopwatchVisibleRuns -Runs (Merge-StopwatchRuns -Local $store.Runs -Shared $shared.Runs) -Entries $hidden
+    return @{ Store = $store; Runs = $runs; Shared = $shared }
 }
 # The test gate's own selection and CI's, so /test-gate shows what they decide for this checkout (#3309).
 # GUARDED, unlike the libs above: they serve one section of one page, and gate-lib.ps1 loads a chain of its
