@@ -24,7 +24,7 @@
   the palette lands rather than only that it arrived.
 
   A CARD PER RELEASE, AND A PAGE PER CARD (owner, October 25, 2026). The index is a grid of cards --
-  version, live/type chip, title, date -- and each card leads to that release's own page, which carries
+  version, live/type chip, date -- and each card leads to that release's own page, which carries
   the note. Before this the index was one collapsed row per release with the note folded inside it
   (inbound #759, which had itself replaced a <select> picker), so a release had no address of its own.
   The reasoning #759 gave still holds and is why the index stays one screen of everything: somebody
@@ -180,8 +180,8 @@
      fill the width they are given, so the same rule is one column on a phone and three or four on a
      desktop, and a page whose width a reader picks (below) needs nothing of its own.
 
-     THE DATE SITS AT THE FOOT OF EVERY CARD. The title takes the slack between the head and the date, so
-     cards side by side line their dates up whatever their titles' lengths. */
+     A CARD IS THE VERSION, A CHIP AND THE DATE (owner, October 25, 2026): the title is read on the
+     release's own page, and rides on the card only as its title attribute. */
   .cards {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
@@ -201,7 +201,6 @@
   /* A link somebody already holds, '#v2.39.0', still lands on its card where JavaScript is off. */
   .card:target { border-color: var(--accent); }
   .card-head { display: flex; align-items: baseline; justify-content: space-between; gap: .6rem; }
-  .card .ct { flex: 1; font-weight: 600; line-height: 1.4; }
 
   .sv { font-variant-numeric: tabular-nums; font-weight: 650; font-size: .85rem; color: var(--accent); }
   .sd { font-size: .8rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; white-space: nowrap; }

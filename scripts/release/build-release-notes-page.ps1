@@ -789,10 +789,11 @@ function Format-ReleaseIndexCards {
         -- only a fragment on one long page. Each release is now a card here and a page of its own, built
         by the same run, so nothing has to be added by hand when a release is cut.
 
-        THE TITLE IS BACK ON THE INDEX, and that does not reverse the August 21 decision that took it out
-        of the row. That decision removed a duplicate: the opened note began with the sentence the row had
-        just shown. A card no longer opens in place -- it leads to a page -- so on the index the title is
-        the one line that says what a release is, and on the release's page the note still opens with it.
+        THE TITLE IS NOT ON THE CARD (owner, October 25, 2026, reading the built cards). A card is the
+        version, a chip where it says something, and the date; the title is read on the release's own
+        page, where the note opens with it. It still travels as the card's title attribute -- its
+        accessible name and its tooltip -- because 'Version 2.39' and a date is thin for anyone navigating
+        by control rather than by eye, which is the reason the rows carried it the same way.
 
         STATIC HTML, as the rows were (inbound #759). Version, title, date and chip all come from the
         history table, so the index reads with JavaScript switched off -- and since the cards carry no note
@@ -824,9 +825,8 @@ function Format-ReleaseIndexCards {
         $title   = ConvertTo-HtmlText ([string]$r.title)
         $date    = ConvertTo-HtmlText (Format-ReleaseDate -Raw ([string]$r.date))
         $chip    = Get-ReleaseChipHtml -Release $r -DominantType $DominantType -LiveFallbackVersion $LiveFallbackVersion
-        $cards.Add('      <a class="card" id="' + $id + '" href="' + $href + '">')
+        $cards.Add('      <a class="card" id="' + $id + '" href="' + $href + '" title="' + $title + '">')
         $cards.Add('        <span class="card-head"><span class="sv">' + $version + '</span>' + $chip + '</span>')
-        $cards.Add('        <span class="ct">' + $title + '</span>')
         $cards.Add('        <span class="sd">' + $date + '</span>')
         $cards.Add('      </a>')
     }

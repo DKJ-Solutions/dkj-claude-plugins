@@ -59,7 +59,7 @@ Index becomes a card grid; the builder writes one page per release under page/re
 
 ### DEPLOY: feat/release-notes-cards
 
-The release-notes page is now an index of cards, one per release, and every release has a page of its
+The release-notes page is now an index of cards (version, chip, date), one per release, and every release has a page of its
 own: `/release-notes/v5.30.0` on both hubs and `/notes/<token>/v5.30.0` in the Worker, with older/newer
 links between them. The builder writes them all in one run, so a cut release gets its page without anyone
 adding it. A link to the old page with a `#v5.30.0` fragment is forwarded to the release's own page.

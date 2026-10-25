@@ -599,15 +599,16 @@ try {
     # ONE CARD PER RELEASE WITH A NOTE, and the fixture has two of the four in its history table.
     Assert-Equal 2 ([regex]::Matches($p13.Html, '<a class="card"').Count) 'index: one card per release carrying a note'
     # THE ID STAYS THE VERSION VERBATIM: '#v2.2.0' is what a link somebody already holds has to match.
-    Assert-True ($p13.Html -match '<a class="card" id="v2\.2\.0" href="/release-notes/v2\.2\.0">') 'index: the card keeps the old deep-link id, and leads to the release''s own page'
+    Assert-True ($p13.Html -match '<a class="card" id="v2\.2\.0" href="/release-notes/v2\.2\.0"') 'index: the card keeps the old deep-link id, and leads to the release''s own page'
 
-    # THE CARD IS STATIC HTML: version, title, date and chip are in the markup, so the index reads with
+    # THE CARD IS STATIC HTML: version, date and chip are in the markup, so the index reads with
     # JavaScript off.
     $card = ([regex]::Match($p13.Html, '(?s)<a class="card" id="v2\.2\.0".*?</a>')).Value
     Assert-True ($card -match '<span class="sv">Version 2\.2</span>') 'index: the card carries the version as markup'
-    # THE TITLE IS VISIBLE ON THE CARD. It left the row on August 21 because an opened row repeated it;
-    # a card opens nothing in place, so here it is the one line that says what a release is.
-    Assert-True ($card -match '<span class="ct">The live push moved to a new stage</span>') 'index: and the title, as visible text'
+    # THE TITLE IS NOT VISIBLE ON THE CARD (owner, October 25, 2026): it is read on the release's own page.
+    # It rides on the card as its accessible name, where it costs no space.
+    Assert-True ($card -notmatch 'class="ct"') 'index: the title is not a line on the card'
+    Assert-True ($card -match 'title="The live push moved to a new stage"') 'index: but is the card''s accessible name'
     Assert-True ($card -match '<span class="sd">14 Aug 2026</span>') 'index: and the date, REFORMATTED from the table ISO for a reader who is not the team'
 
     # AT MOST ONE CHIP PER CARD: live where the table marks it, the bump type otherwise, never both.
@@ -853,8 +854,6 @@ try {
     # THE GRID FILLS WHATEVER WIDTH IT IS GIVEN, so the same rule is one column on a phone and several on a
     # desktop, and the width a reader picks needs nothing of its own.
     Assert-Match 'grid-template-columns: repeat\(auto-fill, minmax\(14rem, 1fr\)\)' $p14.Html 'cards: the grid fills the width with as many columns as fit'
-    # THE TITLE TAKES THE SLACK, so the dates of cards side by side line up whatever their titles' lengths.
-    Assert-Match '\.card \.ct \{ flex: 1;' $p14.Html 'cards: the title takes the slack, so every date sits at the foot'
     # A link already held still lands on its card where JavaScript is off.
     Assert-Match '\.card:target' $p14.Html 'cards: an old #v link marks the card it lands on'
     # ON THE ABSENCE OF THE OLD VALUE: the masthead's own bottom padding is the separation.
