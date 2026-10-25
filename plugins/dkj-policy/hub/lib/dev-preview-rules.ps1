@@ -508,6 +508,39 @@ function Get-DevPreviewStaleHubOwners {
     return $stale
 }
 
+function Get-DevPreviewOwnedTreeRoots {
+    <#
+        The process ids whose trees are THIS checkout's servers on -Ports: for each listener that is ours
+        (Test-ProcessIsOurs), the NEAREST process in the same walk whose command line names -Root -- the
+        hook's cmd.exe, so stopping that tree takes npm, node and the esbuild a Vite server runs with it. The
+        nearest, not the outermost: an editor or terminal further up may name the folder too (Code.exe
+        <root>), and its tree is the session's, not the server's.
+        INBOUND #3462: a release build refused at every cut because the session's own product dev server held
+        its node_modules binaries, and the cut can stop exactly that tree where it recognises it. A listener
+        that is not ours contributes nothing, so a foreign holder keeps the refusal.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][int[]]$Ports,
+        [AllowEmptyCollection()][object[]]$Listeners,
+        [Parameter(Mandatory = $true)][hashtable]$Processes,
+        [Parameter(Mandatory = $true)][string]$Root
+    )
+    $roots = @()
+    foreach ($o in @($Listeners | Where-Object { $_ -and $Ports -contains [int]$_.LocalPort } | ForEach-Object { [int]$_.OwningProcess } | Select-Object -Unique)) {
+        $seen = @{}
+        $id = $o
+        $top = $null
+        for ($depth = 0; $depth -le $script:DevPreviewMaxAncestors; $depth++) {
+            if ($seen.ContainsKey($id) -or -not $Processes.ContainsKey($id)) { break }
+            $seen[$id] = $true
+            if (Test-CommandLineNamesRoot -CommandLine ([string]$Processes[$id].CommandLine) -Root $Root) { $top = $id; break }
+            $id = [int]$Processes[$id].ParentId
+        }
+        if ($null -ne $top -and $roots -notcontains $top) { $roots += $top }
+    }
+    return $roots
+}
+
 function Get-DevPreviewHolderName {
     <#
         The name a person recognises for the process -ProcessId, or '' where none can be read. INBOUND

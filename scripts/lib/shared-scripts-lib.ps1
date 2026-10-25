@@ -1638,6 +1638,9 @@ function Get-SharedScriptPairs {
             Source = 'scripts\release\cut-release.ps1'
             Plugin = 'dkj-policy'
             Skill  = 'cut-release'
+            # #3462: the dev-preview lib lives only under plugins/dkj-policy/hub/, so the stop of the own product
+            # probes it at both depths, the way issue-dashboard finds its worker files.
+            MirrorRunExempt = 'both copies probe the hub lib at both depths and resolve the same file, and a missing one only keeps the #3353 refusal, so a mirror run would only re-measure what the source run already did'
         },
         @{
             # Travels with cut-release for the same reason verify-resolved-issues travels with ship-pr:

@@ -473,9 +473,50 @@ $releaseBuilds = @(foreach ($b in @(Get-SeamValue -Name 'Get-ReleaseBuilds' -Def
 # gate, which that refusal then wasted. The probe is the write-open an unlink trips on, not a process scan: a
 # process's image path can come back in 8.3 form, and a .node module is loaded into node.exe, whose own image sits
 # elsewhere. Only executables and native modules are probed, which kept the scan of brandbook/ to ~1.5 seconds.
-foreach ($b in $releaseBuilds) {
-    $held = @(Get-ChildItem -LiteralPath $b.Dir -Recurse -File -Include '*.exe', '*.dll', '*.node' -ErrorAction SilentlyContinue | Where-Object {
+#
+# AND WHERE THE HOLDER IS THIS CHECKOUT'S OWN DEV-PREVIEW PRODUCT, THE CUT STOPS IT FIRST (#3462). The SessionStart
+# hook starts that product in every session, so the refusal fired at every cut here (v5.30.0, v5.31.0), each time
+# over a server the next session starts again. The product is the one Get-DevPreview states (its Product beside an
+# own hub, or the server itself), and only a listener on its ports that the hook's own ownership rule reads as this
+# checkout's is stopped, as the whole tree under the hook's cmd.exe. Anything else -- a foreign holder, no
+# dev-preview lib, no seam -- leaves the held files held, and the refusal below stands as it was.
+function Get-ReleaseBuildHeldFiles([string]$Dir) {
+    @(Get-ChildItem -LiteralPath $Dir -Recurse -File -Include '*.exe', '*.dll', '*.node' -ErrorAction SilentlyContinue | Where-Object {
         try { [System.IO.File]::Open($_.FullName, 'Open', 'ReadWrite', 'None').Dispose(); $false } catch [System.IO.IOException] { $true } catch { $false } })
+}
+function Stop-OwnDevPreviewProduct {
+    # The plugin tree carries the lib beside scripts/; the source repo's root copy reaches it under plugins/.
+    $lib = @((Join-Path $PSScriptRoot '..\..\hub\lib\dev-preview-rules.ps1'),
+        (Join-Path $repoRoot 'plugins\dkj-policy\hub\lib\dev-preview-rules.ps1')) | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } | Select-Object -First 1
+    if (-not $lib) { return @() }
+    try {
+        . $lib
+        $parsed = ConvertTo-DevPreviewConfig -Raw (Get-SeamValue -Name 'Get-DevPreview' -Default $null)
+        if (-not $parsed.Ok) { return @() }
+        $ports = if (-not $parsed.Config.OwnHub) { @($parsed.Config.Ports) } elseif ($parsed.Config.Product) { @($parsed.Config.Product.Ports) } else { @() }
+        if (-not $ports.Count) { return @() }
+        $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $ports -contains [int]$_.LocalPort } | Select-Object LocalPort, OwningProcess)
+        if (-not $listeners.Count) { return @() }
+        $processes = @{}
+        foreach ($p in @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId, CommandLine -ErrorAction SilentlyContinue)) {
+            $processes[[int]$p.ProcessId] = @{ CommandLine = [string]$p.CommandLine; ParentId = [int]$p.ParentProcessId }
+        }
+        $roots = @(Get-DevPreviewOwnedTreeRoots -Ports $ports -Listeners $listeners -Processes $processes -Root $repoRoot)
+        foreach ($id in $roots) { [void](Invoke-NativeCapture -FilePath 'taskkill' -Arguments @('/PID', [string]$id, '/T', '/F') -DiscardStderr) }
+        return $roots
+    } catch { return @() }
+}
+foreach ($b in $releaseBuilds) {
+    $held = Get-ReleaseBuildHeldFiles -Dir $b.Dir
+    if ($held.Count) {
+        $stopped = @(Stop-OwnDevPreviewProduct)
+        if ($stopped.Count) {
+            # A killed process lets go of its image a moment after it exits, so the probe is given a few tries.
+            for ($try = 0; $try -lt 10 -and $held.Count; $try++) { Start-Sleep -Milliseconds 500; $held = Get-ReleaseBuildHeldFiles -Dir $b.Dir }
+            Write-Host ("release build '$($b.Name)': stopped this checkout's own dev-preview product (pid $($stopped -join ', ')), which held its folder. " +
+                'The dev-preview hook starts it again at the next session start.') -ForegroundColor Yellow
+        }
+    }
     if ($held.Count) {
         $named = ($held | Select-Object -First 3 | ForEach-Object { $_.Name }) -join ', '
         Write-Error ("release build '$($b.Name)': $named is in use by a running process, and the build cannot replace it -- release aborted before the gates, nothing written. " +

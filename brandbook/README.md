@@ -30,9 +30,12 @@ and copies `dist/` into the `dkj-solutions` plugin's `assets/brandbook/` in the 
 (`Get-ReleaseBuilds` in `scripts/repo-config.ps1`,
 [#3210](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3210)), and the plugin's general pages server
 serves that folder at `/brandbook/`. So a change here reaches consumers with the next release, never before.
-**Stop this app's dev server before a cut.** Its `esbuild.exe` runs from `node_modules`, which the build's `npm ci`
+**A cut stops this app's dev server itself.** Its `esbuild.exe` runs from `node_modules`, which the build's `npm ci`
 cannot replace while it runs, so the cut refuses before its gates while anything in this folder is in use
-([#3353](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3353)).
+([#3353](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3353)). Where the holder is this checkout's
+own dev-preview product, the cut stops that process tree first and says so, and the next session start restarts it
+([#3462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3462)). A server it does not recognise as this
+checkout's still refuses the cut, so stop that one by hand.
 
 The app is built for the base `/brandbook/` (`vite.config.ts`): the showcase is its one page, and the "Home" crumb
 goes to the origin's own `/`: the product port's root page here, a repo's hub wherever the plugin serves the
