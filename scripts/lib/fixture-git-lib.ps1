@@ -113,7 +113,7 @@ $script:FixtureGitTransientPattern = 'unexpected sideband packet|the remote end 
 # cmd\, which re-launches the real git with a command line it rebuilds -- and the "not a git command"
 # refusal is git's dispatcher, which runs before any subcommand does. Nothing happened, so unlike every
 # other failure here this one is safe to repeat for ANY verb. The pattern names a path ending in git
-# or git.exe, so a genuinely mistyped subcommand ('git: 'comit' is not a git command') is not retried.
+# or git.exe, so a genuinely mistyped subcommand ("git: 'comit' is not a git command") is not retried.
 $script:FixtureGitLauncherPattern = "git: '[^']*[\\/]git(\.exe)?' is not a git command"
 
 function Get-FixtureGitVerb {
@@ -183,7 +183,7 @@ function Test-FixtureGitTransientFailure {
     if (Test-FixtureGitLauncherFailure -Code $Code -Output $Output) { return $true }
     if ((Get-FixtureGitVerb -GitArgs $GitArgs) -notin @('push', 'fetch')) { return $false }
     if ($null -eq $Output) { return $false }
-    return (($Output | Out-String) -match $script:FixtureGitTransientPattern)
+    return (($Output | Out-String -Width 4096) -match $script:FixtureGitTransientPattern)
 }
 
 function Invoke-FixtureGitNative {
