@@ -39,19 +39,45 @@
 
 ### PLAN
 
+Issue #3468: this repo's own hub (`OwnHub`, `scripts/lib/dev-pages-lib.ps1`) has no Product card, while the
+plugin's hub (`hub/lib/repo-hub-page.ps1`) opens its grid with one. The hook already writes the product url
+(`product`) into the state file in `ownhub` mode, so the hub only has to read it and link it.
+
+#### A visible result
+
+The hub's home page changes, so the PR waits for the owner's look before the merge.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-RepoAboutBodyHtml` / `Format-RepoHubHtml` take `-ProductUrl`: the first card links it, believed by
+  the plugin hub's own `Test-RepoHubLocalUrl`, and says the server is not running where none is named
+- [x] `serve-connector-dashboard.ps1` passes the state file's `product` url
+- [x] `dev-pages-lib.ps1`'s header no longer says the hub never links the brand book
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: the Product card comes first, the not-running form, and five urls that are no plain
+  loopback url are not linked (340 passed)
+- [x] `connector-dashboard.tests.ps1`: the served hub links the product the state file names; the repo-session
+  fixture copies `dev-preview-rules.ps1`, which the page lib now loads (215 passed)
+- [x] The live hub on 4871 serves the Product card linking `http://localhost:5174/`
+
 ### DEPLOY: feat/3468-own-hub-product-card
 
-**Score:**
+This repo's own hub now opens its grid with a Product card linking the brand book's dev server, as the plugin's
+hub does in every consumer ([#3468](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3468)). The url
+comes from the dev-preview hook's state file and is believed only as a plain loopback url, the plugin hub's own
+rule. Where the file names none, the card says the server is not running.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
+
+The source repo's own hub links its product, as the plugin's hub does
 
