@@ -39,19 +39,32 @@
 
 ### PLAN
 
+#3430: the comment above `.card__head` in `house-style.css` still forbade an `h2` inside a card, a rule
+retired on October 24, 2026 (53ddeaaf0, #3175). Rewrite the comment only; the brandbook bundle follows on
+the next build.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: the `.card__head` comment no longer states the retired rule
+- [x] The skill's sha256 for `house-style.css`
 
 ### TEST
 
+- [x] `check-house-style.ps1` over this repo: OK
+
 ### DEPLOY: fix/3430-card-h2-comment
 
-**Score:**
+The comment above `.card__head` in `house-style.css` no longer says an `h2` never stands inside a card, a
+rule the house style retired on October 24, 2026; it now agrees with the `house-style` skill. A comment
+only, so nothing renders differently, but the file's checksum in the skill moves with it.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing for an app to do: no rule or value changed.
+
+**Score:** N/A
 
 #### Pull Request
 
