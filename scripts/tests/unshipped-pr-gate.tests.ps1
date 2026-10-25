@@ -64,10 +64,13 @@ Write-Host ''
 Write-Host 'hooks.json registration' -ForegroundColor Cyan
 $hooksParsed = Get-Content -LiteralPath $HooksJson -Raw | ConvertFrom-Json
 $sessionStartHooks = @($hooksParsed.hooks.SessionStart | ForEach-Object { $_.hooks } | ForEach-Object { $_ })
-$entry = @($sessionStartHooks | Where-Object { $_.command -match 'unshipped-pr-sessioncheck\.ps1' })
-Assert-Equal 1 $entry.Count 'exactly one SessionStart hook entry names unshipped-pr-sessioncheck.ps1'
+# Run through sessioncheck-dispatch.ps1 since #3472, which discovers every *-sessioncheck.ps1 beside it.
+$entry = @($sessionStartHooks | Where-Object { $_.command -match 'sessioncheck-dispatch\.ps1' })
+Assert-Equal 1 $entry.Count 'exactly one SessionStart hook entry runs the dispatcher'
 Assert-Equal 'command' $entry[0].type 'and it is a command hook'
-Assert-True ([int]$entry[0].timeout -gt 0) 'and it carries a positive timeout, like its siblings'
+Assert-True ([int]$entry[0].timeout -gt 0) 'and it carries a positive timeout'
+Assert-Equal 0 @($sessionStartHooks | Where-Object { $_.command -match 'unshipped-pr-sessioncheck\.ps1' }).Count 'unshipped-pr-sessioncheck.ps1 has no entry of its own'
+Assert-True ((Split-Path -Leaf $Hook) -like '*-sessioncheck.ps1') 'and its name matches the dispatcher''s discovery pattern'
 
 # --- Fake gh ---------------------------------------------------------------------------------------
 # It also RECORDS the pr-list arguments into a file, so the author filter the script sends is asserted
