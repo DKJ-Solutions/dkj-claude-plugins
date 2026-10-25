@@ -355,11 +355,31 @@ function Get-StopwatchLabelSets {
     return $sets
 }
 
+function Get-StopwatchOverviewSets {
+    <#
+        The label sets the overview shows: Get-StopwatchLabelSets, then one set with no Groups for every pinned label
+        ($script:StopwatchPinnedLabels) that has no run yet, so its card and its page exist before its first run (the
+        owner, October 25, 2026: a new card comes with its own page). Its slug is computed beside every run label's, so
+        a run label sharing its base gives both a suffix rather than one address to two labels.
+    #>
+    param([Parameter(Mandatory = $true)][hashtable]$Model)
+    $sets = @(Get-StopwatchLabelSets -Model $Model)
+    $missing = @()
+    foreach ($p in $script:StopwatchPinnedLabels) {
+        if (-not @($sets | Where-Object { $_.Title -ieq $p.Label }).Count) { $missing += $p }
+    }
+    if ($missing.Count) {
+        $slugs = Get-StopwatchSlugs -Labels (@($Model.Groups | ForEach-Object { $_.Label }) + @($missing | ForEach-Object { $_.Label }))
+        foreach ($p in $missing) { $sets += @{ Title = $p.Label; Slug = $slugs[$p.Label.ToLowerInvariant()]; Groups = @() } }
+    }
+    return $sets
+}
+
 function Find-StopwatchLabel {
-    <# The label set of -Model (Get-StopwatchLabelSets) whose Slug is -Slug, or $null: the label page's lookup. #>
+    <# The label set of -Model (Get-StopwatchOverviewSets, pinned labels included) whose Slug is -Slug, or $null: the label page's lookup. #>
     param([Parameter(Mandatory = $true)][hashtable]$Model, [AllowEmptyString()][string]$Slug = '')
     if (-not $Slug) { return $null }
-    return (@(Get-StopwatchLabelSets -Model $Model | Where-Object { $_.Slug -ceq $Slug }) | Select-Object -First 1)
+    return (@(Get-StopwatchOverviewSets -Model $Model | Where-Object { $_.Slug -ceq $Slug }) | Select-Object -First 1)
 }
 
 # THE TRANSCRIPT PHASES (#3315's second PR). A finished run's window is read back out of this machine's
@@ -736,6 +756,9 @@ function Format-StopwatchPageShell {
         '.sw-instruction a { color: inherit; text-decoration: none; }' + "`n" +
         '.sw-instruction .muted { font-size: var(--text-sm); font-weight: 400; }' + "`n" +
         '.sw-time { font-size: var(--text-base); font-weight: 300; color: var(--fg-1); }' + "`n" +
+        # A pinned label's steps (Format-StopwatchPinnedSteps): the instruction line's size and colour, numbered.
+        '.sw-steps { margin: var(--spacing-2) 0 0; padding-left: var(--spacing-5); font-size: var(--text-sm); font-weight: 400; color: var(--muted); }' + "`n" +
+        '.sw-steps > li + li { margin-top: var(--spacing-1); }' + "`n" +
         '.sw-change { margin-left: var(--spacing-2); font-size: var(--text-xs); font-weight: 400; color: var(--muted); }' + "`n" +
         '.sw-change--good { color: var(--positive-5); }' + "`n" +
         '.sw-change--bad { color: var(--negative-5); }' + "`n" +
@@ -799,10 +822,46 @@ function Format-StopwatchLabelCard {
     $e = { param($v) ConvertTo-DashboardText $v }
     $stop = if ([string]$Set.Title -match '^release') { 'the release notes of the cut are committed' } else { 'Claude is back on main, clean, with a commit of its own' }
     $fastest = @($Set.Groups | ForEach-Object { $_.Rows } | Where-Object { $_ } | Sort-Object { $_.Seconds }) | Select-Object -First 1
-    $time = if ($fastest) { '<p class="sw-time num">' + (Format-DevSeconds $fastest.Seconds) + '</p>' } else { Format-StopwatchCardTime -Group $Set.Groups[0] -Now $Now }
+    # A pinned label with no run yet (Get-StopwatchOverviewSets) has no time to show, and says so.
+    $time = if ($fastest) { '<p class="sw-time num">' + (Format-DevSeconds $fastest.Seconds) + '</p>' }
+            elseif (-not @($Set.Groups).Count) { '<p class="sw-time">No run yet</p>' }
+            else { Format-StopwatchCardTime -Group $Set.Groups[0] -Now $Now }
     return '<section class="card card--link sw-card"><h2><a href="/stopwatch/' + (& $e $Set.Slug) + '">' + (& $e (Get-StopwatchShortTitle $Set.Title)) + '</a></h2>' +
         '<p class="sw-instruction">From the prompt <code>stopwatch: ' + (& $e $Set.Title) + '</code> until ' + $stop + '.</p>' +
         $time + '</section>'
+}
+
+# A LABEL THE OVERVIEW SHOWS BEFORE ITS FIRST RUN (the owner, October 25, 2026), with the steps that time it the same
+# way every time, so its runs can be compared with each other. It is an ordinary label card from the start, linking its
+# own page (Get-StopwatchOverviewSets), and the STEPS STAND ON THAT PAGE, never on the card: a card is the way in, the
+# page holds what it is about (the owner, October 25, 2026). Matched case-insensitively, like every label. The steps
+# are plain text, escaped where they are drawn.
+$script:StopwatchPinnedLabels = @(
+    @{
+        Label = 'Ship PR'
+        Steps = @(
+            'Get a branch ready first, outside the clock: its change committed and its DEPLOY section written.',
+            'Start the run with a prompt whose first line is exactly "stopwatch: Ship PR", and whose second line only asks to ship that branch with ship-pr.ps1. The run then times the ship and nothing else.',
+            'The run ends when Claude is back on main after the merge and the fold. Each run''s own page splits the ship into its steps: the checks before the PR, the local gates and opening the PR, the CI wait, the merge, and the fold.',
+            'Repeat with the next ready branch under the same first line. Every run lands on this page and is compared with the run before it.',
+            'To try a speed-up, change one thing between two runs, say which on the prompt''s second line, and compare the steps of the two runs.'
+        )
+    }
+)
+
+function Get-StopwatchPinnedLabel {
+    <# The pinned label (above) whose Label is -Label, compared case-insensitively, or $null. #>
+    param([AllowEmptyString()][string]$Label = '')
+    return (@($script:StopwatchPinnedLabels | Where-Object { $_.Label -ieq $Label }) | Select-Object -First 1)
+}
+
+function Format-StopwatchPinnedSteps {
+    <# The numbered steps of a pinned label, or '' for a label that is not pinned. #>
+    param([AllowEmptyString()][string]$Label = '')
+    $pinned = Get-StopwatchPinnedLabel -Label $Label
+    if (-not $pinned) { return '' }
+    $items = @($pinned.Steps | ForEach-Object { '<li>' + (ConvertTo-DashboardText $_) + '</li>' })
+    return '<ol class="sw-steps">' + ($items -join '') + '</ol>'
 }
 
 function Get-StopwatchShortTitle {
@@ -867,7 +926,9 @@ function Format-StopwatchPageHtml {
     # One card per prompt label under the page's h1, each linking the label's page (the owner, October 24, 2026). -Flat
     # keeps every run card under one Measurements heading, for the Logbook, whose labels are the first lines of prompts and
     # rarely repeat.
-    if (-not @($Model.Groups).Count) {
+    # The overview's labels, the pinned ones with no run yet included (not in -Flat, the Logbook's).
+    $sets = if ($Flat) { @() } else { @(Get-StopwatchOverviewSets -Model $Model) }
+    if (-not @($Model.Groups).Count -and -not $sets.Count) {
         [void]$body.AppendLine('<div class="grid__head"><h2>Measurements</h2></div>')
     } else {
         # The grid stands in a wrapper whose gap is the space between grids, so no grid carries a top margin (the owner,
@@ -880,7 +941,7 @@ function Format-StopwatchPageHtml {
         } else {
             # The overview's one heading is an h1 naming the page (the owner, October 24, 2026).
             [void]$body.AppendLine('<div class="grid__head"><h1>Stopwatch</h1></div>')
-            foreach ($set in @(Get-StopwatchLabelSets -Model $Model)) { [void]$body.AppendLine((Format-StopwatchLabelCard -Set $set -Now $Now)) }
+            foreach ($set in $sets) { [void]$body.AppendLine((Format-StopwatchLabelCard -Set $set -Now $Now)) }
         }
         [void]$body.AppendLine('</div>')
         [void]$body.AppendLine('</div>')
@@ -921,7 +982,17 @@ function Format-StopwatchLabelPageHtml {
     [void]$body.AppendLine('<div class="sw-grid">')
     [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $Set.Title) + '</h2></div>')
     foreach ($g in @($Set.Groups)) { [void]$body.AppendLine((Format-StopwatchRunCard -Group $g -Now $Now)) }
+    # A pinned label before its first run (Get-StopwatchOverviewSets): one card saying so, where the runs will stand.
+    if (-not @($Set.Groups).Count) { [void]$body.AppendLine('<section class="card sw-card"><p class="sw-instruction">No run yet. The first one sets the baseline for this label.</p></section>') }
     [void]$body.AppendLine('</div>')
+    # A pinned label's steps stand here, on its page, under an h2 of their own above the one card that holds them.
+    $steps = Format-StopwatchPinnedSteps -Label $Set.Title
+    if ($steps) {
+        [void]$body.AppendLine('<div class="sw-howto">')
+        [void]$body.AppendLine('<div class="grid__head"><h2>How to time it</h2></div>')
+        [void]$body.AppendLine('<section class="card sw-card">' + $steps + '</section>')
+        [void]$body.AppendLine('</div>')
+    }
     [void]$body.AppendLine('</div>')
     $shell = Format-StopwatchPageShell
     $note = 'Every run whose prompt began with <code>stopwatch: ' + (& $e $Set.Title) + '</code>, labels compared case-insensitively, each against the run of this label before it. ' +
