@@ -481,7 +481,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Assert-True ((Get-Raw 'GET' '/about' "localhost:$port3" '' $port3) -match 'HTTP/1.1 303[\s\S]*Location: /\r') '/about sends an old link on to the home page, which holds what it held'
             Assert-True ($about -match 'The general pages server is not running' -and $about -notmatch 'href="http://localhost') 'and its General card says the general pages server is not running too'
             # A state file naming a port nobody answers on is no server.
-            Write-RepoHubState -Root $src -Hub "http://localhost:$port3/" -Pages "http://localhost:$genPort3" -Mode 'ownhub'
+            Write-RepoHubState -Root $src -Hub "http://localhost:$port3/" -Pages "http://localhost:$genPort3" -Product 'http://localhost:5174/' -Mode 'ownhub'
             $r = if ($up) { Get-Raw 'GET' '/issues' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($r -match 'HTTP/1.1 404') 'a state file naming a port where nothing answers is no server: a 404 text, not a redirect'
             # The real general server for this fixture, which answers /whoami with this root's hash. The fixture is an
@@ -524,7 +524,8 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
                 $r = Get-Raw 'GET' '/artifacts' "localhost:$genPort3" "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: no-cors`r`n" $genPort3
                 Assert-True ($r -match 'HTTP/1.1 403') 'while a same-site subresource request to it is refused'
                 $hubUp = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-                Assert-True ((Get-Raw 'GET' '/repository' "localhost:$port3" '' $port3) -match '<a class="menu-item" href="/issues">' -and $hubUp -match 'href="/release-notes"' -and $hubUp -notmatch 'href="http://localhost' -and $hubUp -notmatch 'is not running') 'the General card links the pages on this origin, when the server the state file names answers as this checkout''s (#3168)'
+                Assert-True ($hubUp -match '<a class="menu-item" href="http://localhost:5174/">') 'the hub''s first card links the product the state file names, as the plugin''s hub does (#3468)'
+                Assert-True ((Get-Raw 'GET' '/repository' "localhost:$port3" '' $port3) -match '<a class="menu-item" href="/issues">' -and $hubUp -match 'href="/release-notes"' -and $hubUp -notmatch 'href="http://localhost:[0-9]+/[a-z]' -and $hubUp -notmatch 'general pages server is not running') 'the General card links the pages on this origin, when the server the state file names answers as this checkout''s (#3168)'
             } finally {
                 if (-not $gen3.HasExited) { Stop-Process -Id $gen3.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
                 $gen3.WaitForExit(5000) | Out-Null
@@ -667,8 +668,9 @@ Assert-Equal "Set-Location -LiteralPath 'C:\x\o''b'; claude 'start it''s dossier
 $rsRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('repo-session-' + [guid]::NewGuid().ToString('n'))
 $rsHub = Join-Path $rsRoot 'org\hub'
 New-Item -ItemType Directory -Force -Path (Join-Path $rsHub 'connectors'), (Join-Path $rsHub 'scripts\lib'), (Join-Path $rsRoot 'org\dkj-lifehub') | Out-Null
-# repo-session.ps1 loads the hub's page lib, which loads the connector lib and the two plugin libs beside it.
-foreach ($lib in 'scripts\lib\connector-dashboard-lib.ps1', 'scripts\lib\dev-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\general-pages-lib.ps1', 'plugins\dkj-policy\dkj-solutions\scripts\lib\dkj-solutions-pages-lib.ps1') {
+# repo-session.ps1 loads the hub's page lib, which loads the connector lib and the plugin libs beside it
+# (dev-preview-rules.ps1 for the Product card's url rule, #3468).
+foreach ($lib in 'scripts\lib\connector-dashboard-lib.ps1', 'scripts\lib\dev-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\general-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\dev-preview-rules.ps1', 'plugins\dkj-policy\dkj-solutions\scripts\lib\dkj-solutions-pages-lib.ps1') {
     $to = Join-Path $rsHub (Split-Path -Parent $lib)
     New-Item -ItemType Directory -Force -Path $to | Out-Null
     Copy-Item -LiteralPath (Join-Path $RepoRoot $lib) -Destination $to
