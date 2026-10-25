@@ -229,6 +229,63 @@
                                         "seconds":  0.702
                                     }
                                 ]
+                 },
+                 {
+                     "id":  "20261025-090710-dc49",
+                     "label":  "h2 fontsize",
+                     "start":  "2026-10-25T09:07:10.771Z",
+                     "end":  "2026-10-25T09:26:09.662Z",
+                     "sessions":  1,
+                     "phases":  [
+                                    {
+                                        "name":  "Ship: CI wait, merge, fold",
+                                        "seconds":  3.305
+                                    },
+                                    {
+                                        "name":  "Ship: checks before the PR",
+                                        "seconds":  5.384
+                                    },
+                                    {
+                                        "name":  "Ship: local gates and opening the PR",
+                                        "seconds":  218.368
+                                    },
+                                    {
+                                        "name":  "Ship: CI wait",
+                                        "seconds":  135.496
+                                    },
+                                    {
+                                        "name":  "Ship: forwarded head, re-certified",
+                                        "seconds":  621.198
+                                    },
+                                    {
+                                        "name":  "Ship: merge",
+                                        "seconds":  4.376
+                                    },
+                                    {
+                                        "name":  "Ship: fold and close-out",
+                                        "seconds":  11.002
+                                    },
+                                    {
+                                        "name":  "Local gates and tests",
+                                        "seconds":  63.929
+                                    },
+                                    {
+                                        "name":  "Branch and claim",
+                                        "seconds":  5.828
+                                    },
+                                    {
+                                        "name":  "Other tool calls",
+                                        "seconds":  9.661
+                                    },
+                                    {
+                                        "name":  "Claude thinking and writing",
+                                        "seconds":  59.652
+                                    },
+                                    {
+                                        "name":  "Waiting on you",
+                                        "seconds":  0.692
+                                    }
+                                ]
                  }
              ]
 }
