@@ -289,9 +289,9 @@ p, p.meta { color: var(--fg-1); }
 .card { background: var(--paper-2); border: 1px solid var(--paper-3); border-radius: 12px; padding: var(--spacing-5); margin-top: var(--spacing-4); }
 /* Data-card head (#141): <section class="card"><div class="card__head"><h3 class="card__title">Title</h3>
    <p class="card__sub">Sub line</p></div> a .table-wrap or .facts</section>. The head is left-aligned, with no rule between it
-   and the body; whatever follows it sits --spacing-4 below. The title is an <h3> at --text-h3 in --fg-3, never an h2:
-   an h2 never stands inside a card, it stands above the card(s) in a .grid__head (#3175). Flex keeps an .info-button on the
-   title's centre line. */
+   and the body; whatever follows it sits --spacing-4 below. The title is an <h3> at --text-h3 in --fg-3; a card may
+   instead be titled by a plain h2 (#3175, retired October 24, 2026). Flex keeps an .info-button on the title's centre
+   line. */
 .card__head { text-align: left; }
 .card__title { display: flex; align-items: center; justify-content: flex-start; margin: 0; font-size: var(--text-h3); font-weight: 600; color: var(--fg-3); }
 /* A status .badge before the title text (#153); the badge is decorative, so the .card__sub says the status too. */

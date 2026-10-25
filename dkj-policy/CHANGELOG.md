@@ -2,7 +2,56 @@
 
 ## [Unreleased]
 
-**10 / 17 minor entries** <!-- pending-tally -->
+**10 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3430-card-h2-comment · 20261025-095642Z
+
+The comment above `.card__head` in `house-style.css` no longer says an `h2` never stands inside a card, a
+rule the house style retired on October 24, 2026; it now agrees with the `house-style` skill. A comment
+only, so nothing renders differently, but the file's checksum in the skill moves with it.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing for an app to do: no rule or value changed.
+
+**Score:** N/A
+
+#### Pull Request
+
+house-style.css comment still states the retired no-h2-in-a-card rule
+
+Plugins: dkj-solutions
+
+[PR #3433](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3433)
+
+---
+
+### DEPLOY: feat/stopwatch-ship-pr-card · 20261025-094821Z
+
+The Stopwatch overview now carries a Ship PR card before its first run, linking a page of its own that holds the
+five steps that time a ship the same way every time: a branch made ready outside the clock, a prompt whose first
+line is exactly `stopwatch: Ship PR`, and the run page's split of the ship into its checks, local gates, CI wait,
+merge and fold.
+Runs of one label are compared with each other on that page, so it is where a slow step and a speed-up attempt
+show.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the Stopwatch is this repo's own dev-server page; no plugin ships it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The Stopwatch overview carries a Ship PR card that says how to time a ship again and again
+
+[PR #3432](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3432)
+
+---
 
 ### DEPLOY: docs/hub-banner-stopwatch-comment · 20261025-093839Z
 
