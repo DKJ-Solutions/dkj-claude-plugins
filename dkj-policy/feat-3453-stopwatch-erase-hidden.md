@@ -80,3 +80,5 @@ N/A -- the Stopwatch is this repo's own dev server and ships to no consumer.
 
 #### Pull Request
 
+Stopwatch: erase a hidden run from the machine that recorded it
+
