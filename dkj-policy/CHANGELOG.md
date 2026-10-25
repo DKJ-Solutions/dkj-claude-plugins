@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**14 / 33 minor entries** <!-- pending-tally -->
+**15 / 34 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/release-notes-cards · 20261025-141944Z
+
+The release-notes page is now an index of cards (version, chip, date), one per release, and every release has a page of its
+own: `/release-notes/v5.30.0` on both hubs and `/notes/<token>/v5.30.0` in the Worker, with older/newer
+links between them. The builder writes them all in one run, so a cut release gets its page without anyone
+adding it. A link to the old page with a `#v5.30.0` fragment is forwarded to the release's own page.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Whoever reads the release notes can now open and send one release on its own address, instead of a
+fragment on one long page, and sees every release as a card. A consumer takes it with the plugin update;
+its hub rebuilds the page on first visit.
+
+**Score:** 3
+
+#### Pull Request
+
+Release notes: every release a card, with a page of its own
+
+Plugins: dkj-policy
+
+[PR #3458](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3458)
+
+---
 
 ### DEPLOY: feat/3453-stopwatch-erase-hidden · 20261025-135930Z
 
