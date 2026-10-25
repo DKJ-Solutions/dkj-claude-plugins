@@ -213,8 +213,12 @@ function Invoke-AirsquatsApi {
         the hour: where that is a background tab, or a browser holding audio back, no other tab plays it.
         The hours and tick-offs are each machine's own clock, so a machine whose clock runs ahead clears its
         hours a little early on the others; Windows' time sync keeps that to seconds.
+        account is the Windows account the server runs under (#3476). Loopback ports are machine-wide, so on a
+        machine with several accounts logged on, localhost:4870 may be another account's hub with another
+        account's state, and nothing else on the page says so. The browser cannot know its own account, so the
+        hub names its owner and the reader compares. Held to [A-Za-z0-9._ -], at most 64 characters.
     #>
-    param([string]$Method, [string]$Path, [string]$SecFetchSite = '', [int64]$Now = (Get-AirsquatsNow))
+    param([string]$Method, [string]$Path, [string]$SecFetchSite = '', [int64]$Now = (Get-AirsquatsNow), [string]$Account = $env:USERNAME)
     $m = ([string]$Method).ToUpperInvariant()
     $clear = $Path -eq '/api/airsquats/clear'
     if (-not $clear -and $Path -ne '/api/airsquats') { return @{ Status = 404; Reason = 'Not Found'; Body = '{"error":"not found"}' } }
@@ -249,8 +253,10 @@ function Invoke-AirsquatsApi {
     [void](Start-AirsquatsSync -Due ($flags.Changed -or ($Now - $state.syncedAt) -ge $script:AirsquatsSyncEveryMs) -Changed $flags.Changed -Now $Now)
     $err = ($state.syncError -replace '[^\x20-\x7E]', '' -replace '["\\]', '')
     if ($err.Length -gt 160) { $err = $err.Substring(0, 160) }
+    $who = ([string]$Account) -replace '[^A-Za-z0-9._ -]', ''
+    if ($who.Length -gt 64) { $who = $who.Substring(0, 64) }
     $body = '{"owed":' + (Get-AirsquatsOwedHours $state) + ',"per":' + $script:AirsquatsPer + ',"announce":' + $(if ($flags.Announce) { 'true' } else { 'false' }) +
-        ',"synced":' + $state.syncedAt + ',"syncError":"' + $err + '"}'
+        ',"synced":' + $state.syncedAt + ',"syncError":"' + $err + '","account":"' + $who + '"}'
     return @{ Status = 200; Reason = 'OK'; Body = $body }
 }
 

@@ -215,10 +215,15 @@ function Format-RepoHubBanner {
         and the server says when to play the tone: once per machine, within two minutes of the hour. A page on a
         server without the API (a request that fails) keeps the countdown and shows no box. A browser may hold the
         tone back until the page has had a click, which is its rule, not this page's.
+
+        THE ROW ENDS ON THE ACCOUNT THE HUB RUNS UNDER (#3476): the server's "account", filled in by textContent
+        once the first answer arrives. On a machine with several Windows accounts logged on, localhost ports
+        are shared between them, so the hub a browser opens may be another account's, and this is where that
+        shows. A server that names no account leaves the row as it was.
     #>
     return @'
 <div class="notice" id="hub-banner" role="region" aria-label="Airsquats" style="margin: 0; border: 0; border-radius: 0">
-<p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong><span class="msg--warn" data-hub-due hidden> &middot; <label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> due</label></span></p>
+<p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong><span class="msg--warn" data-hub-due hidden> &middot; <label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> due</label></span><span data-hub-owner hidden title="The Windows account this hub runs under"> &middot; <span data-hub-account></span></span></p>
 </div>
 <script>
 (function () {
@@ -227,6 +232,7 @@ function Format-RepoHubBanner {
   var API = "/api/airsquats", HOUR = 3600000, POLL = 15000;
   var timer = box.querySelector("[data-hub-timer]"), due = box.querySelector("[data-hub-due]");
   var done = box.querySelector("[data-hub-done]"), count = box.querySelector("[data-hub-count]");
+  var owner = box.querySelector("[data-hub-owner]"), account = box.querySelector("[data-hub-account]");
   var asked = 0, hour = Math.floor(Date.now() / HOUR);
   function tone() {
     try {
@@ -237,6 +243,7 @@ function Format-RepoHubBanner {
   }
   function show(s) {
     if (!s || typeof s.owed !== "number") { return; }
+    if (typeof s.account === "string" && s.account) { account.textContent = s.account; owner.hidden = false; }
     due.hidden = s.owed < 1;
     count.textContent = String((s.per || 10) * s.owed);
     if (s.announce) { tone(); }

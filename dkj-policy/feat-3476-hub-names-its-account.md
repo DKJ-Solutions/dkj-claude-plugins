@@ -39,19 +39,39 @@
 
 ### PLAN
 
+#3476: loopback ports are machine-wide, so with several Windows accounts logged on, `localhost:4870` can be
+another account's hub, and nothing says so. A browser cannot learn its own Windows account, so the hub names its
+owner and the reader compares: `/api/airsquats` gains `account`, and the banner (on every hub page, already
+polling that API) ends its one row on it. Visible result: parks for the owner's eye, no PR.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `airsquats-lib.ps1`: `Invoke-AirsquatsApi` answers `account` (the server's `$env:USERNAME`, held to
+  `[A-Za-z0-9._ -]` and 64 characters), with an `-Account` parameter for the tests
+- [x] `general-pages-lib.ps1`: `Format-RepoHubBanner` ends the row on the account, set by `textContent` and
+  shown only once the server names one
+- [x] Asserts in `hub-airsquats.tests.ps1` and `dev-pages.tests.ps1`
 
 ### TEST
 
+- [ ] The owner has looked at the banner on the hub (parked: `awaiting-review-dev`)
+- [ ] The gates run in `ship-pr` once it is approved
+
 ### DEPLOY: feat/3476-hub-names-its-account
 
-**Score:**
+Every hub page's banner now ends on the Windows account the hub runs under, and `/api/airsquats` names it as
+`account` ([#3476](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3476)). On a machine with several
+accounts logged on, localhost ports are shared between them, so the hub a browser opens can be another account's,
+with its state. Until now nothing on the page said so.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A maintainer who shares a Windows machine with other accounts can see at a glance whose hub a `localhost` tab
+shows.
+
+**Score:** 2
 
 #### Pull Request
 

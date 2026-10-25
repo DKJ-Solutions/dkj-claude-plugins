@@ -86,6 +86,7 @@ Assert-True (([regex]::Matches((Format-RepoHubBanner), '<p[ >]')).Count -eq 1) '
 $bannerJs = Format-RepoHubBanner
 Assert-True ($bannerJs -notmatch 'localStorage' -and $bannerJs -match 'fetch\(path' -and ([regex]::Matches($bannerJs, '"/api/airsquats')).Count -eq 1 -and $bannerJs -notmatch 'XMLHttpRequest|WebSocket|sendBeacon|eval\(|new Function|document\.cookie') 'its state is the server''s, shared by every hub and machine: it asks /api/airsquats on its own origin and nothing else (#3438)'
 Assert-True ($bannerJs -match 'ask\("POST", API \+ "/clear"\)' -and $bannerJs -match '\(s\.per \|\| 10\) \* s\.owed' -and $bannerJs -match 'if \(s\.announce\) \{ tone\(\); \}') 'ticking the box is a POST to /clear, the box shows 10 per hour owed, and the server says when to play the tone'
+Assert-True ($bannerJs -match '<span data-hub-owner hidden[^>]*> &middot; <span data-hub-account></span></span></p>' -and $bannerJs -match 'account\.textContent = s\.account; owner\.hidden = false;' -and $bannerJs -notmatch 'innerHTML') 'the row ends on the Windows account the hub runs under, written as text and shown only once the server names one (#3476)'
 Assert-True ($hub -notmatch '<style>' -and $hub -notmatch 'grid__card') 'the home page restyles nothing (#3133)'
 Assert-Equal ([regex]::Matches($hub, '<h2[ >]')).Count ([regex]::Matches($hub, '</h2><p class="card__sub">[^<]+</p>')).Count 'every h2 on the home page carries a sub line'
 
