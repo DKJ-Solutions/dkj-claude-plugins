@@ -51,7 +51,7 @@ order, since the label lookups do not care and its test pins it.
 ### TEST
 
 - [x] `stopwatch.tests.ps1`: 210 passed, 0 failed
-- [ ] The owner has looked at `/stopwatch` on the hub (a visible result)
+- [x] The owner has looked at `/stopwatch` on the hub (a visible result) and approved it (October 25, 2026)
 
 ### DEPLOY: fix/stopwatch-cards-slowest-first
 
