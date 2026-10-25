@@ -752,14 +752,13 @@ function Get-ReleaseVersionPins {
     return $script:ReleaseVersionPins
 }
 
-# The builds cut-release ships (#3210). The brand book is the brandbook/ React app, and every DKJ-Solutions repo
-# serves it from the dkj-solutions plugin, which cannot build it: the cut builds it after the gates and copies
-# brandbook/dist into the plugin, in the release commit. The owner chose this over keeping a second, PowerShell
-# brand book for consumers (owner, October 20, 2026, on #3210). --ignore-scripts: no dependency's install script runs
-# in the shell that holds the push credentials (security review, #3210).
+# The builds cut-release ships (#3210): none. The brandbook/ app's build was the one entry, copied into the
+# dkj-solutions plugin for consumer hubs to serve at /brandbook/; once no consumer hub served it (#3475), the cut
+# stopped paying npm ci and a build for a folder nothing read (#3477). An empty list is a valid answer, and the
+# literal keeps its two-line shape because cut-release-drive.tests.ps1's fixture rewrites it by that shape. A build
+# added here again runs its commands with --ignore-scripts on npm: no dependency's install script runs in the shell
+# that holds the push credentials (security review, #3210).
 $script:ReleaseBuilds = @(
-    @{ Name = 'brandbook'; WorkingDirectory = 'brandbook'; Commands = @('npm ci --ignore-scripts', 'npm run build')
-       Output = 'brandbook/dist'; Target = 'plugins/dkj-policy/dkj-solutions/assets/brandbook' }
 )
 
 function Get-ReleaseBuilds {
@@ -1522,7 +1521,6 @@ function Get-HouseStyleAllowlist {
         @{ Path = 'scripts/tests/check-house-style.tests.ps1';  Reason = "the gate's own suite: every name in it is a fixture" }
         @{ Path = 'scripts/tests/house-palette.tests.ps1';      Reason = 'the palette suite: every name in it is a pattern or a fixture of the stylesheet it holds' }
         @{ Path = 'brandbook/src/showcase/sections/HouseStyle.tsx'; Name = '.theme-swatch'; Reason = 'the brand book''s themes table READS the house stylesheet''s theme blocks by their selector, not a rule of its own' }
-        @{ Path = 'plugins/dkj-policy/dkj-solutions/assets/brandbook/*'; Reason = 'the brand book app''s build, which the cut ships into the plugin (#3210): the house stylesheet bundled with the app''s own layer, minified, not a layer of its own' }
         # The brandbook app (#3131): five deliberate extensions it brought from dkj-brandbook, which never ran this gate.
         @{ Path = 'brandbook/src/components/dialog.css'; Name = '--paper-2'; Reason = 'the dialog tint, the one exception house-style/README.md rule 3 grants' }
         @{ Path = 'brandbook/src/components/dialog.css'; Name = '--muted'; Reason = 'the dialog tint, the one exception house-style/README.md rule 3 grants' }

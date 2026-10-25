@@ -62,7 +62,8 @@ inside `dkj-policy`'s own payload.
 The brand book is the source repo's `brandbook/` React app, a product of `dkj-claude-plugins`, and that
 repo alone shows it, on its own product port. From #3198 to #3475 this plugin also put a DKJ-Solutions card
 on the hub of every repo that enabled it, and the general pages server answered `/brandbook` there with
-the build each release copies into `assets/brandbook/` (#3210). Both were taken off.
+the build each release copied into `assets/brandbook/` (#3210). Both were taken off, and the release stopped
+building and shipping that folder ([#3477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3477)).
 
 ## The dev-preview hook
 
