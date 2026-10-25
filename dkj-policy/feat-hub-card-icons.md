@@ -46,6 +46,7 @@ stops for the owner's look instead of merging.
 
 - [x] `general-pages-lib.ps1`: a set of line icons (`$script:HubIcons`), `Get-HubIconSvg`, and an optional `-Icon` on `Format-HubCardLinkHtml`, drawn before the label in the house `.menu-item__icon` slot
 - [x] An icon key on every page a hub card links: the general pages, this repo's hub pages, the Brandbook, and the plugin hub's Product, Repository, Issues, Pull requests and Actions cards
+- [x] The product port's root page (`brandbook/root.html`): an icon on its Brandbook, Connectors, Specialists and DKJ repos cards -- the home page the owner looked at first
 
 ### TEST
 
@@ -55,7 +56,7 @@ stops for the owner's look instead of merging.
 
 ### DEPLOY: feat/hub-card-icons
 
-Every card on a hub's home page now carries an icon before its label -- Test gate, Stopwatch, Logbook, Repository and the general pages here, and the Product, Repository, general and Brandbook cards on the plugin's hub in every other repo -- as do the cards on the Repository page. The icons are line drawings stroked in the text colour, like the chevron, set in the house style's existing `.menu-item__icon` slot, so the house stylesheet is unchanged.
+Every card on a hub's home page now carries an icon before its label -- Test gate, Stopwatch, Logbook, Repository and the general pages here, and the Product, Repository, general and Brandbook cards on the plugin's hub in every other repo -- as do the cards on the Repository page. The product port's root page gives its Brandbook, Connectors, Specialists and DKJ repos cards one too. The icons are line drawings stroked in the text colour, like the chevron, set in the house style's existing `.menu-item__icon` slot, so the house stylesheet is unchanged.
 
 **Score:** 2
 
