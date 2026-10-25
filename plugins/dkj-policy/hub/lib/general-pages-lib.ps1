@@ -1233,6 +1233,8 @@ function Format-ReleaseNotesDevPage {
         'header.masthead p { margin: var(--spacing-1) 0 0; color: var(--muted); font-size: var(--text-sm); }'
         '.sheet { border: 1px solid var(--paper-3); border-radius: 12px; padding: var(--spacing-2) var(--spacing-6) var(--spacing-4); }'
         '.noscript { margin: 0; }'
+        '/* The release cards carry no icon, so they take a tighter padding than the house .card the hub''s icon cards keep (owner, October 25, 2026); the grid''s gap is their spacing. */'
+        '.cards > .card { padding: var(--spacing-3) var(--spacing-4); margin-top: 0; }'
         'footer.colophon { margin: 0; padding: 0; border: 0; color: var(--muted); font-size: var(--text-sm); }'
         'footer.colophon p { margin: 0; max-width: none; }'
         'footer.colophon p + p { margin-top: var(--spacing-1); }'

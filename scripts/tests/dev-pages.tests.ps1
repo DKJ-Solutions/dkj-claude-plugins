@@ -458,6 +458,7 @@ $relPage = $tpl.Replace('@@PAGE_BACK@@', '<a class="back" href="/release-notes">
 $rel = Format-ReleaseNotesDevPage -Html $relPage -Release
 Assert-True ($rel -match '<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/release-notes">Release notes</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">Version 2\.39</span></li>') 'its trail runs Home > Release notes > the version read off its own h1, with Release notes a link'
 Assert-True ($rel -notmatch 'class="back"') 'and its own way back is taken out, because that crumb already is one'
+Assert-True ($rn.IndexOf('.cards > .card { padding: var(--spacing-3) var(--spacing-4); margin-top: 0; }') -gt $rn.IndexOf('/house-style.css')) 'the release cards take a tighter padding than the house .card, after the house file so it holds (owner, October 25, 2026)'
 Assert-True ((Format-ReleaseNotesDevPage -Html ($tpl.Replace('@@PAGE_HEADING@@', '<b>x</b>')) -Release) -match 'aria-current="page">Release</span>') 'an h1 not of the builder''s own shape never reaches the crumb'
 Assert-True ((Format-ReleaseNotesDevPage -Html $relPage) -match 'class="back"') 'while the index keeps whatever the page carries'
 $rnIdx = 'C:\r\dkj-policy\releases\page\release-notes.html'
