@@ -39,19 +39,40 @@
 
 ### PLAN
 
+#3439, decided by the owner on October 25, 2026: option 2 -- the hub creates the airsquats gist only on an
+opt-in (`DKJ_HUB_AIRSQUATS_GIST=auto`); without it the banner syncs across the repo hubs of one machine only.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-AirsquatsGistSetting` reads the opt-in (off / auto / pinned id / invalid); `Start-AirsquatsSync`
+  starts no child when it is off, and `Sync-AirsquatsGist` calls no gh and writes nothing then, refuses an
+  invalid value as `syncError`, and keeps a pinned id to that gist alone
+- [x] The docstrings of `airsquats-lib.ps1`, `sync-airsquats.ps1`, `serve-general-pages.ps1` and the hub
+  README say the gist is an opt-in
 
 ### TEST
 
+- [x] `hub-airsquats.tests.ps1`: unset calls no gh, writes nothing and starts no child; an invalid value calls
+  no gh and is reported; the existing sync cases run under `auto`; a pinned gist that cannot be read is an
+  error, never a search or a new gist (44 passed, 0 failed)
+
 ### DEPLOY: feat/3439-airsquats-gist-opt-in
 
-**Score:**
+The hub's airsquats gist is now an opt-in. With `DKJ_HUB_AIRSQUATS_GIST` unset, the hub servers start no
+sync child, call no `gh` and write nothing to the logged-in GitHub account: the banner agrees across the
+repo hubs of one machine only. `auto` finds the `dkj-hub-airsquats` gist, or creates it, private, as #3438
+did by default; a gist id pins that gist; any other value syncs nothing and reports it as `syncError`. This
+replaces #3438's "with nothing configured", which never reached a release.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Whoever runs the hub gets the cross-machine airsquats sync only after setting `DKJ_HUB_AIRSQUATS_GIST` to
+`auto` (or to a shared gist id) in the `env` block of their own `~/.claude/settings.json`. Without it, no
+gist is created on their GitHub account.
+
+**Score:** 2
 
 #### Pull Request
 

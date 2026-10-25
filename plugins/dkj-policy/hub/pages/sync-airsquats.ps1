@@ -8,10 +8,11 @@
     gist is written -- are Sync-AirsquatsGist's; this file is the process around it: a lock of its own, so two
     servers' children never sync at once, and gh bounded at 20 s a call.
 
-    THE GIST. Found by DKJ_HUB_AIRSQUATS_GIST where set, else by the id this machine remembers, else by its
-    description ('dkj-hub-airsquats') among the gists of the account gh is logged in as, and created private on
-    first use. So two machines on the same gh account find each other with nothing configured; machines on
-    different accounts each pin the same id with DKJ_HUB_AIRSQUATS_GIST.
+    THE GIST, ONLY ON AN OPT-IN (#3439). DKJ_HUB_AIRSQUATS_GIST=auto finds it by the id this machine remembers,
+    else by its description ('dkj-hub-airsquats') among the gists of the account gh is logged in as, and creates
+    it private on first use; so two machines on the same gh account find each other with that one setting.
+    Machines on different accounts each pin the same gist id in DKJ_HUB_AIRSQUATS_GIST instead. Unset, the
+    server starts no child, and a child started anyway calls no gh.
 
     Exits 0 always: a failed sync is written into the state file (syncError) for the banner, never raised.
 
