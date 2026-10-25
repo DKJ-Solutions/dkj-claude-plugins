@@ -36,8 +36,14 @@
     A label entry hides every finished run of that label, a run finished after it included, until it is shown again;
     a run still going is never hidden.
     Per run id or label the newest entry across all machines wins, so a hide written on one machine is undone from
-    any other by a newer show entry. Nothing is erased from any store, so every hide is undoable. The entries are
-    written by scripts/dashboard/stopwatch-hide.ps1 (the stopwatch-hide skill); the pages stay read-only (#3323).
+    any other by a newer show entry. The entries are written by scripts/dashboard/stopwatch-hide.ps1 (the
+    stopwatch-hide skill); the pages stay read-only (#3323).
+
+    A HIDDEN RUN IS ERASED BY THE MACHINE THAT RECORDED IT (#3453). At its sync, after the fetch, a machine drops
+    from its own store every finished run the entries hide (Remove-StopwatchHiddenFromStore) and then publishes
+    without it, so a hidden run is gone, not just left out; each machine erases only from its own store, so the
+    one-writer-per-ref rule holds. So a show undoes a hide only until that machine's next sync. A label hide stays
+    in force, so a later run of that label is erased at the first sync after it finishes.
 
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/stopwatch-sync.tests.ps1.
 #>
@@ -177,6 +183,30 @@ function Select-StopwatchVisibleRuns {
     param([AllowEmptyCollection()][object[]]$Runs = @(), [AllowEmptyCollection()][object[]]$Entries = @())
     $state = Get-StopwatchHiddenState -Entries $Entries
     return @($Runs | Where-Object { $_ -and (-not $_.End -or -not ($state.Runs.ContainsKey($_.Id) -or $state.Labels.ContainsKey($_.Label))) })
+}
+
+function Remove-StopwatchHiddenFromStore {
+    <#
+        Erases from the store at -StorePath every finished run -Entries (from every machine) hide (#3453), as
+        @{ Erased (the run ids); Error }. It writes only when a run is erased, and not at all when the store does not
+        read or holds a run that does not parse: the rewrite would drop that run too.
+        THE HOOK WRITES THE SAME FILE WITHOUT A LOCK, so the store is read here, and read again just before the write:
+        when the hook changed it in between, nothing is written and the next sync erases instead (Victor, #3453). That
+        narrows the lost-update window to the write itself; it does not close it.
+    #>
+    param([Parameter(Mandatory = $true)][string]$StorePath, [AllowEmptyCollection()][object[]]$Entries = @())
+    $readText = { if (Test-Path -LiteralPath $StorePath -PathType Leaf) { [System.IO.File]::ReadAllText($StorePath) } else { '' } }
+    $text = & $readText
+    $store = Read-StopwatchStore -Path $StorePath
+    if ($store.Error) { return @{ Erased = @(); Error = 'the store does not read' } }
+    $kept = @(Select-StopwatchVisibleRuns -Runs $store.Runs -Entries $Entries)
+    $keptIds = @($kept | ForEach-Object { $_.Id })
+    $erased = @($store.Runs | ForEach-Object { $_.Id } | Where-Object { $keptIds -cnotcontains $_ })
+    if (-not $erased.Count) { return @{ Erased = @(); Error = '' } }
+    if ($store.Skipped) { return @{ Erased = @(); Error = "the store holds $($store.Skipped) run(s) that do not parse" } }
+    if ((& $readText) -cne $text) { return @{ Erased = @(); Error = '' } }
+    Save-StopwatchStore -Path $StorePath -Runs $kept
+    return @{ Erased = $erased; Error = '' }
 }
 
 function ConvertTo-StopwatchSharedJson {
