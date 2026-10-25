@@ -444,6 +444,9 @@ Assert-True ($rn.Contains('<div class="wrap">') -and $rn.Contains('@@RELEASE_ROW
 # template answers data-width itself -- every width the theme script offers but fluid, which is its own column.
 Assert-True ($tpl.Contains(':root[data-width="phone"] .wrap {') -and $tpl.Contains(':root[data-width="full"] .wrap { max-width: none; }')) 'the template''s column follows the page-width setting'
 Assert-Equal '<html>fixture</html>' (Format-ReleaseNotesDevPage -Html '<html>fixture</html>') 'a page without the template''s shape is served as it came'
+$rnNamed = Format-ReleaseNotesDevPage -Html $tpl -RepoName 'Org/repo'
+Assert-True ($rnNamed -match 'class="site-header"' -and $rnNamed -notmatch 'class="eyebrow"' -and $rnNamed -match '<header class="masthead">\s*@@PAGE_MASTHEAD@@\s*<h1>Release notes</h1>') 'under a site header the masthead opens with its h1, with no eyebrow (#3423)'
+Assert-True ($rn -match '<span class="eyebrow">@@PAGE_TITLE@@</span>' -and $tpl -match '<span class="eyebrow">@@PAGE_TITLE@@</span>') 'and with no site header the eyebrow stays, as it does in the template the Worker serves'
 
 Write-Host '-- the Issues model' -ForegroundColor Cyan
 $now = [DateTime]::new(2026, 10, 18, 12, 0, 0, [DateTimeKind]::Utc)

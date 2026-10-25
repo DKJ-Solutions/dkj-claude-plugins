@@ -61,9 +61,12 @@ already says where this repo keeps its release documents:
   worker-path-token.txt   the path token -- see below
 ```
 
-**Add that directory to your `.gitignore`.** The page and the worker are derivatives of documents that
-are already tracked, rebuildable in a second, and large enough that a tracked copy dirties the working
-tree on every release — which is a problem, because `cut-release.ps1` refuses to run on a dirty tree.
+**That directory ignores itself**: the script writes a `.gitignore` holding `*` into it when there is
+none ([#3431](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3431)), because the hub builds
+the page in every consumer and a line in your own `.gitignore` reached only the repos that read this
+page. The page and the worker are derivatives of documents that are already tracked, rebuildable in a
+second, and large enough that a tracked copy dirties the working tree on every release — which is a
+problem, because `cut-release.ps1` refuses to run on a dirty tree.
 
 **The token is the exception, and which way it goes depends on your repository.** In a **public** repo
 it must stay out: the token *is* the lock (see below), so committing it publishes the key beside the
