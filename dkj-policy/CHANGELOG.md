@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**10 / 20 minor entries** <!-- pending-tally -->
+**10 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/stopwatch-ship-pr-prompt · 20261025-102005Z
+
+The Ship PR page on the Stopwatch now carries the prompt that starts a timed ship, in a block with a copy button:
+`stopwatch: Ship PR`, then one line asking to ship the branch that is checked out, so it pastes unchanged. And
+every Stopwatch page now begins with an `h1` (a label's page, a run's page, and an empty overview), where several
+opened with an `h2`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the Stopwatch is this repo's own dev-server page; no plugin ships it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The Ship PR page carries the prompt to copy, with a copy button
+
+[PR #3435](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3435)
+
+---
 
 ### DEPLOY: fix/3431-release-notes-page-ignored · 20261025-100806Z
 
