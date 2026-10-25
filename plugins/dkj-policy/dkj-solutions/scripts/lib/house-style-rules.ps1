@@ -254,6 +254,14 @@ function Find-HouseStyleClassHit {
     foreach ($m in [regex]::Matches($Text, '(?<=^|[{};])(?<pre>[^{};]+)\{')) {
         $pre = $comment.Replace($m.Groups['pre'].Value, $blank)
         if ($pre.Trim().StartsWith('@')) { continue }
+        # A SELECTOR LIST IS READ ALL OR NOTHING (#3485): every member of a real one is a selector, so one
+        # member that is not -- prose, or a call's unbalanced tail -- means the text before this `{` is no
+        # selector list, and none of its members is a finding. Read member by member, `the GitHub repo's
+        # facts, a .facts--row, not a card` in a script's string passed: `a` is an element name, so its
+        # middle member is selector-shaped, and whether it was reported hung on the paren balance of
+        # unrelated lines further along the same prelude.
+        $members = @()
+        $isList = $true
         foreach ($selector in ($pre -split ',')) {
             # Bracket and paren contents first: `[data-x='a b']` and `:is(.a .b)` hold spaces that are
             # no combinator. Parens fold innermost-out, to `[]` so the next pass does not re-match them.
@@ -261,7 +269,7 @@ function Find-HouseStyleClassHit {
             do { $before = $flat; $flat = [regex]::Replace($flat, '\([^()]*\)', '[]') } while ($flat -ne $before)
             # A paren left over is unbalanced, and a selector never is: `, OPTIONS).sort).toEqual(` is
             # the tail of a call whose argument held an object literal (#3095).
-            if ($flat.IndexOfAny([char[]]'()') -ge 0) { continue }
+            if ($flat.IndexOfAny([char[]]'()') -ge 0) { $isList = $false; break }
             $parts = @($flat.Trim() -split '[\s>+~]+' | Where-Object { $_ })
             if ($parts.Count -eq 0) { continue }
             # Prose before a comma is no selector (#3120): `in the house .grid-2, closed ...` in a string.
@@ -273,7 +281,12 @@ function Find-HouseStyleClassHit {
             $q = $sel.LastIndexOfAny([char[]]"'`"``")
             if ($q -ge 0) { $sel = $sel.Substring($q + 1) }
             $words = @($sel.Trim() -split '[\s>+~]+' | Where-Object { $_ -match '^[A-Za-z][A-Za-z0-9]*$' -and -not $elements.Contains($_) })
-            if ($words.Count) { continue }
+            if ($words.Count) { $isList = $false; break }
+            $members += @{ Selector = $selector; Flat = $flat; Parts = $parts }
+        }
+        if (-not $isList) { continue }
+        foreach ($mb in $members) {
+            $selector = $mb.Selector; $flat = $mb.Flat; $parts = $mb.Parts
             $house = @([regex]::Matches($parts[-1], $classPattern) | ForEach-Object { $_.Groups[1].Value } | Where-Object { $set.Contains($_) })
             if ($house.Count -eq 0) { continue }
             # A class of the repo's own anywhere in the selector scopes the rule to its own component.
