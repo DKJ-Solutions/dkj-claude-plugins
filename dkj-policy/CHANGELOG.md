@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**2 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3462-cut-stops-own-product · 20261025-184331Z
+
+`cut-release.ps1` now stops this checkout's own dev-preview product when it holds a release build's folder, rather
+than refusing the cut ([#3462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3462)). The product is
+the one `Get-DevPreview` states (its `Product` beside an own hub, or the server itself). Only a listener on its
+ports that the hook's ownership rule reads as this checkout's is stopped, as the tree of the nearest process naming
+the root, and the cut names the pid and says that the next session start restarts it. A holder it does not
+recognise still refuses the cut before the gates, as it did under #3353. The cut refused at both v5.30.0 and v5.31.0
+until the brandbook dev server was stopped by hand.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+cut-release stops this checkout's own product dev server instead of refusing
+
+Plugins: dkj-policy
+
+[PR #3466](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3466)
+
+---
 
 ### DEPLOY: feat/3463-hub-config-drift · 20261025-183409Z
 
