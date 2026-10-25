@@ -1241,7 +1241,9 @@ function Format-ReleaseNotesDevPage {
     ) -join "`n"
     $sep = '<span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span>'
     $crumbs = if ($Release) {
+        # Only a label of the builder's own shape is placed, so the crumb never depends on what else an h1 might hold.
         $label = ([regex]'<h1>([^<]*)</h1>').Match($Html).Groups[1].Value
+        if ($label -notmatch '^Version [0-9.]+$') { $label = 'Release' }
         @(('<li>' + $sep + '<a href="/release-notes">Release notes</a></li>'), ('<li>' + $sep + '<span aria-current="page">' + $label + '</span></li>'))
     } else {
         @('<li>' + $sep + '<span aria-current="page">Release notes</span></li>')

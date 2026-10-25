@@ -654,6 +654,10 @@ try {
     [System.IO.File]::WriteAllText($staleRelease, 'old')
     $null = Invoke-Build -Root $r13
     Assert-True (-not (Test-Path -LiteralPath $staleRelease)) 'release page: a page no release in the history carries is removed by the next build'
+    $foreign = Join-Path $r13 'releases\page\release-notes\very-own.html'
+    [System.IO.File]::WriteAllText($foreign, 'mine')
+    $null = Invoke-Build -Root $r13
+    Assert-True (Test-Path -LiteralPath $foreign) 'release page: and only a name the builder writes is removed'
 
     # -LinkBase IS THE ADDRESS THE PAGES ARE SERVED FROM, and the links carry it.
     $b13c = Invoke-Build -Root $r13 -ScriptArgs @('-LinkBase', '/notes/abc')
@@ -661,6 +665,8 @@ try {
     Assert-Match 'href="/notes/abc/v2\.2\.0"' ([System.IO.File]::ReadAllText((Join-Path $r13 'releases\page\release-notes.html'))) 'link base: the cards lead under the address given'
     $b13d = Invoke-Build -Root $r13 -ScriptArgs @('-LinkBase', 'javascript:alert(1)')
     Assert-Equal 1 $b13d.Code 'link base: an address that is not a site-absolute path is refused'
+    Assert-Equal 1 (Invoke-Build -Root $r13 -ScriptArgs @('-LinkBase', '//elsewhere.invalid/x')).Code 'link base: and so is //host, which a browser reads as another site'
+    Assert-Equal 1 (Invoke-Build -Root $r13 -ScriptArgs @('-LinkBase', '/a/../b')).Code 'link base: and so is a .. segment'
 
     # A DATE THE SCRIPT CANNOT PARSE IS PASSED THROUGH rather than guessed at -- a repo may write its
     # history table in a form this script has never seen, and inventing a date is worse than showing

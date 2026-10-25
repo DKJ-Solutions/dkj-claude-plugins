@@ -952,7 +952,8 @@ function New-ReleasePageSet {
     return @{ Index = $index; Pages = $pages }
 }
 
-if ($LinkBase -notmatch '^/[A-Za-z0-9/_.-]*$') {
+# Not '//host', which a browser reads as another site, and no '..' segment.
+if ($LinkBase -notmatch '^/(?!/)[A-Za-z0-9/_.-]*$' -or $LinkBase -match '(^|/)\.\.(/|$)') {
     throw "-LinkBase must be a site-absolute path ('/release-notes'), not '$LinkBase'."
 }
 $site = New-ReleasePageSet -LinkBase $LinkBase
@@ -977,17 +978,23 @@ if (-not (Test-Path -LiteralPath $pageIgnore)) {
 }
 
 if (-not $OutFile) { $OutFile = Join-Path $pageDir 'release-notes.html' }
-[System.IO.File]::WriteAllText($OutFile, $page, $Utf8NoBom)
-
 # ONE FILE PER RELEASE, in a folder named after the index beside it -- release-notes\v2.39.0.html next to
 # release-notes.html -- so a hub maps '/release-notes/v2.39.0' onto it without a table. A page left there by
-# an earlier build is removed first: a release taken out of the history must not stay reachable.
+# an earlier build is removed first: a release taken out of the history must not stay reachable. Only a
+# name this script writes is removed, so an -OutFile pointed somewhere unexpected deletes nothing else.
+#
+# THE PAGES FIRST AND THE INDEX LAST. A hub judges the whole site current by the index's time, so an index
+# written before a page that then failed would be served as current with cards that lead to a 404 -- until
+# some input changed. Written last, a failed run leaves the old index older than its inputs, and the next
+# visit builds again.
 $releaseDir = Join-Path (Split-Path -Parent $OutFile) ([System.IO.Path]::GetFileNameWithoutExtension($OutFile))
 if (-not (Test-Path -LiteralPath $releaseDir)) { New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null }
-Get-ChildItem -LiteralPath $releaseDir -Filter 'v*.html' -File -ErrorAction SilentlyContinue | Remove-Item -Force
+Get-ChildItem -LiteralPath $releaseDir -Filter 'v*.html' -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -match '^v\d+\.\d+\.\d+\.html$' } | Remove-Item -Force
 foreach ($v in $site.Pages.Keys) {
     [System.IO.File]::WriteAllText((Join-Path $releaseDir "v$v.html"), $site.Pages[$v], $Utf8NoBom)
 }
+[System.IO.File]::WriteAllText($OutFile, $page, $Utf8NoBom)
 
 Write-Host "== build-release-notes-page ==" -ForegroundColor Cyan
 Write-Host "  releases : $($releases.Count)  (v$($releases[$releases.Count - 1].version) .. v$($releases[0].version))"

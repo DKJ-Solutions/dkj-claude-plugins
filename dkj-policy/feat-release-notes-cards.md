@@ -48,7 +48,8 @@ Index becomes a card grid; the builder writes one page per release under page/re
 - [x] Template: card grid, release page (back link, heading, older/newer), old `#v<semver>` links forwarded
 - [x] Hubs: both servers serve `/release-notes/v<semver>` through `Resolve-ReleaseNotesRequest`, with a crumb back to the index; an index built before release pages existed counts as not built
 - [x] Plugin mirror of the builder and template kept byte-identical
-- [ ] Review: Victor (code) and Sebastian (security) on the diff
+- [x] Review: Victor (code) and Sebastian (security) on the diff -- the mirror had drifted (re-copied), and the hardening is in: pages written before the index, cleanup limited to `v<semver>.html`, `-LinkBase` refuses `//host` and `..`, the crumb takes only a label of the builder's shape
+- [x] `release-notes-page` skill page: cards, the release folder, `-LinkBase`
 - [ ] Owner looks at the cards and a release page in the hub (visible result)
 
 ### TEST

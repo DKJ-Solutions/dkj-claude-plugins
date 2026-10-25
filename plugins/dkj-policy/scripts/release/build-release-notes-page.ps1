@@ -899,15 +899,15 @@ $pageStyle = Format-ReleasePageStyle -Theme $config.Theme
 function Format-ReleasePageFromTemplate {
     <#
         One page out of the template: the parts every page shares (the product, the marks, the palette, the
-        stamp) and the parts that differ between the index and a release's page. -Subtitle and -Main are
-        markup this script built, every field in them already escaped; -Heading and -WindowTitle are text.
+        stamp) and the parts that differ between the index and a release's page. -WindowTitle, -Subtitle and
+        -Main are markup this script built, every field in them already escaped; -Heading is text.
     #>
     param(
         [string]$WindowTitle, [string]$Back, [string]$Heading, [string]$Subtitle, [string]$Main,
         [Parameter(Mandatory)][AllowEmptyCollection()][array]$Data
     )
     return $template.
-        Replace('@@WINDOW_TITLE@@',  (ConvertTo-HtmlText $WindowTitle)).
+        Replace('@@WINDOW_TITLE@@',  $WindowTitle).
         Replace('@@PAGE_TITLE@@',    (ConvertTo-HtmlText $config.Title)).
         Replace('@@PAGE_BACK@@',     $Back).
         Replace('@@PAGE_HEADING@@',  (ConvertTo-HtmlText $Heading)).
@@ -934,7 +934,7 @@ function New-ReleasePageSet {
     })
     $count    = $releases.Count
     $subtitle = ConvertTo-HtmlText "$count release$(if ($count -ne 1) {'s'}), newest first. Every release is a card; open one to read it."
-    $index = Format-ReleasePageFromTemplate -WindowTitle "$($config.Title) $([char]0x00B7) release notes" -Back '' `
+    $index = Format-ReleasePageFromTemplate -WindowTitle ((ConvertTo-HtmlText $config.Title) + ' &middot; release notes') -Back '' `
         -Heading 'Release notes' -Subtitle $subtitle -Data $indexData `
         -Main (Format-ReleaseIndexCards -Releases $releases -LinkBase $LinkBase -DominantType $dominantType -LiveFallbackVersion $liveFallback -TrimVersion $trimVersion)
 
@@ -945,14 +945,15 @@ function New-ReleasePageSet {
         $label = Format-ReleaseVersionLabel -Version ([string]$r.version) -Trim $trimVersion
         $chip  = Get-ReleaseChipHtml -Release $r -DominantType $dominantType -LiveFallbackVersion $liveFallback
         $sub   = '<span class="sd">' + (ConvertTo-HtmlText (Format-ReleaseDate -Raw ([string]$r.date))) + '</span>' + $(if ($chip) { ' ' + $chip } else { '' })
-        $pages[[string]$r.version] = Format-ReleasePageFromTemplate -WindowTitle "$label $([char]0x00B7) $($config.Title) release notes" `
+        $pages[[string]$r.version] = Format-ReleasePageFromTemplate -WindowTitle ((ConvertTo-HtmlText $label) + ' &middot; ' + (ConvertTo-HtmlText $config.Title) + ' release notes') `
             -Back $back -Heading $label -Subtitle $sub -Data @($r) `
             -Main (Format-ReleasePageMain -Releases $releases -Index $i -LinkBase $LinkBase -TrimVersion $trimVersion)
     }
     return @{ Index = $index; Pages = $pages }
 }
 
-if ($LinkBase -notmatch '^/[A-Za-z0-9/_.-]*$') {
+# Not '//host', which a browser reads as another site, and no '..' segment.
+if ($LinkBase -notmatch '^/(?!/)[A-Za-z0-9/_.-]*$' -or $LinkBase -match '(^|/)\.\.(/|$)') {
     throw "-LinkBase must be a site-absolute path ('/release-notes'), not '$LinkBase'."
 }
 $site = New-ReleasePageSet -LinkBase $LinkBase
@@ -977,17 +978,23 @@ if (-not (Test-Path -LiteralPath $pageIgnore)) {
 }
 
 if (-not $OutFile) { $OutFile = Join-Path $pageDir 'release-notes.html' }
-[System.IO.File]::WriteAllText($OutFile, $page, $Utf8NoBom)
-
 # ONE FILE PER RELEASE, in a folder named after the index beside it -- release-notes\v2.39.0.html next to
 # release-notes.html -- so a hub maps '/release-notes/v2.39.0' onto it without a table. A page left there by
-# an earlier build is removed first: a release taken out of the history must not stay reachable.
+# an earlier build is removed first: a release taken out of the history must not stay reachable. Only a
+# name this script writes is removed, so an -OutFile pointed somewhere unexpected deletes nothing else.
+#
+# THE PAGES FIRST AND THE INDEX LAST. A hub judges the whole site current by the index's time, so an index
+# written before a page that then failed would be served as current with cards that lead to a 404 -- until
+# some input changed. Written last, a failed run leaves the old index older than its inputs, and the next
+# visit builds again.
 $releaseDir = Join-Path (Split-Path -Parent $OutFile) ([System.IO.Path]::GetFileNameWithoutExtension($OutFile))
 if (-not (Test-Path -LiteralPath $releaseDir)) { New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null }
-Get-ChildItem -LiteralPath $releaseDir -Filter 'v*.html' -File -ErrorAction SilentlyContinue | Remove-Item -Force
+Get-ChildItem -LiteralPath $releaseDir -Filter 'v*.html' -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -match '^v\d+\.\d+\.\d+\.html$' } | Remove-Item -Force
 foreach ($v in $site.Pages.Keys) {
     [System.IO.File]::WriteAllText((Join-Path $releaseDir "v$v.html"), $site.Pages[$v], $Utf8NoBom)
 }
+[System.IO.File]::WriteAllText($OutFile, $page, $Utf8NoBom)
 
 Write-Host "== build-release-notes-page ==" -ForegroundColor Cyan
 Write-Host "  releases : $($releases.Count)  (v$($releases[$releases.Count - 1].version) .. v$($releases[0].version))"
