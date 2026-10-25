@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**2 / 5 minor entries** <!-- pending-tally -->
+**2 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3472-sessionstart-dispatcher · 20261025-202249Z
+
+`dkj-policy`'s ten session checks now run from one SessionStart entry, `sessioncheck-dispatch.ps1`, in one
+interpreter instead of ten ([#3472](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3472)). A
+`/clear` in a consumer started thirteen cold `powershell.exe` processes at once, and under load some failed
+before their script ran ("Unable to start thread"), each as a harness error. The checks still run in parallel,
+on a runspace pool, so a session start takes about as long as before. A check that fails or
+hangs now shows up as a named line in the report. A new `*-sessioncheck.ps1` in the plugin's `hooks/` runs
+without a `hooks.json` edit.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+SessionStart checks run from one dispatcher instead of ten cold interpreters
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #3480](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3480)
+
+---
 
 ### DEPLOY: feat/3468-own-hub-product-card · 20261025-191149Z
 
