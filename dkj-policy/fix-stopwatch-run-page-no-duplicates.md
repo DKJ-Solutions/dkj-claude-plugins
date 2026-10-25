@@ -43,17 +43,17 @@ The owner saw a run's start three times and its time twice on `/stopwatch/css-co
 
 ### CREATE
 
-- [x] `Format-StopwatchRunPageHtml`: the Time card drops its "Started ..." line and keeps only "On another machine."; the phase card gets no title
-- [x] `Format-StopwatchPhaseCard`: `-Title` optional, and with none (and one session) no empty card head
+- [x] `Format-StopwatchRunPageHtml`: the Time card is gone (owner, round 2); its total, change against the run before, work-time note and other-machine note close the phases card; the phase card gets no title
+- [x] `Format-StopwatchPhaseCard`: `-Title` optional with no empty card head; `-TotalNote` adds a Total row in the table's `tfoot`, or a Total line under the reason when there is no table
 
 ### TEST
 
-- [x] `stopwatch.tests.ps1`: the start and the time each appear once on a run page; 213 passed
+- [x] `stopwatch.tests.ps1`: the start and the time each appear once, the total closes the table, no Time card; 213 passed; `logbook.tests.ps1` 52 passed
 - [x] Live page counted: the date once, 5:29 once
 
 ### DEPLOY: fix/stopwatch-run-page-no-duplicates
 
-A Stopwatch run page names the run's start once, in its heading, and its time once, on the Time card. The Time card no longer repeats the start beneath its title, and the phase card no longer carries a title restating both, so the page stays compact.
+A Stopwatch run page names the run's start once, in its heading, and its total time once, as the closing Total row of its phases table with its change against the previous run beside it. The separate Time card is gone, and the phase card no longer carries a title restating the start and the time, so the page stays compact. The Logbook's run page, which shares the layout, gets the same total row with its work time beside it.
 
 **Score:** 2
 
