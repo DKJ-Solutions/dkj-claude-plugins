@@ -187,6 +187,8 @@ function Format-GeneralPageHtml {
 
 function Format-RepoHubBanner {
     <#
+        stopwatch test run 2026-10-25 10:27
+
         The hub's general banner (#3250, Dave, October 21, 2026): a countdown to the next full hour,
         and once an hour has passed a checkbox for the 10 airsquats due, with a short tone when it comes due.
         The countdown keeps running whether or not the box is ticked, and every hour that passes unticked
