@@ -49,7 +49,7 @@ try {
     $dir = Split-Path -Parent $StorePath
     $log = Join-Path $dir 'stopwatch-sync.log'
     if (-not (Test-Path -LiteralPath $dir -PathType Container)) { [void](New-Item -ItemType Directory -Path $dir -Force) }
-    if (-not (Test-StopwatchShareEnabled)) {
+    if (-not (Test-StopwatchShareEnabled -RepoRoot $root)) {
         [System.IO.File]::WriteAllText($log, ((Format-StopwatchStamp ([datetime]::UtcNow)) + ' not shared: this repo does not set DKJ_STOPWATCH_SHARE=1'))
         exit 0
     }

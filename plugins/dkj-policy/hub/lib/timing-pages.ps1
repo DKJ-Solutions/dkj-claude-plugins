@@ -11,7 +11,7 @@
 
     THE CONTEXT FIXES WHAT A SERVER READS FOR ITS WHOLE LIFE: the repo's stores (one per repo, Get-StopwatchStorePath),
     its transcripts, ship-pr's step log, and whether it shares its runs with its other machines
-    (Test-StopwatchShareEnabled, read from the environment the server was started in). A test passes stores of its
+    (Test-StopwatchShareEnabled, from the environment or the repo's .claude/settings.json). A test passes stores of its
     own, and then the context never shares: a test must neither read the checkout's refs nor reach the network.
 
     The pages themselves are stopwatch-lib.ps1's and logbook-lib.ps1's, the sync stopwatch-sync-lib.ps1's, all
@@ -41,7 +41,7 @@ function New-HubTimingContext {
     if ($own) { [void](Move-HubTimingLegacyStore -RepoRoot $RepoRoot); $StopwatchPath = Get-StopwatchStorePath -RepoRoot $RepoRoot }
     if (-not $LogbookPath) { $LogbookPath = Join-Path (Split-Path -Parent $StopwatchPath) 'logbook.json' }
     if (-not $TranscriptDir) { $TranscriptDir = Get-StopwatchTranscriptDir -RepoRoot $RepoRoot }
-    $shared = $own -and (Test-StopwatchShareEnabled)
+    $shared = $own -and (Test-StopwatchShareEnabled -RepoRoot $RepoRoot)
     return @{
         Root = $RepoRoot; RepoName = $RepoName; HubHref = $HubHref
         StopwatchPath = $StopwatchPath; LogbookPath = $LogbookPath; TranscriptDir = $TranscriptDir

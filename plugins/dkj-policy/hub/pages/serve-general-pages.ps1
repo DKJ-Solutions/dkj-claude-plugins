@@ -42,7 +42,7 @@
                       which the plugin's UserPromptSubmit and Stop hooks write, and the session transcripts under
                       ~/.claude/projects (Resolve-HubTimingPage, hub/lib/timing-pages.ps1, #3470). The Stopwatch also
                       shows this repo's other machines' runs and starts a background sync, where the repo opts in
-                      with DKJ_STOPWATCH_SHARE=1 (read from the environment this server was started in).
+                      with DKJ_STOPWATCH_SHARE=1 (Test-StopwatchShareEnabled: the environment, else the repo's .claude/settings.json).
       /hub, / and /index.html
                       the plugin's hub (Format-PluginRepoHubHtml), built per request from the state file
                       the hook wrote (%TEMP%\dkj-repo-hub-<leaf>-<hash>.json): the repo's own server as the

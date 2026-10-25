@@ -300,7 +300,7 @@ function Format-TestGatePageHtml {
     [void]$body.AppendLine('<div><dt>Method</dt><dd>' + $(if ($Model.Method) { & $e $Model.Method } else { '--' }) + '</dd></div>')
     # A run links to the repo's own CI on GitHub, where the origin remote names it (owner/name), else it is its number.
     $slug = if ($RepoSlug -cmatch '^[A-Za-z0-9-]+/[A-Za-z0-9._-]+\z') { $RepoSlug } else { '' }
-    $runs = (@($Model.Runs) | Where-Object { $_ -match '^\d+$' } | ForEach-Object {
+    $runs = (@($Model.Runs) | Where-Object { $_ -cmatch '^[0-9]+\z' } | ForEach-Object {
             if ($slug) { '<a class="dp-link" href="https://github.com/' + (& $e $slug) + '/actions/runs/' + $_ + '">' + $_ + '</a>' } else { $_ } }) -join ', '
     [void]$body.AppendLine('<div><dt>CI runs</dt><dd>' + $(if ($runs) { $runs } else { '--' }) + '</dd></div>')
     [void]$body.AppendLine('</dl>')

@@ -150,17 +150,20 @@ try {
 }
 
 Write-Host '-- one store per repo (#3470)' -ForegroundColor Cyan
-Assert-Equal 'dkj-claude-plugins' (Get-HubRepoKey -RepoRoot 'C:\src\dkj-solutions\dkj-claude-plugins') 'a checkout is keyed by its folder name'
-Assert-Equal 'life-hub' (Get-HubRepoKey -RepoRoot 'C:\src\Life-Hub\') 'lowercased, a trailing slash ignored'
-Assert-Equal 'dkj-recipes' (Get-HubRepoKey -RepoRoot 'C:\src\dkj-recipes-lanes\fix-1') 'a worktree-lane lane is the repo it was cut from'
-Assert-Equal 'dkj-recipes' (Get-HubRepoKey -RepoRoot 'C:\src\dkj-recipes\.claude\worktrees\agent-a1') 'a Claude Code worktree is the repo it lives in'
-Assert-Equal 'my-repo-x' (Get-HubRepoKey -RepoRoot 'C:\src\my repo&x') 'anything but a letter, digit, dot, dash or underscore becomes a dash'
+Assert-Equal 'dkj-claude-plugins' (Get-HubRepoName -RepoRoot 'C:\src\dkj-solutions\dkj-claude-plugins') 'a checkout is named by its folder'
+Assert-Equal 'life-hub' (Get-HubRepoName -RepoRoot 'C:\src\Life-Hub\') 'lowercased, a trailing slash ignored'
+Assert-Equal 'my-repo-x' (Get-HubRepoName -RepoRoot 'C:\src\my repo&x') 'anything but a letter, digit, dot, dash or underscore becomes a dash'
+Assert-True ((Get-HubRepoKey -RepoRoot 'C:\src\dkj-recipes') -cmatch '^dkj-recipes-[0-9a-f]{8}\z') 'its store key is the name and eight hex of a hash of its path'
+Assert-Equal (Get-HubRepoKey -RepoRoot 'C:\src\dkj-recipes') (Get-HubRepoKey -RepoRoot 'C:\src\dkj-recipes-lanes\fix-1') 'a worktree-lane lane is the repo it was cut from'
+Assert-Equal (Get-HubRepoKey -RepoRoot 'C:\src\dkj-recipes') (Get-HubRepoKey -RepoRoot 'C:\src\dkj-recipes\.claude\worktrees\agent-a1') 'a Claude Code worktree is the repo it lives in'
+Assert-Equal (Get-HubRepoKey -RepoRoot 'C:\src\dkj-recipes') (Get-HubRepoKey -RepoRoot 'c:/SRC/dkj-recipes/') 'the same path in another case or with other slashes is the same repo'
+Assert-True ((Get-HubRepoKey -RepoRoot 'C:\a\acme\app') -ne (Get-HubRepoKey -RepoRoot 'C:\b\other\app')) 'two unrelated repos in folders of one name never share a store (Sebastian, #3470)'
 $swBase = Join-Path ([System.IO.Path]::GetTempPath()) ('sw-base-' + [guid]::NewGuid().ToString('N'))
 $savedLocal = $env:LOCALAPPDATA
 try {
     $env:LOCALAPPDATA = $swBase
     $repoA = Join-Path $swBase 'src\repo-a'; $source = Join-Path $swBase 'src\dkj-claude-plugins'
-    Assert-Equal (Join-Path $swBase 'dkj-claude-plugins\repos\repo-a\stopwatch.json') (Get-StopwatchStorePath -RepoRoot $repoA) 'the store is the repo''s own, under repos\<repo>'
+    Assert-Equal (Join-Path $swBase ('dkj-claude-plugins\repos\' + (Get-HubRepoKey -RepoRoot $repoA) + '\stopwatch.json')) (Get-StopwatchStorePath -RepoRoot $repoA) 'the store is the repo''s own, under repos\<repo>-<hash>'
     Assert-True ((Get-StopwatchStorePath -RepoRoot $repoA) -ne (Get-StopwatchStorePath -RepoRoot $source)) 'so two repos on one machine never share a store'
     [void](New-Item -ItemType Directory -Path (Join-Path $swBase 'dkj-claude-plugins') -Force)
     foreach ($n in 'stopwatch.json', 'logbook.json', 'stopwatch-machine.txt') { [System.IO.File]::WriteAllText((Join-Path $swBase "dkj-claude-plugins\$n"), "old $n") }
@@ -187,7 +190,21 @@ try {
     Assert-True (Test-StopwatchShareEnabled) 'DKJ_STOPWATCH_SHARE=1 opts it in'
     $env:DKJ_STOPWATCH_SHARE = 'yes'
     Assert-True (-not (Test-StopwatchShareEnabled)) 'and nothing but 1 does'
-} finally { $env:DKJ_STOPWATCH_SHARE = $savedShare }
+    # A hub server keeps the environment it was started in, so the repo's own settings files are read too (#3470).
+    $shareRepo = Join-Path ([System.IO.Path]::GetTempPath()) ('sw-share-' + [guid]::NewGuid().ToString('N'))
+    [void](New-Item -ItemType Directory -Path (Join-Path $shareRepo '.claude') -Force)
+    $env:DKJ_STOPWATCH_SHARE = $null
+    Assert-True (-not (Test-StopwatchShareEnabled -RepoRoot $shareRepo)) 'a repo with no settings file does not share'
+    [System.IO.File]::WriteAllText((Join-Path $shareRepo '.claude\settings.json'), '{ "env": { "DKJ_STOPWATCH_SHARE": "1" } }')
+    Assert-True (Test-StopwatchShareEnabled -RepoRoot $shareRepo) 'with no variable set, the repo''s .claude/settings.json opts it in'
+    [System.IO.File]::WriteAllText((Join-Path $shareRepo '.claude\settings.local.json'), '{ "env": { "DKJ_STOPWATCH_SHARE": "0" } }')
+    Assert-True (-not (Test-StopwatchShareEnabled -RepoRoot $shareRepo)) 'and settings.local.json wins where it names the key, so a machine can answer otherwise'
+    $env:DKJ_STOPWATCH_SHARE = '1'
+    Assert-True (Test-StopwatchShareEnabled -RepoRoot $shareRepo) 'the environment decides wherever it is set, as Claude Code hands it to a hook'
+    [System.IO.File]::WriteAllText((Join-Path $shareRepo '.claude\settings.local.json'), '{ not json')
+    $env:DKJ_STOPWATCH_SHARE = $null
+    Assert-True (Test-StopwatchShareEnabled -RepoRoot $shareRepo) 'a settings file that is not JSON says nothing, so the other one answers'
+    Remove-Item -LiteralPath $shareRepo -Recurse -Force -ErrorAction SilentlyContinue} finally { $env:DKJ_STOPWATCH_SHARE = $savedShare }
 $lockPath = Join-Path ([System.IO.Path]::GetTempPath()) ('sw-lock-' + [guid]::NewGuid().ToString('N') + '.json')
 $held = Get-HubTimingLock -StorePath $lockPath
 $other = Start-Job -ScriptBlock { param($lib, $p) . $lib; $m = Get-HubTimingLock -StorePath $p -TimeoutMs 300; [bool]$m } -ArgumentList (Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\stopwatch-lib.ps1'), $lockPath

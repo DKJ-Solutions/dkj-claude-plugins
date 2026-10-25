@@ -39,7 +39,7 @@
     (#3122), and the workflow a run measures moves HEAD at every branch switch, merge and fold, so a clock kept in
     the page would be lost halfway through the very run it is timing.
 
-    THE STORE IS OUTSIDE THE TREE, ONE PER REPO: %LOCALAPPDATA%\dkj-claude-plugins\repos\<repo>\stopwatch.json
+    THE STORE IS OUTSIDE THE TREE, ONE PER REPO: %LOCALAPPDATA%\dkj-claude-plugins\repos\<repo>-<hash>\stopwatch.json
     (Get-StopwatchStorePath, the repo named by Get-HubRepoKey). A file in the checkout would dirty it in the middle of
     the workflow being measured, and the scripts that ship a branch refuse a dirty tree. So the store is this
     machine's, like the session transcripts the transcript phases read (below). It is one per repo since the page is
@@ -81,24 +81,46 @@ function Get-HubTimingBaseDir {
     return (Join-Path $base 'dkj-claude-plugins')
 }
 
-function Get-HubRepoKey {
+function Get-HubRepoName {
     <#
-        The repo a checkout at -RepoRoot belongs to, as the name its timing stores are kept under (#3470): the
-        checkout's folder name, lowercased, so every session of one repo writes one store. A worktree-lane lane
-        (<repo>-lanes\<lane>) and a Claude Code worktree (<repo>\.claude\worktrees\<name>) are the repo they were cut
-        from, so their runs land beside the checkout's. Anything but a letter, digit, dot, dash or underscore becomes
-        a dash. Pure.
+        The name part of Get-HubRepoKey: the main checkout's folder name, lowercased, anything but a letter, digit,
+        dot, dash or underscore a dash. Pure.
+    #>
+    param([Parameter(Mandatory = $true)][string]$RepoRoot)
+    $key = ((Split-Path -Leaf (Get-HubMainCheckout -RepoRoot $RepoRoot)).ToLowerInvariant() -replace '[^a-z0-9._-]', '-').Trim('.')
+    if (-not $key) { $key = 'repo' }
+    return $key
+}
+
+function Get-HubMainCheckout {
+    <#
+        The checkout a checkout at -RepoRoot was cut from: a worktree-lane lane (<parent>\<repo>-lanes\<lane>) is
+        <parent>\<repo>, and a Claude Code worktree (<repo>\.claude\worktrees\<name>) is <repo>; any other root is
+        itself. Separators as backslashes, no trailing one. Pure.
     #>
     param([Parameter(Mandatory = $true)][string]$RepoRoot)
     $root = $RepoRoot.Replace('/', '\').TrimEnd('\')
     $m = [regex]::Match($root, '^(.*)\\\.claude\\worktrees\\[^\\]+$', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    if ($m.Success) { $root = $m.Groups[1].Value }
-    $leaf = Split-Path -Leaf $root
-    $parent = Split-Path -Leaf (Split-Path -Parent $root)
-    if ($parent -match '^(.+)-lanes$') { $leaf = $Matches[1] }
-    $key = ($leaf.ToLowerInvariant() -replace '[^a-z0-9._-]', '-').Trim('.')
-    if (-not $key) { $key = 'repo' }
-    return $key
+    if ($m.Success) { return $m.Groups[1].Value }
+    $parent = Split-Path -Parent $root
+    if ((Split-Path -Leaf $parent) -match '^(.+)-lanes$') { return (Join-Path (Split-Path -Parent $parent) $Matches[1]) }
+    return $root
+}
+
+function Get-HubRepoKey {
+    <#
+        The repo a checkout at -RepoRoot belongs to, as the folder its timing stores are kept under (#3470):
+        <name>-<hash>, the main checkout's folder name (Get-HubRepoName) and the first eight hex of the SHA1 of its
+        full path, lowercased. So every session of one repo writes one store, a lane or a Claude Code worktree
+        included (Get-HubMainCheckout), and two unrelated repos that happen to share a folder name ('app' under two
+        clients) never do: by name alone, their runs would mix, and a repo that shares its runs would publish the
+        other repo's labels to its own origin (Sebastian, #3470). Pure.
+    #>
+    param([Parameter(Mandatory = $true)][string]$RepoRoot)
+    $main = Get-HubMainCheckout -RepoRoot $RepoRoot
+    $sha = [System.Security.Cryptography.SHA1]::Create()
+    try { $hash = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($main.ToLowerInvariant())) | ForEach-Object { $_.ToString('x2') }) } finally { $sha.Dispose() }
+    return ((Get-HubRepoName -RepoRoot $RepoRoot) + '-' + $hash.Substring(0, 8))
 }
 
 function Get-StopwatchStorePath {
@@ -111,7 +133,7 @@ function Move-HubTimingLegacyStore {
     <#
         Takes over the machine-wide stores of before #3470 as the source repo's own, once: until then the Stopwatch and
         the Logbook were the source repo's pages alone, and their stores sat straight in Get-HubTimingBaseDir. Only a
-        checkout of the source repo takes them: its key is dkj-claude-plugins AND it carries this plugin's source
+        checkout of the source repo takes them: its name is dkj-claude-plugins AND it carries this plugin's source
         (plugins\dkj-policy\hub under -RepoRoot), so no other repo's hub ever shows that repo's runs. Both, because
         either alone was not enough: a test fixture carries the plugin's tree under a folder of another name, and
         measured on this branch, a fixture checkout called 'src' took this machine's real stores as its own. Each file
@@ -119,7 +141,7 @@ function Move-HubTimingLegacyStore {
         id (stopwatch-machine.txt) stays where it is: it names this machine, not a repo. Returns the names it moved.
     #>
     param([Parameter(Mandatory = $true)][string]$RepoRoot)
-    if ((Get-HubRepoKey -RepoRoot $RepoRoot) -cne 'dkj-claude-plugins') { return @() }
+    if ((Get-HubRepoName -RepoRoot $RepoRoot) -cne 'dkj-claude-plugins') { return @() }
     if (-not (Test-Path -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\hub') -PathType Container)) { return @() }
     $base = Get-HubTimingBaseDir
     $dir = Split-Path -Parent (Get-StopwatchStorePath -RepoRoot $RepoRoot)
@@ -139,19 +161,38 @@ function Move-HubTimingLegacyStore {
 
 function Test-StopwatchShareEnabled {
     <#
-        Whether this repo shares its finished runs with its other machines (#3349, an opt-in since #3470): the
-        DKJ_STOPWATCH_SHARE environment variable is '1', set in the env block of the repo's .claude/settings.json, so
-        every hook and the hub server it starts inherit it. Off by default because a label is the first line of a
-        prompt, and a public repo's refs are public.
+        Whether the repo at -RepoRoot shares its finished runs with its other machines (#3349, an opt-in since #3470):
+        DKJ_STOPWATCH_SHARE is '1'. Off by default because a label is the first line of a prompt, and a public repo's
+        refs are public. A repo opts in in the env block of its .claude/settings.json, and a machine can answer
+        otherwise in .claude/settings.local.json, which Claude Code lets win.
+        THE ENVIRONMENT DECIDES WHERE IT IS SET: Claude Code hands the env block to every hook, so a hook reads it
+        there. Where it is not set, the two files are read as JSON (the local one winning where it names the key, as
+        Test-DkjSolutionsEnabled reads them), because a hub server outlives the session that started it and keeps the
+        environment it was started in: measured on #3470, this repo's own hub, started before its opt-in was written,
+        said 'not shared' until it read the file itself. Nothing in either file is run.
     #>
-    return ([string]$env:DKJ_STOPWATCH_SHARE).Trim() -eq '1'
+    param([AllowEmptyString()][string]$RepoRoot = '')
+    $fromEnv = ([string]$env:DKJ_STOPWATCH_SHARE).Trim()
+    if ($fromEnv) { return $fromEnv -eq '1' }
+    if (-not $RepoRoot) { return $false }
+    $value = ''
+    foreach ($name in 'settings.json', 'settings.local.json') {
+        $path = Join-Path $RepoRoot ".claude\$name"
+        try {
+            if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
+            $block = (ConvertFrom-Json -InputObject ([System.IO.File]::ReadAllText($path, [System.Text.Encoding]::UTF8))).env
+            if ($null -ne $block -and $block.PSObject.Properties.Name -contains 'DKJ_STOPWATCH_SHARE') { $value = ([string]$block.DKJ_STOPWATCH_SHARE).Trim() }
+        } catch { }
+    }
+    return $value -eq '1'
 }
 
 function Get-HubTimingLock {
     <#
         A named mutex for the store at -StorePath, held while a hook reads, decides and writes it, so two hooks firing
         on one event -- the plugin's and a copy a repo still wires itself (#3470) -- take turns instead of racing:
-        the second then reads what the first wrote, and both stores' rules turn a repeated event into a no-op. Waits
+        the second then reads what the first wrote. A repeated Stop and a repeated Logbook Prompt are then no-ops; a
+        repeated marked Prompt replaces the run with one started moments later, so there is still one run. Waits
         at most -TimeoutMs; $null when it could not be taken, and the caller goes on without it.
     #>
     param([Parameter(Mandatory = $true)][string]$StorePath, [int]$TimeoutMs = 5000)
@@ -714,7 +755,7 @@ function Get-StopwatchTranscriptCache {
 
         A SHIP'S STEPS come from the step log at -StepLogPath (#3338; Read-RunStepMarks): the ship-pr marks
         whose checkout is -RepoRoot's, so a ship in another checkout on this machine never cuts this one's.
-        Without -StepLogPath, or where run-progress-lib.ps1 is not beside this file, a ship stays one phase.
+        Without -StepLogPath, or where dkj-policy's scripts/lib/run-progress-lib.ps1 is not found, a ship stays one phase.
     #>
     param([AllowEmptyCollection()][object[]]$Runs = @(), [Parameter(Mandatory = $true)][string]$CachePath, [Parameter(Mandatory = $true)][string]$TranscriptDir,
         [string]$StepLogPath = '', [string]$RepoRoot = '')

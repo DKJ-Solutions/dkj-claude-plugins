@@ -32,7 +32,8 @@
 
     ONE HOOK AT A TIME PER STORE (Get-HubTimingLock): a repo can still wire this script itself beside the plugin's
     copy (the source repo does until the release that ships it reaches its sessions, #3470), and two copies racing
-    on one event would each start a run. Serialised, the second reads the first one's write and its event is a no-op.
+    on one event would each start a run. Serialised, the second reads the first one's write: a repeated Stop does
+    nothing, and a repeated marked Prompt replaces the run with one started moments later, so there is one run.
 
     -StorePath and -RepoRoot are for the tests; hooks.json passes neither.
 

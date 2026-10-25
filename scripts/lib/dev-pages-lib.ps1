@@ -18,7 +18,8 @@
     footer note, so it fits on one screen. This repo is no
     product and keeps no in-flight lists, so it has no Products section and no lists. The pages it links are Get-RepoHubPages, the
     ones only this repo has. The GENERAL pages -- Artifacts, Issues, Release notes and SessionStart, which
-    every repo has -- are no longer built here (#3119): the dkj-policy plugin ships them (since #3198) as
+    every repo has -- are no longer built here (#3119), and the Test gate, Stopwatch and Logbook are built from the
+    plugin's libs (see above): the dkj-policy plugin ships them (since #3198) as
     a server of its own, and the hub's second card, General, links that server, through the plugin's
     shared Format-GeneralPagesCardHtml, so a page that is this repo's own is never read as one every repo
     has. This file dot-sources the plugin's general-pages-lib.ps1 for the page shell, the number formats and

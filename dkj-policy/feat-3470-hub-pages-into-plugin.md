@@ -43,10 +43,12 @@ Every repo running dkj-policy gets the Stopwatch, Logbook and Test gate cards on
 
 #### How the issue's six questions were answered
 
-1. **A store per repo**, keyed by the checkout's folder name (`Get-HubRepoKey`; a `worktree-lane` lane and a
-   Claude Code worktree count as the repo they were cut from), under
-   `%LOCALAPPDATA%\dkj-claude-plugins\repos\<repo>\`. The machine-wide store of before is taken over by the
-   source repo alone (`Move-HubTimingLegacyStore`): its key must be `dkj-claude-plugins` AND it must carry
+1. **A store per repo**, keyed by the main checkout's folder name and a hash of its path (`Get-HubRepoKey`; a
+   `worktree-lane` lane and a Claude Code worktree count as the repo they were cut from), under
+   `%LOCALAPPDATA%\dkj-claude-plugins\repos\<repo>-<hash>\`. The name alone was the first draft; the security
+   review showed two unrelated repos in folders of one name would share a store, and with sharing on publish each
+   other's labels. The machine-wide store of before is taken over by the
+   source repo alone (`Move-HubTimingLegacyStore`): its name must be `dkj-claude-plugins` AND it must carry
    `plugins\dkj-policy\hub`. Both, because a test fixture carries the plugin tree under another folder name, and
    measured on this branch, a fixture checkout called `src` took this machine's real stores as its own. They were
    moved back by hand, the rule now needs the key too, and the fixture servers get stores of their own.
@@ -61,7 +63,8 @@ Every repo running dkj-policy gets the Stopwatch, Logbook and Test gate cards on
 5. **The order of the move**: this repo keeps wiring the hooks in `.claude/settings.json`, now at their plugin
    paths in this tree, until the release that ships them reaches its sessions. Both copies firing on one event is
    made harmless rather than avoided: each hook takes a per-store named mutex (`Get-HubTimingLock`), so the second
-   reads the first one's write and its event is a no-op. Dropping the repo wiring is #3473.
+   reads the first one's write, so a repeated Stop or Logbook Prompt does nothing and a repeated marked Prompt
+   replaces the run with one started moments later. Dropping the repo wiring is #3473.
 6. **The Test gate in a consumer** shows an empty state naming `scripts/tests/suite-durations.json`. Not built:
    the seam for another path, and moving the writer and the `measure-suites` skill, both because the writer
    reads this repo's own CI shape. Filed as #3474, for the owner's decision.
@@ -112,8 +115,8 @@ which this repo does. Both hub servers answer the timing pages through one route
 Every repo's hub gains three cards: Test gate, Stopwatch and Logbook. A prompt whose first line begins with
 `stopwatch:` is timed until Claude is back on the trunk, and every session that starts on a clean trunk is logged
 by itself, with each run's time split into its phases on its own page. The runs stay on the machine unless the
-repo opts in with `DKJ_STOPWATCH_SHARE=1`. The Test gate shows an empty state until the repo records its suites'
-CI durations in `scripts/tests/suite-durations.json`.
+repo opts in with `DKJ_STOPWATCH_SHARE=1`. The Test gate shows an empty state until the repo has a
+`scripts/tests/suite-durations.json`; the plugin ships no writer for it yet (#3474).
 
 **Score:** 3
 

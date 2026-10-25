@@ -215,8 +215,8 @@ under `/brandbook/`. The PowerShell Brandbook page it replaces is retired, so th
 | `/release-notes` | `dkj-policy/releases/page/release-notes.html`, dressed in the house style on the way out. Built first where it is absent or older than a file under `dkj-policy/releases`, by `build-release-notes-page.ps1` in a child process (bounded at 60 s), the repo's own copy else this plugin's: the page is a gitignored snapshot that nothing else builds (#3189) | A plain 404 text naming why it could not be built; where a rebuild fails, the older page is served |
 | `/sessionstart` | The always-on path, measured in a child process (bounded at 60 s) by `always-on-budget-lib.ps1`, the repo's own copy else this plugin's; kept for a minute | The reason it could not measure, on the page |
 | `/test-gate` | `scripts/tests/suite-durations.json`, grouped by `scripts/tests/suite-groups.json` where the repo keeps one, and each suite's own `.SYNOPSIS` (#3470) | The page says no test gate has been measured in this repo yet |
-| `/stopwatch`, `/stopwatch/<label>[/<run>]` | This repo's Stopwatch store on this machine, and the session transcripts for a run's phases (#3470, below) | An empty overview |
-| `/logbook`, `/logbook/<slug>` | This repo's Logbook store on this machine, and the session transcripts (#3470, below) | An empty overview |
+| `/stopwatch`, `/stopwatch/<label>[/<run>]` | This repo's Stopwatch store on this machine, and the session transcripts for a run's phases (#3470; see the timing pages below) | An empty overview |
+| `/logbook`, `/logbook/<slug>` | This repo's Logbook store on this machine, and the session transcripts (#3470; see the timing pages below) | An empty overview |
 | `/api/airsquats` | The banner's state as JSON; `POST /api/airsquats/clear` ticks its box off, the one `POST` the server takes, served same-origin only (#3438). Below | A state that cannot be read is a 503, and the banner keeps its countdown and shows no box |
 
 **Two things to know about what these pages read and who can read them.** `/sessionstart` and
@@ -298,7 +298,11 @@ value syncs nothing and says so as `syncError`. A failed sync (no `gh`, logged o
 the state file as `syncError` too. The banner then goes on with this machine's own count, and the next sync
 catches up.
 
-## The Stopwatch and the Logbook, in every repo
+**After updating the plugin from a version before #3245:** a general pages server that the old plugin
+started is reused until it exits, and it answers `/` with its old 303 or 404 until then. Stop it (or restart
+the machine) once. And a product's `Ports` must not overlap 4890-4899, which the hub takes first.
+
+## The timing pages, in every repo
 
 **They time how long an assignment takes, from the prompt to the moment Claude is back on the trunk**, and
 both were the source repo's own pages until the owner moved them here
@@ -307,23 +311,23 @@ both were the source repo's own pages until the owner moved them here
 that begins on a clean trunk, without anybody marking it. This plugin's `UserPromptSubmit` and `Stop` hooks
 record the runs (`hooks/stopwatch-hook.ps1`, `hooks/logbook-hook.ps1`), and the pages only read them.
 
-- **One store per repo, on each machine**: `%LOCALAPPDATA%\dkj-claude-plugins\repos\<repo>\`, the repo
-  named by its checkout's folder (a `worktree-lane` lane and a Claude Code worktree count as the repo they
-  were cut from). It is outside the tree, so a hook writing it never dirties the checkout it is timing.
+- **One store per repo, on each machine**: `%LOCALAPPDATA%\dkj-claude-plugins\repos\<repo>-<hash>\`, named by
+  the checkout's folder and a hash of its path, so two repos in folders of one name never share one (a
+  `worktree-lane` lane and a Claude Code worktree count as the repo they were cut from). It is outside the tree, so a hook writing it never dirties the checkout it is timing.
 - **Not shared unless the repo opts in.** A run's label is the first line of a prompt, so the Stopwatch
   publishes its finished runs to `refs/stopwatch/<machine>` on the repo's `origin` only where the repo sets
   `DKJ_STOPWATCH_SHARE` to `1` in the `env` block of its `.claude/settings.json`. Then each machine's
-  Stopwatch shows the others' runs too. The Logbook is never shared.
+  Stopwatch shows the others' runs too, and the push runs with your own git credentials. **The repo decides,**
+  so a repo you clone can turn it on; a machine answers otherwise with `DKJ_STOPWATCH_SHARE` set to `0` in
+  that repo's `.claude/settings.local.json`, which wins. The Logbook is never shared.
+- **The Logbook keeps the first line of every logged session's first prompt** in that store, unencrypted, on
+  this machine. Do not open a session with a secret on its first line.
 - **The hooks cost every prompt and every turn's end two short PowerShell processes.** An unmarked prompt
   ends the Stopwatch's hook before it loads anything, and a session already seen ends the Logbook's at its
   store read.
 - **The Test gate needs a measurement the repo takes itself**: `scripts/tests/suite-durations.json`, the
   mean CI duration per suite. The source repo writes it with its own `record-suite-durations.ps1`; a repo
   without the file sees the page's empty state.
-
-**After updating the plugin from a version before #3245:** a general pages server that the old plugin
-started is reused until it exits, and it answers `/` with its old 303 or 404 until then. Stop it (or restart
-the machine) once. And a product's `Ports` must not overlap 4890-4899, which the hub takes first.
 
 ## In the source repo
 

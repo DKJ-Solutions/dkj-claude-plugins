@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-    The GENERAL pages every repo's hub links -- Artifacts, Issues, Release notes and SessionStart --
+    The GENERAL pages every repo's hub links -- Artifacts, Issues, Release notes and SessionStart, and since #3470 Test
+    gate, Stopwatch and Logbook, whose pages are test-gate-lib.ps1's, stopwatch-lib.ps1's and logbook-lib.ps1's --
     and the page shell, formatters and rules behind them (#3119). No I/O: the server
     (hub/pages/serve-general-pages.ps1) measures and reads, and hands the results in, so every rule
     here is tested without a server.

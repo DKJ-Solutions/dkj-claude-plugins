@@ -329,7 +329,7 @@ function Start-StopwatchSync {
         (Test-StopwatchShareEnabled). A caller that must not reach the network (a test) does not call it.
     #>
     param([Parameter(Mandatory = $true)][string]$RepoRoot)
-    if (-not (Test-StopwatchShareEnabled)) { return $false }
+    if (-not (Test-StopwatchShareEnabled -RepoRoot $RepoRoot)) { return $false }
     $script = Join-Path $PSScriptRoot '..\pages\stopwatch-sync.ps1'
     if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { return $false }
     try {
