@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#3423 (inbound) asked to remove the eyebrow from the release-notes page TEMPLATE. Verified, the reason
+holds only for the hub: the house rule is "no eyebrow under a site header, which already names the site",
+and only the hub's copy has one (`Format-ReleaseNotesDevPage`). The template is also the page the
+Cloudflare Worker serves, standalone and with no header, where the eyebrow is the one line naming whose
+releases these are. So the eyebrow goes in the hub's dressing, under the site header, and the template
+stays as it is.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `general-pages-lib.ps1`: `Format-ReleaseNotesDevPage` drops the masthead's eyebrow when it draws the
+  site header
+- [x] `dev-pages.tests.ps1`: no eyebrow under a site header; the eyebrow stays without one
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: 316 passed
+- [ ] The owner's look at `/release-notes` from this branch's hub server
+
 ### DEPLOY: fix/3423-hub-release-notes-eyebrow
 
-**Score:**
+The hub's release-notes page now opens its masthead with the `Release notes` heading, with no product
+name in small capitals above it: the site header above the page already names the repo, as on every other
+hub page. The page a Cloudflare Worker serves keeps that line, because it has no header to name the
+product.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing to do: the page is dressed on the way out, so the next hub session shows it.
+
+**Score:** N/A
 
 #### Pull Request
 
