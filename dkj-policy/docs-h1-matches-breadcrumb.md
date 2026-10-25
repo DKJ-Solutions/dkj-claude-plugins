@@ -41,17 +41,28 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] House-style README, "Every page: the breadcrumb bar": a page's `h1` reads exactly what its current crumb reads
+- [x] `house-style` skill: the same rule in its breadcrumb-bar pointer
 
 ### TEST
 
+- [x] Edith: copy edit of both changes
+
 ### DEPLOY: docs/h1-matches-breadcrumb
 
-**Score:**
+The house style now states that a page's `h1` reads exactly what its current breadcrumb reads, the same
+words and the same case, so the bar and the page never name one page in two ways. The home page under a site
+header carries no `h1` and is the one page the rule does not reach. The rule is in the house-style README
+under "Every page: the breadcrumb bar", and the `house-style` skill names it beside the breadcrumb bar.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo that builds pages on the house style gets one more rule to hold its pages to: the `h1` and the
+current crumb are written from one name.
+
+**Score:** 3
 
 #### Pull Request
 
