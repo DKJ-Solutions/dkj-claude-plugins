@@ -75,5 +75,3 @@ instead of being left to guess while CI runs.
 
 ship-pr says when the session can be cleared during the CI wait
 
-Plugins: dkj-policy
-
