@@ -44,16 +44,17 @@ The owner saw a run's start three times and its time twice on `/stopwatch/css-co
 ### CREATE
 
 - [x] `Format-StopwatchRunPageHtml`: the Time card is gone (owner, round 2); its total, change against the run before, work-time note and other-machine note close the phases card; the phase card gets no title
+- [x] Round 3 (owner): the label beneath the heading goes where the crumb already names it (the Stopwatch, not the Logbook), and the Phases heading and its explanation go
 - [x] `Format-StopwatchPhaseCard`: `-Title` optional with no empty card head; `-TotalNote` adds a Total row in the table's `tfoot`, or a Total line under the reason when there is no table
 
 ### TEST
 
-- [x] `stopwatch.tests.ps1`: the start and the time each appear once, the total closes the table, no Time card; 213 passed; `logbook.tests.ps1` 52 passed
+- [x] `stopwatch.tests.ps1`: the start and the time each appear once, the total closes the table, no Time card, no label beneath the heading under -LabelCrumb, no Phases heading; 214 passed; `logbook.tests.ps1` 52 passed
 - [x] Live page counted: the date once, 5:29 once
 
 ### DEPLOY: fix/stopwatch-run-page-no-duplicates
 
-A Stopwatch run page names the run's start once, in its heading, and its total time once, as the closing Total row of its phases table with its change against the previous run beside it. The separate Time card is gone, and the phase card no longer carries a title restating the start and the time, so the page stays compact. The Logbook's run page, which shares the layout, gets the same total row with its work time beside it.
+A Stopwatch run page names the run's start once, in its heading, and its total time once, as the closing Total row of its phases table with its change against the previous run beside it. The separate Time card is gone, and the phase card no longer carries a title restating the start and the time, and the label beneath the heading and the Phases heading with its explanation are gone too, the label staying in the crumbs, so the page stays compact. The Logbook's run page, which shares the layout, gets the same total row with its work time beside it.
 
 **Score:** 2
 

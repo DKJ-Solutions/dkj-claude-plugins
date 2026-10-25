@@ -1058,14 +1058,14 @@ function Format-StopwatchLabelPageHtml {
 function Format-StopwatchRunPageHtml {
     <#
         One run's page on '/stopwatch/<slug>' (#3323), titled with the run's start and its label beneath. A run going
-        now shows its live clock; a finished one, under Phases, its transcript phases, a row and a bar each, closed by
+        now shows its live clock; a finished one its transcript phases, a row and a bar each, closed by
         its total time with its change against the previous run of the same label (-Transcript, by run id,
         from Get-StopwatchTranscriptCache; a run it lacks says so). -Group is one group of ConvertTo-StopwatchModel.
         The crumbs lead back to '/stopwatch', or to -Route under -ParentLabel for the Logbook (#3364), whose
         -FooterNote is its own, whose -NoDelta leaves out the change against the run before, and whose -TimeNote stands
-        under the run's time: its work time. -LabelCrumb puts the run's label page (Format-StopwatchLabelPageHtml)
+        beside the run's total: its work time. -LabelCrumb puts the run's label page (Format-StopwatchLabelPageHtml)
         between the parent and the run, as the Stopwatch's run pages have it, and names the label by its short title
-        there and beneath the heading, as that page does.
+        there, as that page does -- and only there, so the heading has no label beneath it.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Group,
@@ -1086,7 +1086,8 @@ function Format-StopwatchRunPageHtml {
     $local = { param($t) (& $e ($t.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))) }
     $body = New-Object System.Text.StringBuilder
     $pageTitle = $Group.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
-    [void]$body.AppendLine('<div class="grid__head"><h1>' + (& $e $pageTitle) + '</h1><p class="card__sub">' + (& $e $label) + '</p></div>')
+    # Under -LabelCrumb the label is already the crumb before this run, so it is not said again beneath the heading.
+    [void]$body.AppendLine('<div class="grid__head"><h1>' + (& $e $pageTitle) + '</h1>' + $(if ($LabelCrumb -and $Group.LabelSlug) { '' } else { '<p class="card__sub">' + (& $e $label) + '</p>' }) + '</div>')
     if ($Group.Running) {
         [void]$body.AppendLine('<section class="card"><h3>Going now</h3>')
         [void]$body.AppendLine('<p class="sw-clock num" data-start="' + (Format-StopwatchStamp $Group.Running.Start) + '">' + (Format-DevSeconds ($Now - $Group.Running.Start).TotalSeconds) + '</p>')
@@ -1101,7 +1102,6 @@ function Format-StopwatchRunPageHtml {
         if (-not $NoDelta) { $notes += (Format-StopwatchDelta $row.DeltaSeconds) + $(if ($null -ne $row.DeltaSeconds) { ' <span class="note">than the previous run of this label</span>' } else { '' }) }
         if ($row.Run.Machine) { $notes += '<span class="note">on another machine</span>' }
         [void]$body.AppendLine('<div class="grid-2">')
-        [void]$body.AppendLine('<div class="grid__head"><h2>Phases</h2><p class="card__sub">This run split into phases from the session transcripts, longest first</p></div>')
         [void]$body.AppendLine((Format-StopwatchPhaseCard $Transcript[$row.Run.Id] $row.Seconds -TotalNote ($notes -join ' &middot; ')))
         [void]$body.AppendLine('</div>')
     }

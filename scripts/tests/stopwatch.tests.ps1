@@ -228,7 +228,7 @@ $longSet = @(Get-StopwatchLabelSets -Model (ConvertTo-StopwatchModel -Runs @((& 
 $long = Format-StopwatchLabelPageHtml -Set $longSet -StorePath 's'
 Assert-True ($long -match '<h1>Hub lib comment</h1>' -and $long -match '<title>[^<]*Hub lib comment</title>' -and $long -match '<span aria-current="page">Hub lib comment</span>' -and $long -match ('href="/stopwatch/hub-lib-comment/[^"]+">Hub lib comment</a>') -and $long -notmatch '>Hub lib comment, start to end<') 'a label page names the label by its short title, in its heading, its title, its crumb and its run cards (the owner, October 25, 2026)'
 $longRun = Format-StopwatchRunPageHtml -Group $longSet.Groups[0] -StorePath 's' -LabelCrumb
-Assert-True ($longRun -match '<p class="card__sub">Hub lib comment</p>' -and $longRun -match '<a href="/stopwatch/hub-lib-comment">Hub lib comment</a>') 'with -LabelCrumb a run page names its label by its short title, beneath the heading and in the crumb'
+Assert-True ($longRun -notmatch '<p class="card__sub">Hub lib comment</p>' -and $longRun -match '<a href="/stopwatch/hub-lib-comment">Hub lib comment</a>') 'with -LabelCrumb a run page names its label by its short title in the crumb, and only there'
 Assert-True ($labs -match '<p class="sw-time num">3:20 <span class="sw-change sw-change--good">\+33%</span></p>') 'a faster run carries a plus and the percent of the run before'
 Assert-True ($labs -match ('<p class="sw-stamp">' + [regex]::Escape((& $sp 2000)) + '</p><p class="sw-instruction"><a href="[^"]+">Docs</a></p><p class="sw-time num">8:20</p></section>')) 'a label''s first run has no change beside its time'
 Assert-True ($labs -notmatch 'than the run before|first run' -and $page -notmatch 'than the run before|first run') 'a card carries no words for its change'
@@ -313,11 +313,12 @@ Assert-True ($lp -match ('<h1>' + [regex]::Escape((& $sp 3000)) + '</h1><p class
 Assert-True ($lp -match ('<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">' + [regex]::Escape((& $sp 3000)) + '</span></li>')) 'the trail reads Home, Stopwatch (linking /stopwatch), then the run''s start'
 $lpLabel = Format-StopwatchRunPageHtml -Group (Find-StopwatchGroup -Model $m -Slug (& $stampAt 3000)) -StorePath 's' -LabelCrumb
 Assert-True ($lpLabel -match ('<a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch/css-comment">CSS comment</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">' + [regex]::Escape((& $sp 3000)) + '</span></li>')) 'with -LabelCrumb the trail passes the run''s label page on the way to the run'
+Assert-True ($lpLabel -match ('<h1>' + [regex]::Escape((& $sp 3000)) + '</h1></div>')) 'with -LabelCrumb the label is not said again beneath the heading'
 Assert-True ($lp -notmatch 'card__title">Time<' -and $lp -match '<p class="note">No phases read for this run yet\.</p><p><strong>Total</strong> <span class="num">4:10</span> <span class="badge badge--sm badge--bad">50.0s slower</span> <span class="note">than the previous run of this label') 'with no phases yet, its total and its change against the previous run of its label stand under the reason, not on a Time card of their own'
 Assert-True ($lp -notmatch '<h2>Runs</h2>' -and $lp -notmatch 'Against the run before' -and $lp -notmatch '3:20|5:00') 'it holds this run only: no Runs heading, no table, no other run''s time'
 Assert-True ((Format-StopwatchRunPageHtml -Group (Find-StopwatchGroup -Model $m -Slug (& $stampAt 0)) -StorePath 's') -match 'first run') 'a label''s first run says so'
 $live = Format-StopwatchRunPageHtml -Group (Find-StopwatchGroup -Model $m -Slug (& $stampAt 5000)) -StorePath 's' -Now (& $at 5065)
-Assert-True ($live -match 'class="sw-clock num" data-start="2026-10-23T11:23:20.000Z">1:05<' -and $live -notmatch '<h2>Phases</h2>') 'the run going shows its clock, and no phases yet'
+Assert-True ($live -match 'class="sw-clock num" data-start="2026-10-23T11:23:20.000Z">1:05<' -and $live -notmatch 'table-wrap|<strong>Total</strong>') 'the run going shows its clock, and no phases yet'
 $evilGroup = (ConvertTo-StopwatchModel -Runs @((& $mk '<b>x</b>' 0 10))).Groups[0]
 Assert-True ((Format-StopwatchRunPageHtml -Group $evilGroup -StorePath '<i>') -notmatch '<b>x</b>|<i>') 'the label and the store path are escaped on the run page'
 
@@ -455,7 +456,7 @@ try {
     Assert-True ((Format-StopwatchPhaseCard $null 60 -Title '<b>') -match 'No phases read' -and (Format-StopwatchPhaseCard $null 60 -Title '<b>') -notmatch '<b>') 'a run with no phases yet says so, and the title is escaped'
     $tm = ConvertTo-StopwatchModel -Runs @($run)
     $tp = Format-StopwatchRunPageHtml -Group $tm.Groups[0] -StorePath 's' -Transcript $first
-    Assert-True ($tp -match '<h2>Phases</h2>[\s\S]*<section class="card"><div class="table-wrap">[\s\S]*Ship: CI wait, merge, fold</td><td class="num">2:50') 'a run page shows its phases in a card of their own, under the Phases heading'
+    Assert-True ($tp -match '<section class="card"><div class="table-wrap">[\s\S]*Ship: CI wait, merge, fold</td><td class="num">2:50' -and $tp -notmatch '<h2>Phases</h2>|split into phases') 'a run page shows its phases in a card of their own, with no section heading above it'
     $startOnce = (& $at 0).ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
     Assert-Equal 1 ([regex]::Matches(($tp -replace '<title>[\s\S]*?</title>' -replace '<nav[\s\S]*?</nav>'), [regex]::Escape($startOnce))).Count 'the run''s start shows once on its page, in the heading, not again on the Time or the phase card'
     Assert-Equal 1 ([regex]::Matches($tp, '>5:30<').Count) 'the run''s time shows once, on the Time card'
