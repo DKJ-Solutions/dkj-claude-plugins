@@ -1,0 +1,84 @@
+## feat/3453-stopwatch-erase-hidden
+
+> **How this file is read.** A step is `- [ ]` until it is resolved -- `- [x]` done, or
+> `- [~]` dropped with the reason, which exists so nobody ticks a box for work they did not do.
+> open-pr and ship-pr both refuse while one is still open, and there is no `-Force`.
+>
+> **FOUR `###` HEADINGS, AND NEVER A FIFTH** -- PLAN, CREATE, TEST, DEPLOY are the whole top
+> level. A section needing its own heading goes in as a `####` UNDER whichever of the four owns
+> it. No gate in YOUR repo reads a heading, so this half is on you -- only the repo that authors
+> this workflow refuses a fifth (Dave, August 26, 2026).
+>
+> **AND NOTHING BRANCH-SPECIFIC ABOVE THE FIRST OF THOSE FOUR HEADINGS** -- everything between the
+> title and it is this guidance, which is identical in every branch document. A status line, a note about
+> THIS branch or an instruction to a session belongs under one of the four, normally as a `####`
+> in PLAN. THIS half open-pr refuses, in every repo, before the push -- it reads the shape, so a
+> guidance block in your own language passes and your own paragraph here does not (Dave,
+> August 26, 2026; refused since #1650).
+>
+> **DEPLOY takes no steps of its own, and it is WRITTEN LAST** -- it is what the branch DID, once
+> TEST says so. Written while steps above it are still open it states an INTENTION, and no gate
+> holds it against what landed: the step gate splits this file at that heading and counts only
+> above it. The PR title is the one exception -- new-branch -Title writes it at creation, because
+> open-pr composes the PR title from it. It is the one part of this file that travels verbatim
+> into `CHANGELOG.md` at the merge. In each tier, write the reason
+> ABOVE the Score line -- anything below it is discarded.
+>
+> Relative links in that text resolve FROM THIS DIRECTORY -- `CHANGELOG.md` sits here too, so
+> write each path exactly as it reads in this file.
+>
+> For tier 2 audiences: the user who relies on what this repo ships, and decides whether to take the next version -- a subscriber of a service, or the user of a tool, its own maintainer included. That reader and nobody else -- what matters only
+> inside this repo belongs under the first `**Score:**`. If the change reaches that reader
+> not at all, N/A is a complete answer and the common one. **One hop and no further:** where that
+> reader is itself a business, ITS own customers sit one hop past this repo and are never the reader
+> here -- they take nothing this repo ships. Name the party that runs the upgrade, and score
+> against them.
+>
+> The phase arc, the marks and the whole form: `DEVELOPMENT-portable.md`, which ships
+> with this workflow.
+
+### PLAN
+
+#3453: the owner wants a hidden run gone, not just hidden. The recording machine erases a hidden
+finished run from its own store at its sync, so one writer per ref still holds.
+
+Settled in the work:
+
+- **No grace period.** The erase waits for the recording machine's next sync anyway, and the owner
+  asked for the run gone; `-Show` undoes a hide only until then, and the script and skill say so.
+- **A label hide erases later runs too**, as they finish: the entry stays in force, consistent with
+  "gone". To record under the label again, `-Show` it first.
+- **A store holding a run that does not parse is not rewritten**, since the rewrite would drop it.
+
+### CREATE
+
+- [x] `Remove-StopwatchHiddenFromStore` in `scripts/lib/stopwatch-sync-lib.ps1`, called by
+  `stopwatch-sync.ps1` after the fetch with this machine's and every other machine's hide entries
+- [x] `stopwatch-hide.ps1` says the erase is coming and that `-Show` is only good until then
+- [x] the `stopwatch-hide` skill and the lib's header rewritten: a hidden run is erased
+
+### TEST
+
+- [x] `scripts/tests/stopwatch-sync.tests.ps1`: the erase keeps a running run, writes nothing when
+  nothing is hidden, refuses a store with an unparseable run, and end to end the recording machine's
+  sync erases the run and publishes without it, and a hidden running run survives even by its own id -- 73 passed, 0 failed
+- [x] Victor's review: the hook writes the store unlocked, so the erase re-reads it just before the write and skips when it changed (narrowed, not closed; said in the docstring); the running-run test now hides that run by its own id
+
+### DEPLOY: feat/3453-stopwatch-erase-hidden
+
+A hidden Stopwatch run is now erased, not only hidden: at its next sync the machine that recorded it
+drops it from its own `stopwatch.json` and publishes without it, and a label hide erases that label's
+later runs as they finish. `-Show` brings a run back only until that sync (the `stopwatch-hide` skill).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the Stopwatch is this repo's own dev server and ships to no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Stopwatch: erase a hidden run from the machine that recorded it
+

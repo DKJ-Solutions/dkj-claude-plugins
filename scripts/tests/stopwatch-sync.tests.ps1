@@ -112,6 +112,21 @@ try {
     Assert-True ((Get-StopwatchHiddenState -Entries $twoCases).Labels.ContainsKey('Docs')) 'a show of a label in other case does not undo the hide: two cases are two labels'
     Save-StopwatchHidden -Path $hidePath -Entries $h1
     Assert-True ([System.IO.File]::ReadAllText($hidePath) -match '"hidden":\s*\[') 'one hide entry is written as an array, not a bare object'
+    # The erase (#3453): the recording machine drops a hidden finished run from its own store, never a run still going.
+    $eraseStore = Join-Path $tmp 'erase\stopwatch.json'
+    Save-StopwatchStore -Path $eraseStore -Runs @($done1, $done2, $going)
+    $er = Remove-StopwatchHiddenFromStore -StorePath $eraseStore -Entries $byLabel
+    $left = @((Read-StopwatchStore -Path $eraseStore).Runs)
+    Assert-True (@($er.Erased).Count -eq 1 -and $er.Erased[0] -eq $done2.Id -and $left.Count -eq 2 -and @($left | Where-Object { $_.Id -eq $going.Id }).Count) 'a label hide erases its finished run from the store, and keeps the run still going'
+    $goingHide = @(Set-StopwatchHiddenEntry -Kind 'run' -Value $going.Id -Now (& $at 100))
+    Assert-True (-not @((Remove-StopwatchHiddenFromStore -StorePath $eraseStore -Entries $goingHide).Erased).Count -and @((Read-StopwatchStore -Path $eraseStore).Runs | Where-Object { $_.Id -eq $going.Id }).Count) 'a run still going is not erased even when its own run id is hidden'
+    $before = [System.IO.File]::GetLastWriteTimeUtc($eraseStore)
+    Start-Sleep -Milliseconds 20
+    $none = Remove-StopwatchHiddenFromStore -StorePath $eraseStore -Entries (@($byLabel) + $shownElsewhere)
+    Assert-True (-not @($none.Erased).Count -and -not $none.Error -and [System.IO.File]::GetLastWriteTimeUtc($eraseStore) -eq $before) 'nothing hidden is nothing erased, and the store is not rewritten'
+    [System.IO.File]::WriteAllText($eraseStore, '{"runs":[{"id":"20261023-100000-aaaa","label":"x","start":"2026-10-23T10:00:00.000Z","end":"2026-10-23T10:01:00.000Z"},{"id":"bad id!"}]}')
+    $skip = Remove-StopwatchHiddenFromStore -StorePath $eraseStore -Entries $h1
+    Assert-True (-not @($skip.Erased).Count -and $skip.Error -match 'do not parse' -and ([System.IO.File]::ReadAllText($eraseStore)) -match 'bad id!') 'a store with a run that does not parse is not rewritten, since that run would be lost'
     $future ='{"machine":"abcdef01","runs":[],"hidden":[{"kind":"label","value":"Docs","at":"9999-12-31T00:00:00.000Z","hidden":true}]}'
     Assert-Equal 0 @((ConvertFrom-StopwatchSharedJson -Text $future).Hidden).Count 'a hide entry dated far ahead is dropped, since no show could ever be newer'
 
@@ -197,6 +212,12 @@ try {
     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\dashboard\stopwatch-hide.ps1') -RunId $done2.Id -Show -StorePath $syncStore -RepoRoot $b *> $null
     [void](Receive-StopwatchShared -RepoRoot $a)
     Assert-Equal 2 @(Select-StopwatchVisibleRuns -Runs @($done1, $done2) -Entries (Read-StopwatchShared -RepoRoot $a -MachineId 'aaaaaaa1').Hidden).Count '-Show undoes it on every machine'
+    # Hiding a run this machine recorded: its own sync erases it from the store and publishes without it (#3453).
+    & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\dashboard\stopwatch-hide.ps1') -RunId $done1.Id -StorePath $syncStore -RepoRoot $b *> $null
+    $afterErase = @((Read-StopwatchStore -Path $syncStore).Runs)
+    Assert-True (-not @($afterErase | Where-Object { $_.Id -eq $done1.Id }).Count -and @($afterErase | Where-Object { $_.Id -eq $going.Id }).Count) 'the recording machine erases a run it hid from its own store, and keeps the run still going'
+    [void](Receive-StopwatchShared -RepoRoot $a)
+    Assert-Equal 0 @((Read-StopwatchShared -RepoRoot $a -MachineId 'aaaaaaa1').Runs | Where-Object { $_.Machine -eq $syncId }).Count 'and publishes without it, so no other machine reads it any more'
     & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $RepoRoot 'scripts\dashboard\stopwatch-hide.ps1') -StorePath $syncStore -RepoRoot $b -NoSync *> $null
     Assert-Equal 1 $LASTEXITCODE 'naming neither a run nor a label is refused'
     $free = $false
