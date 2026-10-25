@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**10 / 23 minor entries** <!-- pending-tally -->
+**11 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/hub-card-icons · 20261025-111020Z
+
+Every card on a hub's home page now carries an icon before its label -- Test gate, Stopwatch, Logbook, Repository and the general pages here, and the Product, Repository, general and Brandbook cards on the plugin's hub in every other repo -- as do the cards on the Repository page. The product port's root page gives its Brandbook, Connectors, Specialists and DKJ repos cards one too. The house style moves with it: a `.menu-item` row has no padding of its own and a wider gap (`--spacing-4`) between icon, label and chevron, and a `.card` is padded at `--spacing-6` instead of `--spacing-5` -- in every app that renders the house style. The icons are line drawings stroked in the text colour, like the chevron, set in the house style's existing `.menu-item__icon` slot, so the house stylesheet is unchanged.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer's hub home page gains an icon on every card once the plugin is updated; nothing else changes.
+
+**Score:** 2
+
+#### Pull Request
+
+An icon on every hub card, and roomier menu items and cards in the house style
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3440](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3440)
+
+---
 
 ### DEPLOY: fix/stopwatch-label-short-title · 20261025-104944Z
 
