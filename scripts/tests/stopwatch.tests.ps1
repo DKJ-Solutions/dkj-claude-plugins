@@ -313,7 +313,7 @@ Assert-True ($lp -match ('<h1>' + [regex]::Escape((& $sp 3000)) + '</h1><p class
 Assert-True ($lp -match ('<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">' + [regex]::Escape((& $sp 3000)) + '</span></li>')) 'the trail reads Home, Stopwatch (linking /stopwatch), then the run''s start'
 $lpLabel = Format-StopwatchRunPageHtml -Group (Find-StopwatchGroup -Model $m -Slug (& $stampAt 3000)) -StorePath 's' -LabelCrumb
 Assert-True ($lpLabel -match ('<a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch/css-comment">CSS comment</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">' + [regex]::Escape((& $sp 3000)) + '</span></li>')) 'with -LabelCrumb the trail passes the run''s label page on the way to the run'
-Assert-True ($lp -match '<h3 class="card__title">Time</h3></div><div class="table-wrap"><table class="table">[\s\S]*<th class="sw-left">Against the previous run of this label</th>[\s\S]*<td class="num">4:10</td>' -and $lp -match '<td class="sw-left"><span class="badge[^"]*badge--bad">50.0s slower</span></td>' -and $lp -notmatch 'class="sw-clock') 'it shows its time as a table, with its change against the previous run of its label in a column'
+Assert-True ($lp -match '<h3 class="card__title">Time</h3>[\s\S]*class="sw-clock num">4:10</p>' -and $lp -match 'badge--bad">50.0s slower</span> <span class="note">than the previous run of this label') 'it shows its time on a card, and its change against the previous run of its label'
 Assert-True ($lp -notmatch '<h2>Runs</h2>' -and $lp -notmatch 'Against the run before' -and $lp -notmatch '3:20|5:00') 'it holds this run only: no Runs heading, no table, no other run''s time'
 Assert-True ((Format-StopwatchRunPageHtml -Group (Find-StopwatchGroup -Model $m -Slug (& $stampAt 0)) -StorePath 's') -match 'first run') 'a label''s first run says so'
 $live = Format-StopwatchRunPageHtml -Group (Find-StopwatchGroup -Model $m -Slug (& $stampAt 5000)) -StorePath 's' -Now (& $at 5065)
@@ -443,21 +443,21 @@ try {
     $twoDoc = Get-Content -LiteralPath $twoPath -Raw | ConvertFrom-Json
     Assert-True ($null -ne $twoDoc.rb -and $null -ne $twoDoc.ra -and $twoDoc.ra.end -eq (Format-StopwatchStamp $w0.AddSeconds(340))) 'a write for one label keeps the other label''s cached phases'
 
-    $card = Format-StopwatchPhaseCard $first.r1 330 -Title 'T'
-    Assert-True ($card -match '<tr><td class="sw-left">Waiting on you</td><td class="num">1:41</td><td class="num">31%</td>') 'a phase card gives each phase a row of its own, with its time and its share of the run'
+    $card = Format-StopwatchPhaseTable $first.r1 330
+    Assert-True ($card -match '<tr><td class="sw-left">Waiting on you</td><td class="num">1:41</td><td class="num">31%</td>') 'a phase table gives each phase a row of its own, with its time and its share of the run'
     Assert-True ($card -match 'class="sw-bar" role="img" aria-label="31%"><span style="width: 31%">') 'and a bar as wide as its share'
     $secs = @([regex]::Matches($card, '<tr><td class="sw-left">[^<]+</td><td class="num">([^<]+)</td>') | ForEach-Object { $_.Groups[1].Value })
     Assert-Equal 5 $secs.Count 'every phase of the run has a row'
     Assert-Equal '2:50' $secs[0] 'the longest phase comes first'
-    Assert-True ((Format-StopwatchPhaseCard @{ Sessions = 0; Phases = @() } 60 -Title 'T') -match 'No session of this repo') 'a run no session saw says so'
-    Assert-True ((Format-StopwatchPhaseCard @{ Sessions = 1; Phases = @() } 60 -Title 'T') -match 'No phases read' -and (Format-StopwatchPhaseCard @{ Sessions = 1; Phases = @() } 60 -Title 'T') -notmatch '<table') 'a run with a session but no phases gets a line, not an empty table'
-    Assert-True ((Format-StopwatchPhaseCard @{ Sessions = 2; Phases = @(@{ Name = 'x'; Seconds = 1 }) } 60 -Title 'T') -match '<div class="card__head"><h3 class="card__title">T</h3><p class="card__sub">2 sessions</p></div>') 'the card heading follows the house card head, with the sessions under the title'
-    Assert-True ((Format-StopwatchPhaseCard $null 60 -Title '<b>') -match 'No phases read' -and (Format-StopwatchPhaseCard $null 60 -Title '<b>') -notmatch '<b>') 'a run with no phases yet says so, and the title is escaped'
+    Assert-True ((Format-StopwatchPhaseTable @{ Sessions = 0; Phases = @() } 60) -match 'No session of this repo') 'a run no session saw says so'
+    Assert-True ((Format-StopwatchPhaseTable @{ Sessions = 1; Phases = @() } 60) -match 'No phases read' -and (Format-StopwatchPhaseTable @{ Sessions = 1; Phases = @() } 60) -notmatch '<table') 'a run with a session but no phases gets a line, not an empty table'
+    Assert-True ((Format-StopwatchPhaseTable @{ Sessions = 2; Phases = @(@{ Name = 'x'; Seconds = 1 }) } 60) -match '^<p class="note">2 sessions</p><div class="table-wrap">') 'the sessions stand as a line above the table'
+    Assert-True ((Format-StopwatchPhaseTable $null 60) -match 'No phases read') 'a run with no phases yet says so'
     $tm = ConvertTo-StopwatchModel -Runs @($run)
     $tp = Format-StopwatchRunPageHtml -Group $tm.Groups[0] -StorePath 's' -Transcript $first
-    Assert-True ($tp -match '<h2>Phases</h2>[\s\S]*<section class="card"><div class="card__head"><h3 class="card__title">[^<]+</h3>[\s\S]*Ship: CI wait, merge, fold</td><td class="num">2:50') 'a run page shows its phases in a card of their own, under the Phases heading'
+    Assert-True ($tp -match '<h2>Phases</h2><p class="card__sub">[^<]+</p></div>\s*<div class="table-wrap"><table class="table">[\s\S]*Ship: CI wait, merge, fold</td><td class="num">2:50') 'a run page shows its phases as a table straight under the Phases heading, in no card'
     Assert-True ($tp -notmatch 'From the transcripts') 'and the runs table no longer crams them into one cell'
-    Assert-True ($tp -notmatch '<h2>Runs</h2>' -and $tp -notmatch 'Against the run before' -and $tp -match '<h3 class="card__title">Time</h3>[\s\S]*<td class="num">5:30</td>') 'a run shows its time in a table, with no Runs heading and no comparison table'
+    Assert-True ($tp -notmatch '<h2>Runs</h2>' -and $tp -notmatch 'Against the run before' -and $tp -match '<h3 class="card__title">Time</h3>[\s\S]*class="sw-clock num">5:30</p>') 'a run shows its time on a card, with no Runs heading and no comparison table'
     $startText = (& $at 0).ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
     Assert-True ($tp -match ('<h1>' + [regex]::Escape($startText) + '</h1><p class="card__sub">CSS comment</p>') -and $tp -match ('<span aria-current="page">' + [regex]::Escape($startText) + '</span>')) 'a run page is titled with its start, in the heading and the crumb, the label beneath'
 
