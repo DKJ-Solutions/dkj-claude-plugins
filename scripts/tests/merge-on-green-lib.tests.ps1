@@ -521,10 +521,10 @@ Write-Host "ship-pr arms BEFORE its wait, not only on a CI refusal (#2393)" -For
 # STRUCTURAL, SAID TO BE SO: the arming is inline in ship-pr.ps1 and drives gh. What can be held from
 # here is the ORDER -- the arm call precedes step 3's heading, so a process that dies mid-watch or a
 # step-3b refusal has already armed -- and that the two judgement gates disarm.
-$armAt   = $shipRaw.IndexOf('if (Set-ShipMergeOnGreenArm)')
+$armAt   = $shipRaw.IndexOf('$script:ShipArmed = Set-ShipMergeOnGreenArm')
 $step3At = $shipRaw.IndexOf('# --- Step 3: wait for the required CI check')
 Assert-True ($armAt -gt 0 -and $step3At -gt 0 -and $armAt -lt $step3At) 'ship-pr arms before step 3 starts waiting on CI'
-Assert-True ($shipRaw -match "(?s)if \(-not \`$NoMerge\) \{\s*\`$armLabel = Get-MergeOnGreenArmLabel\s*.{0,600}?if \(Set-ShipMergeOnGreenArm\)") `
+Assert-True ($shipRaw -match "(?s)if \(-not \`$NoMerge\) \{\s*\`$armLabel = Get-MergeOnGreenArmLabel\s*.{0,600}?\`$script:ShipArmed = Set-ShipMergeOnGreenArm") `
     'and not under -NoMerge'
 
 Write-Host ''
@@ -785,6 +785,38 @@ Assert-True (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Gre
     'green for exactly the settle window is unshipped -- the same boundary the picker uses'
 Assert-True (-not (Get-UnshippedPrVerdict -Record $unarmed -MergeBlockVerdict (New-Green)).Unshipped) `
     'no green age passed -- not unshipped, fail closed'
+
+Write-Host ''
+Write-Host 'Get-ShipClearanceVerdict -- may the session be cleared during the CI wait? (issue #3442)' -ForegroundColor Cyan
+
+# THE ONE CLEARABLE SHAPE: every fact holds. Each negative case below breaks exactly one of them, so a
+# verdict that ignored any single fact would hand out a clearance here.
+$clearArgs = @{ Pr = 41; Armed = $true; SweepRunnerPresent = $true; SweepRefusal = ''; TreeOnTrunk = $true }
+$clearOk = Get-ShipClearanceVerdict @clearArgs
+Assert-True $clearOk.Clearable 'armed, a sweep runner, no sweep refusal, on the trunk -- clearable'
+Assert-True ($clearOk.Line -like 'Session can be cleared: PR #41 *') 'and the line says so positively, naming the PR'
+Assert-True ($clearOk.Line -like '*merge-on-green sweep merges and folds it*') 'and names what finishes the ship if this run dies'
+
+$clearCases = @(
+    @{ Over = @{ NoMerge = $true };             Expect = '*-NoMerge*';                Label = '-NoMerge' }
+    @{ Over = @{ Armed = $false };              Expect = '*could not be armed*';      Label = 'arming failed' }
+    @{ Over = @{ SweepRunnerPresent = $false }; Expect = '*no .github/workflows/merge-on-green.yml*'; Label = 'no sweep runner in this repo' }
+    @{ Over = @{ SweepRefusal = 'touches a seam' }; Expect = '*sweep will not finish*'; Label = 'the sweep refuses this PR' }
+    @{ Over = @{ TreeOnTrunk = $false };        Expect = '*not back on the trunk*';   Label = 'the checkout stayed on the branch' }
+)
+foreach ($c in $clearCases) {
+    $a = $clearArgs.Clone()
+    foreach ($k in $c.Over.Keys) { $a[$k] = $c.Over[$k] }
+    $v = Get-ShipClearanceVerdict @a
+    Assert-True (-not $v.Clearable) "$($c.Label) -- NOT clearable"
+    Assert-True ($v.Line -like 'Session can NOT be cleared yet: *' -and $v.Line -like $c.Expect) "$($c.Label) -- and the line names that as what holds it"
+}
+
+# WIRED, NOT ONLY DEFINED: ship-pr prints the verdict in the wait block, and the second-terminal lines
+# (which would contradict a clearance) only where it was withheld.
+Assert-True ($shipRaw -match 'Get-ShipClearanceVerdict -Pr \$pr') 'ship-pr.ps1 asks Get-ShipClearanceVerdict before the wait'
+Assert-True ($shipRaw -match '(?s)if \(-not \$clearance\.Clearable\) \{\s*Write-Host "  So leave this one running and carry on in a SECOND terminal') `
+    'ship-pr.ps1 prints the second-terminal advice only where the clearance was withheld'
 
 Write-Host ''
 Write-Host 'The lib, the script and the runner are ASCII' -ForegroundColor Cyan

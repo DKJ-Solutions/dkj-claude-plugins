@@ -758,3 +758,59 @@ function Get-UnshippedPrVerdict {
 
     return [pscustomobject]@{ Unshipped = $true; Reason = '' }
 }
+
+function Get-ShipClearanceVerdict {
+    <#
+    .SYNOPSIS
+        Whether the session that started ship-pr may be CLEARED while the run waits on CI, and the one
+        line that says so -- issue #3442.
+
+    .DESCRIPTION
+        THE CLEARANCE WAS WITHHELD FOR A REASON THAT HAS SINCE EXPIRED. ship-pr's wait block said the
+        session's process was still needed because the merge and the fold ran from it, and that a
+        /clear had never been measured (#1428). Since #2319/#2393 the PR is armed BEFORE the wait, so a
+        killed run is finished by the merge-on-green sweep, which runs ship-pr itself and folds. So the
+        question stopped being "does /clear kill this process?" and became "does anything still depend
+        on it?" -- and that is answerable from four facts this run already holds.
+
+        ALL FOUR MUST HOLD, AND THE FIRST ONE THAT FAILS IS NAMED. Armed (the sweep's authorisation),
+        a sweep runner in this repo (a consumer that never adopted the CI floor has the label and no
+        sweep), no permanent sweep refusal (Get-MergeOnGreenSweepRefusal, the picker's own predicate),
+        and the checkout back on the trunk (the orchestrator's sign that a session is safe to clear,
+        #1073). A clearance that is wrong costs a stranded PR; a withheld one costs a reader who sits
+        through CI -- so it is given only where every half was measured, and otherwise the line says
+        what holds it rather than only that something does.
+
+        -NoMerge arms nothing, so it is never clearable: the run's verdict is then the only report.
+
+    .OUTPUTS
+        [pscustomobject] @{ Clearable = [bool]; Line = [string] }
+    #>
+    param(
+        [Parameter(Mandatory = $true)][int]$Pr,
+        [bool]$NoMerge = $false,
+        [bool]$Armed = $false,
+        [bool]$SweepRunnerPresent = $false,
+        [AllowEmptyString()][string]$SweepRefusal = '',
+        [bool]$TreeOnTrunk = $false
+    )
+
+    $hold = if ($NoMerge) { 'this run is -NoMerge, so nothing is armed and its verdict is the only report you get' }
+        elseif (-not $Armed) { "PR #$Pr could not be armed (see the warning above)" }
+        elseif (-not $SweepRunnerPresent) { 'this repo has no .github/workflows/merge-on-green.yml, so nothing finishes an armed PR if this run dies' }
+        elseif ($SweepRefusal) { 'the merge-on-green sweep will not finish this PR (see the line above)' }
+        elseif (-not $TreeOnTrunk) { 'this checkout is not back on the trunk (step 2b said why above)' }
+        else { '' }
+
+    if ($hold) {
+        $owed = if ($NoMerge) { '' } else { ' -- the merge and the fold still run from this process (#1428)' }
+        return [pscustomobject]@{
+            Clearable = $false
+            Line      = "Session can NOT be cleared yet: $hold$owed."
+        }
+    }
+    return [pscustomobject]@{
+        Clearable = $true
+        Line      = "Session can be cleared: PR #$Pr is armed and this checkout is back on the trunk -- if this run is killed, the merge-on-green sweep merges and folds it (#3442)."
+    }
+}
