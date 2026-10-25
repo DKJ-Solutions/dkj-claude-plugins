@@ -1,0 +1,88 @@
+# Closes an issue as not planned the moment it is parked on a recurrence label (issue #3422). The
+# same file is placed in every consumer by adopt-ci-floor.ps1, byte for byte: it reads no tree and
+# calls no shared script, so there is nothing in it for a consumer to differ on.
+#
+# WHAT THIS CLOSES. CONTRIBUTING-portable.md says an issue carrying awaiting-recurrences-first is
+# closed as not_planned in the same movement that parks it, and that a record (awaiting-recurrences)
+# may be closed the same way, label and [RECORD] prefix kept. That rule lived in prose only, on a page a
+# session filing a finding never loads, so it held only when somebody remembered it: #3410 was filed
+# parked on October 24, 2026 and stayed open until it was closed by hand the next day.
+#
+# WHAT IT DOES: the [RECORD] title prefix when it is missing, then a close as not planned with one
+# comment saying why. The label stays on, because the label is what keeps the issue findable once
+# closed.
+#
+# TRIGGERED ON opened AND labeled, NEVER ON reopened. A recurrence reopens the issue and takes the label
+# off, in whichever order the person doing it happens to pick. Listening to reopened would close it
+# again in the window between the two acts. A labeled event is acted on only when the label just added
+# is a recurrence label, so adding a prio-N to a reopened issue that still carries one does not close it
+# either. An issue created with labels fires both opened and labeled, so two runs can be queued for one
+# issue: the per-issue concurrency group serialises them, and the second reads the issue live and finds
+# it already closed.
+#
+# THE JOB-LEVEL if: IS THE COST CONTROL. Every label added to every issue is a labeled event, and a job
+# skipped by if: is not billed at all (#2487), so on a metered repo this costs one job per issue that is
+# actually parked, nothing for the rest.
+#
+# THE LABEL LIST MATCHES EVERY FORMER NAME, as both pickup routes do: a tracker keeps an old name until
+# somebody renames it there. The names are pr-issues-lib.ps1's Get-DossierLabelNames plus
+# awaiting-recurrences-first and its former names (Get-FormerTriageLabelNames), and
+# adopt-ci-floor.tests.ps1 holds both lists in this file equal to them.
+#
+# NO CHECKOUT, AND NO SECRET. The job calls gh against the issue and nothing else, so there is no
+# action to pin and no workspace for a token to be left in. issues: write on the job-scoped token is
+# the whole permission. The title reaches the shell only as gh's own output, read into a variable,
+# never through an expression interpolated into the script body.
+name: Close parked recurrences
+
+permissions:
+  issues: write
+
+on:
+  issues:
+    types: [opened, labeled]
+
+concurrency:
+  group: close-parked-recurrences-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  close-parked:
+    runs-on: ubuntu-latest
+    if: >-
+      github.event.issue.state == 'open' && (
+      (github.event.action == 'labeled' &&
+      contains(fromJSON('["awaiting-recurrences", "awaiting-more-recurrences", "record", "dossier", "awaiting-recurrences-first", "awaiting-first-recurrence", "awaiting-recurrence"]'), github.event.label.name)) ||
+      (github.event.action == 'opened' && (
+      contains(github.event.issue.labels.*.name, 'awaiting-recurrences') ||
+      contains(github.event.issue.labels.*.name, 'awaiting-more-recurrences') ||
+      contains(github.event.issue.labels.*.name, 'record') ||
+      contains(github.event.issue.labels.*.name, 'dossier') ||
+      contains(github.event.issue.labels.*.name, 'awaiting-recurrences-first') ||
+      contains(github.event.issue.labels.*.name, 'awaiting-first-recurrence') ||
+      contains(github.event.issue.labels.*.name, 'awaiting-recurrence'))))
+    # 5 minutes: three gh calls. The cap is a wedge detector against GitHub's six-hour default (#2296).
+    timeout-minutes: 5
+    steps:
+      - name: Close the parked issue as not planned, with its [RECORD] prefix
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          $n = $env:ISSUE_NUMBER
+          # READ LIVE, NOT FROM THE EVENT: a second queued run for the same issue must find it closed.
+          $issue = gh issue view $n --json state,title | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          if ($issue.state -ne 'OPEN') {
+            Write-Host "#$n is already closed -- nothing to do."
+            exit 0
+          }
+          if ($issue.title -notmatch '^\[RECORD\]') {
+            gh issue edit $n --title ('[RECORD] ' + $issue.title)
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+          $comment = 'Closed as not planned automatically: a recurrence label parks this issue until its next instance, and the label keeps it findable while closed. A new instance is a comment on this issue and a reopen.'
+          gh issue close $n --reason 'not planned' --comment $comment
+          exit $LASTEXITCODE

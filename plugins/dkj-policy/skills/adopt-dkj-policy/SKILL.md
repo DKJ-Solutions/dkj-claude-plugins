@@ -563,7 +563,9 @@ button produces one in every repo. A queue only makes it the normal case:
 checks a GitHub-side setting against your own declaration on a schedule, not on a merge, and needs
 neither a queue nor an unobserved merge to matter. **And a fourth**,
 [`merge-on-green.yml`](#a-fourth-runner-merge-on-greenyml-issue-2329), finishes a merge `ship-pr`
-refused on CI once that check turns green.
+refused on CI once that check turns green. **And a fifth**,
+[`close-parked-recurrences.yml`](#a-fifth-runner-close-parked-recurrencesyml-issue-3422), closes an issue
+parked on a recurrence label, which is about your tracker rather than a merge.
 
 **And one prerequisite belongs to a queue alone**: every workflow carrying a **required** check must
 trigger on `merge_group`. Without it that check never runs for a queue entry, never reports, and **every
@@ -762,6 +764,23 @@ made with the job-scoped `GITHUB_TOKEN` starts no workflow runs, so it would lan
 silence your CI on the trunk and the fold and resolves runners, all at once. Without the scope the merge
 fails with a 403, loudly, and nothing is merged. It is not queue machinery: under a queue `ship-pr`
 enqueues instead of refusing, so nothing gets armed.
+
+### A fifth runner: close-parked-recurrences.yml (issue #3422)
+
+**It makes a rule in [`CONTRIBUTING-portable.md`](../../CONTRIBUTING-portable.md) hold without anybody
+remembering it.** An issue parked on `awaiting-recurrences-first` is closed as not planned in the same
+movement that parks it, and a record (`awaiting-recurrences`) may be closed the same way, label and
+`[RECORD]` prefix kept. Until this runner existed that was prose on a page a session filing a finding never
+loads. `.github/workflows/close-parked-recurrences.yml` does it on `issues: [opened, labeled]`. It adds the
+prefix where it is missing, closes the issue as not planned with one comment, and leaves the label on. It
+matches every former name of both labels too.
+
+**A reopen never wakes it.** A recurrence reopens the issue and takes the label off, in either order, so a
+run between the two acts would close it again. A `labeled` event counts only when the label just added is a
+recurrence label. Every other label event is skipped at the job level, so it is unbilled on a private repo.
+
+It checks nothing out and needs no secret: `issues: write` on the job-scoped token is all it holds. Because
+it reads no tree, the file it places is the source repo's own, byte for byte.
 
 ---
 

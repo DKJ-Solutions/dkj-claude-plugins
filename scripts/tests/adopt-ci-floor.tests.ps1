@@ -298,7 +298,8 @@ $ExpectedRunners = @(
     '.github\workflows\fold-on-merge.yml',
     '.github\workflows\verify-resolved.yml',
     '.github\workflows\repo-settings.yml',
-    '.github\workflows\merge-on-green.yml'
+    '.github\workflows\merge-on-green.yml',
+    '.github\workflows\close-parked-recurrences.yml'
 )
 
 try {
@@ -326,6 +327,7 @@ try {
     Assert-True ($r.Flat -like '*fold-on-merge.yml*verify-resolved.yml*trunk push*') 'and names what starts the fold/resolves jobs'
     Assert-True ($r.Flat -like '*repo-settings.yml*') 'and the repo-settings schedule'
     Assert-True ($r.Flat -like '*merge-on-green.yml*') 'and the merge-on-green schedule'
+    Assert-True ($r.Flat -like '*close-parked-recurrences.yml*skipped at the job level, unbilled*') 'and that the recurrence closer bills only a parked issue (#3422)'
 
     # --- 1c. A junctioned .github/workflows is refused, not written through (#2546) ----------------
     # Test-Path follows a junction, so every runner would land in its target. The fixture's ci.yml moves
@@ -600,6 +602,44 @@ try {
     Assert-True ($rOnlyMog.Out -match '(?m)\[created\]\s+\.github/workflows/merge-on-green\.yml') 'only the missing sweep is created'
     Assert-True ($rOnlyMog.Flat -like '*Pull requests: Read and write*') 'and the scope note fires for it on its own'
     Assert-True ($rOnlyMog.Flat -notlike '*THE FOLD RUNNER NEEDS A SECRET*') 'while the fold runner''s own reminder stays silent'
+
+    # --- 2f. The recurrence closer (issue #3422) -------------------------------------------------------
+    # It reads no tree and calls no shared script, so the consumer's copy IS the source's own file. Held
+    # equal here, so the two definitions cannot drift apart; and its two label lists are held to the lib
+    # that owns those names, so a rename lands in the closer or fails here.
+    Write-Host '-- 2f. the recurrence closer is the source''s own file, and its labels are the lib''s (#3422) --' -ForegroundColor Cyan
+    $closer = [System.IO.File]::ReadAllText((Join-Path $dir '.github\workflows\close-parked-recurrences.yml'))
+    $sourceCloser = [System.IO.File]::ReadAllText((Join-Path $RepoRoot '.github\workflows\close-parked-recurrences.yml'))
+    Assert-Equal ($sourceCloser -replace "`r`n", "`n") ($closer -replace "`r`n", "`n") `
+        'the placed closer is byte for byte the source repo''s own .github/workflows/close-parked-recurrences.yml'
+
+    . (Join-Path $RepoRoot 'scripts\lib\pr-issues-lib.ps1')
+    $expectedLabels = @(@(Get-DossierLabelNames) + @('awaiting-recurrences-first') + @((Get-FormerTriageLabelNames)['awaiting-recurrences-first'])) | Sort-Object
+    $labeledList = [regex]::Match($closer, "fromJSON\('(?<j>\[[^']*\])'\), github\.event\.label\.name")
+    Assert-True $labeledList.Success 'the labeled arm compares the added label against one fromJSON list'
+    if ($labeledList.Success) {
+        $got = @(($labeledList.Groups['j'].Value | ConvertFrom-Json)) | Sort-Object
+        Assert-Equal ($expectedLabels -join ',') ($got -join ',') 'and that list is every recurrence label name the lib matches, former names included'
+    }
+    $openedList = @([regex]::Matches($closer, "contains\(github\.event\.issue\.labels\.\*\.name, '(?<n>[^']+)'\)") | ForEach-Object { $_.Groups['n'].Value }) | Sort-Object
+    Assert-Equal ($expectedLabels -join ',') ($openedList -join ',') 'the opened arm checks the same names, one contains() each'
+
+    # NEVER reopened: a recurrence reopens and unlabels in either order, and a run in between would
+    # close the issue again.
+    Assert-True ($closer -match '(?m)^\s+types: \[opened, labeled\]\s*$') 'it wakes on opened and labeled'
+    Assert-True (@(($closer -split "`n") | Where-Object { $_ -notmatch '^\s*#' -and $_ -match 'reopened' }).Count -eq 0) 'and never on reopened (the header names the word; no live line does)'
+    Assert-True ($closer -match "(?m)^\s+github\.event\.issue\.state == 'open' && \(") 'a closed issue is skipped at the job level'
+    # NO CHECKOUT, NO SECRET, ONE PERMISSION.
+    Assert-True ($closer -notmatch '(?m)^\s+(-\s+)?uses:') 'it uses no action at all, so there is nothing to pin'
+    Assert-True ($closer -notmatch 'secrets\.') 'and holds no secret'
+    Assert-True ($closer -match '(?ms)^permissions:\r?\n  issues: write\r?\n\r?\non:') 'issues: write is its whole permission'
+    $closerRun = [regex]::Match($closer, '(?ms)^\s+run: \|.*\z').Value
+    Assert-True ($closerRun -and $closerRun -notmatch '\$\{\{') 'no expression is interpolated into the run body; the title arrives only as gh output'
+    Assert-True ($closerRun -match "gh issue view \`$n --json state,title") 'the issue is read live, so a second queued run finds it closed'
+    Assert-True ($closerRun -match "gh issue close \`$n --reason 'not planned'") 'and it closes as not planned'
+    Assert-True ($closerRun -match "'\[RECORD\] ' \+ \`$issue\.title") 'adding the [RECORD] prefix where it is missing'
+    Assert-True ($closer -match '(?m)^\s+group: close-parked-recurrences-\$\{\{ github\.event\.issue\.number \}\}\s*$') 'one run at a time per issue'
+    Assert-True ($rApply.Out -match '(?m)\[created\]\s+\.github/workflows/close-parked-recurrences\.yml') 'and -Apply reports it created'
 
     # --- 2b. The three corrections that landed together (inbound #1539/#1543/#1544) -----------------
     # THE CONCURRENCY GROUP IS CONSTANT PER TRUNK, NOT PER COMMIT (#1544). A per-SHA group is its own

@@ -95,6 +95,12 @@
     this command never rewrites it. Its FOLD_PUSH_TOKEN needs Pull requests: write as well, and the run
     says so when it places the file.
 
+    A SEVENTH FILE IS ABOUT THE TRACKER, NOT A MERGE (#3422): .github/workflows/close-parked-recurrences.yml
+    closes an issue parked on a recurrence label as not planned, with its [RECORD] prefix, the moment it
+    is parked -- a rule CONTRIBUTING-portable.md states and nothing held. It reads no tree and calls no
+    shared script, so it is the source repo's own file byte for byte, and it needs no secret: issues:
+    write on the job-scoped token is all it holds.
+
     AND ONE PREREQUISITE BELONGS TO THE QUEUE ALONE (#1325): every workflow carrying a REQUIRED check
     context must trigger on `merge_group`. A required workflow without it never runs for a queue entry,
     so its check never reports -- and GitHub's own warning is that the merge then fails. That is a TOTAL
@@ -1326,6 +1332,103 @@ $mergeOnGreenRunner = @(
     '          exit $LASTEXITCODE'
 )
 
+# A FIFTH RUNNER, ABOUT THE TRACKER RATHER THAN A MERGE (issue #3422): an issue parked on a recurrence
+# label is closed as not planned at once, with its [RECORD] prefix, as CONTRIBUTING-portable.md says it
+# is. That rule was prose only and held when a session remembered it. Unlike every runner above, this
+# one reads no tree and calls no shared script, so it is the SAME FILE as the source repo's own
+# .github/workflows/close-parked-recurrences.yml, byte for byte, and adopt-ci-floor.tests.ps1 holds the
+# two equal: nothing here depends on the trunk, the plugin path or a pin.
+$closeParkedRunner = @(
+    '# Closes an issue as not planned the moment it is parked on a recurrence label (issue #3422). The',
+    '# same file is placed in every consumer by adopt-ci-floor.ps1, byte for byte: it reads no tree and',
+    '# calls no shared script, so there is nothing in it for a consumer to differ on.',
+    '#',
+    '# WHAT THIS CLOSES. CONTRIBUTING-portable.md says an issue carrying awaiting-recurrences-first is',
+    '# closed as not_planned in the same movement that parks it, and that a record (awaiting-recurrences)',
+    '# may be closed the same way, label and [RECORD] prefix kept. That rule lived in prose only, on a page a',
+    '# session filing a finding never loads, so it held only when somebody remembered it: #3410 was filed',
+    '# parked on October 24, 2026 and stayed open until it was closed by hand the next day.',
+    '#',
+    '# WHAT IT DOES: the [RECORD] title prefix when it is missing, then a close as not planned with one',
+    '# comment saying why. The label stays on, because the label is what keeps the issue findable once',
+    '# closed.',
+    '#',
+    '# TRIGGERED ON opened AND labeled, NEVER ON reopened. A recurrence reopens the issue and takes the label',
+    '# off, in whichever order the person doing it happens to pick. Listening to reopened would close it',
+    '# again in the window between the two acts. A labeled event is acted on only when the label just added',
+    '# is a recurrence label, so adding a prio-N to a reopened issue that still carries one does not close it',
+    '# either. An issue created with labels fires both opened and labeled, so two runs can be queued for one',
+    '# issue: the per-issue concurrency group serialises them, and the second reads the issue live and finds',
+    '# it already closed.',
+    '#',
+    '# THE JOB-LEVEL if: IS THE COST CONTROL. Every label added to every issue is a labeled event, and a job',
+    '# skipped by if: is not billed at all (#2487), so on a metered repo this costs one job per issue that is',
+    '# actually parked, nothing for the rest.',
+    '#',
+    '# THE LABEL LIST MATCHES EVERY FORMER NAME, as both pickup routes do: a tracker keeps an old name until',
+    '# somebody renames it there. The names are pr-issues-lib.ps1''s Get-DossierLabelNames plus',
+    '# awaiting-recurrences-first and its former names (Get-FormerTriageLabelNames), and',
+    '# adopt-ci-floor.tests.ps1 holds both lists in this file equal to them.',
+    '#',
+    '# NO CHECKOUT, AND NO SECRET. The job calls gh against the issue and nothing else, so there is no',
+    '# action to pin and no workspace for a token to be left in. issues: write on the job-scoped token is',
+    '# the whole permission. The title reaches the shell only as gh''s own output, read into a variable,',
+    '# never through an expression interpolated into the script body.',
+    'name: Close parked recurrences',
+    '',
+    'permissions:',
+    '  issues: write',
+    '',
+    'on:',
+    '  issues:',
+    '    types: [opened, labeled]',
+    '',
+    'concurrency:',
+    '  group: close-parked-recurrences-${{ github.event.issue.number }}',
+    '  cancel-in-progress: false',
+    '',
+    'jobs:',
+    '  close-parked:',
+    '    runs-on: ubuntu-latest',
+    '    if: >-',
+    '      github.event.issue.state == ''open'' && (',
+    '      (github.event.action == ''labeled'' &&',
+    '      contains(fromJSON(''["awaiting-recurrences", "awaiting-more-recurrences", "record", "dossier", "awaiting-recurrences-first", "awaiting-first-recurrence", "awaiting-recurrence"]''), github.event.label.name)) ||',
+    '      (github.event.action == ''opened'' && (',
+    '      contains(github.event.issue.labels.*.name, ''awaiting-recurrences'') ||',
+    '      contains(github.event.issue.labels.*.name, ''awaiting-more-recurrences'') ||',
+    '      contains(github.event.issue.labels.*.name, ''record'') ||',
+    '      contains(github.event.issue.labels.*.name, ''dossier'') ||',
+    '      contains(github.event.issue.labels.*.name, ''awaiting-recurrences-first'') ||',
+    '      contains(github.event.issue.labels.*.name, ''awaiting-first-recurrence'') ||',
+    '      contains(github.event.issue.labels.*.name, ''awaiting-recurrence''))))',
+    '    # 5 minutes: three gh calls. The cap is a wedge detector against GitHub''s six-hour default (#2296).',
+    '    timeout-minutes: 5',
+    '    steps:',
+    '      - name: Close the parked issue as not planned, with its [RECORD] prefix',
+    '        shell: pwsh',
+    '        env:',
+    '          GH_TOKEN: ${{ github.token }}',
+    '          GH_REPO: ${{ github.repository }}',
+    '          ISSUE_NUMBER: ${{ github.event.issue.number }}',
+    '        run: |',
+    '          $n = $env:ISSUE_NUMBER',
+    '          # READ LIVE, NOT FROM THE EVENT: a second queued run for the same issue must find it closed.',
+    '          $issue = gh issue view $n --json state,title | ConvertFrom-Json',
+    '          if ($LASTEXITCODE -ne 0) { exit 1 }',
+    '          if ($issue.state -ne ''OPEN'') {',
+    '            Write-Host "#$n is already closed -- nothing to do."',
+    '            exit 0',
+    '          }',
+    '          if ($issue.title -notmatch ''^\[RECORD\]'') {',
+    '            gh issue edit $n --title (''[RECORD] '' + $issue.title)',
+    '            if ($LASTEXITCODE -ne 0) { exit 1 }',
+    '          }',
+    '          $comment = ''Closed as not planned automatically: a recurrence label parks this issue until its next instance, and the label keeps it findable while closed. A new instance is a comment on this issue and a reopen.''',
+    '          gh issue close $n --reason ''not planned'' --comment $comment',
+    '          exit $LASTEXITCODE'
+)
+
 # QueueRelated MARKS THE TWO TARGETS AN ACTIVE QUEUE MAKES URGENT (fold, resolves-verification) AGAINST
 # THE ONE THAT ISN'T (repo-settings). Without this flag, a missing repo-settings.yml would be reported
 # as a live defect purely because a queue happens to be active elsewhere in the same repo -- a setting
@@ -1335,7 +1438,8 @@ $targets = @(
     @{ Rel = '.github/workflows/verify-resolved.yml'; Content = (($resolvesRunner -join $nl) + $nl); What = 'the resolves verification, which the queue takes away too'; QueueRelated = $true },
     @{ Rel = '.github/workflows/repo-settings.yml';   Content = (($repoSettingsRunner -join $nl) + $nl); What = 'does a GitHub-side repo setting still match what the tree declares'; QueueRelated = $false },
     # NOT QUEUE-RELATED: under a queue ship-pr enqueues rather than refusing on CI, so nothing is armed.
-    @{ Rel = '.github/workflows/merge-on-green.yml';  Content = (($mergeOnGreenRunner -join $nl) + $nl); What = 'the sweep that merges a pull request ship-pr armed with merge-when-green once its check turns green'; QueueRelated = $false }
+    @{ Rel = '.github/workflows/merge-on-green.yml';  Content = (($mergeOnGreenRunner -join $nl) + $nl); What = 'the sweep that merges a pull request ship-pr armed with merge-when-green once its check turns green'; QueueRelated = $false },
+    @{ Rel = '.github/workflows/close-parked-recurrences.yml'; Content = (($closeParkedRunner -join $nl) + $nl); What = 'closes an issue parked on a recurrence label as not planned, with its [RECORD] prefix'; QueueRelated = $false }
 )
 # THE FOURTH TARGET IS CONDITIONAL, UNLIKE THE OTHER THREE (issue #1843): it is offered only when
 # nothing in the tree triggers on pull_request at all, never merely because this one file is absent --
@@ -1801,7 +1905,7 @@ Write-Host '-- 3. what this floor costs on a metered (private) repo --' -Foregro
 Write-Host '  Actions minutes are FREE and unlimited on a PUBLIC repo''s standard runners. On a PRIVATE' -ForegroundColor DarkGray
 Write-Host '  repo they are METERED against your plan''s included allowance and billed past it: every job' -ForegroundColor DarkGray
 Write-Host '  is billed rounded UP to a whole minute even where it runs in seconds, and a Windows minute' -ForegroundColor DarkGray
-Write-Host '  costs more than a Linux one -- all four runners this floor places run on Linux' -ForegroundColor DarkGray
+Write-Host '  costs more than a Linux one -- every runner this floor places runs on Linux' -ForegroundColor DarkGray
 Write-Host '  (ubuntu-latest).' -ForegroundColor DarkGray
 Write-Host '  What starts a billed job, per runner:' -ForegroundColor DarkGray
 Write-Host '    fold-on-merge.yml + verify-resolved.yml -- one job EACH per trunk push that is not a lone' -ForegroundColor DarkGray
@@ -1809,6 +1913,8 @@ Write-Host '      fold: commit (skipped at the job level on that push, unbilled 
 Write-Host '    repo-settings.yml -- 1 scheduled job/day, about 30/month.' -ForegroundColor DarkGray
 Write-Host '    merge-on-green.yml -- 8 scheduled jobs/day, about 240/month, PLUS one per completed run' -ForegroundColor DarkGray
 Write-Host '      of every workflow named in its workflow_run trigger, above.' -ForegroundColor DarkGray
+Write-Host '    close-parked-recurrences.yml -- one job per issue opened with, or given, a recurrence label;' -ForegroundColor DarkGray
+Write-Host '      every other issue event is skipped at the job level, unbilled.' -ForegroundColor DarkGray
 Write-Host ''
 
 # 4. THE QUEUE, LAST, NEVER PULLED HERE -- AND NEVER REPORTED AS A GAP (issues #1540, #1546).

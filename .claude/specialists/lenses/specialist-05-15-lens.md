@@ -427,6 +427,19 @@ infrastructure.
     [#2553](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2553). Measurements are in this
     file's history.
 
+- **`.github/workflows/close-parked-recurrences.yml`**: closes an issue parked on a recurrence label as
+  not planned, adding the `[RECORD]` prefix, on `issues: [opened, labeled]`
+  ([#3422](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3422)). Before #3422 the rule was
+  prose only, and #3410 stayed open after it was filed parked. Before changing it, know:
+  - **Never on `reopened`.** A recurrence reopens the issue and removes the label in either order. A
+    `labeled` event counts only when the label just added is a recurrence label.
+  - **The job-level `if:` is the cost control.** Every label event wakes the workflow, and a job skipped
+    by `if:` is unbilled.
+  - **No checkout, no action, no secret**: `issues: write` on the job token, and the title reaches the
+    shell only as `gh` output. That is why it is **the consumer's file byte for byte**:
+    `adopt-ci-floor.ps1` places the same text as its fifth runner, and `adopt-ci-floor.tests.ps1` holds
+    the two equal, and both label lists equal to `pr-issues-lib.ps1`'s names, former names included.
+
 - **`timeout-minutes` on every job — the runner-level cap, which is a DIFFERENT LAYER from the
   in-process suite bound** ([#2296](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2296)).
   Every job in `.github/workflows/` declares one; before #2296 a wedged job ran to GitHub's six-hour

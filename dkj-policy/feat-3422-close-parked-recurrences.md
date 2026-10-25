@@ -39,19 +39,45 @@
 
 ### PLAN
 
+Issue #3422: closing an issue parked on a recurrence label was prose only. Verified: nothing under
+`.github/` or the hooks closes such an issue. Built as a CI-floor runner that checks nothing out, so the
+consumer's copy is the source's own file.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `.github/workflows/close-parked-recurrences.yml`: on `issues: [opened, labeled]`, never `reopened`;
+  a job-level `if:` admits only an open issue whose added label (or, on `opened`, any label) is a
+  recurrence label, former names included; adds `[RECORD]`, closes as not planned with one comment.
+- [x] `adopt-ci-floor.ps1` (both copies): the same text as a fifth target, with the cost note and header.
+- [x] `adopt-ci-floor.tests.ps1`: the placed runner equals the source file; both label lists equal
+  `pr-issues-lib.ps1`'s names; no action, no secret, `issues: write` only, no expression in the run body.
+- [x] Docs: `CONTRIBUTING-portable.md` (both recurrence rules, the CI-floor section), the
+  `adopt-dkj-policy` Part 3 page, Sylvester's lens.
 
 ### TEST
 
+- [x] `adopt-ci-floor.tests.ps1` 306/306 and `workflow-timeouts.tests.ps1` 74/74, run alone while
+  building; the full gate is `ship-pr`'s.
+
 ### DEPLOY: feat/3422-close-parked-recurrences
 
-**Score:**
+An issue filed with, or given, `awaiting-recurrences` or `awaiting-recurrences-first` is now closed as not
+planned automatically, with its `[RECORD]` title prefix added where missing and the label kept
+([#3422](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3422)). The rule in
+[`CONTRIBUTING-portable.md`](../plugins/dkj-policy/CONTRIBUTING-portable.md) was prose only, and #3410 stayed
+open after it was filed parked. The new `close-parked-recurrences.yml` runner does it on `opened` and
+`labeled`, never on `reopened`, so a recurrence can reopen and unlabel in either order. Every other label
+event is skipped at the job level. `adopt-ci-floor` places the same file in a consumer as its fifth runner;
+it checks nothing out and needs no secret.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer who re-runs `adopt-ci-floor -Apply` gets parked recurrence issues closed for them, instead of
+the open list filling with issues that wait on their next instance.
+
+**Score:** 2
 
 #### Pull Request
 
