@@ -184,8 +184,12 @@
      release's own page, and rides on the card only as its title attribute. */
   .cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
-    gap: 1rem;
+    /* AT MOST SIX ACROSS (owner, October 25, 2026): a column is never narrower than 9.5rem, which still
+       holds 'Version 2.39' beside a chip, and never narrower than a sixth of the row -- so a wide page
+       stops at six rather than spreading the cards thin. */
+    --card-gap: 1rem;
+    grid-template-columns: repeat(auto-fill, minmax(max(9.5rem, (100% - 5 * var(--card-gap)) / 6), 1fr));
+    gap: var(--card-gap);
   }
   .card {
     display: flex; flex-direction: column; gap: .45rem;
@@ -278,7 +282,7 @@
     header.masthead { padding-top: 2rem; }
     header.masthead h1 { font-size: 1.7rem; }
     header.masthead .marks img { height: 1.35rem; }
-    .cards { gap: .75rem; }
+    .cards { --card-gap: .75rem; }
     .sheet { padding: .25rem 1rem .75rem; border-radius: .6rem; }
     .sheet.note { padding: 1.1rem 1rem 1.3rem; }
     .pager { grid-template-columns: 1fr; }

@@ -853,7 +853,8 @@ try {
     Write-Host "layout -- the grid, the cards and the release page" -ForegroundColor Cyan
     # THE GRID FILLS WHATEVER WIDTH IT IS GIVEN, so the same rule is one column on a phone and several on a
     # desktop, and the width a reader picks needs nothing of its own.
-    Assert-Match 'grid-template-columns: repeat\(auto-fill, minmax\(14rem, 1fr\)\)' $p14.Html 'cards: the grid fills the width with as many columns as fit'
+    Assert-Match 'grid-template-columns: repeat\(auto-fill, minmax\(max\(9\.5rem, \(100% - 5 \* var\(--card-gap\)\) / 6\), 1fr\)\)' $p14.Html 'cards: the grid fills the width with as many columns as fit, and never more than six'
+    Assert-Match '\.cards \{ --card-gap: \.75rem; \}' $p14.Html 'cards: a phone narrows the gap through the same variable the six-column cap reads'
     # A link already held still lands on its card where JavaScript is off.
     Assert-Match '\.card:target' $p14.Html 'cards: an old #v link marks the card it lands on'
     # ON THE ABSENCE OF THE OLD VALUE: the masthead's own bottom padding is the separation.
