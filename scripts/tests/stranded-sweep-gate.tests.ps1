@@ -82,10 +82,13 @@ Write-Host 'hooks.json registration' -ForegroundColor Cyan
 Assert-True (Test-Path -LiteralPath $HooksJson -PathType Leaf) 'plugins/dkj-policy/hooks/hooks.json exists'
 $hooksParsed = Get-Content -LiteralPath $HooksJson -Raw | ConvertFrom-Json
 $sessionStartHooks = @($hooksParsed.hooks.SessionStart | ForEach-Object { $_.hooks } | ForEach-Object { $_ })
-$strandedEntry = @($sessionStartHooks | Where-Object { $_.command -match 'stranded-sweep-sessioncheck\.ps1' })
-Assert-Equal 1 $strandedEntry.Count 'exactly one SessionStart hook entry names stranded-sweep-sessioncheck.ps1'
+# Run through sessioncheck-dispatch.ps1 since #3472, which discovers every *-sessioncheck.ps1 beside it.
+$strandedEntry = @($sessionStartHooks | Where-Object { $_.command -match 'sessioncheck-dispatch\.ps1' })
+Assert-Equal 1 $strandedEntry.Count 'exactly one SessionStart hook entry runs the dispatcher'
 Assert-Equal 'command' $strandedEntry[0].type 'and it is a command hook'
-Assert-True ([int]$strandedEntry[0].timeout -gt 0) 'and it carries a positive timeout, like its siblings'
+Assert-True ([int]$strandedEntry[0].timeout -gt 0) 'and it carries a positive timeout'
+Assert-Equal 0 @($sessionStartHooks | Where-Object { $_.command -match 'stranded-sweep-sessioncheck\.ps1' }).Count 'stranded-sweep-sessioncheck.ps1 has no entry of its own'
+Assert-True ((Split-Path -Leaf $Hook) -like '*-sessioncheck.ps1') 'and its name matches the dispatcher''s discovery pattern'
 
 # --- Fake gh, recording nothing, answering from environment variables -------------------------------
 # Same mechanism as verify-resolved-issues.tests.ps1 -- the one other script in this tree that talks to

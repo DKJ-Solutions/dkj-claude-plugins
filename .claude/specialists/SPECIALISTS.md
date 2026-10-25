@@ -46,7 +46,8 @@ administration while it reads healthy, so a clobber of it can be restored rather
 the branch's cycle to origin until a PR does; `closeout-gate` (#2050) BLOCKS a close-out past this
 repo's band. **The set is NOT listed here**: it was named as three, went stale twice inside two days
 as hooks were added, and each plugin's own `hooks/hooks.json` is the one place that cannot -- so read
-it there. They run in Claude Code and in Cowork, but not in a plain Claude.ai Chat session (there they
+it there, and for `dkj-policy`'s session checks read its `hooks/*-sessioncheck.ps1`, which one
+dispatcher entry runs (#3472). They run in Claude Code and in Cowork, but not in a plain Claude.ai Chat session (there they
 show up grayed out); only the skills stay available in Chat. See the adoption page's
 [Where this runs](../../plugins/ADOPTION.md#where-this-runs-chat-cowork-and-claude-code) section for the sourced
 detail.

@@ -122,12 +122,15 @@ Write-Host '== release-freshness-sessioncheck.ps1 ==' -ForegroundColor Cyan
 Assert-True (Test-Path -LiteralPath $Hook -PathType Leaf) 'the hook exists at its plugin path'
 
 $hooks = Get-Content -LiteralPath $HooksJson -Raw | ConvertFrom-Json
+# Run through sessioncheck-dispatch.ps1 since #3472, which discovers every *-sessioncheck.ps1 beside it,
+# so the hook has no entry of its own -- the dispatcher's group is the one that must fire on startup.
 $entries = @($hooks.hooks.SessionStart | ForEach-Object { $_ } | Where-Object {
-    @($_.hooks | Where-Object { $_.command -match 'release-freshness-sessioncheck\.ps1' }).Count -gt 0 })
-Assert-True ($entries.Count -eq 1) 'exactly one SessionStart group registers the hook'
+    @($_.hooks | Where-Object { $_.command -match 'sessioncheck-dispatch\.ps1' }).Count -gt 0 })
+Assert-True ($entries.Count -eq 1) 'exactly one SessionStart group runs the dispatcher that runs the hook'
 if ($entries.Count -eq 1) {
     Assert-True ($entries[0].matcher -match 'startup') 'its matcher fires on startup'
 }
+Assert-True ((Split-Path -Leaf $Hook) -like '*-sessioncheck.ps1') 'the hook''s name matches the dispatcher''s discovery pattern'
 
 # --- behind: the warning --------------------------------------------------------------------------
 $f = New-Fixture -Label behind -Tags @('v5.9.0', 'v5.10.0', 'v5.11.0') -Running '5.10.0'

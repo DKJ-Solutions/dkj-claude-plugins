@@ -381,7 +381,8 @@ try {
             # reachable for a cold PowerShell 5.1 startup under the test gate's own parallel lanes, and
             # the suite that drives this branch runs exactly there -- see that parameter for the
             # measurement. Production is unchanged; what moved is who can say the number.
-            # hooks.json's own 120s timeout is the harness's backstop, not something this code arranged;
+            # The backstops are sessioncheck-dispatch.ps1's 100s deadline and then hooks.json's 120s for
+            # that dispatcher (#3472), neither of them something this code arranged;
             # Invoke-NativeCapture is what this repo already uses to arrange it (Victor, on #1591), and
             # the fallback keeps an older mirror that lacks the lib working exactly as before.
             $capture = Join-Path $PSScriptRoot '..\scripts\lib\native-capture-lib.ps1'

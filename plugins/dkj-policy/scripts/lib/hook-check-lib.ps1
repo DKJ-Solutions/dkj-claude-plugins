@@ -127,7 +127,9 @@
     blocking call. This function has no timeout and cannot have a useful one: an in-process call
     cannot be abandoned from the thread that is making it. Nothing regresses, because the six calls
     it replaces were unbounded spawns with no timeout either; the harness's own per-hook timeout in
-    hooks.json remains the backstop for both. A check that grows a network call of its own belongs
+    hooks.json remains the backstop for both -- and for the session checks, which sessioncheck-dispatch.ps1
+    runs on pool threads, its own deadline answers first and names the check that hung (#3472). A
+    check that grows a network call of its own belongs
     behind Invoke-NativeCapture, not here.
 
     Pure ASCII, per this repo's script-layer convention.
