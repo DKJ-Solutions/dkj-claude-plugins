@@ -1263,12 +1263,14 @@ function Remove-ShipMergeOnGreenArmForJudgement {
 # cannot drift. The PR is still armed: the label is the record that a session began shipping it, and the
 # picker's log names the reason on each sweep. What changes is only what this run tells its operator.
 $script:SweepRefusal = ''
+$script:ShipArmed = $false
 if (-not $NoMerge) {
     $armLabel = Get-MergeOnGreenArmLabel
     $filesRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
         'pr', 'view', "$pr", '--repo', $repo, '--json', 'files,changedFiles')
     $script:SweepRefusal = Get-MergeOnGreenSweepRefusal -FilesJson $(if ($filesRead.ExitCode -eq 0) { $filesRead.Output -join "`n" } else { '' })
-    if (Set-ShipMergeOnGreenArm) {
+    $script:ShipArmed = Set-ShipMergeOnGreenArm
+    if ($script:ShipArmed) {
         if ($script:SweepRefusal) {
             Write-Host "ship-pr: armed PR #$pr with '$armLabel', but the merge-on-green sweep will NOT finish it: $($script:SweepRefusal) (issues #2338, #2436)." -ForegroundColor Yellow
             Write-Host "  If this run does not finish, nothing else will -- re-run ship-pr from a session: scripts\release\ship-pr.ps1" -ForegroundColor Yellow
@@ -2106,12 +2108,23 @@ if (Test-FunctionDefined 'Write-RunProgress') {
     } catch { }
 }
 if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'ship-pr' -Step 'ci-wait') }
+# AND IT SAYS WHETHER THE SESSION CAN BE CLEARED, POSITIVELY, WHERE IT CAN (issue #3442). The paragraph
+# above withheld that because a /clear was never measured -- a reason that expired once the PR is armed
+# before the wait (#2319, #2393): a killed run is then finished by the merge-on-green sweep, which folds
+# too. Get-ShipClearanceVerdict gives the clearance only where every fact it rests on holds, and names the
+# first that does not; the second-terminal lines below print only in that second case, because they are
+# exactly what would contradict a clearance.
+$clearance = Get-ShipClearanceVerdict -Pr $pr -NoMerge ([bool]$NoMerge) -Armed $script:ShipArmed `
+    -SweepRunnerPresent (Test-Path -LiteralPath (Join-Path $repoRoot '.github\workflows\merge-on-green.yml')) `
+    -SweepRefusal $script:SweepRefusal -TreeOnTrunk $treeOnTrunk
 Write-Host "ship-pr: waiting for the CI check(s) on PR #$pr..." -ForegroundColor Cyan
+Write-Host "ship-pr: $($clearance.Line)" -ForegroundColor $(if ($clearance.Clearable) { 'Green' } else { 'Yellow' })
 Write-Host "  Nothing here needs YOU -- background this run and the wait costs nothing." -ForegroundColor DarkGray
-Write-Host "  It does need this session's process: the merge and the fold are still owed, and both run from here (#1428)." -ForegroundColor DarkGray
-Write-Host "  So leave this one running and carry on in a SECOND terminal -- do not quit the harness." -ForegroundColor DarkGray
-Write-Host "  $(Get-TrunkReturnGoAheadLine -Returned $treeOnTrunk -Branch $branchShown)" -ForegroundColor DarkGray
-Write-Host "  Open that second terminal in a lane: scripts\task\worktree-lane.ps1 -Name <name>" -ForegroundColor DarkGray
+if (-not $clearance.Clearable) {
+    Write-Host "  So leave this one running and carry on in a SECOND terminal -- do not quit the harness." -ForegroundColor DarkGray
+    Write-Host "  $(Get-TrunkReturnGoAheadLine -Returned $treeOnTrunk -Branch $branchShown)" -ForegroundColor DarkGray
+    Write-Host "  Open that second terminal in a lane: scripts\task\worktree-lane.ps1 -Name <name>" -ForegroundColor DarkGray
+}
 # --- AND THE ANSWER IS NEVER A GITHUB-SIDE SETTING (issue #2265) ---------------------------------
 # The block above answers "this wait is long, what do I do about it". This line answers the other thing
 # a session reaches for at exactly this moment, and it is the one answer that is wrong: turning a merge

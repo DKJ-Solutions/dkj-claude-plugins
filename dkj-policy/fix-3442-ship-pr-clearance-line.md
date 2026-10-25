@@ -39,19 +39,41 @@
 
 ### PLAN
 
+#3442: a backgrounded `ship-pr` never says the session can be cleared, although an armed PR is finished
+by the merge-on-green sweep if the run dies. Verified: arming happens before the wait (#2319/#2393), the
+sweep runs ship-pr itself and folds, and nothing runs between arming and the wait block.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ShipClearanceVerdict` in `merge-on-green-lib.ps1`: clearable only where the PR is armed, the repo has `merge-on-green.yml`, the sweep does not refuse the diff and the checkout is back on the trunk; otherwise names the first fact that fails
+- [x] `ship-pr.ps1` records whether arming succeeded and prints the verdict right under the wait line; the second-terminal advice prints only where the clearance is withheld
+- [x] Plugin mirrors of both scripts updated
+- [x] `ship-pr` skill page: the unmeasured-`/clear` paragraph replaced by the two lines, and a backgrounding session closes out on the line as shape A
 
 ### TEST
 
+- [x] `merge-on-green-lib.tests.ps1`: the clearable shape, each of the five withheld shapes naming its reason, and the wiring in `ship-pr.ps1` (251 pass)
+
 ### DEPLOY: fix/3442-ship-pr-clearance-line
 
-**Score:**
+`ship-pr` now says, seconds after it starts waiting on CI, whether the session can be cleared:
+`Session can be cleared: PR #N is armed and this checkout is back on the trunk` where the merge-on-green
+sweep would finish the ship if the run died, or `Session can NOT be cleared yet:` naming what holds it.
+A session that backgrounds the ship waits for that line and closes out on it, rather than on a progress
+note.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Whoever ships with `ship-pr` is told plainly when they can clear the session and start the next thing,
+instead of being left to guess while CI runs.
+
+**Score:** 3
 
 #### Pull Request
+
+ship-pr says when the session can be cleared during the CI wait
+
+Plugins: dkj-policy
 

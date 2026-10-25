@@ -272,11 +272,26 @@ step 5's fold either ([#1069](https://github.com/DaveKJohn/claude-code-specialis
 bites hardest here: terminal 2 cannot see terminal 1's branch or intent, and under one account the assignee
 cannot name the machine. So claim the issue before working it — and **read** the claim as well as write it.
 
-**What is still not measured, and no longer needs to be:** whether a `/clear` leaves the backgrounded run
-alive. It follows from the ancestry — the process hangs off `claude.exe`, not off the conversation — and
-nobody has cleared a context mid-ship to confirm it. The second terminal removes the reason to: it frees the
-*person* rather than the *session*, so the unmeasured row stops being load-bearing. Until somebody measures
-it, no document claims either answer.
+**Whether a `/clear` leaves the backgrounded run alive is still not measured, and no longer matters where
+the PR is armed** ([#3442](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3442)). Since
+[#2319](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2319) and
+[#2393](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2393) the PR carries `merge-when-green`
+*before* the wait, so a run that dies is finished by the merge-on-green sweep, which runs this script
+itself and folds. So the question is no longer whether this process survives, but whether anything still
+depends on it, and the run answers that itself. Right under `ship-pr: waiting for the CI check(s) on PR
+#N` it prints one of two lines:
+
+- `ship-pr: Session can be cleared: PR #N is armed and this checkout is back on the trunk -- ...` where
+  all four facts hold: the PR is armed, the repo has `.github/workflows/merge-on-green.yml`, the sweep
+  does not refuse this diff, and step 2b put the checkout back on the trunk.
+- `ship-pr: Session can NOT be cleared yet: <the first fact that fails> -- ...`, followed by the
+  second-terminal advice above, which applies only then.
+
+**A session that backgrounds the ship waits for that line, which takes seconds rather than the CI wait,
+and closes out on it as shape A.** It relays the line rather than writing its own progress note: on
+[PR #3441](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3441) the turn closed the moment the
+run started, with *"it is waiting on CI, I will be notified"*, and the owner could not tell that the
+session was already safe to clear.
 
 ### And stopping now leaves the checkout on the trunk ([#1073](https://github.com/DaveKJohn/claude-code-specialists/issues/1073))
 
