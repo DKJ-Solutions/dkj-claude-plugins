@@ -273,21 +273,24 @@ hub has its own port, so two repo hubs on one machine already disagreed.
 - **Every hub server on a machine shares one file**, `%LOCALAPPDATA%\dkj-hub\airsquats.json`, written under
   a lock. The plugin's servers and the source repo's own hub read the same file, and the source repo's
   product port relays the two routes to its hub.
-- **That file is merged with a private GitHub gist**, by `pages/sync-airsquats.ps1` in a hidden child at
-  most every 20 seconds while a hub page is open, and at once after a tick-off. The server never waits on
-  the network, so another machine sees a tick-off within about half a minute.
+- **Where you opt in, that file is merged with a private GitHub gist**, by `pages/sync-airsquats.ps1` in a
+  hidden child at most every 20 seconds while a hub page is open, and at once after a tick-off. The server
+  never waits on the network, so another machine sees a tick-off within about half a minute.
 
 **The state merges without conflict**: the full hours at whose start a hub was open (merged as the union)
 and the last tick-off (the later one wins). Ten airsquats are owed for every such hour after the last
 tick-off. An hour counts only where a hub saw it begin, so a night with every hub closed adds nothing, as
 before. The tone plays once per machine, within two minutes of the hour.
 
-**Which gist.** The child looks for a gist described `dkj-hub-airsquats` among the gists of the account `gh`
-is logged in as, and creates it, private, on first use. Machines on the same `gh` account therefore find
-each other with nothing configured. **Machines on different accounts** each pin the same gist with the
-`DKJ_HUB_AIRSQUATS_GIST` environment variable, in the `env` block of the machine's own
-`~/.claude/settings.json`. A failed sync (no `gh`, logged out, offline) is written into the state file as
-`syncError`. The banner then goes on with this machine's own count, and the next sync catches up.
+**The gist is an opt-in** (#3439), set with the `DKJ_HUB_AIRSQUATS_GIST` environment variable in the `env`
+block of the machine's own `~/.claude/settings.json`. **Unset**, nothing syncs and nothing is written to
+your GitHub account: the banner agrees across the repo hubs of this machine only. **`auto`** makes the child
+look for a gist described `dkj-hub-airsquats` among the gists of the account `gh` is logged in as, and
+create it, private, on first use, so machines on the same `gh` account find each other with that one
+setting. **A gist id** pins that gist, which is how machines on different accounts share one. Any other
+value syncs nothing and says so as `syncError`. A failed sync (no `gh`, logged out, offline) is written into
+the state file as `syncError` too. The banner then goes on with this machine's own count, and the next sync
+catches up.
 
 **After updating the plugin from a version before #3245:** a general pages server that the old plugin
 started is reused until it exits, and it answers `/` with its old 303 or 404 until then. Stop it (or restart

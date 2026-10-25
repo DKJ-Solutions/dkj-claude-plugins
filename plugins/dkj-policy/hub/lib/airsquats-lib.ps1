@@ -14,7 +14,10 @@
          lock -- so the repo hubs of one machine agree at once.
       3. That file is merged with a private GitHub gist, by sync-airsquats.ps1 in a child process, so the
          machines agree within a sync (owner's choice, October 25, 2026). The server never waits on the network:
-         it starts the child and answers from the file.
+         it starts the child and answers from the file. ONLY ON AN OPT-IN (#3439): DKJ_HUB_AIRSQUATS_GIST=auto
+         finds or creates the gist, a gist id pins one, and unset there is no sync at all -- the banner then
+         agrees across the repo hubs of one machine only, because a background server does not write to
+         somebody's GitHub account unasked.
 
     THE STATE MERGES WITHOUT CONFLICT, which is what lets three layers write it in any order:
       hours      the full hours (Unix ms / 3600000) at whose start some hub was open. Merge: the union.
@@ -49,6 +52,19 @@ function Get-AirsquatsDir {
     if ($env:DKJ_HUB_STATE_DIR) { return $env:DKJ_HUB_STATE_DIR }
     $base = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { [System.IO.Path]::GetTempPath() }
     return (Join-Path $base 'dkj-hub')
+}
+
+function Get-AirsquatsGistSetting {
+    <#
+        What DKJ_HUB_AIRSQUATS_GIST asks for, as @{ Mode; Id }: 'off' (unset -- no sync), 'auto' (find the gist,
+        or create it), 'pinned' (that gist id, never another) or 'invalid' (set, but neither -- never put in a gh
+        call). The opt-in is #3439's: without it nothing is written to the account gh is logged in as.
+    #>
+    $v = ([string]$env:DKJ_HUB_AIRSQUATS_GIST).Trim()
+    if (-not $v) { return @{ Mode = 'off'; Id = '' } }
+    if ($v -eq 'auto') { return @{ Mode = 'auto'; Id = '' } }
+    if ($v -match '^[0-9a-fA-F]{8,64}\z') { return @{ Mode = 'pinned'; Id = $v } }
+    return @{ Mode = 'invalid'; Id = '' }
 }
 
 function ConvertTo-AirsquatsState {
@@ -169,10 +185,12 @@ function Start-AirsquatsSync {
         -Changed that the state did change. The child takes a lock of its own, so a second server's child simply
         exits. This server also keeps its own start time and starts no child within AirsquatsSyncEveryMs of the
         last unless the state changed: a child that dies before it records its attempt would otherwise be started
-        again at every poll. DKJ_HUB_NO_SYNC (the tests) and a missing script start nothing.
+        again at every poll. DKJ_HUB_NO_SYNC (the tests), no opt-in (DKJ_HUB_AIRSQUATS_GIST unset, #3439) and a
+        missing script start nothing.
     #>
     param([bool]$Due, [bool]$Changed = $false, [int64]$Now = (Get-AirsquatsNow))
     if (-not $Due -or $env:DKJ_HUB_NO_SYNC) { return $false }
+    if ((Get-AirsquatsGistSetting).Mode -eq 'off') { return $false }
     if ($script:AirsquatsSyncProcess -and -not $script:AirsquatsSyncProcess.HasExited) { return $false }
     if (-not $Changed -and ($Now - $script:AirsquatsSyncStartedAt) -lt $script:AirsquatsSyncEveryMs) { return $false }
     if (-not (Test-Path -LiteralPath $script:AirsquatsSyncScript -PathType Leaf)) { return $false }
@@ -241,20 +259,25 @@ function Sync-AirsquatsGist {
         One sync of the machine's file with the gist, through -Gh: a scriptblock taking gh's arguments and returning
         @{ ExitCode; Out } (the tests pass a fake). syncedAt records the ATTEMPT, failed or not, so an offline machine
         tries again every AirsquatsSyncEveryMs rather than at every poll; syncError says whether it landed.
-        Finds the gist by DKJ_HUB_AIRSQUATS_GIST, else the id the file remembers, else by its description among this account's gists, else creates it (private). Reads it,
-        merges it into the file under the lock, and writes it back only where the merge changed it. Returns
+        Only on an opt-in (Get-AirsquatsGistSetting, #3439): with DKJ_HUB_AIRSQUATS_GIST unset it calls no gh and
+        writes nothing, not even syncedAt. Pinned, it uses that gist id and no other; 'auto' takes the id the file
+        remembers, else the gist by its description among this account's gists, else creates it (private). Reads
+        it, merges it into the file under the lock, and writes it back only where the merge changed it. Returns
         @{ Ok; Error; Gist; Pushed }. Never throws.
     #>
     param([scriptblock]$Gh)
     $result = @{ Ok = $false; Error = ''; Gist = ''; Pushed = $false }
+    $setting = Get-AirsquatsGistSetting
+    if ($setting.Mode -eq 'off') { return $result }
     try {
+        if ($setting.Mode -eq 'invalid') { throw "DKJ_HUB_AIRSQUATS_GIST is neither 'auto' nor a gist id" }
         $local = Use-AirsquatsFile -Change { param($s) $s }
-        $gist = if ($env:DKJ_HUB_AIRSQUATS_GIST) { [string]$env:DKJ_HUB_AIRSQUATS_GIST } else { $local.gist }
+        $gist = if ($setting.Mode -eq 'pinned') { $setting.Id } else { $local.gist }
         if ($gist -notmatch '^[0-9a-fA-F]{8,64}\z') { $gist = '' }
         $remote = $null
         if ($gist) {
             $r = & $Gh @('api', "gists/$gist")
-            if ($r.ExitCode -eq 0) { $remote = $r.Out | ConvertFrom-Json } elseif (-not $env:DKJ_HUB_AIRSQUATS_GIST) { $gist = '' } else { throw "gh could not read gist $gist" }
+            if ($r.ExitCode -eq 0) { $remote = $r.Out | ConvertFrom-Json } elseif ($setting.Mode -eq 'auto') { $gist = '' } else { throw "gh could not read gist $gist" }
         }
         if (-not $gist) {
             # Every page of the account's gists, filtered by gh itself: one id per line, the id held to its shape.

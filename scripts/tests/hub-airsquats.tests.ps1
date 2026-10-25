@@ -104,8 +104,26 @@ try {
         if (-not $script:gists.ContainsKey($id)) { return @{ ExitCode = 1; Out = '' } }
         return @{ ExitCode = 0; Out = (@{ id = $id; files = @{ 'airsquats.json' = @{ content = $script:gists[$id] } } } | ConvertTo-Json -Depth 5 -Compress) }
     }
+
+    Write-Host '-- the gist is an opt-in (#3439)' -ForegroundColor Cyan
+    $before = [System.IO.File]::ReadAllText((Join-Path $scratch 'airsquats.json'))
     $r = Sync-AirsquatsGist -Gh $fake
-    Assert-True ($r.Ok -and $r.Pushed -and $r.Gist -eq 'abcdef0123456789') 'with no gist anywhere, the first sync creates it'
+    Assert-True (-not $r.Ok -and -not $r.Error -and $script:calls.Count -eq 0) 'with DKJ_HUB_AIRSQUATS_GIST unset, a sync calls no gh at all'
+    Assert-Equal $before ([System.IO.File]::ReadAllText((Join-Path $scratch 'airsquats.json'))) 'and writes nothing to the machine''s file, not even the attempt'
+    # A harmless script in the child's place: were the opt-in not checked, a hidden child would run it and report $true.
+    $oldScript = $script:AirsquatsSyncScript; $script:AirsquatsSyncScript = Join-Path $scratch 'noop-sync.ps1'
+    [System.IO.File]::WriteAllText($script:AirsquatsSyncScript, 'exit 0')
+    $env:DKJ_HUB_NO_SYNC = ''
+    try { Assert-True (-not (Start-AirsquatsSync -Due $true -Changed $true)) 'and the server starts no sync child' }
+    finally { $env:DKJ_HUB_NO_SYNC = '1'; $script:AirsquatsSyncScript = $oldScript }
+    $env:DKJ_HUB_AIRSQUATS_GIST = 'yes'
+    $r = Sync-AirsquatsGist -Gh $fake
+    Assert-True (-not $r.Ok -and $r.Error -match 'neither' -and $script:calls.Count -eq 0) 'a value that is neither auto nor an id calls no gh either'
+    Assert-True ((Use-AirsquatsFile -Change { param($s) $s }).syncError -match 'neither') 'and says so as the sync''s error'
+    $env:DKJ_HUB_AIRSQUATS_GIST = 'auto'
+
+    $r = Sync-AirsquatsGist -Gh $fake
+    Assert-True ($r.Ok -and $r.Pushed -and $r.Gist -eq 'abcdef0123456789') 'with auto and no gist anywhere, the first sync creates it'
     Assert-True ($script:posted.public -eq $false -and $script:posted.description -eq 'dkj-hub-airsquats') 'private, under the description a second machine finds it by'
     Assert-True ($script:filter -match 'description == "dkj-hub-airsquats"' -and $script:filter -match 'files\["airsquats\.json"\]' -and $script:calls[0] -match '--paginate') 'and the search reads every page of the account''s gists, for that description and that file'
     $local = Use-AirsquatsFile -Change { param($s) $s }
@@ -129,7 +147,7 @@ try {
     # A second machine, its own folder, the same account: it finds the gist by its description.
     $env:DKJ_HUB_STATE_DIR = Join-Path $scratch 'second'
     $r = Sync-AirsquatsGist -Gh $fake
-    Assert-True ($r.Ok -and $r.Gist -eq 'abcdef0123456789' -and (Use-AirsquatsFile -Change { param($s) $s }).clearedAt -eq (490004 * $H)) 'a second machine finds the same gist with nothing configured, and reads it cleared'
+    Assert-True ($r.Ok -and $r.Gist -eq 'abcdef0123456789' -and (Use-AirsquatsFile -Change { param($s) $s }).clearedAt -eq (490004 * $H)) 'a second machine on auto finds the same gist by its description, and reads it cleared'
     $env:DKJ_HUB_STATE_DIR = $scratch
 
     $r = Sync-AirsquatsGist -Gh { param($a) @{ ExitCode = 1; Out = '' } }
@@ -143,6 +161,11 @@ try {
     $script:calls.Clear()
     [void](Sync-AirsquatsGist -Gh $fake)
     Assert-True (-not ($script:calls -match "`n")) 'nor one carrying a trailing newline'
+    # A pinned id is that gist and no other: unreadable, it is an error, never a search or a new gist.
+    $env:DKJ_HUB_AIRSQUATS_GIST = '0123456789abcdef'
+    $script:calls.Clear()
+    $r = Sync-AirsquatsGist -Gh $fake
+    Assert-True (-not $r.Ok -and -not ($script:calls -match 'per_page|POST')) 'a pinned gist that cannot be read is an error, never a search or a new gist'
     $env:DKJ_HUB_AIRSQUATS_GIST = ''
 
     Write-Host '-- a gist is bounded input' -ForegroundColor Cyan

@@ -46,7 +46,8 @@
                       -MinRefreshSeconds, and per 60 s for issues) and goes back to the page.
       /api/airsquats  the banner's state as JSON (GET), and POST /api/airsquats/clear ticks its box off (#3438):
                       the machine's file under %LOCALAPPDATA%\dkj-hub, synced with a private gist by a child
-                      (sync-airsquats.ps1). The one route that takes a POST, served same-origin only.
+                      (sync-airsquats.ps1) where DKJ_HUB_AIRSQUATS_GIST opts in (#3439). The one route that
+                      takes a POST, served same-origin only.
       /whoami         the hash of the repo root this server was started in (Get-DevPreviewRootHash): the
                       hubs ask it before they link here, because an open port does not say whose server it is.
       /house-style.css, /house-theme.js   the canonical copy under dkj-solutions/assets/house-style/ in this
