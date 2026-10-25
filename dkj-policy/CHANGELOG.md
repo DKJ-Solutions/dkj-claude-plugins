@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-**9 / 13 minor entries** <!-- pending-tally -->
+**9 / 14 minor entries** <!-- pending-tally -->
 
 ### DEPLOY: feat/heading-scale-h3-14px · 20261025-090538Z
 
@@ -27,6 +27,29 @@ House style headings: h3 at 14px, h4 and h5 retired
 Plugins: dkj-solutions
 
 [PR #3425](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3425)
+
+---
+
+### DEPLOY: fix/product-root-card-link · 20261025-090535Z
+
+The product port's home page (`brandbook/root.html`) wrote its four page cards as a plain `.card`, so
+only the link row tinted on hover and took a click, while the hub's cards, `.card--link` since #3298,
+tint and click over their whole area. That hand-written file was missed by #3298; it now carries the
+same class, and `dev-pages.tests.ps1` pins it so the two ports cannot drift apart again.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the product port is this repo's own dev server; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+the product root's cards are clickable and tint over their whole area, like the hub's
+
+[PR #3424](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3424)
 
 ---
 
