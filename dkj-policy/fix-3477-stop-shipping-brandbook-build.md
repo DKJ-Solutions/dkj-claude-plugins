@@ -39,19 +39,35 @@
 
 ### PLAN
 
+#3477: since #3475 nothing reads `dkj-solutions/assets/brandbook/` (verified: no `Get-BrandbookBuildDir`, no
+server path), yet every cut still runs `npm ci` and a build to fill it. Empty the seam, delete the folder and
+its house-style exemption, and bring the docs that describe the shipped build into line.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ReleaseBuilds` returns an empty list; the literal keeps its two-line shape for the drive test's fixture regex
+- [x] `plugins/dkj-policy/dkj-solutions/assets/brandbook/` deleted, and its exemption in `repo-config.ps1` with it
+- [x] Contract record's `Returns` text updated in both mirrors of `script-contract-lib.ps1`; blueprint regenerated
+- [x] Docs: `brandbook/README.md`, `.claude/rules/this-repo.md`, Cody's lens, the `dkj-solutions` README
 
 ### TEST
 
+- [x] The gates run in `ship-pr`
+
 ### DEPLOY: fix/3477-stop-shipping-brandbook-build
 
-**Score:**
+A release no longer builds the `brandbook/` app or copies it into the `dkj-solutions` plugin
+([#3477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3477)). Since #3475 no consumer hub served
+that copy, so the cut paid an `npm ci` and a build for a folder nothing read. `Get-ReleaseBuilds` now names no
+build, and `assets/brandbook/` is gone from the plugin.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 

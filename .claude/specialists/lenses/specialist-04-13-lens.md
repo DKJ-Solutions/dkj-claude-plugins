@@ -22,7 +22,8 @@ the hub's form lives in the house-style README and its stylesheet-only patterns 
   its two stylesheet-only patterns; a second rendering here is the duplicate #3274 removed.
 - **The gate is `npm run gate`** in `brandbook/` (eslint, CSS syntax, custom properties, colour tokens, build),
   and CI runs it as `brandbook-gate`. Run it before the hand-over: the PowerShell gate does not build the app.
-- **Never hand-edit the shipped build.** `plugins/dkj-policy/dkj-solutions/assets/brandbook/` is written by
-  the cut (`Get-ReleaseBuilds`, [#3210](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3210)).
-- **Every change here is a visible result**: the branch parks for the owner's look, served by this repo's hub
-  under `/brandbook/`, which rebuilds the app from the tree on the next visit.
+- **No build of it ships.** The cut copied one into `dkj-solutions/assets/brandbook/` from #3210 until
+  [#3477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3477), once no consumer hub served it, so
+  this repo's product port is the only place the app is seen.
+- **Every change here is a visible result**: the branch parks for the owner's look, served on this repo's product
+  port under `/brandbook/`, whose dev server shows the tree as it is edited.
