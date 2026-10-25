@@ -186,6 +186,7 @@ Assert-True ($null -eq (Find-StopwatchGroup -Model $m -Slug 'css-comment')) 'a l
 $cssLabel = Find-StopwatchLabel -Model $m -Slug 'css-comment'
 Assert-True ($cssLabel -and $cssLabel.Title -eq 'CSS comment' -and @($cssLabel.Groups).Count -eq 3 -and $cssLabel.Groups[0].Latest -eq (& $at 3000) -and $cssLabel.Groups[2].Latest -eq (& $at 0)) 'a label''s slug finds every run of that label, case-insensitively, newest first, titled by the newest'
 Assert-Equal 'live|css-comment|docs' ((Get-StopwatchLabelSets -Model $m | ForEach-Object { $_.Slug }) -join '|') 'the labels stand in the order of their newest run'
+Assert-Equal 'docs|css-comment|live|ship-pr' ((Get-StopwatchOverviewSets -Model $m | ForEach-Object { $_.Slug }) -join '|') 'the overview stands slowest first by its fastest time, then a run going, then a pinned label with no run (the owner, October 25, 2026)'
 Assert-True ($null -eq (Find-StopwatchGroup -Model $m -Slug 'nothing') -and $null -eq (Find-StopwatchGroup -Model $m -Slug '') -and $null -eq (Find-StopwatchLabel -Model $m -Slug 'nothing') -and $null -eq (Find-StopwatchLabel -Model $m -Slug '')) 'a slug no run or label has finds nothing'
 $twin = ConvertTo-StopwatchModel -Runs @((& $mk 'One' 0 10), (& $mk 'One' 5 20))
 $twinSlugs = @($twin.Groups | ForEach-Object { $_.PageSlug })
