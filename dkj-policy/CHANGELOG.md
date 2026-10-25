@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**14 / 30 minor entries** <!-- pending-tally -->
+**14 / 31 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/release-notes-served-from-tree · 20261025-132418Z
+
+**This repo's hub builds the release-notes page from its own tree.** `/release-notes` on the hub was relayed
+to the general pages server, which runs from the installed plugin, so a change to that page showed here only
+after a release. The hub now builds and dresses the page with this tree's `build-release-notes-page.ps1` and
+`Format-ReleaseNotesDevPage`, and rebuilds it when a release document, the builder or its template changed.
+The hub banner stands above the site header there, as on every other hub page. Artifacts, Issues and SessionStart are still relayed.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: only this repo's own hub changes; consumers' hubs keep serving the page from the plugin.
+
+**Score:** N/A
+
+#### Pull Request
+
+the hub builds /release-notes from this tree, not from the installed plugin
+
+[PR #3452](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3452)
+
+---
 
 ### DEPLOY: feat/3446-stopwatch-tombstones · 20261025-124423Z
 
