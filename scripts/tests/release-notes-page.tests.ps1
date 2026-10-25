@@ -265,6 +265,12 @@ try {
 
     $page1 = Join-Path $r1 'releases\page\release-notes.html'
     Assert-True (Test-Path -LiteralPath $page1) 'basic: the page is written beside the note root, in page/'
+    $ignore1 = Join-Path $r1 'releases\page\.gitignore'
+    Assert-True (Test-Path -LiteralPath $ignore1) 'basic: page/ carries a .gitignore of its own (#3431)'
+    Assert-True (@(Get-Content -LiteralPath $ignore1) -contains '*') 'basic: and it ignores everything in page/'
+    [System.IO.File]::WriteAllText($ignore1, "kept`n")
+    $null = Invoke-Build -Root $r1
+    Assert-Equal 'kept' ((Get-Content -LiteralPath $ignore1 -Raw).Trim()) 'basic: an existing page/.gitignore is left alone'
 
     $p1 = Get-PageData -PagePath $page1
     Assert-Equal 2 $p1.Data.documentCount 'basic: two releases carry a note'

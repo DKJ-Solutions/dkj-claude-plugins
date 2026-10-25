@@ -44,7 +44,8 @@
 
     WHAT IT WRITES. The page always. With -Worker, also worker.js and (only when absent) a
     wrangler.toml beside it, in a 'page' directory next to the note root. None of the output belongs
-    in version control -- it is a derivative of documents that are already tracked.
+    in version control -- it is a derivative of documents that are already tracked -- so that
+    directory carries a '*' .gitignore of its own, written when absent (#3431).
 
     AND AN ABSENT wrangler.toml IS REPORTED RATHER THAN WRITTEN IN SILENCE. It shares the gitignored
     page directory with the path token and is lost by the same mechanisms, so "it is not here" is as
@@ -826,8 +827,18 @@ $page = $template.
 $pageDir = Join-Path (Split-Path -Parent $noteRoot) 'page'
 if (-not (Test-Path -LiteralPath $pageDir)) { New-Item -ItemType Directory -Force -Path $pageDir | Out-Null }
 
-if (-not $OutFile) { $OutFile = Join-Path $pageDir 'release-notes.html' }
 $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+
+# The directory ignores itself (#3431): a '*' .gitignore inside it, written only when absent. The hub
+# builds this page in every consumer (#3189), and a repo-level ignore line reached only the consumers
+# that had read the release-notes-page skill -- the rest got the page as an untracked folder, and one
+# committed it with a 'git add -A'. A file already there is left alone, as wrangler.toml is.
+$pageIgnore = Join-Path $pageDir '.gitignore'
+if (-not (Test-Path -LiteralPath $pageIgnore)) {
+    [System.IO.File]::WriteAllText($pageIgnore, "# Written by build-release-notes-page.ps1: everything here is generated or local.`n*`n", $Utf8NoBom)
+}
+
+if (-not $OutFile) { $OutFile = Join-Path $pageDir 'release-notes.html' }
 [System.IO.File]::WriteAllText($OutFile, $page, $Utf8NoBom)
 
 Write-Host "== build-release-notes-page ==" -ForegroundColor Cyan
