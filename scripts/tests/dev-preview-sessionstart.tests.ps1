@@ -256,6 +256,15 @@ Assert-Equal 0 @(Get-DevPreviewStaleHubOwners -Port 4896 -Listeners @((& $L 4896
 Assert-Equal 0 @(Get-DevPreviewStaleHubOwners -Port 4897 -Listeners @((& $L 4897 602)) -Processes $hubProcs -Server $srv).Count 'nor one started by hand from a relative path'
 Assert-Equal 0 @(Get-DevPreviewStaleHubOwners -Port 4898 -Listeners @((& $L 4898 103), (& $L 4898 999)) -Processes $hubProcs -Server $srv).Count 'nor a listener that is no hub, or whose process is gone'
 
+# #3462: the tree a release cut may stop is the nearest process naming the root above OUR listener, and nothing else.
+$editorProcs = $procs.Clone()
+$editorProcs[600] = @{ CommandLine = 'node C:\Users\x\GitHub\repo\node_modules\vite\bin\vite.js --port 5175'; ParentId = 503 }
+Assert-Equal '100' ((Get-DevPreviewOwnedTreeRoots -Ports @(5174) -Listeners @((& $L 5174 103), (& $L 5174 103)) -Processes $procs -Root $root) -join ',') 'the hook''s cmd.exe is the tree to stop, once'
+Assert-Equal '600' ((Get-DevPreviewOwnedTreeRoots -Ports @(5175) -Listeners @((& $L 5175 600)) -Processes $editorProcs -Root $root) -join ',') 'a server run by hand from the editor''s terminal is stopped alone, never the editor above it'
+Assert-Equal 0 @(Get-DevPreviewOwnedTreeRoots -Ports @(5173) -Listeners @((& $L 5173 200), (& $L 5173 300)) -Processes $procs -Root $root).Count 'a foreign app or another clone''s server gives nothing to stop'
+Assert-Equal 0 @(Get-DevPreviewOwnedTreeRoots -Ports @(5173) -Listeners @((& $L 5174 103)) -Processes $procs -Root $root).Count 'our server on a port outside the product''s gives nothing'
+Assert-Equal 0 @(Get-DevPreviewOwnedTreeRoots -Ports @(5173) -Listeners @() -Processes $procs -Root $root).Count 'no listener, nothing to stop'
+
 # #3244: the line names who holds a taken port, from the process table the hook already read.
 Assert-Equal 'repo2' (Get-DevPreviewHolderName -ProcessId 300 -Processes $procs) 'another checkout''s server is named by the folder above node_modules'
 Assert-Equal 'repo' (Get-DevPreviewHolderName -ProcessId 103 -Processes $procs) 'a server the hook started is named by the cd /d of its cmd.exe ancestor'

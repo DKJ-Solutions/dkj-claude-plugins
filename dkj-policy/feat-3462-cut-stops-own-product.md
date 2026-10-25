@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Issue #3462: the held-build refusal (#3353) fired at every cut here, because the dev-preview hook starts the
+brandbook product in every session. The cut now stops that product itself where the hook's ownership rule reads
+the holder as this checkout's, and keeps the refusal for anything else.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-DevPreviewOwnedTreeRoots` in `hub/lib/dev-preview-rules.ps1`: the nearest process naming the root above each of our listeners on the given ports (pure, no I/O)
+- [x] `cut-release.ps1` (root copy and plugin mirror): before the held-build refusal, stop the trees of the product `Get-DevPreview` states, re-probe, and refuse only if still held
+- [x] `brandbook/README.md`: the "stop the dev server before a cut" line now says the cut does it
 
 ### TEST
 
+- [x] Unit asserts in `dev-preview-sessionstart.tests.ps1`: the hook's cmd.exe is the tree, a hand-run server under the editor stops alone, foreign and other-clone listeners and off-range ports give nothing; the existing `cut-release-drive` held-build case still refuses a holder it does not recognise. Run by `ship-pr`'s gate.
+
 ### DEPLOY: feat/3462-cut-stops-own-product
 
-**Score:**
+`cut-release.ps1` now stops this checkout's own dev-preview product when it holds a release build's folder, rather
+than refusing the cut ([#3462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3462)). The product is
+the one `Get-DevPreview` states (its `Product` beside an own hub, or the server itself). Only a listener on its
+ports that the hook's ownership rule reads as this checkout's is stopped, as the tree of the nearest process naming
+the root, and the cut names the pid and says that the next session start restarts it. A holder it does not
+recognise still refuses the cut before the gates, as it did under #3353. The cut refused at both v5.30.0 and v5.31.0
+until the brandbook dev server was stopped by hand.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
