@@ -240,6 +240,7 @@ function ConvertTo-DevPreviewConfig {
         Path         = $path
         Requires     = $requires
         Name         = $script:DevPreviewLabel   # fixed: a repo's own Name is not read (#3064)
+        NameStated   = $Raw.Contains('Name')     # ...but one still stated is named as drift (#3463)
         WaitSeconds  = $wait
         OpenInVsCode = [bool]$Raw['OpenInVsCode']
         OwnHub       = $ownHub
@@ -248,6 +249,42 @@ function ConvertTo-DevPreviewConfig {
         ProductProblem = $productProblem
     }
     return $result
+}
+
+function Get-DevPreviewDriftClauses {
+    <#
+        The clauses that name what keeps a DKJ-Solutions repo from following a hub change (#3463), in the
+        order they print; empty where nothing does. -Config is ConvertTo-DevPreviewConfig's, -Mode what the
+        repo states, -SettingsText its .vscode/settings.json, -HubPorts the plugin hub's range.
+
+        THREE KINDS, AND ONE IS NOT A DEFECT (the owner's decision, October 25, 2026). OwnHub is a supported
+        opt-out, so it is named as a plain fact, never as something to repair; the source repo's own OwnHub
+        (-SourceTree) is not named at all, since it runs the hub from its own tree and is ahead of every
+        release rather than behind. OpenInVsCode with no hub port routed, and a Name still stated, are defects
+        in the repo's config: since #3245 OpenInVsCode hands out the HUB's url, so a route written for the
+        product alone sends it to the system browser, and Name has been ignored since #3064.
+        Outside a DKJ-Solutions repo (-DkjSolutions false) nothing is named: the roll-out is theirs.
+    #>
+    param(
+        [bool]$DkjSolutions,
+        [bool]$SourceTree,
+        [AllowEmptyString()][string]$Mode = 'none',
+        [AllowNull()]$Config,
+        [AllowNull()][AllowEmptyString()][string]$SettingsText,
+        [int[]]$HubPorts = @(Get-GeneralPagesPortRange)
+    )
+    # TERSE ON PURPOSE (Victor's review): they close a line ConvertTo-DevPreviewLine cuts at 300 characters, so
+    # every word here is one the product's url and words cannot use.
+    $clauses = @()
+    if (-not $DkjSolutions -or -not $Config) { return $clauses }
+    if ($Mode -eq 'ownhub' -and -not $SourceTree) { $clauses += 'own hub (OwnHub): hub releases do not reach it' }
+    $defects = @()
+    if ($Mode -eq 'product' -and $Config.OpenInVsCode -and -not @($HubPorts | Where-Object { Test-DevPreviewVsCodeRoute -SettingsText $SettingsText -Port $_ }).Count) {
+        $defects += "OpenInVsCode but no hub port ($((Format-DevPreviewPorts -Ports $HubPorts) -replace '^ports? ', '')) routed in .vscode"
+    }
+    if ($Config.NameStated) { $defects += 'Get-DevPreview states Name: delete it' }
+    if ($defects.Count) { $clauses += 'config drift: ' + ($defects -join '; ') }
+    return $clauses
 }
 
 function Test-CommandLineNamesRoot {
