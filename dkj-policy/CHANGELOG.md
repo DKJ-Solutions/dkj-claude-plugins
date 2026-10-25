@@ -2,7 +2,82 @@
 
 ## [Unreleased]
 
-**14 / 33 minor entries** <!-- pending-tally -->
+**16 / 36 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/stopwatch-run-page-no-duplicates · 20261025-143558Z
+
+A Stopwatch run page names the run's start once, in its heading, and its total time once, as the closing Total row of its phases table with its change against the previous run beside it as the label page writes it, a sign and a percent (+32%). The separate Time card is gone, and the phase card no longer carries a title restating the start and the time, and the label beneath the heading and the Phases heading with its explanation are gone too, the label staying in the crumbs, so the page stays compact. The Logbook's run page, which shares the layout, gets the same total row with its work time beside it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the Stopwatch is this repo's own dev hub page, which no consumer runs.
+
+**Score:** N/A
+
+#### Pull Request
+
+A stopwatch run page shows its start and time once
+
+[PR #3450](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3450)
+
+---
+
+### DEPLOY: feat/3439-airsquats-gist-opt-in · 20261025-143257Z
+
+The hub's airsquats gist is now an opt-in. With `DKJ_HUB_AIRSQUATS_GIST` unset, the hub servers start no
+sync child, call no `gh` and write nothing to the logged-in GitHub account: the banner agrees across the
+repo hubs of one machine only. `auto` finds the `dkj-hub-airsquats` gist, or creates it, private, as #3438
+did by default; a gist id pins that gist; any other value syncs nothing and reports it as `syncError`. This
+replaces #3438's "with nothing configured", which never reached a release.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Whoever runs the hub gets the cross-machine airsquats sync only after setting `DKJ_HUB_AIRSQUATS_GIST` to
+`auto` (or to a shared gist id) in the `env` block of their own `~/.claude/settings.json`. Without it, no
+gist is created on their GitHub account.
+
+**Score:** 2
+
+#### Pull Request
+
+Hub airsquats sync: the gist only on an opt-in
+
+Plugins: dkj-policy
+
+[PR #3449](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3449)
+
+---
+
+### DEPLOY: feat/release-notes-cards · 20261025-141944Z
+
+The release-notes page is now an index of cards (version, chip, date), one per release, and every release has a page of its
+own: `/release-notes/v5.30.0` on both hubs and `/notes/<token>/v5.30.0` in the Worker, with older/newer
+links between them. The builder writes them all in one run, so a cut release gets its page without anyone
+adding it. A link to the old page with a `#v5.30.0` fragment is forwarded to the release's own page.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Whoever reads the release notes can now open and send one release on its own address, instead of a
+fragment on one long page, and sees every release as a card. A consumer takes it with the plugin update;
+its hub rebuilds the page on first visit.
+
+**Score:** 3
+
+#### Pull Request
+
+Release notes: every release a card, with a page of its own
+
+Plugins: dkj-policy
+
+[PR #3458](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3458)
+
+---
 
 ### DEPLOY: feat/3453-stopwatch-erase-hidden · 20261025-135930Z
 

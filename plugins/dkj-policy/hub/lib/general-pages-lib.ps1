@@ -554,6 +554,48 @@ function Get-ReleaseNotesPageNeed {
     return ''
 }
 
+function Get-ReleaseNotesBuiltTime {
+    <#
+        The -PageTime Get-ReleaseNotesPageNeed takes: the index's last write, or $null where the site is not
+        all there. Since every release has a page of its own (owner, October 25, 2026), the builder writes
+        them into a folder named after the index -- release-notes\v2.39.0.html beside release-notes.html.
+        An index built before that has no such folder, and nothing about the release documents changes when
+        the plugin is updated, so without this the old index would be served as current and every card's
+        page would be a 404 until the next release.
+    #>
+    param([Parameter(Mandatory = $true)][string]$IndexFile)
+    if (-not (Test-Path -LiteralPath $IndexFile -PathType Leaf)) { return $null }
+    if (-not (Test-Path -LiteralPath (Get-ReleaseNotesPageDir -IndexFile $IndexFile) -PathType Container)) { return $null }
+    return (Get-Item -LiteralPath $IndexFile).LastWriteTimeUtc
+}
+
+function Get-ReleaseNotesPageDir {
+    <# The folder holding one page per release: the index's own name, beside it. #>
+    param([Parameter(Mandatory = $true)][string]$IndexFile)
+    return Join-Path (Split-Path -Parent $IndexFile) ([System.IO.Path]::GetFileNameWithoutExtension($IndexFile))
+}
+
+function Resolve-ReleaseNotesRequest {
+    <#
+        Pure: what a request path asks of the release notes, or $null where it is not theirs.
+
+        '/release-notes' is the index (File = -IndexFile, Version = ''). '/release-notes/v2.39.0' is that
+        release's own page, in Get-ReleaseNotesPageDir; 'v2.39' is accepted for it too, because that is how
+        the page shows the version. Only a version is ever joined onto a path, so a request cannot name a
+        file outside that folder. A trailing slash is ignored.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Path,
+        [Parameter(Mandatory = $true)][string]$IndexFile
+    )
+    $p = if ($Path.Length -gt 1) { $Path.TrimEnd('/') } else { $Path }
+    if ($p -eq '/release-notes') { return @{ File = $IndexFile; Version = '' } }
+    $m = [regex]::Match($p, '^/release-notes/v(\d+\.\d+)(\.\d+)?$')
+    if (-not $m.Success) { return $null }
+    $version = $m.Groups[1].Value + $(if ($m.Groups[2].Success) { $m.Groups[2].Value } else { '.0' })
+    return @{ File = (Join-Path (Get-ReleaseNotesPageDir -IndexFile $IndexFile) "v$version.html"); Version = $version }
+}
+
 function Test-ArtifactUrl {
     <#
         True for a claude.ai Artifact link and nothing else: claude.ai/artifact/<id> or
@@ -1157,12 +1199,18 @@ function Format-ReleaseNotesDevPage {
 
         A page that is not the template's shape (no <html>, </style>, <body> or </body>) is returned as it
         came: it is still the release notes, and dev-pages.tests.ps1 holds the real template to that shape.
+
+        A RELEASE'S OWN PAGE (owner, October 25, 2026) takes -Release: the crumbs then read
+        Home > Release notes > Version 2.39 -- the last one read off the page's own h1, which the builder
+        has already escaped -- with 'Release notes' a link, and the page's own '<- All releases' link is
+        taken out because that crumb already is the way back.
     #>
     param(
         [Parameter(Mandatory = $true)][AllowEmptyString()][string]$Html,
         [string]$ThemeKey = 'general-pages',
         [string]$HubHref = '/hub',
-        [AllowEmptyString()][string]$RepoName = ''
+        [AllowEmptyString()][string]$RepoName = '',
+        [switch]$Release
     )
     $htmlRx = [regex]'<html\b[^>]*>'
     $styleEnd = $Html.IndexOf('</style>')
@@ -1185,18 +1233,30 @@ function Format-ReleaseNotesDevPage {
         'header.masthead p { margin: var(--spacing-1) 0 0; color: var(--muted); font-size: var(--text-sm); }'
         '.sheet { border: 1px solid var(--paper-3); border-radius: 12px; padding: var(--spacing-2) var(--spacing-6) var(--spacing-4); }'
         '.noscript { margin: 0; }'
+        '/* The release cards carry no icon, so they take a tighter padding than the house .card the hub''s icon cards keep (owner, October 25, 2026); the grid''s gap is their spacing. */'
+        '.cards > .card { padding: var(--spacing-3) var(--spacing-4); margin-top: 0; }'
         'footer.colophon { margin: 0; padding: 0; border: 0; color: var(--muted); font-size: var(--text-sm); }'
         'footer.colophon p { margin: 0; max-width: none; }'
         'footer.colophon p + p { margin-top: var(--spacing-1); }'
         '@media (max-width: 38rem) { .wrap { padding: var(--spacing-4) var(--spacing-4) var(--spacing-12); } header.masthead { padding-top: 0; } header.masthead h1 { font-size: var(--text-h1); } .sheet { padding: var(--spacing-1) var(--spacing-4) var(--spacing-3); border-radius: 12px; } }'
         '</style>'
     ) -join "`n"
+    $sep = '<span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span>'
+    $crumbs = if ($Release) {
+        # Only a label of the builder's own shape is placed, so the crumb never depends on what else an h1 might hold.
+        $label = ([regex]'<h1>([^<]*)</h1>').Match($Html).Groups[1].Value
+        if ($label -notmatch '^Version [0-9.]+$') { $label = 'Release' }
+        @(('<li>' + $sep + '<a href="/release-notes">Release notes</a></li>'), ('<li>' + $sep + '<span aria-current="page">' + $label + '</span></li>'))
+    } else {
+        @('<li>' + $sep + '<span aria-current="page">Release notes</span></li>')
+    }
     $bar = @(
         '<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>'
         ('<li><a href="' + (& $e $HubHref) + '">Home</a></li>')
-        '<li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span><span aria-current="page">Release notes</span></li>'
+        $crumbs
         '</ol></nav></div></div>'
     ) -join "`n"
+    if ($Release) { $Html = ([regex]'<a class="back" href="[^"]*">[^<]*</a>\s*').Replace($Html, '', 1) }
     # The site header above the bar, holding the settings button, when the repo is named; else the button floats.
     $bar = if ($RepoName) { (Format-SiteHeaderHtml -Name (ConvertTo-SiteHeaderName -RepoName $RepoName) -Href $HubHref -Tag 'hub') + $bar }
             else { $bar + "`n" + '<div id="settings" class="theme-settings--floating"></div>' }
