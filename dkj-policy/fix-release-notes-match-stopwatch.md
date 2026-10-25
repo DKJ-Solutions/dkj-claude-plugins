@@ -39,19 +39,36 @@
 
 ### PLAN
 
+The owner asked for the release-notes page to match the Stopwatch page's styling (October 25, 2026).
+The template stays as it is: it is shared with every consumer and served self-contained by the Worker,
+so only the dev server's dressing in `Format-ReleaseNotesDevPage` changes.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Give the dressing layer the Stopwatch page's measures: the page column's width, padding and gap,
+  the house h1 (size, weight, ink), a `.card`'s border and radius on the sheet, and a `.footer-note`'s
+  ink on the colophon, with the narrow-screen values brought into line too
+- [x] Assert the new rules in `dev-pages.tests.ps1`
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: 320 passed, 0 failed
+- [x] Served from this branch on a preview port and checked that the new layer arrives
+
 ### DEPLOY: fix/release-notes-match-stopwatch
 
-**Score:**
+The release-notes page on a dev hub now reads like the Stopwatch page: the same column width and
+spacing, the same heading, the list in a card with the house border and corners, and the closing note
+in the same muted small print. The page the Worker publishes is unchanged.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo running the dkj-policy hub sees its release-notes page in the same layout as the rest of its
+hub pages, instead of the narrower serif column it had.
+
+**Score:** 2
 
 #### Pull Request
 

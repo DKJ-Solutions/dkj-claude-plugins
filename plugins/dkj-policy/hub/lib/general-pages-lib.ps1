@@ -1151,6 +1151,9 @@ function Format-ReleaseNotesDevPage {
         body (surface, ink, font) wins on equal specificity; then a layer that points the template's own
         tokens at house tokens, so its panel, lines and accent follow whichever theme is picked. Those token
         names are the template's, none of them a house name, so nothing in the house file is redefined.
+        The same layer gives the template's column, masthead, sheet and colophon the Stopwatch page's
+        measures (owner, October 25, 2026): the page column's width, padding and gap, the house h1, a
+        .card's border and radius, and a .footer-note's ink. Its width rules keep winning on specificity.
 
         A page that is not the template's shape (no <html>, </style>, <body> or </body>) is returned as it
         came: it is still the release notes, and dev-pages.tests.ps1 holds the real template to that shape.
@@ -1175,7 +1178,17 @@ function Format-ReleaseNotesDevPage {
         '/* The template''s tokens, read from the house ones (#3108). */'
         ':root { --bg: var(--paper-1); --panel: var(--paper-2); --ink: var(--fg-1); --ink-soft: var(--fg-2); --ink-faint: var(--muted);'
         '  --line: var(--paper-3); --accent: var(--primary); --accent-soft: var(--paper-2); --code-bg: var(--paper-1); }'
-        'header.masthead h1 { font-family: inherit; font-weight: 700; text-transform: none; color: var(--primary); }'
+        '/* The template''s layout, read as the Stopwatch page''s: main.page-column, a house h1, a .card, a .footer-note. */'
+        '.wrap { max-width: 1080px; display: grid; gap: var(--spacing-5); align-content: start; padding: var(--spacing-4) var(--spacing-4) var(--spacing-12); }'
+        'header.masthead { padding: 0; }'
+        'header.masthead h1 { font-family: inherit; font-size: var(--text-h1); font-weight: 700; letter-spacing: -0.01em; line-height: normal; text-transform: none; color: var(--fg-1); }'
+        'header.masthead p { margin: var(--spacing-1) 0 0; color: var(--muted); font-size: var(--text-sm); }'
+        '.sheet { border: 1px solid var(--paper-3); border-radius: 12px; padding: var(--spacing-2) var(--spacing-6) var(--spacing-4); }'
+        '.noscript { margin: 0; }'
+        'footer.colophon { margin: 0; padding: 0; border: 0; color: var(--muted); font-size: var(--text-sm); }'
+        'footer.colophon p { margin: 0; max-width: none; }'
+        'footer.colophon p + p { margin-top: var(--spacing-1); }'
+        '@media (max-width: 38rem) { .wrap { padding: var(--spacing-4) var(--spacing-4) var(--spacing-12); } header.masthead { padding-top: 0; } header.masthead h1 { font-size: var(--text-h1); } .sheet { padding: var(--spacing-1) var(--spacing-4) var(--spacing-3); border-radius: 12px; } }'
         '</style>'
     ) -join "`n"
     $bar = @(
