@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**1 / 1 minor entry** <!-- pending-tally -->
+**1 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3461-release-title-lens · 20261025-182411Z
+
+Rendall's lens no longer tells a cut to pass `-Title "Release version X.Y.Z"`: it says the Release name
+comes from the tag and `-Title` is omitted unless the release has one theme, matching the `cut-release`
+skill and the cuts since 5.26.0 (#3461).
+
+**Score:** 1 -- prevents a cut from following the lens and writing `Release version X.Y.Z` into `history.md`'s description column again.
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+Rendall's lens: the release name comes from the tag; -Title is omitted unless a release has one theme
+
+[PR #3465](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3465)
+
+---
 
 ### DEPLOY: docs/h1-matches-breadcrumb · 20261025-145714Z
 
