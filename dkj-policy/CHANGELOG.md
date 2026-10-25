@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**4 / 11 minor entries** <!-- pending-tally -->
+**5 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3485-house-style-selector-list-all-or-nothing · 20261025-224827Z
+
+`check-house-style` no longer reports a house class named in prose inside a script's string, such as an assert
+message reading `a .card, not a list` ([#3485](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3485)).
+It judged each member of a comma list on its own, and `a` is an element name, so that member looked like a
+selector. Whether it was reported depended on lines elsewhere in the file. A selector list now counts only when
+every member of it is a selector.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions repo running the house-style gate stops getting a finding on an unchanged line after an edit
+somewhere else in the same script.
+
+**Score:** 1
+
+#### Pull Request
+
+check-house-style: a selector list is read all or nothing, so prose in a script string is no finding
+
+Plugins: dkj-solutions
+
+[PR #3487](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3487)
+
+---
 
 ### DEPLOY: fix/3478-drop-general-pages-card · 20261025-223236Z
 
