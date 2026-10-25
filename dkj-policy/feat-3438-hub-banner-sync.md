@@ -58,6 +58,7 @@ tick-off on one machine clears the box on every machine and every repo hub. The 
 - [x] `hub-airsquats.tests.ps1` (new, 38 asserts): the merge rule, the hours a poll counts, the API's
   refusals, a gist sync through a fake gh (a second machine included), and a gist as bounded input
 - [x] `dev-pages.tests.ps1`: the banner asserts now hold it to the server API instead of localStorage
+- [x] `stopwatch.tests.ps1`: its two read-only asserts strip the banner first, as their own message says
 - [x] Live: a general pages server on a scratch state answered GET 200, a same-site POST 403, a same-origin
   POST 200; one real sync created the private gist and remembered its id
 - [x] Review: Victor (the gist search missed the gist among several in 5.1, and read one page only: now

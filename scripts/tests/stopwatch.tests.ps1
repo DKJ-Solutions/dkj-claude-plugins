@@ -236,7 +236,7 @@ Assert-Equal ' <span class="sw-change sw-change--bad">-&lt;1%</span>' (Format-St
 Assert-True ($page -notmatch 'Against the run before</th>') 'the overview holds no table of runs'
 Assert-True ($labs -notmatch '<section class="card[^"]*">\s*<h2') 'a run card carries no h2: only a label card is titled'
 Assert-True ($page -match 'C:\\x\\stopwatch.json') 'the footer names where the runs are kept'
-Assert-True ($page -notmatch '<form|<button|<textarea|data-sw=|data-action=|fetch\(|method: "POST"|sw-form') 'the page is read-only: no form, button, textarea or POST script of its own (the hub shell banner checkbox is not the page)'
+Assert-True ($page.Replace((Format-RepoHubBanner), '') -notmatch '<form|<button|<textarea|data-sw=|data-action=|fetch\(|method: "POST"|sw-form') 'the page is read-only: no form, button, textarea or POST script of its own (the hub shell banner, which asks its own server since #3438, is not the page)'
 Assert-True ($page -match 'stopwatch:') 'the page says how a run starts'
 $idle = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk 'Docs' 0 10))) -StorePath 's'
 Assert-True ($idle -notmatch 'going now' -and $idle -notmatch 'data-start=') 'with nothing running no card carries a clock'
@@ -261,7 +261,7 @@ Assert-True ($shipPage -notmatch '<section class="card[^"]*">\s*<h2') 'no h2 sta
 Assert-True ($shipPage -match '<div class="grid__head"><h2>The prompt</h2></div>\s*<section class="card sw-card"><pre class="sw-prompt" id="sw-prompt">stopwatch: Ship PR\nShip the branch that is checked out now with ship-pr\.ps1\. Change nothing else\.</pre>') 'the page carries the prompt in a block of its own: the marker line, then the line that asks for the ship alone'
 Assert-True ($shipPage.IndexOf('<h2>The prompt</h2>') -lt $shipPage.IndexOf('<h2>How to time it</h2>')) 'the prompt stands above the steps that refer to it'
 Assert-True ($shipPage -match '<button type="button" class="btn" data-copy="sw-prompt">Copy the prompt</button>' -and $shipPage -match 'navigator\.clipboard\.writeText\(document\.getElementById\(b\.getAttribute\("data-copy"\)\)\.textContent\)') 'a house button copies the block''s text to the clipboard'
-Assert-True ($shipPage -notmatch '<form|method: "POST"|fetch\(') 'and the page still writes nothing: no form, POST or fetch'
+Assert-True ($shipPage.Replace((Format-RepoHubBanner), '') -notmatch '<form|method: "POST"|fetch\(') 'and the page still writes nothing: no form, POST or fetch'
 Assert-True ($shipPage -match '\.sw-prompt \{ [^}]*background: var\(--paper-2\); color: var\(--fg-1\);[^}]*font-size: var\(--text-sm\);' -and $shipPage -notmatch '\.btn \{') 'the block is drawn from house tokens, and the house button is used, not restyled'
 Assert-True ($shipPage -match 'pasting the prompt above' -and $shipPage -match 'the checkout left on it') 'the steps point at the prompt, and say to leave the checkout on the branch it ships'
 # Once a run of it exists, it is an ordinary label: the run card on its page, the steps still under it.
