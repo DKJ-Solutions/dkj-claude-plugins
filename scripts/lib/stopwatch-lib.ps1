@@ -363,7 +363,9 @@ function Get-StopwatchOverviewSets {
         The label sets the overview shows: Get-StopwatchLabelSets, then one set with no Groups for every pinned label
         ($script:StopwatchPinnedLabels) that has no run yet, so its card and its page exist before its first run (the
         owner, October 25, 2026: a new card comes with its own page). Its slug is computed beside every run label's, so
-        a run label sharing its base gives both a suffix rather than one address to two labels.
+        a run label sharing its base gives both a suffix rather than one address to two labels. The sets stand slowest
+        first, by the fastest time their card shows (the owner, October 25, 2026); a set with no finished run follows
+        them, a run going before a pinned label with none, each kept in the order it came in.
     #>
     param([Parameter(Mandatory = $true)][hashtable]$Model)
     $sets = @(Get-StopwatchLabelSets -Model $Model)
@@ -375,7 +377,13 @@ function Get-StopwatchOverviewSets {
         $slugs = Get-StopwatchSlugs -Labels (@($Model.Groups | ForEach-Object { $_.Label }) + @($missing | ForEach-Object { $_.Label }))
         foreach ($p in $missing) { $sets += @{ Title = $p.Label; Slug = $slugs[$p.Label.ToLowerInvariant()]; Groups = @() } }
     }
-    return $sets
+    # The place it came in breaks a tie, since Sort-Object in Windows PowerShell 5.1 is not stable.
+    $n = 0
+    $keyed = @(foreach ($s in $sets) {
+        $fastest = @($s.Groups | ForEach-Object { $_.Rows } | Where-Object { $_ } | ForEach-Object { [double]$_.Seconds } | Sort-Object) | Select-Object -First 1
+        @{ Set = $s; Fastest = $(if ($null -ne $fastest) { $fastest } else { -1.0 }); Index = $n++ }
+    })
+    return @($keyed | Sort-Object -Property @{ Expression = { $_.Fastest }; Descending = $true }, @{ Expression = { $_.Index }; Descending = $false } | ForEach-Object { $_.Set })
 }
 
 function Find-StopwatchLabel {

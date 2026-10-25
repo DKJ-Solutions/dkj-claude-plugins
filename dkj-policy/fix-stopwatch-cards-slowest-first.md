@@ -39,19 +39,35 @@
 
 ### PLAN
 
+The owner asked (October 25, 2026) for the cards on the Stopwatch overview to stand from slowest to
+fastest. The order lives in `Get-StopwatchOverviewSets`; `Get-StopwatchLabelSets` keeps its newest-first
+order, since the label lookups do not care and its test pins it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-StopwatchOverviewSets` sorts the label sets by the fastest time their card shows, slowest first; a set with no finished run follows, a run going before a pinned label with none
+- [x] An assert in `stopwatch.tests.ps1` pins the order: docs, css-comment, live, ship-pr
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1`: 210 passed, 0 failed
+- [ ] The owner has looked at `/stopwatch` on the hub (a visible result)
+
 ### DEPLOY: fix/stopwatch-cards-slowest-first
 
-**Score:**
+The Stopwatch overview's label cards now stand from slowest to fastest, by the fastest time each card
+shows, instead of by their newest run. A label with no finished run yet (one going now, or the pinned Ship
+PR before its first run) follows the timed cards.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the Stopwatch is this repo's own dev hub page; no plugin user sees it.
+
+**Score:** N/A
 
 #### Pull Request
+
+Stopwatch: the overview's cards stand slowest first
 
