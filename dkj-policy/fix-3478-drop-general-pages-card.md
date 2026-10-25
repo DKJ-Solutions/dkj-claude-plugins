@@ -39,19 +39,33 @@
 
 ### PLAN
 
+#3478: since #3475 removed `Format-DkjSolutionsPagesCardHtml`, `Format-GeneralPagesCardHtml` has no caller
+outside its own asserts (verified with `git grep`). Remove it, its asserts, and the comments and README line that
+cite it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-GeneralPagesCardHtml` removed from `hub/lib/general-pages-lib.ps1`, its header paragraph rewritten
+- [x] Its four asserts removed from `dev-pages.tests.ps1`
+- [x] The two comments in `dev-pages-lib.ps1` and the `hub/README.md` line corrected
 
 ### TEST
 
+- [x] The gates run in `ship-pr`
+
 ### DEPLOY: fix/3478-drop-general-pages-card
 
-**Score:**
+`Format-GeneralPagesCardHtml`, the hub's grouped "General" card, is removed from the `dkj-policy` hub library
+([#3478](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3478)). Every hub draws its home page as one
+grid of card links since #3383, and its last caller went with #3475, so only its own tests still called it.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
