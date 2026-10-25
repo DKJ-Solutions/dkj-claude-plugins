@@ -4,7 +4,7 @@
 
 /* ---------- HeroValue ---------- */
 .dkj-hero-value { font-size: var(--text-h1); font-weight: var(--dkj-fw-semibold); line-height: 1.1; font-variant-numeric: tabular-nums; }
-.dkj-hero-value--lg { font-size: var(--text-h3); line-height: var(--dkj-lh-snug); }
+.dkj-hero-value--lg { font-size: var(--text-lg); line-height: var(--dkj-lh-snug); }
 
 /* ---------- StatTile: the warn tone, beside the house .pos / .neg ---------- */
 /* --warning-5 is the text version, the colour .msg--warn uses. */

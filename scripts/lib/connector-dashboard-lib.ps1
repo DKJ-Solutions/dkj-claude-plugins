@@ -330,7 +330,7 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-subgroup:first-child { margin-top: 0; padding-top: 0; border-top: 0; }')
     [void]$sb.AppendLine('.cd-group-summary { margin: 0 0 var(--spacing-1); }')
     [void]$sb.AppendLine('.cd-repo { display: flex; align-items: center; gap: var(--spacing-2); }')
-    [void]$sb.AppendLine('.cd-repo h4 { margin: 0; font-size: var(--text-h4); }')
+    [void]$sb.AppendLine('.cd-repo__name { margin: 0; font-weight: 600; }')
     [void]$sb.AppendLine('.cd-signals { list-style: none; padding: 0; margin: var(--spacing-2) 0 0; }')
     [void]$sb.AppendLine('.cd-signals li { display: flex; gap: var(--spacing-2); align-items: flex-start; padding: var(--spacing-1-5) 0; border-top: 1px solid var(--paper-3); font-size: var(--text-sm); }')
     [void]$sb.AppendLine('.cd-signals li .badge { margin-top: 1px; }')
@@ -426,7 +426,7 @@ function Format-ConnectorDashboardHtml {
             $b = Get-DashboardStatusBadge ([string]$c.Status)
             $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
             [void]$sb.AppendLine('<section class="mini-card cd-repo-card" id="' + $anchor + '">')
-            [void]$sb.AppendLine('<div class="cd-repo"><span class="badge ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span><h4>' + (& $e $c.Repo) + '</h4></div>')
+            [void]$sb.AppendLine('<div class="cd-repo"><span class="badge ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span><p class="cd-repo__name">' + (& $e $c.Repo) + '</p></div>')
             $where = (@(Get-ConnectorCheckoutCandidates $c.Checkout) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ' or '
             $ghUrl = 'https://github.com/' + (& $e $c.Repo)
             [void]$sb.AppendLine('<p class="sub">' + $b.Word + ' &#183; ' + (& $e $c.Visibility) + ' &#183; checkout ' + $where +

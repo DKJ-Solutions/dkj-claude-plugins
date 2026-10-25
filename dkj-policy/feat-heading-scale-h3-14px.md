@@ -39,21 +39,42 @@
 
 ### PLAN
 
+The owner's request (October 25, 2026): remove h4, h5 and h6 completely and make h3 14px. h2 stays at 24px for
+now; changing it is a later, timed Stopwatch run on one variable.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: `--text-h3` 14px, `--text-h4`/`--text-h5` and the `h4`/`h5` rules removed, every
+      heading list cut to h1-h3, the dialog and menu sizes moved off the retired tokens, `.tile .v` to `--text-lg`
+- [x] Brand book source: every `h4`/`h5` element an `h3`, retired token uses moved (titles to `--text-h3`, running
+      text to `--text-base`, large figures to `--text-lg`), the prose scale and the showcase updated
+- [x] Connector dashboard: the repo name is a bold line instead of an `h4`
+- [x] `Get-HouseStyleRetiredTokens` retires `--text-h4` and `--text-h5`
+- [x] House-style README (a new "heading cut" section) and the skill's checksum
 
 ### TEST
 
+- [x] `npm run gate` in `brandbook/` (eslint, CSS checks, build) green
+- [x] Suites `check-house-style`, `connector-dashboard`, `house-palette`, `dev-pages` green
+- [x] `check-house-style.ps1` over this repo: OK
+
 ### DEPLOY: feat/heading-scale-h3-14px
 
-**Score:**
+The house style keeps three heading levels. `h3` is now 14px, the body size, and stands apart only by its weight
+and colour. `h4` and `h5` are gone along with `--text-h4` and `--text-h5`, which the gate now reports as retired.
+The brand book and the connector dashboard follow suit. Large figures that borrowed `--text-h3` for their size
+move to `--text-lg`. The README's new section "The heading cut of October 25, 2026" tells an app how to move over.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every DKJ-Solutions app that takes the next house-style copy has to turn its `h4` and `h5` into `h3` and move off
+the two retired tokens. The gate names each use that is left behind.
+
+**Score:** 4
 
 #### Pull Request
 
-House style headings: h3 at 14px, h4 to h6 retired
+House style headings: h3 at 14px, h4 and h5 retired
 

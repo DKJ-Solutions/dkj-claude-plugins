@@ -34,11 +34,11 @@ export function Apps() {
             if (views.length === 0) return null
             return (
               <div key={kind}>
-                <h4 className="dkj-kind">{label}</h4>
+                <h3 className="dkj-kind">{label}</h3>
                 <ul className="dkj-views">
                   {views.map((v) => (
                     <li key={v.id} className="dkj-view">
-                      <h5>{v.name}</h5>
+                      <h3>{v.name}</h3>
                       <p>{v.description}</p>
                       <div className="dkj-view-components">
                         {v.components.map((c) => (

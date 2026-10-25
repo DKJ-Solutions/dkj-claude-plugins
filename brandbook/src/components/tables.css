@@ -145,7 +145,7 @@
 .dkj-calc--boxed .dkj-calc-box > .dkj-calc-row, .dkj-calc--boxed .dkj-calc-box > .dkj-calc-box { grid-column: 2 / -2; }
 .dkj-calc-box > .dkj-calc-row:last-child { border-bottom: 0; }
 .dkj-calc-result { border-bottom: 0; }
-.dkj-calc-result .dkj-calc-num { font-size: var(--text-h3); font-weight: var(--dkj-fw-bold); color: var(--muted); }
+.dkj-calc-result .dkj-calc-num { font-size: var(--text-lg); font-weight: var(--dkj-fw-bold); color: var(--muted); }
 
 /* ---------- AnswerBox and sections ---------- */
 .dkj-answer {
@@ -160,4 +160,4 @@
 .dkj-answer-label { flex: 1; font-weight: var(--dkj-fw-semibold); }
 .dkj-answer-value { font-size: var(--text-lg); font-weight: var(--dkj-fw-bold); color: var(--primary); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .dkj-calc-section + .dkj-calc-section { margin-top: var(--spacing-6); }
-.dkj-calc-question { margin: 0 0 var(--spacing-0-5); font-size: var(--text-h5); font-weight: var(--dkj-fw-bold); color: var(--fg-1); }
+.dkj-calc-question { margin: 0 0 var(--spacing-0-5); font-size: var(--text-h3); font-weight: var(--dkj-fw-bold); color: var(--fg-1); }

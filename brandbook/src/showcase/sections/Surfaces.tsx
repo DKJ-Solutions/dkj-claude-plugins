@@ -72,7 +72,7 @@ function ProseSample() {
         <li>A first step</li>
         <li>A second step</li>
       </ol>
-      <h4>A task list</h4>
+      <h3>A task list</h3>
       <ul>
         <li>
           <input type="checkbox" checked disabled aria-labelledby="prose-task-done" />
@@ -342,7 +342,7 @@ export function Surfaces() {
         </Demo>
       </Section>
 
-      <Section id="QuestionBlock" title="QuestionBlock" intro="An h4 with its verdict chip on the same line (the chip shrinks or drops below a long heading), then the verdict and supporting text.">
+      <Section id="QuestionBlock" title="QuestionBlock" intro="An h3 with its verdict chip on the same line (the chip shrinks or drops below a long heading), then the verdict and supporting text.">
         <Demo label="Yes">
           <QuestionBlock title="Question title" chip="yes" chipText="Yes" verdict="Short verdict line">
             <Message>{LOREM}</Message>
