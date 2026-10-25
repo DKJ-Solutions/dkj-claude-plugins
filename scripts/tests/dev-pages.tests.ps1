@@ -88,8 +88,8 @@ Assert-True ($hubBanner -ge 0 -and $hubBanner -lt $hub.IndexOf('class="site-head
 Assert-True ($hub.Contains('data-hub-timer') -and $hub.Contains('<input type="checkbox" data-hub-done> <span data-hub-count>10</span> due') -and $hub.Contains('data-hub-due hidden')) 'it counts down to the hour, and its "10 due" box stays hidden until an hour has passed, on the same one-row line as the timer'
 Assert-True (([regex]::Matches((Format-RepoHubBanner), '<p[ >]')).Count -eq 1) 'the banner is one row: the timer and the box owed share a single paragraph, never a second line (Dave, October 24, 2026)'
 $bannerJs = Format-RepoHubBanner
-Assert-True ($bannerJs -match 'localStorage' -and $bannerJs -notmatch 'fetch\(|XMLHttpRequest|WebSocket|sendBeacon|eval\(|new Function|document\.cookie') 'its script keeps its state in localStorage and makes no request'
-Assert-True ($bannerJs -match 's\.owed \+= passed' -and $bannerJs -match 'PER \* s\.owed') 'an unticked hour adds to the total owed, so the box shows 10 per hour passed'
+Assert-True ($bannerJs -notmatch 'localStorage' -and $bannerJs -match 'fetch\(path' -and ([regex]::Matches($bannerJs, '"/api/airsquats')).Count -eq 1 -and $bannerJs -notmatch 'XMLHttpRequest|WebSocket|sendBeacon|eval\(|new Function|document\.cookie') 'its state is the server''s, shared by every hub and machine: it asks /api/airsquats on its own origin and nothing else (#3438)'
+Assert-True ($bannerJs -match 'ask\("POST", API \+ "/clear"\)' -and $bannerJs -match '\(s\.per \|\| 10\) \* s\.owed' -and $bannerJs -match 'if \(s\.announce\) \{ tone\(\); \}') 'ticking the box is a POST to /clear, the box shows 10 per hour owed, and the server says when to play the tone'
 Assert-True ($hub -notmatch '<style>' -and $hub -notmatch 'grid__card') 'the home page restyles nothing (#3133)'
 Assert-Equal ([regex]::Matches($hub, '<h2[ >]')).Count ([regex]::Matches($hub, '</h2><p class="card__sub">[^<]+</p>')).Count 'every h2 on the home page carries a sub line'
 Assert-True ((Format-GeneralPagesCardHtml -Pages @() -LocalPages @(@{ Href = '/x'; Label = 'X' })) -notmatch 'is not running') 'a card with no server rows says nothing about the server'

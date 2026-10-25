@@ -44,6 +44,9 @@
                       held until the house hub became a grid of card links, and the Issues page's card.
       /refresh        ?page=issues or ?page=sessionstart drops that page's cache (at most once per
                       -MinRefreshSeconds, and per 60 s for issues) and goes back to the page.
+      /api/airsquats  the banner's state as JSON (GET), and POST /api/airsquats/clear ticks its box off (#3438):
+                      the machine's file under %LOCALAPPDATA%\dkj-hub, synced with a private gist by a child
+                      (sync-airsquats.ps1). The one route that takes a POST, served same-origin only.
       /whoami         the hash of the repo root this server was started in (Get-DevPreviewRootHash): the
                       hubs ask it before they link here, because an open port does not say whose server it is.
       /house-style.css, /house-theme.js   the canonical copy under dkj-solutions/assets/house-style/ in this
@@ -55,7 +58,8 @@
     every session would start another server on the next port. Loopback only, and a request whose Host is not
     localhost:<Port> or 127.0.0.1:<Port> is refused (DNS rebinding), as is one the browser marks as coming
     from another site -- except a same-site top-level GET navigation (the hub's link, the 303 hop, the
-    crumb back), which is a user following a link and is served (Test-LoopbackCrossSite). GET and HEAD only.
+    crumb back), which is a user following a link and is served (Test-LoopbackCrossSite). GET and HEAD only,
+    but for the banner's POST /api/airsquats/clear.
 
     One request at a time, each answered with Connection: close. A connection whose request head is not
     complete within -ReadTimeoutMs, or is longer than 8 KB, is dropped, and one that never reads its answer
@@ -103,6 +107,8 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot '..\lib\loopback-server-lib.ps1')
 # The hub's page (#3245).
 . (Join-Path $PSScriptRoot '..\lib\repo-hub-page.ps1')
+# The banner's airsquats state, shared by every hub and every machine (#3438).
+. (Join-Path $PSScriptRoot '..\lib\airsquats-lib.ps1')
 
 $pluginRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride).TrimEnd('\', '/') }
@@ -387,6 +393,13 @@ try {
             }
             if (Test-LoopbackCrossSite -SecFetchSite $request.SecFetchSite -SecFetchMode $request.SecFetchMode -Method $method) {
                 Send-LoopbackResponse $stream 403 'Forbidden' 'text/plain; charset=utf-8' ($utf8.GetBytes('Forbidden: another site may not drive this server.')) -Method $method
+                continue
+            }
+            if ($path -eq '/api/airsquats' -or $path.StartsWith('/api/airsquats/')) {
+                # The banner's state (#3438): before the GET-only rule, since ticking the box is a POST.
+                $as = Invoke-AirsquatsApi -Method $method -Path $path -SecFetchSite $request.SecFetchSite
+                $asHeaders = if ($as.Allow) { @{ Allow = $as.Allow } } else { @{} }
+                Send-LoopbackResponse $stream $as.Status $as.Reason 'application/json; charset=utf-8' ($utf8.GetBytes($as.Body)) $asHeaders -Method $method
                 continue
             }
             if ($method -ne 'GET' -and $method -ne 'HEAD') {

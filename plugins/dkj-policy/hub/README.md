@@ -14,6 +14,7 @@ its Brandbook stay in [`dkj-solutions`](../dkj-solutions/README.md).
 | Its rules (the seam, the ports, the ownership rule, the state file) | [`lib/dev-preview-rules.ps1`](lib/dev-preview-rules.ps1), [`lib/general-pages-state.ps1`](lib/general-pages-state.ps1) |
 | The general pages server, which is the hub | [`pages/serve-general-pages.ps1`](pages/serve-general-pages.ps1), its pages in [`lib/general-pages-lib.ps1`](lib/general-pages-lib.ps1), the hub's page in [`lib/repo-hub-page.ps1`](lib/repo-hub-page.ps1) |
 | The request rules the servers share | [`lib/loopback-server-lib.ps1`](lib/loopback-server-lib.ps1) |
+| The banner's airsquats state, and its sync with every other machine | [`lib/airsquats-lib.ps1`](lib/airsquats-lib.ps1), [`pages/sync-airsquats.ps1`](pages/sync-airsquats.ps1) |
 
 These are plugin-only files, like [`../worker/`](../worker/): no root copy in the source repo mirrors
 them. They are tested there by `dev-preview-sessionstart.tests.ps1`, `dev-pages.tests.ps1` and
@@ -210,6 +211,7 @@ under `/brandbook/`. The PowerShell Brandbook page it replaces is retired, so th
 | `/issues` | `gh issue list`, three calls (the open issues, and those opened and closed in the last 28 days), for `--repo <owner/name>` taken from the `origin` remote when it is on github.com, else for the repo `gh` finds in the working directory; kept for five minutes | A `gh` that fails or is missing is a warning on the page |
 | `/release-notes` | `dkj-policy/releases/page/release-notes.html`, dressed in the house style on the way out. Built first where it is absent or older than a file under `dkj-policy/releases`, by `build-release-notes-page.ps1` in a child process (bounded at 60 s), the repo's own copy else this plugin's: the page is a gitignored snapshot that nothing else builds (#3189) | A plain 404 text naming why it could not be built; where a rebuild fails, the older page is served |
 | `/sessionstart` | The always-on path, measured in a child process (bounded at 60 s) by `always-on-budget-lib.ps1`, the repo's own copy else this plugin's; kept for a minute | The reason it could not measure, on the page |
+| `/api/airsquats` | The banner's state as JSON; `POST /api/airsquats/clear` ticks its box off, the one `POST` the server takes, served same-origin only (#3438). Below | A state that cannot be read is a 503, and the banner keeps its countdown and shows no box |
 
 **Two things to know about what these pages read and who can read them.** `/sessionstart` and
 `/release-notes` run a child process that first dot-sources the repo's own `scripts/repo-config.ps1`, and
@@ -258,6 +260,34 @@ no server answers as this checkout's.
 Fetch Metadata check both plugin servers (and the source repo's) apply refuses `cross-site` always, and
 `same-site` unless it is a top-level `GET` navigation (`Sec-Fetch-Mode: navigate`): the product's link on
 the hub and the 303 to an opted-out repo's hub are served, a same-site fetch or image request is not.
+
+## The banner, in sync on every machine
+
+**Ticking the airsquats box on one machine clears it on every machine, and on every repo hub of each**
+([#3438](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3438), Dave, October 25, 2026). Until
+then the banner kept its count in the browser's `localStorage`. That is one count per origin, and every repo
+hub has its own port, so two repo hubs on one machine already disagreed.
+
+- **The page asks its own server**: `GET /api/airsquats` every 15 seconds and at the turn of the hour, and a
+  `POST` to `/api/airsquats/clear` when the box is ticked. It counts the minutes down by itself.
+- **Every hub server on a machine shares one file**, `%LOCALAPPDATA%\dkj-hub\airsquats.json`, written under
+  a lock. The plugin's servers and the source repo's own hub read the same file, and the source repo's
+  product port relays the two routes to its hub.
+- **That file is merged with a private GitHub gist**, by `pages/sync-airsquats.ps1` in a hidden child at
+  most every 20 seconds while a hub page is open, and at once after a tick-off. The server never waits on
+  the network, so another machine sees a tick-off within about half a minute.
+
+**The state merges without conflict**: the full hours at whose start a hub was open (merged as the union)
+and the last tick-off (the later one wins). Ten airsquats are owed for every such hour after the last
+tick-off. An hour counts only where a hub saw it begin, so a night with every hub closed adds nothing, as
+before. The tone plays once per machine, within two minutes of the hour.
+
+**Which gist.** The child looks for a gist described `dkj-hub-airsquats` among the gists of the account `gh`
+is logged in as, and creates it, private, on first use. Machines on the same `gh` account therefore find
+each other with nothing configured. **Machines on different accounts** each pin the same gist with the
+`DKJ_HUB_AIRSQUATS_GIST` environment variable, in the `env` block of the machine's own
+`~/.claude/settings.json`. A failed sync (no `gh`, logged out, offline) is written into the state file as
+`syncError`. The banner then goes on with this machine's own count, and the next sync catches up.
 
 **After updating the plugin from a version before #3245:** a general pages server that the old plugin
 started is reused until it exits, and it answers `/` with its old 303 or 404 until then. Stop it (or restart

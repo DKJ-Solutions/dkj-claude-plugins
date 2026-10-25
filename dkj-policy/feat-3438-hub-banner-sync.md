@@ -39,21 +39,49 @@
 
 ### PLAN
 
+#3438: the hub banner's airsquats state moves from the browser to the hub servers and a private gist, so a
+tick-off on one machine clears the box on every machine and every repo hub. The storage is the owner's choice
+(October 25, 2026). The banner is a visible result, so the branch waits for the owner's look before the merge.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `hub/lib/airsquats-lib.ps1`: the conflict-free state (hours as a union, clearedAt latest-wins), the
+  machine's file under a lock, the `/api/airsquats` handler and one gist sync through an injectable gh
+- [x] `hub/pages/sync-airsquats.ps1`: the hidden child that syncs, under a lock of its own, gh bounded at 20 s
+- [x] `Format-RepoHubBanner`: the page asks its own server and plays the tone when the server says so
+- [x] The route in `serve-general-pages.ps1` and `serve-connector-dashboard.ps1`, and the relay on the product
+  port (`brandbook/vite.config.ts`)
+- [x] `hub/README.md` section "The banner, in sync on every machine"; the house-style README's banner row
 
 ### TEST
 
+- [x] `hub-airsquats.tests.ps1` (new, 34 asserts): the merge rule, the hours a poll counts, the API's
+  refusals, and a gist sync through a fake gh, a second machine included
+- [x] `dev-pages.tests.ps1`: the banner asserts now hold it to the server API instead of localStorage
+- [x] Live: a general pages server on a scratch state answered GET 200, a same-site POST 403, a same-origin
+  POST 200; one real sync created the private gist and remembered its id
+- [ ] The lint gate and every suite, through open-pr
+- [ ] The owner's look at the banner on two machines
+
 ### DEPLOY: feat/3438-hub-banner-sync
 
-**Score:**
+The hub banner's airsquats count is now kept by the hub servers instead of each browser: every repo hub on
+a machine shares one file, and a private GitHub gist (`dkj-hub-airsquats`) carries it to every other
+machine, so ticking the box anywhere clears it everywhere within about half a minute. The page asks
+`GET /api/airsquats` and ticks off with `POST /api/airsquats/clear`, the one POST the hub serves, and only
+same-origin. The state merges without conflict, and an hour still counts only where a hub saw it begin.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Whoever runs the hub on more than one machine, or with several repo hubs open, now sees one airsquats
+count everywhere: tick it off on the laptop and the desktop's box clears too. Machines on the same `gh`
+account find the shared gist with nothing configured; machines on different accounts pin it with
+`DKJ_HUB_AIRSQUATS_GIST`.
+
+**Score:** 3
 
 #### Pull Request
 
 Hub airsquats banner in sync across machines
-
