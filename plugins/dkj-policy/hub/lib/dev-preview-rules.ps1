@@ -273,14 +273,16 @@ function Get-DevPreviewDriftClauses {
         [AllowNull()][AllowEmptyString()][string]$SettingsText,
         [int[]]$HubPorts = @(Get-GeneralPagesPortRange)
     )
+    # TERSE ON PURPOSE (Victor's review): they close a line ConvertTo-DevPreviewLine cuts at 300 characters, so
+    # every word here is one the product's url and words cannot use.
     $clauses = @()
     if (-not $DkjSolutions -or -not $Config) { return $clauses }
-    if ($Mode -eq 'ownhub' -and -not $SourceTree) { $clauses += 'this repo runs its own hub (OwnHub), so hub releases do not reach it' }
+    if ($Mode -eq 'ownhub' -and -not $SourceTree) { $clauses += 'own hub (OwnHub): hub releases do not reach it' }
     $defects = @()
     if ($Mode -eq 'product' -and $Config.OpenInVsCode -and -not @($HubPorts | Where-Object { Test-DevPreviewVsCodeRoute -SettingsText $SettingsText -Port $_ }).Count) {
-        $defects += "OpenInVsCode is on, but .vscode/settings.json routes no hub port ($((Format-DevPreviewPorts -Ports $HubPorts) -replace '^ports? ', ''))"
+        $defects += "OpenInVsCode but no hub port ($((Format-DevPreviewPorts -Ports $HubPorts) -replace '^ports? ', '')) routed in .vscode"
     }
-    if ($Config.NameStated) { $defects += 'Get-DevPreview still states Name, which is ignored -- delete it' }
+    if ($Config.NameStated) { $defects += 'Get-DevPreview states Name: delete it' }
     if ($defects.Count) { $clauses += 'config drift: ' + ($defects -join '; ') }
     return $clauses
 }

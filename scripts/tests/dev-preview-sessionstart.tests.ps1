@@ -406,14 +406,27 @@ $d = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'ownhub' -Config $ow
 Assert-True ($d.Count -eq 1 -and $d[0] -match 'OwnHub' -and $d[0] -notmatch 'drift|delete|route') 'OwnHub is named as a plain fact, with no repair in it (the owner''s decision)'
 Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $true -SourceTree $true -Mode 'ownhub' -Config $own -SettingsText '').Count 'and not in the source repo, which runs the hub from its own tree'
 $d = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $vsc -SettingsText $productRoute -HubPorts (4890..4899))
-Assert-True ($d.Count -eq 1 -and $d[0] -match '^config drift: OpenInVsCode is on, but .+ routes no hub port \(4890-4899\)$') 'OpenInVsCode with only the product routed is drift: the hub opens in the system browser'
+Assert-True ($d.Count -eq 1 -and $d[0] -match '^config drift: OpenInVsCode but no hub port \(4890-4899\) routed')'OpenInVsCode with only the product routed is drift: the hub opens in the system browser'
 Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $vsc -SettingsText $hubRoute -HubPorts (4890..4899)).Count 'and any one hub port routed is enough'
 Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'ownhub' -Config (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4860; OwnHub = $true; OpenInVsCode = $true }).Config -SourceTree $true -SettingsText '').Count 'under OwnHub OpenInVsCode opens the own server, so no hub route is owed'
 $d = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $named -SettingsText '')
 Assert-True ($d.Count -eq 1 -and $d[0] -match '^config drift: .*states Name.*delete it$') 'a Name still stated is drift'
 $both = (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 8765; OpenInVsCode = $true; Name = 'x' }).Config
 $d = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $both -SettingsText '' -HubPorts (4890..4899))
-Assert-True ($d.Count -eq 1 -and $d[0] -match 'OpenInVsCode.+; Get-DevPreview still states Name') 'two defects share one clause'
+Assert-True ($d.Count -eq 1 -and $d[0] -match 'OpenInVsCode.+; Get-DevPreview states Name') 'two defects share one clause'
+# The most each line form can carry, on top of a long head, survives the 300-character cap (Victor's review). The
+# OpenInVsCode defect is a product line's alone, so the two forms' worst cases are OwnHub + Name and both defects.
+$exposed = ', LISTENING ON ALL INTERFACES -- not started by the loopback Command; restart it to bind 127.0.0.1'
+$ownName = (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4860; OwnHub = $true; Name = 'x' }).Config
+$worst = @{
+    own     = @{ Head = "Hub: http://localhost:4860/ (already running$exposed)"; Clauses = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'ownhub' -Config $ownName -SettingsText '') }
+    product = @{ Head = "Hub: http://localhost:4890/ -- product: http://localhost:8765/ (already running$exposed)"; Clauses = $d }
+}
+foreach ($k in $worst.Keys) {
+    $tail = -join @($worst[$k].Clauses | ForEach-Object { " -- $_" })
+    Assert-True ($tail.Length -le 120) "the $k line's drift stays within 120 characters (got $($tail.Length))"
+    Assert-True ((ConvertTo-DevPreviewLine ($worst[$k].Head + $tail)).EndsWith('delete it')) "and survives the cap after a long $k head"
+}
 Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $false -Mode 'ownhub' -Config $own -SettingsText '').Count 'outside a DKJ-Solutions repo nothing is named'
 Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'none' -Config $null -SettingsText '').Count 'and a repo that states no server has nothing to drift'
 

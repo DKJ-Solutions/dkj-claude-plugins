@@ -54,7 +54,7 @@
       OwnHub+Product  Hub: <repo's own url> (...) -- product: <url> (started|already running) | product not started: <why>
 
     WHAT KEEPS A DKJ-SOLUTIONS REPO FROM FOLLOWING A HUB CHANGE (#3463) is appended to the product and OwnHub
-    forms, from Get-DevPreviewDriftClauses: '-- this repo runs its own hub (OwnHub), ...' as a plain fact (not in
+    forms, from Get-DevPreviewDriftClauses: '-- own hub (OwnHub): hub releases do not reach it' as a plain fact (not in
     the source repo), and '-- config drift: ...' for OpenInVsCode with no hub port routed or a Name still stated.
 
     A PRODUCT BESIDE THE OWN HUB (#3283): a repo that states OwnHub = $true may also state Product = @{...},

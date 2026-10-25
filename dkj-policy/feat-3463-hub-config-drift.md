@@ -51,12 +51,14 @@ as a fact, the other two as config defects. The source repo's own `OwnHub` is ex
 ### TEST
 
 - [x] Smoke run of the hook in this repo: the source repo's `OwnHub` is not named; the clauses read as intended
+- [x] Victor's review: the clauses close a line cut at 300 characters, so they were shortened, and group 1d2
+  now holds each line form's worst case under the cap
 
 ### DEPLOY: feat/3463-hub-config-drift
 
 In a DKJ-Solutions repo, the dev-preview SessionStart line now names three things that keep a repo from
 following a hub change ([#3463](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3463)). `OwnHub = $true`
-is named as a plain fact (`this repo runs its own hub (OwnHub), so hub releases do not reach it`), because it
+is named as a plain fact (`own hub (OwnHub): hub releases do not reach it`), because it
 stays a supported opt-out. `OpenInVsCode` with no hub port (4890-4899) routed in `.vscode/settings.json`, and a
 `Name` still stated in `Get-DevPreview`, are named together as `config drift`. The source repo, which runs the
 hub from its own tree, is not named for its `OwnHub`.
