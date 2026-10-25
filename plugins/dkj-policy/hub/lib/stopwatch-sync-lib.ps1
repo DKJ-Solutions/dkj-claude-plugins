@@ -2,18 +2,20 @@
 .SYNOPSIS
     The Stopwatch's shared copy (#3349): every machine publishes its finished runs to a ref of its own on origin,
     refs/stopwatch/<machine id>, and reads every other machine's from there, so each machine's /stopwatch shows them
-    all.
+    all. Only where the repo opts in (Test-StopwatchShareEnabled, since #3470): every repo's hub has the page now,
+    and a label is the first line of a prompt.
 
 .DESCRIPTION
     WHY A REF AND NOT A FILE IN THE TREE. The store is outside the checkout because a file in it would dirty the
-    workflow it times, and the scripts that ship a branch refuse a dirty tree (stopwatch-lib.ps1). A ref is written
+    workflow it times, and the scripts that ship a branch refuse a dirty tree (stopwatch-lib.ps1, beside this file). A ref is written
     with git plumbing alone -- hash-object, a throwaway index file, write-tree, commit-tree, push -- so the
     checkout's index, working tree and branches are never touched. The namespace is outside refs/heads, so no
     branch, branch listing or default fetch ever sees it.
 
     ONE REF PER MACHINE, so two machines never write the same ref and every push is a fast-forward of the copy
-    this machine last fetched of its own ref. The machine id is random (New-StopwatchMachineId), kept beside the
-    store in stopwatch-machine.txt, so no computer name reaches this public repo. Origin's refs are fetched into
+    this machine last fetched of its own ref. The machine id is random (New-StopwatchMachineId), kept in
+    stopwatch-machine.txt in Get-HubTimingBaseDir, so no computer name reaches a repo's origin; it names the machine,
+    so it is one for every repo's store on it. Origin's refs are fetched into
     refs/stopwatch-origin/*, never into refs/stopwatch/*, so a local ref can never shadow what origin holds.
 
     WHAT IS PUBLISHED: this machine's FINISHED runs, and the transcript phases this machine computed for them, since
@@ -24,8 +26,9 @@
     so the blob reads the same under whatever code page a native git call's output is decoded with, and a label
     with an accent reaches the other machine intact.
 
-    WHO CALLS IT: scripts/dashboard/stopwatch-sync.ps1, started in the background by the Stop hook once a run has
-    ended and by the hub at most every few minutes (Test-StopwatchSyncDue). Neither waits on it, so no turn and no
+    WHO CALLS IT: hub/pages/stopwatch-sync.ps1 in this plugin, started in the background by the Stop hook once a run
+    has ended and by the hub at most every few minutes (Test-StopwatchSyncDue), and it does nothing where the repo
+    has not opted in. Neither waits on it, so no turn and no
     page load waits on the network. Everything that reads or writes a ref runs git; every failure is returned,
     never thrown.
 
@@ -36,7 +39,7 @@
     A label entry hides every finished run of that label, a run finished after it included, until it is shown again;
     a run still going is never hidden.
     Per run id or label the newest entry across all machines wins, so a hide written on one machine is undone from
-    any other by a newer show entry. The entries are written by scripts/dashboard/stopwatch-hide.ps1 (the
+    any other by a newer show entry. The entries are written by hub/pages/stopwatch-hide.ps1 (the
     stopwatch-hide skill); the pages stay read-only (#3323).
 
     A HIDDEN RUN IS ERASED BY THE MACHINE THAT RECORDED IT (#3453). At its sync, after the fetch, a machine drops
@@ -45,7 +48,7 @@
     one-writer-per-ref rule holds. So a show undoes a hide only until that machine's next sync. A label hide stays
     in force, so a later run of that label is erased at the first sync after it finishes.
 
-    Pure ASCII (repo convention for .ps1). Tested by scripts/tests/stopwatch-sync.tests.ps1.
+    Pure ASCII (repo convention for .ps1). Tested by scripts/tests/stopwatch-sync.tests.ps1 in the source repo.
 #>
 
 $script:StopwatchRefPrefix = 'refs/stopwatch/'
@@ -58,7 +61,7 @@ $script:StopwatchSyncIntervalMinutes = 5
 $script:StopwatchSharedMaxBytes = 1048576
 $script:StopwatchSharedMaxRuns = 2000
 $script:StopwatchSharedMaxPhases = 20
-# Who the shared commits name: nobody's own name or address reaches this public repo through them.
+# Who the shared commits name: nobody's own name or address reaches a repo's origin through them.
 $script:StopwatchCommitIdentity = @{ Name = 'stopwatch'; Email = 'stopwatch@noreply.invalid' }
 # A fetch or push that moves under 1 KB/s for 30 seconds gives up, so a stalled connection ends the sync.
 $script:StopwatchGitNetworkBounds = @('-c', 'http.lowSpeedLimit=1000', '-c', 'http.lowSpeedTime=30')
@@ -321,15 +324,17 @@ function Test-StopwatchSyncRunning {
 
 function Start-StopwatchSync {
     <#
-        Starts scripts/dashboard/stopwatch-sync.ps1 of -RepoRoot as a hidden process of its own and returns at once;
-        nothing waits on it. Returns whether it started. A caller that must not reach the network (a test) does not call it.
+        Starts this plugin's hub/pages/stopwatch-sync.ps1 for -RepoRoot as a hidden process of its own and returns at
+        once; nothing waits on it. Returns whether it started, and does not start it where the repo has not opted in
+        (Test-StopwatchShareEnabled). A caller that must not reach the network (a test) does not call it.
     #>
     param([Parameter(Mandatory = $true)][string]$RepoRoot)
-    $script = Join-Path $RepoRoot 'scripts\dashboard\stopwatch-sync.ps1'
+    if (-not (Test-StopwatchShareEnabled)) { return $false }
+    $script = Join-Path $PSScriptRoot '..\pages\stopwatch-sync.ps1'
     if (-not (Test-Path -LiteralPath $script -PathType Leaf)) { return $false }
     try {
         Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -WorkingDirectory $RepoRoot `
-            -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $script + '"')) | Out-Null
+            -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $script + '"'), '-RepoRoot', ('"' + $RepoRoot + '"')) | Out-Null
         return $true
     } catch { return $false }
 }

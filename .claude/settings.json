@@ -1,6 +1,7 @@
 {
   "env": {
-    "DKJ_RUN_STEP_LOG": "1"
+    "DKJ_RUN_STEP_LOG": "1",
+    "DKJ_STOPWATCH_SHARE": "1"
   },
   "hooks": {
     "UserPromptSubmit": [
@@ -8,11 +9,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/dashboard/stopwatch-hook.ps1\" -Hook Prompt"
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/plugins/dkj-policy/hooks/stopwatch-hook.ps1\" -Hook Prompt"
           },
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/dashboard/logbook-hook.ps1\" -Hook Prompt"
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/plugins/dkj-policy/hooks/logbook-hook.ps1\" -Hook Prompt"
           }
         ]
       }
@@ -22,11 +23,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/dashboard/stopwatch-hook.ps1\" -Hook Stop"
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/plugins/dkj-policy/hooks/stopwatch-hook.ps1\" -Hook Stop"
           },
           {
             "type": "command",
-            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/scripts/dashboard/logbook-hook.ps1\" -Hook Stop"
+            "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"$CLAUDE_PROJECT_DIR/plugins/dkj-policy/hooks/logbook-hook.ps1\" -Hook Stop"
           }
         ]
       }

@@ -303,7 +303,11 @@ function Get-GeneralPages {
         @{ Href = '/artifacts';     Label = 'Artifacts';     Sub = 'Every claude.ai Artifact published from a session in this repo'; Icon = 'artifacts' },
         @{ Href = '/issues';        Label = 'Issues';        Sub = 'The open GitHub issues and where they stand, and the flow of the last four weeks'; Icon = 'issues' },
         @{ Href = '/release-notes'; Label = 'Release notes'; Sub = 'What each released version of the plugins changed'; Icon = 'release-notes' },
-        @{ Href = '/sessionstart';  Label = 'SessionStart';  Sub = 'The always-on path every session loads before its first turn'; Icon = 'sessionstart' }
+        @{ Href = '/sessionstart';  Label = 'SessionStart';  Sub = 'The always-on path every session loads before its first turn'; Icon = 'sessionstart' },
+        # Every repo's since #3470 (the owner, October 25, 2026): the source repo's own pages until then.
+        @{ Href = '/test-gate';     Label = 'Test gate';     Sub = 'What each test suite costs on CI'; Icon = 'test-gate' },
+        @{ Href = '/stopwatch';     Label = 'Stopwatch';     Sub = 'How long an assignment takes, timed from a stopwatch: prompt to back on the trunk, with the transcript phases'; Icon = 'stopwatch' },
+        @{ Href = '/logbook';       Label = 'Logbook';       Sub = 'Every assignment of a clean session, timed by itself: first prompt to back on the trunk, with the transcript phases'; Icon = 'logbook' }
     )
 }
 

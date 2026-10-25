@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Tests for scripts/lib/logbook-lib.ps1 -- the Logbook page of the dev server (#3364): the label, the hook's rules,
+    Tests for plugins/dkj-policy/hub/lib/logbook-lib.ps1 -- the Logbook page of the dev server (#3364): the label, the hook's rules,
     the store's session list, the hook script itself against a fixture checkout, and the two pages.
 
     Pure ASCII (repo convention for .ps1).
@@ -9,7 +9,7 @@ $ErrorActionPreference = 'Continue'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 . (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1')
-. (Join-Path $RepoRoot 'scripts\lib\logbook-lib.ps1')
+. (Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\logbook-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -79,13 +79,16 @@ try {
     # The hook script, against a fixture checkout of its own: the libs it loads, git on main, its own store and
     # its own run-progress directory. The payload arrives as JSON on stdin; silent, exit 0.
     $fx = Join-Path $dir 'checkout'
-    New-Item -ItemType Directory -Path (Join-Path $fx 'scripts\lib'), (Join-Path $fx 'scripts\dashboard') -Force | Out-Null
-    foreach ($lib in 'logbook-lib.ps1', 'stopwatch-lib.ps1', 'run-progress-lib.ps1') { Copy-Item (Join-Path $RepoRoot "scripts\lib\$lib") (Join-Path $fx 'scripts\lib\') }
-    Copy-Item (Join-Path $RepoRoot 'scripts\dashboard\logbook-hook.ps1') (Join-Path $fx 'scripts\dashboard\')
+    # The plugin's layout (#3470): the hook under hooks\, its libs under hub\lib\ and dkj-policy's scripts\lib\.
+    $fxPlugin = Join-Path $fx 'plugins\dkj-policy'
+    New-Item -ItemType Directory -Path (Join-Path $fxPlugin 'hooks'), (Join-Path $fxPlugin 'hub\lib'), (Join-Path $fxPlugin 'scripts\lib') -Force | Out-Null
+    foreach ($lib in 'logbook-lib.ps1', 'stopwatch-lib.ps1') { Copy-Item (Join-Path $RepoRoot "plugins\dkj-policy\hub\lib\$lib") (Join-Path $fxPlugin 'hub\lib\') }
+    foreach ($lib in 'run-progress-lib.ps1', 'command-probe-lib.ps1') { Copy-Item (Join-Path $RepoRoot "plugins\dkj-policy\scripts\lib\$lib") (Join-Path $fxPlugin 'scripts\lib\') }
+    Copy-Item (Join-Path $RepoRoot 'plugins\dkj-policy\hooks\logbook-hook.ps1') (Join-Path $fxPlugin 'hooks\')
     & git -C $fx init -q -b main 2>$null
     & git -C $fx -c user.name=t -c user.email=t@example.invalid add -A 2>$null
     & git -C $fx -c user.name=t -c user.email=t@example.invalid commit -q -m 'first' 2>$null
-    $hookScript = Join-Path $fx 'scripts\dashboard\logbook-hook.ps1'
+    $hookScript = Join-Path $fxPlugin 'hooks\logbook-hook.ps1'
     $hookStore = Join-Path $dir 'hook\logbook.json'
     $prog = Join-Path $dir 'progress'
     $run = { param($hook, $json) $o = $json | & powershell -NoProfile -ExecutionPolicy Bypass -File $hookScript -Hook $hook -StorePath $hookStore -RepoRoot $fx -ProgressRoot $prog 2>&1; @{ Out = $o; Exit = $LASTEXITCODE } }
