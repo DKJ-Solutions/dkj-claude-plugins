@@ -39,19 +39,50 @@
 
 ### PLAN
 
+Inbound #3472, verified on pickup. The 13 SessionStart interpreters on a `clear` hold: 10 + dev-preview in
+`dkj-policy`, 1 in the core team, 1 in `dkj-solutions`. `Invoke-CheckScript` (#1625) already runs a
+hook script in-process and survives its `exit`. So the repair is one dispatcher entry that runs every
+`*-sessioncheck.ps1` beside it. The issue's "one in total" across plugins is declined: a plugin's hook only
+knows its own `CLAUDE_PLUGIN_ROOT`, and reaching into a sibling plugin's cache is a coupling this tree has
+nowhere else.
+
+Measured before choosing, n=2, this repo: the ten checks in a loop 7529 / 7659 ms; in a runspace pool
+3124 / 2967 ms. The harness runs entries in parallel, so a loop would have traded the cold starts for
+~4.5 s on every start. A pool keeps the wall-clock at the slowest check.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `plugins/dkj-policy/hooks/sessioncheck-dispatch.ps1`: discover, run in a runspace pool, merge plain
+  and JSON output into one SessionStart object, 100 s deadline that names a hung check, the
+  non-interactive git environment set once before the pool (the push/pop race in `native-capture-lib`)
+- [x] `hooks.json`: the ten entries become one; `dev-preview-sessionstart` keeps its own
+- [x] the three suites that pinned a per-hook entry now pin the dispatcher entry and the discovery pattern
+- [x] prose that named `hooks.json`'s timeout as the backstop, and `SPECIALISTS.md`'s pointer to the set
 
 ### TEST
 
+- [x] `scripts/tests/sessioncheck-dispatch.tests.ps1`, 32 asserts: wiring, merge order, JSON pass-through, a
+  throw, a non-zero exit, silence, the environment, the pattern, the deadline
+- [x] the dispatcher end to end on this checkout: the same eight lines this session's own start reported, the
+  release-freshness systemMessage intact, 4.0 s
+
 ### DEPLOY: feat/3472-sessionstart-dispatcher
 
-**Score:**
+`dkj-policy`'s ten session checks now run from one SessionStart entry, `sessioncheck-dispatch.ps1`, in one
+interpreter instead of ten ([#3472](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3472)). A
+`/clear` in a consumer started thirteen cold `powershell.exe` processes at once, and under load some failed
+before their script ran ("Unable to start thread"), each as a harness error. The checks still run in parallel,
+on a runspace pool, so a session start takes as long as the slowest check, as before. A check that fails or
+hangs now shows up as a named line in the report. A new `*-sessioncheck.ps1` in the plugin's `hooks/` runs
+without a `hooks.json` edit.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
