@@ -286,7 +286,7 @@ p, p.meta { color: var(--fg-1); }
 ::selection { background: var(--paper-3); }
 
 /* ---- Surfaces ------------------------------------------------------------- */
-.card { background: var(--paper-2); border: 1px solid var(--paper-3); border-radius: 12px; padding: var(--spacing-5); margin-top: var(--spacing-4); }
+.card { background: var(--paper-2); border: 1px solid var(--paper-3); border-radius: 12px; padding: var(--spacing-6); margin-top: var(--spacing-4); }
 /* Data-card head (#141): <section class="card"><div class="card__head"><h3 class="card__title">Title</h3>
    <p class="card__sub">Sub line</p></div> a .table-wrap or .facts</section>. The head is left-aligned, with no rule between it
    and the body; whatever follows it sits --spacing-4 below. The title is an <h3> at --text-h3 in --fg-3; a card may
@@ -695,7 +695,7 @@ html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + va
 .menu-row .icon-btn { height: var(--control-h); margin-right: calc((var(--tap) - var(--control-h)) / 2); }
 /* A navigation row: a full-width button with icon, label and chevron; a line between items.
    <button class="menu-item"><svg class="menu-item__icon"/><span class="menu-item__label">..</span><svg class="menu-item__chevron"/></button> */
-.menu-item { display: flex; align-items: center; gap: var(--spacing-3); width: 100%; min-height: var(--tap); margin: 0; padding: var(--spacing-2);
+.menu-item { display: flex; align-items: center; gap: var(--spacing-4); width: 100%; min-height: var(--tap); margin: 0; padding: 0;
   border: 0; border-radius: 8px; background: none; font: inherit; text-align: left; text-decoration: none; color: var(--fg-1); cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .menu-item + .menu-item { border-top: 1px solid var(--paper-3); border-top-left-radius: 0; border-top-right-radius: 0; }
 .menu-item:focus-visible { outline: 2px solid var(--muted); outline-offset: -2px; }   /* inset, so the ring is not cut off by the panel */

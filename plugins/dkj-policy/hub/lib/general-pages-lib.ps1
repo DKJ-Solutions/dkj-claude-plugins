@@ -268,16 +268,42 @@ function Format-RepoHubBanner {
 # The Pages row's chevron, the brand book's own svg (patterns/repo-dashboard.html at v0.3.0).
 $script:RepoHubChevron = '<svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 
+# The hub cards' icons: each a line drawing on a 24-unit grid, stroked in the text colour like the chevron. A card
+# names one by its key (-Icon on Format-HubCardLinkHtml); the svg wrapper is Get-HubIconSvg's.
+$script:HubIcons = @{
+    'product'       = '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>'
+    'repository'    = '<circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 8v8M18 10v1a5 5 0 0 1-5 5H8"/>'
+    'issues'        = '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.5"/>'
+    'pull-request'  = '<circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><path d="M6 8v8M18 16V9a3 3 0 0 0-3-3h-4M13 4l-2 2 2 2"/>'
+    'actions'       = '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>'
+    'artifacts'     = '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>'
+    'release-notes' = '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>'
+    'sessionstart'  = '<circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4z"/>'
+    'brandbook'     = '<path d="M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.6 0-1-.8-1.4-.8-2.4s.8-1.5 1.8-1.5H17a4 4 0 0 0 4-4c0-4.7-4-8.5-9-8.5z"/><circle cx="7.5" cy="11" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="11" r="1"/>'
+    'test-gate'     = '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>'
+    'stopwatch'     = '<circle cx="12" cy="14" r="7"/><path d="M12 14v-4M10 3h4M12 3v4"/>'
+    'logbook'       = '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>'
+}
+
+function Get-HubIconSvg {
+    <# The hub card icon -Name names, as a .menu-item__icon svg; '' for no name or a name $script:HubIcons lacks. #>
+    param([AllowEmptyString()][string]$Name = '')
+    if (-not $Name -or -not $script:HubIcons.ContainsKey($Name)) { return '' }
+    return '<svg class="menu-item__icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        $script:HubIcons[$Name] + '</svg>'
+}
+
 function Get-GeneralPages {
     <#
         The general pages, in the order the hub lists them: each a route on the general server (Href,
-        relative), its Label the page's own name as its breadcrumb reads it, and one line on what it shows.
+        relative), its Label the page's own name as its breadcrumb reads it, one line on what it shows, and the
+        key of its card's icon ($script:HubIcons).
     #>
     @(
-        @{ Href = '/artifacts';     Label = 'Artifacts';     Sub = 'Every claude.ai Artifact published from a session in this repo' },
-        @{ Href = '/issues';        Label = 'Issues';        Sub = 'The open GitHub issues and where they stand, and the flow of the last four weeks' },
-        @{ Href = '/release-notes'; Label = 'Release notes'; Sub = 'What each released version of the plugins changed' },
-        @{ Href = '/sessionstart';  Label = 'SessionStart';  Sub = 'The always-on path every session loads before its first turn' }
+        @{ Href = '/artifacts';     Label = 'Artifacts';     Sub = 'Every claude.ai Artifact published from a session in this repo'; Icon = 'artifacts' },
+        @{ Href = '/issues';        Label = 'Issues';        Sub = 'The open GitHub issues and where they stand, and the flow of the last four weeks'; Icon = 'issues' },
+        @{ Href = '/release-notes'; Label = 'Release notes'; Sub = 'What each released version of the plugins changed'; Icon = 'release-notes' },
+        @{ Href = '/sessionstart';  Label = 'SessionStart';  Sub = 'The always-on path every session loads before its first turn'; Icon = 'sessionstart' }
     )
 }
 
@@ -347,14 +373,15 @@ function Format-HubCardLinkHtml {
     <#
         One page as a hub card (#3383, the house hub form since the owner's decision of October 24, 2026): a
         .card.card--link holding the page's one .menu-item row, so a click anywhere on the card follows it. -Href,
-        -Label and -Sub (optional, one line) are escaped here. The hubs set these cards three to a row, in a .grid-3
-        with no heading above them.
+        -Label and -Sub (optional, one line) are escaped here; -Icon (optional) is a key of $script:HubIcons, drawn
+        before the label. The hubs set these cards three to a row, in a .grid-3 with no heading above them.
     #>
-    param([Parameter(Mandatory = $true)][string]$Href, [Parameter(Mandatory = $true)][string]$Label, [AllowEmptyString()][string]$Sub = '')
+    param([Parameter(Mandatory = $true)][string]$Href, [Parameter(Mandatory = $true)][string]$Label, [AllowEmptyString()][string]$Sub = '',
+        [AllowEmptyString()][string]$Icon = '')
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $s = if ($Sub) { '<span class="menu-item__sub">' + (& $e $Sub) + '</span>' } else { '' }
     return '<section class="card card--link"><nav class="menu-list" aria-label="' + (& $e $Label) + '"><a class="menu-item" href="' + (& $e $Href) +
-        '"><span class="menu-item__label">' + (& $e $Label) + $s + '</span>' + $script:RepoHubChevron + '</a></nav></section>'
+        '">' + (Get-HubIconSvg -Name $Icon) + '<span class="menu-item__label">' + (& $e $Label) + $s + '</span>' + $script:RepoHubChevron + '</a></nav></section>'
 }
 
 function ConvertTo-SiteHeaderName {

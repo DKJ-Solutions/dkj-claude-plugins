@@ -28,8 +28,10 @@
     (Get-StopwatchSlugs), the label's page, which holds ONE CARD PER RUN of that label, never merged (the owner,
     October 23, 2026: runs of one label were merged into one card twice): named by the run's start, with its label,
     its time and its change against the previous run of the same label, in the hub's own card markup. Each run card
-    links to '/stopwatch/<run slug>', the run's page: its time, that change and its transcript phases. A run's slug
-    is its start (ConvertTo-StopwatchModel) and is asked first, a label's second, and an unknown slug is a 404.
+    links to '/stopwatch/<label slug>/<run slug>', the run's page under its label's, as its crumbs read: its time,
+    that change and its transcript phases. A run's slug is its start (ConvertTo-StopwatchModel); a bare
+    '/stopwatch/<run slug>' redirects there, and an unknown slug is a 404. A label page and a run page name the label
+    by its short title (Get-StopwatchShortTitle), as its card does (the owner, October 25, 2026).
 
     THE CLOCK IS THE HOOKS', NOT THE PAGE'S. A run is a start stamp and an end stamp in the store, and the page
     only draws the time since the stored start. The hub restarts itself whenever the checkout's HEAD moves
@@ -246,8 +248,9 @@ function Invoke-StopwatchHookEvent {
 function Get-StopwatchSlugs {
     <#
         The URL slug of each label in -Labels, as a hashtable from the label lower-cased (labels group
-        case-insensitively) to its slug (#3323). A slug is the label's lower-case letters and digits with every other
-        run turned into one dash, cut at 40 characters, and 'run' for a label with none. Two labels that give the
+        case-insensitively) to its slug (#3323). A slug is the lower-case letters and digits of the label's short
+        title (Get-StopwatchShortTitle, the owner, October 25, 2026), with every other run turned into one dash, cut at
+        40 characters, and 'run' for a label with none. Two labels that give the
         same slug are never merged: each of them takes a suffix, the first hex digits of the SHA-1 of its
         lower-cased label, as many as it takes for every slug to differ. So a slug depends only on the label and on
         whether another label shares its base, never on the order the runs came in.
@@ -256,7 +259,7 @@ function Get-StopwatchSlugs {
     $keys = @($Labels | Where-Object { $_ } | ForEach-Object { $_.ToLowerInvariant() } | Sort-Object -Unique)
     $base = @{}
     foreach ($k in $keys) {
-        $b = ($k -replace '[^a-z0-9]+', '-').Trim('-')
+        $b = ((Get-StopwatchShortTitle $k) -replace '[^a-z0-9]+', '-').Trim('-')
         if ($b.Length -gt 40) { $b = $b.Substring(0, 40).Trim('-') }
         if (-not $b) { $b = 'run' }
         $base[$k] = $b
@@ -801,14 +804,16 @@ function Format-StopwatchRunCard {
         One run's card, in three lines with no header above them (the owner, October 24, 2026): the run's start, its
         prompt label (with its version behind it once the label has run more than once), and its time
         (Format-StopwatchCardTime). The label is the card's one link, to the run's page under -Route, stretched over
-        the card. -CardNotes (text by run id) adds a fourth line to a finished run's card.
+        the card. -CardNotes (text by run id) adds a fourth line to a finished run's card. -ShortLabel names the label
+        by its short title (Get-StopwatchShortTitle).
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$Group, [string]$Route = '/stopwatch', [datetime]$Now = [datetime]::UtcNow, [switch]$NoDelta, [hashtable]$CardNotes = @{})
+    param([Parameter(Mandatory = $true)][hashtable]$Group, [string]$Route = '/stopwatch', [datetime]$Now = [datetime]::UtcNow, [switch]$NoDelta, [hashtable]$CardNotes = @{}, [switch]$ShortLabel)
     $e = { param($v) ConvertTo-DashboardText $v }
     $stamp = & $e ($Group.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))
     $href = (& $e $Route) + '/' + (& $e $Group.PageSlug)
+    $label = if ($ShortLabel) { Get-StopwatchShortTitle $Group.Label } else { $Group.Label }
     $card = '<section class="card card--link sw-card"><p class="sw-stamp">' + $stamp + '</p>' +
-        '<p class="sw-instruction"><a href="' + $href + '">' + (& $e $Group.Label) + '</a>' +
+        '<p class="sw-instruction"><a href="' + $href + '">' + (& $e $label) + '</a>' +
         $(if ($Group.Versions -gt 1) { ' <span class="muted">v' + $Group.Version + '</span>' } else { '' }) + '</p>' +
         (Format-StopwatchCardTime -Group $Group -Now $Now -NoDelta:$NoDelta)
     if (-not $Group.Running -and @($Group.Rows).Count -and $CardNotes[$Group.Rows[0].Run.Id]) { $card += '<p class="muted">' + (& $e ([string]$CardNotes[$Group.Rows[0].Run.Id])) + '</p>' }
@@ -994,8 +999,9 @@ function Format-StopwatchPageHtml {
 function Format-StopwatchLabelPageHtml {
     <#
         One prompt label's page on '/stopwatch/<label slug>' (the owner, October 24, 2026), bare like the overview:
-        an h2 with the label, and under it one card per run of that label, newest first (Format-StopwatchRunCard),
-        each linking the run's own page. -Set is one of Get-StopwatchLabelSets. The crumbs lead back to '/stopwatch'.
+        an h2 with the label's short title, and under it one card per run of that label, newest first
+        (Format-StopwatchRunCard), each linking the run's own page under this one. -Set is one of
+        Get-StopwatchLabelSets. The crumbs lead back to '/stopwatch'.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Set,
@@ -1006,8 +1012,9 @@ function Format-StopwatchLabelPageHtml {
     $body = New-Object System.Text.StringBuilder
     [void]$body.AppendLine('<div class="sw-groups">')
     [void]$body.AppendLine('<div class="sw-grid">')
-    [void]$body.AppendLine('<div class="grid__head"><h1>' + (& $e $Set.Title) + '</h1></div>')
-    foreach ($g in @($Set.Groups)) { [void]$body.AppendLine((Format-StopwatchRunCard -Group $g -Now $Now)) }
+    $title = Get-StopwatchShortTitle $Set.Title
+    [void]$body.AppendLine('<div class="grid__head"><h1>' + (& $e $title) + '</h1></div>')
+    foreach ($g in @($Set.Groups)) { [void]$body.AppendLine((Format-StopwatchRunCard -Group $g -Route ('/stopwatch/' + $Set.Slug) -Now $Now -ShortLabel)) }
     # A pinned label before its first run (Get-StopwatchOverviewSets): one card saying so, where the runs will stand.
     if (-not @($Set.Groups).Count) { [void]$body.AppendLine('<section class="card sw-card"><p class="sw-instruction">No run yet. The first one sets the baseline for this label.</p></section>') }
     [void]$body.AppendLine('</div>')
@@ -1031,7 +1038,7 @@ function Format-StopwatchLabelPageHtml {
     $shell = Format-StopwatchPageShell
     $note = 'Every run whose prompt began with <code>stopwatch: ' + (& $e $Set.Title) + '</code>, labels compared case-insensitively, each against the run of this label before it. ' +
         'Kept on this machine in <code>' + (& $e $StorePath) + '</code> and shared with the other machines through <code>refs/stopwatch/&lt;machine&gt;</code> on origin. Built by <code>scripts/lib/stopwatch-lib.ps1</code>.'
-    return Format-DevPageHtml -Title ([string]$Set.Title) -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare -ParentCrumbs @(@{ Label = 'Stopwatch'; Href = '/stopwatch' }) `
+    return Format-DevPageHtml -Title $title -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare -ParentCrumbs @(@{ Label = 'Stopwatch'; Href = '/stopwatch' }) `
         -FooterNote $note
 }
 
@@ -1044,7 +1051,8 @@ function Format-StopwatchRunPageHtml {
         The crumbs lead back to '/stopwatch', or to -Route under -ParentLabel for the Logbook (#3364), whose
         -FooterNote is its own, whose -NoDelta leaves out the change against the run before, and whose -TimeNote stands
         under the run's time: its work time. -LabelCrumb puts the run's label page (Format-StopwatchLabelPageHtml)
-        between the parent and the run, as the Stopwatch's run pages have it.
+        between the parent and the run, as the Stopwatch's run pages have it, and names the label by its short title
+        there and beneath the heading, as that page does.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Group,
@@ -1059,12 +1067,13 @@ function Format-StopwatchRunPageHtml {
         [switch]$LabelCrumb
     )
     $crumbs = @(@{ Label = $ParentLabel; Href = $Route })
-    if ($LabelCrumb -and $Group.LabelSlug) { $crumbs += @{ Label = [string]$Group.Label; Href = $Route + '/' + $Group.LabelSlug } }
+    $label = if ($LabelCrumb) { Get-StopwatchShortTitle $Group.Label } else { [string]$Group.Label }
+    if ($LabelCrumb -and $Group.LabelSlug) { $crumbs += @{ Label = $label; Href = $Route + '/' + $Group.LabelSlug } }
     $e = { param($v) ConvertTo-DashboardText $v }
     $local = { param($t) (& $e ($t.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))) }
     $body = New-Object System.Text.StringBuilder
     $pageTitle = $Group.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
-    [void]$body.AppendLine('<div class="grid__head"><h1>' + (& $e $pageTitle) + '</h1><p class="card__sub">' + (& $e $Group.Label) + '</p></div>')
+    [void]$body.AppendLine('<div class="grid__head"><h1>' + (& $e $pageTitle) + '</h1><p class="card__sub">' + (& $e $label) + '</p></div>')
     if ($Group.Running) {
         [void]$body.AppendLine('<section class="card"><h3>Going now</h3>')
         [void]$body.AppendLine('<p class="sw-clock num" data-start="' + (Format-StopwatchStamp $Group.Running.Start) + '">' + (Format-DevSeconds ($Now - $Group.Running.Start).TotalSeconds) + '</p>')

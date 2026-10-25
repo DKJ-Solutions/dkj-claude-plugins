@@ -3,7 +3,7 @@
     Serve this repo's dev server on http://localhost:<Port>/ -- the hub on '/', which links the hub's own
     pages (#3097): /test-gate, the per-suite CI durations, grouped by the workflow step each suite guards
     (scripts/tests/suite-groups.json); and /stopwatch, how long each assignment took: a read-only overview of cards, one per
-    prompt label, and /stopwatch/<slug>, each label's page with a card per run, or each run's page, from the runs the hooks of scripts/dashboard/stopwatch-hook.ps1 record (#3315, #3323); and /logbook
+    prompt label, /stopwatch/<label>, each label's page with a card per run, and /stopwatch/<label>/<run>, each run's page, from the runs the hooks of scripts/dashboard/stopwatch-hook.ps1 record (#3315, #3323); and /logbook
     and /logbook/<slug>, the same pages for every session that began on a clean trunk, from the runs of scripts/dashboard/logbook-hook.ps1 (#3364), a /sweep-issues run cut into one run per issue at its folds (#3405). The server takes no POST at all. It also builds three pages the product relays, which the hub does not link (below):
     /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
     check-connectors.ps1 reports for it on this machine (#2976); /specialists, every specialist the
@@ -538,8 +538,10 @@ try {
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
-            if ($path -match '^/stopwatch/([a-z0-9-]{1,60})$') {
-                # One run's page (#3323), else one label's page. A slug neither has is a 404, like any other path.
+            if ($path -match '^/stopwatch/([a-z0-9-]{1,60})(?:/([a-z0-9-]{1,60}))?$') {
+                # One label's page, or one run's page under its label's (#3323), so the URL reads as the crumbs do. A
+                # bare run slug redirects to that, and a slug neither has is a 404, like any other path.
+                $swSlug = $Matches[1]; $swRunSlug = $Matches[2]
                 $sw = Get-StopwatchPageRuns; $store = $sw.Store
                 if ($store.Error) {
                     # The same read error the overview shows, not a bare 404 for a page that may well exist.
@@ -548,15 +550,22 @@ try {
                     continue
                 }
                 $swModel = ConvertTo-StopwatchModel -Runs $sw.Runs
-                $group = Find-StopwatchGroup -Model $swModel -Slug $Matches[1]
-                if (-not $group) {
-                    $labelSet = Find-StopwatchLabel -Model $swModel -Slug $Matches[1]
-                    if ($labelSet) {
+                $labelSet = Find-StopwatchLabel -Model $swModel -Slug $swSlug
+                if (-not $swRunSlug) {
+                    $group = Find-StopwatchGroup -Model $swModel -Slug $swSlug
+                    if ($group -and $group.LabelSlug) {
+                        Send-LoopbackResponse $stream 301 'Moved Permanently' 'text/plain; charset=utf-8' ($utf8.GetBytes('Moved.')) -Headers @{ Location = "/stopwatch/$($group.LabelSlug)/$($group.PageSlug)" } -Method $method
+                    } elseif ($labelSet) {
                         $html = Format-StopwatchLabelPageHtml -Set $labelSet -StorePath $StopwatchPath
                         Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                     } else {
                         Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
                     }
+                    continue
+                }
+                $group = if ($labelSet) { @($labelSet.Groups | Where-Object { $_.PageSlug -ceq $swRunSlug }) | Select-Object -First 1 } else { $null }
+                if (-not $group) {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method
                     continue
                 }
                 # Only this machine's runs are read from its transcripts; another machine's carry the phases it read from its own.

@@ -340,7 +340,12 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             $swOverview = Get-Raw 'GET' '/stopwatch' "localhost:$port"
             Assert-True ($swOverview -match 'HTTP/1.1 200' -and $swOverview -match 'href="/stopwatch/server-fixture"') 'the Stopwatch overview has a card for the fixture label, linking the label''s page'
             $swLabel = Get-Raw 'GET' '/stopwatch/server-fixture' "localhost:$port"
-            Assert-True ($swLabel -match 'HTTP/1.1 200' -and $swLabel -match 'Server fixture' -and $swLabel -match 'href="/stopwatch"' -and $swLabel -match 'href="/stopwatch/2026-10-2[34]-\d{4}"') 'a label''s page shows its runs, each linking its run''s page by its start, and links back'
+            Assert-True ($swLabel -match 'HTTP/1.1 200' -and $swLabel -match 'Server fixture' -and $swLabel -match 'href="/stopwatch"' -and $swLabel -match 'href="/stopwatch/server-fixture/2026-10-2[34]-\d{4}"') 'a label''s page shows its runs, each linking its run''s page under the label''s by its start, and links back'
+            $swRunSlug = [regex]::Match($swLabel, 'href="/stopwatch/server-fixture/(2026-10-2[34]-\d{4})"').Groups[1].Value
+            Assert-True ((Get-Raw 'GET' "/stopwatch/server-fixture/$swRunSlug" "localhost:$port") -match 'HTTP/1.1 200') 'a run''s page is served under its label''s'
+            $swOld = Get-Raw 'GET' "/stopwatch/$swRunSlug" "localhost:$port"
+            Assert-True ($swOld -match 'HTTP/1.1 301' -and $swOld -match "Location: /stopwatch/server-fixture/$swRunSlug") 'a bare run slug redirects to the run''s page under its label''s'
+            Assert-Equal 404 (Get-Status 'GET' "/stopwatch/docs/$swRunSlug" "localhost:$port") 'a run under a label it is not of is not found'
             Assert-Equal 404 (Get-Status 'GET' '/stopwatch/no-such-label' "localhost:$port") 'an unknown Stopwatch slug is not found'
             $lbOverview = Get-Raw 'GET' '/logbook' "localhost:$port"
             Assert-True ($lbOverview -match 'HTTP/1.1 200' -and $lbOverview -match 'Logbook fixture' -and $lbOverview -match 'href="/logbook/2026-10-2[45]-\d{4}"') 'the Logbook overview has a card for the fixture run, linking its page (#3364)'
