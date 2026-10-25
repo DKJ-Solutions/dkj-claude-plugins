@@ -53,6 +53,10 @@
       OwnHub          Hub: <repo's own url> (started|already running[...])   -- as before #3245
       OwnHub+Product  Hub: <repo's own url> (...) -- product: <url> (started|already running) | product not started: <why>
 
+    WHAT KEEPS A DKJ-SOLUTIONS REPO FROM FOLLOWING A HUB CHANGE (#3463) is appended to the product and OwnHub
+    forms, from Get-DevPreviewDriftClauses: '-- own hub (OwnHub): hub releases do not reach it' as a plain fact (not in
+    the source repo), and '-- config drift: ...' for OpenInVsCode with no hub port routed or a Name still stated.
+
     A PRODUCT BESIDE THE OWN HUB (#3283): a repo that states OwnHub = $true may also state Product = @{...},
     a second server with the same fields. It is started (or reused) and waited for exactly like the first,
     with its own log (dev-preview-product-<repo>-<hash>.log), and the state file's product names it.
@@ -452,15 +456,29 @@ $extraClause = if ($extra) { ' -- ' + (Format-DevPreviewProductClause (Get-DevPr
                elseif ($cfg -and $mode -eq 'ownhub' -and $cfg.ProductProblem) { " -- product not started: $($cfg.ProductProblem) (scripts/repo-config.ps1)" }
                else { '' }
 
+$settings = Join-Path $root '.vscode\settings.json'
+# An unreadable settings file must not cost the hub link: it reads as no route.
+$text = ''
+try { if (Test-Path -LiteralPath $settings -PathType Leaf) { $text = [System.IO.File]::ReadAllText($settings) } } catch { $text = '' }
+
+# What keeps this repo from following a hub change, in a DKJ-Solutions repo (#3463). The source repo runs the
+# hub from its own tree, which is how it is recognised. A failure here costs the drift clauses, never the line.
+$drift = ''
+try {
+    $dkjSolutions = [bool]((Get-Command Test-DkjSolutionsEnabled -ErrorAction SilentlyContinue) -and (Test-DkjSolutionsEnabled -Root $root))
+    $sourceTree = Test-Path -LiteralPath (Join-Path $root 'plugins\dkj-policy\hub\lib\general-pages-lib.ps1') -PathType Leaf
+    $drift = -join @(Get-DevPreviewDriftClauses -DkjSolutions $dkjSolutions -SourceTree $sourceTree -Mode $mode -Config $cfg -SettingsText $text | ForEach-Object { " -- $_" })
+} catch { $drift = '' }
+
 if ($mode -eq 'ownhub') {
     # The repo's own server IS the hub: the line it always had.
     if ($prodUrl) {
         $script:openInVsCode = $cfg.OpenInVsCode
         $opened = Open-DevPreviewInVsCode $prodUrl
         $exposed = if ($prod.Action -eq 'reuse') { $prod.Exposed } else { '' }
-        Write-DevPreviewLine "$($cfg.Name): $prodUrl ($prodWord$opened$exposed$($prod.Stale))$extraClause"
+        Write-DevPreviewLine "$($cfg.Name): $prodUrl ($prodWord$opened$exposed$($prod.Stale))$extraClause$drift"
     }
-    Write-DevPreviewLine "$($cfg.Name): $(if ($prodFail -like 'not started: *') { 'not started -- ' + $prodFail.Substring(13) } else { $prodFail })$($prod.Stale)$extraClause"
+    Write-DevPreviewLine "$($cfg.Name): $(if ($prodFail -like 'not started: *') { 'not started -- ' + $prodFail.Substring(13) } else { $prodFail })$($prod.Stale)$extraClause$drift"
 }
 
 $head = if ($hubUrl) { "$script:DevPreviewLabel`: $hubUrl" } else { "$script:DevPreviewLabel`: not started -- $hubReason" }
@@ -473,17 +491,13 @@ if ($mode -eq 'product') {
         $script:openInVsCode = [bool]($cfg -and $cfg.OpenInVsCode)
         $opened = Open-DevPreviewInVsCode $hubUrl
     }
-    Write-DevPreviewLine ($head + $(if ($opened) { " (opened in VS Code)" } else { '' }) + " -- $clause")
+    Write-DevPreviewLine ($head + $(if ($opened) { " (opened in VS Code)" } else { '' }) + " -- $clause$drift")
 }
 
 # No server stated: the hub alone, and -- where the repo has no Simple Browser route for its port -- the one
 # line that adds it. With the route the hub opens in VS Code; without it, it does not, because VS Code would
 # hand the URL to the system browser.
 if (-not $hubUrl) { Write-DevPreviewLine $head }
-$settings = Join-Path $root '.vscode\settings.json'
-# An unreadable settings file must not cost the hub link: it reads as no route.
-$text = ''
-try { if (Test-Path -LiteralPath $settings -PathType Leaf) { $text = [System.IO.File]::ReadAllText($settings) } } catch { $text = '' }
 $script:openInVsCode = Test-DevPreviewVsCodeRoute -SettingsText $text -Port $hub.Port
 $note = ''
 if (-not $script:openInVsCode) { $note = "; route localhost:$($hub.Port) to simpleBrowser.open in .vscode/settings.json to open it in VS Code" }
