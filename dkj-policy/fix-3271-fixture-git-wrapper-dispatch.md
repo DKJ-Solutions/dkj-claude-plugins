@@ -39,19 +39,37 @@
 
 ### PLAN
 
+#3271 recurred in a second suite with a second verb, both through `fixture-git-lib.ps1:165`. The issue's
+first inference (the path got into `$Arguments`) does not hold: the `[FIXTURE GIT FAILED]` line is built
+from that same vector and named no `git.exe` either time. The path comes from Git for Windows' `cmd\`
+launcher, and the refusal is git's dispatcher, which runs before any subcommand -- so nothing ran.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `fixture-git-lib.ps1`: `Test-FixtureGitLauncherFailure` -- the launcher refusal, matched only where the quoted "subcommand" is a path ending in `git`/`git.exe`, read through a wide `Out-String` so an ErrorRecord wrap cannot hide it
+- [x] `Test-FixtureGitTransientFailure` treats it as transient for every verb; `Invoke-FixtureGitNative` names it on the retry line and dumps the argument vector element by element (`Format-FixtureGitArgumentVector`), the capture the issue asked for
 
 ### TEST
 
+- [x] `fixture-git-lib.tests.ps1` 7b and 8: both measured occurrences, a forward-slash path, a real mistyped verb (not retried), a long-path ErrorRecord, the argv dump, and a faked launcher refusal on a commit retried once -- 43/43 green
+
 ### DEPLOY: fix/3271-fixture-git-wrapper-dispatch
 
-**Score:**
+A test-suite fixture git call that Git for Windows' launcher refuses with its own path as the subcommand
+(`git: '...\cmd\git.exe' is not a git command`) is now retried once, for any verb, instead of turning a
+suite red under the parallel gate. That refusal comes from git's dispatcher before any subcommand runs,
+so repeating it is safe where repeating a failed commit otherwise is not. The retry line names the cause
+and prints the argument vector element by element, so the next occurrence carries the evidence
+[#3271](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3271) asked for. A genuinely mistyped
+subcommand is still a failure.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- `scripts/tests/` ships to no consumer; this changes only this repo's own gate runs.
+
+**Score:** N/A
 
 #### Pull Request
 

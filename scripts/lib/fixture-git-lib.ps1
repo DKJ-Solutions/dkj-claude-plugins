@@ -105,6 +105,17 @@ $script:FixtureGitRetries = 0
 # pattern that names only the one wording seen so far would miss the next wording of the same break.
 $script:FixtureGitTransientPattern = 'unexpected sideband packet|the remote end hung up unexpectedly|early EOF'
 
+# GIT'S OWN LAUNCHER HANDING GIT ITS OWN PATH AS THE SUBCOMMAND (issue #3271). Measured twice under the
+# parallel gate, in two suites and two verbs (`rm --cached`, `commit`), each green when re-run alone:
+#     git: 'C:\Program Files\Git\cmd\git.exe' is not a git command. See 'git --help'.
+# The path is not in the argument vector: the [FIXTURE GIT FAILED] line is built from that same vector
+# and named no git.exe in either occurrence. So the path comes from the Git for Windows launcher in
+# cmd\, which re-launches the real git with a command line it rebuilds -- and the "not a git command"
+# refusal is git's dispatcher, which runs before any subcommand does. Nothing happened, so unlike every
+# other failure here this one is safe to repeat for ANY verb. The pattern names a path ending in git
+# or git.exe, so a genuinely mistyped subcommand ('git: 'comit' is not a git command') is not retried.
+$script:FixtureGitLauncherPattern = "git: '[^']*[\\/]git(\.exe)?' is not a git command"
+
 function Get-FixtureGitVerb {
     <# The git subcommand in an argument vector, skipping the global options a fixture passes ahead of
        it: '-C <dir>' and '-c <key=value>'. Empty when there is none. #>
@@ -119,10 +130,37 @@ function Get-FixtureGitVerb {
     return ''
 }
 
+function Test-FixtureGitLauncherFailure {
+    <#
+        Whether ONE failed fixture git call was refused by git's dispatcher with git's own path as the
+        subcommand (#3271) -- see $script:FixtureGitLauncherPattern for why that means nothing ran.
+        Out-String is given a wide -Width because a 2>&1 capture under 5.1 arrives as ErrorRecords, which
+        Out-String wraps at the host's width -- and a wrap inside the quoted path would hide the match.
+    #>
+    param(
+        [AllowNull()][int]$Code,
+        $Output = $null
+    )
+    if ($Code -eq 0 -or $null -eq $Output) { return $false }
+    return (($Output | Out-String -Width 4096) -match $script:FixtureGitLauncherPattern)
+}
+
+function Format-FixtureGitArgumentVector {
+    <#
+        The argument vector one element per index, each quoted -- what #3271 asked to capture on a
+        recurrence. The joined form on the [FIXTURE GIT FAILED] line cannot show an empty element, an
+        element carrying a space, or where one element ends and the next begins; this can.
+    #>
+    param([AllowEmptyCollection()][string[]]$GitArgs)
+    $i = 0
+    return (@($GitArgs | ForEach-Object { "[$i]'$_'"; $i++ }) -join ' ')
+}
+
 function Test-FixtureGitTransientFailure {
     <#
         Whether ONE failed fixture git call is the kind worth running a second time: a push or a fetch
-        whose output shows the transport breaking, rather than git refusing the operation (#2481).
+        whose output shows the transport breaking, rather than git refusing the operation (#2481) -- or
+        ANY verb git's launcher refused before it ran (#3271, Test-FixtureGitLauncherFailure).
 
         WHY ONLY push AND fetch. They are the verbs that talk to a remote over a pack stream, which is
         where this break lives, and they are safe to repeat: a push whose refs did land answers the
@@ -142,6 +180,7 @@ function Test-FixtureGitTransientFailure {
         $Output = $null
     )
     if ($Code -eq 0) { return $false }
+    if (Test-FixtureGitLauncherFailure -Code $Code -Output $Output) { return $true }
     if ((Get-FixtureGitVerb -GitArgs $GitArgs) -notin @('push', 'fetch')) { return $false }
     if ($null -eq $Output) { return $false }
     return (($Output | Out-String) -match $script:FixtureGitTransientPattern)
@@ -157,6 +196,9 @@ function Invoke-FixtureGitNative {
 
         ONE retry, not a loop. A transport that breaks twice in a row on a local-file remote is no longer
         contention worth waiting out, and the second failure is judged and counted exactly as before.
+
+        A LAUNCHER REFUSAL (#3271) ALSO PRINTS THE ARGUMENT VECTOR, element by element, whichever way the
+        retry goes: the cause is not measured yet, and the vector is the evidence the issue asked for.
     #>
     param([Parameter(Mandatory = $true)][AllowEmptyCollection()][string[]]$Arguments)
     $prevEap = $ErrorActionPreference
@@ -166,7 +208,10 @@ function Invoke-FixtureGitNative {
         $code = $LASTEXITCODE
         if (Test-FixtureGitTransientFailure -Code $code -GitArgs $Arguments -Output $out) {
             $script:FixtureGitRetries++
-            Write-Host "  [FIXTURE GIT RETRY] exit $code, transport broke -- running once more: git $($Arguments -join ' ')" -ForegroundColor DarkYellow
+            $launcher = Test-FixtureGitLauncherFailure -Code $code -Output $out
+            $why = if ($launcher) { "git's launcher refused its own path as the subcommand (#3271)" } else { 'transport broke' }
+            Write-Host "  [FIXTURE GIT RETRY] exit $code, $why -- running once more: git $($Arguments -join ' ')" -ForegroundColor DarkYellow
+            if ($launcher) { Write-Host "      argv: $(Format-FixtureGitArgumentVector -GitArgs $Arguments)" -ForegroundColor DarkYellow }
             $out = & git @Arguments 2>&1
             $code = $LASTEXITCODE
         }
@@ -239,7 +284,7 @@ function Write-FixtureGitSummary {
     #>
     param([string]$Subject = 'the script under test')
     if ($script:FixtureGitRetries -gt 0) {
-        Write-Host "FIXTURE: $($script:FixtureGitRetries) git command(s) were retried after a transport break (issue #2481) -- see the [FIXTURE GIT RETRY] lines above." -ForegroundColor DarkYellow
+        Write-Host "FIXTURE: $($script:FixtureGitRetries) git command(s) were retried after a transport break or a launcher refusal (issues #2481, #3271) -- see the [FIXTURE GIT RETRY] lines above." -ForegroundColor DarkYellow
     }
     if ($script:FixtureGitFailures -le 0) { return $false }
     Write-Host "FIXTURE: $($script:FixtureGitFailures) git command(s) FAILED while building this run's repos -- see the [FIXTURE GIT FAILED] lines above." -ForegroundColor Magenta
