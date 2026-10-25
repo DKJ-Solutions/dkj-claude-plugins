@@ -189,6 +189,12 @@ function Get-HookPayloadRaw {
     param([int]$TimeoutMs = 1000)
 
     try {
+        # HANDED OVER, NOT READ, under sessioncheck-dispatch.ps1 (#3472). Its checks run as threads of
+        # one process, and stdin is ONE handle per process: the first reader drains it and every other
+        # check got '' -- no session id, so no cache. The dispatcher reads the payload once, before its
+        # pool opens, and leaves it here. Unset everywhere else, so a hook run on its own reads stdin.
+        $handed = [Environment]::GetEnvironmentVariable('DKJ_HOOK_PAYLOAD', 'Process')
+        if ($handed) { return $handed }
         if (-not [Console]::IsInputRedirected) { return '' }
         $sink = New-Object System.IO.MemoryStream
         # The bound only binds because CopyToAsync queues to the thread pool -- see the block above

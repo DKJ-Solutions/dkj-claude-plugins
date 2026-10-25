@@ -50,6 +50,8 @@ Measured before choosing, n=2, this repo: the ten checks in a loop 7529 / 7659 m
 3124 / 2967 ms. The harness runs entries in parallel, so a loop would have traded the cold starts for
 ~4.5 s on every start. A pool keeps the wall-clock at the slowest check.
 
+Re-measured later under load (CPU ~38 %, other sessions on the box), interleaved, n=3: ten parallel`nprocesses 6151 / 6584 / 9445 ms, the dispatcher 7090 / 10944 / 7951 ms. Same range within the noise, so`nthe claim is robustness, not speed.
+
 ### CREATE
 
 - [x] `plugins/dkj-policy/hooks/sessioncheck-dispatch.ps1`: discover, run in a runspace pool, merge plain
@@ -65,14 +67,20 @@ Measured before choosing, n=2, this repo: the ten checks in a loop 7529 / 7659 m
   throw, a non-zero exit, silence, the environment, the pattern, the deadline
 - [x] the dispatcher end to end on this checkout: the same eight lines this session's own start reported, the
   release-freshness systemMessage intact, 4.0 s
-
+- [x] review, Victor: stdin is one handle per process, and two checks read the hook payload for their
+  session cache, so on the pool only the first got it. The dispatcher now reads it once and hands it over in
+  `DKJ_HOOK_PAYLOAD`, which `Get-HookPayloadRaw` prefers. A suite case with three concurrent readers passes,
+  and goes red (3 of 3) with the handover line removed. The outer catch now leaves without waiting on the pool.
+- [x] review, Sebastian: only a SessionStart JSON object is read as JSON, so a plain check cannot promote text
+  to the `systemMessage`; a static guard holds every check to no process-wide state but the two
+  non-interactive git variables. 47 asserts.
 ### DEPLOY: feat/3472-sessionstart-dispatcher
 
 `dkj-policy`'s ten session checks now run from one SessionStart entry, `sessioncheck-dispatch.ps1`, in one
 interpreter instead of ten ([#3472](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3472)). A
 `/clear` in a consumer started thirteen cold `powershell.exe` processes at once, and under load some failed
 before their script ran ("Unable to start thread"), each as a harness error. The checks still run in parallel,
-on a runspace pool, so a session start takes as long as the slowest check, as before. A check that fails or
+on a runspace pool, so a session start takes about as long as before. A check that fails or
 hangs now shows up as a named line in the report. A new `*-sessioncheck.ps1` in the plugin's `hooks/` runs
 without a `hooks.json` edit.
 

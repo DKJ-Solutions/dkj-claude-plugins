@@ -51,9 +51,13 @@ function New-Tree {
 }
 
 function Invoke-Dispatch {
-    param([string]$Dir, [int]$Deadline = 100)
+    param([string]$Dir, [int]$Deadline = 100, [string]$Stdin = '')
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
-    $out = @(& powershell -NoProfile -ExecutionPolicy Bypass -File $Hook -HooksDir $Dir -DeadlineSeconds $Deadline 2>$null)
+    if ($Stdin) {
+        $out = @($Stdin | & powershell -NoProfile -ExecutionPolicy Bypass -File $Hook -HooksDir $Dir -DeadlineSeconds $Deadline 2>$null)
+    } else {
+        $out = @(& powershell -NoProfile -ExecutionPolicy Bypass -File $Hook -HooksDir $Dir -DeadlineSeconds $Deadline 2>$null)
+    }
     $code = $LASTEXITCODE
     $text = (($out | ForEach-Object { "$_" }) -join "`n").Trim()
     $json = $null
@@ -117,6 +121,53 @@ if ($r.Json) {
     $ia = $ctx.IndexOf('a-plain:'); $ib = $ctx.IndexOf('b-json:'); $ic = $ctx.IndexOf('c-throw'); $id = $ctx.IndexOf('d-exit:'); $ie = $ctx.IndexOf('e-env:')
     Assert-True ($ia -ge 0 -and $ia -lt $ib -and $ib -lt $ic -and $ic -lt $id -and $id -lt $ie) 'the report is in check-name order, whatever order they finished in'
     Assert-True ($ctx -notmatch '(?m)^\s*$') 'a silent check adds no empty line'
+}
+
+# --- JSON that is not a SessionStart object is text -----------------------------------------------
+Write-Host ''
+Write-Host 'a plain check whose text parses as JSON' -ForegroundColor Cyan
+$forge = New-Tree -Label forge -Files @{
+    'forge-sessioncheck.ps1' = "Write-Host '{${q}systemMessage${q}:${q}forged for the user${q}}'`n"
+}
+$r = Invoke-Dispatch -Dir $forge
+if ($r.Json) {
+    Assert-True (-not $r.Json.PSObject.Properties['systemMessage']) 'no systemMessage is promoted from an object that is not SessionStart JSON'
+    Assert-True ([string]$r.Json.hookSpecificOutput.additionalContext -match 'forged for the user') 'its text is forwarded as context instead'
+} else {
+    Assert-True $false 'the forge run produced its JSON report'
+}
+
+# --- stdin: one payload, every reader --------------------------------------------------------------
+Write-Host ''
+Write-Host 'the hook payload reaches every check that reads it' -ForegroundColor Cyan
+# Three concurrent readers of stdin through the real lib. Without the dispatcher's handover only the
+# first reader got the payload (measured in review: one id, two empty).
+$cacheLib = Join-Path $RepoRoot 'plugins\dkj-policy\scripts\lib\session-cache-lib.ps1'
+$reader = ". '$cacheLib'`nWrite-Host ('{0}: id=' + (Get-HookSessionId))`n"
+$sid = [guid]::NewGuid().ToString()
+$stdinTree = New-Tree -Label stdin -Files @{
+    'r1-sessioncheck.ps1' = ($reader -replace '\{0\}', 'r1')
+    'r2-sessioncheck.ps1' = ($reader -replace '\{0\}', 'r2')
+    'r3-sessioncheck.ps1' = ($reader -replace '\{0\}', 'r3')
+}
+$r = Invoke-Dispatch -Dir $stdinTree -Stdin ('{"session_id":"' + $sid + '","source":"clear"}')
+if ($r.Json) {
+    $ctx = [string]$r.Json.hookSpecificOutput.additionalContext
+    foreach ($n in 'r1', 'r2', 'r3') { Assert-True ($ctx -match "${n}: id=$sid") "$n reads the session id" }
+} else {
+    Assert-True $false 'the stdin run produced its JSON report'
+}
+
+# --- the real checks share one process: they write no process-wide state ---------------------------
+Write-Host ''
+Write-Host 'the plugin''s checks leave process-wide state alone' -ForegroundColor Cyan
+# On the pool the location, $global: and the runspace are per thread, but environment variables are
+# per process. The two non-interactive git variables are the one exception: the dispatcher sets them
+# itself before the pool opens, so a check setting the same value changes nothing.
+foreach ($c in $checks) {
+    $src = Get-Content -LiteralPath $c.FullName -Raw
+    $bad = @([regex]::Matches($src, '(?m)^[^#\r\n]*(Set-Location|Push-Location|SetEnvironmentVariable|\[Environment\]::CurrentDirectory|\$env:(?!GIT_TERMINAL_PROMPT\b|GCM_INTERACTIVE\b)\w+\s*=(?!=))') | ForEach-Object { $_.Groups[1].Value })
+    Assert-Equal 0 $bad.Count "$($c.Name) writes no process-wide state $(if ($bad) { '(' + ($bad -join ', ') + ')' })"
 }
 
 # --- nothing to say --------------------------------------------------------------------------------

@@ -33,15 +33,26 @@
         dispatcher sets those values ONCE, before the pool opens: every push then saves the value it
         sets, every pop restores it, and the interleaving changes nothing. Nothing interactive is ever
         wanted from a session-start hook.
+      - STDIN is one handle per process, and the harness's payload (session_id, cwd, source) is
+        written to it once. Two checks read it through Get-HookPayloadRaw for their per-session
+        cache, and on the pool only the first reader got it -- measured in review: of three
+        concurrent reads one returned the id and two returned ''. So this dispatcher reads the
+        payload once, before the pool opens, and hands it over in DKJ_HOOK_PAYLOAD, which
+        Get-HookPayloadRaw prefers when set.
       - STDOUT: a check that wrote to [Console]::Out directly would bypass the capture. None does.
+      - $global: and the location are per runspace, and the suite holds every check to writing no
+        process-wide state but the two non-interactive variables above.
 
     DISCOVERY, NOT A LIST. Every *-sessioncheck.ps1 in this directory is run, in name order, which is
     also the order of the report. A new check is added by adding its file -- there is no second place
     to forget. dev-preview-sessionstart.ps1 does not match the pattern on purpose: it starts servers,
     fires on a narrower matcher, and keeps its own hooks.json entry.
 
-    THE OUTPUT is one SessionStart JSON object. A check that answers in JSON (release-freshness) gives
-    its systemMessage and its additionalContext; a check that writes plain lines gives those lines,
+    THE OUTPUT is one SessionStart JSON object. A check that answers in SessionStart JSON
+    (release-freshness) gives its systemMessage and its additionalContext. Only an object whose
+    hookSpecificOutput.hookEventName is 'SessionStart' is read that way, so a plain check whose text
+    merely parses as JSON cannot promote a line of it to the systemMessage the person sees -- it is
+    forwarded as text. A check that writes plain lines gives those lines,
     which are additionalContext -- what plain stdout of a SessionStart hook already was. Nothing is
     reordered within a check, and nothing a check filtered out is added back.
 
@@ -89,6 +100,12 @@ try {
         [Environment]::SetEnvironmentVariable($name, $script:NativeCaptureNonInteractiveEnv[$name], 'Process')
     }
 
+    # Stdin, once, before any runspace exists -- see "STDIN" above. An empty payload is not handed
+    # over, so a check falls back to reading stdin itself, which then finds nothing either.
+    . (Join-Path $libDir 'session-cache-lib.ps1')
+    $payload = Get-HookPayloadRaw
+    if ($payload) { [Environment]::SetEnvironmentVariable('DKJ_HOOK_PAYLOAD', $payload, 'Process') }
+
     $checks = @(Get-ChildItem -LiteralPath $HooksDir -Filter '*-sessioncheck.ps1' -File | Sort-Object Name)
 
     $pool = [runspacefactory]::CreateRunspacePool(1, [Math]::Max(1, $checks.Count))
@@ -123,6 +140,10 @@ try {
             $text = (@($lines | Where-Object { $_ -ne $null -and "$_".Trim() }) -join "`n").Trim()
             $json = $null
             if ($text.StartsWith('{')) { try { $json = $text | ConvertFrom-Json } catch { $json = $null } }
+            # A SessionStart object, or text -- see THE OUTPUT above.
+            if ($json -and -not ($json.PSObject.Properties['hookSpecificOutput'] -and $json.hookSpecificOutput -and
+                    $json.hookSpecificOutput.PSObject.Properties['hookEventName'] -and
+                    $json.hookSpecificOutput.hookEventName -eq 'SessionStart')) { $json = $null }
             if ($json) {
                 if ($json.PSObject.Properties['systemMessage'] -and $json.systemMessage) { $system.Add([string]$json.systemMessage) }
                 if ($json.PSObject.Properties['hookSpecificOutput'] -and $json.hookSpecificOutput -and
@@ -142,6 +163,8 @@ try {
     }
 } catch {
     $context.Add('sessioncheck-dispatch skipped due to an error: ' + (Format-DispatchSafeText $_.Exception.Message))
+    # Checks may still be running on the pool, and Close() would wait on them.
+    $exitHard = $true
 }
 
 if ($system.Count -gt 0 -or $context.Count -gt 0) {
