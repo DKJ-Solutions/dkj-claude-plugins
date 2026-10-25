@@ -39,19 +39,40 @@
 
 ### PLAN
 
+The owner asked (October 25, 2026) for a card named Ship PR on the Stopwatch page, carrying the steps to time
+a ship repeatedly and see where it can be made faster. The overview drew cards only from runs, so a label with
+no run had nowhere to stand. A visible result: this branch parks for the owner's look, with no PR.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/stopwatch-lib.ps1`: `$script:StopwatchPinnedLabels` with Ship PR and its five steps; a
+  pinned label with no run gets a card of its own on the overview (`Format-StopwatchPinnedCard`), and once it
+  has runs its ordinary label card carries the steps (`Format-StopwatchPinnedSteps`). One `.sw-steps` rule,
+  house tokens only. The Logbook's flat overview is unchanged.
+- [x] `scripts/tests/stopwatch.tests.ps1`: the pinned card with no run, the steps on the label card once a
+  run exists, no link without runs, nothing in the Logbook.
+- [ ] The owner has looked at `/stopwatch` on the hub and approved the card.
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1` 188/188, `logbook.tests.ps1` 52/52, `dev-pages.tests.ps1` 314/314, run alone
+  while building; the full gate is `ship-pr`'s, after the owner's look.
+
 ### DEPLOY: feat/stopwatch-ship-pr-card
 
-**Score:**
+The Stopwatch overview now carries a Ship PR card before its first run, with the five steps that time a ship the
+same way every time: a branch made ready outside the clock, a prompt whose first line is exactly
+`stopwatch: Ship PR`, and the run page's split of the ship into its checks, local gates, CI wait, merge and fold.
+Once a Ship PR run exists, the steps move onto that label's ordinary card. Runs of one label are compared with
+each other, so the card is where a slow step and a speed-up attempt show.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the Stopwatch is this repo's own dev-server page; no plugin ships it.
+
+**Score:** N/A
 
 #### Pull Request
 

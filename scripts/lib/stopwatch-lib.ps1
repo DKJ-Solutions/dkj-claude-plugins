@@ -736,6 +736,9 @@ function Format-StopwatchPageShell {
         '.sw-instruction a { color: inherit; text-decoration: none; }' + "`n" +
         '.sw-instruction .muted { font-size: var(--text-sm); font-weight: 400; }' + "`n" +
         '.sw-time { font-size: var(--text-base); font-weight: 300; color: var(--fg-1); }' + "`n" +
+        # A pinned label's steps (Format-StopwatchPinnedSteps): the instruction line's size and colour, numbered.
+        '.sw-steps { margin: var(--spacing-2) 0 0; padding-left: var(--spacing-5); font-size: var(--text-sm); font-weight: 400; color: var(--muted); }' + "`n" +
+        '.sw-steps > li + li { margin-top: var(--spacing-1); }' + "`n" +
         '.sw-change { margin-left: var(--spacing-2); font-size: var(--text-xs); font-weight: 400; color: var(--muted); }' + "`n" +
         '.sw-change--good { color: var(--positive-5); }' + "`n" +
         '.sw-change--bad { color: var(--negative-5); }' + "`n" +
@@ -802,7 +805,51 @@ function Format-StopwatchLabelCard {
     $time = if ($fastest) { '<p class="sw-time num">' + (Format-DevSeconds $fastest.Seconds) + '</p>' } else { Format-StopwatchCardTime -Group $Set.Groups[0] -Now $Now }
     return '<section class="card card--link sw-card"><h2><a href="/stopwatch/' + (& $e $Set.Slug) + '">' + (& $e (Get-StopwatchShortTitle $Set.Title)) + '</a></h2>' +
         '<p class="sw-instruction">From the prompt <code>stopwatch: ' + (& $e $Set.Title) + '</code> until ' + $stop + '.</p>' +
-        $time + '</section>'
+        $time + (Format-StopwatchPinnedSteps -Label $Set.Title) + '</section>'
+}
+
+# A LABEL THE OVERVIEW SHOWS BEFORE ITS FIRST RUN (the owner, October 25, 2026): its card carries the steps that time
+# it the same way every time, so its runs can be compared with each other. Without runs it is a card of its own
+# (Format-StopwatchPinnedCard); once it has runs, the steps go on its ordinary label card. Matched case-insensitively,
+# like every label. The steps are plain text, escaped where they are drawn.
+$script:StopwatchPinnedLabels = @(
+    @{
+        Label = 'Ship PR'
+        Steps = @(
+            'Get a branch ready first, outside the clock: its change committed and its DEPLOY section written.',
+            'Start the run with a prompt whose first line is exactly "stopwatch: Ship PR", and whose second line only asks to ship that branch with ship-pr.ps1. The run then times the ship and nothing else.',
+            'The run ends when Claude is back on main after the merge and the fold. Its page splits the ship into its steps: the checks before the PR, the local gates and opening the PR, the CI wait, the merge, and the fold.',
+            'Repeat with the next ready branch under the same first line. Every run lands on this card and is compared with the run before it.',
+            'To try a speed-up, change one thing between two runs, say which on the prompt''s second line, and compare the steps of the two runs.'
+        )
+    }
+)
+
+function Get-StopwatchPinnedLabel {
+    <# The pinned label (above) whose Label is -Label, compared case-insensitively, or $null. #>
+    param([AllowEmptyString()][string]$Label = '')
+    return (@($script:StopwatchPinnedLabels | Where-Object { $_.Label -ieq $Label }) | Select-Object -First 1)
+}
+
+function Format-StopwatchPinnedSteps {
+    <# The numbered steps of a pinned label, or '' for a label that is not pinned. #>
+    param([AllowEmptyString()][string]$Label = '')
+    $pinned = Get-StopwatchPinnedLabel -Label $Label
+    if (-not $pinned) { return '' }
+    $items = @($pinned.Steps | ForEach-Object { '<li>' + (ConvertTo-DashboardText $_) + '</li>' })
+    return '<ol class="sw-steps">' + ($items -join '') + '</ol>'
+}
+
+function Format-StopwatchPinnedCard {
+    <#
+        A pinned label's card while it has no run yet: the label card's heading and prompt line, its steps, and a
+        note that no run has been made. No link, because a label without runs has no page.
+    #>
+    param([Parameter(Mandatory = $true)][hashtable]$Pinned)
+    $e = { param($v) ConvertTo-DashboardText $v }
+    return '<section class="card sw-card"><h2>' + (& $e $Pinned.Label) + '</h2>' +
+        '<p class="sw-instruction">From the prompt <code>stopwatch: ' + (& $e $Pinned.Label) + '</code> until Claude is back on main, clean, with a commit of its own.</p>' +
+        (Format-StopwatchPinnedSteps -Label $Pinned.Label) + '<p class="note">No run yet.</p></section>'
 }
 
 function Get-StopwatchShortTitle {
@@ -867,7 +914,16 @@ function Format-StopwatchPageHtml {
     # One card per prompt label under the page's h1, each linking the label's page (the owner, October 24, 2026). -Flat
     # keeps every run card under one Measurements heading, for the Logbook, whose labels are the first lines of prompts and
     # rarely repeat.
-    if (-not @($Model.Groups).Count) {
+    # The pinned labels with no run yet get a card of their own on the overview (not in -Flat, the Logbook's).
+    $sets = @()
+    $pinnedOnly = @()
+    if (-not $Flat) {
+        $sets = @(Get-StopwatchLabelSets -Model $Model)
+        foreach ($p in $script:StopwatchPinnedLabels) {
+            if (-not @($sets | Where-Object { $_.Title -ieq $p.Label }).Count) { $pinnedOnly += $p }
+        }
+    }
+    if (-not @($Model.Groups).Count -and -not $pinnedOnly.Count) {
         [void]$body.AppendLine('<div class="grid__head"><h2>Measurements</h2></div>')
     } else {
         # The grid stands in a wrapper whose gap is the space between grids, so no grid carries a top margin (the owner,
@@ -880,7 +936,8 @@ function Format-StopwatchPageHtml {
         } else {
             # The overview's one heading is an h1 naming the page (the owner, October 24, 2026).
             [void]$body.AppendLine('<div class="grid__head"><h1>Stopwatch</h1></div>')
-            foreach ($set in @(Get-StopwatchLabelSets -Model $Model)) { [void]$body.AppendLine((Format-StopwatchLabelCard -Set $set -Now $Now)) }
+            foreach ($set in $sets) { [void]$body.AppendLine((Format-StopwatchLabelCard -Set $set -Now $Now)) }
+            foreach ($p in $pinnedOnly) { [void]$body.AppendLine((Format-StopwatchPinnedCard -Pinned $p)) }
         }
         [void]$body.AppendLine('</div>')
         [void]$body.AppendLine('</div>')

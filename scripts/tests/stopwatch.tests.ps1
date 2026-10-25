@@ -239,7 +239,24 @@ Assert-True ($page -notmatch '<form|<button|<textarea|data-sw=|data-action=|fetc
 Assert-True ($page -match 'stopwatch:') 'the page says how a run starts'
 $idle = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk 'Docs' 0 10))) -StorePath 's'
 Assert-True ($idle -notmatch 'going now' -and $idle -notmatch 'data-start=') 'with nothing running no card carries a clock'
-Assert-True ((Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's') -match 'No run yet') 'with no run at all it says so, with no card'
+$none = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's'
+Assert-True ($none -match 'No run yet' -and $none -notmatch 'card--link') 'with no run at all it says so, with no label card'
+
+Write-Host '-- the pinned Ship PR card (the owner, October 25, 2026)' -ForegroundColor Cyan
+# Before its first run the label has a card of its own, with the steps that time a ship the same way every time.
+$pinnedCard = [regex]::Match($none, '<section class="card sw-card"><h2>Ship PR</h2>.*?</section>')
+Assert-True $pinnedCard.Success 'with no Ship PR run the overview still carries a Ship PR card'
+Assert-True ($pinnedCard.Value -match '<code>stopwatch: Ship PR</code>' -and $pinnedCard.Value -match '<ol class="sw-steps">(<li>[^<]+</li>){5}</ol>' -and $pinnedCard.Value -match 'No run yet') 'it names the prompt, lists the five steps, and says no run has been made'
+Assert-True ($pinnedCard.Value -match 'exactly &quot;stopwatch: Ship PR&quot;|exactly "stopwatch: Ship PR"' -and $pinnedCard.Value -match 'ship-pr\.ps1' -and $pinnedCard.Value -match 'the CI wait') 'its steps say which first line to use, what to ship, and which steps the run page splits out'
+Assert-True ($none -notmatch 'href="/stopwatch/ship-pr"') 'and it links nothing: a label without runs has no page'
+# Once a run of it exists, its ordinary label card carries the steps, and the pinned card goes.
+$shipRun = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk 'ship pr' 0 10))) -StorePath 's'
+Assert-Equal 0 ([regex]::Matches($shipRun, '<section class="card sw-card">')).Count 'with a Ship PR run, case aside, there is no separate pinned card'
+Assert-True ($shipRun -match '<section class="card card--link sw-card"><h2><a href="/stopwatch/ship-pr">ship pr</a></h2>.*?<ol class="sw-steps">.*?</ol></section>') 'its label card carries the steps after its time'
+Assert-True (@([regex]::Matches($page, '<section class="card card--link sw-card">.*?</section>') | Where-Object { $_.Value -match 'sw-steps' }).Count -eq 0) 'none of the ordinary label cards carries steps'
+$flatNone = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's' -Flat
+Assert-True ($flatNone -notmatch 'Ship PR') 'the Logbook''s flat overview carries no pinned card'
+Assert-True ($none -match '\.sw-steps \{ [^}]*font-size: var\(--text-sm\); font-weight: 400; color: var\(--muted\); \}') 'the steps take the instruction line''s house size, weight and colour'
 $evil = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk '<script>x</script>' 0 10))) -StorePath 's'
 Assert-True ($evil -notmatch '<script>x</script>' -and $evil -match '&lt;script&gt;x&lt;/script&gt;' -and $evil -match 'href="/stopwatch/script-x-script"' -and (ConvertTo-StopwatchModel -Runs @((& $mk '<script>x</script>' 0 10))).Groups[0].LabelSlug -eq 'script-x-script') 'a label is escaped wherever it is shown, and its slugs are URL-safe'
 $empty = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -StorePath 's'
