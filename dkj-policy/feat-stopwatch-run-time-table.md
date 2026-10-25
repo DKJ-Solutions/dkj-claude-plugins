@@ -41,17 +41,23 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-StopwatchRunPageHtml`: the run's started, time and change against the previous run as one table straight under the page heading, in no card
 
 ### TEST
 
+- [x] `stopwatch` and `logbook` suites green; the live hub's run page checked by the owner
+
 ### DEPLOY: feat/stopwatch-run-time-table
 
-**Score:**
+A Stopwatch run's page shows its time as a table in no card: the start, the time and the change against the previous run of its label are columns of one row, straight under the page heading, where a Time card with a large clock stood before. The Logbook's run pages, built by the same function, take the same table, with its work-time note as a column and no change column.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+The Stopwatch is this repo's own hub page; nothing a consumer installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
