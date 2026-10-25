@@ -39,19 +39,30 @@
 
 ### PLAN
 
+The owner's request (October 25, 2026, a Stopwatch run on one variable): set `--text-h2` to 18px and change
+nothing else but the skill's checksum.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: `--text-h2` 24px -> 18px
+- [x] The skill's sha256 for `house-style.css`
 
 ### TEST
 
+- [x] `check-house-style.ps1` over this repo: OK
+
 ### DEPLOY: feat/heading-h2-18px
 
-**Score:**
+`h2` in the house style is now 18px instead of 24px, so a section heading sits closer to the body text
+under it. Nothing else in the scale moves.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+**Score:** N/A
 
 #### Pull Request
+
+House style: h2 at 18px
 
