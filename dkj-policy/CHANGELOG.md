@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**10 / 21 minor entries** <!-- pending-tally -->
+**10 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3423-hub-release-notes-eyebrow · 20261025-103104Z
+
+The hub's release-notes page now opens its masthead with the `Release notes` heading, with no product
+name in small capitals above it: the site header above the page already names the repo, as on every other
+hub page. The page a Cloudflare Worker serves keeps that line, because it has no header to name the
+product.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing to do: the page is dressed on the way out, so the next hub session shows it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The hub's release-notes page drops the eyebrow under its site header
+
+Plugins: dkj-policy
+
+[PR #3436](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3436)
+
+---
 
 ### DEPLOY: feat/stopwatch-ship-pr-prompt · 20261025-102005Z
 
