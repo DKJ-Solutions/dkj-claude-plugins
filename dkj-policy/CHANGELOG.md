@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**12 / 27 minor entries** <!-- pending-tally -->
+**13 / 28 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3442-ship-pr-clearance-line · 20261025-114705Z
+
+`ship-pr` now says, seconds after it starts waiting on CI, whether the session can be cleared:
+`Session can be cleared: PR #N is armed and this checkout is back on the trunk` where the merge-on-green
+sweep would finish the ship if the run died, or `Session can NOT be cleared yet:` naming what holds it.
+A session that backgrounds the ship waits for that line and closes out on it, rather than on a progress
+note.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Whoever ships with `ship-pr` is told plainly when they can clear the session and start the next thing,
+instead of being left to guess while CI runs.
+
+**Score:** 3
+
+#### Pull Request
+
+ship-pr says when the session can be cleared during the CI wait
+
+Plugins: dkj-policy
+
+[PR #3445](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3445)
+
+---
 
 ### DEPLOY: fix/3271-fixture-git-wrapper-dispatch · 20261025-113358Z
 
