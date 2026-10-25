@@ -156,6 +156,24 @@ try {
     Assert-True  (-not (Test-FixtureGitTransientFailure -Code 128 -GitArgs @('push') -Output $null)) 'no output, no evidence, no retry'
     Assert-Equal 'push' (Get-FixtureGitVerb -GitArgs @('-C', 'dir', '-c', 'a=b', 'push', 'origin')) 'the verb is found behind both global options'
 
+    # --- 7b. git's launcher refusing its own path is transient for EVERY verb (issue #3271) -----------
+    #
+    # The refusal is git's dispatcher, before any subcommand runs, so a commit is as safe to repeat here
+    # as a push. The wording is the measured one; a real typo in a subcommand must stay a failure.
+    Write-Host "`n== 7b. a launcher refusal is transient whatever the verb; a mistyped verb is not ==" -ForegroundColor Cyan
+    $launcherOut = "git: 'C:\Program Files\Git\cmd\git.exe' is not a git command. See 'git --help'."
+    Assert-True  (Test-FixtureGitTransientFailure -Code 1 -GitArgs @('-C', 'x', 'rm', '-q', '--cached', 'probe-data.json') -Output $launcherOut) 'the first #3271 occurrence (rm --cached) is transient'
+    Assert-True  (Test-FixtureGitTransientFailure -Code 1 -GitArgs @('-C', 'x', 'commit', '-qm', 'msg') -Output $launcherOut) 'the second (commit) is too -- nothing ran, so any verb may repeat'
+    Assert-True  (Test-FixtureGitTransientFailure -Code 1 -GitArgs @('status') -Output "git: '/mingw64/bin/git' is not a git command.") 'a forward-slash path with no .exe is the same refusal'
+    Assert-True  (-not (Test-FixtureGitTransientFailure -Code 1 -GitArgs @('comit') -Output "git: 'comit' is not a git command. See 'git --help'.")) 'a genuinely mistyped subcommand is not retried'
+    Assert-True  (-not (Test-FixtureGitLauncherFailure -Code 0 -Output $launcherOut)) 'exit 0 is never a launcher refusal'
+    # The shape the lib really receives: a 2>&1 capture under 5.1 wraps stderr in an ErrorRecord, and a
+    # deep path makes it long enough for a narrow host to wrap -- which must not hide the match.
+    $longPath = 'C:\' + ('deep\' * 40) + 'Git\cmd\git.exe'
+    $record = New-Object System.Management.Automation.ErrorRecord ((New-Object System.Exception "git: '$longPath' is not a git command.")), 'NativeCommandError', 'NotSpecified', $null
+    Assert-True  (Test-FixtureGitLauncherFailure -Code 1 -Output @($record)) 'an ErrorRecord carrying a long path still matches'
+    Assert-Equal "[0]'-C' [1]'a dir' [2]'' [3]'commit'" (Format-FixtureGitArgumentVector -GitArgs @('-C', 'a dir', '', 'commit')) 'the argv dump shows a space and an empty element apart'
+
     # --- 8. the retry itself: once, said, and counted apart from the failures ------------------------
     #
     # A PowerShell function named git shadows the native one for `& git` inside the lib, which is the
@@ -192,6 +210,27 @@ try {
         $script:fakeGitFailures = 5
         $out = Invoke-FixtureGitNative -Arguments @('commit', '-m', 'x') 6>&1 | Out-String
         Assert-Equal 1 $script:fakeGitCalls 'a commit is run once, even with the transport wording in its output'
+
+        # A launcher refusal (#3271) on a commit: retried once, said as such, with the argv dump.
+        function script:git {
+            $script:fakeGitCalls++
+            if ($script:fakeGitCalls -le $script:fakeGitFailures) {
+                $global:LASTEXITCODE = 1
+                return "git: 'C:\Program Files\Git\cmd\git.exe' is not a git command. See 'git --help'."
+            }
+            $global:LASTEXITCODE = 0
+            return ''
+        }
+        $script:fakeGitCalls = 0
+        $script:fakeGitFailures = 1
+        $failMid  = Get-FixtureGitFailureCount
+        $retryMid = Get-FixtureGitRetryCount
+        $out = Invoke-FixtureGitNative -Arguments @('-C', 'x', 'commit', '-qm', 'msg') 6>&1 | Out-String
+        Assert-Equal 2 $script:fakeGitCalls 'a launcher refusal on a commit is retried once'
+        Assert-Equal $failMid (Get-FixtureGitFailureCount) 'and the retry that succeeded is not a failure'
+        Assert-Equal ($retryMid + 1) (Get-FixtureGitRetryCount) 'but is counted as a retry'
+        Assert-Says $out "launcher refused its own path" 'the retry line names the launcher, not a transport'
+        Assert-Says $out "argv: [0]'-C' [1]'x' [2]'commit'" 'and dumps the argument vector element by element'
 
         $summary = Write-FixtureGitSummary 6>&1 | Out-String
         Assert-Says $summary 'were retried after a transport break' 'the summary names the retries'
