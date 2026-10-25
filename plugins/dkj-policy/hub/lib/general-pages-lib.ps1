@@ -1149,6 +1149,11 @@ function Format-ReleaseNotesDevPage {
     # The site header above the bar, holding the settings button, when the repo is named; else the button floats.
     $bar = if ($RepoName) { (Format-SiteHeaderHtml -Name (ConvertTo-SiteHeaderName -RepoName $RepoName) -Href $HubHref -Tag 'hub') + $bar }
             else { $bar + "`n" + '<div id="settings" class="theme-settings--floating"></div>' }
+    # Under that header the masthead opens with its h1 (#3423): the house page pattern has no eyebrow under a
+    # site header, which already names the site. Only here -- the Worker's page has no header, and there the
+    # eyebrow is the one line naming whose releases these are.
+    if ($RepoName) { $Html = ([regex]'<span class="eyebrow">[^<]*</span>\s*').Replace($Html, '', 1) }
+    $bodyEnd = $Html.LastIndexOf('</body>')
     # The general banner above the site header, as on every other hub page (#3297; owner, October 24, 2026). It
     # stands outside the template's layout, so that is left alone.
     $bar = (Format-RepoHubBanner) + $bar
