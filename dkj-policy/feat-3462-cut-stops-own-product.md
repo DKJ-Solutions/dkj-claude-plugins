@@ -48,6 +48,7 @@ the holder as this checkout's, and keeps the refusal for anything else.
 - [x] `Get-DevPreviewOwnedTreeRoots` in `hub/lib/dev-preview-rules.ps1`: the nearest process naming the root above each of our listeners on the given ports (pure, no I/O)
 - [x] `cut-release.ps1` (root copy and plugin mirror): before the held-build refusal, stop the trees of the product `Get-DevPreview` states, re-probe, and refuse only if still held
 - [x] `brandbook/README.md`: the "stop the dev server before a cut" line now says the cut does it
+- [x] `shared-scripts-lib.ps1`: `cut-release` declares `MirrorRunExempt`, since it now probes the hub lib at both depths (the integrity gate's mirror-depth check)
 
 ### TEST
 
