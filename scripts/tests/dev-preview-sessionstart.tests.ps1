@@ -346,9 +346,7 @@ Assert-True ($grid -match 'href="/repository"' -and $grid -match 'href="/release
 Assert-True ($html -notmatch '<h2>General pages</h2>' -and $html -notmatch '<h2>Facts</h2>' -and $html -notmatch '<dl class="facts') 'no General pages section and no facts on the home page'
 Assert-True ($html.IndexOf('class="grid-3"') -lt $html.IndexOf('<h2>Set up a product</h2>')) 'the setup cards stand under the grid'
 Assert-True ($html -match '<p class="footer-note">[^<]*<code>hub/pages/serve-general-pages.ps1</code>' -and $html.IndexOf('class="footer-note"') -gt $html.IndexOf('<h2>Set up a product</h2>')) 'the footer names the serving script, last'
-Assert-True ($html -notmatch 'href="/brandbook"') 'and without -DkjSolutions there is no Brand book card: a BWJ repo has none (#3198)'
-$dkj = Format-PluginRepoHubHtml -RepoName 'r' -PagesUrl 'http://localhost:4890' -DkjSolutions
-Assert-True ($dkj -match '<section class="card card--link"><nav class="menu-list" aria-label="Brandbook"><a class="menu-item" href="/brandbook">' -and $dkj -notmatch '<h2>Brand book</h2>' -and $dkj.IndexOf('href="/sessionstart"') -lt $dkj.IndexOf('href="/brandbook"')) 'in a DKJ-Solutions repo the Brandbook is the last card in the grid, by bare path: one origin (#3245)'
+Assert-True ($html -notmatch 'brandbook' -and $html -notmatch 'Brand ?book') 'and no Brand book card: the brand book is the source repo''s product, on no consumer hub (#3475)'
 Assert-True (([regex]::Matches($html, '<h2>')).Count -eq ([regex]::Matches($html, '<div class="grid__head"><h2>')).Count) 'and every h2 stands in a grid__head, above its cards'
 Assert-True ($html -match '<title>dkj-thumbnail-generator -- Home</title>' -and $html -notmatch 'Name\s+=') 'its title says Home, and its example states no Name (#3064)'
 
@@ -471,7 +469,7 @@ $env:DKJ_GENERAL_PAGES_PORTS = 'not a list'
 Assert-Equal 4890 (@(Get-GeneralPagesPortRange)[0]) 'an override that is not a port list is ignored'
 Remove-Item Env:\DKJ_GENERAL_PAGES_PORTS -ErrorAction SilentlyContinue
 
-# Whether a checkout is a DKJ-Solutions one (#3198): only there do the servers carry the Brandbook and its card.
+# Whether a checkout is a DKJ-Solutions one (#3198): only there does the hook name the hub roll-out drift.
 $enRoot = Join-Path $Fixture 'enabled-check'
 New-Item -ItemType Directory -Force -Path (Join-Path $enRoot '.claude') | Out-Null
 Assert-True (-not (Test-DkjSolutionsEnabled -Root $enRoot)) 'a checkout with no settings file is no DKJ-Solutions repo'
@@ -484,7 +482,6 @@ Assert-True (Test-DkjSolutionsEnabled -Root $enRoot) 'while a settings.local.jso
 [System.IO.File]::WriteAllText((Join-Path $enRoot '.claude\settings.json'), '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-solutions@dkj-claude-plugins": false } }')
 Assert-True (-not (Test-DkjSolutionsEnabled -Root $enRoot)) 'a repo that sets it false, as the BWJ-Development repos do, is none'
 Assert-True ((Get-HouseStyleDir -PluginRoot $PluginRoot).EndsWith('\dkj-policy\dkj-solutions\assets\house-style')) 'the house style is read from the dkj-solutions folder inside dkj-policy, which every install carries'
-Assert-True (Test-Path -LiteralPath (Get-DkjSolutionsPagesLibPath -PluginRoot $PluginRoot) -PathType Leaf) 'and so is the DKJ-Solutions pages lib'
 # The Sec-Fetch rule both plugin servers share (#3119). Ports do not count toward "site", so the hub's link, the
 # 303 hop and the crumb back all arrive same-site, as top-level navigations.
 Assert-True (-not (Test-LoopbackCrossSite -SecFetchSite 'same-site' -SecFetchMode 'navigate' -Method 'GET')) 'a same-site top-level GET navigation is served'
@@ -599,8 +596,8 @@ try {
     if ($isWindows) {
         # NO SEAM (#3245): the hub is the general pages server, and the line hands out its link.
         $noConfig = New-Repo 'no-config' $null
-        # A DKJ-Solutions repo, so the servers carry the Brandbook and its card (#3198); the
-        # connector-dashboard suite's fixtures are repos without it.
+        # A DKJ-Solutions repo, on purpose: even there the servers carry no Brandbook and no card for it, since
+        # the brand book is the source repo's product (#3475).
         New-Item -ItemType Directory -Force -Path (Join-Path $noConfig '.claude') | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $noConfig '.claude\settings.json'), '{ "enabledPlugins": { "dkj-solutions@dkj-claude-plugins": true } }')
         $r = Invoke-Hook $noConfig
@@ -617,7 +614,7 @@ try {
             $page = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$genPort/" -TimeoutSec 15
             Assert-True ($page.StatusCode -eq 200 -and $page.Content -match 'site-header__name">no-config <span') 'the home page is served on /, naming the repo it was started in'
             Assert-True ($page.Content -match '<h2>Set up a product</h2>' -and $page.Content -notmatch '<h2>Products</h2>') 'with the setup cards and no Products section, since the repo states no Get-DevPreview'
-            Assert-True ($page.Content -match 'href="/release-notes"' -and $page.Content -match 'href="/repository"' -and $page.Content -match 'href="/brandbook"' -and $page.Content -notmatch '<h2>Facts</h2>' -and $page.Content -notmatch 'href="/about"') 'one page of card links (#3289, #3383): the General pages by bare path, the Repository page, and the Brandbook where the repo enables the plugin'
+            Assert-True ($page.Content -match 'href="/release-notes"' -and $page.Content -match 'href="/repository"' -and $page.Content -notmatch 'href="/brandbook' -and $page.Content -notmatch '<h2>Facts</h2>' -and $page.Content -notmatch 'href="/about"') 'one page of card links (#3289, #3383): the General pages by bare path and the Repository page, and no Brandbook even where the repo enables dkj-solutions (#3475)'
             $repoPage = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$genPort/repository" -TimeoutSec 15
             Assert-True ($repoPage.StatusCode -eq 200 -and $repoPage.Content -match '<dl class="facts facts--row">' -and $repoPage.Content -match '<dt>Folder</dt><dd>no-config</dd>' -and $repoPage.Content -match 'href="/issues"') '/repository serves the Repository page: the facts and the Issues card (#3383)'
             $aboutPage = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$genPort/about" -TimeoutSec 15
@@ -667,12 +664,7 @@ try {
         New-Item -ItemType Directory -Force -Path (Join-Path $noConfig 'scripts\dashboard') | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $noConfig 'scripts\dashboard\artifacts.json'), '{ "artifacts": [ { "title": "Fixture page", "url": "https://claude.ai/artifact/Fx1", "kind": "page", "created": "2026-10-01" } ] }')
         Assert-True ((& $getRaw $genPort '/artifacts') -match 'href="https://claude.ai/artifact/Fx1"[^>]*>Fixture page</a>') 'and lists the repo''s own register, read on every request'
-        Assert-True ((& $getRaw $genPort '/brandbook') -match 'HTTP/1.1 303[\s\S]*Location: /brandbook/\r') '/brandbook goes to /brandbook/, the base the brand book app is built for (#3210)'
-        # The build ships in the plugin the server runs from: this tree's, written by the cut, so absent until a release.
-        $r2 = & $getRaw $genPort '/brandbook/'
-        $shippedBb = Test-Path -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\assets\brandbook\index.html') -PathType Leaf
-        Assert-True ($(if ($shippedBb) { $r2 -match 'HTTP/1.1 200' -and $r2 -match '<div id="root">' } else { $r2 -match 'HTTP/1.1 503' -and $r2 -match 'ships no build of the brand book' -and $r2 -match '<p class="eyebrow">no-config</p>' })) '/brandbook/ serves the brand book build the plugin ships, or says the plugin ships none, in a repo with no brandbook/ of its own'
-        Assert-True ((& $getRaw $genPort '/brandbook/../connectors/x.json') -match 'HTTP/1.1 404') 'a brand book path that climbs out of the build is not found'
+        Assert-True ((& $getRaw $genPort '/brandbook') -match 'HTTP/1.1 404' -and (& $getRaw $genPort '/brandbook/') -match 'HTTP/1.1 404') '/brandbook and /brandbook/ are not found, in a repo that enables dkj-solutions too (#3475)'
         $r2 = & $getRaw $genPort '/release-notes'
         Assert-True ($r2 -match 'HTTP/1.1 404' -and $r2 -match 'Not built yet' -and $r2 -match 'could not build it \(the build exited 1: [^)]*release history is missing') '/release-notes builds a page that is absent, and where it cannot, is a 404 text naming why (#3189)'
         New-Item -ItemType Directory -Force -Path (Join-Path $noConfig 'dkj-policy\releases\page') | Out-Null

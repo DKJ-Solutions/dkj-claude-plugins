@@ -23,7 +23,8 @@ them, and this file points there
   versioning *within* it is correct: [Tessa's lens](../specialists/lenses/specialist-06-16-lens.md#one-product-one-repository).
 - **It consumes itself, with three of the seven plugins enabled** in
   [`.claude/settings.json`](../settings.json): the core team, `dkj-policy` and `dkj-solutions`, the last
-  for the house style and the hub's DKJ-Solutions card (#2976, #3198). The three add-on teams
+  for the house style and its session check (#2976, #3198; the hub's DKJ-Solutions card it also gave
+  ended with #3475). The three add-on teams
   (Dave, September 30, 2026) and the BWJ extension, then `dkj-policy-bwj` (October 1), are set to `false`. That reverses the
   September 8 choice to enable every plugin for validation, because none of the four has work here, so
   an issue here is filed with a plain `gh issue create`. The roster is in
@@ -80,8 +81,8 @@ this section.
   1. The **fold commit** after a merge — bounded to `dkj-policy/CHANGELOG.md` and the branch's
      development document (named by its resolver, `Resolve-BranchFilePath`), which the same run removes.
   2. The **release commit**, only on explicit request — the lockstep version bump, the generated
-     release notes, the changelog emptied to its intro, the builds `Get-ReleaseBuilds` names (the
-     `brandbook/` app, into `dkj-solutions`' `assets/brandbook/`, #3210), and the tag `vX.Y.Z`. A major also takes two
+     release notes, the changelog emptied to its intro, the builds `Get-ReleaseBuilds` names (none
+     since #3477), and the tag `vX.Y.Z`. A major also takes two
      preparation commits, bounded to the new section in `dkj-policy/releases/history.md` and the assert
      in `release-lib.tests.ps1` that pins the major.
   3. The **release-notes commit** after the tag — bounded to the hand-written documents of a cut that

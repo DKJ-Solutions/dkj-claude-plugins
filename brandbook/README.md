@@ -25,22 +25,15 @@ hub's own PowerShell Brandbook page it replaced is gone, and its themes table an
 **The hub neither links nor serves it** (October 22, 2026): it used to serve a build of this app at
 `/brandbook/` too, so one brand book was visible on two ports.
 
-**Every other DKJ-Solutions repo sees the build of the release it runs.** The cut builds this app after its gates
-and copies `dist/` into the `dkj-solutions` plugin's `assets/brandbook/` in the release commit
-(`Get-ReleaseBuilds` in `scripts/repo-config.ps1`,
-[#3210](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3210)), and the plugin's general pages server
-serves that folder at `/brandbook/`. So a change here reaches consumers with the next release, never before.
-**A cut stops this app's dev server itself.** Its `esbuild.exe` runs from `node_modules`, which the build's `npm ci`
-cannot replace while it runs, so the cut refuses before its gates while anything in this folder is in use
-([#3353](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3353)). Where the holder is this checkout's
-own dev-preview product, the cut stops that process tree first and says so, and the next session start restarts it
-([#3462](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3462)). A server it does not recognise as this
-checkout's still refuses the cut, so stop that one by hand.
+**No other repo sees it, and the release does not ship it** ([#3477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3477)).
+From [#3210](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3210) the cut built this app and copied
+`dist/` into the `dkj-solutions` plugin's `assets/brandbook/`, for every DKJ-Solutions repo's hub to serve at
+`/brandbook/`. Once no consumer hub served it ([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475)),
+nothing read that folder, so the build left `Get-ReleaseBuilds` and the folder left the plugin.
 
 The app is built for the base `/brandbook/` (`vite.config.ts`): the showcase is its one page, and the "Home" crumb
-goes to the origin's own `/`: the product port's root page here, a repo's hub wherever the plugin serves the
-build. It drew a hub specimen and previews of other repos' hubs until #3274; the hub's form
-is the house-style README's, with its two stylesheet-only patterns.
+goes to the origin's own `/`, the product port's root page. It drew a hub specimen and previews of other repos'
+hubs until #3274; the hub's form is the house-style README's, with its two stylesheet-only patterns.
 
 ## Work on it
 

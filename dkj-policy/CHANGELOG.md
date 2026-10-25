@@ -2,7 +2,59 @@
 
 ## [Unreleased]
 
-**3 / 7 minor entries** <!-- pending-tally -->
+**4 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3477-stop-shipping-brandbook-build · 20261025-215949Z
+
+A release no longer builds the `brandbook/` app or copies it into the `dkj-solutions` plugin
+([#3477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3477)). Since #3475 no consumer hub served
+that copy, so the cut paid an `npm ci` and a build for a folder nothing read. `Get-ReleaseBuilds` now names no
+build, and `assets/brandbook/` is gone from the plugin.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+Stop building and shipping the brand book into dkj-solutions/assets/brandbook/
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3483](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3483)
+
+---
+
+### DEPLOY: feat/3475-consumer-hub-no-brandbook · 20261025-213612Z
+
+No hub shows or serves the Brandbook any more, whether or not the repo enables `dkj-solutions`
+([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475)). The brand book is a product of
+`dkj-claude-plugins`, and only that repo shows it, on its own product port. A consumer hub's home page loses its
+Brand book card, and `/brandbook` on its general pages server is now a plain 404. The extension's
+`dkj-solutions-pages-lib.ps1`, which existed only to draw that card and serve the build, is removed.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A maintainer of a DKJ-Solutions repo no longer finds the Brandbook card on that repo's hub after the update.
+The brand book stays reachable from `dkj-claude-plugins`.
+
+**Score:** 1
+
+#### Pull Request
+
+Consumer hubs no longer show or serve the Brandbook
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3481](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3481)
+
+---
 
 ### DEPLOY: feat/3470-hub-pages-into-plugin · 20261025-211844Z
 

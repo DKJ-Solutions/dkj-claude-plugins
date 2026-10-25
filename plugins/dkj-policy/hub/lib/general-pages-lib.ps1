@@ -15,8 +15,9 @@
 
     WHY THE PLUGIN IS DKJ-POLICY (#3198, the owner's decision of October 20, 2026). "General" means what
     every repo has, whichever organisation it belongs to, so these pages ship with the plugin every repo
-    runs. They moved here from dkj-solutions, which BWJ-Development never enables. The DKJ-Solutions page,
-    the Brandbook, stayed in that plugin: dkj-solutions/scripts/lib/dkj-solutions-pages-lib.ps1.
+    runs. They moved here from dkj-solutions, which BWJ-Development never enables. The one DKJ-Solutions
+    page, the Brandbook, stayed in that plugin until #3475 (the owner, October 25, 2026) took it off every
+    consumer hub: it is the source repo's product, and only that repo's own server shows it.
 
     THEY RENDER IN THE HOUSE STYLE IN EVERY REPO, BWJ-Development's included. They are this plugin's own
     tooling, not a repo's product, so they keep one look wherever they run; the stylesheet and theme script
@@ -35,10 +36,7 @@
 
     THE HUB'S "GENERAL" CARD is rendered here too (Format-GeneralPagesCardHtml), because two hubs show it:
     the source repo's own, and the placeholder's. Given the general server's base url it links its pages
-    there; given none it says the server is not running. The "DKJ-Solutions" card is the same function with
-    other rows, called from dkj-solutions-pages-lib.ps1 (the owner's split, October 20, 2026): General is
-    what every repo has, whichever organisation it belongs to; DKJ-Solutions is what only the DKJ-Solutions
-    repos share, the house style first.
+    there; given none it says the server is not running.
 
     THE DEFAULT THEME IS THE ONE VALUE THAT ARRIVES BY A SETTER, not a parameter (#3390): every page of the
     server opens in it, so threading it through each formatter would add one parameter to all of them for a
@@ -281,7 +279,6 @@ $script:HubIcons = @{
     'artifacts'     = '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>'
     'release-notes' = '<path d="M3 12V4h8l10 10-8 8z"/><circle cx="7.5" cy="8.5" r="1.5"/>'
     'sessionstart'  = '<circle cx="12" cy="12" r="9"/><path d="M10 8l6 4-6 4z"/>'
-    'brandbook'     = '<path d="M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.6 0-1-.8-1.4-.8-2.4s.8-1.5 1.8-1.5H17a4 4 0 0 0 4-4c0-4.7-4-8.5-9-8.5z"/><circle cx="7.5" cy="11" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="11" r="1"/>'
     'test-gate'     = '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>'
     'stopwatch'     = '<circle cx="12" cy="14" r="7"/><path d="M12 14v-4M10 3h4M12 3v4"/>'
     'logbook'       = '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>'
@@ -326,8 +323,8 @@ function Format-GeneralPagesCardHtml {
         h2 never stands inside a card (#3175). A url that is not a plain loopback base is treated as none,
         so a state file cannot point a hub's links elsewhere. -SameOrigin is for a hub that relays the
         general pages from its own origin (#3168): the card then links each page by its bare path, so the
-        visitor stays on the hub's origin and its theme choice. -Pages, -Heading and -HeadSub let the
-        DKJ-Solutions card (dkj-solutions-pages-lib.ps1) be the same card with other rows. -LocalPages are
+        visitor stays on the hub's origin and its theme choice. -Pages, -Heading and -HeadSub make it the
+        same card with other rows (the DKJ-Solutions card was one, until #3475 took it off). -LocalPages are
         pages the hub serves ITSELF (the source repo's DKJ repos page, #3231): linked by their bare path after
         the server's rows, and drawn whether or not the general pages server answers. -Title is the h2 of a
         card standing alone, '<Heading> pages' when not given (the home page's Brand book section, #3270). With
@@ -534,12 +531,6 @@ function Get-HouseStyleDir {
     #>
     param([Parameter(Mandatory = $true)][string]$PluginRoot)
     return Join-Path $PluginRoot.TrimEnd('\', '/') 'dkj-solutions\assets\house-style'
-}
-
-function Get-DkjSolutionsPagesLibPath {
-    <# The dkj-solutions extension's dkj-solutions-pages-lib.ps1 inside -PluginRoot, the dkj-policy folder the servers run from. #>
-    param([Parameter(Mandatory = $true)][string]$PluginRoot)
-    return Join-Path $PluginRoot.TrimEnd('\', '/') 'dkj-solutions\scripts\lib\dkj-solutions-pages-lib.ps1'
 }
 
 function Get-ReleaseNotesPageNeed {
