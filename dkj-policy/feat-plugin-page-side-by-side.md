@@ -56,7 +56,7 @@ side rather than stacked.
 ### TEST
 
 - [x] `dev-pages.tests.ps1` green (356 passed); the live hub serves the new form
-- [ ] the owner's look at /plugins/dkj-solutions (a visible result)
+- [x] the owner's look at /plugins/dkj-solutions (a visible result): approved by choosing to merge this branch before #3502
 
 ### DEPLOY: feat/plugin-page-side-by-side
 
