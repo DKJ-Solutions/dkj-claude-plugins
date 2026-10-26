@@ -63,6 +63,9 @@ poll interval apart, printing a line that was not true.
 
 #### What makes this deploy extra special
 
+A consumer cutting a release sees no change in what the cut decides. The verdict was already right; only
+the wait before a red check's refusal is shorter.
+
 **Score:** N/A
 
 #### Pull Request
