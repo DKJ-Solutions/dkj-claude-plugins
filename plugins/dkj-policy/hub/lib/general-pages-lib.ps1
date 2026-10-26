@@ -934,21 +934,19 @@ function Get-SessionStartScore {
     return [int][Math]::Max(1, [Math]::Min($cap, [Math]::Round(100.0 * $None / $Total, [MidpointRounding]::AwayFromZero)))
 }
 
-function Format-SessionStartSnapshotHtml {
+function Get-SessionStartSnapshotSections {
     <#
         The last full measurement, from scripts/dashboard/session-start-snapshot.json: the data block of the
-        session-start Artifact the measure-session-start skill publishes, copied into the repo. -Snapshot
-        is the parsed file, $null when it is missing; -ReadError is set when it could not be read. Its
-        always-on documents are left out: the live table above measures them on every request.
+        session-start Artifact the measure-session-start skill publishes, copied into the repo. -Snapshot is the
+        parsed file, $null when it is missing. Returns its sections in page order, each a card on the overview and a
+        page of its own (Get-SessionStartSections). Its always-on documents are left out: the live table measures
+        them on every request.
     #>
-    param($Snapshot, [AllowEmptyString()][string]$ReadError = '')
+    param($Snapshot)
+    if (-not $Snapshot) { return @() }
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $md = { param($v) ConvertTo-DevInlineText $v }
-    $sb = New-Object System.Text.StringBuilder
-    if ($ReadError) {
-        [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">scripts/dashboard/session-start-snapshot.json could not be read: ' + (& $e $ReadError) + '.</p>')
-    }
-    if (-not $Snapshot) { return $sb.ToString() }
+    $sections = New-Object System.Collections.Generic.List[object]
 
     $items = @(@($Snapshot.items) | Where-Object { $_ })
     $sum = @{ direct = 0.0; setting = 0.0; none = 0.0 }
@@ -959,11 +957,8 @@ function Format-SessionStartSnapshotHtml {
     $prevScore = if ($prev -and $prev.totalTokens) { Get-SessionStartScore ([double]$prev.noneTokens) ([double]$prev.totalTokens) } else { $null }
     $pct = { param($v) if ($all -gt 0) { ' (' + [Math]::Round(100.0 * $v / $all) + '%)' } else { '' } }
 
-    [void]$sb.AppendLine('<div class="grid-2" id="last-measurement">')
+    $sb = New-Object System.Text.StringBuilder
     $h = $Snapshot.header
-    [void]$sb.AppendLine('<div class="grid__head"><h2>The last full measurement</h2><p class="card__sub">' +
-        (& $e $(if ($h) { $h.eyebrow } else { $Snapshot.asOf })) + '</p></div>')
-    [void]$sb.AppendLine('<section class="card grid__full">')
     if ($h -and $h.lede) { [void]$sb.AppendLine('<p>' + (& $md $h.lede) + '</p>') }
     $scoreText = if ($null -ne $score) { "$score / 100" + $(if ($null -ne $prevScore -and $prevScore -ne $score) { ' (was ' + $prevScore + ')' } else { '' }) } else { '--' }
     [void]$sb.Append((Format-DevTiles @(
@@ -972,12 +967,10 @@ function Format-SessionStartSnapshotHtml {
         @{ L = 'Via a setting (tokens)'; V = ('~' + (Format-DevNumber $sum.setting) + (& $pct $sum.setting)) },
         @{ L = 'No influence (tokens)'; V = ('~' + (Format-DevNumber $sum.none) + (& $pct $sum.none)) })))
     [void]$sb.AppendLine('<p class="note">The score is the share of the start that Claude Code itself brings, against everything this repo and this account add on top. Only a start that adds nothing scores 100.</p>')
-    [void]$sb.AppendLine('</section>')
-    [void]$sb.AppendLine('</div>')
+    $sections.Add(@{ Slug = 'last-measurement'; Title = 'The last full measurement'
+        Sub = (& $e $(if ($h) { $h.eyebrow } else { $Snapshot.asOf })); Value = ('Efficiency score ' + $scoreText); Body = $sb.ToString() })
 
-    [void]$sb.AppendLine('<div class="grid-2" id="layers">')
-    [void]$sb.AppendLine('<div class="grid__head"><h2>Every layer, by influence</h2><p class="card__sub">Direct is changed in this repo through a branch and a PR, a setting on the machine or in claude.ai; no influence ships with Claude Code itself</p></div>')
-    [void]$sb.AppendLine('<section class="card grid__full">')
+    $sb = New-Object System.Text.StringBuilder
     if ($items.Count) {
         $sorted = @($items | Sort-Object @{ Expression = { @('direct', 'setting', 'none').IndexOf([string]$_.influence) } }, @{ Expression = { [double]$_.tokens }; Descending = $true })
         $largest = [double](($items | ForEach-Object { [double]$_.tokens } | Measure-Object -Maximum).Maximum)
@@ -997,18 +990,19 @@ function Format-SessionStartSnapshotHtml {
     } else {
         [void]$sb.AppendLine('<p class="note">The snapshot holds no layers.</p>')
     }
-    [void]$sb.AppendLine('</section>')
-    [void]$sb.AppendLine('</div>')
+    $sections.Add(@{ Slug = 'layers'; Title = 'Every layer, by influence'
+        Sub = 'Direct is changed in this repo through a branch and a PR, a setting on the machine or in claude.ai; no influence ships with Claude Code itself'
+        Value = ($items.Count.ToString() + ' layers, ~' + (Format-DevNumber $all) + ' tokens'); Body = $sb.ToString() })
 
     $acts = if ($Snapshot.actions -is [array]) { @($Snapshot.actions) } elseif ($Snapshot.actions) { @($Snapshot.actions.items) } else { @() }
     $acts = @($acts | Where-Object { $_ })
     if ($acts.Count) {
         $lede = if ($Snapshot.actions -isnot [array] -and $Snapshot.actions.lede) { $Snapshot.actions.lede } else { 'Ranked by tokens saved per session. Done is already done.' }
-        [void]$sb.AppendLine('<div class="grid-2" id="actions">')
-        [void]$sb.AppendLine('<div class="grid__head"><h2>What you can do, biggest gain first</h2><p class="card__sub">' + (& $md $lede) + '</p></div>')
-        [void]$sb.AppendLine('<section class="card grid__full">')
+        $open = @($acts | Where-Object { -not $_.done })
+        $done = @($acts | Where-Object { $_.done })
+        $sb = New-Object System.Text.StringBuilder
         [void]$sb.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th>Gain (tokens)</th><th class="dp-left">Action</th><th class="dp-left">Status</th></tr></thead><tbody>')
-        foreach ($a in @(@($acts | Where-Object { -not $_.done }) + @($acts | Where-Object { $_.done }))) {
+        foreach ($a in @($open + $done)) {
             $gain = if ($null -ne $a.save) { & $e $a.save } elseif ($null -ne $a.tokens) { '~' + (Format-DevNumber $a.tokens) } else { '--' }
             $what = '<strong>' + (& $md $a.title) + '</strong>'
             foreach ($part in @($a.text, $a.how)) { if ($part) { $what += '<p class="note">' + (& $md $part) + '</p>' } }
@@ -1017,27 +1011,23 @@ function Format-SessionStartSnapshotHtml {
                 '</td><td class="dp-left">' + $what + '</td><td class="dp-left">' + (Format-DevInfluence ([string]$a.influence) -Done:([bool]$a.done)) + '</td></tr>')
         }
         [void]$sb.AppendLine('</tbody></table></div>')
-        [void]$sb.AppendLine('</section>')
-        [void]$sb.AppendLine('</div>')
+        $sections.Add(@{ Slug = 'actions'; Title = 'What you can do, biggest gain first'; Sub = (& $md $lede)
+            Value = ($open.Count.ToString() + ' open, ' + $done.Count + ' done'); Body = $sb.ToString() })
     }
 
     $none = @(if ($Snapshot.none) { @($Snapshot.none.items) | Where-Object { $_ } })
     if ($none.Count) {
-        [void]$sb.AppendLine('<div class="grid-2" id="no-influence">')
-        [void]$sb.AppendLine('<div class="grid__head"><h2>What you cannot change</h2><p class="card__sub">Claude Code ships this itself, in every repo</p></div>')
-        [void]$sb.AppendLine('<section class="card grid__full">')
+        $sb = New-Object System.Text.StringBuilder
         [void]$sb.AppendLine('<dl class="facts">')
         foreach ($n in $none) { [void]$sb.AppendLine('<div><dt>' + (& $e $n.title) + '</dt><dd>' + (& $md $n.text) + '</dd></div>') }
         [void]$sb.AppendLine('</dl>')
-        [void]$sb.AppendLine('</section>')
-        [void]$sb.AppendLine('</div>')
+        $sections.Add(@{ Slug = 'no-influence'; Title = 'What you cannot change'; Sub = 'Claude Code ships this itself, in every repo'
+            Value = ($none.Count.ToString() + ' parts'); Body = $sb.ToString() })
     }
 
     $adv = $Snapshot.advice
     if ($adv) {
-        [void]$sb.AppendLine('<div class="grid-2" id="advice">')
-        [void]$sb.AppendLine('<div class="grid__head"><h2>' + (& $e $(if ($adv.heading) { $adv.heading } else { 'Advice' })) + '</h2><p class="card__sub">Advice</p></div>')
-        [void]$sb.AppendLine('<section class="card grid__full">')
+        $sb = New-Object System.Text.StringBuilder
         if ($adv.lede) { [void]$sb.AppendLine('<p>' + (& $md $adv.lede) + '</p>') }
         $steps = @(@($adv.steps) | Where-Object { $_ })
         if ($steps.Count) {
@@ -1048,41 +1038,32 @@ function Format-SessionStartSnapshotHtml {
         if ($adv.dont -and $adv.dont.text) {
             [void]$sb.AppendLine('<p class="msg" role="note"><strong>' + (& $e $(if ($adv.dont.label) { $adv.dont.label } else { 'Do not' })) + ':</strong> ' + (& $md $adv.dont.text) + '</p>')
         }
-        [void]$sb.AppendLine('</section>')
-        [void]$sb.AppendLine('</div>')
+        $sections.Add(@{ Slug = 'advice'; Title = $(if ($adv.heading) { [string]$adv.heading } else { 'Advice' }); Sub = 'Advice'
+            Value = ($steps.Count.ToString() + ' steps'); Body = $sb.ToString() })
     }
 
     if ($Snapshot.footer) {
-        [void]$sb.AppendLine('<div class="grid-2" id="method">')
-        [void]$sb.AppendLine('<div class="grid__head"><h2>How it was measured</h2></div>')
-        [void]$sb.AppendLine('<section class="card grid__full">')
+        $sb = New-Object System.Text.StringBuilder
         [void]$sb.AppendLine('<p class="note">' + (& $md $Snapshot.footer) + '</p>')
         $src = $Snapshot.source
         if ($src -and (Test-ArtifactUrl ([string]$src.artifact))) {
             [void]$sb.AppendLine('<p class="note">Copied from the Artifact <a class="dp-link" href="' + (& $e $src.artifact) + '" target="_blank" rel="noopener noreferrer">' +
                 (& $e $src.title) + '</a>' + $(if ($src.copied) { ' on ' + (& $e $src.copied) } else { '' }) + '.</p>')
         }
-        [void]$sb.AppendLine('</section>')
-        [void]$sb.AppendLine('</div>')
+        $sections.Add(@{ Slug = 'method'; Title = 'How it was measured'; Sub = 'Where the numbers of the last full measurement come from'
+            Value = $(if ($src -and $src.copied) { 'Copied ' + (& $e $src.copied) } elseif ($Snapshot.asOf) { 'As of ' + (& $e $Snapshot.asOf) } else { '--' }); Body = $sb.ToString() })
     }
-    return $sb.ToString()
+    return $sections.ToArray()
 }
 
-function Format-SessionStartPageHtml {
+function Get-SessionStartSections {
     <#
-        The SessionStart page. -Model is @{ Total; DiskBytes; Tokens; Budget; State; Ok; Documents (list of
-        @{ Display; Bytes; Source = 'measured'|'carried'|'unmeasured' }); GeneratedAt; Seconds }, or
-        $null with -ReadError when the measurement failed. -RepoName is the repo's name. -Snapshot and
-        -SnapshotError are Format-SessionStartSnapshotHtml's: the repo's last full session-start measurement
-        (scripts/dashboard/session-start-snapshot.json, where it has one), rendered below the live table.
+        Every section of the SessionStart page, in page order, each @{ Slug; Title; Sub; Value; Body }: a card on
+        '/sessionstart' (Title as its h2, Sub and Value as its two lines) and a page of its own on
+        '/sessionstart/<Slug>' (Body, in one card). Sub, Value and Body are markup, already escaped. The live
+        always-on documents come first; the snapshot's sections (Get-SessionStartSnapshotSections) follow.
     #>
-    param(
-        $Model,
-        [AllowEmptyString()][string]$ReadError = '',
-        [AllowEmptyString()][string]$RepoName = '',
-        $Snapshot = $null,
-        [AllowEmptyString()][string]$SnapshotError = ''
-    )
+    param($Model, $Snapshot = $null)
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $docs = if ($Model) { @($Model.Documents | Where-Object { $_ } | Sort-Object @{ Expression = { [int64]$_.Bytes }; Descending = $true }) } else { @() }
     $total = if ($Model) { [int64]$Model.Total } else { $null }
@@ -1094,19 +1075,11 @@ function Format-SessionStartPageHtml {
         @{ L = 'Estimated tokens'; V = $(if ($Model) { '~' + (Format-DevNumber $Model.Tokens) } else { '--' }) },
         @{ L = 'Budget (B)'; V = (Format-DevNumber $budget) },
         @{ L = $(if ($null -ne $room -and $room -lt 0) { 'Over the budget (B)' } else { 'Headroom (B)' }); V = $(if ($null -ne $room) { Format-DevNumber ([Math]::Abs($room)) } else { '--' }) })))
-    if ($ReadError) {
-        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The always-on path could not be measured: ' + (& $e $ReadError) + '.</p>')
-    } elseif ($Model -and -not $Model.Ok) {
-        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The always-on path is over its limit (' + (& $e $Model.State) + '): every session pays it, and the gate refuses a branch that grows it.</p>')
-    }
     $unmeasured = @($docs | Where-Object { $_.Source -eq 'unmeasured' })
     if ($unmeasured.Count) {
         [void]$body.AppendLine('<p class="msg" role="status">Not counted, because neither this machine nor the baseline has a size for it: ' +
             (($unmeasured | ForEach-Object { '<code>' + (& $e $_.Display) + '</code>' }) -join ', ') + '.</p>')
     }
-    [void]$body.AppendLine('<div class="grid-2" id="documents">')
-    [void]$body.AppendLine('<div class="grid__head"><h2>Always-on documents</h2><p class="card__sub"><code>CLAUDE.md</code> and every file it imports, largest first</p></div>')
-    [void]$body.AppendLine('<section class="card grid__full">')
     $counted = @($docs | Where-Object { $_.Source -ne 'unmeasured' })
     if ($counted.Count) {
         [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Document</th><th>Bytes</th><th class="dp-left">Share of the path</th><th>Share</th><th class="dp-left">Measured</th></tr></thead><tbody>')
@@ -1119,17 +1092,85 @@ function Format-SessionStartPageHtml {
     } else {
         [void]$body.AppendLine('<p class="note">No always-on document was measured.</p>')
     }
-    [void]$body.AppendLine('</section>')
-    [void]$body.AppendLine('</div>')
-    [void]$body.Append((Format-SessionStartSnapshotHtml -Snapshot $Snapshot -ReadError $SnapshotError))
+    $value = if ($Model) { (Format-DevNumber $total) + ' B of ' + (Format-DevNumber $budget) + ' B' } else { 'Not measured' }
+    $documents = @{ Slug = 'documents'; Title = 'Always-on documents'; Sub = '<code>CLAUDE.md</code> and every file it imports, largest first'; Value = $value; Body = $body.ToString() }
+    return @(@($documents) + @(Get-SessionStartSnapshotSections -Snapshot $Snapshot))
+}
+
+# The page layer of the SessionStart pages (names the house file does not define, ss-): a card's two lines under its
+# h2, in the Stopwatch label card's sizes, and the h1 in the overview's grid head.
+$script:SessionStartStyle = $script:DevBarStyle + "`n" +
+    '.ss-cards > .grid__head > h1 { margin: 0; }' + "`n" +
+    '.ss-card > h2 a { color: inherit; text-decoration: none; }' + "`n" +
+    '.ss-card > p { margin: 0; }' + "`n" +
+    '.ss-card > p + p { margin-top: var(--spacing-1); }' + "`n" +
+    # Two lines at most on a card; the section's page shows the line whole.
+    '.ss-sub { font-size: var(--text-sm); font-weight: 400; color: var(--muted); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }' + "`n" +
+    '.ss-value { font-size: var(--text-base); font-weight: 300; color: var(--fg-1); }'
+
+function Format-SessionStartPageHtml {
+    <#
+        The SessionStart pages, shaped like the Stopwatch's (the owner, October 26, 2026): '/sessionstart' is bare,
+        an h1 with one card per section (Get-SessionStartSections), three to a row, each linking the section's own
+        page; -Section names that page by its slug, bare too, with the section in one card under its h1 and a crumb
+        back to the overview. $null for a slug no section has, which the server answers with a 404. -Model is
+        @{ Total; DiskBytes; Tokens; Budget; State; Ok; Documents (list of @{ Display; Bytes; Source =
+        'measured'|'carried'|'unmeasured' }); GeneratedAt; Seconds }, or $null with -ReadError when the measurement
+        failed. -RepoName is the repo's name. -Snapshot is the repo's last full session-start measurement
+        (scripts/dashboard/session-start-snapshot.json, where it has one), $null without; -SnapshotError is set
+        when it could not be read.
+    #>
+    param(
+        $Model,
+        [AllowEmptyString()][string]$ReadError = '',
+        [AllowEmptyString()][string]$RepoName = '',
+        $Snapshot = $null,
+        [AllowEmptyString()][string]$SnapshotError = '',
+        [AllowEmptyString()][string]$Section = ''
+    )
+    $e = { param($v) ConvertTo-GeneralPageText $v }
+    $sections = @(Get-SessionStartSections -Model $Model -Snapshot $Snapshot)
+    # A failed or over-budget measurement is said on the overview and on the documents' page, where its numbers are.
+    $alert = if ($ReadError) {
+        '<p class="msg msg--warn" role="alert">The always-on path could not be measured: ' + (& $e $ReadError) + '.</p>'
+    } elseif ($Model -and -not $Model.Ok) {
+        '<p class="msg msg--warn" role="alert">The always-on path is over its limit (' + (& $e $Model.State) + '): every session pays it, and the gate refuses a branch that grows it.</p>'
+    } else { '' }
     $when = if ($Model -and $Model.GeneratedAt) {
         $secs = if ($null -ne $Model.Seconds) { ' in ' + ([double]$Model.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
         ', measured ' + (& $e $Model.GeneratedAt) + $secs
     } else { '' }
     $whose = if ($RepoName) { 'every session in <code>' + (& $e $RepoName) + '</code>' } else { 'every session in this repo' }
-    return Format-GeneralPageHtml -Title 'SessionStart' -Style $script:DevBarStyle -Body $body.ToString() -Eyebrow $RepoName -SiteName $RepoName `
-        -Lead ('What ' + $whose + ' loads before its first turn: the always-on document path that <code>always-on-sessioncheck</code> reports at session start, against the budget the gate holds it to. Below it, where the repo keeps one, the last full measurement of everything else a session loads, with what can be done about it.') `
-        -FooterNote ('Measured by <code>always-on-budget-lib.ps1</code>, in LF bytes, the unit the gate judges' + $when + ' (<a class="dp-link" href="/refresh?page=sessionstart">measure again</a>).')
+    $footer = 'What ' + $whose + ' loads before its first turn: the always-on document path that <code>always-on-sessioncheck</code> reports at session start, against the budget the gate holds it to, and, where the repo keeps one, the last full measurement of everything else a session loads. ' +
+        'Measured by <code>always-on-budget-lib.ps1</code>, in LF bytes, the unit the gate judges' + $when + ' (<a class="dp-link" href="/refresh?page=sessionstart">measure again</a>).'
+    $body = New-Object System.Text.StringBuilder
+
+    if ($Section) {
+        $s = @($sections | Where-Object { $_.Slug -ceq $Section }) | Select-Object -First 1
+        if (-not $s) { return $null }
+        if ($s.Slug -eq 'documents' -and $alert) { [void]$body.AppendLine($alert) }
+        [void]$body.AppendLine('<div class="grid-2" id="' + $s.Slug + '">')
+        [void]$body.AppendLine('<div class="grid__head"><h1>' + (& $e $s.Title) + '</h1><p class="card__sub">' + $s.Sub + '</p></div>')
+        [void]$body.AppendLine('<section class="card grid__full">')
+        [void]$body.Append($s.Body)
+        [void]$body.AppendLine('</section>')
+        [void]$body.AppendLine('</div>')
+        return Format-GeneralPageHtml -Title $s.Title -Style $script:SessionStartStyle -Body $body.ToString() -Lead '' -Bare -SiteName $RepoName `
+            -ParentCrumbs @(@{ Label = 'SessionStart'; Href = '/sessionstart' }) -FooterNote $footer
+    }
+
+    if ($alert) { [void]$body.AppendLine($alert) }
+    if ($SnapshotError) {
+        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">scripts/dashboard/session-start-snapshot.json could not be read: ' + (& $e $SnapshotError) + '.</p>')
+    }
+    [void]$body.AppendLine('<div class="grid-3 ss-cards">')
+    [void]$body.AppendLine('<div class="grid__head"><h1>SessionStart</h1></div>')
+    foreach ($s in $sections) {
+        [void]$body.AppendLine('<section class="card card--link ss-card" id="' + $s.Slug + '"><h2><a href="/sessionstart/' + $s.Slug + '">' + (& $e $s.Title) + '</a></h2>' +
+            '<p class="ss-sub">' + $s.Sub + '</p><p class="ss-value num">' + $s.Value + '</p></section>')
+    }
+    [void]$body.AppendLine('</div>')
+    return Format-GeneralPageHtml -Title 'SessionStart' -Style $script:SessionStartStyle -Body $body.ToString() -Lead '' -Bare -SiteName $RepoName -FooterNote $footer
 }
 
 function Format-ReleaseNotesDevPage {
