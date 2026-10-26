@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**12 / 19 minor entries** <!-- pending-tally -->
+**13 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3494-on-hold-for-every-awaiting-label · 20261026-101354Z
+
+The `asana-closed-message` script now tells the Asana task when an issue is closed as not planned under any
+`awaiting-*` label, not only `awaiting-info-client`
+([#3494](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3494)). The task is told it is on
+hold and will be reopened when the work can pick up again. The message under `awaiting-info-client` is
+unchanged.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A requester whose ticket is closed while parked, for example waiting on their own sign-off, is told it is on
+hold instead of hearing nothing. A store picks it up by re-adopting the `asana-closed-message` script through
+`adopt-bwj-development`'s stop-and-diff.
+
+**Score:** 3
+
+#### Pull Request
+
+asana-closed-message: a close as not planned under any awaiting-* label posts an on-hold message
+
+Plugins: bwj-development
+
+[PR #3503](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3503)
+
+---
 
 ### DEPLOY: feat/plugin-page-side-by-side · 20261026-100313Z
 
