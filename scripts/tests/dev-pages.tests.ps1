@@ -571,13 +571,15 @@ Assert-True ((Get-DkjRepoQuery) -notmatch '"') 'the query holds no double quote,
 $co = @(@{ Repo = 'DKJ-Solutions/dkj-lifehub'; Path = 'C:\x\dkj-lifehub'; Branch = 'main'; Dirty = 2 }, @{ Repo = 'DKJ-Solutions/unlisted'; Path = 'C:\x\unlisted'; Branch = 'dev'; Dirty = 0 })
 $page = Format-DkjReposPageHtml -Query $q -Checkouts $co -Meta @{ GeneratedAt = '2026-10-20 12:00:00'; Seconds = 1.2 }
 Assert-True ($page -match '<span aria-current="page">DKJ repos</span>' -and $page -match '<h1>DKJ repos</h1>') 'the page opens with the breadcrumb bar and its own h1'
+Assert-True ($page -match '<div class="dr-grid" id="repos">\s*<div class="grid__head"><h1>DKJ repos</h1></div>\s*<section class="card dr-card">' -and $page -notmatch 'class="tiles"' -and $page -notmatch 'class="lead"' -and $page -notmatch '<h2>Repos</h2>' -and $page -notmatch '<table') 'the repos are cards in a grid headed by the h1, with no tiles, no lead, no section heading and no table (the owner, October 26, 2026)'
+Assert-True ($page -match '<section class="card dr-card"><h2><a href="https://github.com/DKJ-Solutions/dkj-lifehub">dkj-lifehub</a></h2>[^\n]*data-copy="Set-Location[^\n]*</section>') 'a checkout''s session command sits in its own repo''s card'
 Assert-True ($page -match '&lt;b&gt;life&lt;/b&gt;' -and $page -notmatch '<b>life</b>') 'a repo description is escaped'
 Assert-True ($page -match 'href="https://github.com/DKJ-Solutions/dkj-lifehub/issues">3</a>' -and $page -match '2 uncommitted') 'a repo row links its open issues and names its checkout state'
-Assert-True ($page -match '>unlisted</a>' -and $page -match 'unlisted&#39;; claude') 'a checkout GitHub did not list still gets its row and its session'
+Assert-True ($page -match '>unlisted</a>' -and $page -match 'unlisted&#39;; claude') 'a checkout GitHub did not list still gets its card and its session'
 Assert-True ($page.Contains('data-copy="Set-Location -LiteralPath &#39;C:\x\dkj-lifehub&#39;; claude"') -and $page -match 'execCommand\("copy"\)') 'each checkout has its command to copy, with the fallback the Simple Browser needs'
 Assert-True ($page -match '1 archived repo is left out' -and $page -notmatch '>old</a>') 'an archived repo is counted, not listed'
 $pageArch = Format-DkjReposPageHtml -Query $q -Checkouts @(@{ Repo = 'DKJ-Solutions/old'; Path = 'C:\x\old'; Branch = 'main'; Dirty = 0 }) -Meta @{ GeneratedAt = 'x' }
-Assert-True ($pageArch -match '>old</a>' -and $pageArch -match '<td>archived</td>' -and $pageArch -notmatch 'archived repo is left out') 'an archived repo checked out here is listed, marked archived, and not counted as left out'
+Assert-True ($pageArch -match '>old</a>' -and $pageArch -match '<p class="dr-line">archived &middot; ' -and $pageArch -notmatch 'archived repo is left out') 'an archived repo checked out here is listed, marked archived, and not counted as left out'
 $evil = @{ Repos = @(@{ Repo = 'DKJ-Solutions/x'; Name = 'x'; Url = 'javascript:alert(1)'; Description = ''; Visibility = 'public'; PushedAt = ''; Issues = 1; Pulls = 0 }); Archived = @(); Error = '' }
 Assert-True ((Format-DkjReposPageHtml -Query $evil -Checkouts @() -Meta @{ GeneratedAt = 'x' }) -notmatch 'javascript:' ) 'a link is built from owner/name, never from the url field'
 $pageErr = Format-DkjReposPageHtml -Query (ConvertFrom-DkjRepoQuery -Json '') -Checkouts $co -Meta @{ GeneratedAt = 'x'; Seconds = $null }

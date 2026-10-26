@@ -463,7 +463,7 @@ function Format-DkjReposPageHtml {
     <#
         The DKJ repos page (#3231). -Query is ConvertFrom-DkjRepoQuery's result; -Checkouts is Find-DkjCheckouts'
         list; -Meta is @{ GeneratedAt; Seconds }. A checkout whose repo GitHub did not list (the query failed,
-        a repo outside the first hundred, or an archived one, marked so) still gets its row, so the page never
+        a repo outside the first hundred, or an archived one, marked so) still gets its card, so the page never
         hides a folder on disk.
     #>
     param(
@@ -482,76 +482,64 @@ function Format-DkjReposPageHtml {
             $rows += @{ Repo = $c.Repo; Name = ($c.Repo -split '/')[-1]; Url = 'https://github.com/' + $c.Repo; Description = ''; Visibility = $vis; PushedAt = ''; Issues = $null; Pulls = $null }
         }
     }
-    $sum = { param($k) $t = 0; foreach ($r in $rows) { if ($null -ne $r[$k]) { $t += [int]$r[$k] } }; $t }
 
+    # One card per repo, newest push first, in the Stopwatch overview's three-column grid with the h1 at its head
+    # (the owner, October 26, 2026): no tiles, no lead, no section headings, and a checkout's session command in
+    # its own repo's card rather than a list of its own. The server starts nothing (#3231).
     $body = New-Object System.Text.StringBuilder
-    [void]$body.Append((Format-DevTiles @(
-        @{ L = 'Repos'; V = $rows.Count },
-        @{ L = 'Checked out here'; V = $byRepo.Count },
-        @{ L = 'Open issues'; V = (& $sum 'Issues') },
-        @{ L = 'Open pull requests'; V = (& $sum 'Pulls') })))
     if ($Query.Error) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">GitHub could not be read: ' + (& $e $Query.Error) + '. The checkouts on this machine are shown without their issues.</p>')
     }
-
-    [void]$body.AppendLine('<div class="grid-2" id="repos">')
-    [void]$body.AppendLine('<div class="grid__head"><h2>Repos</h2><p class="card__sub">Newest push first</p></div>')
-    [void]$body.AppendLine('<section class="card grid__full">')
-    [void]$body.AppendLine('<div class="table-wrap"><table class="table dr-table"><thead class="dr-thead"><tr><th class="dr-left">Repo</th><th>Visibility</th><th>Issues</th><th>Pull requests</th><th class="dr-left">Checkout here</th><th>Last push</th></tr></thead><tbody>')
+    [void]$body.AppendLine('<div class="dr-grid" id="repos">')
+    [void]$body.AppendLine('<div class="grid__head"><h1>DKJ repos</h1></div>')
     foreach ($r in $rows) {
         # The link is built from the repo's owner/name, never taken from the answer's url field (Sebastian, #3231).
         $url = 'https://github.com/' + (& $e $r.Repo)
-        $desc = if ($r.Description) { '<span class="dr-desc">' + (& $e $r.Description) + '</span>' } else { '' }
-        $count = { param($n, $path) if ($null -eq $n) { '--' } elseif ($n -gt 0) { '<a class="dr-link" href="' + $url + $path + '">' + $n + '</a>' } else { '0' } }
+        $count = { param($n, $path, $noun) if ($null -eq $n) { '-- ' + $noun } elseif ($n -gt 0) { '<a class="dr-link" href="' + $url + $path + '">' + $n + '</a> ' + $noun } else { '0 ' + $noun } }
+        $facts = @()
+        if ($r.Visibility) { $facts += (& $e $r.Visibility) }
+        $facts += (& $count $r.Issues '/issues' 'issues')
+        $facts += (& $count $r.Pulls '/pulls' 'PRs')
+        if ($r.PushedAt -match '^(\d{4}-\d{2}-\d{2})') { $facts += $Matches[1] }
+        [void]$body.Append('<section class="card dr-card"><h2><a href="' + $url + '">' + (& $e $r.Name) + '</a></h2>')
+        if ($r.Description) { [void]$body.Append('<p class="dr-desc" title="' + (& $e $r.Description) + '">' + (& $e $r.Description) + '</p>') }
+        [void]$body.Append('<p class="dr-line">' + ($facts -join ' &middot; ') + '</p>')
         $c = $byRepo[$r.Repo]
-        $where = if (-not $c) { '<span class="note">not here</span>' }
-                 else {
-                     $state = if ($c.Dirty) { [string]$c.Dirty + ' uncommitted' } else { 'clean' }
-                     '<code>' + (& $e $c.Branch) + '</code> <span class="note">' + $state + '</span>'
-                 }
-        $pushed = if ($r.PushedAt -match '^(\d{4}-\d{2}-\d{2})') { $Matches[1] } else { '--' }
-        [void]$body.AppendLine('<tr><td class="dr-left"><a class="dr-link" href="' + $url + '">' + (& $e $r.Name) + '</a>' + $desc + '</td>' +
-            '<td>' + $(if ($r.Visibility) { & $e $r.Visibility } else { '--' }) + '</td>' +
-            '<td class="num">' + (& $count $r.Issues '/issues') + '</td><td class="num">' + (& $count $r.Pulls '/pulls') + '</td>' +
-            '<td class="dr-left">' + $where + '</td><td>' + $pushed + '</td></tr>')
+        if ($c) {
+            $state = if ($c.Dirty) { [string]$c.Dirty + ' uncommitted' } else { 'clean' }
+            $cmd = Format-RepoSessionCommand -Path ([string]$c.Path)
+            [void]$body.Append('<p class="dr-line"><code>' + (& $e $c.Branch) + '</code> <span class="dr-muted">' + $state + '</span></p>')
+            [void]$body.Append('<p class="dr-session"><button type="button" class="btn" data-copy="' + (& $e $cmd) + '">Copy</button><code title="' + (& $e $cmd) + '">' + (& $e $cmd) + '</code></p>')
+        } else {
+            [void]$body.Append('<p class="dr-line dr-muted">Not checked out here</p>')
+        }
+        [void]$body.AppendLine('</section>')
     }
-    [void]$body.AppendLine('</tbody></table></div>')
+    [void]$body.AppendLine('</div>')
     $nArch = @(@($Query.Archived) | Where-Object { $_ -and -not $byRepo.ContainsKey($_) }).Count
     if ($nArch) { [void]$body.AppendLine('<p class="note">' + $nArch + ' archived repo' + $(if ($nArch -ne 1) { 's are' } else { ' is' }) + ' left out.</p>') }
-    [void]$body.AppendLine('</section>')
-    [void]$body.AppendLine('</div>')
-
-    # The sessions: one row per checkout, the command to copy. The server starts nothing (#3231).
-    [void]$body.AppendLine('<div class="grid-2" id="sessions">')
-    [void]$body.AppendLine('<div class="grid__head"><h2>Open a session</h2><p class="card__sub">Claude Code in that checkout, under that repo''s own rules. Paste the command in a terminal, or ask a session here: "open a session in lifehub"</p></div>')
-    [void]$body.AppendLine('<section class="card grid__full">')
-    if ($byRepo.Count) {
-        [void]$body.AppendLine('<ul class="dr-sessions">')
-        foreach ($c in @($byRepo.Values | Sort-Object { $_.Repo })) {
-            $cmd = Format-RepoSessionCommand -Path ([string]$c.Path)
-            [void]$body.AppendLine('<li><strong>' + (& $e (($c.Repo -split '/')[-1])) + '</strong><code>' + (& $e $cmd) + '</code><button type="button" class="btn" data-copy="' + (& $e $cmd) + '">Copy</button></li>')
-        }
-        [void]$body.AppendLine('</ul>')
-    } else {
-        [void]$body.AppendLine('<p class="note">No DKJ-Solutions checkout was found beside this repo.</p>')
-    }
-    [void]$body.AppendLine('</section>')
-    [void]$body.AppendLine('</div>')
+    if (-not $byRepo.Count) { [void]$body.AppendLine('<p class="note">No DKJ-Solutions checkout was found beside this repo.</p>') }
     [void]$body.AppendLine((Get-CopyButtonScript))
 
     $style = @(
         '.dr-link { color: var(--primary); text-underline-offset: 2px; }',
-        '.dr-thead th { background: var(--paper-3); }',
-        '.table td.dr-left, .table th.dr-left { text-align: left; }',
-        '.dr-desc { display: block; font-size: var(--text-xs); color: var(--muted); }',
-        '.dr-sessions { list-style: none; padding: 0; margin: 0; }',
-        '.dr-sessions li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1-5) var(--spacing-3); padding: var(--spacing-2) 0; border-top: 1px solid var(--paper-3); }',
-        '.dr-sessions li:first-child { border-top: 0; }',
-        '.dr-sessions strong { min-width: 12ch; }',
-        '.dr-sessions code { flex: 1 1 24ch; font-size: var(--text-xs); overflow-wrap: anywhere; }'
+        '.dr-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-4); }',
+        '@media (max-width: 1000px) { .dr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }',
+        '@media (max-width: 760px) { .dr-grid { grid-template-columns: 1fr; } }',
+        '.dr-grid > .grid__head { grid-column: 1 / -1; }',
+        '.dr-grid > .card { margin-top: 0; }',
+        '.dr-card > h2 a { color: inherit; text-decoration: none; }',
+        '.dr-card > p { margin: 0; }',
+        '.dr-card > p + p { margin-top: var(--spacing-1); }',
+        # A card's lines in the Stopwatch card's sizes: the description one muted line ending in an ellipsis, its
+        # whole text on hover, and the session command likewise, copied whole by its button.
+        '.dr-desc { font-size: var(--text-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+        '.dr-line { font-size: var(--text-sm); }',
+        '.dr-muted { color: var(--muted); }',
+        '.dr-card > .dr-session { display: flex; align-items: center; gap: var(--spacing-2); margin-top: var(--spacing-3); }',
+        '.dr-session code { flex: 1 1 auto; min-width: 0; font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }'
     ) -join "`n"
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
-    return Format-DevPageHtml -Title 'DKJ repos' -Style $style -Body $body.ToString() `
-        -Lead 'Every DKJ-Solutions repo on GitHub, where it is checked out on this machine, and a Claude Code session to open there. Work in a repo runs in that repo, and an issue for it is filed there.' `
+    return Format-DevPageHtml -Title 'DKJ repos' -Style $style -Body $body.ToString() -Lead '' -Bare `
         -FooterNote ('Read from GitHub (one <code>gh api graphql</code> call) and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="dr-link" href="/refresh?page=dkj-repos">read again</a>). Nothing here is written to this repo.')
 }
