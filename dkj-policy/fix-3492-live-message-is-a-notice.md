@@ -69,7 +69,7 @@ version, and that the review already took place on the preview.
 #### What makes this deploy extra special
 
 A requester told on release day that their work is live is no longer asked to review it again. The review
-already happened on the preview, and the earlier message said that was the last moment to change something.
+already happened on the preview, and the closed message said that was the last moment to change something.
 
 **Score:** 3
 

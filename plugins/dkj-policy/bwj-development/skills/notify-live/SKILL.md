@@ -64,7 +64,7 @@ review already took place on the preview, so nothing more is asked. Only the sta
 ([#3492](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3492)). The requester reviews on the
 preview before anything goes live, and the closed message already calls that the last moment something
 can change. Until #3492 this message said *"the review can start now"* and asked the go-live block's
-question again, which contradicted it.
+question again, which contradicted the closed message.
 
 ## The parameters
 

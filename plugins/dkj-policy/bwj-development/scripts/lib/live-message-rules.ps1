@@ -130,8 +130,9 @@ function Get-PreviousReleaseTag {
 function Get-LiveMessageLanguage {
     <#
         Pure: the language of the go-live block's sections -- 'nl' or 'en' -- read from the headings
-        Get-GoLiveBlockText writes, the language the requester's closed message already was (the
-        live message itself has been fixed English since #3492, so this only feeds its -Language). -Default where neither heading set is there.
+        Get-GoLiveBlockText writes, i.e. the language the requester's closed message already was. The
+        live message itself has been fixed English since #3492, so this only feeds its -Language.
+        -Default where neither heading set is there.
     #>
     param(
         [AllowEmptyString()][string]$Sections,
@@ -207,8 +208,8 @@ function Get-LiveMessageLines {
         A NOTICE, NOT A SECOND REVIEW REQUEST (#3492). The requester reviews on the preview, before
         anything goes live, and the closed message's look-sentence already calls that the last moment
         something can change. So this message does not say the review starts now and does not repeat the
-        block's ask; the notice line says why. -Language stays for the header's source, the go-live
-        block's text, whose header is the same in both languages.
+        block's ask; the notice line says why. -Language is kept only because the header comes from
+        Get-GoLiveBlockText, whose header is identical in both languages.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
@@ -236,8 +237,8 @@ function Get-LiveMessageNoticeLine {
 function New-LiveMessageHtml {
     <#
         Pure: the live message as Asana html_text -- the closed message's form (New-ClosedMessageHtml):
-        the issue name as a link, only the state word in <strong>, every other character XML-escaped, because a malformed body is answered 400 and the requester is told
-        nothing. Only <body>, <a> and <strong>, all on Asana's allow-list for a story.
+        the issue name as a link, only the state word in <strong>, every other character XML-escaped,
+        because a malformed body is answered 400 and the requester is told nothing. Only <body>, <a> and <strong>, all on Asana's allow-list for a story.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
