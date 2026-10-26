@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**3 / 7 minor entries** <!-- pending-tally -->
+**3 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3547-freshness-restart-after-update · 20261026-223340Z
+
+A session whose dkj plugins were updated after Claude Code started -- `update-plugins` inside the
+session, then `/clear` -- is no longer told it is up to date while older copies still run. The release
+check now says which plugins were updated after the start, and that only restarting Claude Code loads
+them ([#3547](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3547)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: a corrected session-start line; nothing a consumer runs or configures changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+release-freshness-sessioncheck: say [RESTART] when install records were updated after the process started
+
+Plugins: dkj-policy
+
+[PR #3548](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3548)
+
+---
 
 ### DEPLOY: fix/3545-house-style-inline-check-width · 20261026-220440Z
 
