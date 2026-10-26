@@ -53,6 +53,8 @@ own text is the one that holds this case, and it costs one gh call the driver al
 
 - [x] seven asserts in `bwj-development.tests.ps1`, the #1015 shape among them; the suite passes 898 of 898
 - [x] the issue-or-PR filter checked live against smartwatchbanden #1011
+- [x] code review: a 404 on a named number failed every rerun. It is now read through `gh api -i` as "not an issue", and other failures stay unread. Security review: no blocker. Each row that rests on a mention alone now says `[named by a PR, not closed by one]`. Two more asserts, 900 of 900.
+- [x] dry run on a scratch clone of smartwatchbanden tagged `v2.50.0` at the #1015 fold, nothing written: #1011 is now found, and skipped because its block carries no after-release marker. That cause is a different gate, filed as #3505.
 
 ### DEPLOY: fix/3498-notify-live-noresolves-issues
 

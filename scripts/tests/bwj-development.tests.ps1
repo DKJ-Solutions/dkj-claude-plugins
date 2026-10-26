@@ -1220,6 +1220,8 @@ Assert-Equal '13' (@($nlCand.Named) -join ',') '...and is not repeated among the
 Assert-Equal 0 @((Get-PullIssueCandidates -PullNumber 5 -HeadRefName 'main' -Body $null).Named).Count 'a branch with no number and no body name nothing'
 $nlDriverCand = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'scripts\task\notify-live.ps1'))
 Assert-True ($nlDriverCand.Contains('Get-PullIssueCandidates') -and $nlDriverCand.Contains('.pull_request == null')) 'the driver reads the candidates through the rule, and asks GitHub whether a named number is an issue'
+Assert-True ($nlDriverCand.Contains('gh api -i') -and $nlDriverCand.Contains('$status -eq 404')) '...with -i, so a 404 (a #<n> from another tracker) is "not an issue" rather than a read failure on every rerun'
+Assert-True $nlDriverCand.Contains('[named by a PR, not closed by one]') 'a row that rests on a mention alone says so, before anybody passes -Post'
 Assert-Equal 'v2.9.0' (Get-PreviousReleaseTag -Tags @('v2.9.0', 'v2.44.0', 'v2.45.0', 'v1.0.0-rc1') -Version 'v2.44.0') 'the tag below is compared as a version, not lexically'
 Assert-Equal 'v2.44.0' (Get-PreviousReleaseTag -Tags @('v2.9.0', 'v2.44.0', 'v2.45.0') -Version 'v2.45.0') 'the highest tag below wins'
 Assert-Equal '' (Get-PreviousReleaseTag -Tags @('v1.0.0') -Version 'v1.0.0') 'the first release has no range start'

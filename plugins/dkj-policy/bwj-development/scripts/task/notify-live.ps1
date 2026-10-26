@@ -219,6 +219,9 @@ $heldCount = @{}
 $prsKept = 0
 # Per named number: $true an issue, $false a pull request, $null unread -- asked once per run.
 $isIssue = @{}
+# Issues a PR in the range CLOSED; every other carried issue was only named, and its row says so, so the
+# person reading the dry run before -Post sees which ones rest on a mention alone (security review).
+$closedByPr = @{}
 foreach ($n in @(Get-ReleaseRangePullNumbers -Subjects $subjects.Lines)) {
     $pr = Invoke-Native { gh pr view "$n" --repo $repoName --json number,state,mergeCommit,closingIssuesReferences,files,changedFiles,headRefName,body }
     if ($pr.Code -ne 0) { continue }   # an issue's number, or a PR of another repo: not this release's PR
@@ -250,13 +253,21 @@ foreach ($n in @(Get-ReleaseRangePullNumbers -Subjects $subjects.Lines)) {
         -ClosingNumbers @(@($j.closingIssuesReferences | Where-Object { $_ }) | ForEach-Object { [int]$_.number }) `
         -HeadRefName ([string]$j.headRefName) -Body ([string]$j.body)
     $carried = @($cand.Closing)
+    foreach ($c in $carried) { $closedByPr[$c] = $true }
     foreach ($m in @($cand.Named)) {
         if (-not $isIssue.ContainsKey($m)) {
             # The issues endpoint answers a PR too, with a pull_request field. A filter with no double
             # quote in it, so Windows PowerShell 5.1's native argument quoting has nothing to mangle.
-            $kind = Invoke-Native { gh api "repos/$repoName/issues/$m" --jq '.pull_request == null' }
-            $answer = (@($kind.Lines) -join '').Trim()
-            $isIssue[$m] = if ($kind.Code -ne 0 -or $answer -notin @('true', 'false')) { $null } else { $answer -eq 'true' }
+            # -i PUTS THE STATUS LINE ON STDOUT, which Invoke-Native keeps while it drops stderr: a 404 is
+            # a definitive "no such issue here" (a '#<n>' copied from another tracker, a deleted issue)
+            # and must not fail every rerun, while any other failure is still an unread (code review).
+            $kind = Invoke-Native { gh api -i "repos/$repoName/issues/$m" --jq '.pull_request == null' }
+            $lines = @(@($kind.Lines) | Where-Object { $_.Trim() })
+            $status = if ($lines.Count -gt 0 -and $lines[0] -match '^HTTP/\S+\s+(\d{3})') { [int]$Matches[1] } else { 0 }
+            $answer = if ($lines.Count -gt 0) { $lines[-1].Trim() } else { '' }
+            $isIssue[$m] = if ($status -eq 404) { $false }
+                           elseif ($kind.Code -ne 0 -or $answer -notin @('true', 'false')) { $null }
+                           else { $answer -eq 'true' }
             if ($null -eq $isIssue[$m]) { $readFailures++; Write-Host "  #$m  UNREAD   PR #$n names it, and GitHub could not say whether it is an issue -- not told" -ForegroundColor Yellow }
         }
         if ($isIssue[$m]) { $carried += $m }
@@ -296,11 +307,12 @@ foreach ($num in $issueNumbers) {
         Number = $num; State = [string]$ij.state; StateReason = [string]$ij.stateReason
         Body = $state.Body; Comments = $state.Comments; LastReopenedAt = $state.LastReopenedAt
     })
+    $source = if ($closedByPr.ContainsKey($num)) { '' } else { ' [named by a PR, not closed by one]' }
     if ($verdict.Owed) {
         $owed += [pscustomobject]@{ Number = $num; Gid = $verdict.Gid; Language = $verdict.Language }
-        Write-Host "  #$num  OWED     $($verdict.Reason) ($($verdict.Language))" -ForegroundColor Green
+        Write-Host "  #$num  OWED     $($verdict.Reason) ($($verdict.Language))$source" -ForegroundColor Green
     } else {
-        Write-Host "  #$num  skipped  $($verdict.Reason)" -ForegroundColor DarkGray
+        Write-Host "  #$num  skipped  $($verdict.Reason)$source" -ForegroundColor DarkGray
     }
 }
 
