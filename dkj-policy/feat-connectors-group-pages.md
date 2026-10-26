@@ -55,17 +55,18 @@ owner's look before it ships.
 
 - [x] `connector-dashboard.tests.ps1` rewritten for the overview and the group pages: 223 passed, 0 failed.
 - [x] Owner feedback: the overview drops its tiles and its lead; a group page keeps both.
-- [x] Owner feedback: the three cards sit under an h2, Repo groups, in the house's `.grid__head`.
+- [x] Owner feedback: each card's label -- DKJ, BWJ, Other -- is an h2, its summary under it.
+- [x] Owner feedback: the group pages drop their tiles and lead too, so neither exists on any Connectors page now.
 - [x] `eslint` and `tsc` clean on `brandbook/vite.config.ts`.
 - [ ] The owner has looked at `/connectors` and a group page on the product port.
 
 ### DEPLOY: feat/connectors-group-pages
 
 The product's Connectors page is now an overview of three cards, one per owner group -- DKJ, BWJ and Other, in that
-order, each showing its repo count and status summary -- and each card opens a page of its own at
-`/connectors/dkj`, `/connectors/bwj` or `/connectors/other` holding that group's tiles, overview table and repo
-cards. The hub serves the new paths and the product's dev server relays them; a group page's re-run comes back to
-that same page.
+order, each headed by an h2 and showing its repo count and status summary -- and each card opens a page of its own
+at `/connectors/dkj`, `/connectors/bwj` or `/connectors/other` holding that group's overview table and repo cards.
+No Connectors page carries tiles or a lead any more. The hub serves the new paths and the product's dev server
+relays them; a group page's re-run comes back to that same page.
 
 **Score:** 2
 

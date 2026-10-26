@@ -310,12 +310,6 @@ function Format-ConnectorDashboardHtml {
     $e = { param($v) ConvertTo-DashboardText $v }
     $everyone = @($Connectors | Where-Object { $_ })
     $all = if ($groupDef) { @($everyone | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $Group }) } else { $everyone }
-    $present = @($all | Where-Object { $_.Present }).Count
-    $errors = 0; $infos = 0
-    foreach ($c in $all) {
-        $errors += @($c.Signals | Where-Object { $_.Level -eq 'ERROR' }).Count
-        $infos  += @($c.Signals | Where-Object { $_.Level -eq 'INFO' }).Count
-    }
 
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')
@@ -336,6 +330,8 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-table-gap { margin-top: var(--spacing-4); }')
     [void]$sb.AppendLine('.cd-repo-card { margin-top: var(--spacing-3); background: var(--paper-1); }')
     [void]$sb.AppendLine('.cd-group-summary { margin: 0 0 var(--spacing-1); }')
+    # A group card's h2 sits in the menu row, so it takes no margin of its own.
+    [void]$sb.AppendLine('.cd-card-title { margin: 0; }')
     [void]$sb.AppendLine('.cd-repo { display: flex; align-items: center; gap: var(--spacing-2); }')
     [void]$sb.AppendLine('.cd-repo__name { margin: 0; font-weight: 600; }')
     [void]$sb.AppendLine('.cd-signals { list-style: none; padding: 0; margin: var(--spacing-2) 0 0; }')
@@ -368,26 +364,10 @@ function Format-ConnectorDashboardHtml {
 
     # The intro is a <div>, never a <header>, which the house style lays out as a flex row.
     [void]$sb.AppendLine('<div>')
+    # The h1 alone: no lead and no tiles, on the overview or a group's page (owner, October 26, 2026). The cards and
+    # the group summary lines carry the counts.
     [void]$sb.AppendLine('<h1>' + $pageName + '</h1>')
-    # A lead on a group's page only: the overview is its h1 and its cards (owner, October 26, 2026).
-    if ($groupDef) {
-        [void]$sb.AppendLine('<p class="lead">The repos registered under <code>connectors/</code> ' + $groupDef.Owner + ', as <code>check-connectors.ps1</code> reports them on this machine.</p>')
-    }
     [void]$sb.AppendLine('</div>')
-
-    # One tile per count, on a group's page only: the overview's cards carry each group's own summary (owner,
-    # October 26, 2026).
-    if ($groupDef) {
-        [void]$sb.AppendLine('<div class="tiles">')
-        foreach ($t in @(
-                @{ L = 'Registered repos'; V = $all.Count },
-                @{ L = 'Checked out here'; V = $present },
-                @{ L = 'Errors'; V = $errors },
-                @{ L = 'Notes'; V = $infos })) {
-            [void]$sb.AppendLine('<div class="tile"><div class="label">' + $t.L + '</div><div class="v num">' + $t.V + '</div></div>')
-        }
-        [void]$sb.AppendLine('</div>')
-    }
 
     # The warning that the signals could not be read.
     if ($Meta.CheckFailed) {
@@ -398,13 +378,13 @@ function Format-ConnectorDashboardHtml {
     # linking its group's page with that group's summary under the label. An empty group keeps its card ('0 repos').
     if (-not $groupDef) {
         [void]$sb.AppendLine('<div class="grid-3" id="groups">')
-        # The house's heading above a group of cards (owner, October 26, 2026).
-        [void]$sb.AppendLine('<div class="grid__head"><h2>Repo groups</h2><p class="card__sub">By owner, each group on a page of its own</p></div>')
         foreach ($g in @(Get-DashboardOwnerGroups)) {
             $members = @($all | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $g.Key })
-            # The card escapes its own text, so the summary's entity separator becomes the character itself.
-            $sub = (Format-DashboardGroupSummary $members).Replace('&#183;', [string][char]0x00B7)
-            [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/' + $g.Key) -Label $g.Label -Sub $sub))
+            # The hub's card form (Format-HubCardLinkHtml), its label an h2 (owner, October 26, 2026): so the label is
+            # a <div>, which may hold a heading where a <span> may not. Label and summary are this file's own text.
+            [void]$sb.AppendLine('<section class="card card--link"><nav class="menu-list" aria-label="' + $g.Label + '"><a class="menu-item" href="/connectors/' + $g.Key +
+                '"><div class="menu-item__label"><h2 class="cd-card-title">' + $g.Label + '</h2><span class="menu-item__sub">' + (Format-DashboardGroupSummary $members) +
+                '</span></div>' + $script:RepoHubChevron + '</a></nav></section>')
         }
         [void]$sb.AppendLine('</div>')
     } else {
