@@ -108,8 +108,8 @@ lands in the board's `Filed` section.
 5 and 6, 2026, #2818 and #2854). Closing the GitHub issue as completed makes the `asana-closed-message`
 workflow, which `adopt-bwj-development` copies into each store, post one comment on the task: the closed
 line and the go-live block the shipping session left on the issue -- unless that block is from before the issue's last reopen, when the comment says this round's result follows (#2968). Reopening it posts the reopened line,
-so the requester stops testing. Closing it as not planned with `awaiting-info-client` kept on posts the
-on-hold line (#2902), so a parked ticket never reads as finished. The `Prio-Score` to prio-label sync came back too (Dave, October 12, 2026,
+so the requester stops testing. Closing it as not planned with an `awaiting-*` label kept on posts the
+on-hold line (#2902, #3494), so a parked ticket never reads as finished. The `Prio-Score` to prio-label sync came back too (Dave, October 12, 2026,
 [#2945](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2945)), as the separate `asana-prio-label`
 workflow adopt copies beside it. The rest of the asana-mirror CI automation is **retired**: the moving of
 the card through the board's numbered sections, the daily reconciliation sweep and the backstop comment. One move came back (#3248): a completed close that carries a block moves the card into `InReview`, after its message. Every other move is a person's. Also still running is the gate on the create-task call, `hooks/guard-asana-mirror.ps1`, which
