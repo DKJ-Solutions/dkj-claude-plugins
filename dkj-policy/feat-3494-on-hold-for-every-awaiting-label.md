@@ -39,19 +39,42 @@
 
 ### PLAN
 
+#3494 (inbound, measured on smartwatchbanden#813): a close as not planned under `awaiting-action-external`
+told the Asana task nothing, because `Get-ClosedMessageDecision` treats only `awaiting-info-client` (and
+its former name) as parked. Every `awaiting-*` label means parked, not rejected. Verified in the template:
+the on-hold check reads `Get-OnHoldLabelNames` only, and the cancelled intro names a fixed reason, "not
+enough information", that is false for the other labels. The issue leaves the wording to the owner; this
+takes its own neutral proposal. The info form keeps its message and ask unchanged, and wins when both are on.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `templates/asana-closed-message.ps1`: `Test-ParkedLabelName` (the `awaiting-*` prefix), a `Parked`
+  flag on the decision, a `-Parked` intro with no ask under it, and the log line
+- [x] `WORKFLOW-portable.md` step 4 and `adopt-bwj-development/SKILL.md`: the parked message described
+- [x] `bwj-development.tests.ps1`: parked labels in any case, the info label winning, a duplicate silent, a
+  label merely containing the word ignored, and the parked html well-formed with the neutral intro
 
 ### TEST
 
+- [x] The gates run in `ship-pr`
+
 ### DEPLOY: feat/3494-on-hold-for-every-awaiting-label
 
-**Score:**
+The `asana-closed-message` script now tells the Asana task when an issue is closed as not planned under any
+`awaiting-*` label, not only `awaiting-info-client`
+([#3494](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3494)). The task reads that it is on
+hold and will be reopened when the work can pick up again. The message under `awaiting-info-client` is
+unchanged.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A requester whose ticket is closed while parked, for example waiting on their own sign-off, is told it is on
+hold instead of hearing nothing. A store takes it by taking the new `asana-closed-message` script through
+`adopt-bwj-development`'s stop-and-diff.
+
+**Score:** 3
 
 #### Pull Request
 

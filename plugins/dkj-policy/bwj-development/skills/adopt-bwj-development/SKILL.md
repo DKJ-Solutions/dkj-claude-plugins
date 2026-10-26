@@ -104,8 +104,9 @@ When an issue closes as completed, the workflow posts one comment on its Asana t
 header, the closed line, and the go-live block the shipping session left on the issue. Where it carries
 no block (none on the issue, or one from before the issue's last reopen) the message says the result
 message follows, never the closed line alone (#2968, #3004). On a close as not
-planned that keeps the `awaiting-info-client` label on, it posts the header and the on-hold line (#2902); on
-any other not-planned close, or a duplicate, it posts nothing. When an issue is reopened, it posts the
+planned that keeps the `awaiting-info-client` label on, it posts the header and the on-hold line (#2902); under
+any other `awaiting-*` label, the header and a neutral on-hold line (#3494); on any other not-planned
+close, or a duplicate, it posts nothing. When an issue is reopened, it posts the
 header and the reopened line (#2854). A completed close that carries a block also moves the card into the
 section `Get-AsanaStageMap` gives `InReview` (#3248). It makes no other move and never completes a task. A store that
 already holds the two `asana-closed-message` files from an earlier version gets the stop-and-diff above:

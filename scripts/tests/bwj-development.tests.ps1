@@ -1375,6 +1375,25 @@ Assert-True ($cmHoldXml.DocumentElement.InnerText -ceq (New-OnHoldMessage -Issue
 Assert-True ($cmHoldHtml.Contains("<a href=`"https://github.com/BWJ-Development/smartwatchbanden/issues/882`">BWJ-Development/smartwatchbanden#882</a> is now <strong>closed</strong>: this Asana task has been cancelled, because there is not enough information to start development.`nOnce the questions above are answered, the issue will be reopened and the work picks up again.</body>")) 'the cancelled intro, then the requester''s fixed ask (#2909, #3069): the issue as a link, only the state word in bold'
 Assert-True ($cmHoldHtml.StartsWith("<body>$(Get-ClosedMessageHeader)")) 'under the same header as the closed message'
 Assert-True ($cmHoldHtml -notmatch 'in review|reopened anytime') 'and never ''in review'' or the reopen line, which a waiting requester reads as finished (#3069)'
+Assert-True (-not $cmHold.Parked) 'awaiting-info-client is the info form, not the parked one'
+
+# ANY OTHER awaiting-* LABEL IS PARKED, NOT REJECTED (#3494): measured on smartwatchbanden#813, closed as
+# not planned under awaiting-action-external, whose task heard nothing.
+$cmParked = Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[0] -Labels @('bug', 'awaiting-action-external')
+Assert-True ($cmParked.Post -and $cmParked.Kind -eq 'on-hold' -and $cmParked.Parked) 'not planned under awaiting-action-external posts the parked on-hold message (#3494)'
+foreach ($l in @('awaiting-review-client', 'awaiting-decision-client', 'Awaiting-Action-Dev')) {
+    Assert-True (Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[0] -Labels @($l)).Parked "and so does $l, whatever its case"
+}
+Assert-True (-not (Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[0] -Labels @('awaiting-info-client', 'awaiting-action-external')).Parked) 'with the info label on as well, the info form wins: its ask is the one the requester answers'
+Assert-True (-not (Get-ClosedMessageDecision -StateReason 'duplicate' -IssueBody $cmSamples[0] -Labels @('awaiting-action-external')).Post) 'a duplicate stays silent under any awaiting-* label'
+Assert-True (-not (Get-ClosedMessageDecision -StateReason 'not_planned' -IssueBody $cmSamples[0] -Labels @('needs-awaiting')).Post) 'a label merely containing the word is no parking label'
+$cmParkedHtml = New-OnHoldMessageHtml -IssueRef 'BWJ-Development/smartwatchbanden#813' -Parked
+$cmParkedXml = New-Object System.Xml.XmlDocument
+$cmParkedXml.PreserveWhitespace = $true
+$cmParkedXml.LoadXml($cmParkedHtml)
+Assert-True ($cmParkedXml.DocumentElement.InnerText -ceq (New-OnHoldMessage -IssueRef 'BWJ-Development/smartwatchbanden#813' -Parked)) 'the parked message is well-formed XML and reads as its plain form'
+Assert-True ($cmParkedHtml.EndsWith('is now <strong>closed</strong>: this Asana task is on hold, and will be reopened when the work can pick up again.</body>')) 'the neutral intro, and nothing under it'
+Assert-True ($cmParkedHtml -notmatch 'not enough information|questions above') 'never the info reason or the info ask, which would be false here (#3494)'
 Assert-True (-not (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[3]).Post) 'several different tasks is ambiguous and posts nothing'
 Assert-True ((Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[3]).Why -match 'refusing to guess') 'and says so'
 Assert-True (-not (Get-ClosedMessageDecision -StateReason 'completed' -IssueBody $cmSamples[4]).Post) 'no linked task posts nothing'
