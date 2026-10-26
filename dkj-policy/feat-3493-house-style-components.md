@@ -39,11 +39,25 @@
 
 ### PLAN
 
+Point 2 of #3493: the brandbook app's component CSS moves into the house style. Owner's choice (issue
+comment, 2026-10-26): only the families the house style lacks, renamed to the house convention; the
+duplicates of house classes are dropped. The `brandbook/` app itself stays untouched here and is removed
+in a later branch, together with points 3 and 4.
+
+A house-style change is a visible result, so this branch stops for the owner's look instead of merging.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [ ] Gwen: the missing component families appended to `house-style.css`, their tokens added or mapped
+  onto existing house tokens
+- [ ] Gwen: the README's reserved-name list and a section on the new group, with the measured collisions
+- [ ] The house-style skill's sha256 for `house-style.css` updated
 
 ### TEST
+
+- [ ] `house-style-css` gate (syntax, `var()` definitions, colour literals) green
+- [ ] `check-house-style` and `house-palette` suites green
+- [ ] Edith: copy edit of the README diff
 
 ### DEPLOY: feat/3493-house-style-components
 
