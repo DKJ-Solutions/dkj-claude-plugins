@@ -298,9 +298,11 @@ function Add-RunStepMark {
         Append one step mark -- "-Run entered -Step now" -- to the step log, when the log is switched on.
 
         A NO-OP UNLESS DKJ_RUN_STEP_LOG IS SET (or -Path names a log, which only the suite does). A mark
-        carries its UTC time, the run and step names, the writer's pid and its checkout (the current
+        carries its UTC time, the run and step names, the writer's pid, its checkout (the current
         directory, as Write-RunProgress names it), so a reader can keep one checkout's runs apart from
-        another's. A step lasts until the run's next mark or until the run ends; the reader knows the end.
+        another's, and the Claude Code session that ran it (-Session, by default CLAUDE_CODE_SESSION_ID;
+        empty outside a session), so a reader can keep two sessions in one checkout apart (#3534). A step
+        lasts until the run's next mark or until the run ends; the reader knows the end.
 
         IT NEVER THROWS, for Write-RunProgress's reason: a log line must cost the run it describes nothing.
     #>
@@ -309,7 +311,8 @@ function Add-RunStepMark {
         [Parameter(Mandatory = $true)][string]$Step,
         [string]$Path = '',
         [AllowNull()][object]$NowUtc = $null,
-        [string]$Workspace = ''
+        [string]$Workspace = '',
+        [string]$Session = [Environment]::GetEnvironmentVariable('CLAUDE_CODE_SESSION_ID')
     )
     if (-not $Path -and -not [Environment]::GetEnvironmentVariable($script:RunStepLogEnv)) { return $false }
     try {
@@ -322,7 +325,7 @@ function Add-RunStepMark {
             if ($loc -and $loc.Provider -and $loc.Provider.Name -eq 'FileSystem') { $ws = $loc.ProviderPath }
         }
         $at = if ($NowUtc -is [datetime]) { ([datetime]$NowUtc).ToUniversalTime() } else { (Get-Date).ToUniversalTime() }
-        $line = ([ordered]@{ at = $at.ToString('o'); run = $Run; step = $Step; pid = $PID; workspace = "$ws" } | ConvertTo-Json -Compress)
+        $line = ([ordered]@{ at = $at.ToString('o'); run = $Run; step = $Step; pid = $PID; workspace = "$ws"; session = "$Session" } | ConvertTo-Json -Compress)
         $utf8 = New-Object System.Text.UTF8Encoding($false)
         # Not atomic: two ships crossing the cap at once can lose a line, which costs a timing aid one mark at worst.
         if ((Test-Path -LiteralPath $file -PathType Leaf) -and (Get-Item -LiteralPath $file).Length -gt $script:RunStepLogMaxBytes) {
@@ -339,7 +342,8 @@ function Add-RunStepMark {
 function Read-RunStepMarks {
     <#
         The marks in the step log at -Path between -From and -To (UTC), oldest first, as
-        @{ At; Run; Step; Workspace }. A missing log is no marks; a line that does not parse is skipped.
+        @{ At; Run; Step; Workspace; Session }, Session empty on a mark written before #3534. A missing log is
+        no marks; a line that does not parse is skipped.
     #>
     param([string]$Path = '', [Parameter(Mandatory = $true)][datetime]$From, [Parameter(Mandatory = $true)][datetime]$To)
     $file = Get-RunStepLogPath -Override $Path
@@ -353,7 +357,7 @@ function Read-RunStepMarks {
         if (-not [datetime]::TryParse("$($r.at)", [Globalization.CultureInfo]::InvariantCulture, [Globalization.DateTimeStyles]::RoundtripKind, [ref]$t)) { continue }
         $t = $t.ToUniversalTime()
         if ($t -lt $From.ToUniversalTime() -or $t -gt $To.ToUniversalTime()) { continue }
-        $marks += @{ At = $t; Run = "$($r.run)"; Step = "$($r.step)"; Workspace = "$($r.workspace)" }
+        $marks += @{ At = $t; Run = "$($r.run)"; Step = "$($r.step)"; Workspace = "$($r.workspace)"; Session = "$($r.session)" }
     }
     return @($marks | Sort-Object { $_.At })
 }
