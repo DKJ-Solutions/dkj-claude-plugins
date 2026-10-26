@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**16 / 26 minor entries** <!-- pending-tally -->
+**16 / 27 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3512-registration-grace-json-unroll · 20261026-113137Z
+
+When the trunk moves while its gates run, `cut-release` waits for the trunk's CI run. Under Windows
+PowerShell 5.1 it no longer reads a check that has already registered as "has not registered yet". A
+registered red check now refuses at the first read. Before, the cut spent all four grace reads, one
+poll interval apart, printing a line that was not true.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A consumer cutting a release sees no change in what the cut decides. The verdict was already right; only
+the wait before a red check's refusal is shorter.
+
+**Score:** N/A
+
+#### Pull Request
+
+cut-release's registration grace reads a readable payload as absent under PowerShell 5.1
+
+Plugins: dkj-policy
+
+[PR #3516](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3516)
+
+---
 
 ### DEPLOY: feat/3506-retire-page-token · 20261026-111725Z
 
