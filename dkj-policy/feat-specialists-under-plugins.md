@@ -39,21 +39,37 @@
 
 ### PLAN
 
+The owner (October 26, 2026): the Specialists card on the hub belongs one level deeper, under the
+Plugins card. It follows the house style's precedent (#3493): a page about what a plugin ships hangs below
+that plugin, so Specialists moves to `/plugins/dkj-subagents-alpha/specialists`, the core team that brings
+the specialists.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-PluginPageHtml` takes `-Cards`, a hub's own pages below a plugin, after what the plugin ships itself
+- [x] `Get-PluginHubCards` names Specialists under dkj-subagents-alpha; `Get-RepoHubPages` drops it
+- [x] The server serves the page at its new path and sends `/specialists` there with a 303; its trail runs Plugins > dkj-subagents-alpha
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: 358 passed
+- [x] `connector-dashboard.tests.ps1`: 228 passed, the 303 and the new route included
+
 ### DEPLOY: feat/specialists-under-plugins
 
-**Score:**
+The hub's Specialists page now sits one level below Plugins, at `/plugins/dkj-subagents-alpha/specialists`,
+linked as a card from that plugin's page instead of from the home page; `/specialists` sends an old link
+there. `Format-PluginPageHtml` takes `-Cards` for a hub's own pages below a plugin.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the new `-Cards` parameter is optional and unused on the plugin's own general pages server, so a
+consumer's hub looks the same.
+
+**Score:** N/A
 
 #### Pull Request
 
 Specialists page under its plugin on the hub
-
