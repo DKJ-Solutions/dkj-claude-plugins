@@ -9,7 +9,7 @@ import react from '@vitejs/plugin-react'
  * The one house-style copy: the dkj-solutions plugin's assets, one level out of this app (#3131). It is read where it
  * lives, never copied in, so the app and every consumer render from the same bytes.
  */
-const houseDir = new URL('../plugins/dkj-policy/dkj-solutions/assets/house-style/', import.meta.url)
+const houseDir = new URL('../plugins/dkj-policy/assets/house-style/', import.meta.url)
 
 /**
  * Inlines house-theme.js as the first script in <head>, in dev and in the build,

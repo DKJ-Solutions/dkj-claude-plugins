@@ -39,19 +39,54 @@
 
 ### PLAN
 
+#3531: the house style has two consumers. `dkj-policy`'s own hub and General pages render in it in every
+repo, BWJ-Development's included, and `dkj-solutions` binds every DKJ-Solutions app to start from it. The
+files sat under the second and were reached by the first through a path into the sibling plugin's folder
+(`Get-HouseStyleDir`). The owner's decision (Maikel, October 26, 2026): split them. The files move to
+`plugins/dkj-policy/assets/house-style/`, and the rule (the skill and its pin table, `check-house-style`,
+the session check, the palette builder) stays in `dkj-solutions`.
+
+The bytes do not change, so every sha256 in the pin table stands. The pin URL's path changes, and the
+release cut repins only the tag, so the new path is written into the table now and becomes fetchable with
+the next release. `Get-HouseStylePin` reads both path spellings, because the reusable gate reads the skill
+page at the pinned tag, and every tag up to v5.32.0 carries the old path.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `git mv` of `assets/house-style/` from `dkj-solutions` to `dkj-policy`, unchanged
+- [x] Every code path repointed: `Get-HouseStyleDir`, the connector dashboard, both `house-path.mjs`, the
+  brandbook app's imports and vite config, both workflows' path filters, the palette builder's default
+- [x] `Get-HouseStylePin` accepts the pre-#3531 path beside the new one
+- [x] The skill, the `dkj-solutions` README, `CLAUDE.md` and manifest description, the house-style README
+  and the hub README say where the files live and why; links out of `dkj-solutions` are absolute, since
+  a relative one leaves that plugin's root in a consumer's cache
+- [x] The two links in the archived 5.29.0 notes point at the old path at tag `v5.29.0`, where it exists
 
 ### TEST
 
+- [x] `check-house-style` (82, with a new assert for a pre-#3531 pin), `house-palette`, `dev-pages` and
+  `connector-dashboard` green; `check-plugin-integrity` 0 errors
+- [x] `dev-preview-sessionstart` fails 8 here and 13 on an untouched `origin/main` on this machine (process
+  starts exiting, an `OutOfMemoryException`), so the failures belong to this machine and not to this branch; CI is the judge
+
 ### DEPLOY: feat/3531-house-style-files-to-dkj-policy
 
-**Score:**
+The house style's files now live in `dkj-policy`, at `plugins/dkj-policy/assets/house-style/`, because
+that plugin's hub renders in them in every repo, BWJ-Development's included; `dkj-solutions` keeps the
+rule that a DKJ-Solutions app starts from them, with the skill, its pin and the `check-house-style` gate
+([#3531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3531)). The files are byte for byte
+the same, so every checksum stands.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions repo that vendors the house style fetches it from a new path from this release on: the
+skill's pin table names it, and the old path still serves every earlier tag. A copy already vendored
+stays valid, since its checksum is unchanged.
+
+**Score:** 1
 
 #### Pull Request
 
+Move the house style's files to dkj-policy; dkj-solutions keeps only the rule

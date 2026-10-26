@@ -26,7 +26,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 # resolved here, not as the parameter's default: under [CmdletBinding()] $PSScriptRoot is still empty there in 5.1
-if (-not $StylePath) { $StylePath = Join-Path $PSScriptRoot '..\..\assets\house-style\house-style.css' }
+if (-not $StylePath) { $StylePath = Join-Path $PSScriptRoot '..\..\..\assets\house-style\house-style.css' }
 . (Join-Path $PSScriptRoot '..\lib\house-palette-lib.ps1')
 
 $palettes = [ordered]@{}

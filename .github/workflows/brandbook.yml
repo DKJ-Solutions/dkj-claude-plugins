@@ -12,13 +12,13 @@ on:
   pull_request:
     paths:
       - 'brandbook/**'
-      - 'plugins/dkj-policy/dkj-solutions/assets/house-style/**'
+      - 'plugins/dkj-policy/assets/house-style/**'
       - '.github/workflows/brandbook.yml'
   push:
     branches: [main]
     paths:
       - 'brandbook/**'
-      - 'plugins/dkj-policy/dkj-solutions/assets/house-style/**'
+      - 'plugins/dkj-policy/assets/house-style/**'
       - '.github/workflows/brandbook.yml'
   merge_group:
 

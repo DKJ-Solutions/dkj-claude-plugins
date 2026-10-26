@@ -8,9 +8,13 @@ with **every value kept exactly as chosen** (spacing and font sizes have since m
 library's scales, below), and the copy in this folder is the only one:
 [`house-style.css`](house-style.css) and [`house-theme.js`](house-theme.js).
 
-**It lives in the `dkj-solutions` plugin**, where the `house-style` skill that loads in every
-DKJ-Solutions session points at it. It spent October 13 to 18, 2026 in the `dkj-brandbook` repo and came
-back with [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130). **A session or a build
+**It lives in the `dkj-policy` plugin**, because the plugin's own hub and General pages render in it in
+every repo, BWJ-Development's included
+([#3531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3531), October 26, 2026). The **rule**
+that a DKJ-Solutions app starts from it stays in the `dkj-solutions` plugin, whose `house-style` skill
+points here and pins the files. It spent October 13 to 18, 2026 in the `dkj-brandbook` repo, came back
+into `dkj-solutions` with [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130), and
+moved one level up into `dkj-policy` with #3531. **A session or a build
 fetches a tagged release, never `main`** (owner's decision on
 [dkj-brandbook#3](https://github.com/DKJ-Solutions/dkj-brandbook/issues/3), October 13, 2026):
 `house-theme.js` is executable and runs with the origin of every page it is inlined into, and `main` is a
@@ -18,10 +22,11 @@ moving ref that an admin can push to past the review. A tag is a version somebod
 URLs, with `<tag>` the release tag the skill pins, which the release cut writes into the skill
 ([#3133](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3133)):
 
-- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/<tag>/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css`
-- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/<tag>/plugins/dkj-policy/dkj-solutions/assets/house-style/house-theme.js`
+- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/<tag>/plugins/dkj-policy/assets/house-style/house-style.css`
+- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/<tag>/plugins/dkj-policy/assets/house-style/house-theme.js`
 
-**It reaches DKJ-Solutions and nothing else.** BWJ-Development has its own styling.
+**As a rule it reaches DKJ-Solutions and nothing else.** BWJ-Development styles its own apps; only the
+plugin's own screens look the same there.
 
 **Every change to a stylesheet in this folder passes a CSS gate of its own**
 ([#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)): `house-style-css` in this repo's
@@ -180,7 +185,7 @@ surface `h1` follows `h2` to `--paper-3`, since the light anchor it took is gone
 
 **The ink split into one primary, two greys and four text steps on October 21, 2026** (owner, issue
 [#3235](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3235)). Every theme still has eleven colours, now
-computed by `scripts/build/build-house-palette.ps1` in this plugin from the theme's hue and mode: one primary that
+computed by `scripts/build/build-house-palette.ps1` in the `dkj-solutions` plugin from the theme's hue and mode: one primary that
 reads on all four paper steps (and they on it), two greys that read extra well on the page and on the far end, four
 paper steps and four text steps in very small steps. **Every value changes**: the primary is a little darker on
 light (it has to read on `--paper-4` now, not only on the page), the paper steps are a little lighter, and `h2` and
@@ -416,7 +421,7 @@ out). Three more things follow it by default, in light and in dark (and a measur
 - **Every theme writes out its own eleven values**, computed rather than tuned (owner, #3235, October 21, 2026).
   `--primary`, `--muted`, `--muted-inverse`, `--paper-1` … `--paper-4` and `--fg-1` … `--fg-4` are fixed hex values
   in each theme's block, not mixes (owner's decision, October 14, 2026: the percentages were too hard to follow), and
-  `scripts/build/build-house-palette.ps1` in this plugin computes them from the theme's hue and mode, checks every
+  `scripts/build/build-house-palette.ps1` in the `dkj-solutions` plugin computes them from the theme's hue and mode, checks every
   contrast below and writes them in with `-Apply`. A theme is changed there, never by hand in the stylesheet.
 - **The model, in the owner's words, for a light theme** (a dark one is the mirror, with white and black swapped):
   - **One primary**: the colour of the theme that reads best on white, and white reads well on it too. Computed as

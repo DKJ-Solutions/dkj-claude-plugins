@@ -9,7 +9,7 @@ no specialists.
 
 | Chapter | Where | What it holds |
 |---|---|---|
-| The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | The canonical house style in [`assets/house-style/`](assets/house-style/) (the design tokens, the twelve themes, the base stylesheet and the rules), the skill with what a session needs before it fetches them, and the `check-house-style` gate that holds a repo to them |
+| The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | The canonical house style in `dkj-policy`'s [`assets/house-style/`](https://github.com/DKJ-Solutions/dkj-claude-plugins/tree/main/plugins/dkj-policy/assets/house-style/) (the design tokens, the twelve themes, the base stylesheet and the rules), the skill with what a session needs before it fetches them, and the `check-house-style` gate that holds a repo to them |
 | The tracker labels | [below](#the-tracker-labels--feature-and-bug-in-every-repo) | `feat/` is labelled `feature` and `fix/` `bug`, in every DKJ-Solutions repo, and how a repo still on `enhancement` moves over |
 
 ## The tracker labels — `feature` and `bug`, in every repo
@@ -97,6 +97,8 @@ described in [`dkj-policy`'s `hub/README.md`](https://github.com/DKJ-Solutions/d
 The brand book is its product, served by the `brandbook/` app's own dev server on a port of its own (#3283),
 so a change shows here before the release that ships it.
 
-The house style itself is maintained here, in `assets/house-style/`, since
+The house style itself is maintained in this repo, in `plugins/dkj-policy/assets/house-style/`, since
 [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130) (October 18, 2026) moved it in
-from `dkj-brandbook`. A consuming repo asks for a change through an inbound issue on this repo.
+from `dkj-brandbook` and [#3531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3531)
+(October 26, 2026) moved the files from this plugin into `dkj-policy`, whose hub renders in them in every
+repo. The rule, the skill and the gate stay here. A consuming repo asks for a change through an inbound issue on this repo.

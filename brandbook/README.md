@@ -7,7 +7,7 @@ step 2 of [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/313
 
 **It sits at the repo root, outside `plugins/`, so no consumer installs it.** It holds no house style
 of its own: it reads the one copy in
-[`plugins/dkj-policy/dkj-solutions/assets/house-style/`](../plugins/dkj-policy/dkj-solutions/assets/house-style/README.md)
+[`plugins/dkj-policy/assets/house-style/`](../plugins/dkj-policy/assets/house-style/README.md)
 where it lives (`src/main.tsx` imports the stylesheet, `vite.config.ts` inlines the theme script, and
 `scripts/lint/house-path.mjs` names it for the checks). A change to the house style is made there, not here.
 

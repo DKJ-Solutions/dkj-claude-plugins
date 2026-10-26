@@ -14,7 +14,7 @@ group: 04
 [`plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md`](../../../plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md).
 Since October 18, 2026 ([#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130)) the
 stylesheet, the theme script, the full rules and the page patterns live in this plugin's
-[`assets/house-style/`](../../../plugins/dkj-policy/dkj-solutions/assets/house-style/), and the change to
+[`assets/house-style/`](../../../plugins/dkj-policy/assets/house-style/), and the change to
 the house style is made there. The page stays a pointer to them (they were in `dkj-brandbook` from
 October 13). The source repo's own hub renders them, so a change to them is a visible result that
 stops for the owner's look.
