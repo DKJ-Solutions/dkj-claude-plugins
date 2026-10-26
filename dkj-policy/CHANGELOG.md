@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**16 / 27 minor entries** <!-- pending-tally -->
+**16 / 28 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3515-awaiting-release-external · 20261026-114838Z
+
+A new parking label, `awaiting-release-external`, for an issue whose remaining step runs only once
+**another** repo cuts a release
+([#3515](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3515)). `awaiting-release` names
+this repo's own cut and surfaces at it, which said the wrong moment for such an issue. The issue names
+that repo and release, and the label comes off once the release is out and the step has run. Both pickup
+routes skip it, `claim-issue <n>` warns on it, the issue dashboard shows it as waiting, and
+`adopt-triage-labels` prints the `gh label create` for a tracker that lacks it. Nothing lists it at the
+other repo's cut.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+Add the awaiting-release-external parking label
+
+Plugins: dkj-policy
+
+[PR #3517](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3517)
+
+---
 
 ### DEPLOY: fix/3512-registration-grace-json-unroll · 20261026-113137Z
 
