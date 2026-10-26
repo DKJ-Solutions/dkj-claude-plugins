@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**4 / 7 minor entries** <!-- pending-tally -->
+**5 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3528-house-style-h2-18px · 20261026-154751Z
+
+The house-style README's Type row now gives `h2` as 18px, matching `--text-h2` in the stylesheet; it
+still read 24px after the token moved on October 25, 2026
+([#3528](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3528)).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions app author reading the house-style rules no longer gets a wrong `h2` size; the
+stylesheet itself did not change.
+
+**Score:** 1
+
+#### Pull Request
+
+House-style README states h2 at 18px
+
+Plugins: dkj-solutions
+
+[PR #3530](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3530)
+
+---
 
 ### DEPLOY: feat/3518-closed-message-phone-factory · 20261026-153748Z
 
