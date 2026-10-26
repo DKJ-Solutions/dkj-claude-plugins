@@ -39,19 +39,32 @@
 
 ### PLAN
 
+#3528: the house-style README's Type row still gave `h2` as 24px, while `--text-h2` is 18px since
+ed0ea6dca (October 25, 2026). The other two places the issue names are dated history and stay as they
+are: line 643 says the header mark *was* `--text-h2` until that token went to 24px on October 24, which
+is true, and the October 20 heading-shift section describes the scale as it stood that day.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The Type row in `plugins/dkj-policy/dkj-solutions/assets/house-style/README.md` states 32/18/14
+  and dates both `h2` moves (32 → 24 on October 24, 24 → 18 on October 25)
 
 ### TEST
 
 ### DEPLOY: docs/3528-house-style-h2-18px
 
-**Score:**
+The house-style README's Type row now gives `h2` as 18px, matching `--text-h2` in the stylesheet; it
+still read 24px after the token moved on October 25, 2026
+([#3528](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3528)).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions app author reading the house-style rules no longer gets a wrong `h2` size; the
+stylesheet itself did not change.
+
+**Score:** 1
 
 #### Pull Request
 
