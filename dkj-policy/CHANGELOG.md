@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**2 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3473-drop-local-timing-hooks · 20261026-143209Z
+
+This repo no longer wires the Stopwatch and Logbook hooks itself in `.claude/settings.json`
+([#3473](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3473)). The installed release ships them in
+`dkj-policy`'s own `hooks/hooks.json` since #3470, so each prompt and each turn's end ran both hooks twice; the
+second copy was a no-op under the store's mutex and cost two extra PowerShell processes per event.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A change to this repo's own harness config; it reaches no reader who takes the next version.
+
+**Score:** N/A
+
+#### Pull Request
+
+Drop this repo's own Stopwatch and Logbook hook wiring
+
+Plugins: dkj-policy
+
+[PR #3525](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3525)
+
+---
 
 ### DEPLOY: feat/logbook-speed-tones · 20261026-141646Z
 
