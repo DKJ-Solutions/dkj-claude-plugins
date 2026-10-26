@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**15 / 24 minor entries** <!-- pending-tally -->
+**16 / 25 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3511-golive-coclaim-json-unroll · 20261026-110710Z
+
+`build-golive-block` no longer stops under Windows PowerShell 5.1 when the task's GID turns up in two
+or more open issues. It now reads gh's search result one element per issue, so the one-task-one-issue
+check runs instead of throwing on its number cast before the block is printed.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+In a store repo, `-OutFile` and `-Post` could not produce a go-live block at all when the task's GID
+also turned up in other issues' text. It was measured on one with three such issues. From this release
+on, the block is built and the co-claim check judges those issues as intended.
+
+**Score:** 3
+
+#### Pull Request
+
+build-golive-block: unroll the co-claim JSON array under PowerShell 5.1
+
+Plugins: bwj-development
+
+[PR #3513](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3513)
+
+---
 
 ### DEPLOY: feat/3493-house-style-css-gate · 20261026-105439Z
 
