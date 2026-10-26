@@ -49,13 +49,27 @@
     already held the old value may keep serving it for up to a minute; and a reader who wants to
     know what the URL serves still has to fetch the URL.
 
+    THE NOTES ARE A SET OF PAGES, NOT ONE (#3500). The builder writes an index of cards and, in a
+    folder named after it, one page per release, and every card links to its release's own page. So
+    a notes publish uploads the whole set -- each release page under '<kind>:<token>/v<x.y.z>', the
+    index last under '<kind>:<token>' -- after moving the builder's links from the hub's address onto
+    the worker's route (Convert-BwjPageLinks says why the build is not redone for it). Before anything
+    is uploaded, every site-absolute link in the set has to be one the worker will serve; a link that
+    is not stops the run. That is the measured failure: an index whose every card led to a 404.
+
     Pure ASCII (repo convention for .ps1).
 
 .PARAMETER Kind
     Which page: 'notes' or 'backlog'. See page-publish-rules.ps1 for what each carries.
 
 .PARAMETER Html
-    The built page to publish. Defaults to the kind's own file in the page directory.
+    The built page to publish. Defaults to the kind's own file in the page directory. For 'notes'
+    the release pages are read from the folder of the same name beside it.
+
+.PARAMETER LinkBase
+    For 'notes': the address the builder's links carry, which this run maps onto the worker's route.
+    Defaults to '/release-notes', the builder's own default.
+    Refused for a kind that is one page, where there is nothing to map.
 
 .PARAMETER InitToken
     Create this kind's path token when there is none. Refuses to replace one: that is the
@@ -86,6 +100,7 @@
 param(
     [string]$Kind = 'notes',
     [string]$Html,
+    [string]$LinkBase,
     [switch]$InitToken,
     [switch]$EmitWorker,
     [switch]$ShowUrl,
@@ -277,7 +292,7 @@ if ($ShowUrl) {
     exit 0
 }
 
-# --- The page ----------------------------------------------------------------------------------------
+# --- The page, or the set of pages --------------------------------------------------------------------
 if (-not $Html) {
     $default = @{ notes = 'release-notes.html'; backlog = 'minor-backlog.html' }
     $Html = Join-Path $pageDir $default[$Kind]
@@ -287,13 +302,57 @@ if (-not (Test-Path -LiteralPath $Html -PathType Leaf)) {
            "$((Get-BwjPageKinds | Where-Object { $_.Kind -eq $Kind }).What) -- or name another file " +
            "with -Html. This script publishes a page; it does not build one.")
 }
-$Html  = (Resolve-Path -LiteralPath $Html).Path
-$bytes = (Get-Item -LiteralPath $Html).Length
-$null  = Test-BwjPageSize -Bytes $bytes
-$hash  = (Get-FileHash -LiteralPath $Html -Algorithm SHA256).Hash
+$Html = (Resolve-Path -LiteralPath $Html).Path
 
-Write-Host "  page     : $Html ($([math]::Round($bytes / 1KB)) KB)" -ForegroundColor DarkGray
+# Each upload is one KV value: its key, the file it comes from, and -- for a paged kind -- the text with
+# its links moved onto the route. The release pages come first and the index LAST, the order the builder
+# writes them in and for the same reason: a run that fails part-way leaves the old index in place, and
+# every page it points at still exists.
+$uploads = New-Object System.Collections.Generic.List[object]
+if (Test-BwjPageKindPaged -Kind $Kind) {
+    if (-not $LinkBase) { $LinkBase = Get-BwjNotesLinkBase }
+    $route      = "/$Kind/$token"
+    $releaseDir = Join-Path (Split-Path -Parent $Html) ([System.IO.Path]::GetFileNameWithoutExtension($Html))
+    $files = @()
+    if (Test-Path -LiteralPath $releaseDir -PathType Container) {
+        $files = @(Get-ChildItem -LiteralPath $releaseDir -Filter 'v*.html' -File |
+                   Where-Object { Test-BwjPageRelease -Release $_.BaseName } | Sort-Object Name)
+    }
+    $releases = @($files | ForEach-Object { $_.BaseName })
+    $set = @($files) + @(Get-Item -LiteralPath $Html)
+    for ($i = 0; $i -lt $set.Count; $i++) {
+        $f = $set[$i]
+        $isIndex = ($i -eq $set.Count - 1)   # the index is last, by construction
+        $text = Convert-BwjPageLinks -Html ([System.IO.File]::ReadAllText($f.FullName, [System.Text.Encoding]::UTF8)) `
+                                     -FromBase $LinkBase -ToBase $route
+        $dead = @(Find-BwjDeadPageLinks -Html $text -Route $route -Releases $releases)
+        if ($dead.Count) {
+            $shown = ($dead | Select-Object -First 5) -join ', '
+            throw ("$($f.Name) links to $($dead.Count) address(es) the worker will not serve once this set is " +
+                   "published: $shown. Its cards would lead to a 404 while this run reported success (#3500). " +
+                   "Rebuild the notes so the index and $releaseDir come from the same run, or name the " +
+                   "address the build links to with -LinkBase (the builder's own -LinkBase).")
+        }
+        $pageKey = if ($isIndex) { $key } else { Get-BwjPageKvKey -Kind $Kind -Token $token -Release $f.BaseName }
+        $uploads.Add([pscustomobject]@{ Key = $pageKey; From = $f.FullName; Text = $text; Path = $null })
+    }
+} else {
+    if ($LinkBase) { throw "-LinkBase applies to a set of pages, and '$Kind' is one page: there are no links to map." }
+    $uploads.Add([pscustomobject]@{ Key = $key; From = $Html; Text = $null; Path = $Html })
+}
+
+$totalBytes = 0
+foreach ($u in $uploads) {
+    $size = if ($null -ne $u.Text) { $Utf8NoBom.GetByteCount($u.Text) } else { (Get-Item -LiteralPath $u.From).Length }
+    $null = Test-BwjPageSize -Bytes $size
+    $totalBytes += $size
+}
+
+Write-Host "  page     : $Html ($([math]::Round($totalBytes / 1KB)) KB)" -ForegroundColor DarkGray
 Write-Host "  key      : $key" -ForegroundColor DarkGray
+if ($uploads.Count -gt 1) {
+    Write-Host "  releases : $($uploads.Count - 1) page(s), each under $key/v<x.y.z>" -ForegroundColor DarkGray
+}
 Write-Host "  url      : $url" -ForegroundColor Green
 
 if ($DryRun) {
@@ -351,7 +410,8 @@ function Invoke-BwjNpx {
 }
 
 $apiToken = $env:CLOUDFLARE_API_TOKEN
-if ([string]::IsNullOrWhiteSpace($apiToken)) {
+$useWrangler = [string]::IsNullOrWhiteSpace($apiToken)
+if ($useWrangler) {
     # A WRANGLER LOGIN TO THIS ACCOUNT IS THE SECOND ROUTE (issue #2569). It is neither a seam answer
     # nor a file in the repo, which is what the rule about the token protects, and it is how a machine
     # that deployed the worker is usually authenticated. The proof is the same: read the value back
@@ -366,93 +426,106 @@ if ([string]::IsNullOrWhiteSpace($apiToken)) {
                "(2) '$npx wrangler login' as a user who can reach this account.")
     }
     Write-Host "  auth     : wrangler login to account $($pages.AccountId) (CLOUDFLARE_API_TOKEN is not set)" -ForegroundColor DarkGray
+}
+$headers = @{ Authorization = "Bearer $apiToken" }
 
-    $put = Invoke-BwjNpx -Arguments (Get-BwjPageWranglerArgs -Action put -Key $key -NamespaceId $pages.NamespaceId -Path $Html)
-    if ($put.ExitCode -ne 0) {
-        throw "The upload through wrangler failed (exit $($put.ExitCode)): $($put.Text.Trim())"
-    }
-    Write-Host "  upload   : accepted by wrangler" -ForegroundColor DarkGray
-
+function Publish-BwjKvValue {
+    <#
+        Upload one file to one key and read it back, by whichever route this run authenticated on.
+        Throws unless KV holds the exact bytes of the file (SHA-256).
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Key,
+        [Parameter(Mandatory)][string]$Path
+    )
+    $hash = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
     $verifyPath = Join-Path ([System.IO.Path]::GetTempPath()) ("bwj-page-verify-" + [guid]::NewGuid().ToString('N') + '.tmp')
     try {
-        $get = Invoke-BwjNpx -Arguments (Get-BwjPageWranglerArgs -Action get -Key $key -NamespaceId $pages.NamespaceId) -StdoutPath $verifyPath
-        if ($get.ExitCode -ne 0) {
-            throw ("The upload was accepted but the read-back through wrangler failed (exit $($get.ExitCode)): " +
-                   "$($get.Text.Trim()). Nothing proves what the URL serves -- fetch it before sending the link.")
+        if ($useWrangler) {
+            $put = Invoke-BwjNpx -Arguments (Get-BwjPageWranglerArgs -Action put -Key $Key -NamespaceId $pages.NamespaceId -Path $Path)
+            if ($put.ExitCode -ne 0) {
+                throw "The upload of $Key through wrangler failed (exit $($put.ExitCode)): $($put.Text.Trim())"
+            }
+            $get = Invoke-BwjNpx -Arguments (Get-BwjPageWranglerArgs -Action get -Key $Key -NamespaceId $pages.NamespaceId) -StdoutPath $verifyPath
+            if ($get.ExitCode -ne 0) {
+                throw ("The upload of $Key was accepted but the read-back through wrangler failed (exit $($get.ExitCode)): " +
+                       "$($get.Text.Trim()). Nothing proves what the URL serves -- fetch it before sending the link.")
+            }
+        } else {
+            $valueUrl = Get-BwjPageKvApiUrl -AccountId $pages.AccountId -NamespaceId $pages.NamespaceId -Key $Key
+            try {
+                $put = Invoke-RestMethod -Method Put -Uri $valueUrl -Headers $headers -InFile $Path `
+                                         -ContentType 'text/plain; charset=utf-8' -TimeoutSec 120
+            } catch {
+                # The message can carry the response body, which is Cloudflare's and safe; the token is only
+                # ever in the request headers, which are not echoed here.
+                throw "The upload of $Key to KV failed: $($_.Exception.Message)"
+            }
+            # READ DEFENSIVELY, because this runs under StrictMode Latest and the object comes off the
+            # network. A response without a 'success' field is not a success -- it is a shape nobody here
+            # has seen, and dying on a missing property would report it as a PowerShell fault.
+            $reported = $put.PSObject.Properties['success']
+            if ($null -eq $reported -or -not $reported.Value) {
+                $why = 'the response carried no success field'
+                $errs = $put.PSObject.Properties['errors']
+                if ($null -ne $errs -and $errs.Value) { $why = ((@($errs.Value) | ForEach-Object { $_.message }) -join '; ') }
+                throw "Cloudflare refused the upload of ${Key}: $why"
+            }
+            # -UseBasicParsing is not optional here. Without it Windows PowerShell hands the body to the
+            # Internet Explorer engine to build a DOM -- and the body is a whole HTML page, which is exactly
+            # the case that fails on a host where IE was never first-run. That would break the script's
+            # own correctness proof after the upload has already landed.
+            Invoke-WebRequest -Method Get -Uri $valueUrl -Headers $headers -OutFile $verifyPath `
+                              -UseBasicParsing -TimeoutSec 120 | Out-Null
         }
+        # THE READ-BACK IS THE PROOF, not the accepted upload. An accepted upload and a stored value are
+        # different facts, and this is the one place the difference can be settled without a reader.
         $back = (Get-FileHash -LiteralPath $verifyPath -Algorithm SHA256).Hash
         if ($back -ne $hash) {
-            throw ("KV answered with different bytes than were uploaded (SHA-256 $back against $hash). " +
+            throw ("KV answered $Key with different bytes than were uploaded (SHA-256 $back against $hash). " +
                    "The page at the URL is NOT the file that was just built -- do not send the link on.")
         }
-        Write-Host "  verified : KV holds the same $([math]::Round($bytes / 1KB)) KB that were built (SHA-256 matches)" -ForegroundColor Green
     } finally {
+        # THE FAILURE TO CLEAN UP IS REPORTED RATHER THAN SWALLOWED. This file is a copy of the page, and
+        # in a store repo the page is private content sitting in a world-readable temp directory.
         Remove-Item -LiteralPath $verifyPath -Force -ErrorAction SilentlyContinue
         if (Test-Path -LiteralPath $verifyPath) {
             Write-Warning ("A copy of the published page could not be removed and is still at " +
                            "$verifyPath. Delete it: this page is not public, and that directory is.")
         }
     }
-
-    Write-Host ""
-    Write-Host "  $url" -ForegroundColor Cyan
-    Write-Host "  KV is eventually consistent: an edge that already held the previous page can keep serving" -ForegroundColor DarkGray
-    Write-Host "  it for up to a minute, so fetch again before concluding anything from one request." -ForegroundColor DarkGray
-    Write-Host "  The path is the ONLY lock on this page: no login, anyone with the link can read." -ForegroundColor DarkGray
-    $closeOut = Format-BwjPageCloseOut -Kind $Kind -Url $url
-    if ($closeOut) { Write-Host ""; Write-Host $closeOut -ForegroundColor Cyan }
-    exit 0
 }
-$headers  = @{ Authorization = "Bearer $apiToken" }
-$valueUrl = Get-BwjPageKvApiUrl -AccountId $pages.AccountId -NamespaceId $pages.NamespaceId -Key $key
 
+# A paged kind's pages carry their rewritten links, so they are written once to a private folder of
+# their own and uploaded from there; the folder goes in the finally, warned about if it stays.
+$stage = $null
 try {
-    $put = Invoke-RestMethod -Method Put -Uri $valueUrl -Headers $headers -InFile $Html `
-                             -ContentType 'text/plain; charset=utf-8' -TimeoutSec 120
-} catch {
-    # The message can carry the response body, which is Cloudflare's and safe; the token is only ever
-    # in the request headers, which are not echoed here.
-    throw "The upload to KV failed: $($_.Exception.Message)"
-}
-# READ DEFENSIVELY, because this runs under StrictMode Latest and the object comes off the network.
-# A response without a 'success' field is not a success -- it is a shape nobody here has seen, and
-# dying on a missing property would report it as a PowerShell fault rather than as an API answer.
-$reported = $put.PSObject.Properties['success']
-if ($null -eq $reported -or -not $reported.Value) {
-    $why = 'the response carried no success field'
-    $errs = $put.PSObject.Properties['errors']
-    if ($null -ne $errs -and $errs.Value) { $why = ((@($errs.Value) | ForEach-Object { $_.message }) -join '; ') }
-    throw "Cloudflare refused the upload: $why"
-}
-Write-Host "  upload   : accepted by the KV API" -ForegroundColor DarkGray
-
-# THE READ-BACK IS THE PROOF, not the line above. An accepted upload and a stored value are different
-# facts, and this is the one place the difference can be settled without asking a reader to open a URL.
-$verifyPath = Join-Path ([System.IO.Path]::GetTempPath()) ("bwj-page-verify-" + [guid]::NewGuid().ToString('N') + '.tmp')
-try {
-    # -UseBasicParsing is not optional here. Without it Windows PowerShell hands the body to the
-    # Internet Explorer engine to build a DOM -- and the body is a whole HTML page, which is exactly
-    # the case that fails on a host where IE was never first-run ("the response content cannot be
-    # parsed"). That would break the script's own correctness proof rather than the publish, which is
-    # the worse half: the upload has already landed by then.
-    Invoke-WebRequest -Method Get -Uri $valueUrl -Headers $headers -OutFile $verifyPath `
-                      -UseBasicParsing -TimeoutSec 120 | Out-Null
-    $back = (Get-FileHash -LiteralPath $verifyPath -Algorithm SHA256).Hash
-    if ($back -ne $hash) {
-        throw ("KV answered with different bytes than were uploaded (SHA-256 $back against $hash). " +
-               "The page at the URL is NOT the file that was just built -- do not send the link on.")
+    $n = 0
+    foreach ($u in $uploads) {
+        $n++
+        # A line per page: through a wrangler login each one is two npx calls, so a long history runs for
+        # minutes, and a failure names its key while this line shows which ones already landed.
+        if ($uploads.Count -gt 1) { Write-Host "  upload   : $n/$($uploads.Count) $($u.Key)" -ForegroundColor DarkGray }
+        if ($null -eq $u.Path) {
+            if (-not $stage) {
+                $stage = Join-Path ([System.IO.Path]::GetTempPath()) ("bwj-page-stage-" + [guid]::NewGuid().ToString('N'))
+                New-Item -ItemType Directory -Force -Path $stage | Out-Null
+            }
+            $u.Path = Join-Path $stage ([System.IO.Path]::GetFileName($u.From))
+            [System.IO.File]::WriteAllText($u.Path, $u.Text, $Utf8NoBom)
+        }
+        Publish-BwjKvValue -Key $u.Key -Path $u.Path
     }
-    Write-Host "  verified : KV holds the same $([math]::Round($bytes / 1KB)) KB that were built (SHA-256 matches)" -ForegroundColor Green
 } finally {
-    # THE FAILURE TO CLEAN UP IS REPORTED RATHER THAN SWALLOWED. This file is a copy of the page, and
-    # in a store repo the page is private content sitting in a world-readable temp directory. A
-    # locked or undeletable file is rare and is exactly the case nobody would otherwise learn about.
-    Remove-Item -LiteralPath $verifyPath -Force -ErrorAction SilentlyContinue
-    if (Test-Path -LiteralPath $verifyPath) {
-        Write-Warning ("A copy of the published page could not be removed and is still at " +
-                       "$verifyPath. Delete it: this page is not public, and that directory is.")
+    if ($stage) {
+        Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue
+        if (Test-Path -LiteralPath $stage) {
+            Write-Warning ("Copies of the published pages could not be removed and are still at $stage. " +
+                           "Delete them: these pages are not public, and that directory is.")
+        }
     }
 }
+Write-Host "  verified : KV holds the same $([math]::Round($totalBytes / 1KB)) KB, $($uploads.Count) page(s), that were built (SHA-256 matches)" -ForegroundColor Green
 
 Write-Host ""
 Write-Host "  $url" -ForegroundColor Cyan

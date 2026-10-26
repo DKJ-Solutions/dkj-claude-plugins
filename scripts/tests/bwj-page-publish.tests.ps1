@@ -121,6 +121,23 @@ Assert-True  (-not $route.IsMatch("/notes/$HexA?x=1"))                   'a quer
 Assert-True  (-not $route.IsMatch("/notes/../$HexA"))                    'nothing traversal-shaped survives the route'
 Assert-True  (-not $route.IsMatch("/$HexA"))                             'and a token without a kind is not a route'
 
+# A RELEASE'S OWN PAGE (#3500): the index links every card to /<kind>/<token>/v<x.y.z>.
+$sub = $route.Match("/notes/$HexA/v2.48.0")
+Assert-True  $sub.Success                                         'the route matches a release page under the token'
+Assert-Equal 'v2.48.0' $sub.Groups[3].Value                       '...capturing the release as the third group, the key suffix'
+Assert-True  ($route.IsMatch("/notes/$HexA/v2.48"))               '...and the short form the page shows, which the worker reads as .0'
+Assert-True  (-not $route.IsMatch("/notes/$HexA/2.48.0"))          'a release without its v is not a page'
+Assert-True  (-not $route.IsMatch("/notes/$HexA/v2.48.0/x"))       'nothing below a release page is a route'
+Assert-True  (-not $route.IsMatch("/notes/$HexA/../backlog"))      'nothing traversal-shaped survives under the token either'
+Assert-True  (-not $route.IsMatch("/notes/$HexA/release-notes/v2.48.0")) 'the hub''s address under the token is not a route -- one of the three 404s #3500 measured'
+
+$jsPaged = ([regex]::Match($workerJs, 'const\s+PAGED\s*=\s*new\s+Set\(\[([^\]]*)\]\)')).Groups[1].Value
+$jsPagedList = @([regex]::Matches($jsPaged, '"([a-z]+)"') | ForEach-Object { $_.Groups[1].Value }) | Sort-Object
+$psPagedList = @((Get-BwjPageKinds) | Where-Object { $_.Paged } | ForEach-Object { $_.Kind }) | Sort-Object
+Assert-Equal ($psPagedList -join ',') ($jsPagedList -join ',') 'the lib and the worker agree which kinds are a set of pages'
+Assert-True  ($workerJs -match 'release && !PAGED\.has\(kind\)') 'the worker refuses a release page under a kind that is one page'
+Assert-True  ($workerJs -match '\$\{kind\}:\$\{token\}\$\{page\}') '...and reads a release page under <kind>:<token>/v<x.y.z>, the key the lib writes'
+
 Write-Host ''
 Write-Host 'The cross-language seam -- the kinds the two sides know' -ForegroundColor Cyan
 
@@ -144,6 +161,28 @@ Assert-True  (Test-BwjPageToken -Token (New-BwjPageToken))        'a freshly min
 Assert-Equal "notes:$HexA" (Get-BwjPageKvKey -Kind 'notes' -Token $HexA) 'the KV key is <kind>:<token>'
 Assert-Throws { Get-BwjPageKvKey -Kind 'invoices' -Token $HexA } 'a kind the worker does not route is refused' '*not a kind this worker routes*'
 Assert-Throws { Get-BwjPageKvKey -Kind 'notes' -Token 'nope' }   'a token of the wrong shape is refused'      '*32 lowercase hex*'
+Assert-Equal "notes:$HexA/v2.48.0" (Get-BwjPageKvKey -Kind 'notes' -Token $HexA -Release 'v2.48.0') 'a release page''s key is <kind>:<token>/v<x.y.z>'
+Assert-Throws { Get-BwjPageKvKey -Kind 'backlog' -Token $HexA -Release 'v1.0.0' } 'a kind that is one page takes no release key' '*one page, not a set*'
+Assert-Throws { Get-BwjPageKvKey -Kind 'notes' -Token $HexA -Release 'v2.48' }   'a key is only written under the full x.y.z'   '*full x.y.z*'
+Assert-True  (-not (Test-BwjPageRelease -Release "v2.48.0`n")) 'a release name with a trailing newline is refused -- \z, not $'
+Assert-Throws { Get-BwjPageWranglerArgs -Action get -Key "notes:$HexA`n" -NamespaceId $HexB } '...and so is a key with one, before it reaches the cmd.exe line'
+Assert-Equal "wrangler kv key get notes:$HexA/v2.48.0 --namespace-id $HexB --remote" ((Get-BwjPageWranglerArgs -Action get -Key "notes:$HexA/v2.48.0" -NamespaceId $HexB) -join ' ') 'wrangler takes a release page''s key'
+
+Write-Host ''
+Write-Host 'The links of a set of pages (#3500)' -ForegroundColor Cyan
+
+$r = "/notes/$HexA"
+$hubPage = '<a class="back" href="/release-notes">x</a><a class="card" href="/release-notes/v2.48.0">y</a><a href="/release-notes-old">z</a><a href="https://e.com/release-notes">w</a>'
+$moved = Convert-BwjPageLinks -Html $hubPage -FromBase '/release-notes' -ToBase $r
+Assert-True ($moved -like "*href=`"$r`"*")           'the back link moves onto the route'
+Assert-True ($moved -like "*href=`"$r/v2.48.0`"*")   '...and a card onto the release page under it'
+Assert-True ($moved -like '*href="/release-notes-old"*') 'an address that only starts with the same characters is left alone'
+Assert-True ($moved -like '*href="https://e.com/release-notes"*') '...and so is another site'
+$dead = @(Find-BwjDeadPageLinks -Html $moved -Route $r -Releases @('v2.48.0'))
+Assert-Equal '/release-notes-old' ($dead -join ',') 'the dead-link scan names the one site-absolute link the worker will not serve'
+$deadMissing = @(Find-BwjDeadPageLinks -Html $moved.Replace('/release-notes-old', '/x') -Route $r -Releases @())
+Assert-True ($deadMissing -contains "$r/v2.48.0") 'a card whose release page is not in the set is dead -- the 404 #3500 measured'
+Assert-Equal 0 @(Find-BwjDeadPageLinks -Html '<a href="#top">t</a><a href="v1.html">r</a>' -Route $r -Releases @()).Count 'fragments and relative links are not its business'
 
 Assert-Equal "https://p.workers.dev/notes/$HexA" (Get-BwjPageUrl -BaseUrl 'https://p.workers.dev' -Kind 'notes' -Token $HexA) 'the URL is the origin plus the route'
 Assert-Equal "https://p.workers.dev/notes/$HexA" (Get-BwjPageUrl -BaseUrl 'https://p.workers.dev/' -Kind 'notes' -Token $HexA) '...and a trailing slash on the origin costs nothing'
@@ -153,7 +192,7 @@ $coUrl = "https://p.workers.dev/notes/$HexA"
 Assert-True ((Format-BwjPageCloseOut -Kind 'notes' -Url $coUrl) -like "Close-out:*$coUrl") 'a verified notes publish prints the close-out line ending in the URL'
 Assert-Equal '' (Format-BwjPageCloseOut -Kind 'backlog' -Url $coUrl) 'the backlog page is no cut''s receipt, so it prints none'
 $ppSrc = Get-Content -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\bwj-development\scripts\task\publish-page.ps1') -Raw
-Assert-Equal 2 ([regex]::Matches($ppSrc, 'Format-BwjPageCloseOut -Kind \$Kind -Url \$url')).Count 'both verified exit paths -- wrangler and the KV API -- print it'
+Assert-Equal 1 ([regex]::Matches($ppSrc, 'Format-BwjPageCloseOut -Kind \$Kind -Url \$url')).Count 'one verified exit path, shared by wrangler and the KV API, prints it'
 
 $apiUrl = Get-BwjPageKvApiUrl -AccountId $HexA -NamespaceId $HexB -Key "notes:$HexA"
 Assert-True ($apiUrl -like "https://api.cloudflare.com/client/v4/accounts/$HexA/storage/kv/namespaces/$HexB/values/*") 'the API URL addresses the account and the namespace by id'
@@ -350,6 +389,57 @@ Assert-Equal 0 $amp.ExitCode "a page path carrying '&' and no space publishes as
 Assert-True ($amp.Text -like '*SHA-256 matches*') '...and is verified like any other'
 Assert-True (-not (Test-BwjWranglerSession -WhoamiText ('c' + $HexA + 'c') -ExitCode 0 -AccountId $HexA)) 'the account id inside a longer hex run is not a match'
 
+Write-Host ''
+Write-Host 'A set of pages, end to end (#3500)' -ForegroundColor Cyan
+
+# A SET THROUGH THE WRANGLER ROUTE: every page is put and read back under its own key, the index last.
+$setDir = Join-Path $Fixture 'set'
+New-Item -ItemType Directory -Path (Join-Path $setDir 'release-notes') -Force | Out-Null
+$setIndex = Join-Path $setDir 'release-notes.html'
+[System.IO.File]::WriteAllText($setIndex, '<!doctype html><a class="card" href="/release-notes/v1.0.0">1.0</a>', $Utf8NoBom)
+[System.IO.File]::WriteAllText((Join-Path $setDir 'release-notes\v1.0.0.html'), '<!doctype html><a class="back" href="/release-notes">All</a>', $Utf8NoBom)
+$set = Invoke-WranglerRoute -Account $HexA -HtmlPath $setIndex
+$log = if (Test-Path -LiteralPath $shimLog) { [System.IO.File]::ReadAllText($shimLog) -replace '"', '' } else { '' }
+Assert-Equal 0 $set.ExitCode 'an index and its release page publish as one set'
+Assert-True ($set.Text -like '*2 page(s)*SHA-256 matches*') '...both verified by their read-back'
+$putPage  = $log.IndexOf("kv key put notes:$writtenToken/v1.0.0 ")
+$putIndex = $log.IndexOf("kv key put notes:$writtenToken --path")
+Assert-True ($putPage -ge 0 -and $putIndex -gt $putPage) '...the release page under <kind>:<token>/v1.0.0 first, the index last'
+Assert-True ($log -like "*kv key get notes:$writtenToken/v1.0.0 --namespace-id*") '...each read back under its own key'
+Assert-True ([System.IO.File]::ReadAllText($shimStore) -like "*href=`"/notes/$writtenToken/v1.0.0`"*") '...and what landed links to the worker''s route, not the hub''s'
+Assert-True ([System.IO.File]::ReadAllText($setIndex) -like '*href="/release-notes/v1.0.0"*') 'the built page itself is left as the hub serves it'
+$stages = @(Get-ChildItem -LiteralPath ([System.IO.Path]::GetTempPath()) -Directory -Filter 'bwj-page-stage-*' -ErrorAction SilentlyContinue |
+            Where-Object { $_.LastWriteTime -gt (Get-Date).AddMinutes(-2) -and (Test-Path (Join-Path $_.FullName 'v1.0.0.html')) })
+Assert-Equal 0 $stages.Count '...and no staged copy of a private page is left in the temp directory'
+
+Remove-Item -LiteralPath (Join-Path $setDir 'release-notes\v1.0.0.html') -Force
+$broken = Invoke-WranglerRoute -Account $HexA -HtmlPath $setIndex
+$log = if (Test-Path -LiteralPath $shimLog) { [System.IO.File]::ReadAllText($shimLog) } else { '' }
+Assert-True ($broken.ExitCode -ne 0) 'an index whose release page is missing is refused -- the 404 #3500 measured'
+Assert-True ($broken.Text -like "*/notes/$writtenToken/v1.0.0*") '...naming the link that would have led nowhere'
+Assert-True ($log -notlike '*kv key put*') '...before anything was uploaded'
+
+# WHAT THE BUILDER LINKS TO HAS TO BE SOMETHING THE WORKER SERVES -- asked for in #3500 itself. The real
+# builder, over this repo's own release notes, into the fixture; then the publish's own guard, and the
+# worker's own route over every link it would put live.
+$builder = Join-Path $RepoRoot 'scripts\release\build-release-notes-page.ps1'
+$builtIndex = Join-Path $Fixture 'built\release-notes.html'
+$null = & powershell -NoProfile -ExecutionPolicy Bypass -File $builder -OutFile $builtIndex 2>&1
+Assert-True (Test-Path -LiteralPath $builtIndex) 'the release-notes builder writes an index for the publish to read'
+$builtPages = @(Get-ChildItem -LiteralPath (Join-Path $Fixture 'built\release-notes') -Filter 'v*.html' -File -ErrorAction SilentlyContinue)
+Assert-True ($builtPages.Count -gt 0) '...and a page per release beside it'
+$builtDry = Invoke-PublishPage -ScriptArgs @('-Kind', 'notes', '-Html', $builtIndex, '-DryRun')
+Assert-Equal 0 $builtDry.ExitCode 'the builder''s own output passes the publish''s dead-link guard'
+Assert-True ($builtDry.Text -like "*$($builtPages.Count) page(s), each under notes:$writtenToken/v<x.y.z>*") '...as the whole set, every release page counted'
+$routeMisses = New-Object System.Collections.Generic.List[string]
+foreach ($p in @($builtPages) + @(Get-Item -LiteralPath $builtIndex)) {
+    $html = Convert-BwjPageLinks -Html ([System.IO.File]::ReadAllText($p.FullName)) -FromBase (Get-BwjNotesLinkBase) -ToBase "/notes/$HexA"
+    foreach ($m in [regex]::Matches($html, 'href="(/(?!/)[^"]*)"')) {
+        if (-not $route.IsMatch($m.Groups[1].Value)) { $routeMisses.Add($m.Groups[1].Value) }
+    }
+}
+Assert-Equal '' (($routeMisses | Select-Object -Unique) -join ', ') 'every site-absolute link in the built set matches the worker''s own route'
+
 # The default page per kind is the file the builder leaves behind, so the ordinary run takes no -Html.
 $backlogInit = Invoke-PublishPage -ScriptArgs @('-Kind', 'backlog', '-InitToken')
 Assert-Equal 0 $backlogInit.ExitCode 'the second kind gets a token of its own'
@@ -359,6 +449,9 @@ Assert-True ($backlogToken -ne $writtenToken) '...a DIFFERENT one, which is what
 $missingPage = Invoke-PublishPage -ScriptArgs @('-Kind', 'backlog', '-DryRun')
 Assert-True ($missingPage.ExitCode -ne 0) 'a kind whose page has not been built yet is refused'
 Assert-True ($missingPage.Text -like '*it does not build one*') '...and the refusal says this script publishes a page rather than building one'
+[System.IO.File]::WriteAllText((Join-Path $Fixture 'releases\page\minor-backlog.html'), '<!doctype html><title>b</title>', $Utf8NoBom)
+$backlogLinkBase = Invoke-PublishPage -ScriptArgs @('-Kind', 'backlog', '-LinkBase', '/x', '-DryRun')
+Assert-True ($backlogLinkBase.ExitCode -ne 0 -and $backlogLinkBase.Text -like '*-LinkBase applies to a set of pages*') '-LinkBase on a kind that is one page is refused rather than ignored'
 
 $emit = Invoke-PublishPage -ScriptArgs @('-EmitWorker')
 Assert-Equal 0 $emit.ExitCode '-EmitWorker writes the bundle for the one-time deploy'

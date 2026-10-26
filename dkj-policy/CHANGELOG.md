@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**14 / 22 minor entries** <!-- pending-tally -->
+**15 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3500-notes-pages-publish-per-release · 20261026-104322Z
+
+`publish-page -Kind notes` now publishes the release notes as the set the builder writes: the index of
+cards and one page per release, each under a KV key of its own (`notes:<token>/v<x.y.z>`), and the
+shared BWJ pages worker serves those pages at `/notes/<token>/v<x.y.z>`
+([#3500](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3500)). The builder's
+`/release-notes/...` links are mapped onto the worker's route in the published copy. A link the
+published set would not serve stops the run before anything is uploaded.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Both BWJ stores can publish their release notes again. Until now every card on a freshly built page led
+to a 404, so neither store had published this week's release. **Redeploy the shared worker once**
+(`publish-page.ps1 -EmitWorker`, then `wrangler deploy`) before the first publish: a worker deployed
+before this release serves the index and 404s every release page.
+
+**Score:** 4
+
+#### Pull Request
+
+publish-page and the shared worker serve the per-release notes pages
+
+Plugins: bwj-development
+
+[PR #3510](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3510)
+
+---
 
 ### DEPLOY: feat/3502-house-style-font-longhands · 20261026-103340Z
 
