@@ -893,6 +893,9 @@ function Format-StopwatchPageShell {
         '.sw-card > p + p { margin-top: var(--spacing-1); }' + "`n" +
         '.sw-stamp { font-size: var(--text-base); font-weight: 800; color: var(--fg-1); }' + "`n" +
         '.sw-instruction { font-size: var(--text-sm); font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }' + "`n" +
+        # A card is three lines at most (the owner, October 26, 2026): the label one line ending in an ellipsis, since a
+        # Logbook label is the first line of a prompt, and a card's note beside its time. The run's page shows the label whole.
+        '.sw-card > .sw-instruction { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' + "`n" +
         '.sw-instruction a { color: inherit; text-decoration: none; }' + "`n" +
         '.sw-instruction .muted { font-size: var(--text-sm); font-weight: 400; }' + "`n" +
         '.sw-time { font-size: var(--text-base); font-weight: 300; color: var(--fg-1); }' + "`n" +
@@ -941,7 +944,7 @@ function Format-StopwatchRunCard {
         One run's card, in three lines with no header above them (the owner, October 24, 2026): the run's start, its
         prompt label (with its version behind it once the label has run more than once), and its time
         (Format-StopwatchCardTime). The label is the card's one link, to the run's page under -Route, stretched over
-        the card. -CardNotes (text by run id) adds a fourth line to a finished run's card. -ShortLabel names the label
+        the card. -CardNotes (text by run id) adds a note beside a finished run's time, so a card stays three lines. -ShortLabel names the label
         by its short title (Get-StopwatchShortTitle).
     #>
     param([Parameter(Mandatory = $true)][hashtable]$Group, [string]$Route = '/stopwatch', [datetime]$Now = [datetime]::UtcNow, [switch]$NoDelta, [hashtable]$CardNotes = @{}, [switch]$ShortLabel)
@@ -953,7 +956,9 @@ function Format-StopwatchRunCard {
         '<p class="sw-instruction"><a href="' + $href + '">' + (& $e $label) + '</a>' +
         $(if ($Group.Versions -gt 1) { ' <span class="muted">v' + $Group.Version + '</span>' } else { '' }) + '</p>' +
         (Format-StopwatchCardTime -Group $Group -Now $Now -NoDelta:$NoDelta)
-    if (-not $Group.Running -and @($Group.Rows).Count -and $CardNotes[$Group.Rows[0].Run.Id]) { $card += '<p class="muted">' + (& $e ([string]$CardNotes[$Group.Rows[0].Run.Id])) + '</p>' }
+    if (-not $Group.Running -and @($Group.Rows).Count -and $CardNotes[$Group.Rows[0].Run.Id]) {
+        $card = $card -replace '</p>$', ('<span class="sw-change">' + (& $e ([string]$CardNotes[$Group.Rows[0].Run.Id])) + '</span></p>')
+    }
     return $card + '</section>'
 }
 
