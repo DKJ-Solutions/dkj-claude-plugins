@@ -52,6 +52,10 @@ $script:LogbookSessionsKept = 500
 # never reaches its Stop on the trunk, and would otherwise draw a clock that grows for ever. It stays in the store,
 # so a resumed session that does close it shows it again.
 $script:LogbookOpenRunMaxHours = 24
+# A finished run's speed on the overview (Get-LogbookSpeedTones): green under the first, orange under the second, red
+# from there on, read off its work time (the owner, October 26, 2026).
+$script:LogbookFastSeconds = 15 * 60
+$script:LogbookSlowSeconds = 45 * 60
 
 function Get-LogbookStorePath {
     <# The Logbook's store on this machine for the repo at -RepoRoot, beside its Stopwatch's. #>
@@ -234,6 +238,21 @@ function Get-LogbookWorkTimes {
     return $out
 }
 
+function Get-LogbookSpeedTones {
+    <#
+        Each finished run's speed, by run id: 'fast' under $script:LogbookFastSeconds, 'medium' under
+        $script:LogbookSlowSeconds, else 'slow'. Read off its work time in -WorkTimes (Get-LogbookWorkTimes), so time
+        spent waiting on the owner does not make a run slow; a run with no work time is read off its whole time. Pure.
+    #>
+    param([AllowEmptyCollection()][object[]]$Runs = @(), [hashtable]$WorkTimes = @{})
+    $out = @{}
+    foreach ($r in @($Runs | Where-Object { $_ -and $_.End })) {
+        $s = if ($WorkTimes[$r.Id]) { [double]$WorkTimes[$r.Id].Work } else { ($r.End - $r.Start).TotalSeconds }
+        $out[$r.Id] = if ($s -lt $script:LogbookFastSeconds) { 'fast' } elseif ($s -lt $script:LogbookSlowSeconds) { 'medium' } else { 'slow' }
+    }
+    return $out
+}
+
 function Format-LogbookPageHtml {
     <#
         The overview on '/logbook': the Stopwatch's overview with the Logbook's words, every recent open run going
@@ -253,14 +272,16 @@ function Format-LogbookPageHtml {
     $notes = @{}
     $work = Get-LogbookWorkTimes -Runs $Runs -Transcript $Transcript
     foreach ($id in $work.Keys) { $notes[$id] = 'work ' + (Format-DevSeconds $work[$id].Work) }
-    $note = 'Kept on this machine in <code>' + (ConvertTo-GeneralPageText $StorePath) + '</code>, outside the checkout, and not shared: a label is the first line of a prompt. ' +
+    $tones = Get-LogbookSpeedTones -Runs $Runs -WorkTimes $work
+    $note = 'A finished run''s time is green under ' + ($script:LogbookFastSeconds / 60) + ' minutes of work, orange under ' + ($script:LogbookSlowSeconds / 60) + ' and red from there on; a run with no work time is read off its whole time. ' +
+        'Kept on this machine in <code>' + (ConvertTo-GeneralPageText $StorePath) + '</code>, outside the checkout, and not shared: a label is the first line of a prompt. ' +
         'The first prompt of a new Claude Code session starts a run when the checkout is on the trunk and clean; a Stop hook ends it once a turn ends with the checkout back on the trunk and clean, ' +
         'also when nothing was merged, and not while a ship-pr is still waiting on CI. Both are the dkj-policy plugin''s <code>hooks/logbook-hook.ps1</code>. ' +
         'A <code>/sweep-issues</code> run is shown per issue: cut at each ship-pr fold of this checkout, the moment the trunk is clean again, and named after the issue its fold commit names; the time after the last fold belongs to no issue. ' +
         'Built by its <code>hub/lib/logbook-lib.ps1</code> on the Stopwatch''s pages.'
     return Format-StopwatchPageHtml -Model (ConvertTo-LogbookModel -Runs $Runs -Now $Now) -ReadError $ReadError -Skipped $Skipped -StorePath $StorePath -Now $Now `
         -Route '/logbook' -PageTitle 'Logbook' `
-        -FooterNote $note -NoDelta -CardNotes $notes -Flat -RepoName $RepoName -HubHref $HubHref
+        -FooterNote $note -NoDelta -CardNotes $notes -CardTones $tones -Flat -RepoName $RepoName -HubHref $HubHref
 }
 
 function Format-LogbookRunPageHtml {
