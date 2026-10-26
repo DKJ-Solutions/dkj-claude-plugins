@@ -327,7 +327,7 @@ function in Claude Code and in Cowork, but not in a plain Claude.ai Chat session
 `release-notes-page`, `sync-main`, `push-preview`, `archive-theme`, `theme-lifecycle`, `live-preflight`,
 `check-branch-entry`, `check-policy-drift`,
 `prune-merged`, `tidy-machine`, `plugin-versions`, `update-plugins`, `check-fanout`,
-`measure-skill`, `measure-closeouts`, `measure-session-start`, `worktree-lane`, `report-issue`, `adopt-bwj-development`, `publish-page`,
+`measure-skill`, `measure-closeouts`, `measure-session-start`, `record-suite-durations`, `worktree-lane`, `report-issue`, `adopt-bwj-development`, `publish-page`,
 `build-backlog-page`, `golive-block`,
 `orchestrator`) remain available there.
 

@@ -61,3 +61,8 @@ space-separated list to the next positional parameter, so `-BaselineRunId 111,22
 slowest suites and the pool total. Use `measure-suites` to look, and this script to commit what you saw.
 The two share one parser (`scripts/lib/suite-durations-lib.ps1`), so they cannot disagree about which
 rows count. Why the file is only ever refreshed from CI runs is in the script's own docstring.
+
+**That script and its lib ship in `dkj-policy`** since
+[#3474](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3474), documented for consumers on the
+plugin's `record-suite-durations` skill page, which also states the CI contract it reads. `measure-suites`
+stays here. Its `-Machine` is kept from the file when omitted, so a refresh here needs no new value.
