@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Inbound #3498: the reason was verified first. `notify-live.ps1` read issues only from
+`closingIssuesReferences`. `BWJ-Development/smartwatchbanden` PR #1015 had none, while its head
+branch (`liquid/1011-...`) and its body both name #1011. Of the issue's two proposed routes, the PR's
+own text is the one that holds this case, and it costs one gh call the driver already makes.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-PullIssueCandidates` in `live-message-rules.ps1`: closing references, plus the head branch's issue and every bare `#<n>` in the body (not the PR's own number, not `PR #<n>`, not `owner/repo#<n>`, not inside code)
+- [x] `notify-live.ps1` step 2 asks gh for `headRefName,body`, and asks GitHub once per named number whether it is an issue (an unanswerable one is UNREAD and fails the run, like every other read); the docstring and the skill page say "carried" where they said "closed"
 
 ### TEST
 
+- [x] seven asserts in `bwj-development.tests.ps1`, the #1015 shape among them; the suite passes 898 of 898
+- [x] the issue-or-PR filter checked live against smartwatchbanden #1011
+
 ### DEPLOY: fix/3498-notify-live-noresolves-issues
 
-**Score:**
+`notify-live` now finds the issues a release carried, not only the ones its PRs closed through a
+closing keyword. It also reads the issue a PR's head branch is named after, and every `#<n>` in the
+PR body that GitHub confirms is an issue. The verdict is unchanged, so a number a PR merely mentions
+shows up as a `skipped` row in the dry run and never becomes a message.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+In a store repo that answers `Get-ResolvesExemptMatchers`, every Asana-linked issue ships with
+`-NoResolves` and is closed by hand, so `notify-live` could never tell any of their tasks that the work
+was live. From this release on, it does.
+
+**Score:** 4
 
 #### Pull Request
 

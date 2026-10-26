@@ -1210,6 +1210,16 @@ Assert-Equal 'en' (Get-LiveMessageLanguage -Sections "LIVE SINCE`n`nIt has been 
 
 Assert-Equal '12,7,3067' ((Get-ReleaseRangePullNumbers -Subjects @('merge: fix/12-x (#12)', 'Merge pull request #7 from o/b', 'fold: y (#3067)', 'fold: again (#12)', 'no number')) -join ',') 'every #<n> in the subjects, distinct, in first-seen order'
 Assert-Equal 0 @(Get-ReleaseRangePullNumbers -Subjects @()).Count 'no subjects, no numbers'
+# #3498: a -NoResolves PR closes nothing, so its branch and body are read too (smartwatchbanden #1015 -> #1011).
+$nlCand = Get-PullIssueCandidates -PullNumber 1015 -ClosingNumbers @() -HeadRefName 'liquid/1011-product-jsonld' -Body "Ships #1011.`n<!-- resolves: none -->`nFollows PR #1009, see #1015 and other/repo#7 and ``#55``."
+Assert-Equal '' (@($nlCand.Closing) -join ',') 'no closing reference on a -NoResolves PR'
+Assert-Equal '1011' (@($nlCand.Named) -join ',') 'the branch issue and the body mention, once -- not the PR''s own number, a ''PR #'' form, another repo''s issue or a code span'
+$nlCand = Get-PullIssueCandidates -PullNumber 20 -ClosingNumbers @(12) -HeadRefName 'feat/12-x' -Body 'Closes #12, also touches #13.'
+Assert-Equal '12' (@($nlCand.Closing) -join ',') 'a closing reference stays a closing reference'
+Assert-Equal '13' (@($nlCand.Named) -join ',') '...and is not repeated among the named numbers'
+Assert-Equal 0 @((Get-PullIssueCandidates -PullNumber 5 -HeadRefName 'main' -Body $null).Named).Count 'a branch with no number and no body name nothing'
+$nlDriverCand = [System.IO.File]::ReadAllText((Join-Path $PluginRoot 'scripts\task\notify-live.ps1'))
+Assert-True ($nlDriverCand.Contains('Get-PullIssueCandidates') -and $nlDriverCand.Contains('.pull_request == null')) 'the driver reads the candidates through the rule, and asks GitHub whether a named number is an issue'
 Assert-Equal 'v2.9.0' (Get-PreviousReleaseTag -Tags @('v2.9.0', 'v2.44.0', 'v2.45.0', 'v1.0.0-rc1') -Version 'v2.44.0') 'the tag below is compared as a version, not lexically'
 Assert-Equal 'v2.44.0' (Get-PreviousReleaseTag -Tags @('v2.9.0', 'v2.44.0', 'v2.45.0') -Version 'v2.45.0') 'the highest tag below wins'
 Assert-Equal '' (Get-PreviousReleaseTag -Tags @('v1.0.0') -Version 'v1.0.0') 'the first release has no range start'

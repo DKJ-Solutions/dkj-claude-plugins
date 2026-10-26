@@ -17,8 +17,12 @@
       1 the release   -Version (default: the highest vX.Y.Z tag) and the tag below it, as versions.
       2 the PRs       every '#<n>' in the range's first-parent subjects, kept only where gh says that PR
                       is MERGED and its merge commit is inside the range -- a subject can name any number.
-      3 the issues    the issues those PRs closed (closingIssuesReferences), each read with its comments
-                      and its last reopen.
+      3 the issues    the issues those PRs carried, each read with its comments and its last reopen:
+                      the ones they closed (closingIssuesReferences), plus the issue each head branch is
+                      named after and every '#<n>' in its body that GitHub confirms is an issue
+                      (Get-PullIssueCandidates, #3498) -- a -NoResolves PR closes nothing, and those are
+                      the issues this message exists for. The verdict below decides; a surplus number
+                      is a 'skipped' row, never a message.
       4 the verdict   Get-LiveMessageVerdict: owed only where the issue is closed as completed, links one
                       task, has not been told yet, and its newest go-live block is this round's and
                       carries the after-release marker (#3069) -- the requesters told "visible with the
@@ -213,8 +217,10 @@ $issueNumbers = New-Object 'System.Collections.Generic.List[int]'
 # Per issue, from the record: how many of its PRs' paths are held, or -1 where a PR's files could not be read.
 $heldCount = @{}
 $prsKept = 0
+# Per named number: $true an issue, $false a pull request, $null unread -- asked once per run.
+$isIssue = @{}
 foreach ($n in @(Get-ReleaseRangePullNumbers -Subjects $subjects.Lines)) {
-    $pr = Invoke-Native { gh pr view "$n" --repo $repoName --json number,state,mergeCommit,closingIssuesReferences,files,changedFiles }
+    $pr = Invoke-Native { gh pr view "$n" --repo $repoName --json number,state,mergeCommit,closingIssuesReferences,files,changedFiles,headRefName,body }
     if ($pr.Code -ne 0) { continue }   # an issue's number, or a PR of another repo: not this release's PR
     try { $j = ($pr.Lines -join "`n") | ConvertFrom-Json } catch { $readFailures++; Write-Host "  PR #$n -- its reply did not parse" -ForegroundColor Yellow; continue }
     $oid = if ($j.mergeCommit) { [string]$j.mergeCommit.oid } else { '' }
@@ -238,13 +244,29 @@ foreach ($n in @(Get-ReleaseRangePullNumbers -Subjects $subjects.Lines)) {
             $prHeld = if ($changed.Complete) { @((Get-EntryLiveState -ChangedPaths $changed.Paths -Record $record).HeldPaths).Count } else { -1 }
         }
     }
-    foreach ($r in @($j.closingIssuesReferences | Where-Object { $_ })) {
-        $num = [int]$r.number
+    # THE ISSUES IT CARRIED, NOT ONLY THE ONES IT CLOSED (#3498): a -NoResolves PR closes nothing, so its
+    # branch and its body are read too. A named number is kept only once GitHub says it is an issue.
+    $cand = Get-PullIssueCandidates -PullNumber $n `
+        -ClosingNumbers @(@($j.closingIssuesReferences | Where-Object { $_ }) | ForEach-Object { [int]$_.number }) `
+        -HeadRefName ([string]$j.headRefName) -Body ([string]$j.body)
+    $carried = @($cand.Closing)
+    foreach ($m in @($cand.Named)) {
+        if (-not $isIssue.ContainsKey($m)) {
+            # The issues endpoint answers a PR too, with a pull_request field. A filter with no double
+            # quote in it, so Windows PowerShell 5.1's native argument quoting has nothing to mangle.
+            $kind = Invoke-Native { gh api "repos/$repoName/issues/$m" --jq '.pull_request == null' }
+            $answer = (@($kind.Lines) -join '').Trim()
+            $isIssue[$m] = if ($kind.Code -ne 0 -or $answer -notin @('true', 'false')) { $null } else { $answer -eq 'true' }
+            if ($null -eq $isIssue[$m]) { $readFailures++; Write-Host "  #$m  UNREAD   PR #$n names it, and GitHub could not say whether it is an issue -- not told" -ForegroundColor Yellow }
+        }
+        if ($isIssue[$m]) { $carried += $m }
+    }
+    foreach ($num in $carried) {
         if (-not $issueNumbers.Contains($num)) { $issueNumbers.Add($num); $heldCount[$num] = 0 }
         if ($prHeld -lt 0 -or $heldCount[$num] -lt 0) { $heldCount[$num] = -1 } else { $heldCount[$num] += $prHeld }
     }
 }
-Write-Host "[2/5] pull requests -- $prsKept merged in the range, closing $($issueNumbers.Count) issue(s)" -ForegroundColor Cyan
+Write-Host "[2/5] pull requests -- $prsKept merged in the range, carrying $($issueNumbers.Count) issue(s)" -ForegroundColor Cyan
 
 # === 3/5 + 4/5 -- the issues and the verdict =======================================================
 Write-Host '[3/5] issues, [4/5] verdict' -ForegroundColor Cyan
