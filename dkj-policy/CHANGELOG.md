@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**2 / 5 minor entries** <!-- pending-tally -->
+**2 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3540-restore-product-port · 20261026-215314Z
+
+This repo has a product port again ([#3540](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3540)):
+its `Get-DevPreview` no longer opts out with `OwnHub`, so the session start hands out the dkj-policy plugin's hub,
+as in every other repo, and the connector dashboard as the product beside it. The product's home page opens on a
+card back to the hub, then Connectors, Specialists and DKJ repos; the general pages are the hub's alone. The
+suite selection the old own hub showed on its Test gate went with it.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: this repo's own dev server; no plugin behaviour a consumer runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+This repo has a product port again: the plugin's hub, and the connector dashboard as the product
+
+Plugins: dkj-policy
+
+[PR #3544](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3544)
+
+---
 
 ### DEPLOY: feat/sessionstart-section-pages · 20261026-213937Z
 
