@@ -316,6 +316,7 @@ const PARKED_BECAUSE = {
   "awaiting-action-external": "waiting on an external event or date",
   "awaiting-action-dev": "waiting on an act only the owner performs",
   "awaiting-release": "waiting on the next release",
+  "awaiting-release-external": "waiting on a release of another repo",
   "awaiting-recurrences-first": "waiting on a first recurrence",
   "awaiting-recurrences": "record: waiting on the next instance or the root cause",
   // Former names (#2683, #2723, #2741, #2890, #2896, #2904, #2917), still read because a tracker keeps a name until renamed.

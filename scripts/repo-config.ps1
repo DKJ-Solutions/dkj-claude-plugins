@@ -1340,6 +1340,15 @@ function Get-ExpectedRepoSettings {
 # 'awaiting-release' name a third party's date and this repo's own cut. So the label comes off once the
 # upstream work is AVAILABLE here, and plain 'awaiting-pull' keeps its meaning (same repo, off at merge).
 # New, so no former name; same purple, same 'copy' reasoning.
+# AND A SIXTEENTH, AN ELEVENTH PARKING LABEL: 'awaiting-release-external' (issue #3515, Dave October 26, 2026).
+# An issue whose remaining step runs only once ANOTHER repo cuts a release -- telling a store's requester
+# their work is live, once that store's release is out -- fits none of the others: 'awaiting-release' is
+# THIS repo's own cut, and this repo's cut-release.ps1 lists it, at a moment unrelated to the other repo;
+# a sister repo the same owners cut is not the third party 'awaiting-action-external' means; and
+# 'awaiting-pull-external' waits on a pull request that has already merged. The issue names the repo and
+# the release, and the label comes off once that release is out and the step has run. Nothing lists it
+# on its own: the other repo's cut reads only its own tracker. New, so no former name; same purple, same
+# 'copy' reasoning.
 $script:TriageLabels = @(
     [pscustomobject]@{ Name = 'prio-1'; Color = 'FFA726'; Description = 'Priority 1 of 4 (lowest) -- nobody is waiting for it' }
     [pscustomobject]@{ Name = 'prio-2'; Color = 'F57C00'; Description = 'Priority 2 of 4 -- worth doing, no pressure' }
@@ -1355,17 +1364,18 @@ $script:TriageLabels = @(
     [pscustomobject]@{ Name = 'awaiting-action-external'; Color = '5319E7'; Description = 'Waiting on an external event or date -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-action-dev'; Color = '5319E7'; Description = 'Waiting on an act only the owner performs -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-release'; Color = '5319E7'; Description = 'Waiting on the next release -- parks the issue so no session picks it up' }
+    [pscustomobject]@{ Name = 'awaiting-release-external'; Color = '5319E7'; Description = 'Waiting on a release of another repo -- parks the issue so no session picks it up' }
     [pscustomobject]@{ Name = 'awaiting-recurrences-first'; Color = '5319E7'; Description = 'Waiting on a first reproducible recurrence -- parks the issue so no session picks it up' }
 )
 
 function Get-TriageLabels {
     <# The canonical triage labels this workflow's consumers are invited to share -- the four
        priority rungs 'prio-1' (lowest) through 'prio-4' (highest), plus 'awaiting-recurrences', the kind label for
-       a collecting issue, and the ten parking labels 'awaiting-decision-dev' (an issue awaiting the owner's
+       a collecting issue, and the eleven parking labels 'awaiting-decision-dev' (an issue awaiting the owner's
        choice), 'awaiting-decision-client' (an issue awaiting a choice from the client or requester outside the
        dev team), 'awaiting-review-dev' (an issue awaiting the dev's look at a visible result), 'awaiting-review-client' (an issue awaiting the client's look), 'awaiting-pull' (an issue awaiting another issue's pull request), 'awaiting-pull-external' (an issue awaiting a pull request outside this repo until its work is available here), 'awaiting-action-external' (an issue
        awaiting an external event or date), 'awaiting-action-dev' (an issue awaiting an act only the owner
-       performs), 'awaiting-release' (an issue awaiting the next release) and 'awaiting-recurrences-first' (an issue awaiting its first reproducible recurrence) -- as an array of objects with Name, Color and Description (the exact fields
+       performs), 'awaiting-release' (an issue awaiting the next release), 'awaiting-release-external' (an issue awaiting a release of another repo) and 'awaiting-recurrences-first' (an issue awaiting its first reproducible recurrence) -- as an array of objects with Name, Color and Description (the exact fields
        a `gh label create` call needs). Read by adopt-triage-labels.ps1, which composes and prints the
        create command for whichever of them this repo's tracker is missing; it never creates a label
        itself. Optional in the script contract -- a consumer that has not answered this seam gets the

@@ -29,7 +29,7 @@ export const STATUSES = ["In review", "In progress", "Waiting", "Blocked", "Clai
 // "needs-info" and "awaiting-more-info" are now "awaiting-info-client", "needs-decision" and "awaiting-decision" are "awaiting-decision-dev", "awaiting-recurrence" and "awaiting-first-recurrence" are "awaiting-recurrences-first",
 // "record", "dossier" and "awaiting-more-recurrences" are "awaiting-recurrences", "awaiting-owner-act" is "awaiting-action-dev", and "awaiting-event" is "awaiting-action-external".
 export const PARKING_LABELS = [
-  "awaiting-info-client", "awaiting-decision-dev", "awaiting-decision-client", "awaiting-review-dev", "awaiting-review-client", "awaiting-pull", "awaiting-pull-external", "awaiting-action-external", "awaiting-action-dev", "awaiting-release", "awaiting-recurrences-first", "awaiting-recurrences",
+  "awaiting-info-client", "awaiting-decision-dev", "awaiting-decision-client", "awaiting-review-dev", "awaiting-review-client", "awaiting-pull", "awaiting-pull-external", "awaiting-action-external", "awaiting-action-dev", "awaiting-release", "awaiting-release-external", "awaiting-recurrences-first", "awaiting-recurrences",
   "awaiting-first-recurrence", "awaiting-more-recurrences", "awaiting-more-info",
   "needs-info", "needs-decision", "awaiting-decision", "awaiting-recurrence", "record", "dossier", "awaiting-owner-act", "awaiting-event",
 ];

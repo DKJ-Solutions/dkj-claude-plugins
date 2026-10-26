@@ -1170,9 +1170,9 @@ repair, close as not planned while it waits — is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from), and is not
 restated here.
 
-### The parking labels — all set at filing: `awaiting-decision-dev` for the owner's choice, `awaiting-decision-client` for the client's, `awaiting-review-dev` / `awaiting-review-client` for a look at a result, `awaiting-pull` while another issue lands, `awaiting-pull-external` until another repo's work is available here, `awaiting-action-external` until a date, `awaiting-action-dev` until the owner acts, `awaiting-release` until the next cut, `awaiting-recurrences-first` once only evidence is owed
+### The parking labels — all set at filing: `awaiting-decision-dev` for the owner's choice, `awaiting-decision-client` for the client's, `awaiting-review-dev` / `awaiting-review-client` for a look at a result, `awaiting-pull` while another issue lands, `awaiting-pull-external` until another repo's work is available here, `awaiting-action-external` until a date, `awaiting-action-dev` until the owner acts, `awaiting-release` until the next cut, `awaiting-release-external` until another repo's, `awaiting-recurrences-first` once only evidence is owed
 
-**All eleven `awaiting-*` labels, `awaiting-recurrences` included, go on in the same `gh issue create` as the `prio-N`**, not only `awaiting-decision-dev`
+**All twelve `awaiting-*` labels, `awaiting-recurrences` included, go on in the same `gh issue create` as the `prio-N`**, not only `awaiting-decision-dev`
 ([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796)); the rule is in
 [`CONTRIBUTING-portable.md`](../../../plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from),
 and Chris's lens carries it beside the `prio-N` and `minor` filing rules, where a session reads it at filing time.
@@ -1201,7 +1201,7 @@ the tracker shows the long-lived ones at a glance (Dave, September 28, 2026,
 **`awaiting-pull` (`5319E7`) parks an issue that waits on another issue landing through its pull request** (Dave,
 October 3, 2026, [#2757](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2757)). Both pickup routes
 skip it as they skip `awaiting-decision-dev`, and it comes off when the blocking pull request merges. It is new,
-so no former name is matched for it. **`awaiting-pull-external` (`5319E7`) is its twin for a blocker in another repo** (October 15, 2026, [#3044](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3044)): the upstream merge alone does not unblock it, so it comes off once that work is released and taken here. The definition is in `CONTRIBUTING-portable.md`.
+so no former name is matched for it. **`awaiting-pull-external` (`5319E7`) is its twin for a blocker in another repo** (October 15, 2026, [#3044](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3044)): the upstream merge alone does not unblock it, so it comes off once that work is released and taken here. The definition is in `CONTRIBUTING-portable.md`. **`awaiting-release-external` (`5319E7`) is `awaiting-release`'s twin for another repo's cut** (October 26, 2026, [#3515](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3515)): the issue names that repo and release, and nothing lists it at that cut. The definition is in `CONTRIBUTING-portable.md` too.
 
 **`awaiting-action-dev` (`5319E7`) parks an issue whose decision is made and whose only remaining step is
 an act only the owner performs** — a live push, a release, a deletion the session may not run (inbound

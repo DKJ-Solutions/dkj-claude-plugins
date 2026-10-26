@@ -152,11 +152,11 @@ classified twice. Your prefixes are your own (step 2) and your labels are your t
 this plugin reads either**, so that alignment is a convention you keep rather than one a gate holds you to.
 Priority is the same kind of label — nothing here reads it either — and `task/adopt-triage-labels.ps1`
 prints (never creates) a `gh label create` line for whichever of the canonical triage labels your tracker
-is missing (the four `prio-1`..`prio-4` rungs, `awaiting-recurrences`, `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-review-dev`, `awaiting-review-client`, `awaiting-pull`, `awaiting-pull-external`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release` and
-`awaiting-recurrences-first`), so adopting the convention costs one command instead of fifteen typed by hand.
+is missing (the four `prio-1`..`prio-4` rungs, `awaiting-recurrences`, `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-review-dev`, `awaiting-review-client`, `awaiting-pull`, `awaiting-pull-external`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release`, `awaiting-release-external` and
+`awaiting-recurrences-first`), so adopting the convention costs one command instead of sixteen typed by hand.
 
 **A parking label goes on when the issue is filed, whichever one it is**
-([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796), October 4, 2026). The eleven
+([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796), October 4, 2026). The twelve
 `awaiting-*` labels below each park an issue whose next step waits on something other than work: the
 owner's choice, a client's choice, the owner's or a client's look at a result, another issue's pull request, a pull request in another repo, an external event or date, an act only
 the owner performs, the next release, a first recurrence, or a record's next instance. Such an issue carries the matching label in the same `gh issue create` that
@@ -164,7 +164,7 @@ files it, beside its `prio-N`. Filed without it, it reads as free work to both p
 somebody notices. Measured in this plugin's source repo: an issue whose own body said it waited on
 later CI runs was filed with only its `prio-N`, and was parked by hand six minutes later. Each
 paragraph below says what its label parks and when it comes off. When it goes on is this rule, for all
-eleven alike.
+twelve alike.
 
 **An issue carries at most one `awaiting-*` label, so setting one replaces any other**
 ([#2936](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2936), Maikel, October 12, 2026).
@@ -227,7 +227,7 @@ label's name moved. Six things follow from being a record:
   recurrence label, and adds the `[RECORD]` prefix where it is missing. A reopen does not wake it.
 - **A record is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,
   and no single repair closes it, so a sweep that picks one up finds nothing to build. Both pickup routes
-  skip `awaiting-recurrences` by default, exactly as they skip `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-review-dev`, `awaiting-review-client`, `awaiting-pull`, `awaiting-pull-external`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release` and
+  skip `awaiting-recurrences` by default, exactly as they skip `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-review-dev`, `awaiting-review-client`, `awaiting-pull`, `awaiting-pull-external`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release`, `awaiting-release-external` and
   `awaiting-recurrences-first`. Working a
   record is a deliberate assignment, named by its number.
 
@@ -352,6 +352,19 @@ no date. Both pickup routes skip it by default, so **the release is where it sur
 and tag are written, `release/cut-release.ps1` lists every open issue carrying it among its follow-up
 steps. The issue names the step that runs at the release, and the label comes off once that step has
 run. It is a new label, so no former name is matched for it.
+
+- **A release of another repo is `awaiting-release-external`**
+  ([#3515](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3515), Dave, October 26, 2026).
+  The issue's remaining step runs only once a different repo has cut a release. Measured: the last step
+  of an issue here was telling a store's requester their work was live, once that store cut its next
+  release. `awaiting-release` would surface it at this repo's own cut, which has nothing to do with when
+  the store goes live. The store is a sister repo the same owners cut, so it is not the third party
+  `awaiting-action-external` means. And its pull request had already merged, so `awaiting-pull-external`
+  did not fit either. **The issue names that repo and that release** (`owner/repo` and the version, or
+  "its next release"), and the label comes off once the release is out and the step has run. Both pickup
+  routes skip it, and `claim-issue <n>` warns on it. **Nothing lists it on its own**: the other repo's
+  cut reads only its own tracker, so the label keeps the issue out of the pickup routes and no more. It is
+  a new label, so no former name is matched for it.
 
 **Exactly one label is the exception, and it is the only one this workflow prescribes: the reach label.**
 An issue that will land above tier 0 carries it, and `minor` is its default name. It is prescribed where

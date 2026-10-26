@@ -68,7 +68,7 @@ is small and focused on maintaining this product — agent defs, manuals, docs, 
   other than work**: `awaiting-decision-dev` (the owner's choice), `awaiting-decision-client` (a choice from the client or requester outside the dev team, #2890), `awaiting-review-dev` / `awaiting-review-client` (a look at a result, the owner's or the client's, #2977), `awaiting-pull` (another issue's pull request), `awaiting-pull-external` (a pull request in another repo, until its work is available here, #3044),
   `awaiting-action-external` (an external event or date), `awaiting-action-dev` (an act only the owner performs: a live
   push, a release, a deletion), `awaiting-release` (work that runs only in the next release, which lists
-  it), `awaiting-recurrences-first` (its first reproducible
+  it), `awaiting-release-external` (a step that runs only once another repo cuts its release, #3515), `awaiting-recurrences-first` (its first reproducible
   recurrence), or `awaiting-recurrences` (a record). It goes in the same `gh issue create` as the
   `prio-N`, because an unparked waiting issue reads as free work to every pickup route
   ([#2796](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2796): #2795 was filed waiting on
