@@ -39,19 +39,42 @@
 
 ### PLAN
 
+Every repo has a product port (Maikel, October 26, 2026), and #3493 removed this repo's along with the brandbook
+app. Decision on #3540: the same form as every consumer -- drop `OwnHub`, so the plugin's hub is this repo's hub,
+and the connector dashboard server becomes the product with Connectors, Specialists and DKJ repos.
+
+#### Visible result
+
+The product's home page and the hub's Product card are judged by eye: this branch stops for the owner's look
+before the merge.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-DevPreview` states the connector dashboard as the repo's server, with no `OwnHub`
+- [x] The server is the product: home page with a Hub card and the three pages; `/hub` sends to the plugin hub; the general pages, Repository, Test gate, Stopwatch, Logbook, Plugins and release notes are no longer relayed or built here
+- [x] `dev-pages-lib.ps1`: `Get-ProductPages` and `Format-ProductHomeHtml` replace the own-hub functions; every page is tagged `product`
+- [x] The hub README and Sylvester's lens say the source repo runs the plugin's hub now
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` and `connector-dashboard.tests.ps1` rewritten for the product and green locally (335 and 213 asserts)
+
 ### DEPLOY: fix/3540-restore-product-port
 
-**Score:**
+This repo has a product port again ([#3540](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3540)):
+its `Get-DevPreview` no longer opts out with `OwnHub`, so the session start hands out the dkj-policy plugin's hub,
+as in every other repo, and the connector dashboard as the product beside it. The product's home page opens on a
+card back to the hub, then Connectors, Specialists and DKJ repos; the general pages are the hub's alone. The
+suite selection the old own hub showed on its Test gate went with it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: this repo's own dev server; no plugin behaviour a consumer runs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
+This repo has a product port again: the plugin's hub, and the connector dashboard as the product

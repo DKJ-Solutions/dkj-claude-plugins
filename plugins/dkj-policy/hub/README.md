@@ -89,7 +89,8 @@ the same `Get-DevPreview` ([#3283](https://github.com/DKJ-Solutions/dkj-claude-p
 `OwnHub = $true`, because there the server itself is already the product. Any other fault in it costs the
 product alone: the own hub still starts, and the line says `product not started: the Product: <why>`. This repo used it, from
 #3283 until #3493 retired the brand book app: the connector dashboard was the hub, and the app's Vite dev
-server the product. It states no `Product` now.
+server the product. Since #3540 it opts out no longer: every repo has a product port, so its connector dashboard is
+its product and the hub is this plugin's.
 
 ## The dev-preview hook
 
@@ -278,8 +279,8 @@ hub has its own port, so two repo hubs on one machine already disagreed.
 - **The page asks its own server**: `GET /api/airsquats` every 15 seconds and at the turn of the hour, and a
   `POST` to `/api/airsquats/clear` when the box is ticked. It counts the minutes down by itself.
 - **Every hub server on a machine shares one file**, `%LOCALAPPDATA%\dkj-hub\airsquats.json`, written under
-  a lock. The plugin's servers and the source repo's own hub read the same file. Until #3493 the source
-  repo's product port relayed the two routes to its hub.
+  a lock. The plugin's servers and the source repo's product read the same file, since every page of either
+  carries the banner.
 - **Where you opt in, that file is merged with a private GitHub gist**, by `pages/sync-airsquats.ps1` in a
   hidden child at most every 20 seconds while a hub page is open, and at once after a tick-off. The server
   never waits on the network, so another machine sees a tick-off within about half a minute.
@@ -332,13 +333,12 @@ record the runs (`hooks/stopwatch-hook.ps1`, `hooks/logbook-hook.ps1`), and the 
 
 ## In the source repo
 
-This repo's `Get-DevPreview` states `OwnHub = $true`: its own hub, whose pages are the **connector
-dashboard** (every repo registered under `connectors/` and what `check-connectors.ps1` reports for it) and
-the specialists and their context cost, is served on `127.0.0.1` by
-`scripts/dashboard/serve-connector-dashboard.ps1` with the house style from this tree. The General pages
-are the ones above, relayed through that hub, and `scripts/lib/dev-pages-lib.ps1` reads
-`lib/general-pages-lib.ps1` and the DKJ-Solutions pages lib from this tree. It serves the Test gate, the
-Stopwatch and the Logbook itself, from this plugin's libs in its tree and through the same router
-(`Resolve-HubTimingPage`), and its Test gate adds the suites this checkout's change selects. That server uses a
+This repo's hub is this plugin's, as in every other repo: since #3540 its `Get-DevPreview` states no`nOwnHub`, because every repo has a product port. Its product is the **connector dashboard** (every repo
+registered under `connectors/` and what `check-connectors.ps1` reports for it), the specialists and their
+context cost, and the DKJ repos, served on `127.0.0.1` by `scripts/dashboard/serve-connector-dashboard.ps1`,
+with the house style from this tree and a first card back to the hub. `scripts/lib/dev-pages-lib.ps1` reads
+`lib/general-pages-lib.ps1` from this tree for the page shell. The General pages, the Test gate among them,
+are the hub's alone: the suite selection this checkout's change makes, which the old own hub added to its Test
+gate, went with it. That server uses a
 `TcpListener` rather than an `HttpListener`: under the latter the socket belongs to `http.sys` (PID 4), and
 the hook could never recognise the server as this checkout's.

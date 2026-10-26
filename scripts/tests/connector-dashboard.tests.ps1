@@ -238,7 +238,7 @@ $three = @(
     @{ Repo = 'DKJ-Solutions/y'; Status = 'good'; Plugins = @(); Signals = @(); Present = $false; Git = $null },
     @{ Repo = 'DKJ-Solutions/w'; Status = 'bad'; Plugins = @(); Signals = @(); Present = $false; Git = $null })
 $overview = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' }
-Assert-True ($overview -match '<h1>Connectors</h1>' -and $overview -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">hub</span></span>' -and $overview -match '<span aria-current="page">Connectors</span>') 'the overview''s h1 is Connectors, and the site header names this repo''s hub, which links the page since the product port went (#3493)'
+Assert-True ($overview -match '<h1>Connectors</h1>' -and $overview -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span></span>' -and $overview -match '<span aria-current="page">Connectors</span>') 'the overview''s h1 is Connectors, and the site header names this repo''s product, whose page it is (#3540)'
 $cD = $overview.IndexOf('href="/connectors/dkj"'); $cB = $overview.IndexOf('href="/connectors/bwj"'); $cO = $overview.IndexOf('href="/connectors/other"')
 Assert-True ($cD -ge 0 -and $cD -lt $cB -and $cB -lt $cO) 'the overview has a card per owner group, DKJ, BWJ, Other, each linking its own page (owner, October 26, 2026)'
 Assert-Equal 3 ([regex]::Matches($overview, '<section class="card card--link">')).Count 'three cards, in the hub''s card form'
@@ -294,16 +294,8 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
     # general pages server it would relay to it (#3168). A port nobody answers on keeps it out of the run.
     $probe = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
     $probe.Start(); $env:DKJ_GENERAL_PAGES_PORTS = [string]$probe.LocalEndpoint.Port; $probe.Stop()
-    # The Stopwatch's store, a fixture of its own so the label page has a run to show (#3323).
-    $swDir = Join-Path ([System.IO.Path]::GetTempPath()) ('hub-stopwatch-' + [guid]::NewGuid().ToString('N'))
-    New-Item -ItemType Directory -Path $swDir | Out-Null
-    $swStore = Join-Path $swDir 'stopwatch.json'
-    [System.IO.File]::WriteAllText($swStore, '{ "runs": [ { "id": "s1", "label": "Server fixture", "start": "2026-10-23T10:00:00.000Z", "end": "2026-10-23T10:05:00.000Z", "auto": true, "startHead": "a" } ] }')
-    # And the Logbook's (#3364), beside it.
-    $lbStore = Join-Path $swDir 'logbook.json'
-    [System.IO.File]::WriteAllText($lbStore, '{ "runs": [ { "id": "l1", "label": "Logbook fixture", "start": "2026-10-24T10:00:00.000Z", "end": "2026-10-24T10:02:00.000Z", "auto": true, "startHead": "a", "session": "x1" } ], "sessions": [ "x1" ] }')
     $proc = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
-        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$Server`"", '-Port', $port, '-StopwatchPath', "`"$swStore`"", '-LogbookPath', "`"$lbStore`"")
+        '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$Server`"", '-Port', $port)
     try {
         # THE TWO WINDOWS BELOW ARE WIDE ON PURPOSE (#3038). Both groups failed on a loaded CI shard and
         # passed on a rerun. Measured unloaded: the server is up in ~0.6s, a request behind a silent
@@ -345,27 +337,15 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             Assert-Equal 403 (Get-Status 'GET' '/house-style.css' "evil.example:$port") 'a foreign Host is refused'
             Assert-Equal 405 (Get-Status 'POST' '/' "localhost:$port") 'a POST is refused'
             Assert-Equal 405 (Get-Status 'POST' '/stopwatch/start?label=x' "localhost:$port" "Sec-Fetch-Site: same-origin`r`n") 'the Stopwatch takes no POST any more (#3323)'
-            $swOverview = Get-Raw 'GET' '/stopwatch' "localhost:$port"
-            Assert-True ($swOverview -match 'HTTP/1.1 200' -and $swOverview -match 'href="/stopwatch/server-fixture"') 'the Stopwatch overview has a card for the fixture label, linking the label''s page'
-            $swLabel = Get-Raw 'GET' '/stopwatch/server-fixture' "localhost:$port"
-            Assert-True ($swLabel -match 'HTTP/1.1 200' -and $swLabel -match 'Server fixture' -and $swLabel -match 'href="/stopwatch"' -and $swLabel -match 'href="/stopwatch/server-fixture/2026-10-2[34]-\d{4}"') 'a label''s page shows its runs, each linking its run''s page under the label''s by its start, and links back'
-            $swRunSlug = [regex]::Match($swLabel, 'href="/stopwatch/server-fixture/(2026-10-2[34]-\d{4})"').Groups[1].Value
-            Assert-True ((Get-Raw 'GET' "/stopwatch/server-fixture/$swRunSlug" "localhost:$port") -match 'HTTP/1.1 200') 'a run''s page is served under its label''s'
-            $swOld = Get-Raw 'GET' "/stopwatch/$swRunSlug" "localhost:$port"
-            Assert-True ($swOld -match 'HTTP/1.1 301' -and $swOld -match "Location: /stopwatch/server-fixture/$swRunSlug") 'a bare run slug redirects to the run''s page under its label''s'
-            Assert-Equal 404 (Get-Status 'GET' "/stopwatch/docs/$swRunSlug" "localhost:$port") 'a run under a label it is not of is not found'
-            Assert-Equal 404 (Get-Status 'GET' '/stopwatch/no-such-label' "localhost:$port") 'an unknown Stopwatch slug is not found'
-            $lbOverview = Get-Raw 'GET' '/logbook' "localhost:$port"
-            Assert-True ($lbOverview -match 'HTTP/1.1 200' -and $lbOverview -match 'Logbook fixture' -and $lbOverview -match 'href="/logbook/2026-10-2[45]-\d{4}"') 'the Logbook overview has a card for the fixture run, linking its page (#3364)'
-            $lbSlug = [regex]::Match($lbOverview, 'href="/logbook/([0-9-]+)"').Groups[1].Value
-            $lbRun = Get-Raw 'GET' "/logbook/$lbSlug" "localhost:$port"
-            Assert-True ($lbRun -match 'HTTP/1.1 200' -and $lbRun -match 'Logbook fixture' -and $lbRun -match 'href="/logbook"') 'a Logbook run''s page shows the run and links back'
-            Assert-Equal 404 (Get-Status 'GET' '/logbook/no-such-run' "localhost:$port") 'an unknown Logbook slug is not found'
+            # THE GENERAL PAGES ARE THE PLUGIN HUB'S (#3540): this server is the product, so it neither builds nor relays them.
+            foreach ($general in '/stopwatch', '/logbook', '/test-gate', '/plugins', '/repository', '/artifacts', '/issues', '/sessionstart', '/release-notes', '/about') {
+                Assert-Equal 404 (Get-Status 'GET' $general "localhost:$port") "$general is no page of the product: it is the plugin hub's"
+            }
             Assert-Equal 404 (Get-Status 'GET' '/../connectors/x.json' "localhost:$port") 'a path outside the routes is not found'
-            # The brandbook app is retired (#3493): the hub neither serves nor redirects it, and the house style's specimens are under /plugins.
-            Assert-Equal 404 (Get-Status 'GET' '/brandbook' "localhost:$port") '/brandbook is not a page of the hub'
+            # The brandbook app is retired (#3493): the product neither serves nor redirects it, and the house style's specimens are under the hub's /plugins.
+            Assert-Equal 404 (Get-Status 'GET' '/brandbook' "localhost:$port") '/brandbook is not a page of the product'
             Assert-Equal 404 (Get-Status 'GET' '/brandbook/' "localhost:$port") 'and neither is /brandbook/'
-            Assert-Equal 404 (Get-Status 'GET' '/house-style' "localhost:$port") 'and no /house-style of the hub either: the house style is the dkj-solutions plugin''s, under /plugins (#3493)'
+            Assert-Equal 404 (Get-Status 'GET' '/house-style' "localhost:$port") 'and no /house-style either: the house style is the dkj-solutions plugin''s, under the hub''s /plugins (#3493)'
             # Whose server this is: the general server's own question, answered the same way.
             $who = Get-Raw 'GET' '/whoami' "localhost:$port"
             Assert-True ($who -match 'HTTP/1.1 200' -and $who.EndsWith("`r`n`r`n" + (Get-DevPreviewRootHash -Root $RepoRoot))) '/whoami answers the hash of this root, as the general server does'
@@ -373,7 +353,7 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             Assert-True ((Get-Raw 'GET' '/refresh?page=connectors' "localhost:$port") -match 'Location: /connectors\r') '/refresh?page= goes back to the page that asked'
             Assert-True ((Get-Raw 'GET' '/refresh?page=connectors/bwj' "localhost:$port") -match 'Location: /connectors/bwj\r') 'and to a Connectors group page that asked (owner, October 26, 2026)'
             Assert-Equal 404 (Get-Status 'GET' '/connectors/nope' "localhost:$port") 'a Connectors group no owner has is not found'
-            Assert-True ((Get-Raw 'GET' '/refresh?page=sessionstart' "localhost:$port") -match 'Location: /\r') 'and a page that moved to the general pages server (#3119) is no page of this one''s'
+            Assert-True ((Get-Raw 'GET' '/refresh?page=sessionstart' "localhost:$port") -match 'Location: /\r') 'and a general page''s refresh is no page of the product''s (#3540)'
             Assert-True ((Get-Raw 'GET' '/refresh?page=//evil.example' "localhost:$port") -match 'Location: /\r') 'and to the index for a page outside its list'
             Assert-Equal 403 (Get-Status 'GET' '/refresh' "localhost:$port" "Sec-Fetch-Site: cross-site`r`n") 'a request another site makes is refused'
             # A HEAD answers like the GET would, real Content-Length included, and carries no body (#3161).
@@ -402,7 +382,6 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
         }
     } finally {
         if (-not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
-        Remove-Item -LiteralPath $swDir -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -440,9 +419,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         $probe.Start(); $genPort3 = $probe.LocalEndpoint.Port; $probe.Stop()
         $env:DKJ_GENERAL_PAGES_PORTS = [string]$genPort3
         $proc3 = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
-            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $src 'scripts\dashboard\serve-connector-dashboard.ps1')`"", '-Port', $port3,
-                # A store of its own, never this machine's real one (#3470).
-                '-StopwatchPath', "`"$(Join-Path $fixture 'timing\stopwatch.json')`"", '-LogbookPath', "`"$(Join-Path $fixture 'timing\logbook.json')`"", '-TranscriptDir', "`"$(Join-Path $fixture 'timing\transcripts')`"")
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $src 'scripts\dashboard\serve-connector-dashboard.ps1')`"", '-Port', $port3)
         try {
             # Asserted on its own, so a recurrence says whether the server never came up or the page did not
             # come back -- the question #3038 could not answer from four asserts failing together.
@@ -457,100 +434,53 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $at = $page.IndexOf('id="repo-org-far"')
             $far = if ($at -ge 0) { $page.Substring($at, $page.IndexOf('</section>', $at) - $at) } else { '' }
             Assert-True ($far -and $far -notmatch 'class="meta"') 'a checkout outside the scope root is not read'
-            # THE GENERAL PAGES MOVED (#3119): Artifacts, Issues and SessionStart are the dkj-policy general pages
-            # server's now, so this server sends each on when the state file names that server AND that server says
-            # it is this checkout's, and says so in a short 404 text when it does not.
-            foreach ($moved in '/artifacts', '/issues', '/sessionstart') {
+            # THE PRODUCT (#3540): the general pages are the plugin hub's, so this server neither relays nor builds them.
+            foreach ($moved in '/artifacts', '/issues', '/sessionstart', '/release-notes', '/test-gate', '/repository') {
                 $r = if ($up) { Get-Raw 'GET' $moved "localhost:$port3" '' $port3 } else { '' }
-                Assert-True ($r -match 'HTTP/1.1 404' -and $r -match 'general pages server') "$moved is a 404 text naming the general pages server while no state file names one"
+                Assert-True ($r -match 'HTTP/1.1 404' -and $r -match 'Not found\.') "$moved is a plain 404: it is the plugin hub's page, not the product's"
             }
-            # /RELEASE-NOTES IS BUILT HERE, FROM THIS TREE (owner, October 25, 2026): never relayed, so a change to
-            # the page shows without a cut. The fixture has no builder and no page, so it says why it has none.
-            $r = if ($up) { Get-Raw 'GET' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($r -match 'HTTP/1.1 404' -and $r -match 'Not built yet' -and $r -match 'is not in this tree' -and $r -notmatch 'general pages server') '/release-notes is answered here, naming the missing builder, with no general pages server at all'
-            $rnDir = Join-Path $src 'dkj-policy\releases\page'
-            New-Item -ItemType Directory -Force -Path $rnDir | Out-Null
-            [System.IO.File]::WriteAllText((Join-Path $rnDir 'release-notes.html'), '<!doctype html><html lang="en"><head><style>.wrap{}</style></head><body><div class="wrap">fixture notes</div></body></html>')
-            $r = if ($up) { Get-Raw 'GET' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
-            $iBanner = $r.IndexOf('id="hub-banner"'); $iHeader = $r.IndexOf('<header class="site-header"'); $iWrap = $r.IndexOf('<div class="wrap">')
-            Assert-True ($r -match 'HTTP/1.1 200' -and $r -match 'fixture notes' -and $r -match '/house-style.css') 'with a page on disk it is served from here, dressed by this tree''s Format-ReleaseNotesDevPage'
-            Assert-True ($iBanner -ge 0 -and $iBanner -lt $iHeader -and $iHeader -lt $iWrap) 'the hub banner stands above the site header, as on every other hub page'
-            Assert-True ($r -match 'site-header__brand" href="/"' -and $r -match '<li><a href="/">Home</a></li>') 'and its header and Home crumb lead to this hub on /'
-            # EVERY RELEASE HAS A PAGE OF ITS OWN (owner, October 25, 2026), in the folder named after the index.
-            New-Item -ItemType Directory -Force -Path (Join-Path $rnDir 'release-notes') | Out-Null
-            [System.IO.File]::WriteAllText((Join-Path $rnDir 'release-notes\v1.2.0.html'), '<!doctype html><html lang="en"><head><style>.wrap{}</style></head><body><div class="wrap"><h1>Version 1.2</h1>fixture release</div></body></html>')
-            $r = if ($up) { Get-Raw 'GET' '/release-notes/v1.2' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($r -match 'HTTP/1.1 200' -and $r -match 'fixture release' -and $r -match '<a href="/release-notes">Release notes</a>' -and $r -match 'aria-current="page">Version 1\.2<') 'a release''s own page is served here too, its trail running back through the index'
-            $r = if ($up) { Get-Raw 'GET' '/release-notes/v9.9.9' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($r -match 'HTTP/1.1 404' -and $r -match 'No release v9\.9\.9') 'and a release with no page is a 404 that names it'
             $srcState = Get-RepoHubStatePath -Root $src
-            # The hub on '/' and the pages under it (#3097). The fixture has no
-            # suite-durations.json, so the test-gate page takes its failure path, and is still served.
-            $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match 'site-header__name">dkj-claude-plugins' -and $hub -match '<a class="menu-item" href="/repository">' -and $hub -notmatch 'href="/about"') '/ serves the home page, linking the Repository page'
-            Assert-True ($hub -match 'The general pages server is not running' -and $hub -notmatch 'href="/brandbook' -and $hub -match 'href="/dkj-repos"') 'its General card says the general pages server is not running while no state file names one; it links no brand book, and DKJ repos is its own (#3493)'
-            $about = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($about -match 'HTTP/1.1 200' -and $about -match '<a class="menu-item" href="/test-gate">' -and $about -match 'href="/connectors"' -and $about -match 'href="/specialists"') 'the home page links the pages below the hub: Test gate, Connectors and Specialists (#3493)'
-            Assert-True ((Get-Raw 'GET' '/about' "localhost:$port3" '' $port3) -match 'HTTP/1.1 303[\s\S]*Location: /\r') '/about sends an old link on to the home page, which holds what it held'
-            Assert-True ($about -match 'The general pages server is not running' -and $about -notmatch 'href="http://localhost') 'and its General card says the general pages server is not running too'
-            # A state file naming a port nobody answers on is no server.
-            Write-RepoHubState -Root $src -Hub "http://localhost:$port3/" -Pages "http://localhost:$genPort3" -Product 'http://localhost:5174/' -Mode 'ownhub'
-            $r = if ($up) { Get-Raw 'GET' '/issues' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($r -match 'HTTP/1.1 404') 'a state file naming a port where nothing answers is no server: a 404 text, not a redirect'
-            # The real general server for this fixture, which answers /whoami with this root's hash. The fixture is an
-            # OwnHub repo (#3245), as this repo is: the state file's mode ownhub is what makes /hub a 303 to its hub.
+            # The product's home page on '/' and the pages under it (#3540).
+            $home3 = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($home3 -match 'HTTP/1.1 200' -and $home3 -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span>' -and $home3 -match 'href="/connectors"' -and $home3 -match 'href="/specialists"' -and $home3 -match 'href="/dkj-repos"') '/ serves the product''s home page, linking Connectors, Specialists and DKJ repos'
+            Assert-True ($home3 -match 'The hub is not running' -and $home3 -notmatch 'href="http://localhost' -and $home3 -notmatch 'href="/brandbook' -and $home3 -notmatch 'href="/test-gate"') 'with no state file it says the hub is not running, and links no general page of its own'
+            $r = if ($up) { Get-Raw 'GET' '/hub' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($r -match 'HTTP/1.1 404' -and $r -match 'hub is not running') 'and /hub is a 404 text, never a redirect to a port nobody answers on'
+            # A state file naming a port nobody answers on is no hub.
+            Write-RepoHubState -Root $src -Hub "http://localhost:$genPort3/" -Pages "http://localhost:$genPort3" -Product "http://localhost:$port3/" -Mode 'product'
+            $r = if ($up) { Get-Raw 'GET' '/hub' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($r -match 'HTTP/1.1 404') 'a state file naming a port where nothing answers is no hub: a 404 text, not a redirect'
+            # The real plugin hub for this fixture, which answers /whoami with this root's hash.
             $gen3 = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
                 '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$GeneralServer`"", '-Port', $genPort3, '-RepoRootOverride', "`"$src`"",
                 '-StopwatchPath', "`"$(Join-Path $fixture 'timing\stopwatch.json')`"", '-LogbookPath', "`"$(Join-Path $fixture 'timing\logbook.json')`"", '-TranscriptDir', "`"$(Join-Path $fixture 'timing\transcripts')`"")
             try {
-                Assert-True (Wait-ServerUp $genPort3) 'the fixture''s general pages server listens'
-                # The brand book is the source repo's product, so the general server serves it in no repo (#3475).
-                Assert-True ((Get-Raw 'GET' '/brandbook' "localhost:$genPort3" '' $genPort3) -match 'HTTP/1.1 404') 'the general server serves no Brandbook'
-                # SERVED FROM THIS ORIGIN (#3168): the general server builds the page, this server relays its answer
-                # as it came -- so the browser stays on one origin, and one theme choice holds on every page.
-                $r = if ($up) { Get-Raw 'GET' '/artifacts' "localhost:$port3" '' $port3 } else { '' }
-                Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Artifacts</h1>' -and $r -match 'data-theme-key="general-pages"' -and $r -notmatch 'Location:') '/artifacts is relayed from the general pages server, on this origin, under the shared theme key'
-                $r = if ($up) { Get-Raw 'GET' '/release-notes' "localhost:$port3" '' $port3 } else { '' }
-                Assert-True ($r -match 'HTTP/1.1 200' -and $r -match 'fixture notes') 'the release notes stay this server''s own while a general pages server answers'
-                $r = if ($up) { Get-Raw 'GET' '/artifacts' "localhost:$port3" '' $port3 } else { '' }
-                $len = if ($r -match 'Content-Length: ([0-9]+)\r') { [int]$Matches[1] } else { -1 }
-                $r = if ($up) { Get-Raw 'HEAD' '/artifacts' "localhost:$port3" '' $port3 } else { '' }
-                Assert-True ($r -match "Content-Length: $len\r" -and $r.EndsWith("`r`n`r`n")) 'a relayed HEAD keeps the real Content-Length and carries no body'
-                $r = if ($up) { Get-Raw 'GET' '/refresh?page=issues' "localhost:$port3" '' $port3 } else { '' }
-                Assert-True ($r -match 'HTTP/1.1 303' -and $r -match 'Location: /issues\r') 'a general page''s refresh is relayed too, and its 303 names a path on this origin'
+                Assert-True (Wait-ServerUp $genPort3) 'the fixture''s plugin hub listens'
+                Assert-True ((Get-Raw 'GET' '/brandbook' "localhost:$genPort3" '' $genPort3) -match 'HTTP/1.1 404') 'the plugin hub serves no Brandbook (#3475)'
+                $homeUp = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
+                Assert-True ($homeUp -match ('<a class="menu-item" href="http://localhost:' + $genPort3 + '">') -and $homeUp -notmatch 'hub is not running') 'the home page''s first card links the plugin hub, once it answers as this checkout''s'
                 $r = if ($up) { Get-Raw 'GET' '/hub' "localhost:$port3" '' $port3 } else { '' }
-                Assert-True ($r -match 'HTTP/1.1 303' -and $r -match 'Location: /\r') 'and the general pages'' "Home" crumb, /hub, is answered here with the hub'
-                # THE BROWSER'S OWN HEADERS (#3119): ports do not count toward "site", so the hub's link, and the 303 hop to the
-                # general server, arrive same-site -- a top-level navigation. A fetch or a cross-site request does not get in.
+                Assert-True ($r -match 'HTTP/1.1 303' -and $r -match ('Location: http://localhost:' + $genPort3 + '\r')) 'and /hub sends the visitor there'
+                $hubHome = Get-Raw 'GET' '/' "localhost:$genPort3" '' $genPort3
+                Assert-True ($hubHome -match 'HTTP/1.1 200' -and $hubHome -match ('href="http://localhost:' + $port3 + '/"')) 'the plugin hub links the product in turn, from the state file (#3245)'
+                # THE BROWSER'S OWN HEADERS (#3119): ports do not count toward "site", so the hub's link to the product
+                # arrives same-site -- a top-level navigation. A fetch or a cross-site request does not get in.
                 $nav = "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: navigate`r`nSec-Fetch-Dest: document`r`n"
-                $r = Get-Raw 'GET' '/artifacts' "localhost:$port3" $nav $port3
-                Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Artifacts</h1>') 'a same-site navigation to a relayed route on this server is served, not refused'
                 $r = Get-Raw 'GET' '/' "localhost:$port3" $nav $port3
-                Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<title>dkj-claude-plugins -- Home</title>') 'and the hub itself, reached by the crumb back from the general pages, is served'
+                Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<title>dkj-claude-plugins -- Home</title>') 'a same-site navigation from the hub to the product is served'
                 $r = Get-Raw 'GET' '/connectors' "localhost:$port3" "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: cors`r`n" $port3
                 Assert-True ($r -match 'HTTP/1.1 403') 'a same-site fetch is still refused'
                 $r = Get-Raw 'GET' '/' "localhost:$port3" "Sec-Fetch-Site: cross-site`r`nSec-Fetch-Mode: navigate`r`n" $port3
                 Assert-True ($r -match 'HTTP/1.1 403') 'and so is a cross-site navigation'
-                $r = Get-Raw 'GET' '/artifacts' "localhost:$genPort3" $nav $genPort3
-                Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Artifacts</h1>') 'the general server serves the click from the hub too'
-                $r = Get-Raw 'GET' '/hub' "localhost:$genPort3" $nav $genPort3
-                Assert-True ($r -match 'HTTP/1.1 303' -and $r -match ('Location: http://localhost:' + $port3 + '/\r')) 'and sends the crumb''s /hub on to the hub'
-                $r = Get-Raw 'GET' '/artifacts' "localhost:$genPort3" "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: no-cors`r`n" $genPort3
-                Assert-True ($r -match 'HTTP/1.1 403') 'while a same-site subresource request to it is refused'
-                $hubUp = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-                Assert-True ($hubUp -notmatch 'href="http://localhost:5174/"' -and $hubUp -notmatch 'aria-label="Product"') 'a product url in the state file links nothing: this repo states no product since #3493'
-                Assert-True ((Get-Raw 'GET' '/repository' "localhost:$port3" '' $port3) -match '<a class="menu-item" href="/issues">' -and $hubUp -match 'href="/release-notes"' -and $hubUp -notmatch 'href="http://localhost:[0-9]+/[a-z]' -and $hubUp -notmatch 'general pages server is not running') 'the General card links the pages on this origin, when the server the state file names answers as this checkout''s (#3168)'
             } finally {
                 if (-not $gen3.HasExited) { Stop-Process -Id $gen3.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
                 $gen3.WaitForExit(5000) | Out-Null
             }
-            $hubDown = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($hubDown -match 'HTTP/1.1 200' -and $hubDown -match 'The general pages server is not running') 'and the General card is back to not running once nothing answers there'
+            $homeDown = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($homeDown -match 'HTTP/1.1 200' -and $homeDown -match 'The hub is not running') 'and the Hub card is back to not running once nothing answers there'
             Remove-Item -LiteralPath $srcState -Force -ErrorAction SilentlyContinue
-            Assert-True ($overviewPage -match 'HTTP/1.1 200' -and $overviewPage -match '<h1>Connectors</h1>' -and $overviewPage -match '<a href="/">Home</a>' -and $overviewPage -match 'href="/connectors/other"') '/connectors serves the overview as a page under the hub, linking each group''s page'
+            Assert-True ($overviewPage -match 'HTTP/1.1 200' -and $overviewPage -match '<h1>Connectors</h1>' -and $overviewPage -match '<a href="/">Home</a>' -and $overviewPage -match 'href="/connectors/other"') '/connectors serves the overview as a page under the product''s home, linking each group''s page'
             Assert-True ($page -match '<h1>Other repos</h1>' -and $page -match '<a href="/connectors">Connectors</a>') '/connectors/other serves that group''s page under the overview'
-            $tg = if ($up) { Get-Raw 'GET' '/test-gate' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($tg -match 'HTTP/1.1 200' -and $tg -match 'No test gate has been measured in this repo yet') '/test-gate shows a missing suite-durations.json as its empty state, rather than failing'
         } finally {
             if (-not $proc3.HasExited) { Stop-Process -Id $proc3.Id -Force -Confirm:$false -ErrorAction SilentlyContinue }
         }
@@ -592,12 +522,11 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         $probe = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
         $probe.Start(); $port4 = $probe.LocalEndpoint.Port; $probe.Stop()
         $proc4 = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
-            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $fixture4 'scripts\dashboard\serve-connector-dashboard.ps1')`"", '-Port', $port4,
-            '-StopwatchPath', "`"$(Join-Path $fixture4 'timing\stopwatch.json')`"", '-LogbookPath', "`"$(Join-Path $fixture4 'timing\logbook.json')`"", '-TranscriptDir', "`"$(Join-Path $fixture4 'timing\transcripts')`"")
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $fixture4 'scripts\dashboard\serve-connector-dashboard.ps1')`"", '-Port', $port4)
         $up = Wait-ServerUp $port4
         Assert-True $up 'the group-4 server listens on the port it was given'
-        $hub = if ($up) { Get-Raw 'GET' '/repository' "localhost:$port4" '' $port4 } else { '' }
-        Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match "<code>$($first.Substring(0, 8))</code>") '"Source at" names the commit the server loaded'
+        $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port4" '' $port4 } else { '' }
+        Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match "<code>$($first.Substring(0, 8))</code>") 'the home page''s footer names the commit the server loaded'
         # Measured October 19, 2026: a server started before #3130 moved the house style threw on the file it
         # could no longer find, and the browser saw a dropped connection instead of a stylesheet.
         $gone = if ($up) { Get-Raw 'GET' '/house-theme.js' "localhost:$port4" '' $port4 } else { '' }
@@ -612,7 +541,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         Assert-True ($proc4.WaitForExit(15000)) 'and the old server exits'
         $up = Wait-ServerUp $port4
         Assert-True $up 'its successor listens on the same port'
-        $hub = if ($up) { Get-Raw 'GET' '/repository' "localhost:$port4" '' $port4 } else { '' }
+        $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port4" '' $port4 } else { '' }
         Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match "<code>$($second.Substring(0, 8))</code>") 'and serves the new commit'
         $succ = @(Get-NetTCPConnection -State Listen -LocalPort $port4 -ErrorAction SilentlyContinue | ForEach-Object { $_.OwningProcess })
         & git -C $fixture4 -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m 'third' 2>$null

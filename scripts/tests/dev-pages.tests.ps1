@@ -12,6 +12,9 @@ $ErrorActionPreference = 'Continue'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 . (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1')
+# The Test gate page's lib, which this suite also covers: the plugin's since #3470, and no longer loaded by
+# dev-pages-lib now that the Test gate is the plugin hub's alone (#3540).
+. (Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\test-gate-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -62,70 +65,45 @@ Assert-True ((ConvertTo-SiteHeaderName -RepoName 'DKJ-Solutions/dkj-x') -eq 'dkj
 $bshell = Format-GeneralPageHtml -Title 'T' -Lead 'L' -Body '' -Eyebrow 'Org/r' -Brand 'r<x>' -HubHref '/home'
 Assert-True ($bshell -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/home" aria-label="r&lt;x&gt;, home"><span class="site-header__mark" aria-hidden="true">DKJ</span><span class="site-header__name">r&lt;x&gt;</span></a><div id="settings"></div></div></header>') 'with -Brand the header carries the escaped name, links home, and holds the settings button'
 Assert-True ((Format-SiteHeaderHtml -Name 'n' -Tag 'p<q>') -match 'aria-label="n p&lt;q&gt;, home">.*site-header__name">n <span class="site-header__tag">p&lt;q&gt;</span></span>' -and $bshell -notmatch 'site-header__tag') 'a -Tag follows the name, escaped, and is left out when empty'
-Assert-True ((Format-RepoHubHtml) -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">hub</span>' -and (Format-RepoHubHtml -Pages @()) -match '>hub</span>' -and (Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3) -match '>hub</span>' ) 'every page this server builds says hub: the product port that said product went with the brandbook app (#3493)'
+Assert-True ((Format-ProductHomeHtml) -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span>' -and (Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3) -match '>product</span>') 'every page this server builds says product: it is this repo''s product port again (#3540)'
 Assert-True ((Format-RepoHomeHeadHtml -RepoName 'r' -Lead 'l') -match '<h1>r</h1>\s*<p class="lead">l</p>') 'without a site header the home page keeps its intro, as in every other repo'
 Assert-True ($bshell -notmatch 'class="eyebrow"' -and $bshell -notmatch 'theme-settings--floating' -and $bshell.IndexOf('class="site-header"') -lt $bshell.IndexOf('class="breadcrumbs-bar"')) 'and it stands above the bar, with no eyebrow and no floating button'
 
-Write-Host '-- the hub: the home page on / and About this repo on /about (#3270)' -ForegroundColor Cyan
-$pages = @(Get-RepoHubPages)
-Assert-Equal '/repository,/connectors,/specialists,/dkj-repos' (($pages | ForEach-Object { $_.Href }) -join ',') 'the hub links four pages of its own: Repository and the three the product port held until it went with the brandbook app (#3493); Test gate, Stopwatch and Logbook are general pages since #3470, and the house style is under Plugins'
+Write-Host '-- the product: the home page on / (#3540)' -ForegroundColor Cyan
+$pages = @(Get-ProductPages)
+Assert-Equal '/connectors,/specialists,/dkj-repos' (($pages | ForEach-Object { $_.Href }) -join ',') 'the product links its three pages: Connectors, Specialists and DKJ repos; the general pages are the plugin hub''s (#3540)'
 Assert-Equal '/artifacts,/issues,/release-notes,/sessionstart,/test-gate,/stopwatch,/logbook,/plugins' ((Get-GeneralPages | ForEach-Object { $_.Href }) -join ',') 'the plugin lists the eight general pages, in order: Test gate, Stopwatch and Logbook every repo''s since #3470, Plugins since #3482'
-$hub = Format-RepoHubHtml
-Assert-True ($hub -match '<title>dkj-claude-plugins -- Home</title>' -and $hub -notmatch '<h1' -and $hub -notmatch 'class="lead"' -and $hub -notmatch '<main class="page-column">\s*<div>\s*<h1') 'under the site header the home page has no intro at all, and its title says Home'
-Assert-True ($hub -match '(?s)<body>\s*<div class="notice" id="hub-banner".*?</script>\s*<header class="site-header">.*?</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Home</span></li>\s*</ol>') 'the banner opens <body>, the site header under it and the bar right under that, its trail the one crumb Home (owner, October 24, 2026)'
-Assert-True ($hub -notmatch 'class="eyebrow"' -and ([regex]::Matches($hub, '<header')).Count -eq 1 -and $hub -notmatch 'btn--primary' -and $hub -notmatch 'theme-settings--floating' -and $hub -match '<div id="settings"></div></div></header>') 'no eyebrow, no <header> but the site header, which holds the settings button, and no product button'
-Assert-True ($hub -notmatch 'href="/about"' -and $hub -notmatch '<h2>About this repo</h2>') 'no About this repo link: what it held is on the home page itself'
-Assert-True (([regex]::Matches($hub, '<h2[ >]')).Count -eq 0 -and $hub -match 'href="/connectors"' -and $hub -match 'href="/specialists"' -and $hub -match 'href="/dkj-repos"') 'the home page has no h2: the pages are cards, Connectors, Specialists and DKJ repos among them (#3493)'
-Assert-True ($hub -notmatch 'brandbook' -and $hub -notmatch 'Brand book' -and $hub -notmatch 'aria-label="Product"' -and $hub -notmatch 'own server is not running') 'and no brand book and no Product card: this repo states no product since #3493'
-Assert-True ($hub -match 'class="grid-3"' -and $hub -match 'href="/test-gate"' -and $hub -match 'href="/repository"' -and $hub -notmatch 'class="facts' -and $hub -match 'class="footer-note"') 'the home page is the page cards and the footer note: the facts are the Repository page''s'
-# THE GENERAL BANNER (#3250): above the site header (owner, October 24, 2026), in house classes only, and its state in this browser.
-$hubBanner = $hub.IndexOf('<div class="notice" id="hub-banner"')
-Assert-True ($hubBanner -ge 0 -and $hubBanner -lt $hub.IndexOf('class="site-header"') -and $hubBanner -lt $hub.IndexOf('class="grid-3"')) 'the airsquats banner sits above the site header, and so above the sections'
-Assert-True ($hub.Contains('data-hub-timer') -and $hub.Contains('<input type="checkbox" data-hub-done> <span data-hub-count>10</span> due') -and $hub.Contains('data-hub-due hidden')) 'it counts down to the hour, and its "10 due" box stays hidden until an hour has passed, on the same one-row line as the timer'
+$ph = Format-ProductHomeHtml -HubUrl 'http://localhost:4890' -SourceCommit 'abc1234'
+Assert-True ($ph -match '<title>dkj-claude-plugins -- Home</title>' -and $ph -notmatch '<h1' -and $ph -notmatch 'class="lead"') 'under the site header the home page has no intro at all, and its title says Home'
+Assert-True ($ph -match '(?s)<body>\s*<div class="notice" id="hub-banner".*?</script>\s*<header class="site-header">.*?</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Home</span></li>\s*</ol>') 'the banner opens <body>, the site header under it and the bar right under that, its trail the one crumb Home'
+Assert-True ($ph -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span>' -and $ph -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/"') 'the site header names the repo with product after it, and goes home'
+Assert-True ($ph -notmatch 'class="eyebrow"' -and ([regex]::Matches($ph, '<header')).Count -eq 1 -and $ph -notmatch 'theme-settings--floating' -and $ph -match '<div id="settings"></div></div></header>') 'no eyebrow, no <header> but the site header, which holds the settings button'
+Assert-True ($ph -match '<div class="grid-3">\r?\n<section class="card card--link"><nav class="menu-list" aria-label="Hub"><a class="menu-item" href="http://localhost:4890">') 'the grid opens on the Hub card, linking the plugin hub'
+Assert-True ($ph.IndexOf('aria-label="Hub"') -lt $ph.IndexOf('href="/connectors"') -and $ph.IndexOf('href="/connectors"') -lt $ph.IndexOf('href="/specialists"') -and $ph.IndexOf('href="/specialists"') -lt $ph.IndexOf('href="/dkj-repos"')) 'then Connectors, Specialists and DKJ repos, in that order'
+Assert-Equal 4 ([regex]::Matches($ph, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="[^"]+"><svg class="menu-item__icon"')).Count 'four cards, each a .card--link with its icon first'
+Assert-True ($ph -notmatch 'href="/(repository|test-gate|stopwatch|logbook|plugins|artifacts|issues|release-notes|sessionstart|brandbook)"') 'and no general page of its own: those are the plugin hub''s (#3540)'
+Assert-True ($ph -match 'class="footer-note">[^\n]*serve-connector-dashboard\.ps1</code>, from <code>abc1234</code>') 'the footer names the server and the commit it loaded'
+Assert-True ((Format-ProductHomeHtml) -notmatch ', from <code>') 'and leaves the commit out when it could not be read'
+$down = Format-ProductHomeHtml
+Assert-True ($down -match '<section class="card"><p class="msg" role="status">The hub is not running' -and $down -notmatch 'aria-label="Hub"' -and $down -match 'href="/connectors"') 'with no hub known one card says it is not running, and the product''s own pages stay linked'
+Assert-True ((Format-ProductHomeHtml -HubUrl 'http://evil.example:4890') -match 'hub is not running' -and (Format-ProductHomeHtml -HubUrl 'javascript:alert(1)') -notmatch 'javascript:') 'a hub url that is not plain loopback is no hub at all'
+Assert-True (@(@($pages) + @(Get-GeneralPages) | Where-Object { -not (Get-HubIconSvg -Name $_.Icon) }).Count -eq 0) 'every page a hub or the product links names an icon the hub has'
+Assert-True ((Get-HubIconSvg -Name '') -eq '' -and (Get-HubIconSvg -Name 'nope') -eq '' -and (Format-HubCardLinkHtml -Href '/x' -Label 'X') -notmatch 'menu-item__icon') 'a card that names no icon, or one the hub lacks, draws none'
+$houseCss = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style\house-style.css'))
+Assert-True ($houseCss -match '\.card--link \{ position: relative; \}' -and $houseCss -match '\.card--link a::after \{ content: ""; position: absolute; inset: 0; \}') 'the house style stretches a .card--link''s one link over the card'
+Assert-True ($ph -notmatch '<style>' -and $ph -notmatch 'grid__head') 'the home page restyles nothing and has no group heading (#3133)'
+$homeBanner = $ph.IndexOf('<div class="notice" id="hub-banner"')
+Assert-True ($homeBanner -ge 0 -and $homeBanner -lt $ph.IndexOf('class="site-header"') -and $homeBanner -lt $ph.IndexOf('class="grid-3"')) 'the airsquats banner sits above the site header, and so above the cards'
+Assert-True ($ph.Contains('data-hub-timer') -and $ph.Contains('<input type="checkbox" data-hub-done> <span data-hub-count>10</span> due') -and $ph.Contains('data-hub-due hidden')) 'it counts down to the hour, and its "10 due" box stays hidden until an hour has passed, on the same one-row line as the timer'
 Assert-True (([regex]::Matches((Format-RepoHubBanner), '<p[ >]')).Count -eq 1) 'the banner is one row: the timer and the box owed share a single paragraph, never a second line (Dave, October 24, 2026)'
 $bannerJs = Format-RepoHubBanner
 Assert-True ($bannerJs -notmatch 'localStorage' -and $bannerJs -match 'fetch\(path' -and ([regex]::Matches($bannerJs, '"/api/airsquats')).Count -eq 1 -and $bannerJs -notmatch 'XMLHttpRequest|WebSocket|sendBeacon|eval\(|new Function|document\.cookie') 'its state is the server''s, shared by every hub and machine: it asks /api/airsquats on its own origin and nothing else (#3438)'
 Assert-True ($bannerJs -match 'ask\("POST", API \+ "/clear"\)' -and $bannerJs -match '\(s\.per \|\| 10\) \* s\.owed' -and $bannerJs -match 'if \(s\.announce\) \{ tone\(\); \}') 'ticking the box is a POST to /clear, the box shows 10 per hour owed, and the server says when to play the tone'
 Assert-True ($bannerJs -match '<span data-hub-owner hidden[^>]*> &middot; <span data-hub-account></span></span></p>' -and $bannerJs -match 'account\.textContent = s\.account; owner\.hidden = false;' -and $bannerJs -notmatch 'innerHTML') 'the row ends on the Windows account the hub runs under, written as text and shown only once the server names one (#3476)'
-Assert-True ($hub -notmatch '<style>' -and $hub -notmatch 'grid__card') 'the home page restyles nothing (#3133)'
-Assert-Equal ([regex]::Matches($hub, '<h2[ >]')).Count ([regex]::Matches($hub, '</h2><p class="card__sub">[^<]+</p>')).Count 'every h2 on the home page carries a sub line'
-
-$about = Format-RepoHubHtml -Pages $pages -SourceCommit 'abc1234' -GeneralPagesUrl 'http://localhost:4890'
-# CARD ICONS: every card on the home page draws its page's icon before the label, from a key the hub knows.
-Assert-True (@(@($pages) + @(Get-GeneralPages) | Where-Object { -not (Get-HubIconSvg -Name $_.Icon) }).Count -eq 0) 'every page a hub links names an icon the hub has'
-Assert-Equal ([regex]::Matches($about, 'class="card card--link"')).Count ([regex]::Matches($about, '<a class="menu-item" href="[^"]+"><svg class="menu-item__icon"')).Count 'every card on the home page carries its icon, first thing in its row'
-Assert-True ((Get-HubIconSvg -Name '') -eq '' -and (Get-HubIconSvg -Name 'nope') -eq '' -and (Format-HubCardLinkHtml -Href '/x' -Label 'X') -notmatch 'menu-item__icon') 'a card that names no icon, or one the hub lacks, draws none'
-Assert-True ($about -match '<title>dkj-claude-plugins -- Home</title>' -and $about -notmatch '<h1' -and $about -notmatch 'class="eyebrow"' -and $about -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/"') 'it is the home page: the site header names the repo and goes home, no h1 and no eyebrow'
-Assert-True ($about -match '<li><span aria-current="page">Home</span></li>' -and $about -notmatch 'About this repo</span>') 'its trail is the one crumb, Home'
-Assert-Equal 11 ([regex]::Matches($about, '<a class="menu-item" href="(http://localhost:4890)?/[a-z-]+"><svg class="menu-item__icon"[^>]*>.*?</svg><span class="menu-item__label">[^<]+<span class="menu-item__sub">[^<]+</span></span><svg class="menu-item__chevron"')).Count 'each page is a menu-item row: icon, label, description, chevron -- this repo''s four and the seven general ones but Issues'
-Assert-Equal 3 ([regex]::Matches($about, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="/(artifacts|release-notes|sessionstart)"')).Count 'every general page but Issues is a card of its own on the home page'
-Assert-True ($about -match '<div class="grid-3">\r?\n<section class="card card--link"><nav class="menu-list" aria-label="Repository"><a class="menu-item" href="/repository"' -and $about -notmatch '<h2') 'the pages are a .grid-3, three cards to a row, with no heading above them: this repo''s own first page opens it, with no Product card before it (#3493)'
-Assert-Equal 11 ([regex]::Matches($about, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="/[a-z-]+"')).Count 'every page is a card of its own, this repo''s and the general ones alike, with no group card or h3 around them'
-Assert-True ($about -notmatch '<section class="card">') 'and every one of them is a .card--link, clickable over its whole area (#3298)'
-$houseCss = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style\house-style.css'))
-Assert-True ($houseCss -match '\.card--link \{ position: relative; \}' -and $houseCss -match '\.card--link a::after \{ content: ""; position: absolute; inset: 0; \}') 'the house style stretches a .card--link''s one link over the card'
-Assert-True ($about -notmatch 'grid__head') 'and no group heading anywhere on the page'
-Assert-True ($about -notmatch 'DKJ-Solutions</h3>' -and $about -notmatch 'href="/brandbook"') 'no Brand book card: the app is retired (#3493)'
-Assert-True ($about -notmatch 'href="/house-style"') 'and no House style card: the house style is the dkj-solutions plugin''s, shown under Plugins (#3493)'
-Assert-True ($about.IndexOf('href="/repository"') -lt $about.IndexOf('href="/artifacts"') -and $about.IndexOf('href="/artifacts"') -lt $about.IndexOf('href="/test-gate"') -and $about.IndexOf('href="/test-gate"') -lt $about.IndexOf('href="/logbook"') -and $about -notmatch 'href="/issues"') 'this repo''s pages first, then the general ones, and Issues is the Repository page''s'
-$rp = Format-RepoGitHubPageHtml -SourceCommit 'abc1234' -GeneralPagesUrl 'http://localhost:4890'
-Assert-True ($rp -match '<h1>Repository</h1>' -and $rp -match '<dl class="facts facts--row">\r?\n<div><dt>GitHub</dt><dd><a href="https://github.com/DKJ-Solutions/dkj-claude-plugins">' -and $rp -match '<dt>Trunk</dt><dd>main</dd>' -and $rp -notmatch 'Facts</h') 'the Repository page opens on the GitHub repo''s facts, a facts--row list, not a card'
-Assert-True ($rp -match 'href="/issues"' -and $rp -match 'href="https://github.com/DKJ-Solutions/dkj-claude-plugins/pulls"' -and $rp -match '>hub</span>') 'and links Issues on this origin and the pull requests on GitHub, a card each, under the hub''s header'
-Assert-True ((Format-RepoGitHubPageHtml) -match 'Issues is a general page, and the general pages server is not running' -and (Format-RepoGitHubPageHtml) -notmatch 'href="/issues"') 'with no general server it says Issues is not there, rather than linking a 404'
-Assert-Equal ([regex]::Matches($about, '<h2[ >]')).Count ([regex]::Matches($about, '</h2><p class="card__sub">[^<]+</p>')).Count 'every h2 on About carries a sub line'
-$down = Format-RepoHubHtml -Pages $pages
-Assert-True ($down -match '<section class="card grid__full"><p class="msg" role="status">The general pages server is not running' -and $down -notmatch 'href="http://localhost' -and $down -notmatch 'href="/artifacts"') 'with no general server one card says it is not running, and nothing it relays is linked'
-Assert-True ($down -match 'href="/test-gate"' -and $down -match 'href="/stopwatch"' -and $down -match 'href="/logbook"') 'but the general pages this hub serves itself stay linked (#3470)'
-Assert-True ((Format-RepoHubHtml -Pages $pages -GeneralPagesUrl 'http://evil.example:4890') -match 'is not running') 'a pages url that is not plain loopback is no server at all'
-$alone = Format-RepoHubHtml -Pages @() -GeneralPagesUrl 'http://localhost:4890'
-Assert-True ($alone -match 'class="grid-3"' -and $alone -notmatch 'href="/repository"' -and $alone -match 'href="/release-notes"' -and $alone -match 'href="/stopwatch"') 'with no page of its own, the home page holds the general cards alone'
-Assert-True ($rp -match '<dt>Source at</dt><dd><code>abc1234</code></dd>') 'the Repository page names the commit the hub serves from'
-Assert-True ((Format-RepoHubHtml -Pages $pages) -notmatch 'Source at') 'and leave the row out when the commit could not be read'
-$ix = @('id="hub-banner"', 'class="site-header"', 'id="settings"', 'class="breadcrumbs-bar"', 'class="grid-3"', 'class="footer-note"') | ForEach-Object { $about.IndexOf($_) }
+$ix = @('id="hub-banner"', 'class="site-header"', 'id="settings"', 'class="breadcrumbs-bar"', 'class="grid-3"', 'class="footer-note"') | ForEach-Object { $ph.IndexOf($_) }
 Assert-True ((@($ix | Where-Object { $_ -lt 0 }).Count -eq 0) -and ((($ix | Sort-Object) -join ',') -eq ($ix -join ','))) 'the blocks stand in the form''s order'
-$evil = Format-RepoHubHtml -Pages @(@{ Href = '/x"><script>'; Label = '<b>'; Sub = '' })
+$evil = Format-ProductHomeHtml -Pages @(@{ Href = '/x"><script>'; Label = '<b>'; Sub = '' })
 Assert-True ($evil -notmatch 'x"><script>' -and $evil -match 'href="/x&quot;&gt;&lt;script&gt;"' -and $evil -notmatch '<b>') 'every value is escaped'
-Assert-True ($evil -notmatch 'menu-item__sub">[^<]*</span></span><svg[^>]*><path[^>]*/></svg></a>\r?\n</nav>\r?\n</section>\r?\n<section class="card">\r?\n<div') 'and an empty description is left out'
 
 Write-Host '-- the test-gate model' -ForegroundColor Cyan
 $json = '{ "seconds": { "a.tests.ps1": 10, "b.tests.ps1": 30, "gone.tests.ps1": 5 }, "recordedFrom": { "runs": ["111", "222"], "date": "2026-10-07", "machine": "m", "method": "mean" } }' | ConvertFrom-Json
@@ -583,7 +561,6 @@ Assert-True ((Format-DkjReposPageHtml -Query $q -Checkouts @() -Meta @{ Generate
 Write-Host '-- the Plugins page (#3482): plugin-versions -Json read into a model, and the page it draws' -ForegroundColor Cyan
 . (Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\plugins-page-lib.ps1')
 Assert-True ((Get-HubIconSvg -Name 'plugins') -match '<svg') 'the Plugins card has an icon'
-Assert-True ($script:RepoHubOwnGeneralRoutes -contains '/plugins') 'this repo''s hub serves /plugins itself, from this tree, so it stays linked without the general pages server'
 $pvJson = '{"Root":"C:\r","Consulted":"user and repo","Plugins":[' +
     '{"Id":"zeta@m","Name":"zeta","Marketplace":"m","InstVersion":"1.0.0","InstScope":"project","Code":"match","Verdict":"up to date","Action":"the clone advances only on: x","Description":"<i>z</i>"},' +
     '{"Id":"alpha@m","Name":"alpha","Marketplace":"m","InstVersion":"0.9.0","InstScope":"project","Code":"behind","Verdict":"the clone is <b>ahead</b>","Action":"claude plugin update alpha@m --scope project"},' +
