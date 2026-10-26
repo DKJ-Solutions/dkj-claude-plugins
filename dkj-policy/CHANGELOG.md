@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**7 / 10 minor entries** <!-- pending-tally -->
+**8 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3533-logbook-abandoned-sweep-ages-out · 20261026-165905Z
+
+The hub's Logbook no longer shows an abandoned `/sweep-issues` run as a going issue for ever: an open
+sweep is aged by its own start rather than by its last lap's, which began at the latest fold in the
+checkout, so it now drops off after a day like any other open run
+([#3533](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3533)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo's maintainer reading `/logbook` no longer sees a sweep closed a day ago listed as "Going now".
+
+**Score:** 1
+
+#### Pull Request
+
+Logbook: an abandoned open sweep ages out on its own start, not its last lap's
+
+Plugins: dkj-policy
+
+[PR #3536](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3536)
+
+---
 
 ### DEPLOY: feat/3493-retire-brandbook-app · 20261026-164834Z
 
