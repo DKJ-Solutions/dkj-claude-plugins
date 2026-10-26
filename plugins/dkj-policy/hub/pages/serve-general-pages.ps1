@@ -2,8 +2,8 @@
 .SYNOPSIS
     Serve the plugin's REPOSITORY (#3245) and the GENERAL pages (#3119) on http://localhost:<Port>/ -- the hub on
     '/', then /artifacts, /issues, /release-notes, /sessionstart, /test-gate, /stopwatch, /logbook and /plugins --
-    from the repo this server was started in. Not /brandbook: the brand book is the source repo's product, served by
-    that repo's own server (#3475).
+    from the repo this server was started in. Not /brandbook: no hub has served the brand book since #3475, and the
+    source repo retired the app itself under #3493.
 
 .DESCRIPTION
     Started by hooks/dev-preview-sessionstart.ps1 in EVERY repo, beside the repo's own dev server where it
@@ -506,7 +506,14 @@ try {
                 if (-not $plReq.Name) {
                     $html = Format-PluginsPageHtml -Model $pl.Model -ReadError $pl.Error -RepoName (Get-RepoIdentity).Name
                 } elseif ($plRow = Find-PluginsPageRow -Model $pl.Model -Name $plReq.Name) {
-                    $html = Format-PluginPageHtml -Row $plRow -Model $pl.Model -RepoName (Get-RepoIdentity).Name
+                    if ($plReq.Page -eq 'house-style') {
+                        # The specimens beside the stylesheet this server already serves (#3493), read per request.
+                        $specError = ''; $spec = ''
+                        try { $spec = [System.IO.File]::ReadAllText((Join-Path $styleDir 'specimens.html'), $utf8) } catch { $specError = $_.Exception.Message }
+                        $html = Format-HouseStyleSpecimensPageHtml -Body $spec -ReadError $specError -RepoName (Get-RepoIdentity).Name
+                    } else {
+                        $html = Format-PluginPageHtml -Row $plRow -Model $pl.Model -RepoName (Get-RepoIdentity).Name
+                    }
                 } else {
                     Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('No plugin of that name is enabled in this repo.')) -Method $method
                     continue

@@ -352,8 +352,7 @@ function Format-ConnectorDashboardHtml {
     # The hub's general banner first, above the site header, as on every other hub page (#3297, #3356; owner, October 24, 2026).
     [void]$sb.AppendLine((Format-RepoHubBanner))
     # The house site header, holding the settings button, then the breadcrumb bar under it: its trail from Home to this page.
-    # 'product': the product port links and relays this page.
-    [void]$sb.Append((Format-SiteHeaderHtml -Name 'dkj-claude-plugins' -Href '/' -Tag 'product'))
+    [void]$sb.Append((Format-SiteHeaderHtml -Name 'dkj-claude-plugins' -Href '/' -Tag 'hub'))
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
     $sep = '<span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span>'
     [void]$sb.AppendLine('<li><a href="/">Home</a></li>')
