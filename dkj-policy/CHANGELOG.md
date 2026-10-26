@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**16 / 29 minor entries** <!-- pending-tally -->
+**17 / 30 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/logbook-h1-page-title · 20261026-131053Z
+
+The hub's Logbook page is headed "Logbook", the name its breadcrumb gives it, instead of a fixed "Measurements"; an
+empty Stopwatch overview is headed "Stopwatch" for the same reason. `Format-StopwatchPageHtml` now takes every h1 from
+its `-PageTitle`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A maintainer who opens the hub's Logbook sees the page named consistently in its heading and its breadcrumb.
+
+**Score:** 1
+
+#### Pull Request
+
+Logbook overview h1 names the page, not Measurements
+
+Plugins: dkj-policy
+
+[PR #3520](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3520)
+
+---
 
 ### DEPLOY: fix/logbook-card-three-lines · 20261026-130009Z
 
