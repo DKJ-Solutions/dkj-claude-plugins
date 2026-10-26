@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Verified: a step-log mark carried no session, so `Split-LogbookSweepRuns` could only scope folds to the
+checkout. `CLAUDE_CODE_SESSION_ID` is set in a Claude Code session's tool environment and equals the
+session id the Logbook hook records (checked against this machine's store), so the mark can name it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Add-RunStepMark` writes `session` (default `CLAUDE_CODE_SESSION_ID`), `Read-RunStepMarks` returns it;
+  the three byte-identical copies of `run-progress-lib.ps1` changed together
+- [x] `Get-LogbookFolds` carries the mark's session; `Split-LogbookSweepRuns` cuts a sweep only at folds of
+  its own session, while a fold or sweep naming none (written before this) cuts as before
+- [x] The Logbook page's footer and the lib's header say "its own session's folds"
+- [x] Asserts in `logbook.tests.ps1` (two overlapping sweeps, a legacy fold, a fold's session) and
+  `run-progress.tests.ps1` (a mark's session, its default, a legacy mark)
 
 ### TEST
 
+- [x] `logbook`, `run-progress` and `stopwatch` suites green; the overlapping-sweeps assert red without the
+  fix, reproducing the issue's double count
+
 ### DEPLOY: fix/3534-logbook-sweep-own-folds
 
-**Score:**
+The hub's Logbook cuts a `/sweep-issues` run only at the folds its own session made, so two sweeps in one
+checkout no longer take each other's issues as laps and count them twice. A ship's step-log marks now
+name the Claude Code session that ran them; marks written before this still cut every sweep, as before
+([#3534](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3534)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo's maintainer reading `/logbook` after two sweeps side by side sees each issue once, under the
+sweep that shipped it.
+
+**Score:** 1
 
 #### Pull Request
 

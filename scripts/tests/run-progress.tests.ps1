@@ -482,13 +482,22 @@ try {
 $stepRoot = New-Root -Label 'steps'
 $stepLog = Join-Path $stepRoot 'sub\run-steps.jsonl'
 $t0 = [datetime]::new(2026, 10, 23, 11, 0, 0, [DateTimeKind]::Utc)
-Assert-True (Add-RunStepMark -Run 'ship-pr' -Step 'gates' -Path $stepLog -NowUtc $t0 -Workspace 'C:\repo') 'Add-RunStepMark: a mark is written, its folder made on the way'
-[void](Add-RunStepMark -Run 'ship-pr' -Step 'ci-wait' -Path $stepLog -NowUtc $t0.AddMinutes(13) -Workspace 'C:\repo')
+Assert-True (Add-RunStepMark -Run 'ship-pr' -Step 'gates' -Path $stepLog -NowUtc $t0 -Workspace 'C:\repo' -Session 'sess-a') 'Add-RunStepMark: a mark is written, its folder made on the way'
+$savedSession = [Environment]::GetEnvironmentVariable('CLAUDE_CODE_SESSION_ID')
+try {
+    [Environment]::SetEnvironmentVariable('CLAUDE_CODE_SESSION_ID', 'sess-env')
+    [void](Add-RunStepMark -Run 'ship-pr' -Step 'ci-wait' -Path $stepLog -NowUtc $t0.AddMinutes(13) -Workspace 'C:\repo')
+} finally {
+    [Environment]::SetEnvironmentVariable('CLAUDE_CODE_SESSION_ID', $savedSession)
+}
 [System.IO.File]::AppendAllText($stepLog, "{ cut off`n")
 [void](Add-RunStepMark -Run 'ship-pr' -Step 'merge' -Path $stepLog -NowUtc $t0.AddHours(2) -Workspace 'C:\repo')
 $read = @(Read-RunStepMarks -Path $stepLog -From $t0 -To $t0.AddHours(1))
 Assert-Equal 'gates,ci-wait' (($read | ForEach-Object { $_.Step }) -join ',') 'Read-RunStepMarks: the marks inside the window, oldest first; a torn line and a mark outside it are not'
 Assert-True ($read[1].At -eq $t0.AddMinutes(13) -and $read[0].Workspace -eq 'C:\repo' -and $read[0].Run -eq 'ship-pr') 'Read-RunStepMarks: each mark keeps its time, run and checkout'
+Assert-Equal 'sess-a,sess-env' (($read | ForEach-Object { $_.Session }) -join ',') 'Add-RunStepMark: a mark names its session, by default the Claude Code session it ran in (#3534)'
+[System.IO.File]::AppendAllText($stepLog, '{"at":"' + $t0.AddMinutes(20).ToString('o') + '","run":"ship-pr","step":"fold","pid":1,"workspace":"C:\\repo"}' + "`n")
+Assert-Equal '' (@(Read-RunStepMarks -Path $stepLog -From $t0.AddMinutes(19) -To $t0.AddMinutes(21)))[0].Session 'Read-RunStepMarks: a mark written before it named a session reads with none'
 Assert-Equal 0 @(Read-RunStepMarks -Path (Join-Path $stepRoot 'none.jsonl') -From $t0 -To $t0.AddHours(1)).Count 'Read-RunStepMarks: a missing log is no marks'
 
 # --- teardown ------------------------------------------------------------------------------------
