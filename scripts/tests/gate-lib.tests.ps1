@@ -1069,7 +1069,9 @@ exit __EXIT__
     Assert-True ($gateSrc -match "ref-print-lib\.ps1") 'gate-lib loads the prose sanitiser itself'
     # Three call sites: the declared name, the comparison against each name in the payload, and the
     # "found instead" list in the refusal. Every string that reaches the console passes through one.
-    Assert-Equal 3 ([regex]::Matches($gateSrc, 'Get-DisplayRef -Ref').Count) 'and uses it at all three sites -- the declared name, the comparison, and the refusal list'
+    # Counted inside Get-CiTestCertificate only, so another function's use (#3512) is not miscounted here.
+    $certSrc = [regex]::Match($gateSrc, '(?s)function Get-CiTestCertificate \{.*?(?=\nfunction )').Value
+    Assert-Equal 3 ([regex]::Matches($certSrc, 'Get-DisplayRef -Ref').Count) 'and uses it at all three sites -- the declared name, the comparison, and the refusal list'
     # The one assertion that keeps the skip from silently outliving its certificate: a remote green
     # must never be filed as "this machine proved this tree", which Test-GateEvidence would then
     # honour for four hours.
