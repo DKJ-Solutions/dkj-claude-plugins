@@ -116,6 +116,13 @@ if (-not $RepoRoot) {
     if (-not $RepoRoot) { throw 'Not in a git repository - pass -RepoRoot.' }
 }
 $RepoRoot = (Resolve-Path -LiteralPath $RepoRoot).Path
+
+# THE SOURCE-REPO GUARD, as on every shared entry point (issue #3474 made this one shared): in the repo
+# that maintains it, the plugin-cache copy is the last RELEASED mirror and would write the file with a
+# parser that may lag the tree.
+$guardLib = Join-Path $PSScriptRoot '..\lib\source-repo-guard-lib.ps1'
+if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCopy -ScriptPath $PSCommandPath }
+
 $testsDir = Join-Path $RepoRoot 'scripts\tests'
 if (-not (Test-Path -LiteralPath $testsDir)) { throw "No test directory at $testsDir." }
 
