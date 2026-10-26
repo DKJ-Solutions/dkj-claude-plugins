@@ -65,9 +65,9 @@ second copy was a no-op under the store's mutex and cost two extra PowerShell pr
 
 #### What makes this deploy extra special
 
-N/A
+A change to this repo's own harness config; it reaches no reader who takes the next version.
 
-**Score:** 0
+**Score:** N/A
 
 #### Pull Request
 
