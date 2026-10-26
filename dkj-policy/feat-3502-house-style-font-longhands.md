@@ -39,19 +39,35 @@
 
 ### PLAN
 
+#3502: the owner wants no `font` shorthand with a size/line-height pair in the house style. Write the
+four as longhands, which render the same, and follow the checksum in the `house-style` skill.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: the four `font: <weight> <size>/<line-height> <family>` declarations (`body`,
+  `.badge`, `.info-button`, `.moretoggle`) written as `font-family`, `font-size`, `font-weight` and
+  `line-height`; `font: inherit` stays, it names no size
+- [x] `skills/house-style/SKILL.md`: the `house-style.css` sha256 follows the new bytes
 
 ### TEST
 
+- [ ] The owner looks at the hub's pages in the house style and sees no change (a visible result, so the
+  branch stops here)
+
 ### DEPLOY: feat/3502-house-style-font-longhands
 
-**Score:**
+The house style's stylesheet no longer uses the `font` shorthand with a size/line-height pair: the four
+places that did (`body`, `.badge`, `.info-button`, `.moretoggle`) now spell out `font-family`,
+`font-size`, `font-weight` and `line-height`, so each value can be read on its own. The `house-style`
+skill's checksum follows the new file.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
