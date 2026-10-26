@@ -481,7 +481,7 @@ Assert-True (-not (Test-DkjSolutionsEnabled -Root $enRoot)) 'and settings.local.
 Assert-True (Test-DkjSolutionsEnabled -Root $enRoot) 'while a settings.local.json that is not JSON says nothing'
 [System.IO.File]::WriteAllText((Join-Path $enRoot '.claude\settings.json'), '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-solutions@dkj-claude-plugins": false } }')
 Assert-True (-not (Test-DkjSolutionsEnabled -Root $enRoot)) 'a repo that sets it false, as the BWJ-Development repos do, is none'
-Assert-True ((Get-HouseStyleDir -PluginRoot $PluginRoot).EndsWith('\dkj-policy\dkj-solutions\assets\house-style')) 'the house style is read from the dkj-solutions folder inside dkj-policy, which every install carries'
+Assert-True ((Get-HouseStyleDir -PluginRoot $PluginRoot).EndsWith('\dkj-policy\assets\house-style')) 'the house style is read from dkj-policy''s own assets folder, which every install carries'
 # The Sec-Fetch rule both plugin servers share (#3119). Ports do not count toward "site", so the hub's link, the
 # 303 hop and the crumb back all arrive same-site, as top-level navigations.
 Assert-True (-not (Test-LoopbackCrossSite -SecFetchSite 'same-site' -SecFetchMode 'navigate' -Method 'GET')) 'a same-site top-level GET navigation is served'

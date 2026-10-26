@@ -19,10 +19,10 @@
     not the home page's: the home page only gets you somewhere.
 
     THE PAGE STARTS FROM THE HOUSE STYLE: it loads /house-style.css and /house-theme.js, which the general
-    server serves from the canonical copy inside dkj-policy's payload (dkj-solutions/assets/house-style/,
+    server serves from the canonical copy inside dkj-policy's payload (assets/house-style/,
     which Get-HouseStyleDir names), in every repo, and its own layer uses only names the house file does not
     define (.ph-*). The form, its blocks and their order are laid down in the plugin's
-    dkj-solutions/assets/house-style/README.md, "The hub".
+    assets/house-style/README.md, "The hub".
 
     ONE ORIGIN: every card links its page by bare path, because this page is served by the same server, so the
     visitor keeps one origin and one stored theme choice.

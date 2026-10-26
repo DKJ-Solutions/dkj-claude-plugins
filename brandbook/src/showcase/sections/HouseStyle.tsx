@@ -1,5 +1,5 @@
-import houseCss from '../../../../plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css?raw'
-import houseThemeJs from '../../../../plugins/dkj-policy/dkj-solutions/assets/house-style/house-theme.js?raw'
+import houseCss from '../../../../plugins/dkj-policy/assets/house-style/house-style.css?raw'
+import houseThemeJs from '../../../../plugins/dkj-policy/assets/house-style/house-theme.js?raw'
 import { Demo, Section } from '../Showcase'
 
 /**

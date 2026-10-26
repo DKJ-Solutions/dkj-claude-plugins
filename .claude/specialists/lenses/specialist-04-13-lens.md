@@ -16,7 +16,7 @@ specimen and hub previews were removed ([#3274](https://github.com/DKJ-Solutions
 the hub's form lives in the house-style README and its stylesheet-only patterns alone.
 
 - **The app takes no house style of its own.** It reads the one copy in
-  `plugins/dkj-policy/dkj-solutions/assets/house-style/`, and a change to a token, a theme or a house class is
+  `plugins/dkj-policy/assets/house-style/`, and a change to a token, a theme or a house class is
   made there (Gwen's domain, [her lens](specialist-04-12-lens.md)), never in the app's `brand-layer.css`.
 - **The app draws no hub.** The hub's form is laid down in that folder's `README.md`, "The hub", and
   its two stylesheet-only patterns; a second rendering here is the duplicate #3274 removed.

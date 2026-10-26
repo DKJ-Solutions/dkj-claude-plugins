@@ -6,7 +6,7 @@ import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 export const repoRoot = join(import.meta.dirname, '..', '..', '..')
-export const houseDir = join(repoRoot, 'plugins', 'dkj-policy', 'dkj-solutions', 'assets', 'house-style')
+export const houseDir = join(repoRoot, 'plugins', 'dkj-policy', 'assets', 'house-style')
 export const houseCss = join(houseDir, 'house-style.css')
 export const houseSheets = readdirSync(houseDir, { recursive: true })
   .filter((f) => f.endsWith('.css'))

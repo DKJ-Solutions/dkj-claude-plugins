@@ -1,6 +1,6 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import '../../plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css'
+import '../../plugins/dkj-policy/assets/house-style/house-style.css'
 import './brand-layer.css'
 import './index.css'
 import App from './App.tsx'
