@@ -50,6 +50,7 @@ side rather than stacked.
   page-header row (`main > header`)
 - [x] the description split into paragraphs at each capitals lead-in, the lead-in in bold
   (`ConvertTo-PluginDescriptionHtml`)
+- [x] no verdict line for a healthy plugin, since the badge already says it
 
 ### TEST
 

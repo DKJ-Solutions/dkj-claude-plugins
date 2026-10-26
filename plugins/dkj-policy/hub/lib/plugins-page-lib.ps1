@@ -237,9 +237,8 @@ function Format-PluginPageHtml {
         [void]$body.AppendLine('<section class="card" id="about"><h2>What it is</h2>' + (ConvertTo-PluginDescriptionHtml $Row.Description) + '</section>')
     }
     [void]$body.AppendLine('<section class="card' + $(if (-not $Row.Description) { ' grid__full' }) + '" id="facts"><h2>On this machine</h2>')
-    if ($Row.Status.Level -eq 'ok') {
-        [void]$body.AppendLine('<p class="msg" role="status">' + (& $e $Row.Verdict) + '.</p>')
-    } else {
+    # A healthy plugin gets no verdict line: the badge beside the h1 already says it (the owner, October 26, 2026).
+    if ($Row.Status.Level -ne 'ok') {
         [void]$body.AppendLine('<p class="msg msg--warn" role="status">' + (& $e (Get-PluginProblemText $Row)) + '.</p>')
         if ($Row.Action -and -not $Row.InstallPathMissing) { [void]$body.AppendLine('<p class="note">To close it: <code>' + (& $e $Row.Action) + '</code></p>') }
     }

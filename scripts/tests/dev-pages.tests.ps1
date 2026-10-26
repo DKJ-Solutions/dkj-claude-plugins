@@ -627,7 +627,7 @@ $one = Format-PluginPageHtml -Row (Find-PluginsPageRow -Model $pv -Name 'alpha')
 Assert-True ($one -match '<a href="/hub">Home</a>' -and $one -match '<a href="/plugins">Plugins</a>' -and $one -match '<span aria-current="page">alpha</span>' -and $one -match '<h1>alpha</h1>') 'its crumbs read Home > Plugins > the plugin'
 Assert-True ($one.Contains('<code>claude plugin update alpha@m --scope project</code>') -and $one.Contains('the clone is &lt;b&gt;ahead&lt;/b&gt;') -and $one -match 'msg--warn') 'a problem is named, escaped, with the command that closes it'
 $zeta = Format-PluginPageHtml -Row (Find-PluginsPageRow -Model $pv -Name 'zeta') -Model $pv
-Assert-True ($zeta.Contains('&lt;i&gt;z&lt;/i&gt;') -and $zeta -notmatch 'class="msg msg--warn"' -and $zeta -notmatch 'To close it' -and $zeta -match 'committed 2026-10-25') 'a healthy plugin shows its description and the clone, and no command'
+Assert-True ($zeta.Contains('&lt;i&gt;z&lt;/i&gt;') -and $zeta -notmatch 'role="status"' -and $zeta -notmatch 'To close it' -and $zeta -match 'committed 2026-10-25') 'a healthy plugin shows its description and the clone, and no verdict line or command'
 $beta = Format-PluginPageHtml -Row (Find-PluginsPageRow -Model $pv -Name 'beta') -Model $pv
 Assert-True ($beta.Contains('no longer on disk') -and $beta -notmatch 'To close it') 'a missing install folder says to reinstall, with no update command'
 Assert-True ($one.Contains('<p class="badge-row"><span class="badge badge--sm badge--bad" aria-hidden="true">&#10007;</span>Behind</p>') -and $one -notmatch 'aria-hidden="true">Behind') 'the plugin page shows its state as the house badge row: the mark, then the word'
