@@ -85,17 +85,31 @@ function Get-RepoHubPages {
     <#
         The pages the hub links in its "This repo" card, in the order it lists them: each a route on this
         server, its label the page's own name as its breadcrumb reads it, and one line on what it shows. The
-        general pages are the plugin's (Get-GeneralPages), on a server of their own. Connectors, Specialists and
-        DKJ repos were the product port's from October 22, 2026 until that port went with the brandbook app
-        (#3493). The house style is no page of this hub: it is the dkj-solutions plugin's product, so its specimens
-        are under Plugins, on /plugins/dkj-solutions/house-style, as on every hub that enables that plugin.
+        general pages are the plugin's (Get-GeneralPages), on a server of their own. Connectors and DKJ repos were
+        the product port's from October 22, 2026 until that port went with the brandbook app (#3493). A page about
+        what a plugin ships is no page of the hub's own but one below that plugin under Plugins: the house style's
+        specimens on /plugins/dkj-solutions/house-style, and Specialists (Get-PluginHubCards).
     #>
     @(
         @{ Href = '/repository';  Label = 'Repository';  Sub = 'The GitHub repo: its facts, its open issues and its pull requests'; Icon = 'repository' }
         @{ Href = '/connectors';  Label = 'Connectors';  Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine'; Icon = 'connectors' }
-        @{ Href = '/specialists'; Label = 'Specialists'; Sub = 'Every specialist the plugins ship, and how much context each one costs'; Icon = 'specialists' }
         @{ Href = '/dkj-repos';   Label = 'DKJ repos';   Sub = 'Every DKJ-Solutions repo: its checkout on this machine, its open issues, and a session to open there'; Icon = 'dkj-repos' }
     )
+}
+
+$script:SpecialistsHref = '/plugins/dkj-subagents-alpha/specialists'
+
+function Get-PluginHubCards {
+    <#
+        This hub's own pages below the plugin named -Name, as Format-PluginPageHtml's -Cards: Specialists under
+        dkj-subagents-alpha, the core team that brings the specialists (the owner, October 26, 2026: one level below
+        Plugins rather than a card of the hub's own). The old /specialists sends here.
+    #>
+    param([AllowEmptyString()][string]$Name = '')
+    if ($Name -ceq 'dkj-subagents-alpha') {
+        return @(@{ Href = $script:SpecialistsHref; Label = 'Specialists'; Sub = 'Every specialist the dkj-subagents plugins ship, and how much context each one costs'; Icon = 'specialists' })
+    }
+    return @()
 }
 
 function Format-RepoGitHubPageHtml {
@@ -354,6 +368,7 @@ function Format-SpecialistsPageHtml {
     [void]$body.AppendLine('</div>')
     $factor = $CharsPerToken.ToString('0.00', $inv)
     return Format-DevPageHtml -Title 'Specialists' -Style $script:DevBarStyle -Body $body.ToString() `
+        -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }, @{ Label = 'dkj-subagents-alpha'; Href = '/plugins/dkj-subagents-alpha' }) `
         -Lead 'Every specialist the dkj-subagents plugins ship, and how much context each one brings along: what every session pays for it, what it costs when it is called, and what its manual and lens add.' `
         -FooterNote ('Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Bytes are measured (hover a cell); tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.')
 }

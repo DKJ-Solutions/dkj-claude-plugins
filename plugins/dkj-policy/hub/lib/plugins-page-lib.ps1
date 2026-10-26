@@ -225,13 +225,16 @@ function Format-PluginPageHtml {
     <#
         One plugin's page on /plugins/<name>, under the Plugins crumb: its state, what is wrong and the command that
         closes it where plugin-versions names one, its description, and the facts -- installed here, the marketplace
-        clone and that clone's HEAD. -Row is Find-PluginsPageRow's; -Model the whole model, for the clone.
+        clone and that clone's HEAD. -Row is Find-PluginsPageRow's; -Model the whole model, for the clone. -Cards are
+        the hub's own pages below this plugin, each @{ Href; Label; Sub; Icon }, linked as cards after what the plugin
+        ships itself: a hub that builds a page about a plugin hangs it here rather than on its own home page.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Row,
         [Parameter(Mandatory = $true)][hashtable]$Model,
         [AllowEmptyString()][string]$RepoName = '',
-        [string]$HubHref = '/hub'
+        [string]$HubHref = '/hub',
+        [AllowEmptyCollection()][object[]]$Cards = @()
     )
     $e = { param($v) ConvertTo-GeneralPageText $v }
     if (-not $Row.Status) { $Row.Status = Get-PluginRowStatus -Code $Row.Code -InstallPathMissing $Row.InstallPathMissing }
@@ -262,10 +265,16 @@ function Format-PluginPageHtml {
     }
     [void]$body.AppendLine('<div><dt>Enabled in</dt><dd>' + $(if ($Model.Consulted) { & $e $Model.Consulted } else { '--' }) + '</dd></div>')
     [void]$body.AppendLine('</dl></section></div>')
-    # What a plugin ships that can be looked at: dkj-solutions' house style, its specimens one page below (#3493).
+    # What a plugin ships that can be looked at: dkj-solutions' house style, its specimens one page below (#3493),
+    # then the hub's own pages about this plugin.
+    $below = @()
     if ($Row.Name -ceq 'dkj-solutions') {
+        $below += @{ Href = '/plugins/dkj-solutions/house-style'; Label = 'House style'; Sub = 'Every token, the twelve themes and every component, with their variants and states'; Icon = 'house-style' }
+    }
+    $below += @($Cards | Where-Object { $_ })
+    if ($below.Count) {
         [void]$body.AppendLine('<div class="grid-3">')
-        [void]$body.AppendLine((Format-HubCardLinkHtml -Href '/plugins/dkj-solutions/house-style' -Label 'House style' -Sub 'Every token, the twelve themes and every component, with their variants and states' -Icon 'house-style'))
+        foreach ($c in $below) { [void]$body.AppendLine((Format-HubCardLinkHtml -Href $c.Href -Label $c.Label -Sub $c.Sub -Icon $c.Icon)) }
         [void]$body.AppendLine('</div>')
     }
     # No lead: the crumbs and the Id fact already say which plugin and marketplace this is (the density rule).

@@ -10,8 +10,9 @@
     no POST but the banner's.
     It also builds this repo's own pages, which the hub links: /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
     check-connectors.ps1 reports for it on this machine (#2976), one card per owner group with each
-    group a page of its own at /connectors/dkj, /bwj and /other; /specialists, every specialist the
-    dkj-subagents plugins ship and the context each one costs, read from this tree; and /dkj-repos, every
+    group a page of its own at /connectors/dkj, /bwj and /other; /plugins/dkj-subagents-alpha/specialists, every
+    specialist the dkj-subagents plugins ship and the context each one costs, read from this tree, linked from that
+    plugin's page and no longer from the hub's own (/specialists sends there); and /dkj-repos, every
     DKJ-Solutions repo on GitHub with its checkout here and a session to open there (#3231). The rules of
     the hub and of each page are in scripts/lib/dev-pages-lib.ps1; the Test gate's, the Stopwatch's and the
     Logbook's in plugins/dkj-policy/hub/lib/.
@@ -543,6 +544,17 @@ try {
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }
+            if ($path -ceq '/specialists') {
+                # Specialists is a page below the plugin that brings them now (the owner, October 26, 2026).
+                Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $script:SpecialistsHref } -Method $method
+                continue
+            }
+            if ($path -cmatch '^/plugins/dkj-subagents-alpha/specialists/?\z') {
+                $sp = Get-SpecialistsModel
+                $html = Format-SpecialistsPageHtml -Rows $sp.Rows -ReadError $sp.Error -CharsPerToken $sp.CharsPerToken
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                continue
+            }
             $plReq = Resolve-PluginsPageRequest -Path $path
             if ($plReq) {
                 # The overview, or one plugin's page; a name no enabled plugin has is a 404.
@@ -558,7 +570,7 @@ try {
                     try { $spec = [System.IO.File]::ReadAllText((Join-Path $styleDir 'specimens.html'), $utf8) } catch { $specError = $_.Exception.Message }
                     $html = Format-HouseStyleSpecimensPageHtml -Body $spec -ReadError $specError -RepoName 'dkj-claude-plugins' -HubHref '/'
                 } else {
-                    $html = if ($plRow) { Format-PluginPageHtml -Row $plRow -Model $pl.Model -RepoName 'dkj-claude-plugins' -HubHref '/' }
+                    $html = if ($plRow) { Format-PluginPageHtml -Row $plRow -Model $pl.Model -RepoName 'dkj-claude-plugins' -HubHref '/' -Cards (Get-PluginHubCards -Name $plRow.Name) }
                             else { Format-PluginsPageHtml -Model $pl.Model -ReadError $pl.Error -RepoName 'dkj-claude-plugins' -HubHref '/' }
                 }
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
@@ -570,13 +582,6 @@ try {
                 if ($tp.Status -eq 301) { Send-LoopbackResponse $stream 301 'Moved Permanently' 'text/plain; charset=utf-8' ($utf8.GetBytes('Moved.')) -Headers @{ Location = $tp.Location } -Method $method }
                 elseif ($tp.Status -eq 404) { Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found.')) -Method $method }
                 else { Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($tp.Html)) -Method $method }
-                continue
-            }
-            if ($path -eq '/specialists') {
-                $sp = Get-SpecialistsModel
-                $html = Format-SpecialistsPageHtml -Rows $sp.Rows -ReadError $sp.Error -CharsPerToken $sp.CharsPerToken
-                $body = $utf8.GetBytes($html)
-                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }
             $rn = Resolve-ReleaseNotesRequest -Path $path -IndexFile $releaseNotesFile
