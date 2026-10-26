@@ -39,19 +39,32 @@
 
 ### PLAN
 
+Reported by the owner: on the hub's `/logbook` the h1 read "Measurements" while the breadcrumb said "Logbook".
+`Format-StopwatchPageHtml` hard-coded that h1 in its `-Flat` shape and in its empty shape, ignoring `-PageTitle`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `plugins/dkj-policy/hub/lib/stopwatch-lib.ps1`: every overview shape heads with `-PageTitle`
+- [x] `scripts/tests/stopwatch.tests.ps1`: assert the flat overview's h1 is its page title, and the empty overview's too
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1` 243/0 and `logbook.tests.ps1` 52/0
+- [x] The running hub's `/logbook` now reads `<h1>Logbook</h1>`, matching its breadcrumb
+
 ### DEPLOY: fix/logbook-h1-page-title
 
-**Score:**
+The hub's Logbook page is headed "Logbook", the name its breadcrumb gives it, instead of a fixed "Measurements"; an
+empty Stopwatch overview is headed "Stopwatch" for the same reason. `Format-StopwatchPageHtml` now takes every h1 from
+its `-PageTitle`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A maintainer who opens the hub's Logbook sees the page named consistently in its heading and its breadcrumb.
+
+**Score:** 1
 
 #### Pull Request
 

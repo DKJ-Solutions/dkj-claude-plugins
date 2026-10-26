@@ -1045,7 +1045,7 @@ function Format-StopwatchPageHtml {
         The overview on '/stopwatch', read-only, and bare (no lead or tiles; the general banner stays, #3356): it opens on the
         banner, then a Stopwatch h1 with one card per prompt label, three to a row (Format-StopwatchLabelCard), linking the label's own
         page (Format-StopwatchLabelPageHtml), which holds that label's run cards (the owner, October 24, 2026). -Flat,
-        the Logbook's, shows the run cards themselves (Format-StopwatchRunCard) under one Measurements h2 instead. Five
+        the Logbook's, shows the run cards themselves (Format-StopwatchRunCard) under that same h1 instead. Five
         cards to a row on a full screen. -ReadError is set when the
         store could not be read. -StorePath is named in the footer, so a run can be read and evaluated outside
         the page. The Logbook (logbook-lib.ps1 beside this file, #3364) draws its overview here too: -Route, -PageTitle
@@ -1095,23 +1095,23 @@ function Format-StopwatchPageHtml {
         [void]$body.AppendLine('<script>setTimeout(function () { location.reload(); }, 4000);</script>')
     }
     # One card per prompt label under the page's h1, each linking the label's page (the owner, October 24, 2026). -Flat
-    # keeps every run card under one Measurements heading, for the Logbook, whose labels are the first lines of prompts and
-    # rarely repeat.
+    # keeps every run card under that one heading, for the Logbook, whose labels are the first lines of prompts and
+    # rarely repeat. The h1 is -PageTitle in every shape, so it matches the breadcrumb that names the same page: it
+    # read "Measurements" on the Logbook and on an empty overview.
     # The overview's labels, the pinned ones with no run yet included (not in -Flat, the Logbook's).
     $sets = if ($Flat) { @() } else { @(Get-StopwatchOverviewSets -Model $Model) }
+    $h1 = '<div class="grid__head"><h1>' + (& $e $PageTitle) + '</h1></div>'
     if (-not @($Model.Groups).Count -and -not $sets.Count) {
-        [void]$body.AppendLine('<div class="grid__head"><h1>Measurements</h1></div>')
+        [void]$body.AppendLine($h1)
     } else {
         # The grid stands in a wrapper whose gap is the space between grids, so no grid carries a top margin (the owner,
         # October 24, 2026). A head is its h2 alone, with no sub line under it.
         [void]$body.AppendLine('<div class="sw-groups">')
         [void]$body.AppendLine($(if ($Flat) { '<div class="sw-grid">' } else { '<div class="sw-grid sw-grid--wide">' }))
+        [void]$body.AppendLine($h1)
         if ($Flat) {
-            [void]$body.AppendLine('<div class="grid__head"><h1>Measurements</h1></div>')
             foreach ($g in @($Model.Groups)) { [void]$body.AppendLine((Format-StopwatchRunCard -Group $g -Route $Route -Now $Now -NoDelta:$NoDelta -CardNotes $CardNotes)) }
         } else {
-            # The overview's one heading is an h1 naming the page (the owner, October 24, 2026).
-            [void]$body.AppendLine('<div class="grid__head"><h1>Stopwatch</h1></div>')
             foreach ($set in $sets) { [void]$body.AppendLine((Format-StopwatchLabelCard -Set $set -Now $Now)) }
         }
         [void]$body.AppendLine('</div>')
