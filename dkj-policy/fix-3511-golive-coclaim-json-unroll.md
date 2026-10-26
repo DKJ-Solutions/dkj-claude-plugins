@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Inbound #3511, verified against the tree: `build-golive-block.ps1` wrapped its `ConvertFrom-Json`
+pipeline in `@()`, which under 5.1 yields one element holding the whole list. The pickup hook runs the
+same co-claim search but assigns the parsed value before wrapping it, so it was never affected (checked,
+as the issue suggested). The same pattern elsewhere in the tree is either unrolled by an `if`/`return`
+(prune-merged, tidy-machine, fold-changelog-entry, build-backlog-page) or is a separate subject
+(cut-release's required-check read, filed as #3512).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Assign the peer list before wrapping it, in the repo's own idiom (claim-issue, gate-lib)
+- [x] A behavioural assert from gh's JSON text in `asana-link-pickupcheck.tests.ps1`, and a source
+      assert on the driver in `bwj-development.tests.ps1`
 
 ### TEST
 
+- [x] The source assert matches the old line and not the new one; the old parse counts 1 for two issues
+      and the new one counts 2 (5.1.26100). The suites run in ship-pr's gate.
+
 ### DEPLOY: fix/3511-golive-coclaim-json-unroll
 
-**Score:**
+`build-golive-block` no longer stops under Windows PowerShell 5.1 when the task's GID turns up in two
+or more open issues. It now reads gh's search result one element per issue, so the one-task-one-issue
+check runs instead of throwing on its number cast before the block is printed.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+In a store repo, `-OutFile` and `-Post` could not produce a go-live block at all when the task's GID
+also turned up in other issues' text. It was measured on one with three such issues. From this release
+on, the block is built and the co-claim check judges those issues as intended.
+
+**Score:** 3
 
 #### Pull Request
 
