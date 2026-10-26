@@ -68,6 +68,13 @@ still ends with the close-out receipt. Whichever way you read the run, the last 
 it was. If you do want the exit code, drop the pipe: redirect to a file and read the file, or (in bash)
 `set -o pipefail`.
 
+**And a backgrounded ship through `tail` or `head` says nothing at all until it ends**
+([#3524](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3524)). `tail` holds its input until
+the run is over, so the background output file stays empty, and the clearance line the wait prints (*the
+session can be cleared*, #3442) never reaches the session. Measured October 26, 2026: a session composed
+its own close-out instead and told the owner the session had to stay open for a PR that was already armed.
+Run it unpiped, so its own lines can be relayed while it waits.
+
 **Nothing is passed, because there is nothing left to say.** Since
 [#506](https://github.com/DaveKJohn/claude-code-specialists/issues/506) the PR title is composed from the
 branch prefix and the entry's `Branch title` section, so it was already written when the branch was

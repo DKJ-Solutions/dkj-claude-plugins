@@ -379,8 +379,17 @@ on the requester, because the receipt is the one line they act on immediately.
 
 **And say what they MAY do, because withholding is the worse half.** A requester who backgrounded a wait
 wants the *next* thing, so a receipt that only names what is unsafe leaves them holding a session they no
-longer want and cannot safely release — that is the feature cancelled at the one place they read. The
-answer is almost never a clearance: **a second session beside the running one** frees the person instead of
+longer want and cannot safely release — that is the feature cancelled at the one place they read. **The
+one in-flight case that IS a clearance is an armed ship**: a backgrounded `ship-pr` whose PR carries
+`merge-when-green`, in a repo with the merge-on-green sweep, with the checkout back on the trunk. Nothing
+depends on the process any more, because the sweep merges and folds if it dies, so the receipt says *the
+session can be cleared* and states the fallback as a fact (*if this session stops, GitHub merges it on the
+next sweep*), never as a warning. `ship-pr` prints that verdict itself (`Get-ShipClearanceVerdict`, #3442),
+and names the first of those facts that fails where one does; relay its line rather than composing your
+own. Measured October 26, 2026 (#3524): a session read none of it, because it ran the ship through
+`| tail`, and told the owner the session had to stay open for a PR that was already armed. For everything
+else — an unarmed ship, a subagent, a local-only wait — the answer is almost never a clearance: **a second
+session beside the running one** frees the person instead of
 the process, and it is strictly better, because the one still running is where the outcome gets delivered.
 Name the moment it is safe to open — normally the point at which the running work stops reading the working
 copy — and remember that two sessions share nothing but the tracker, so the claim rule is what keeps the
