@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**2 / 6 minor entries** <!-- pending-tally -->
+**3 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3545-house-style-inline-check-width · 20261026-220440Z
+
+The `house-style` skill's check before inlining `house-theme.js` said the script may store nothing but
+the theme choice, while the script also remembers the page width (`dkj-width`), so a session read
+literally had to stop and report on every pinned copy. The check now names both settings-panel keys.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions repo taking the house style no longer has its session stop on a correct `house-theme.js`
+because it stores the chosen page width.
+
+**Score:** 2
+
+#### Pull Request
+
+house-style skill: the inline check allows the stored page width
+
+Plugins: dkj-solutions
+
+[PR #3546](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3546)
+
+---
 
 ### DEPLOY: fix/3540-restore-product-port · 20261026-215314Z
 
