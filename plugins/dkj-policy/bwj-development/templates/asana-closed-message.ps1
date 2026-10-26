@@ -105,7 +105,7 @@
         requester heard nothing, or -- where a session closed it as completed to get a message out --
         read 'is now closed' as finished. No block is read: nothing was built.
       - A close as NOT PLANNED that keeps ANY OTHER awaiting-* label on (#3494) -- awaiting-action-external,
-        awaiting-review-client, awaiting-decision-client and the rest of the family: the same comment with
+        awaiting-review-client, awaiting-decision-client and the rest of the family: the same header with
         a neutral intro instead, 'is now closed: this Asana task is on hold, and will be reopened when the
         work can pick up again.', and no ask under it, since no question waits on the requester. Each of
         those labels means parked, not rejected, so the requester -- the person a close affects most --
@@ -817,10 +817,10 @@ function Get-ClosedMessageDecision {
     }
     $ref = Resolve-AsanaTaskRef -IssueBody $IssueBody
     if ($ref.Source -eq 'ambiguous') {
-        return [pscustomobject]@{ Post = $false; Gid = $null; Kind = $null; Why = "the body links several different Asana tasks ($($ref.Candidates -join ', ')) -- refusing to guess. Add an explicit <!-- asana-task: GID --> marker to settle it." }
+        return [pscustomobject]@{ Post = $false; Gid = $null; Kind = $null; Parked = $false; Why = "the body links several different Asana tasks ($($ref.Candidates -join ', ')) -- refusing to guess. Add an explicit <!-- asana-task: GID --> marker to settle it." }
     }
     if (-not $ref.Gid) {
-        return [pscustomobject]@{ Post = $false; Gid = $null; Kind = $null; Why = 'no Asana task is linked from the issue -- nothing to tell.' }
+        return [pscustomobject]@{ Post = $false; Gid = $null; Kind = $null; Parked = $false; Why = 'no Asana task is linked from the issue -- nothing to tell.' }
     }
     return [pscustomobject]@{ Post = $true; Gid = $ref.Gid; Kind = $kind; Parked = $parked; Why = "matched by $($ref.Source)" }
 }

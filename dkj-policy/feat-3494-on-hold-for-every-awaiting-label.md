@@ -62,7 +62,7 @@ takes its own neutral proposal. The info form keeps its message and ask unchange
 
 The `asana-closed-message` script now tells the Asana task when an issue is closed as not planned under any
 `awaiting-*` label, not only `awaiting-info-client`
-([#3494](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3494)). The task reads that it is on
+([#3494](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3494)). The task is told it is on
 hold and will be reopened when the work can pick up again. The message under `awaiting-info-client` is
 unchanged.
 
@@ -71,7 +71,7 @@ unchanged.
 #### What makes this deploy extra special
 
 A requester whose ticket is closed while parked, for example waiting on their own sign-off, is told it is on
-hold instead of hearing nothing. A store takes it by taking the new `asana-closed-message` script through
+hold instead of hearing nothing. A store picks it up by re-adopting the `asana-closed-message` script through
 `adopt-bwj-development`'s stop-and-diff.
 
 **Score:** 3

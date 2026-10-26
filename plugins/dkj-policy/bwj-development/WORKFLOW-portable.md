@@ -509,8 +509,7 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   says *"in review"*: development is stuck, so the task goes back rather than on. It reads no go-live
   block, because nothing was built, and it moves no card.
 - **Closing as not planned with any other `awaiting-*` label kept on** (`awaiting-action-external`,
-  `awaiting-review-client`, `awaiting-decision-client` and the rest of the family) posts the same comment
-  with a neutral intro, *"GitHub issue <owner>/<repo>#<n> is now **closed**: this Asana task is on hold,
+  `awaiting-review-client`, `awaiting-decision-client` and the rest of the family) posts the same header with a neutral intro, *"GitHub issue <owner>/<repo>#<n> is now **closed**: this Asana task is on hold,
   and will be reopened when the work can pick up again."*, and no ask under it
   ([#3494](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3494)). Every one of those labels
   means parked, not rejected, and *"not enough information"* would be false there. With
