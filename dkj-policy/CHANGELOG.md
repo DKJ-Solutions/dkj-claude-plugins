@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**11 / 18 minor entries** <!-- pending-tally -->
+**12 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/plugin-page-side-by-side · 20261026-100313Z
+
+A plugin's page on the hub (`/plugins/<name>`) now sets its description and its state on this machine side by
+side, as two cards in one row, with its state at the far right of the title's row and the description broken
+into paragraphs at each chapter, so it reads on one screen without scrolling.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In every repo's hub, a plugin's page now fits one screen: what the plugin is on the left, whether it is up to
+date here (with the command that fixes it) on the right.
+
+**Score:** 2
+
+#### Pull Request
+
+hub: plugin page side by side on one screen
+
+Plugins: dkj-policy
+
+[PR #3504](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3504)
+
+---
 
 ### DEPLOY: fix/3488-repo-settings-admin-only-fields · 20261026-095402Z
 
