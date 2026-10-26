@@ -43,17 +43,21 @@ A long prompt label wraps over many lines in the five-column grid; clamp it to t
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Clamp a card's prompt label (`.sw-card > .sw-instruction`) to three lines with an ellipsis, in `Format-StopwatchPageShell` (`plugins/dkj-policy/hub/lib/stopwatch-lib.ps1`).
 
 ### TEST
 
+- [x] The hub on port 4871 restarted from this tree serves the clamp on `/logbook`; the owner judges the cards by eye.
+
 ### DEPLOY: fix/logbook-card-three-lines
 
-**Score:**
+A card on the Logbook and the Stopwatch pages shows its prompt label in three lines at most, ending in an ellipsis, so a long label no longer stretches its card down the grid. The run's own page still shows it whole.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+**Score:** N/A
 
 #### Pull Request
 

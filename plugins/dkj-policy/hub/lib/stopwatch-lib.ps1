@@ -893,6 +893,9 @@ function Format-StopwatchPageShell {
         '.sw-card > p + p { margin-top: var(--spacing-1); }' + "`n" +
         '.sw-stamp { font-size: var(--text-base); font-weight: 800; color: var(--fg-1); }' + "`n" +
         '.sw-instruction { font-size: var(--text-sm); font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }' + "`n" +
+        # On a card the label is three lines at most, ending in an ellipsis: a Logbook label is the first line of a
+        # prompt and wrapped over many lines in a narrow column (the owner, October 26, 2026). The run's page shows it whole.
+        '.sw-card > .sw-instruction { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; overflow: hidden; }' + "`n" +
         '.sw-instruction a { color: inherit; text-decoration: none; }' + "`n" +
         '.sw-instruction .muted { font-size: var(--text-sm); font-weight: 400; }' + "`n" +
         '.sw-time { font-size: var(--text-base); font-weight: 300; color: var(--fg-1); }' + "`n" +
