@@ -24,7 +24,9 @@
                       is absent or older than a file under dkj-policy/releases (#3189): the page is a gitignored
                       snapshot nothing else builds. A 404 text naming why where it cannot be built.
       /sessionstart   (also: scripts/dashboard/session-start-snapshot.json, where the repo keeps one -- the last
-                      full session-start measurement, shown below the live table; absent, nothing is added)
+                      full session-start measurement, its sections shown after the live table's; absent, nothing
+                      is added) one card per section, and /sessionstart/<section> that section's own page
+                      (Get-SessionStartSections); a slug no section has is a 404.
                       the always-on path, measured in a CHILD process by always-on-budget-lib.ps1, found in
                       the repo's own scripts/lib, else in this plugin's own. Kept for -CacheSeconds.
                       The child first dot-sources the repo's own scripts/repo-config.ps1, the trust the
@@ -526,10 +528,16 @@ try {
                 $isAge = if ($isCache) { ((Get-Date) - $isCache.At).TotalSeconds } else { 0 }
                 if ($null -eq $isCache -or $isAge -ge $IssuesCacheSeconds -or ($isCache.Error -and $isAge -ge 30)) { $isCache = Get-IssuesModel }
                 $html = Format-IssuesPageHtml -Model $isCache.Model -ReadError $isCache.Error -GeneratedAt $isCache.GeneratedAt -Seconds $isCache.Seconds -RepoName (Get-RepoIdentity).Name
-            } elseif ($path -eq '/sessionstart') {
+            } elseif ($path -match '^/sessionstart(?:/([a-z-]{1,40}))?$') {
+                # The overview, or one section's own page (the owner, October 26, 2026); a slug no section has is a 404.
+                $ssSection = [string]$Matches[1]
                 if ($null -eq $ssCache -or ((Get-Date) - $ssCache.At).TotalSeconds -ge $CacheSeconds) { $ssCache = Get-SessionStartModel }
                 $snap = Get-SessionStartSnapshot
-                $html = Format-SessionStartPageHtml -Model $ssCache.Model -ReadError $ssCache.Error -RepoName (Get-RepoIdentity).Name -Snapshot $snap.Data -SnapshotError $snap.Error
+                $html = Format-SessionStartPageHtml -Model $ssCache.Model -ReadError $ssCache.Error -RepoName (Get-RepoIdentity).Name -Snapshot $snap.Data -SnapshotError $snap.Error -Section $ssSection
+                if ($null -eq $html) {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('No SessionStart section of that name.')) -Method $method
+                    continue
+                }
             } elseif ($rn = Resolve-ReleaseNotesRequest -Path $path -IndexFile $releaseNotesFile) {
                 # The index, or one release's own page beside it (owner, October 25, 2026).
                 $buildError = Update-ReleaseNotesPage

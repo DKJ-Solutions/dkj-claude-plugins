@@ -28,7 +28,7 @@
     (hub/pages/serve-general-pages.ps1; dkj-solutions' until #3198), which the dev-preview hook starts beside
     this one. The hook writes both servers' urls to a state file in %TEMP%; the hub reads it on every request,
     asking the server named there who it is (its /whoami, the hash of this root) for at most ~500 ms. When
-    it answers as this checkout's, a request for /artifacts, /issues or /sessionstart -- and
+    it answers as this checkout's, a request for /artifacts, /issues or /sessionstart and its section pages -- and
     /refresh?page=issues or =sessionstart -- is relayed to it and its answer sent back as it came
     (Copy-LoopbackUpstream), and the General card links those paths on this origin. A short 404 text naming
     the general pages server answers when it does not, and a 502 when it stops answering mid-request.
@@ -596,7 +596,7 @@ try {
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
-            if ($generalRoutes -contains $path) {
+            if ($generalRoutes -contains $path -or $path -match '^/sessionstart/[a-z-]{1,40}$') {
                 # Built by the plugin's general pages server (#3119) and relayed from it, so the page is on this
                 # origin and shares its theme choice (#3168).
                 $gp = Get-GeneralPagesPort

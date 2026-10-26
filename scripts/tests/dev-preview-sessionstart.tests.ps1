@@ -683,7 +683,8 @@ try {
         Assert-True ($r2 -notmatch 'id="last-measurement"' -and $r2 -notmatch 'session-start-snapshot') 'and, in a repo that keeps no session-start snapshot, adds nothing for it (#3129)'
         $snapFile = Join-Path $noConfig 'scripts\dashboard\session-start-snapshot.json'
         [System.IO.File]::WriteAllText($snapFile, '{ "asOf": "2026-10-02", "items": [ { "name": "Docs", "influence": "direct", "tokens": 600, "measured": true, "source": "s" } ] }')
-        Assert-True ((& $getRaw $genPort '/sessionstart') -match 'id="last-measurement"' -and (& $getRaw $genPort '/sessionstart') -match '>Docs<') 'where the repo keeps scripts/dashboard/session-start-snapshot.json, the page shows the last full measurement below the live table'
+        Assert-True ((& $getRaw $genPort '/sessionstart') -match 'id="last-measurement"' -and (& $getRaw $genPort '/sessionstart/layers') -match '>Docs<') 'where the repo keeps scripts/dashboard/session-start-snapshot.json, the overview carries a card per section of the last full measurement, and each its own page'
+        Assert-True ((& $getRaw $genPort '/sessionstart/documents') -match '<h1>Always-on documents</h1>' -and (& $getRaw $genPort '/sessionstart/nope') -match 'HTTP/1.1 404') 'the live documents have a page of their own, and a slug no section has is a 404'
         [System.IO.File]::WriteAllText($snapFile, '{ not json')
         Assert-True ((& $getRaw $genPort '/sessionstart') -match 'session-start-snapshot.json could not be read: it is not valid JSON') 'and an unreadable one is a warning on the page'
         Remove-Item -LiteralPath $snapFile -Force
