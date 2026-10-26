@@ -8,8 +8,8 @@ description: >-
   exist, report the board's numbered sections so the Filed section report-issue writes to can be
   found, write the BWJ extension import into CLAUDE.md, and scaffold chapter two's
   bwj-development/SYNC-LOG.md with its masthead, ready for the first sync branch. In the two store
-  repos it also copies the asana-closed-message and asana-prio-label workflows into .github/ and names the
-  one repo secret they need, ASANA_PAT.
+  repos it also copies the asana-closed-message and asana-prio-label workflows into .github/, in
+  phone-factory asana-closed-message alone, and names the one repo secret they need, ASANA_PAT.
   Strictly additive and dry-run by default; it never overwrites an existing file, only adds the one
   import line to CLAUDE.md, and it renames nothing on the board.
   Run this right after enabling the plugin, or when report-issue reports the Asana config seam
@@ -24,6 +24,7 @@ side, across both chapters: the config functions the skill reads, the labels, an
 `asana-closed-message`, the closed message on the Asana task (#2818) and, since #2854, the reopened
 message beside it, and `asana-prio-label`, the Prio-Score -> `prio-N` label sync (#2945). They are the
 parts of the retired asana-mirror mechanism that came back (Dave, October 5, 6 and 12, 2026).
+**In `phone-factory` it copies `asana-closed-message` alone** (#3518).
 
 ## 0 -- establish that this repo is a permitted adoption target
 
@@ -81,7 +82,7 @@ the check rather than the verdict -- so the check still runs here. It now return
 and the difference between the two runs is not the guard but the decision behind it, which is on the
 record above.
 
-## 1 -- copy the closed, on-hold and reopened messages and the prio-label sync into `.github/` (the two store repos only)
+## 1 -- copy the closed, on-hold and reopened messages and the prio-label sync into `.github/` (the two store repos, and the first pair in `phone-factory`)
 
 GitHub only runs a workflow from a repo's own `.github/`, so these are copied, not imported:
 
@@ -93,11 +94,15 @@ GitHub only runs a workflow from a repo's own `.github/`, so these are copied, n
 | `templates/asana-prio-label.ps1` | `.github/scripts/asana-prio-label.ps1` |
 
 Copy them verbatim. If a file already exists at the target, **stop and diff** rather than overwriting:
-report the difference and let the maintainer decide. **Only in `smartwatchbanden` and `xoxowildhearts`**
-(#2818, #2945). The source repo and `phone-factory` adopt this plugin for ticket handling alone, and
-neither workflow was asked for there. In the two stores, the plugin's `closed-message-sessioncheck` hook
-reports at every session start when any of the four files (either workflow's pair) is missing or differs
-from the template, and when `ASANA_PAT` (step 3) is absent ([#2871](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2871)),
+report the difference and let the maintainer decide. **All four in `smartwatchbanden` and
+`xoxowildhearts`** (#2818, #2945); **the two `asana-closed-message` files alone in `phone-factory`**,
+whose owner decided to adopt that workflow on October 26, 2026
+([BWJ-Development/phone-factory#15](https://github.com/BWJ-Development/phone-factory/issues/15),
+[#3518](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3518)); `asana-prio-label` was not
+decided there. The source repo adopts this plugin for ticket handling alone, and neither workflow was
+asked for there. Wherever a pair is copied, the plugin's `closed-message-sessioncheck` hook reports at
+every session start when one of that pair's files is missing or differs from the template, and when
+`ASANA_PAT` (step 3) is absent ([#2871](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2871)),
 or step 2's `Get-ResolvesExemptMatchers` is not stated ([#2959](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2959)).
 
 When an issue closes as completed, the workflow posts one comment on its Asana task: the automation's
@@ -305,9 +310,9 @@ options and none named `Bug`, `Feature` or `Task`, so without the map every writ
 missing" note and five cards were typed by hand. Propose it only where the board you read in step 5
 names its options differently.
 
-## 3 -- the one repo secret: `ASANA_PAT` (the two store repos only)
+## 3 -- the one repo secret: `ASANA_PAT` (the two store repos and `phone-factory`)
 
-The two workflows from step 1 need **one** Actions secret, `ASANA_PAT`: a token that may comment on the
+The workflows from step 1 need **one** Actions secret, `ASANA_PAT`: a token that may comment on the
 board's tasks and read their custom fields. Print it for the maintainer to set (`gh secret set ASANA_PAT --repo <owner>/<repo>`);
 this skill never sets a secret. Nothing else is needed: no `GH_PROJECT_TOKEN` and no `ASANA_PROJECT_GID`,
 which the retired asana-mirror read, because a comment addresses its task by GID alone. What is also
