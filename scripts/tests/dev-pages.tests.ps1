@@ -526,6 +526,7 @@ Write-Host '-- the Specialists page' -ForegroundColor Cyan
 $evil = ConvertTo-SpecialistRow -Id '06-99' -Plugin 'dkj-subagents-ecomm' -Form subagent -Text "---`ndescription: <b>x</b>`n---`nYou are **Eve <i>**, the Bad <b>. Body`n" -ManualBytes 99999
 $sp = Format-SpecialistsPageHtml -Rows @($sa, $pa, $evil) -CharsPerToken 3.12
 Assert-True ($sp -match '<h1>Specialists</h1>' -and $sp -match '<span aria-current="page">Specialists</span>') 'the page is named Specialists, in the h1 and the trail'
+Assert-True ($sp -notmatch 'href="/plugins') 'its trail is Home > Specialists: the product has no Plugins page, so the page sits under the product home (#3540)'
 Assert-True ($sp -match 'Specialists</div><div class="v num">3<' -and $sp -match 'Enabled here</div><div class="v num">2<') 'the tiles count the specialists and those enabled here'
 Assert-True ($sp.IndexOf('<strong>Eve') -lt $sp.IndexOf('<strong>Paula') -and $sp.IndexOf('<strong>Paula') -lt $sp.IndexOf('<strong>Chris')) 'largest full read first'
 Assert-True ($sp.Contains('Eve &lt;i&gt;') -and -not $sp.Contains('Eve <i>')) 'a name is escaped'
@@ -546,13 +547,15 @@ Assert-True ((Get-DkjRepoQuery) -notmatch '"') 'the query holds no double quote,
 $co = @(@{ Repo = 'DKJ-Solutions/dkj-lifehub'; Path = 'C:\x\dkj-lifehub'; Branch = 'main'; Dirty = 2 }, @{ Repo = 'DKJ-Solutions/unlisted'; Path = 'C:\x\unlisted'; Branch = 'dev'; Dirty = 0 })
 $page = Format-DkjReposPageHtml -Query $q -Checkouts $co -Meta @{ GeneratedAt = '2026-10-20 12:00:00'; Seconds = 1.2 }
 Assert-True ($page -match '<span aria-current="page">DKJ repos</span>' -and $page -match '<h1>DKJ repos</h1>') 'the page opens with the breadcrumb bar and its own h1'
+Assert-True ($page -match '<div class="dr-grid" id="repos">\s*<div class="grid__head"><h1>DKJ repos</h1></div>\s*<section class="card dr-card">' -and $page -notmatch 'class="tiles"' -and $page -notmatch 'class="lead"' -and $page -notmatch '<h2>Repos</h2>' -and $page -notmatch '<table') 'the repos are cards in a grid headed by the h1, with no tiles, no lead, no section heading and no table (the owner, October 26, 2026)'
+Assert-True ($page -match '<section class="card dr-card"><h2><a href="https://github.com/DKJ-Solutions/dkj-lifehub">dkj-lifehub</a></h2>[^\n]*data-copy="Set-Location[^\n]*</section>') 'a checkout''s session command sits in its own repo''s card'
 Assert-True ($page -match '&lt;b&gt;life&lt;/b&gt;' -and $page -notmatch '<b>life</b>') 'a repo description is escaped'
 Assert-True ($page -match 'href="https://github.com/DKJ-Solutions/dkj-lifehub/issues">3</a>' -and $page -match '2 uncommitted') 'a repo row links its open issues and names its checkout state'
-Assert-True ($page -match '>unlisted</a>' -and $page -match 'unlisted&#39;; claude') 'a checkout GitHub did not list still gets its row and its session'
+Assert-True ($page -match '>unlisted</a>' -and $page -match 'unlisted&#39;; claude') 'a checkout GitHub did not list still gets its card and its session'
 Assert-True ($page.Contains('data-copy="Set-Location -LiteralPath &#39;C:\x\dkj-lifehub&#39;; claude"') -and $page -match 'execCommand\("copy"\)') 'each checkout has its command to copy, with the fallback the Simple Browser needs'
 Assert-True ($page -match '1 archived repo is left out' -and $page -notmatch '>old</a>') 'an archived repo is counted, not listed'
 $pageArch = Format-DkjReposPageHtml -Query $q -Checkouts @(@{ Repo = 'DKJ-Solutions/old'; Path = 'C:\x\old'; Branch = 'main'; Dirty = 0 }) -Meta @{ GeneratedAt = 'x' }
-Assert-True ($pageArch -match '>old</a>' -and $pageArch -match '<td>archived</td>' -and $pageArch -notmatch 'archived repo is left out') 'an archived repo checked out here is listed, marked archived, and not counted as left out'
+Assert-True ($pageArch -match '>old</a>' -and $pageArch -match '<p class="dr-line">archived &middot; ' -and $pageArch -notmatch 'archived repo is left out') 'an archived repo checked out here is listed, marked archived, and not counted as left out'
 $evil = @{ Repos = @(@{ Repo = 'DKJ-Solutions/x'; Name = 'x'; Url = 'javascript:alert(1)'; Description = ''; Visibility = 'public'; PushedAt = ''; Issues = 1; Pulls = 0 }); Archived = @(); Error = '' }
 Assert-True ((Format-DkjReposPageHtml -Query $evil -Checkouts @() -Meta @{ GeneratedAt = 'x' }) -notmatch 'javascript:' ) 'a link is built from owner/name, never from the url field'
 $pageErr = Format-DkjReposPageHtml -Query (ConvertFrom-DkjRepoQuery -Json '') -Checkouts $co -Meta @{ GeneratedAt = 'x'; Seconds = $null }
@@ -602,7 +605,9 @@ Write-Host '-- the house style under its plugin (#3493): /plugins/dkj-solutions/
 $hsReq = Resolve-PluginsPageRequest -Path '/plugins/dkj-solutions/house-style'
 Assert-True ($hsReq.Name -eq 'dkj-solutions' -and $hsReq.Page -eq 'house-style' -and (Resolve-PluginsPageRequest -Path '/plugins/dkj-solutions').Page -eq '') 'the specimens are a page below the dkj-solutions plugin''s own'
 Assert-True ($null -eq (Resolve-PluginsPageRequest -Path '/plugins/dkj-policy/house-style') -and $null -eq (Resolve-PluginsPageRequest -Path '/plugins/dkj-solutions/other')) 'and no other plugin, and no other page below it, is a route'
-Assert-True ($zeta -notmatch 'href="/plugins/dkj-solutions/house-style"') 'a plugin that ships no house style links none'
+Assert-True ($zeta -notmatch 'href="/plugins/dkj-solutions/house-style"' -and $zeta -notmatch 'class="grid-3"') 'a plugin that ships no house style links none, and with no cards there is no card grid'
+$zc = Format-PluginPageHtml -Row (Find-PluginsPageRow -Model $pv -Name 'zeta') -Model $pv -Cards @(@{ Href = '/plugins/zeta/x'; Label = 'X <y>'; Sub = 's'; Icon = 'specialists' })
+Assert-True ($zc -match 'class="grid-3"' -and $zc -match 'href="/plugins/zeta/x"' -and $zc.Contains('X &lt;y&gt;')) 'a hub''s own page below a plugin is a card on that plugin''s page, its label escaped'
 $dsRow = (Find-PluginsPageRow -Model $pv -Name 'zeta').Clone(); $dsRow.Name = 'dkj-solutions'
 $ds = Format-PluginPageHtml -Row $dsRow -Model $pv -RepoName 'r'
 Assert-True ($ds -match '<section class="card card--link"><nav class="menu-list" aria-label="House style"><a class="menu-item" href="/plugins/dkj-solutions/house-style"><svg class="menu-item__icon"') 'the dkj-solutions page links its house style as a card, with its icon'

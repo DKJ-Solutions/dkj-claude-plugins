@@ -47,6 +47,15 @@ and the connector dashboard server becomes the product with Connectors, Speciali
 
 The product's home page and the hub's Product card are judged by eye: this branch stops for the owner's look
 before the merge.
+Maikel looked and approved it on October 26, 2026.
+
+#### Merging main: Specialists stays on the product
+
+#3541 (merged while this branch was parked) moved Specialists below Plugins, to
+`/plugins/dkj-subagents-alpha/specialists`. In this shape Plugins is the plugin hub's page, and the plugin hub cannot
+build Specialists, which is read from this tree. So Specialists stays a card on the product at `/specialists`
+(Maikel, October 26, 2026), and that part of #3541 is undone. `Format-PluginPageHtml -Cards` from #3541 stays, and
+#3542's DKJ repos cards are kept as they landed.
 
 ### CREATE
 

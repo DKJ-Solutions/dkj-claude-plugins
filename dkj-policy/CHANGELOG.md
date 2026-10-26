@@ -2,7 +2,52 @@
 
 ## [Unreleased]
 
-**1 / 2 minor entries** <!-- pending-tally -->
+**1 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/dkj-repos-cards · 20261026-194924Z
+
+The hub's DKJ repos page is now one card per repo, three to a row like the Stopwatch overview, under the page's h1: the four tiles, the lead and the Repos heading are gone, and each checked-out repo's session command, with its Copy button, sits in that repo's own card instead of a list of its own.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: a page of this repo's own hub, which no consumer takes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The DKJ repos page shows each repo as a card
+
+[PR #3542](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3542)
+
+---
+
+### DEPLOY: feat/specialists-under-plugins · 20261026-193544Z
+
+The hub's Specialists page now sits one level below Plugins, at `/plugins/dkj-subagents-alpha/specialists`,
+linked as a card from that plugin's page instead of from the home page; `/specialists` sends an old link
+there. `Format-PluginPageHtml` takes `-Cards` for a hub's own pages below a plugin.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the new `-Cards` parameter is optional and unused on the plugin's own general pages server, so a
+consumer's hub looks the same.
+
+**Score:** N/A
+
+#### Pull Request
+
+Specialists page under its plugin on the hub
+
+Plugins: dkj-policy
+
+[PR #3541](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3541)
+
+---
 
 ### DEPLOY: fix/3537-ignore-brandbook-residue · 20261026-175546Z
 
