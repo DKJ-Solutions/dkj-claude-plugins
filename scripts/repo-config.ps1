@@ -1537,5 +1537,11 @@ function Get-HouseStyleAllowlist {
         @{ Path = 'brandbook/src/components/metrics.css'; Name = '.v'; Reason = 'a .dkj-v--warn modifier on the house class, not a restyle of it' }
         @{ Path = 'brandbook/src/components/metrics.css'; Name = '.badge'; Reason = 'a .dkj-badge--series modifier on the house class, not a restyle of it' }
         @{ Path = 'brandbook/src/showcase/showcase.css'; Name = '.tooltip'; Reason = 'a .dkj-tooltip-static modifier that draws the house tooltip open for the showcase' }
+        # The app's own copies of the components promoted into the house style (#3493): the tokens they set on
+        # their own class became house tokens of the same name. They go when the app is removed under #3493.
+        @{ Path = 'brandbook/src/components/prose.css'; Name = '--prose-h1'; Reason = 'the app''s own copy of the .prose the house style promoted (#3493); removed with the app' }
+        @{ Path = 'brandbook/src/components/prose.css'; Name = '--prose-h2'; Reason = 'the app''s own copy of the .prose the house style promoted (#3493); removed with the app' }
+        @{ Path = 'brandbook/src/components/prose.css'; Name = '--prose-h3'; Reason = 'the app''s own copy of the .prose the house style promoted (#3493); removed with the app' }
+        @{ Path = 'brandbook/src/components/tables.css'; Name = '--gutter'; Reason = 'the app''s own copy of the table gutter the house style promoted (#3493); removed with the app' }
     )
 }
