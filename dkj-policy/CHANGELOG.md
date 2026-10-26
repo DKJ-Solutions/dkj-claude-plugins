@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**15 / 23 minor entries** <!-- pending-tally -->
+**15 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3493-house-style-css-gate · 20261026-105439Z
+
+The house style has a CSS gate of its own, `house-style-css`
+([#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)): every change to a stylesheet in
+`assets/house-style/` is parsed, and fails on a `var()` that nothing defines or a colour code outside a
+token declaration in `house-style.css`. Until now those checks ran only inside the brandbook app, which
+#3493 retires.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+Nothing reaches a consumer: the gate runs in this repo's CI only, and the house-style files are unchanged.
+
+**Score:** N/A
+
+#### Pull Request
+
+house style: a CSS gate of its own, so retiring the brandbook app leaves it gated
+
+Plugins: dkj-solutions
+
+[PR #3509](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3509)
+
+---
 
 ### DEPLOY: fix/3500-notes-pages-publish-per-release · 20261026-104322Z
 
