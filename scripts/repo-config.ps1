@@ -1489,19 +1489,17 @@ function Get-DeclinedAdoptions {
 # --- The dev-preview seam (dkj-policy since #3198, #2967; this repo's answer since #2976) ---------------
 
 function Get-DevPreview {
-    <# This repo's own hub (the label the plugin fixes, #3064, #3097), which links the connector
-       dashboard: the dkj-policy dev-preview hook starts it (or reuses it) at session start and hands
-       out its localhost link. The plugin serves a hub of its own in every repo (#3245), with the repo's
-       server as its product; OwnHub opts this repo out, because its connector dashboard IS its hub and
-       relays the general pages from its own origin. The server binds to 127.0.0.1 itself, so the Command
-       needs no bind flag. It runs under cmd.exe, hence the backslashes.
-       No Product: the brandbook/ app's Vite dev server was one from #3283 until the owner retired the app
-       (#3493, October 26, 2026); its pages are the hub's now, House style among them. #>
+    <# This repo's PRODUCT: the connector dashboard server, home of Connectors, Specialists and DKJ repos.
+       The dkj-policy dev-preview hook starts it (or reuses it) at session start beside the plugin's hub,
+       and hands out both links. Every repo has a product port (Maikel, October 26, 2026, #3540), so this
+       repo no longer opts out with OwnHub: the hub is the plugin's, as in every consumer (#3245), and the
+       general pages are its. (OwnHub held from #3245 until #3540, with the brandbook/ app as the Product
+       beside it from #3283 until #3493 retired the app.) The server binds to 127.0.0.1 itself, so the
+       Command needs no bind flag. It runs under cmd.exe, hence the backslashes. #>
     @{
         Command     = 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dashboard\serve-connector-dashboard.ps1 -Port {port}'
         Ports       = 4870..4879
         WaitSeconds = 15
-        OwnHub      = $true
     }
 }
 

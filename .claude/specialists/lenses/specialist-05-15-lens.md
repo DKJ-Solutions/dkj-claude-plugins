@@ -1024,10 +1024,10 @@ for its dev-preview hook, which is `dkj-policy`'s since
 [#3198](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3198); it stays for the house style,
 and its session check (the hub's DKJ-Solutions card it also gave ended with
 [#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475)). The hook starts the connector dashboard
-(`scripts/dashboard/serve-connector-dashboard.ps1`) through this repo's `Get-DevPreview` (which states `OwnHub = $true`, since the plugin serves a hub of its own
-in every other repo, [#3245](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3245)), and the general
-pages server beside it
-([#3119](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3119)). The root `CLAUDE.md` imports
+(`scripts/dashboard/serve-connector-dashboard.ps1`) through this repo's `Get-DevPreview` as the repo's product, and the
+plugin's hub beside it, as in every other repo ([#3245](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3245);
+this repo opted out with `OwnHub` until [#3540](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3540)).
+The root `CLAUDE.md` imports
 the extension, as the constitution requires of an installed one. The three add-on teams are `false` since
 September 30, 2026, and the BWJ extension (then `dkj-policy-bwj`) since October 1 (both Dave); from
 September 8 all six had been on, for validation. Before changing this, know:
