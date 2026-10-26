@@ -2,7 +2,112 @@
 
 ## [Unreleased]
 
-**6 / 13 minor entries** <!-- pending-tally -->
+**10 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3492-live-message-is-a-notice · 20261026-094312Z
+
+The message `notify-live` posts on an Asana task after a release no longer says the review can start, and no
+longer asks the go-live block's question a second time
+([#3492](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3492)). It says the work is live as that
+version, and that the review already took place on the preview.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A requester told on release day that their work is live is no longer asked to review it again. The review
+already happened on the preview, and the closed message said that was the last moment to change something.
+
+**Score:** 3
+
+#### Pull Request
+
+notify-live: the live message is a notice, not a second review request
+
+Plugins: bwj-development
+
+[PR #3499](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3499)
+
+---
+
+### DEPLOY: fix/3491-merge-on-green-checks-scope · 20261026-092801Z
+
+The merge-on-green runner that `adopt-ci-floor` places now grants its job token `checks: read` and
+`statuses: read` ([#3491](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3491)). Without them a
+private repo's picker could not read the required checks, so it never merged anything and every run still
+concluded success. A re-run of `adopt-ci-floor` names a runner placed earlier with `[scope]` and the line(s) to
+add.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a private repo, a pull request armed with merge-when-green now merges itself once its checks are green, where
+before it waited forever with no error. A runner already placed has to be changed by hand: add the two lines
+under `permissions:`, or delete the file and re-run `adopt-ci-floor -Apply`. A re-run says which.
+
+**Score:** 4
+
+#### Pull Request
+
+merge-on-green: grant the pick step checks and statuses read
+
+Plugins: dkj-policy
+
+[PR #3496](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3496)
+
+---
+
+### DEPLOY: docs/house-style-density · 20261026-091734Z
+
+The house style now states a density rule, and Gwen's manual a "nothing unasked" rule: pages are designed to one 1400 x 600 screen at the full width, without eyebrows, sub lines, intros or extra rows the brief did not ask for.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions page a session designs now starts from one screen without scrolling and the full width, instead of a tall column with decorative extra rows the owner then has to strip out.
+
+**Score:** 3
+
+#### Pull Request
+
+House style: density first -- one screen, the full width, nothing unasked
+
+Plugins: dkj-solutions, dkj-subagents-alpha
+
+[PR #3495](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3495)
+
+---
+
+### DEPLOY: feat/3474-record-suite-durations-in-plugin · 20261026-082905Z
+
+`record-suite-durations` now ships in `dkj-policy`, with a skill page of its own
+([#3474](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3474)). It writes
+`scripts/tests/suite-durations.json` from CI runs, and until now only this repo could run it. The skill page
+states what a repo's CI must do for it to read the runs: keep its suites in `scripts/tests`, run them through
+the plugin's gate, which prints the per-suite table, and let `gh run view --log` read the log. The runner's
+description is no longer hard-coded to this repo's: `-Machine` names it, and a refresh keeps the value already
+in the file. `suite-durations-lib.ps1` travels with it; `measure-suites` stays here.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A repo using this workflow can fill the hub's Test gate page, which so far showed its empty state everywhere
+but here: run the `record-suite-durations` skill on two or three pull-request runs and commit the file.
+
+**Score:** 3
+
+#### Pull Request
+
+record-suite-durations ships in dkj-policy, with the CI contract it reads
+
+Plugins: dkj-policy
+
+[PR #3490](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3490)
+
+---
 
 ### DEPLOY: feat/3476-hub-names-its-account · 20261026-080745Z
 

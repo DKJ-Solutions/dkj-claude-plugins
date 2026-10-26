@@ -36,6 +36,23 @@
     gate (#1033), so one run is one draw; two or three is enough to pack from. The `recordedFrom` block
     records which runs produced the numbers, so a later reader can re-derive them or notice they are old.
 
+    IT SHIPS IN dkj-policy, AND THIS IS THE CI CONTRACT IT READS (issue #3474). Until then only the source
+    repo could write the file, so every consumer's Test gate page in the hub showed its empty state. What
+    a consumer's CI has to do for this script to read it is three things, and nothing about job names or
+    shards is among them:
+      1. Its suites are `scripts/tests/*.tests.ps1` -- the directory the gate and the hub page read.
+      2. A workflow run executes them through the plugin's own gate (Invoke-TestSuiteGate, which
+         `open-pr.ps1 -GatesOnly` calls), because that gate prints the per-suite table this parses:
+         one line per suite, `<seconds>s  <name>.tests.ps1  started +<offset>s`. A CI step that runs
+         the suites some other way prints no such line, and the run is refused as tableless.
+      3. The run's log is readable through `gh run view --log` by whoever runs this script.
+    A sharded CI is read the same as an unsharded one: every row in the run's log is a sample.
+
+.PARAMETER Machine
+    What the runs were measured on, written to `recordedFrom.machine` and shown on the hub's Test gate
+    page, e.g. 'windows-latest (4 cores), 4 lanes per shard'. Omitted, the value already in the file is
+    kept, so a refresh does not need it retyped; a first write without it records 'not stated'.
+
 .PARAMETER RunId
     One or more GitHub Actions run ids of the CI workflow. Each must have run the sharded suites job --
     so take a PR run. Neither trunk push a ship leaves behind normally qualifies: the `fold:` push skips
@@ -51,18 +68,21 @@
     comma form reaches this script as one string and is split on `[,\s]+` below.
 
 .PARAMETER RepoRoot
-    The repo to write into. Defaults to the git root of the working directory.
+    The repo to write into. Defaults to CLAUDE_PROJECT_DIR when a session set it (the plugin mirror runs
+    from the plugin cache), otherwise the git root of the working directory.
 
 .PARAMETER DryRun
     Print the table that would be written and touch nothing. It prints the 12 slowest suites and the
-    pool total only: for the full table, a per-family total or a before/after comparison of two sets of
-    runs, use measure-suites.ps1 beside this script, which writes nothing at all (issue #2775).
+    pool total only. For the full table, a per-family total or a before/after comparison of two sets of
+    runs, the source repo has measure-suites.ps1 beside this script, which writes nothing at all (issue
+    #2775); it reads that repo's own sharded jobs, so it does not ship.
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][string[]]$RunId,
     [string]$RepoRoot,
-    [switch]$DryRun
+    [switch]$DryRun,
+    [string]$Machine
 )
 
 $ErrorActionPreference = 'Stop'
@@ -89,10 +109,20 @@ if ($RepoRoot -match '^\d{6,}$') {
 . (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 
 if (-not $RepoRoot) {
-    $RepoRoot = (Get-GitTopLevelPath).Path
+    # DUAL-CONTEXT (issue #3474): the plugin mirror runs from the plugin cache, so in a session the repo is
+    # CLAUDE_PROJECT_DIR rather than wherever the process stands -- measure-always-on's precedent.
+    if ($env:CLAUDE_PROJECT_DIR) { $RepoRoot = $env:CLAUDE_PROJECT_DIR }
+    else { $RepoRoot = (Get-GitTopLevelPath).Path }
     if (-not $RepoRoot) { throw 'Not in a git repository - pass -RepoRoot.' }
 }
 $RepoRoot = (Resolve-Path -LiteralPath $RepoRoot).Path
+
+# THE SOURCE-REPO GUARD, as on every shared entry point (issue #3474 made this one shared): in the repo
+# that maintains it, the plugin-cache copy is the last RELEASED mirror and would write the file with a
+# parser that may lag the tree.
+$guardLib = Join-Path $PSScriptRoot '..\lib\source-repo-guard-lib.ps1'
+if (Test-Path -LiteralPath $guardLib -PathType Leaf) { . $guardLib; Assert-OwnCopy -ScriptPath $PSCommandPath }
+
 $testsDir = Join-Path $RepoRoot 'scripts\tests'
 if (-not (Test-Path -LiteralPath $testsDir)) { throw "No test directory at $testsDir." }
 
@@ -147,6 +177,16 @@ if ($DryRun) {
     exit 0
 }
 
+# THE MACHINE IS THE CALLER'S TO NAME (issue #3474): it used to be this repo's runner, hard-coded, which a
+# consumer's file would have carried as a false statement. Omitted, the file's own value is kept -- a
+# refresh measures the same CI again far more often than a different one.
+$target = Join-Path $testsDir 'suite-durations.json'
+$machineText = $Machine
+if (-not $machineText -and (Test-Path -LiteralPath $target)) {
+    try { $machineText = [string](Get-Content -LiteralPath $target -Raw -Encoding UTF8 | ConvertFrom-Json).recordedFrom.machine } catch { $machineText = '' }
+}
+if (-not $machineText) { $machineText = 'not stated' }
+
 $doc = [ordered]@{
     note = @(
         'Per-suite CI durations, in seconds -- a HINT for Invoke-TestSuiteGate, never a contract.',
@@ -158,18 +198,18 @@ $doc = [ordered]@{
         'is no ratio to divide out and the sign is not even fixed. One suite ran 2.6x SLOWER solo on an',
         '18-thread workstation than on a 4-lane runner, where this note claimed 3.6-4.0x faster until',
         'issue #1713. So a local reading would pack worse than no reading at all. Refresh with',
-        'scripts/maintenance/record-suite-durations.ps1.'
+        'record-suite-durations.ps1 (the dkj-policy plugin''s record-suite-durations skill).'
     )
     recordedFrom = [ordered]@{
         runs    = @($runIds)
         date    = (Get-Date -Format 'yyyy-MM-dd')
-        machine = 'windows-latest (4 cores), 4 lanes per shard'
+        machine = $machineText
         method  = 'mean of the per-suite durations the gate printed in each shard log'
     }
     seconds = $seconds
 }
 
-$target = Join-Path $testsDir 'suite-durations.json'
+$json = ($doc | ConvertTo-Json -Depth 5) -replace "`r`n", "`n"
 $json = ($doc | ConvertTo-Json -Depth 5) -replace "`r`n", "`n"
 [System.IO.File]::WriteAllText($target, $json + "`n")
 Write-Host "wrote $target" -ForegroundColor Green

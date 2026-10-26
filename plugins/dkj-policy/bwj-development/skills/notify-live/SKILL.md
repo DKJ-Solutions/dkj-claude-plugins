@@ -57,9 +57,14 @@ the message the first one would receive. Without a record, hold an issue out by 
 ## The message
 
 In the automation's form, like the closed message: the header, then
-*"GitHub issue `<repo>#<n>` is now **live**, as version `vX.Y.Z`: the review can start now."*, then the
-go-live block's own closing ask -- its heading and its yes and no sentences -- in the language the
-block was written in. Only the state word is bold.
+*"GitHub issue `<repo>#<n>` is now **live**, as version `vX.Y.Z`."*, then one fixed notice line saying the
+review already took place on the preview, so nothing more is asked. Only the state word is bold.
+
+**It is a notice, not a second review request**
+([#3492](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3492)). The requester reviews on the
+preview before anything goes live, and the closed message already calls that the last moment something
+can change. Until #3492 this message said *"the review can start now"* and asked the go-live block's
+question again, which contradicted the closed message.
 
 ## The parameters
 

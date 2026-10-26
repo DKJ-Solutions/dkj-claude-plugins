@@ -9,9 +9,15 @@ name: Merge on green
 # required checks; nothing here writes with this token. Declaring a permissions block at all sets every
 # unlisted scope to none, which is the point -- the write half arrives as FOLD_PUSH_TOKEN, on the one
 # step that needs it, and never through this block.
+#
+# checks: AND statuses: ARE THE PICKER'S, NOT A WIDENING (#3491). It reads the required checks with
+# `gh pr checks --required`. This repo is public, so check runs read without them; a private consumer's
+# do not, and its picker then never picks anything while every run concludes success.
 permissions:
   contents: read
   pull-requests: read
+  checks: read
+  statuses: read
 
 # THREE TRIGGERS FOR ONE SWEEP, AND THE SWEEP IGNORES WHICH OF THEM WOKE IT. workflow_run gives
 # immediacy; the schedule is what makes the mechanism durable, because #2319's own incident was
