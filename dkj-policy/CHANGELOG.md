@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**16 / 25 minor entries** <!-- pending-tally -->
+**16 / 26 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3506-retire-page-token · 20261026-111725Z
+
+`publish-page -RetireToken` closes a leaked link
+([#3506](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3506)). It deletes every KV key
+under the kind's token, the page and every release page under it, lists again to prove none is left,
+and only then removes the token file so `-InitToken` can mint the next one. `-DryRun` lists the keys
+without deleting, and `-Token <32 hex>` retires a token that was already replaced on file. Until now a
+fresh token changed the URL while the old link went on serving.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+publish-page: -RetireToken deletes a leaked path token's KV keys
+
+Plugins: bwj-development
+
+[PR #3514](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3514)
+
+---
 
 ### DEPLOY: fix/3511-golive-coclaim-json-unroll · 20261026-110710Z
 
