@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**6 / 9 minor entries** <!-- pending-tally -->
+**7 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3493-retire-brandbook-app · 20261026-164834Z
+
+This repo's `brandbook/` app is retired ([#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)),
+so the house style is the one place DKJ styling lives. A house-style change is judged on the house style's own
+specimens page, under the dkj-solutions plugin on the Plugins card, which this repo's hub draws from the tree as
+it is edited; the hub links Connectors, Specialists and DKJ repos again, and the session start no longer starts a
+product server.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions repo's hub gains a House style page under Plugins, on the dkj-solutions plugin's page: every
+token, the twelve themes and every component of the stylesheet that release ships, so a repo sees what it can use
+without leaving its own hub. Its own pages and styling do not change.
+
+**Score:** 2
+
+#### Pull Request
+
+Retire the brandbook app: the house style's specimens under its plugin, the product pages back on the hub
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3535](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3535)
+
+---
 
 ### DEPLOY: feat/3531-house-style-files-to-dkj-policy · 20261026-163420Z
 
