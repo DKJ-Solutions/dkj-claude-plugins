@@ -41,17 +41,25 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style` skill: a new "Density" section -- design to 1400 x 600, use the width, nothing unasked, one row where one row does, check before handoff
+- [x] House-style README: rule 4 under "How to use it", pointing at the skill
+- [x] Gwen's portable manual: hard rule "Nothing unasked"
 
 ### TEST
 
+- [x] Copy edit of the diff (Edith)
+
 ### DEPLOY: docs/house-style-density
 
-**Score:**
+The house style now states a density rule, and Gwen's manual a "nothing unasked" rule: pages are designed to one 1400 x 600 screen at the full width, without eyebrows, sub lines, intros or extra rows the brief did not ask for.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every DKJ-Solutions page a session designs now starts from one screen without scrolling and the full width, instead of a tall column with decorative extra rows the owner then has to strip out.
+
+**Score:** 3
 
 #### Pull Request
 
