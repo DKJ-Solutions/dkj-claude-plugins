@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**5 / 12 minor entries** <!-- pending-tally -->
+**6 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3476-hub-names-its-account · 20261026-080745Z
+
+Every hub page's banner now ends on the Windows account the hub runs under, and `/api/airsquats` names it as
+`account` ([#3476](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3476)). On a machine with several
+accounts logged on, localhost ports are shared between them, so the hub a browser opens can be another account's,
+with its state. Until now nothing on the page said so.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A maintainer who shares a Windows machine with other accounts can see at a glance whose hub a `localhost` tab
+shows.
+
+**Score:** 2
+
+#### Pull Request
+
+Hub: the banner names the Windows account the hub runs under
+
+Plugins: dkj-policy
+
+[PR #3489](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3489)
+
+---
 
 ### DEPLOY: fix/3485-house-style-selector-list-all-or-nothing · 20261025-224827Z
 
