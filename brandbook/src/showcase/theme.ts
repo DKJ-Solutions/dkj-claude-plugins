@@ -31,7 +31,8 @@ function applyDefaultTheme(id: string | null) {
 
 /**
  * While the calling page is open, the repo's default theme is the page default (an unknown repo gets the brand
- * book's own); leaving restores what <html> declared before (index.html). A viewer's own pick is never overridden.
+ * book's preview fallback, DEFAULT_THEMES['dkj-brandbook']); leaving restores what <html> declared before
+ * (index.html: lilac under the shared general-pages key). A viewer's own pick is never overridden.
  */
 export function useRepoDefaultTheme(repo: string) {
   const id = defaultThemeOf(repo) ?? DEFAULT_THEMES['dkj-brandbook']
