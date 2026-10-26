@@ -58,7 +58,7 @@ owner's look before it ships.
 - [x] Owner feedback: each card's label -- DKJ, BWJ, Other -- is an h2, its summary under it.
 - [x] Owner feedback: the group pages drop their tiles and lead too, so neither exists on any Connectors page now.
 - [x] `eslint` and `tsc` clean on `brandbook/vite.config.ts`.
-- [ ] The owner has looked at `/connectors` and a group page on the product port.
+- [x] The owner has looked at `/connectors` and a group page on the product port ("ship it").
 
 ### DEPLOY: feat/connectors-group-pages
 
