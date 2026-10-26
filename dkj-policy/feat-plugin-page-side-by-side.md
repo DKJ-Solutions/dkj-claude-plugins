@@ -50,6 +50,7 @@ side rather than stacked.
   page-header row (`main > header`)
 - [x] the description split into paragraphs at each capitals lead-in, the lead-in an `h3`
   (`ConvertTo-PluginDescriptionHtml`)
+- [x] the description's paragraphs at `--text-base` (page layer `.dp-about`)
 - [x] no verdict line for a healthy plugin, since the badge already says it
 
 ### TEST

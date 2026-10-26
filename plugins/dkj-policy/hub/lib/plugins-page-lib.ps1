@@ -240,7 +240,7 @@ function Format-PluginPageHtml {
     # state of this machine as two cards in one row, rather than a status block and two full-width groups stacked.
     [void]$body.AppendLine('<div class="grid-2">')
     if ($Row.Description) {
-        [void]$body.AppendLine('<section class="card" id="about"><h2>What it is</h2>' + (ConvertTo-PluginDescriptionHtml $Row.Description) + '</section>')
+        [void]$body.AppendLine('<section class="card dp-about" id="about"><h2>What it is</h2>' + (ConvertTo-PluginDescriptionHtml $Row.Description) + '</section>')
     }
     [void]$body.AppendLine('<section class="card' + $(if (-not $Row.Description) { ' grid__full' }) + '" id="facts"><h2>On this machine</h2>')
     # A healthy plugin gets no verdict line: the badge beside the h1 already says it (the owner, October 26, 2026).
@@ -262,6 +262,7 @@ function Format-PluginPageHtml {
     # No lead: the crumbs and the Id fact already say which plugin and marketplace this is (the density rule).
     return Format-GeneralPageHtml -Title ([string]$Row.Name) -Body $body.ToString() -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
         -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }) -HeadAside $badge `
+        -Style '.dp-about p { font-size: var(--text-base); }' `
         -Lead '' `
         -FooterNote 'Read on every request by <code>plugin-versions.ps1 -Json</code>, the plugin-versions skill''s own script.'
 }
