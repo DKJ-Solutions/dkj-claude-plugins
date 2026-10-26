@@ -51,8 +51,8 @@ four as longhands, which render the same, and follow the checksum in the `house-
 
 ### TEST
 
-- [ ] The owner looks at the hub's pages in the house style and sees no change (a visible result, so the
-  branch stops here)
+- [x] The owner looks at the hub's pages in the house style and sees no change (a visible result, so the
+  branch stopped here; seen and approved October 26, 2026)
 
 ### DEPLOY: feat/3502-house-style-font-longhands
 
