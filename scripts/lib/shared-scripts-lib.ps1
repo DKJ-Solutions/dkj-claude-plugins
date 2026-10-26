@@ -472,6 +472,28 @@ function Get-SharedScriptPairs {
             Skill  = 'measure-closeouts'
         },
         @{
+            # THE WRITER OF suite-durations.json, shipped so a consumer's hub Test gate page can fill in
+            # (issue #3474; the owner's decision on it, October 26, 2026). It was repo-local because it
+            # was thought to read this repo's CI shape; what it actually reads is the per-suite table
+            # Invoke-TestSuiteGate prints, which is the plugin's own gate. The CI contract that follows
+            # from that is in its docstring and on its skill page. The path seam the same issue proposed
+            # was not chosen: it reads scripts/tests, like the gate and the page.
+            #
+            # NO MeasureArgs: every run reads CI logs through gh, so its time is the network's.
+            Name   = 'record-suite-durations'
+            Source = 'scripts\maintenance\record-suite-durations.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = 'record-suite-durations'
+        },
+        @{
+            # record-suite-durations' parser, and the reason it travels is the ordinary lib reason: its
+            # caller is mirrored. measure-suites.ps1 shares it and stays repo-local.
+            Name    = 'suite-durations-lib'
+            Source  = 'scripts\lib\suite-durations-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
             # THE SESSION-START REPORT, turned from a hand-built page into a skill. The script measures the
             # half of the session start a script can measure (the always-on documents, and the plugin
             # listings minus the skills that are not in a session) and renders the page from a data file;

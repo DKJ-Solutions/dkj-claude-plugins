@@ -9,8 +9,8 @@
     without a server.
 
     THE DATA IS THE REPO'S OWN, NOT A SECOND MEASUREMENT: scripts/tests/suite-durations.json, and where the repo keeps
-    one, scripts/tests/suite-groups.json to group the suites by the workflow step each guards. The source repo writes
-    the first with its record-suite-durations.ps1 from CI runs (its measure-suites skill). A repo without that file
+    one, scripts/tests/suite-groups.json to group the suites by the workflow step each guards. Any repo writes the
+    first with the plugin's record-suite-durations.ps1 from CI runs (its record-suite-durations skill, #3474). A repo without that file
     gets the page anyway, saying no test gate has been measured here yet: every hub has the card, the owner's choice
     on #3470.
 
@@ -134,7 +134,7 @@ function Format-TestGatePageHtml {
     # No file at all is a repo that has measured no test gate yet, not a fault (#3470): every hub has this page.
     $unmeasured = $ReadError -eq 'the file is not there'
     if ($unmeasured) {
-        [void]$body.AppendLine('<p class="msg" role="status">No test gate has been measured in this repo yet. This page fills in once the repo records its suites'' CI durations in <code>scripts/tests/suite-durations.json</code>.</p>')
+        [void]$body.AppendLine('<p class="msg" role="status">No test gate has been measured in this repo yet. This page fills in once the repo records its suites'' CI durations in <code>scripts/tests/suite-durations.json</code>, which the dkj-policy plugin''s <code>record-suite-durations</code> skill writes from CI runs.</p>')
     } elseif ($ReadError) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">scripts/tests/suite-durations.json could not be read: ' + (& $e $ReadError) + '.</p>')
     }
@@ -307,7 +307,7 @@ function Format-TestGatePageHtml {
     [void]$body.AppendLine('</section>')
     [void]$body.AppendLine((& $tipsBlock @(
         'A suite not recorded yet is charged the largest recorded duration when the gate packs its shards, so a new suite starts early rather than last.',
-        'Refresh the file from CI runs once a suite has been added or has grown: the source repo does it with its scripts/maintenance/record-suite-durations.ps1.')))
+        'Refresh the file from CI runs once a suite has been added or has grown, with the dkj-policy plugin''s record-suite-durations skill.')))
     [void]$body.AppendLine('</div>')
     # The house's .row-total sets the weight; the rule above it, heavier than a row's own, is this page's.
     $style = $script:DevBarStyle + "`n" + '.dp-total td { border-top: 2px solid var(--paper-4); }'

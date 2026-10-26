@@ -12,8 +12,13 @@
     test-suite-gate.tests.ps1 prints a table over its own fixtures that a naive grep mixes in -- so it
     moved here rather than being copied into a second script.
 
-    REPO-ONLY, like ci-merge-skip-lib.ps1: both callers read this repo's own CI workflow (its job
-    names, its sharded suites job), so nothing here is mirrored into a plugin.
+    IT TRAVELS WITH record-suite-durations.ps1 (issue #3474), which ships in dkj-policy so a consumer
+    can write its own suite-durations.json. Until then this lib was repo-only, on the ground that both
+    callers read this repo's CI shape -- true of measure-suites.ps1, which reads the sharded
+    `suites (<n>)` jobs and stays repo-local, and never of the row parser, which reads the table
+    Invoke-TestSuiteGate prints in any repo that runs its suites through the plugin's gate.
+    Get-ShardSeconds and Get-FamilyTotals travel along unused; splitting them out would put the one
+    parser in two files for the sake of two functions a consumer never calls.
 
     The pure functions take lines and job objects, so the suite tests them without gh or a network.
     Read-RunSuiteSamples and Read-RunShardSeconds are the two that call gh; they need

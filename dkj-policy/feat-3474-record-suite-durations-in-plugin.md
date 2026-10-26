@@ -39,19 +39,37 @@
 
 ### PLAN
 
+The owner's decision on #3474 (October 26, 2026): build the writer and the CI contract; the path seam is
+not part of it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `record-suite-durations.ps1` resolves its root dual-context and takes `-Machine` (kept from the file when omitted) instead of this repo's runner hard-coded
+- [x] it and `suite-durations-lib.ps1` registered as shared pairs and mirrored into `dkj-policy`
+- [x] the `record-suite-durations` skill page, with the CI contract; scripts README, ADOPTION list, `measure-suites` page and the hub's Test gate texts point at it
 
 ### TEST
 
+- [x] `-DryRun` against PR run 40241168736 reads the table (pool total 7537s, nothing written)
+
 ### DEPLOY: feat/3474-record-suite-durations-in-plugin
 
-**Score:**
+`record-suite-durations` now ships in `dkj-policy`, with a skill page of its own
+([#3474](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3474)). It writes
+`scripts/tests/suite-durations.json` from CI runs, and until now only this repo could run it. The skill page
+states what a repo's CI must do for it to read the runs: keep its suites in `scripts/tests`, run them through
+the plugin's gate, which prints the per-suite table, and let `gh run view --log` read the log. The runner's
+description is no longer hard-coded to this repo's: `-Machine` names it, and a refresh keeps the value already
+in the file. `suite-durations-lib.ps1` travels with it; `measure-suites` stays here.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo using this workflow can fill the hub's Test gate page, which so far showed its empty state everywhere
+but here: run the `record-suite-durations` skill on two or three pull-request runs and commit the file.
+
+**Score:** 3
 
 #### Pull Request
 
