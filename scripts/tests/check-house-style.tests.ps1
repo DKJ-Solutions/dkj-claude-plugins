@@ -20,7 +20,7 @@ $Plugin   = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions'
 $Gate     = Join-Path $Plugin 'scripts\lint\check-house-style.ps1'
 $Hook     = Join-Path $Plugin 'hooks\house-style-sessioncheck.ps1'
 $Skill    = Join-Path $Plugin 'skills\house-style\SKILL.md'
-$Vendored = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\assets\house-style'
+$Vendored = Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style'
 # $PID and a guid in the fixture path: the test gate runs suites in parallel.
 $Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "house-style-$PID-$([guid]::NewGuid().ToString('n'))"
 
@@ -48,15 +48,20 @@ Write-Host '-- group 1a: the pin, read from the skill page' -ForegroundColor Cya
 $pin = Get-HouseStylePin -SkillText ([System.IO.File]::ReadAllText($Skill))
 Assert-True ($null -ne $pin) 'the skill page carries a complete checksum table'
 # The tag is not written here: it moves with each change of the consumer URL pin, and a hard-coded copy
-# would turn every such pull request red. The README link is relative (#3130): the README now lives in the plugin.
+# would turn every such pull request red. The README link is absolute since #3531: the README lives in dkj-policy,
+# outside the dkj-solutions plugin root a consumer installs.
 Assert-True ($pin.Tag -cmatch '^v\d+\.\d+\.\d+$') 'the tag is read from the fetch URL'
-Assert-True ([System.IO.File]::ReadAllText($Skill).Contains('](../../assets/house-style/README.md)')) 'the skill links the README by its relative path'
+Assert-True ([System.IO.File]::ReadAllText($Skill).Contains('](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/assets/house-style/README.md)')) 'the skill links the README in dkj-policy absolutely, since a relative link leaves the dkj-solutions plugin root'
 Assert-True (Test-Path -LiteralPath (Join-Path $Vendored 'README.md')) 'the README the skill links exists in the plugin'
 foreach ($leaf in 'house-style.css', 'house-theme.js') {
     $hashes = Get-HouseStyleSha256 -Bytes ([System.IO.File]::ReadAllBytes((Join-Path $Vendored $leaf)))
     Assert-True (@($hashes) -contains $pin.Hashes[$leaf]) "this repo's canonical (in-plugin) $leaf is the pinned copy"
 }
 Assert-True ($null -eq (Get-HouseStylePin -SkillText '| `house-style.css` | `x` | `aa` |')) 'a page without both rows is no pin'
+# A page at a tag before #3531 names the files under dkj-solutions/assets/, and the reusable gate reads the page AT that tag.
+$oldRow = '| `{0}` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.32.0/plugins/dkj-policy/dkj-solutions/assets/house-style/{0}` | `{1}` |'
+$oldPage = ($oldRow -f 'house-style.css', ('a' * 64)) + "`n" + ($oldRow -f 'house-theme.js', ('b' * 64))
+Assert-Equal 'v5.32.0' (Get-HouseStylePin -SkillText $oldPage).Tag 'a pin URL on the pre-#3531 path still yields its tag'
 
 Write-Host '-- group 1b: a CRLF checkout of the pinned file is still the pinned file' -ForegroundColor Cyan
 

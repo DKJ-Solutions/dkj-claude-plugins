@@ -53,7 +53,8 @@ A house-style page is a visible result, so this branch stops for the owner's loo
 
 ### CREATE
 
-- [x] Gwen: `dkj-solutions/assets/house-style/specimens.html` (first written to `scripts/dashboard/`), a body
+- [x] Gwen: `assets/house-style/specimens.html` (first written to `scripts/dashboard/`; in `dkj-policy` since the
+  merge with #3531, beside the stylesheet that moved there), a body
   fragment with every token, the twelve themes and every component with its variants and states, on house classes
   plus a layout-only `.spec-*` layer
 - [x] Sylvester: `/plugins/dkj-solutions/house-style` in both hub servers (`Format-HouseStyleSpecimensPageHtml`,

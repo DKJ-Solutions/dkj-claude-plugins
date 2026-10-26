@@ -17,7 +17,7 @@ $ErrorActionPreference = 'Continue'
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $Plugin   = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions'
 $Build    = Join-Path $Plugin 'scripts\build\build-house-palette.ps1'
-$Style    = Join-Path $Plugin 'assets\house-style\house-style.css'
+$Style    = Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style\house-style.css'
 
 . (Join-Path $Plugin 'scripts\lib\house-palette-lib.ps1')
 

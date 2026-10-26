@@ -30,9 +30,11 @@ them. They are tested there by `dev-preview-sessionstart.tests.ps1`, `dev-pages.
 
 **The pages render in the DKJ-Solutions house style everywhere, BWJ-Development's repos included.** They
 are this plugin's own tooling, not a repo's product, so they keep one look wherever they run, the way any
-tool's own screens do. The stylesheet and theme script come from the `dkj-solutions` folder inside this
-plugin's payload (`Get-HouseStyleDir`, `dkj-solutions/assets/house-style/`). Every install of
-`dkj-policy` carries that folder, whether or not the repo enables `dkj-solutions`. A repo's own pages are
+tool's own screens do. The stylesheet and theme script come from this plugin's own
+[`assets/house-style/`](../assets/house-style/) (`Get-HouseStyleDir`), which every install of `dkj-policy`
+carries. They sat in the `dkj-solutions` extension's folder until
+[#3531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3531); the rule that a DKJ-Solutions app
+starts from them stays there. A repo's own pages are
 another matter: BWJ-Development styles those itself.
 
 **No hub shows or serves the Brandbook, whether or not the repo enables `dkj-solutions`**
@@ -53,7 +55,7 @@ link on that hub, not the hub itself.
 
 **The hub has one form, in every repo** (the owner's decision, October 16, 2026,
 [#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)): the one laid down in
-[`dkj-solutions/assets/house-style/README.md`](../dkj-solutions/assets/house-style/README.md), section
+[`assets/house-style/README.md`](../assets/house-style/README.md), section
 "The hub": one page on `/`, under the site header (#3289, which ended #3270's separate About this repo
 page; an old link to `/about` is sent to `/`), and since #3383 a grid of card links with a separate
 **Repository** page. The blocks and their order are fixed. The general banner stands above the site header,

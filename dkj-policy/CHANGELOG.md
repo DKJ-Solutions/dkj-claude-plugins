@@ -2,7 +2,117 @@
 
 ## [Unreleased]
 
-**2 / 5 minor entries** <!-- pending-tally -->
+**6 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3531-house-style-files-to-dkj-policy · 20261026-163420Z
+
+The house style's files now live in `dkj-policy`, at `plugins/dkj-policy/assets/house-style/`, because
+that plugin's hub renders in them in every repo, BWJ-Development's included; `dkj-solutions` keeps the
+rule that a DKJ-Solutions app starts from them, with the skill, its pin and the `check-house-style` gate
+([#3531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3531)). The files are byte for byte
+the same, so every checksum stands.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions repo that vendors the house style fetches it from a new path from this release on: the
+skill's pin table names it, and the old path still serves every earlier tag. A copy already vendored
+stays valid, since its checksum is unchanged.
+
+**Score:** 1
+
+#### Pull Request
+
+Move the house style's files to dkj-policy; dkj-solutions keeps only the rule
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3532](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3532)
+
+---
+
+### DEPLOY: docs/3528-house-style-h2-18px · 20261026-154751Z
+
+The house-style README's Type row now gives `h2` as 18px, matching `--text-h2` in the stylesheet; it
+still read 24px after the token moved on October 25, 2026
+([#3528](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3528)).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions app author reading the house-style rules no longer gets a wrong `h2` size; the
+stylesheet itself did not change.
+
+**Score:** 1
+
+#### Pull Request
+
+House-style README states h2 at 18px
+
+Plugins: dkj-solutions
+
+[PR #3530](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3530)
+
+---
+
+### DEPLOY: feat/3518-closed-message-phone-factory · 20261026-153748Z
+
+`bwj-development`'s `closed-message-sessioncheck` now checks `phone-factory` too, for the
+`asana-closed-message` workflow alone. That repo adopted it on October 26, 2026
+(BWJ-Development/phone-factory#15), so a missing or drifted copy, a missing `ASANA_PAT` or an unstated
+`Get-ResolvesExemptMatchers` is reported there at session start. `adopt-bwj-development` step 1 copies that
+pair there and leaves `asana-prio-label` out, because that workflow was not decided there
+([#3518](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3518)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+phone-factory's maintainer gets the same session-start warning the two stores get when the closed message
+cannot reach the Asana task. The measured case is phone-factory's own: #3's closed message failed on a missing
+`ASANA_PAT`, and nothing in the session reported it.
+
+**Score:** 2
+
+#### Pull Request
+
+bwj-development: extend asana-closed-message reach to phone-factory
+
+Plugins: bwj-development
+
+[PR #3529](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3529)
+
+---
+
+### DEPLOY: fix/3524-armed-ship-clearance · 20261026-151651Z
+
+A close-out after a backgrounded ship no longer tells the requester to keep the session open when the PR
+is already armed `merge-when-green` and the checkout is back on `main`. Chris's persona and manual now
+name that case as a plain clearance, matching the line `ship-pr` has printed since #3442. The second-session
+advice stays for what really dies with the harness: an unarmed ship, a subagent, a local-only wait. The
+`ship-pr` skill page adds why the run must not go through `tail`: the clearance line never reaches the
+session until the run ends (#3524).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a consuming repo, the orchestrator stops warning that a session must stay open while an armed pull
+request ships, and says plainly that it can be cleared.
+
+**Score:** 2
+
+#### Pull Request
+
+Clear the session plainly when a backgrounded ship is armed merge-when-green
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #3527](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3527)
+
+---
 
 ### DEPLOY: fix/brandbook-shared-theme · 20261026-145517Z
 

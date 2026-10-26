@@ -57,7 +57,7 @@
                       takes a POST, served same-origin only.
       /whoami         the hash of the repo root this server was started in (Get-DevPreviewRootHash): the
                       hubs ask it before they link here, because an open port does not say whose server it is.
-      /house-style.css, /house-theme.js   the canonical copy under dkj-solutions/assets/house-style/ in this
+      /house-style.css, /house-theme.js   the canonical copy under assets/house-style/ in this
                       plugin's payload (Get-HouseStyleDir), in every repo: the pages keep one look everywhere.
     The repo's name on the pages is owner/name from the origin remote, else the folder's name.
 

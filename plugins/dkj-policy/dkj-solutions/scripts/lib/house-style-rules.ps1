@@ -117,6 +117,9 @@ function Get-HouseStylePin {
         The pinned tag and the sha256 per file, read from the skill page's table -- the one place they
         are written. Returns @{ Tag; Hashes = @{ '<leaf>' = '<sha256>' } }, or $null when the page
         carries no complete table.
+        The URL path is read in both spellings: plugins/dkj-policy/assets/house-style/ since #3531, and
+        plugins/dkj-policy/dkj-solutions/assets/house-style/ before it, which every page at an earlier tag
+        still carries -- and the reusable gate reads the page AT the pinned tag.
     #>
     param([Parameter(Mandatory)][string]$SkillText)
 
@@ -126,7 +129,7 @@ function Get-HouseStylePin {
         $m = [regex]::Match($line, '^\|\s*`(?<file>house-style\.css|house-theme\.js)`\s*\|\s*`(?<url>[^`]+)`\s*\|\s*`(?<sha>[0-9a-f]{64})`\s*\|')
         if (-not $m.Success) { continue }
         $hashes[$m.Groups['file'].Value] = $m.Groups['sha'].Value
-        $t = [regex]::Match($m.Groups['url'].Value, '/dkj-claude-plugins/(?<tag>[^/]+)/plugins/dkj-policy/dkj-solutions/assets/house-style/')
+        $t = [regex]::Match($m.Groups['url'].Value, '/dkj-claude-plugins/(?<tag>[^/]+)/plugins/dkj-policy/(?:dkj-solutions/)?assets/house-style/')
         if ($t.Success) { $tag = $t.Groups['tag'].Value }
     }
     foreach ($name in (Get-HouseStyleCopyNames)) { if (-not $hashes.ContainsKey($name)) { return $null } }
@@ -448,10 +451,10 @@ function Invoke-HouseStyleCheck {
 
         $hits = @()
         foreach ($h in @(Find-HouseStyleTokenHit -Text $text -Names $houseTokens)) {
-            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "defines the house token $($h.Name) -- add a domain token under a name of its own, or fix the value in the dkj-solutions plugin (plugins/dkj-policy/dkj-solutions/assets/house-style/)" }
+            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "defines the house token $($h.Name) -- add a domain token under a name of its own, or fix the value at its source (plugins/dkj-policy/assets/house-style/ in DKJ-Solutions/dkj-claude-plugins)" }
         }
         foreach ($h in @(Find-HouseStyleClassHit -Text $text -Classes $houseClasses)) {
-            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "styles the house class $($h.Name) -- give the element a domain class of its own, or fix the class in the dkj-solutions plugin (plugins/dkj-policy/dkj-solutions/assets/house-style/)" }
+            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "styles the house class $($h.Name) -- give the element a domain class of its own, or fix the class at its source (plugins/dkj-policy/assets/house-style/ in DKJ-Solutions/dkj-claude-plugins)" }
         }
         foreach ($h in @(Find-HouseStyleTokenHit -Text $text -Names $retired -IncludeReads)) {
             $hits += @{ Check = 'retired'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "$($h.Kind) $($h.Name), a token name the house style retired -- rename it per the rename tables in house-style/README.md at $($Pin.Tag)" }

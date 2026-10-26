@@ -9,7 +9,7 @@ no specialists.
 
 | Chapter | Where | What it holds |
 |---|---|---|
-| The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | The canonical house style in [`assets/house-style/`](assets/house-style/) (the design tokens, the twelve themes, the base stylesheet and the rules), the skill with what a session needs before it fetches them, and the `check-house-style` gate that holds a repo to them |
+| The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | The canonical house style in `dkj-policy`'s [`assets/house-style/`](https://github.com/DKJ-Solutions/dkj-claude-plugins/tree/main/plugins/dkj-policy/assets/house-style/) (the design tokens, the twelve themes, the base stylesheet and the rules), the skill with what a session needs before it fetches them, and the `check-house-style` gate that holds a repo to them |
 | The tracker labels | [below](#the-tracker-labels--feature-and-bug-in-every-repo) | `feat/` is labelled `feature` and `fix/` `bug`, in every DKJ-Solutions repo, and how a repo still on `enhancement` moves over |
 
 ## The tracker labels — `feature` and `bug`, in every repo
@@ -65,8 +65,8 @@ repo that enabled it, and the general pages server answered `/brandbook` there w
 copied into `assets/brandbook/` (#3210). The hub card and that route were taken off, and the release stopped
 building and shipping that folder ([#3477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3477)).
 The app itself is retired ([#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493), the
-owner, October 26, 2026): `assets/house-style/` is the one central place for DKJ styling, and a house-style
-change is judged by eye on its House style page, `assets/house-style/specimens.html`, which every hub that
+owner, October 26, 2026): `dkj-policy`'s `assets/house-style/` is the one central place for DKJ styling, and a
+house-style change is judged by eye on its House style page, `specimens.html` in that folder, which every hub that
 enables this plugin shows under Plugins (`/plugins/dkj-solutions/house-style`).
 
 ## The dev-preview hook
@@ -103,6 +103,8 @@ change shows here before the release that ships it; every other hub that enables
 copy. The `house-style-css` CI gate checks the
 stylesheet itself.
 
-The house style itself is maintained here, in `assets/house-style/`, since
+The house style itself is maintained in this repo, in `plugins/dkj-policy/assets/house-style/`, since
 [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130) (October 18, 2026) moved it in
-from `dkj-brandbook`. A consuming repo asks for a change through an inbound issue on this repo.
+from `dkj-brandbook` and [#3531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3531)
+(October 26, 2026) moved the files from this plugin into `dkj-policy`, whose hub renders in them in every
+repo. The rule, the skill and the gate stay here. A consuming repo asks for a change through an inbound issue on this repo.

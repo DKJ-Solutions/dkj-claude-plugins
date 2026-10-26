@@ -8,9 +8,13 @@ with **every value kept exactly as chosen** (spacing and font sizes have since m
 library's scales, below), and the copy in this folder is the only one:
 [`house-style.css`](house-style.css) and [`house-theme.js`](house-theme.js).
 
-**It lives in the `dkj-solutions` plugin**, where the `house-style` skill that loads in every
-DKJ-Solutions session points at it. It spent October 13 to 18, 2026 in the `dkj-brandbook` repo and came
-back with [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130). **A session or a build
+**It lives in the `dkj-policy` plugin**, because the plugin's own hub and General pages render in it in
+every repo, BWJ-Development's included
+([#3531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3531), October 26, 2026). The **rule**
+that a DKJ-Solutions app starts from it stays in the `dkj-solutions` plugin, whose `house-style` skill
+points here and pins the files. It spent October 13 to 18, 2026 in the `dkj-brandbook` repo, came back
+into `dkj-solutions` with [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130), and
+moved one level up into `dkj-policy` with #3531. **A session or a build
 fetches a tagged release, never `main`** (owner's decision on
 [dkj-brandbook#3](https://github.com/DKJ-Solutions/dkj-brandbook/issues/3), October 13, 2026):
 `house-theme.js` is executable and runs with the origin of every page it is inlined into, and `main` is a
@@ -18,10 +22,11 @@ moving ref that an admin can push to past the review. A tag is a version somebod
 URLs, with `<tag>` the release tag the skill pins, which the release cut writes into the skill
 ([#3133](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3133)):
 
-- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/<tag>/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css`
-- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/<tag>/plugins/dkj-policy/dkj-solutions/assets/house-style/house-theme.js`
+- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/<tag>/plugins/dkj-policy/assets/house-style/house-style.css`
+- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/<tag>/plugins/dkj-policy/assets/house-style/house-theme.js`
 
-**It reaches DKJ-Solutions and nothing else.** BWJ-Development has its own styling.
+**As a rule it reaches DKJ-Solutions and nothing else.** BWJ-Development styles its own apps; only the
+plugin's own screens look the same there.
 
 **Every change to a stylesheet in this folder passes a CSS gate of its own**
 ([#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)): `house-style-css` in this repo's
@@ -73,7 +78,7 @@ that checks the stylesheet's syntax and tokens; the page is the look.
 | Text | `--fg-1` … `--fg-4` | what sits **on** the paper: four colours near black on light (near white on dark), in **very small** steps, so `fg-4` is still very dark, only a little less so than `fg-1` (owner, #3235). `fg-1` is **all text**, every paragraph and everything else: labels, table heads, legends, quiet icons, the text on a tinted surface, and the ground of an inverted surface; `fg-2` is `h2` and `.meta` on a span; `fg-3` is `h3`; `fg-4` has no role yet (the breadcrumb's current page took it until the bar turned `--primary`, #3235). On a fill the text switches to the paper ([Fills](#fills-the-text-switches-with-the-ground)) |
 | Elevation | `--shadow-pop` | tooltips |
 | Spacing | `--spacing-0-5` … `--spacing-96` | the spacing scale, same in both modes: `--spacing-N` is N × 4px, a half step (`-0-5`, `-1-5`, …) adds 2px. Every gap, margin and padding uses one, and a repo layer spaces its own components from the same scale |
-| Type | `--text-h1` … `--text-h3`, `--text-lg`, `--text-base`, `--text-sm`, `--text-xs`, `--font-serif` | the type scale, same in both modes: 32/24/14 for the headings (`h3` at 14px, the body size, and no `h4` or `h5` since October 25, 2026, the owner: [below](#the-heading-cut-of-october-25-2026)) (`h2` 24px at weight 700 since October 24, 2026, the owner; it was 32 at 600), and `.lead` is `--text-base` since the same day (it was `--text-lg`), 18/14/12/11 for running text. `h1`–`h3` each take the token of their own level, body text is `--text-base`. No heading is larger than 32px (owner's decision, October 22, 2026: as much content as possible on a 900px-high screen, since October 26 a 1400 x 600 one), so `h1` stands apart by its size and colour (by its capitals too until October 24, 2026); it was 48px from October 20, when `--text-h0` was retired. The hero figure is set at `--text-h1`. There is no `h6` either: the 24px `h3` was retired the same day, because it stood too close to `h2`, and every level below moved up one ([below](#the-heading-shift-of-october-20-2026)). The one exception is a section label (`GroupHeading`): it stays a heading for the document outline, but every level renders at `--text-base`, uppercase and muted (owner's decision, October 15, 2026). `--font-serif` was the face of `h1` and `h2` until October 24, 2026, when the owner moved both to the sans; it stays for a title that keeps that face |
+| Type | `--text-h1` … `--text-h3`, `--text-lg`, `--text-base`, `--text-sm`, `--text-xs`, `--font-serif` | the type scale, same in both modes: 32/18/14 for the headings (`h3` at 14px, the body size, and no `h4` or `h5` since October 25, 2026, the owner: [below](#the-heading-cut-of-october-25-2026)) (`h2` 18px since October 25, 2026, the owner; it went from 32 at weight 600 to 24 at 700 on October 24, and keeps the 700), and `.lead` is `--text-base` since the same day (it was `--text-lg`), 18/14/12/11 for running text. `h1`–`h3` each take the token of their own level, body text is `--text-base`. No heading is larger than 32px (owner's decision, October 22, 2026: as much content as possible on a 900px-high screen, since October 26 a 1400 x 600 one), so `h1` stands apart by its size and colour (by its capitals too until October 24, 2026); it was 48px from October 20, when `--text-h0` was retired. The hero figure is set at `--text-h1`. There is no `h6` either: the 24px `h3` was retired the same day, because it stood too close to `h2`, and every level below moved up one ([below](#the-heading-shift-of-october-20-2026)). The one exception is a section label (`GroupHeading`): it stays a heading for the document outline, but every level renders at `--text-base`, uppercase and muted (owner's decision, October 15, 2026). `--font-serif` was the face of `h1` and `h2` until October 24, 2026, when the owner moved both to the sans; it stays for a title that keeps that face |
 | App shell | `--control-h`, `--tap`, `--topbar-h`, `--column-narrow` | sizes for a mobile-first app, same in both modes: 38px for a value field and the button beside it, 44px as the smallest touch target, 56px for the top bar, 512px for the narrow app column |
 
 `--gain` was removed (October 14, 2026). A gain in a chart is `--positive-3` (owner's decision, October 15, 2026, #131); before that it was `--cat-1`.
@@ -187,7 +192,7 @@ surface `h1` follows `h2` to `--paper-3`, since the light anchor it took is gone
 
 **The ink split into one primary, two greys and four text steps on October 21, 2026** (owner, issue
 [#3235](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3235)). Every theme still has eleven colours, now
-computed by `scripts/build/build-house-palette.ps1` in this plugin from the theme's hue and mode: one primary that
+computed by `scripts/build/build-house-palette.ps1` in the `dkj-solutions` plugin from the theme's hue and mode: one primary that
 reads on all four paper steps (and they on it), two greys that read extra well on the page and on the far end, four
 paper steps and four text steps in very small steps. **Every value changes**: the primary is a little darker on
 light (it has to read on `--paper-4` now, not only on the page), the paper steps are a little lighter, and `h2` and
@@ -423,7 +428,7 @@ out). Three more things follow it by default, in light and in dark (and a measur
 - **Every theme writes out its own eleven values**, computed rather than tuned (owner, #3235, October 21, 2026).
   `--primary`, `--muted`, `--muted-inverse`, `--paper-1` … `--paper-4` and `--fg-1` … `--fg-4` are fixed hex values
   in each theme's block, not mixes (owner's decision, October 14, 2026: the percentages were too hard to follow), and
-  `scripts/build/build-house-palette.ps1` in this plugin computes them from the theme's hue and mode, checks every
+  `scripts/build/build-house-palette.ps1` in the `dkj-solutions` plugin computes them from the theme's hue and mode, checks every
   contrast below and writes them in with `-Apply`. A theme is changed there, never by hand in the stylesheet.
 - **The model, in the owner's words, for a light theme** (a dark one is the mirror, with white and black swapped):
   - **One primary**: the colour of the theme that reads best on white, and white reads well on it too. Computed as

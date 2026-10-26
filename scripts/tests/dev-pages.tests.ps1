@@ -102,7 +102,7 @@ Assert-Equal 3 ([regex]::Matches($about, '<section class="card card--link"><nav 
 Assert-True ($about -match '<div class="grid-3">\r?\n<section class="card card--link"><nav class="menu-list" aria-label="Repository"><a class="menu-item" href="/repository"' -and $about -notmatch '<h2') 'the pages are a .grid-3, three cards to a row, with no heading above them: this repo''s own first page opens it, with no Product card before it (#3493)'
 Assert-Equal 11 ([regex]::Matches($about, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="/[a-z-]+"')).Count 'every page is a card of its own, this repo''s and the general ones alike, with no group card or h3 around them'
 Assert-True ($about -notmatch '<section class="card">') 'and every one of them is a .card--link, clickable over its whole area (#3298)'
-$houseCss = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\assets\house-style\house-style.css'))
+$houseCss = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style\house-style.css'))
 Assert-True ($houseCss -match '\.card--link \{ position: relative; \}' -and $houseCss -match '\.card--link a::after \{ content: ""; position: absolute; inset: 0; \}') 'the house style stretches a .card--link''s one link over the card'
 Assert-True ($about -notmatch 'grid__head') 'and no group heading anywhere on the page'
 Assert-True ($about -notmatch 'DKJ-Solutions</h3>' -and $about -notmatch 'href="/brandbook"') 'no Brand book card: the app is retired (#3493)'
@@ -633,7 +633,7 @@ $hs = Format-HouseStyleSpecimensPageHtml -Body '<section class="card" id="specim
 Assert-True ($hs -match '<a href="/plugins">Plugins</a>' -and $hs -match '<a href="/plugins/dkj-solutions">dkj-solutions</a>' -and $hs -match '<span aria-current="page">House style</span>' -and $hs -match 'id="specimen-x"' -and $hs -match 'href="/house-style.css"') 'the specimens page sits under Plugins and dkj-solutions, on the house stylesheet the server serves'
 $hsErr = Format-HouseStyleSpecimensPageHtml -Body '<p>never</p>' -ReadError 'gone <now>'
 Assert-True ($hsErr -notmatch '<p>never</p>' -and $hsErr -match 'could not be read: gone &lt;now&gt;') 'a read error replaces the specimens, escaped'
-$specimens = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\assets\house-style\specimens.html'))
+$specimens = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style\specimens.html'))
 Assert-True ($specimens -notmatch '(?i)<(html|head|body)[ >]' -and $specimens -notmatch '(?i)<link ' -and $specimens -notmatch '(?i)<script[^>]+src=') 'the specimens ship beside the stylesheet as a body fragment: the shell, the stylesheet and the theme script are the server''s'
 Assert-True ($one.Contains('<p class="badge-row"><span class="badge badge--sm badge--bad" aria-hidden="true">&#10007;</span>Behind</p>') -and $one -notmatch 'aria-hidden="true">Behind') 'the plugin page shows its state as the house badge row: the mark, then the word'
 Assert-Equal '<p>Intro. Two chapters.</p><h3>The house style</h3><p>tokens &lt;b&gt;.</p><h3>The tracker labels</h3><p>feature. Requires X.</p>' (ConvertTo-PluginDescriptionHtml 'Intro. Two chapters. THE HOUSE STYLE: tokens <b>. THE TRACKER LABELS: feature. Requires X.') 'a description is split into escaped paragraphs at each capitals lead-in, the lead-in an h3 in sentence case'

@@ -279,8 +279,8 @@ function Format-PluginPageHtml {
 function Format-HouseStyleSpecimensPageHtml {
     <#
         The house style's specimens on /plugins/dkj-solutions/house-style (#3493): every token, theme and component
-        of the stylesheet the dkj-solutions plugin ships, under the Plugins and dkj-solutions crumbs, because the
-        house style is that plugin's product and not any one repo's page. -Body is assets/house-style/specimens.html
+        of the stylesheet, under the Plugins and dkj-solutions crumbs, because the house style is that plugin's rule
+        (its files sit in dkj-policy since #3531) and not any one repo's page. -Body is assets/house-style/specimens.html
         from the same payload as house-style.css (Get-HouseStyleDir), a body fragment trusted as the plugin's own
         markup; -ReadError is why it could not be read, shown, escaped, in its place.
     #>
@@ -293,6 +293,6 @@ function Format-HouseStyleSpecimensPageHtml {
     $content = if ($ReadError) { '<section class="card"><p class="msg msg--warn" role="status">The specimens could not be read: ' + (ConvertTo-GeneralPageText $ReadError) + '</p></section>' } else { $Body }
     return Format-GeneralPageHtml -Title 'House style' -Body $content -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
         -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }, @{ Label = 'dkj-solutions'; Href = '/plugins/dkj-solutions' }) `
-        -Lead 'Every token, the twelve themes and every component of the house style the dkj-solutions plugin ships, with their variants and states.' `
-        -FooterNote 'The stylesheet and these specimens are <code>dkj-solutions/assets/house-style/</code> in the dkj-policy plugin this hub runs from.'
+        -Lead 'Every token, the twelve themes and every component of the DKJ-Solutions house style, with their variants and states.' `
+        -FooterNote 'The stylesheet and these specimens are <code>assets/house-style/</code> in the dkj-policy plugin this hub runs from.'
 }

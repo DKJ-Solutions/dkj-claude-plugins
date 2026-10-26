@@ -1,20 +1,24 @@
 ---
 name: house-style
-description: The DKJ-Solutions house style -- the design tokens, the twelve themes a user picks from (and the script that applies them) and the base stylesheet every DKJ-Solutions app renders with. The files and the full rules live in this plugin's assets/house-style folder; this skill says where, and the rules a session needs before it starts. Use it before writing or restyling ANY visual output in a DKJ-Solutions repo -- a web page, a local HTML report, a dashboard, a claude.ai Artifact, an email template, a chart's colours -- so it starts from the house style instead of a fresh design. Load it alongside artifact-design and dataviz, not instead of them; where they offer a placeholder palette, the house tokens replace it.
+description: The DKJ-Solutions house style -- the design tokens, the twelve themes a user picks from (and the script that applies them) and the base stylesheet every DKJ-Solutions app renders with. The files and the full rules live in the dkj-policy plugin's assets/house-style folder; this skill says where, and the rules a session needs before it starts. Use it before writing or restyling ANY visual output in a DKJ-Solutions repo -- a web page, a local HTML report, a dashboard, a claude.ai Artifact, an email template, a chart's colours -- so it starts from the house style instead of a fresh design. Load it alongside artifact-design and dataviz, not instead of them; where they offer a placeholder palette, the house tokens replace it.
 ---
 
 # The DKJ-Solutions house style
 
 **Every DKJ-Solutions app looks like one family** (Dave, issue
 [#2695](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2695), October 1, 2026), and that
-family is written down in this plugin's **[`assets/house-style/`](../../assets/house-style/)**: the
-stylesheet, the theme script, the rules and the page patterns. They lived in the `dkj-brandbook` repo
-from October 13, 2026 until [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130)
-(October 18, 2026) moved them back into this plugin, which is now the one canonical copy. This skill
-carries the rules a session needs before it fetches anything.
+family is written down in **[`assets/house-style/`](https://github.com/DKJ-Solutions/dkj-claude-plugins/tree/main/plugins/dkj-policy/assets/house-style/)** of the `dkj-policy`
+plugin: the stylesheet, the theme script, the rules and the page patterns. They lived in the
+`dkj-brandbook` repo from October 13, 2026 until
+[#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130) (October 18, 2026) moved them
+into this plugin, and [#3531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3531)
+(October 26, 2026) moved the files one level up into `dkj-policy`. The hub and the General pages of
+`dkj-policy` render in them in every repo, BWJ-Development's included, so the files belong to the plugin
+every repo installs. **The rule stays here**: this skill, the pin table below, `check-house-style` and
+its session check. This skill carries the rules a session needs before it fetches anything.
 
-**It reaches DKJ-Solutions and nothing else.** The plugin is enabled only in DKJ-Solutions repos.
-BWJ-Development has its own styling, and this skill says nothing about it.
+**The rule reaches DKJ-Solutions and nothing else.** This plugin is enabled only in DKJ-Solutions repos.
+BWJ-Development styles its own apps, and this skill says nothing about them.
 
 ## Where the files are
 
@@ -28,11 +32,11 @@ always pins the release that carries the bytes its checksums name.
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.32.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css` | `265a61cdbed3a227e84efc616bfc753b4865481fa1082c8203a8c4d3c3901e7f` |
-| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.32.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-theme.js` | `24ed94dd5f096274826bbdc47ff63f29932369f6bd55f2b47ab9ece25a09599f` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.32.0/plugins/dkj-policy/assets/house-style/house-style.css` | `265a61cdbed3a227e84efc616bfc753b4865481fa1082c8203a8c4d3c3901e7f` |
+| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.32.0/plugins/dkj-policy/assets/house-style/house-theme.js` | `24ed94dd5f096274826bbdc47ff63f29932369f6bd55f2b47ab9ece25a09599f` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
-[`assets/house-style/README.md`](../../assets/house-style/README.md) in this plugin. It ships in the same
+[`assets/house-style/README.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/assets/house-style/README.md) in `dkj-policy`. It ships in the same
 release as this page, so it describes the files that tag serves.
 
 **Check each fetched file's sha256 against the table before you use it, and if it does not match, stop
@@ -70,9 +74,9 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    The site header names the repo; the page is one grid of card links with no heading (its products, its
    own pages and the general ones), and its facts, its Issues and what is in flight sit on a
    separate **Repository** page on `/repository` (#3383). A repo without a build starts from
-   [`patterns/repo-dashboard.html`](../../assets/house-style/patterns/repo-dashboard.html) and
-   [`patterns/repo-repository.html`](../../assets/house-style/patterns/repo-repository.html)
-   in this plugin's `assets/house-style/`, which carry no CSS of their own
+   [`patterns/repo-dashboard.html`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/assets/house-style/patterns/repo-dashboard.html) and
+   [`patterns/repo-repository.html`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/assets/house-style/patterns/repo-repository.html)
+   in `dkj-policy`'s `assets/house-style/`, which carry no CSS of their own
    ([#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)).
    **Every page a repo's dev server serves opens with the breadcrumb bar**, the home page and the
    product alike, its trail starting at **Home**, and the page's `h1` reads exactly what its current
@@ -160,7 +164,7 @@ led to the `dkj-brandbook` repo, which will be archived once the migration in
 [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130) is complete.
 
 **In this source repo the change is made directly**, in
-[`assets/house-style/`](../../assets/house-style/), and there it is a **visible result**: it reaches every
+[`assets/house-style/`](https://github.com/DKJ-Solutions/dkj-claude-plugins/tree/main/plugins/dkj-policy/assets/house-style/), and there it is a **visible result**: it reaches every
 DKJ-Solutions app the next time it takes a copy, so the branch stops for the owner's look instead of
 merging.
 
