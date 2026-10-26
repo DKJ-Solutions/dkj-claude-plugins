@@ -39,19 +39,39 @@
 
 ### PLAN
 
+#3492 (inbound): the live message `notify-live` posts says *"the review can start now"* and repeats the
+go-live block's ask, while the closed message's look-sentence already calls the preview the last moment
+something can change. Verified in the tree: `Get-LiveMessageLines` and `New-LiveMessageHtml` hardcode the
+line and append `$t.Ask` / `AskYes` / `AskNo`, and their docstring states the assumption. Make it a notice.
+"Visible to customers" is deliberately not said: an app-only change can be owed this message too.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `live-message-rules.ps1`: the live line ends at the version, one fixed notice line
+  (`Get-LiveMessageNoticeLine`, shared by both forms) replaces the repeated ask, and the docstrings say why
+- [x] `skills/notify-live/SKILL.md`: "The message" describes the notice
+- [x] `bwj-development.tests.ps1`: the notice is there, "review can start" and the block's ask are not, in
+  both forms
 
 ### TEST
 
+- [x] The gates run in `ship-pr`
+
 ### DEPLOY: fix/3492-live-message-is-a-notice
 
-**Score:**
+The message `notify-live` posts on an Asana task after a release no longer says the review can start, and no
+longer asks the go-live block's question a second time
+([#3492](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3492)). It says the work is live as that
+version, and that the review already took place on the preview.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A requester told on release day that their work is live is no longer asked to review it again. The review
+already happened on the preview, and the earlier message said that was the last moment to change something.
+
+**Score:** 3
 
 #### Pull Request
 

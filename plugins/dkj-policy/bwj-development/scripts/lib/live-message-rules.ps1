@@ -130,8 +130,8 @@ function Get-PreviousReleaseTag {
 function Get-LiveMessageLanguage {
     <#
         Pure: the language of the go-live block's sections -- 'nl' or 'en' -- read from the headings
-        Get-GoLiveBlockText writes, so the live message's ask is in the language the requester's closed
-        message already was. -Default where neither heading set is there.
+        Get-GoLiveBlockText writes, the language the requester's closed message already was (the
+        live message itself has been fixed English since #3492, so this only feeds its -Language). -Default where neither heading set is there.
     #>
     param(
         [AllowEmptyString()][string]$Sections,
@@ -200,12 +200,15 @@ function Get-LiveMessageVerdict {
 
 function Get-LiveMessageLines {
     <#
-        Pure: the live message as plain lines -- the automation's header, the live line, and the go-live
-        block's own closing ask. The header and the live line are fixed and English on every board, like
-        the closed line (#2656, #2700); only the state word is bold (#2909). The ask is the block's
-        heading and its yes and no sentences, in the block's language, because it is the same question
-        the requester was asked: the look-sentence is left out, since it points at 'the link above' and
-        this message carries none -- the live line says the review can start.
+        Pure: the live message as plain lines -- the automation's header, the live line and the notice
+        line, all fixed and English on every board, like the closed line (#2656, #2700); only the state
+        word is bold (#2909).
+
+        A NOTICE, NOT A SECOND REVIEW REQUEST (#3492). The requester reviews on the preview, before
+        anything goes live, and the closed message's look-sentence already calls that the last moment
+        something can change. So this message does not say the review starts now and does not repeat the
+        block's ask; the notice line says why. -Language stays for the header's source, the go-live
+        block's text, whose header is the same in both languages.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$IssueRef,
@@ -217,20 +220,23 @@ function Get-LiveMessageLines {
     return @(
         $t.Header,
         '',
-        "GitHub issue $IssueRef is now **live**, as version ${ver}: the review can start now.",
+        "GitHub issue $IssueRef is now **live**, as version $ver.",
         '',
-        $t.Ask,
-        $t.AskYes,
-        '',
-        $t.AskNo
+        (Get-LiveMessageNoticeLine)
     )
+}
+
+function Get-LiveMessageNoticeLine {
+    <#
+        Pure: the live message's second line, one definition for the plain and the html form (#3492).
+    #>
+    return 'This is a notice only: the review already took place on the preview, so nothing more is asked of you here.'
 }
 
 function New-LiveMessageHtml {
     <#
         Pure: the live message as Asana html_text -- the closed message's form (New-ClosedMessageHtml):
-        the issue name as a link, only the state word in <strong>, the ask's heading in <strong>, every
-        other character XML-escaped, because a malformed body is answered 400 and the requester is told
+        the issue name as a link, only the state word in <strong>, every other character XML-escaped, because a malformed body is answered 400 and the requester is told
         nothing. Only <body>, <a> and <strong>, all on Asana's allow-list for a story.
     #>
     param(
@@ -243,8 +249,8 @@ function New-LiveMessageHtml {
     $esc = { param($s) ConvertTo-AsanaXmlText -Text $s }
     $t   = Get-GoLiveBlockText -Language $Language
     $ver = if ($Version -match '^v') { $Version } else { "v$Version" }
-    $html = "<body>$(& $esc $t.Header)`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is now <strong>live</strong>$(& $esc ", as version ${ver}: the review can start now.")" +
-        "`n`n<strong>$(& $esc $t.Ask)</strong>`n$(& $esc $t.AskYes)`n`n$(& $esc $t.AskNo)</body>"
+    $html = "<body>$(& $esc $t.Header)`n`nGitHub issue <a href=`"$(& $esc $url)`">$(& $esc $IssueRef)</a> is now <strong>live</strong>$(& $esc ", as version $ver.")" +
+        "`n`n$(& $esc (Get-LiveMessageNoticeLine))</body>"
     return $html
 }
 
