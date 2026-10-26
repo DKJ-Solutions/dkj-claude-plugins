@@ -77,5 +77,3 @@ N/A: a corrected session-start line; nothing a consumer runs or configures chang
 
 release-freshness-sessioncheck: say [RESTART] when install records were updated after the process started
 
-Plugins: dkj-policy
-
