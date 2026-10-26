@@ -145,6 +145,17 @@ Assert-True (@($wt.Keys).Count -eq 1 -and $wt.r1.Work -eq 45 -and $wt.r1.Waiting
 Assert-Equal 0 @((Get-LogbookWorkTimes -Runs $runs -Transcript @{ r1 = @{ Sessions = 0; Phases = @() } }).Keys).Count 'a run no session covered has no work time, rather than all of it'
 $wpage = Format-LogbookPageHtml -Runs $runs -Transcript $tr -Now (& $at 2100)
 Assert-True ($wpage -match '>First</a></p><p class="sw-time num">2:00<span class="sw-change">work 45\.0s</span></p>' -and $page -notmatch 'work \d') 'the card shows the work time beside the time, and only for a run the transcripts measured'
+$speed = @(
+    @{ Id = 'f'; Start = (& $at 0); End = (& $at ($script:LogbookFastSeconds - 1)) },
+    @{ Id = 'm'; Start = (& $at 0); End = (& $at $script:LogbookFastSeconds) },
+    @{ Id = 's'; Start = (& $at 0); End = (& $at $script:LogbookSlowSeconds) },
+    @{ Id = 'w'; Start = (& $at 0); End = (& $at ($script:LogbookSlowSeconds * 3)) },
+    @{ Id = 'o'; Start = (& $at 0); End = $null }
+)
+$tones = Get-LogbookSpeedTones -Runs $speed -WorkTimes @{ w = @{ Work = 60; Waiting = 0 } }
+Assert-Equal 'fast,medium,slow,fast' ((@('f', 'm', 's', 'w') | ForEach-Object { $tones[$_] }) -join ',') 'a run is fast under the first bound, medium from it, slow from the second, and read off its work time where it has one'
+Assert-True (-not $tones.ContainsKey('o')) 'an open run has no speed'
+Assert-True ($wpage -match 'class="card card--link sw-card sw-card--fast"><p class="sw-stamp">[^<]*</p><p class="sw-instruction"><a [^>]*>First<' -and ([regex]::Matches($wpage, '<section class="card card--link sw-card sw-card--')).Count -eq 1 -and $wpage -match 'green under 15 minutes') 'the overview colours a finished run''s card by its speed, leaves an open run uncoloured, and its footer names the bounds'
 $g = Find-StopwatchGroup -Model $m -Slug $m.Groups[2].PageSlug
 $rp = Format-LogbookRunPageHtml -Group $g -StorePath 'C:\x\logbook.json'
 Assert-True ((Format-LogbookRunPageHtml -Group $g -Transcript $tr) -match 'Work 45\.0s, waiting on you 1:15\.' -and $rp -notmatch 'waiting on you \d') 'a run''s page states its work time and its waiting under its time'

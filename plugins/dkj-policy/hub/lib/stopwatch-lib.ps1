@@ -909,6 +909,14 @@ function Format-StopwatchPageShell {
         '.sw-change { margin-left: var(--spacing-2); font-size: var(--text-xs); font-weight: 400; color: var(--muted); }' + "`n" +
         '.sw-change--good { color: var(--positive-5); }' + "`n" +
         '.sw-change--bad { color: var(--negative-5); }' + "`n" +
+        # A run card's speed (-CardTones, the Logbook's): a band down its left edge and its time line in the same colour,
+        # green fast, orange medium, red slow (the owner, October 26, 2026).
+        '.sw-card--fast { border-left: var(--spacing-1) solid var(--positive-3); }' + "`n" +
+        '.sw-card--medium { border-left: var(--spacing-1) solid var(--warning-3); }' + "`n" +
+        '.sw-card--slow { border-left: var(--spacing-1) solid var(--negative-3); }' + "`n" +
+        '.sw-card--fast .sw-time, .sw-card--fast .sw-time .sw-change { color: var(--positive-5); font-weight: 600; }' + "`n" +
+        '.sw-card--medium .sw-time, .sw-card--medium .sw-time .sw-change { color: var(--warning-5); font-weight: 600; }' + "`n" +
+        '.sw-card--slow .sw-time, .sw-card--slow .sw-time .sw-change { color: var(--negative-5); font-weight: 600; }' + "`n" +
         '.sw-left { text-align: left; }' + "`n" +
         '.sw-bar { display: block; min-width: var(--spacing-24); height: var(--spacing-2); background: var(--paper-3); border-radius: var(--spacing-1); overflow: hidden; }' + "`n" +
         '.sw-bar > span { display: block; height: 100%; background: var(--primary); }'
@@ -945,14 +953,17 @@ function Format-StopwatchRunCard {
         prompt label (with its version behind it once the label has run more than once), and its time
         (Format-StopwatchCardTime). The label is the card's one link, to the run's page under -Route, stretched over
         the card. -CardNotes (text by run id) adds a note beside a finished run's time, so a card stays three lines. -ShortLabel names the label
-        by its short title (Get-StopwatchShortTitle).
+        by its short title (Get-StopwatchShortTitle). -CardTones (fast, medium or slow by run id) colours a finished run's
+        card green, orange or red.
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$Group, [string]$Route = '/stopwatch', [datetime]$Now = [datetime]::UtcNow, [switch]$NoDelta, [hashtable]$CardNotes = @{}, [switch]$ShortLabel)
+    param([Parameter(Mandatory = $true)][hashtable]$Group, [string]$Route = '/stopwatch', [datetime]$Now = [datetime]::UtcNow, [switch]$NoDelta, [hashtable]$CardNotes = @{}, [hashtable]$CardTones = @{}, [switch]$ShortLabel)
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $stamp = & $e ($Group.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))
     $href = (& $e $Route) + '/' + (& $e $Group.PageSlug)
     $label = if ($ShortLabel) { Get-StopwatchShortTitle $Group.Label } else { $Group.Label }
-    $card = '<section class="card card--link sw-card"><p class="sw-stamp">' + $stamp + '</p>' +
+    $tone = if (-not $Group.Running -and @($Group.Rows).Count) { [string]$CardTones[$Group.Rows[0].Run.Id] } else { '' }
+    $toneClass = if ($tone -in @('fast', 'medium', 'slow')) { ' sw-card--' + $tone } else { '' }
+    $card = '<section class="card card--link sw-card' + $toneClass + '"><p class="sw-stamp">' + $stamp + '</p>' +
         '<p class="sw-instruction"><a href="' + $href + '">' + (& $e $label) + '</a>' +
         $(if ($Group.Versions -gt 1) { ' <span class="muted">v' + $Group.Version + '</span>' } else { '' }) + '</p>' +
         (Format-StopwatchCardTime -Group $Group -Now $Now -NoDelta:$NoDelta)
@@ -1056,7 +1067,7 @@ function Format-StopwatchPageHtml {
         the page. The Logbook (logbook-lib.ps1 beside this file, #3364) draws its overview here too: -Route, -PageTitle
         and -FooterNote are its own, -NoDelta leaves out the change against the run before, which only means
         something between runs that share a label on purpose, and -CardNotes (text by run id) adds a part to a finished
-        run's card line: its work time. -Fetching says the other machines' runs are still being fetched, in place of
+        run's card line: its work time, and -CardTones (Format-StopwatchRunCard) its speed colour. -Fetching says the other machines' runs are still being fetched, in place of
         "no other machine has shared a run yet", and reloads the page until they are in (#3377). It is set on EVERY
         visit a fetch runs on, not only the first, and once other machines are shown it says it is checking for newer
         runs instead (#3403). -LastFetched, when given, is when the last fetch ended, and the footer names it beside the
@@ -1077,6 +1088,7 @@ function Format-StopwatchPageHtml {
         [AllowEmptyString()][string]$FooterNote = '',
         [switch]$NoDelta,
         [hashtable]$CardNotes = @{},
+        [hashtable]$CardTones = @{},
         [switch]$Flat,
         [AllowEmptyString()][string]$RepoName = '',
         [string]$HubHref = '/hub',
@@ -1113,7 +1125,7 @@ function Format-StopwatchPageHtml {
         [void]$body.AppendLine($(if ($Flat) { '<div class="sw-grid">' } else { '<div class="sw-grid sw-grid--wide">' }))
         if ($Flat) {
             [void]$body.AppendLine('<div class="grid__head"><h1>Measurements</h1></div>')
-            foreach ($g in @($Model.Groups)) { [void]$body.AppendLine((Format-StopwatchRunCard -Group $g -Route $Route -Now $Now -NoDelta:$NoDelta -CardNotes $CardNotes)) }
+            foreach ($g in @($Model.Groups)) { [void]$body.AppendLine((Format-StopwatchRunCard -Group $g -Route $Route -Now $Now -NoDelta:$NoDelta -CardNotes $CardNotes -CardTones $CardTones)) }
         } else {
             # The overview's one heading is an h1 naming the page (the owner, October 24, 2026).
             [void]$body.AppendLine('<div class="grid__head"><h1>Stopwatch</h1></div>')
