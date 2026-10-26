@@ -131,8 +131,9 @@ function Split-LogbookSweepRuns {
         -Runs with every sweep run ($script:LogbookSweepLabel) cut at the -Folds inside it (@{ At; Issue }), oldest
         first: one run per fold, from the run's start or the fold before to this fold, labelled with the fold's issue
         (`/sweep-issues #3397`, or `issue <n>` when the fold named none), and its id the sweep's with `-<n>` behind it.
-        A finished sweep's time after its last fold is dropped; a going sweep's is the issue in progress, going. A
-        sweep with no fold inside it, and every other run, is returned as it is. Pure.
+        Every lap carries the sweep's own start as RunStart, which is what ConvertTo-LogbookModel ages an open run by
+        (#3533). A finished sweep's time after its last fold is dropped; a going sweep's is the issue in progress,
+        going. A sweep with no fold inside it, and every other run, is returned as it is. Pure.
     #>
     param([AllowEmptyCollection()][object[]]$Runs = @(), [AllowEmptyCollection()][object[]]$Folds = @())
     $out = @()
@@ -145,12 +146,12 @@ function Split-LogbookSweepRuns {
         $from = $r.Start; $n = 0
         foreach ($c in $cuts) {
             $n++
-            $lap = $r.Clone(); $lap.Id = "$($r.Id)-$n"; $lap.Start = $from; $lap.End = $c.At
+            $lap = $r.Clone(); $lap.Id = "$($r.Id)-$n"; $lap.RunStart = $r.Start; $lap.Start = $from; $lap.End = $c.At
             $lap.Label = $r.Label + ' ' + $(if ($c.Issue) { '#' + $c.Issue } else { "issue $n" })
             $out += $lap; $from = $c.At
         }
         if (-not $r.End) {
-            $lap = $r.Clone(); $lap.Id = "$($r.Id)-$($n + 1)"; $lap.Start = $from; $lap.Label = $r.Label + ' issue ' + ($n + 1)
+            $lap = $r.Clone(); $lap.Id = "$($r.Id)-$($n + 1)"; $lap.RunStart = $r.Start; $lap.Start = $from; $lap.Label = $r.Label + ' issue ' + ($n + 1)
             $out += $lap
         }
     }
@@ -213,10 +214,14 @@ function Get-LogbookRuns {
 }
 
 function ConvertTo-LogbookModel {
-    <# What both Logbook pages show: ConvertTo-StopwatchModel -KeepOpenRuns over -Runs, without the open runs older than $script:LogbookOpenRunMaxHours at -Now. #>
+    <#
+        What both Logbook pages show: ConvertTo-StopwatchModel -KeepOpenRuns over -Runs, without the open runs older
+        than $script:LogbookOpenRunMaxHours at -Now. A sweep's lap is aged by its sweep's start (RunStart), not its
+        own: an abandoned sweep's going lap starts at the latest fold of the checkout, so it never aged out (#3533).
+    #>
     param([AllowEmptyCollection()][object[]]$Runs = @(), [datetime]$Now = [datetime]::UtcNow)
     $cut = $Now.ToUniversalTime().AddHours(-$script:LogbookOpenRunMaxHours)
-    return (ConvertTo-StopwatchModel -Runs @($Runs | Where-Object { $_ -and ($_.End -or $_.Start -ge $cut) }) -KeepOpenRuns)
+    return (ConvertTo-StopwatchModel -Runs @($Runs | Where-Object { $_ -and ($_.End -or $(if ($_.RunStart) { $_.RunStart } else { $_.Start }) -ge $cut) }) -KeepOpenRuns)
 }
 
 function Get-LogbookWorkTimes {
