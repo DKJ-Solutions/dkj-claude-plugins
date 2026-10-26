@@ -630,7 +630,11 @@ $zeta = Format-PluginPageHtml -Row (Find-PluginsPageRow -Model $pv -Name 'zeta')
 Assert-True ($zeta.Contains('&lt;i&gt;z&lt;/i&gt;') -and $zeta -notmatch 'class="msg msg--warn"' -and $zeta -notmatch 'To close it' -and $zeta -match 'committed 2026-10-25') 'a healthy plugin shows its description and the clone, and no command'
 $beta = Format-PluginPageHtml -Row (Find-PluginsPageRow -Model $pv -Name 'beta') -Model $pv
 Assert-True ($beta.Contains('no longer on disk') -and $beta -notmatch 'To close it') 'a missing install folder says to reinstall, with no update command'
-Assert-True ($one.Contains('<span class="badge-row"><span class="badge badge--sm badge--bad" aria-hidden="true">&#10007;</span>Behind</span>') -and $one -notmatch 'aria-hidden="true">Behind') 'the plugin page shows its state as the house badge row: the mark, then the word'
+Assert-True ($one.Contains('<p class="badge-row"><span class="badge badge--sm badge--bad" aria-hidden="true">&#10007;</span>Behind</p>') -and $one -notmatch 'aria-hidden="true">Behind') 'the plugin page shows its state as the house badge row: the mark, then the word'
+Assert-Equal '<p>Intro. Two chapters.</p><p><strong>THE HOUSE STYLE:</strong> tokens &lt;b&gt;.</p><p><strong>THE TRACKER LABELS:</strong> feature. Requires X.</p>' (ConvertTo-PluginDescriptionHtml 'Intro. Two chapters. THE HOUSE STYLE: tokens <b>. THE TRACKER LABELS: feature. Requires X.') 'a description is split into escaped paragraphs at each capitals lead-in, the lead-in in bold'
+Assert-Equal '<p>One sentence. CHECK-HOUSE-STYLE gate holds.</p>' (ConvertTo-PluginDescriptionHtml 'One sentence. CHECK-HOUSE-STYLE gate holds.') 'capitals without a colon start no paragraph'
+$headRow = [regex]::Match($one, '(?s)<header>\s*<div>\s*<h1>alpha</h1>.*?</div>\s*<p class="badge-row">.*?Behind</p>\s*</header>').Success
+Assert-True $headRow 'the plugin page sets its state at the right of the h1 row, in the house page-header row (the owner, October 26, 2026)'
 Write-Host ''
 Write-Host "dev-pages: $script:pass passed, $script:fail failed"
 if ($script:fail -gt 0) { exit 1 }

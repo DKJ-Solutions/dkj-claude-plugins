@@ -46,16 +46,21 @@ side rather than stacked.
 
 - [x] `Format-PluginPageHtml`: the description and the machine state as two cards in one `.grid-2` row; the
   status badge, verdict and command move into the state card; the lead is dropped (density rule)
+- [x] the state badge row at the far right of the h1's row: `Format-GeneralPageHtml -HeadAside`, drawn as the house
+  page-header row (`main > header`)
+- [x] the description split into paragraphs at each capitals lead-in, the lead-in in bold
+  (`ConvertTo-PluginDescriptionHtml`)
 
 ### TEST
 
-- [x] `dev-pages.tests.ps1` green (353 passed); the live hub serves the new form
+- [x] `dev-pages.tests.ps1` green (356 passed); the live hub serves the new form
 - [ ] the owner's look at /plugins/dkj-solutions (a visible result)
 
 ### DEPLOY: feat/plugin-page-side-by-side
 
 A plugin's page on the hub (`/plugins/<name>`) now sets its description and its state on this machine side by
-side, as two cards in one row, and drops the lead line, so it reads on one screen without scrolling.
+side, as two cards in one row, with its state at the far right of the title's row and the description broken
+into paragraphs at each chapter, so it reads on one screen without scrolling.
 
 **Score:** 2
 
