@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**10 / 17 minor entries** <!-- pending-tally -->
+**11 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3488-repo-settings-admin-only-fields · 20261026-095402Z
+
+`check-repo-settings.ps1` now reads the repo's merge switches (`allow_squash_merge`, `allow_auto_merge`,
+`allow_update_branch` and their siblings) from GraphQL when the REST repo object leaves them out. REST
+leaves them out for any token without admin, which includes every CI token. In this repo's own
+scheduled run two of the seven declared settings read as not-read every day. They are now compared.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A repo that declares only a merge switch in `Get-ExpectedRepoSettings` had a scheduled
+`Repo settings` run that was red by construction under `-RequireRead`
+(`BWJ-Development/smartwatchbanden`). With this release it reads the switch and goes green, or red
+only on a real drift.
+
+**Score:** 3
+
+#### Pull Request
+
+check-repo-settings reads admin-only merge switches through GraphQL
+
+Plugins: dkj-policy
+
+[PR #3501](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3501)
+
+---
 
 ### DEPLOY: fix/3492-live-message-is-a-notice · 20261026-094312Z
 

@@ -60,7 +60,18 @@
     GITHUB_TOKEN cannot see it -- and that is the one field whose emptying was #1244. Collapsing
     unreadable into "matches" would make the check silent about exactly the drift with the worst
     consequences, so it is a distinct third verdict and it does not fail the run. Everything else
-    comes from `/rules/branches/<trunk>` and the repo object, both of which read without admin.
+    comes from `/rules/branches/<trunk>` and the repo object, which a read-only token can reach.
+
+    THE REPO OBJECT'S MERGE SWITCHES ARE ADMIN-ONLY TOO, AND THIS DOCSTRING SAID OTHERWISE UNTIL #3488.
+    `GET /repos/<repo>` leaves out allow_squash_merge, allow_merge_commit, allow_rebase_merge,
+    allow_auto_merge, allow_update_branch, delete_branch_on_merge and web_commit_signoff_required for a
+    token without admin -- measured October 26, 2026, against this repo with no token at all, and in
+    this repo's own scheduled runs, where two of the seven declared fields read as not-read every day.
+    A consumer that declared ONLY such a field (BWJ-Development/smartwatchbanden, allow_squash_merge)
+    was red by construction under -RequireRead. GraphQL's Repository object carries the same switches
+    (squashMergeAllowed and siblings) and answers them to any viewer that can read the repo -- measured
+    against cli/cli at viewerPermission READ -- so a repo.* field the REST object omits is read from
+    there instead, one query for all of them, made only when such a field is declared and missing.
 
     -RequireRead, AND WHY THE THIRD VERDICT NEEDED A FLOOR UNDER IT. Tolerating an unreadable field is
     right per field and wrong for ALL of them at once: if the job's token turns out not to read those
@@ -102,6 +113,11 @@
 .PARAMETER RepoJsonOverride
     A file holding a `gh api repos/<repo>` payload, read instead of calling gh. 'NONE' as above.
 
+.PARAMETER RepoGraphQlJsonOverride
+    A file holding a `gh api graphql` repository payload ({"data":{"repository":{...}}}), read instead
+    of calling gh -- the source for an admin-only repo.* switch the REST repo object omits (#3488).
+    'NONE' as above.
+
 .PARAMETER RulesetJsonOverride
     A file holding a `gh api repos/<repo>/rulesets/<id>` payload -- the detail object carrying
     bypass_actors, which is what the admin-only field is read from. 'NONE' stands for "admin read
@@ -125,6 +141,7 @@ param(
     [string]$RootOverride = '',
     [string]$BranchRulesJsonOverride = '',
     [string]$RepoJsonOverride = '',
+    [string]$RepoGraphQlJsonOverride = '',
     [string]$RulesetJsonOverride = '',
     [string]$Trunk = 'main',
     [switch]$RequireRead
@@ -403,6 +420,46 @@ function Get-BypassActorTypes {
     return $script:BypassTypes
 }
 
+# THE ADMIN-ONLY REPO SWITCHES, BY THEIR GRAPHQL NAME (#3488). The REST repo object omits these for a
+# token that cannot administer the repo, which is every CI token; GraphQL answers them to any reader.
+# Booleans only: the enum-valued siblings (squash_merge_commit_title and the like) spell their values
+# differently on the two APIs, and a translation nobody needs yet is a translation that can be wrong.
+$script:RepoGraphQlNames = @{
+    'allow_squash_merge'          = 'squashMergeAllowed'
+    'allow_merge_commit'          = 'mergeCommitAllowed'
+    'allow_rebase_merge'          = 'rebaseMergeAllowed'
+    'allow_auto_merge'            = 'autoMergeAllowed'
+    'allow_update_branch'         = 'allowUpdateBranch'
+    'delete_branch_on_merge'      = 'deleteBranchOnMerge'
+    'web_commit_signoff_required' = 'webCommitSignoffRequired'
+}
+
+# Read lazily and cached, like the bypass list: a run that declares none of these, or whose REST read
+# already carried them (an admin running it locally), makes no GraphQL call at all.
+$script:RepoGraphQl = $null
+
+function Get-RepoGraphQl {
+    if ($null -ne $script:RepoGraphQl) { return $script:RepoGraphQl }
+
+    $owner, $name = $targetRepo.Split('/', 2)
+    $fields = ($script:RepoGraphQlNames.Values | Sort-Object) -join ' '
+    # No double quote anywhere in the query, so Windows PowerShell 5.1's native argument quoting has
+    # nothing to mangle; owner and name travel as -f variables rather than spliced into the text.
+    $query = 'query($o:String!,$n:String!){repository(owner:$o,name:$n){' + $fields + '}}'
+    $read = Read-Payload -Override $RepoGraphQlJsonOverride -What 'repo' -GhArgs @(
+        'api', 'graphql', '-f', "query=$query", '-f', "o=$owner", '-f', "n=$name")
+
+    $repo = $null
+    if ($read.Ok -and $read.Data.PSObject.Properties['data'] -and $read.Data.data -and
+        $read.Data.data.PSObject.Properties['repository']) {
+        $repo = $read.Data.data.repository
+    }
+    $note = $read.Note
+    if ($read.Ok -and -not $repo) { $note = 'the GraphQL answer carried no repository' }
+    $script:RepoGraphQl = [pscustomobject]@{ Repo = $repo; Note = $note }
+    return $script:RepoGraphQl
+}
+
 # --- what each declared field resolves to live -----------------------------------------------------
 #
 # One arm per Field string, so the seam's names are the contract between the declaration and the
@@ -479,9 +536,26 @@ function Get-LiveValue {
         }
         default {
             if ($Field -like 'repo.*') {
-                if (-not $repoObject.Ok) { return (& $unreadable $repoObject.Note) }
                 $prop = $Field.Substring(5)
-                if (-not $repoObject.Data.PSObject.Properties[$prop]) {
+                $restHas = $repoObject.Ok -and $repoObject.Data.PSObject.Properties[$prop]
+                # AN ADMIN-ONLY SWITCH THE REST OBJECT OMITTED goes to GraphQL (#3488) -- whether the
+                # REST read failed or merely left the field out, since GraphQL is a separate read.
+                if (-not $restHas -and $script:RepoGraphQlNames.ContainsKey($prop)) {
+                    $gqlName = $script:RepoGraphQlNames[$prop]
+                    $gql = Get-RepoGraphQl
+                    if ($gql.Repo -and $gql.Repo.PSObject.Properties[$gqlName] -and $null -ne $gql.Repo.$gqlName) {
+                        return (& $readable ([bool]$gql.Repo.$gqlName))
+                    }
+                    $gqlWhy = $gql.Note
+                    if (-not $gqlWhy) { $gqlWhy = "it carried no '$gqlName'" }
+                    # Only claim what the REST object lacked when it was actually read; a failed read
+                    # says nothing about its fields, so its own note is what gets reported.
+                    $restWhy = "the repo object carries no '$prop' field (returned to repo administrators only)"
+                    if (-not $repoObject.Ok) { $restWhy = "the repo object was not read: $($repoObject.Note)" }
+                    return (& $unreadable "$restWhy, and the GraphQL read of '$gqlName' failed too: $gqlWhy")
+                }
+                if (-not $repoObject.Ok) { return (& $unreadable $repoObject.Note) }
+                if (-not $restHas) {
                     return (& $unreadable "the repo object carries no '$prop' field")
                 }
                 # A PRESENT-BUT-NULL VALUE IS UNREADABLE, NOT A MATCH -- and without this line it was
@@ -571,7 +645,7 @@ if ($RequireRead -and $agreed -eq 0 -and $drift.Count -eq 0) {
     Write-Host ('[ERROR] not one of the {0} declared settings could be read -- this run checked nothing.' -f $declared.Count) -ForegroundColor Red
     Write-Host '        -RequireRead was given, so that is a failure rather than a pass: a detector that' -ForegroundColor Red
     Write-Host '        reports success while seeing nothing is worse than no detector at all.' -ForegroundColor Red
-    Write-Host '        In CI the likely cause is the token: the two non-admin endpoints need read access to' -ForegroundColor Red
+    Write-Host '        In CI the likely cause is the token: the non-admin reads need read access to' -ForegroundColor Red
     Write-Host '        the repo, so check the job permissions and that GH_TOKEN is set. The reasons above' -ForegroundColor Red
     Write-Host '        say which read failed and why.' -ForegroundColor Red
     exit 1

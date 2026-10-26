@@ -39,7 +39,9 @@
 # returned to repo administrators only, so the job-scoped GITHUB_TOKEN cannot see it. The script
 # reports it as a distinct third verdict rather than as green, precisely because that is the field
 # whose emptying was #1244 -- run the script locally to compare that one. Everything else comes from
-# /rules/branches/main and the repo object, both readable with `contents: read`.
+# /rules/branches/main and the repo object, both readable with `contents: read` -- except the repo
+# object's merge switches (allow_auto_merge and its siblings), which it also returns to admins only;
+# the script reads those from GraphQL instead, which answers any reader (#3488).
 #
 # WHICH IS WHY THE RUN PASSES -RequireRead. Tolerating an unreadable field is right per field and
 # wrong for all of them at once: if this token turned out not to read those two endpoints, every field
