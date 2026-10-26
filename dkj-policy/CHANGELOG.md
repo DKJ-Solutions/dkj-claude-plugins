@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**3 / 6 minor entries** <!-- pending-tally -->
+**4 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3518-closed-message-phone-factory · 20261026-153748Z
+
+`bwj-development`'s `closed-message-sessioncheck` now checks `phone-factory` too, for the
+`asana-closed-message` workflow alone. That repo adopted it on October 26, 2026
+(BWJ-Development/phone-factory#15), so a missing or drifted copy, a missing `ASANA_PAT` or an unstated
+`Get-ResolvesExemptMatchers` is reported there at session start. `adopt-bwj-development` step 1 copies that
+pair there and leaves `asana-prio-label` out, because that workflow was not decided there
+([#3518](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3518)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+phone-factory's maintainer gets the same session-start warning the two stores get when the closed message
+cannot reach the Asana task. The measured case is phone-factory's own: #3's closed message failed on a missing
+`ASANA_PAT`, and nothing in the session reported it.
+
+**Score:** 2
+
+#### Pull Request
+
+bwj-development: extend asana-closed-message reach to phone-factory
+
+Plugins: bwj-development
+
+[PR #3529](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3529)
+
+---
 
 ### DEPLOY: fix/3524-armed-ship-clearance · 20261026-151651Z
 
