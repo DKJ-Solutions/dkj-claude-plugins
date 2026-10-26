@@ -1072,6 +1072,35 @@ function ConvertTo-CommitCheckBucketsJson {
     return (ConvertTo-Json -InputObject $records -Compress -Depth 3)
 }
 
+function Test-NamedCheckUnregistered {
+    <#
+        Has the named check NOT registered in a `[{name, bucket}]` payload yet? The question cut-release's
+        registration grace (#3155) asks before each extra read: true while the payload is empty, unreadable,
+        or carries no record that prints as the named check. Pure, so the suite can walk it without a remote.
+
+        WHY IT LEFT cut-release (#3512, October 26, 2026). As an inline scriptblock it wrapped the parse in
+        the same expression, `@(@($json | ConvertFrom-Json) | ...)`, and under 5.1 that collected the whole
+        array as ONE element, which has no `name` property. So every readable payload read as absent, a
+        registered red check included, and the cut spent its every grace read saying "has not registered".
+        Nothing could test it there.
+
+        IT MATCHES ON THE PRINTED NAME, unlike Get-CiTestCertificate's raw match (#3157), on purpose: this
+        only decides whether to keep reading, never whether to certify, so a look-alike that counts as
+        registered ends the grace early and the certificate still refuses it.
+    #>
+    param(
+        [AllowEmptyString()][AllowNull()][string]$RequiredChecksJson,
+        [string]$CheckName
+    )
+
+    if (-not $RequiredChecksJson -or -not $RequiredChecksJson.Trim()) { return $true }
+    # Assign first, wrap second -- the 5.1 one-object pipeline trap Get-CiTestCertificate names.
+    try { $parsed = $RequiredChecksJson | ConvertFrom-Json } catch { return $true }
+    $wanted = Get-DisplayRef -Ref $CheckName
+    $records = @(@($parsed) | Where-Object { $_ -and $_.PSObject.Properties['name'] })
+    return (@($records | Where-Object { (Get-DisplayRef -Ref ([string]$_.name)) -eq $wanted }).Count -eq 0)
+}
+
 function Get-TrunkCatchUpDecision {
     <#
         May cut-release fast-forward over the commits that landed on origin while its gates ran, instead

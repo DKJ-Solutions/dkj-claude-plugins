@@ -880,9 +880,8 @@ function Invoke-TrunkCatchUp {
     $wantedName = Get-DisplayRef -Ref $CheckName
     $isAbsent = {
         param($Reading)
-        if ($null -eq $Reading -or -not $Reading.RequiredChecksJson) { return $true }
-        try { $recs = @(@($Reading.RequiredChecksJson | ConvertFrom-Json) | Where-Object { $_ -and $_.PSObject.Properties['name'] }) } catch { return $true }
-        return (@($recs | Where-Object { (Get-DisplayRef -Ref ([string]$_.name)) -eq $wantedName }).Count -eq 0)
+        if ($null -eq $Reading) { return $true }
+        return (Test-NamedCheckUnregistered -RequiredChecksJson $Reading.RequiredChecksJson -CheckName $CheckName)
     }
     $graceLeft = $script:CutCatchUpRegistrationReads
     while (-not $cert.Certified -and -not $cert.InFlight -and $graceLeft -gt 0 -and (& $isAbsent $first)) {

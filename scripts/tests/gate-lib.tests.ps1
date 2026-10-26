@@ -1069,7 +1069,9 @@ exit __EXIT__
     Assert-True ($gateSrc -match "ref-print-lib\.ps1") 'gate-lib loads the prose sanitiser itself'
     # Three call sites: the declared name, the comparison against each name in the payload, and the
     # "found instead" list in the refusal. Every string that reaches the console passes through one.
-    Assert-Equal 3 ([regex]::Matches($gateSrc, 'Get-DisplayRef -Ref').Count) 'and uses it at all three sites -- the declared name, the comparison, and the refusal list'
+    # Counted inside Get-CiTestCertificate only, so another function's use (#3512) is not miscounted here.
+    $certSrc = [regex]::Match($gateSrc, '(?s)function Get-CiTestCertificate \{.*?(?=\nfunction )').Value
+    Assert-Equal 3 ([regex]::Matches($certSrc, 'Get-DisplayRef -Ref').Count) 'and uses it at all three sites -- the declared name, the comparison, and the refusal list'
     # The one assertion that keeps the skip from silently outliving its certificate: a remote green
     # must never be filed as "this machine proved this tree", which Test-GateEvidence would then
     # honour for four hours.
@@ -1282,6 +1284,16 @@ exit __EXIT__
     Assert-Equal '' (ConvertTo-CommitCheckBucketsJson -CheckRunsJson 'not json') 'an unparseable payload is "could not be read"'
     Assert-Equal '' (ConvertTo-CommitCheckBucketsJson -CheckRunsJson '') 'and so is an empty one'
 
+    # The registration grace's own question (#3512): a readable payload carrying the named check is NOT
+    # absent -- under 5.1 the inline parse it replaced read every such payload as absent.
+    $redTwo = ConvertTo-CommitCheckBucketsJson -CheckRunsJson (& $runs @(@('lint', 'completed', 'success'), @('lint-en-tests', 'completed', 'failure')))
+    Assert-True (-not (Test-NamedCheckUnregistered -RequiredChecksJson $redTwo -CheckName $named)) 'a registered red check among two is not absent, so the grace stops at once'
+    Assert-True (-not (Test-NamedCheckUnregistered -RequiredChecksJson $greenTip -CheckName $named)) 'nor is a one-record payload naming it'
+    Assert-True (Test-NamedCheckUnregistered -RequiredChecksJson (ConvertTo-CommitCheckBucketsJson -CheckRunsJson (& $runs @(,@('lint', 'completed', 'success')))) -CheckName $named) 'a payload without the named check is absent'
+    Assert-True (Test-NamedCheckUnregistered -RequiredChecksJson '[]' -CheckName $named) 'and so is an empty list'
+    Assert-True (Test-NamedCheckUnregistered -RequiredChecksJson '' -CheckName $named) 'and an empty payload'
+    Assert-True (Test-NamedCheckUnregistered -RequiredChecksJson 'not json' -CheckName $named) 'and an unparseable one'
+
     $decide = {
         param([hashtable]$Over)
         $a = @{ Moment = 'after the gates'; BehindCount = 2; AheadCount = 0; Round = 0; MaxRounds = 3; CheckName = 'lint-en-tests'; RepoName = 'o/r' }
@@ -1307,6 +1319,7 @@ exit __EXIT__
     Assert-True ($cutSrc -match "catchUpCertified = \(\`$catchUpHead -eq \`$CatchUpCertifiedSha\.Trim\(\)\)") 'and certified means HEAD IS the commit CI proved'
     Assert-True ($cutSrc -match '& powershell @childArgs') 'the re-run is a child process, not a nested script call'
     Assert-True ($cutSrc -match "merge', '--ff-only'") 'and the catch-up only ever fast-forwards'
+    Assert-True ($cutSrc -match 'Test-NamedCheckUnregistered -RequiredChecksJson \$Reading\.RequiredChecksJson') 'and its registration grace asks Test-NamedCheckUnregistered (#3512)'
 
 } finally {
     if (Test-Path -LiteralPath $FixtureRoot) {
