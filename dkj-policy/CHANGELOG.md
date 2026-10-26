@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**1 / 2 minor entries** <!-- pending-tally -->
+**2 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/logbook-speed-tones · 20261026-141646Z
+
+The hub's Logbook overview colours each finished run's time line by its work time: green under 15 minutes, orange under 45, red
+from 45 on. The time spent waiting on the owner does not count, and a run
+whose work time was not measured is read off its whole time. The page footer names the bounds.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo running the dkj-policy hub sees at a glance which assignments were quick and which ran long, without reading each card's time.
+
+**Score:** 2
+
+#### Pull Request
+
+Logbook cards coloured green, orange or red by work time
+
+Plugins: dkj-policy
+
+[PR #3522](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3522)
+
+---
 
 ### DEPLOY: feat/connectors-group-pages · 20261026-140548Z
 
