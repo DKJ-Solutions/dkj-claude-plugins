@@ -2,7 +2,27 @@
 
 ## [Unreleased]
 
-**1 / 3 minor entries** <!-- pending-tally -->
+**1 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/dkj-repos-cards · 20261026-194924Z
+
+The hub's DKJ repos page is now one card per repo, three to a row like the Stopwatch overview, under the page's h1: the four tiles, the lead and the Repos heading are gone, and each checked-out repo's session command, with its Copy button, sits in that repo's own card instead of a list of its own.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: a page of this repo's own hub, which no consumer takes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The DKJ repos page shows each repo as a card
+
+[PR #3542](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3542)
+
+---
 
 ### DEPLOY: feat/specialists-under-plugins · 20261026-193544Z
 
