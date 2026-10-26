@@ -77,5 +77,4 @@ date here (with the command that fixes it) on the right.
 
 hub: plugin page side by side on one screen
 
-Plugins: dkj-policy
 
