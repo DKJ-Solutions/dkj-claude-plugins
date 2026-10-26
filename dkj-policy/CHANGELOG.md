@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**9 / 16 minor entries** <!-- pending-tally -->
+**10 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3492-live-message-is-a-notice · 20261026-094312Z
+
+The message `notify-live` posts on an Asana task after a release no longer says the review can start, and no
+longer asks the go-live block's question a second time
+([#3492](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3492)). It says the work is live as that
+version, and that the review already took place on the preview.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A requester told on release day that their work is live is no longer asked to review it again. The review
+already happened on the preview, and the closed message said that was the last moment to change something.
+
+**Score:** 3
+
+#### Pull Request
+
+notify-live: the live message is a notice, not a second review request
+
+Plugins: bwj-development
+
+[PR #3499](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3499)
+
+---
 
 ### DEPLOY: fix/3491-merge-on-green-checks-scope · 20261026-092801Z
 
