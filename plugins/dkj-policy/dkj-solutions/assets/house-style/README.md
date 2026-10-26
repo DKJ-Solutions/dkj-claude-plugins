@@ -23,6 +23,13 @@ URLs, with `<tag>` the release tag the skill pins, which the release cut writes 
 
 **It reaches DKJ-Solutions and nothing else.** BWJ-Development has its own styling.
 
+**Every change to a stylesheet in this folder passes a CSS gate of its own**
+([#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)): `house-style-css` in this repo's
+CI runs `scripts/lint/house-style-css/`, which parses each stylesheet, fails a `var()` that nothing defines
+(a parameter the markup sets is documented in a comment as `style="--name: ..."`, as the legend's `--c` is),
+and fails a colour code anywhere but a token declaration in `house-style.css`. It reads every `.css` here,
+so a stylesheet added later is gated without an edit.
+
 ## How to use it
 
 1. **Copy `house-style.css` into the output, unchanged**, and `house-theme.js` with it where the app
