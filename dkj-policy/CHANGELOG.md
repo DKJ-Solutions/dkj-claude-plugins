@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**2 / 4 minor entries** <!-- pending-tally -->
+**2 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/brandbook-shared-theme · 20261026-145517Z
+
+The brand book now opens in the product's theme, lilac, and keeps whatever theme was picked on any other page of
+the product port, because it stores the pick under the same `general-pages` key. A repo preview inside it still
+opens in that repo's own default theme while no theme has been picked.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the brand book is this repo's own dev preview; nothing a consumer installs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+The brand book shares the product's theme: lilac by default, under the general-pages key
+
+[PR #3526](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3526)
+
+---
 
 ### DEPLOY: fix/3473-drop-local-timing-hooks · 20261026-143209Z
 
