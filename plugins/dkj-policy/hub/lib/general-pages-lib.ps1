@@ -114,6 +114,8 @@ function Format-GeneralPageHtml {
         -Lead may then be empty.
         -ParentCrumbs are the crumbs between Home and the page, in order, each @{ Label; Href }: a page nested under
         another (the Stopwatch's run pages) names its parent so the trail reads Home > parent > the page.
+        -HeadAside is markup the caller has escaped, set at the far right of the h1's row: the intro is then the house
+        page-header row (main > header, a flex row with the title on the left), as a plugin's page does with its state.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Title,
@@ -128,7 +130,8 @@ function Format-GeneralPageHtml {
         [AllowEmptyString()][string]$Brand = '',
         [AllowEmptyString()][string]$BrandTag = '',
         [switch]$Bare,
-        [AllowEmptyCollection()][object[]]$ParentCrumbs = @()
+        [AllowEmptyCollection()][object[]]$ParentCrumbs = @(),
+        [AllowEmptyString()][string]$HeadAside = ''
     )
     # EVERY NAMED PAGE CARRIES THE SITE HEADER (owner, October 22, 2026): a caller that names its site and passes no
     # -Brand gets the repo's short name in it, with 'hub' after it, since these are the hub's pages.
@@ -169,12 +172,14 @@ function Format-GeneralPageHtml {
     if (-not $Brand) { [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>') }
     [void]$sb.AppendLine('<main class="page-column">')
     if (-not $Bare) {
+        if ($HeadAside) { [void]$sb.AppendLine('<header>') }
         [void]$sb.AppendLine('<div>')
         if ($Eyebrow -and -not $Brand) { [void]$sb.AppendLine('<p class="eyebrow">' + (& $e $Eyebrow) + '</p>') }
         [void]$sb.AppendLine('<h1>' + (& $e $Title) + '</h1>')
         # An empty -Lead draws no empty paragraph (the Plugins overview, #3482).
         if ($Lead) { [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>') }
         [void]$sb.AppendLine('</div>')
+        if ($HeadAside) { [void]$sb.AppendLine($HeadAside); [void]$sb.AppendLine('</header>') }
     }
     [void]$sb.Append($Body)
     if ($FooterNote) { [void]$sb.AppendLine('<p class="footer-note">' + $FooterNote + '</p>') }
