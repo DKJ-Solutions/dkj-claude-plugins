@@ -350,7 +350,8 @@ function Get-BwjPageWranglerArgs {
         serves.
     #>
     param(
-        [Parameter(Mandatory)][ValidateSet('put', 'get')][string]$Action,
+        # 'delete' removes one key, for -RetireToken (#3506).
+        [Parameter(Mandatory)][ValidateSet('put', 'get', 'delete')][string]$Action,
         [Parameter(Mandatory)][string]$Key,
         [Parameter(Mandatory)][string]$NamespaceId,
         [string]$Path
@@ -363,6 +364,93 @@ function Get-BwjPageWranglerArgs {
         $a += @('--path', $Path)
     }
     return @($a + @('--namespace-id', $NamespaceId, '--remote'))
+}
+
+# --- Retiring a token (#3506) ------------------------------------------------------------------------
+# A leaked link is only closed when the KEYS under its token are gone. A fresh token alone changes the
+# URL the next publish prints, and every '<kind>:<oldtoken>' key -- with a paged kind, every
+# '<kind>:<oldtoken>/v<x.y.z>' too -- goes on serving to whoever holds the old link.
+
+function Get-BwjPageKeyPrefix {
+    <#
+        The prefix every key of one token starts with: '<kind>:<token>'. Validated through
+        Get-BwjPageKvKey, because this string decides what a retirement deletes. A token is exactly 32
+        hex characters, so this prefix cannot reach a key of any other token.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Kind,
+        [Parameter(Mandatory)][string]$Token
+    )
+    return (Get-BwjPageKvKey -Kind $Kind -Token $Token)
+}
+
+function Select-BwjTokenKeys {
+    <#
+        Pure: of the key names a prefix listing returned, the ones that belong to this token -- the
+        index '<kind>:<token>' and, for a paged kind, '<kind>:<token>/v<x.y.z>'. Anything else is left
+        out, because a retirement deletes only keys this lib could have written; a listing is data off
+        the network, and its names are not trusted to be what the prefix asked for.
+    #>
+    param(
+        [AllowEmptyCollection()][string[]]$Names = @(),
+        [Parameter(Mandatory)][string]$Kind,
+        [Parameter(Mandatory)][string]$Token
+    )
+    $prefix  = [regex]::Escape((Get-BwjPageKeyPrefix -Kind $Kind -Token $Token))
+    $pattern = '^' + $prefix + '\z'
+    if (Test-BwjPageKindPaged -Kind $Kind) { $pattern = '^' + $prefix + '(/' + $script:BwjReleasePattern + ')?\z' }
+    return @($Names | Where-Object { $_ -cmatch $pattern } | Select-Object -Unique)
+}
+
+function Get-BwjPageWranglerListArgs {
+    <#
+        The arguments after `npx --no-install` for listing one token's keys through wrangler. --remote
+        for the same reason Get-BwjPageWranglerArgs passes it: a local listing finds nothing and would
+        report a leaked token as already clean.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Prefix,
+        [Parameter(Mandatory)][string]$NamespaceId
+    )
+    if ($Prefix -cnotmatch '^[a-z]+:[0-9a-f]{32}\z') { throw "Not a token prefix this lib builds: '$Prefix'." }
+    if ($NamespaceId -cnotmatch '^[0-9a-f]{32}$') { throw "Not a Cloudflare id: '$NamespaceId'." }
+    return @('wrangler', 'kv', 'key', 'list', '--prefix', $Prefix, '--namespace-id', $NamespaceId, '--remote')
+}
+
+function ConvertFrom-BwjWranglerKeyList {
+    <#
+        Pure: the key names in `wrangler kv key list` stdout, a JSON array of objects carrying 'name'.
+        Read from the first '[' to the last ']' so a line around the array does not break the parse.
+        Throws on anything that is not such an array: an unreadable listing must never read as "no keys
+        left", which is the answer that would let a leaked token look retired.
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$Text)
+    $open  = if ($Text) { $Text.IndexOf('[') } else { -1 }
+    $close = if ($Text) { $Text.LastIndexOf(']') } else { -1 }
+    if ($open -lt 0 -or $close -lt $open) { throw "wrangler's key listing carried no JSON array: '$Text'" }
+    try { $items = @(ConvertFrom-Json -InputObject $Text.Substring($open, $close - $open + 1)) }
+    catch { throw "wrangler's key listing is not readable JSON: $($_.Exception.Message)" }
+    # Windows PowerShell 5.1 hands a JSON array back as ONE element holding the array; unroll it.
+    $items = @($items | ForEach-Object { $_ })
+    return @($items | ForEach-Object {
+        $n = $_.PSObject.Properties['name']
+        if ($null -eq $n) { throw "wrangler's key listing holds an entry without a name." }
+        [string]$n.Value
+    })
+}
+
+function Get-BwjPageKvKeysApiUrl {
+    <# Cloudflare's KV key-listing endpoint for one prefix, with the page cursor when there is one. #>
+    param(
+        [Parameter(Mandatory)][string]$AccountId,
+        [Parameter(Mandatory)][string]$NamespaceId,
+        [Parameter(Mandatory)][string]$Prefix,
+        [string]$Cursor
+    )
+    $url = ("https://api.cloudflare.com/client/v4/accounts/$AccountId/storage/kv/namespaces/" +
+            "$NamespaceId/keys?limit=1000&prefix=" + [uri]::EscapeDataString($Prefix))
+    if ($Cursor) { $url += '&cursor=' + [uri]::EscapeDataString($Cursor) }
+    return $url
 }
 
 function Resolve-BwjPagesConfig {

@@ -328,21 +328,29 @@ $shimDir = Join-Path $Fixture 'shim-bin'
 New-Item -ItemType Directory -Path $shimDir -Force | Out-Null
 $shimStore = Join-Path $Fixture 'shim-kv.bin'
 $shimLog   = Join-Path $Fixture 'shim-log.txt'
+$shimList  = Join-Path $Fixture 'shim-list.json'
 $shim = "@echo off`r`n" +
         "echo %* [acct=%CLOUDFLARE_ACCOUNT_ID%]>>`"%FAKE_WRANGLER_LOG%`"`r`n" +
         "if `"%~3`"==`"whoami`" ( echo ^| Account ^| %FAKE_WRANGLER_ACCOUNT% ^| & exit /b 0 )`r`n" +
         "if `"%~5`"==`"put`" ( copy /y `"%~8`" `"%FAKE_WRANGLER_STORE%`" >nul & exit /b 0 )`r`n" +
         "if `"%~5`"==`"get`" goto get`r`n" +
+        "if `"%~5`"==`"list`" ( type `"%FAKE_WRANGLER_LISTFILE%`" & exit /b 0 )`r`n" +
+        "if `"%~5`"==`"delete`" goto del`r`n" +
         "exit /b 9`r`n" +
         ":get`r`n" +
         "if `"%FAKE_WRANGLER_TAMPER%`"==`"1`" ( echo tampered ) else ( type `"%FAKE_WRANGLER_STORE%`" )`r`n" +
+        "exit /b 0`r`n" +
+        ":del`r`n" +
+        "if not `"%FAKE_WRANGLER_KEEP%`"==`"1`" echo []>`"%FAKE_WRANGLER_LISTFILE%`"`r`n" +
         "exit /b 0`r`n"
 [System.IO.File]::WriteAllText((Join-Path $shimDir 'npx.cmd'), $shim, (New-Object System.Text.ASCIIEncoding))
 
 function Invoke-WranglerRoute {
-    param([string]$Account, [string]$Tamper = '', [string]$HtmlPath = '')
+    # -ScriptArgs replaces the publish's own arguments, for the -RetireToken cases (#3506); -Keep makes the
+    # shim's delete leave the listing as it was, the lagging-listing case.
+    param([string]$Account, [string]$Tamper = '', [string]$HtmlPath = '', [string[]]$ScriptArgs = @(), [string]$Keep = '')
     $saved = @{}
-    foreach ($n in 'PATH', 'CLOUDFLARE_API_TOKEN', 'FAKE_WRANGLER_ACCOUNT', 'FAKE_WRANGLER_STORE', 'FAKE_WRANGLER_LOG', 'FAKE_WRANGLER_TAMPER') {
+    foreach ($n in 'PATH', 'CLOUDFLARE_API_TOKEN', 'FAKE_WRANGLER_ACCOUNT', 'FAKE_WRANGLER_STORE', 'FAKE_WRANGLER_LOG', 'FAKE_WRANGLER_TAMPER', 'FAKE_WRANGLER_LISTFILE', 'FAKE_WRANGLER_KEEP') {
         $saved[$n] = [Environment]::GetEnvironmentVariable($n, 'Process')
     }
     try {
@@ -352,9 +360,12 @@ function Invoke-WranglerRoute {
         $env:FAKE_WRANGLER_STORE = $shimStore
         $env:FAKE_WRANGLER_LOG = $shimLog
         $env:FAKE_WRANGLER_TAMPER = $Tamper
+        $env:FAKE_WRANGLER_LISTFILE = $shimList
+        $env:FAKE_WRANGLER_KEEP = $Keep
         if (Test-Path -LiteralPath $shimLog) { Remove-Item -LiteralPath $shimLog -Force }
         $a = @('-Kind', 'notes')
         if ($HtmlPath) { $a += @('-Html', $HtmlPath) }
+        if ($ScriptArgs.Count) { $a = $ScriptArgs }
         return (Invoke-PublishPage -ScriptArgs $a)
     } finally {
         foreach ($n in $saved.Keys) { [Environment]::SetEnvironmentVariable($n, $saved[$n], 'Process') }
@@ -468,6 +479,67 @@ $npx = if ($env:OS -eq 'Windows_NT') { 'npx.cmd' } else { 'npx' }
 Assert-True ($emit.Text -like "*$npx wrangler deploy*") "it names the deploy command, as $npx, and deploys nothing itself"
 Assert-True ($emit.Text -notlike '*&&*') '...on lines of their own, not joined with && (a parse error in Windows PowerShell 5.1)'
 Assert-True ($emit.Text -like '*neither deploy can disturb a page the other store published*') '...and states the property that makes the worker shareable'
+
+Write-Host ''
+Write-Host 'Retiring a leaked token (#3506)' -ForegroundColor Cyan
+
+# THE HAZARD: a fresh token changes the URL the next publish prints, and every key under the old token
+# goes on serving to whoever holds the leaked link. Retiring is deleting those keys.
+$tok = $writtenToken
+$listed = @("notes:$tok", "notes:$tok/v1.0.0", "notes:$tok/x", "notes:$HexA", "backlog:$tok")
+Assert-Equal "notes:$tok,notes:$tok/v1.0.0" ((Select-BwjTokenKeys -Names $listed -Kind 'notes' -Token $tok) -join ',') 'a retirement takes the index and its release pages, and nothing a listing returned besides'
+Assert-Equal "backlog:$tok" ((Select-BwjTokenKeys -Names $listed -Kind 'backlog' -Token $tok) -join ',') '...and a kind that is one page takes its one key'
+Assert-Equal 'a,b' ((ConvertFrom-BwjWranglerKeyList -Text '[{"name":"a"},{"name":"b","metadata":{}}]') -join ',') 'wrangler''s listing is read as its key names'
+Assert-Equal 0 @(ConvertFrom-BwjWranglerKeyList -Text "[]`r`n").Count '...and an empty one as none'
+Assert-Equal 'a' ((ConvertFrom-BwjWranglerKeyList -Text "banner`n[{`"name`":`"a`"}]`n") -join ',') '...with a line around the array ignored'
+Assert-Throws { ConvertFrom-BwjWranglerKeyList -Text 'You are not authenticated.' } 'an unreadable listing throws -- it must never read as "no keys left"' '*no JSON array*'
+Assert-Equal "wrangler kv key list --prefix notes:$tok --namespace-id $HexB --remote" ((Get-BwjPageWranglerListArgs -Prefix "notes:$tok" -NamespaceId $HexB) -join ' ') 'the listing names the prefix, the namespace and --remote'
+Assert-Throws { Get-BwjPageWranglerListArgs -Prefix 'notes:' -NamespaceId $HexB } 'a prefix shorter than one token is refused -- it would list every token''s keys'
+Assert-Equal "wrangler kv key delete notes:$tok/v1.0.0 --namespace-id $HexB --remote" ((Get-BwjPageWranglerArgs -Action delete -Key "notes:$tok/v1.0.0" -NamespaceId $HexB) -join ' ') 'the delete names one key this lib builds'
+$keysUrl = Get-BwjPageKvKeysApiUrl -AccountId $HexA -NamespaceId $HexB -Prefix "notes:$tok" -Cursor 'c/1'
+Assert-True ($keysUrl -like "https://api.cloudflare.com/client/v4/accounts/$HexA/storage/kv/namespaces/$HexB/keys?limit=1000&prefix=notes%3A$tok&cursor=c%2F1") 'the API listing addresses the prefix and the cursor, escaped'
+
+$alone = Invoke-PublishPage -ScriptArgs @('-Kind', 'notes', '-Token', $HexA)
+Assert-True ($alone.ExitCode -ne 0 -and $alone.Text -like '*on its own it does nothing*') '-Token without -RetireToken is refused rather than ignored'
+
+[System.IO.File]::WriteAllText($shimList, ('[' + (($listed | ForEach-Object { "{`"name`":`"$_`"}" }) -join ',') + ']'), $Utf8NoBom)
+$retireDry = Invoke-WranglerRoute -Account $HexA -ScriptArgs @('-Kind', 'notes', '-RetireToken', '-DryRun')
+$log = if (Test-Path -LiteralPath $shimLog) { [System.IO.File]::ReadAllText($shimLog) -replace '"', '' } else { '' }
+Assert-Equal 0 $retireDry.ExitCode '-RetireToken -DryRun lists the keys and deletes nothing'
+Assert-True ($retireDry.Text -like '*2 under notes:*') '...counting only the keys of this token'
+Assert-True ($log -like "*kv key list --prefix notes:$tok --namespace-id $HexB --remote*") '...listed through wrangler, --remote'
+Assert-True ($log -notlike '*kv key delete*') '...with no delete'
+Assert-True (Test-Path -LiteralPath $tokenFile) '...and the token file as it was'
+
+$lagging = Invoke-WranglerRoute -Account $HexA -ScriptArgs @('-Kind', 'notes', '-RetireToken') -Keep '1'
+Assert-True ($lagging.ExitCode -ne 0) 'keys that still list after the deletes fail the retirement'
+Assert-True ($lagging.Text -like '*still list*run -RetireToken again*') '...saying to run it again'
+Assert-True (Test-Path -LiteralPath $tokenFile) '...and keeping the token file, so the rerun starts from the same token'
+
+$retire = Invoke-WranglerRoute -Account $HexA -ScriptArgs @('-Kind', 'notes', '-RetireToken')
+$log = if (Test-Path -LiteralPath $shimLog) { [System.IO.File]::ReadAllText($shimLog) -replace '"', '' } else { '' }
+Assert-Equal 0 $retire.ExitCode '-RetireToken deletes every key under the token'
+$delIndex = $log.IndexOf("kv key delete notes:$tok --namespace-id")
+$delPage  = $log.IndexOf("kv key delete notes:$tok/v1.0.0 --namespace-id")
+Assert-True ($delIndex -ge 0 -and $delPage -gt $delIndex) '...the index first, the page the leaked link opens on, then the release page'
+Assert-True ($log -notlike "*kv key delete notes:$tok/x*" -and $log -notlike "*kv key delete notes:$HexA*" -and $log -notlike '*kv key delete backlog:*') '...and no key the lib did not write for this token'
+Assert-True ($retire.Text -like '*no key lists under*') '...proved by listing again'
+Assert-True (-not (Test-Path -LiteralPath $tokenFile)) '...and only then the token file is removed'
+Assert-True ($retire.Text -like '*-InitToken for a fresh path*') '...naming the next step'
+
+$nothing = Invoke-WranglerRoute -Account $HexA -ScriptArgs @('-Kind', 'notes', '-RetireToken')
+Assert-True ($nothing.ExitCode -ne 0 -and $nothing.Text -like '*Name the leaked one with -Token*') 'with no token on file and none named, there is nothing to retire'
+
+$reinit = Invoke-PublishPage -ScriptArgs @('-Kind', 'notes', '-InitToken')
+Assert-Equal 0 $reinit.ExitCode 'after a retirement -InitToken mints the next token'
+
+# THE TOKEN MINTED BEFORE THE OLD KEYS WERE DELETED -- the case the issue measured: -Token names the old one.
+[System.IO.File]::WriteAllText($shimList, "[{`"name`":`"notes:$tok`"}]", $Utf8NoBom)
+$old = Invoke-WranglerRoute -Account $HexA -ScriptArgs @('-Kind', 'notes', '-RetireToken', '-Token', $tok)
+$log = if (Test-Path -LiteralPath $shimLog) { [System.IO.File]::ReadAllText($shimLog) -replace '"', '' } else { '' }
+Assert-Equal 0 $old.ExitCode '-RetireToken -Token retires a token that is no longer the one on file'
+Assert-True ($log -like "*kv key delete notes:$tok --namespace-id*") '...deleting its keys'
+Assert-True (Test-Path -LiteralPath $tokenFile) '...and leaving the new token file alone'
 
 Write-Host ''
 Write-Host 'The stray-token search -- #1444 lesson, ported from the sibling script' -ForegroundColor Cyan

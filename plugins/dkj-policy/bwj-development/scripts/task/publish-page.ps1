@@ -75,6 +75,16 @@
     Create this kind's path token when there is none. Refuses to replace one: that is the
     destructive half, and it 404s every link already sent.
 
+.PARAMETER RetireToken
+    Close a leaked link (#3506): delete every KV key under this kind's token -- the page and, for
+    'notes', every release page under it -- then remove the token file, so -InitToken can mint the
+    next one. A fresh token alone does not close the leak: the old keys keep serving to whoever holds
+    the old link. With -DryRun it lists the keys and deletes nothing.
+
+.PARAMETER Token
+    With -RetireToken: the token to retire, when it is not the one on file -- the case where a fresh
+    token was minted before the old keys were deleted. The token file is then left alone.
+
 .PARAMETER EmitWorker
     Write worker.js and (only when absent) wrangler.toml into the page directory, for the one-time
     `npx wrangler deploy` that puts the shared worker up. Deploys nothing itself.
@@ -102,6 +112,8 @@ param(
     [string]$Html,
     [string]$LinkBase,
     [switch]$InitToken,
+    [switch]$RetireToken,
+    [string]$Token,
     [switch]$EmitWorker,
     [switch]$ShowUrl,
     [switch]$DryRun,
@@ -170,6 +182,7 @@ Write-Host "== publish-page ($($pages.Worker)) ==" -ForegroundColor Cyan
 Write-Host "  page dir : $pageDir" -ForegroundColor DarkGray
 
 # --- -EmitWorker: the shared worker's bundle --------------------------------------------------------
+if ($EmitWorker -and $RetireToken) { throw "-EmitWorker and -RetireToken are two runs: -EmitWorker exits before a retirement would start." }
 if ($EmitWorker) {
     $source = Join-Path $PSScriptRoot '..\..\worker\bwj-pages-worker.js'
     if (-not (Test-Path -LiteralPath $source -PathType Leaf)) {
@@ -229,6 +242,78 @@ id = "$($pages.NamespaceId)"
     exit 0
 }
 
+# --- Reaching KV ---------------------------------------------------------------------------------------
+function Invoke-BwjNpx {
+    <#
+        Runs `npx --no-install <Arguments>` through cmd.exe, with CLOUDFLARE_ACCOUNT_ID set to the
+        seam's account for the child only. Returns ExitCode and Text (stdout + stderr). With
+        -StdoutPath, stdout is copied to that file AS BYTES and is not in Text: the read-back is
+        hashed, and a PowerShell pipe would decode it with the console code page first.
+
+        --no-install so a machine without wrangler gets a refusal rather than a download.
+
+        EVERY ARGUMENT IS QUOTED, AND '"' AND '%' ARE REFUSED. The line runs through cmd.exe, and a
+        path is a legal NTFS name that may carry & | < > ^ ( ) with no space in it. Quoting only on
+        whitespace let 'C:\a&cmd&b.html' run a second command (Sebastian, on this branch, exercised
+        against a real cmd.exe). Inside double quotes those characters are literal. Two are not:
+        '"' ends the quote, and '%' still expands a variable. Windows forbids '"' in a file name
+        anyway, so refusing both costs a path nobody has.
+    #>
+    param(
+        [Parameter(Mandatory)][string[]]$Arguments,
+        [string]$StdoutPath
+    )
+    foreach ($a in $Arguments) {
+        if ($a -match '["%]') {
+            throw "Refusing to hand '$a' to cmd.exe: a '`"' or '%' in an argument is not safe to quote there. Rename the file."
+        }
+    }
+    $quoted = ($Arguments | ForEach-Object { '"' + $_ + '"' }) -join ' '
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $env:ComSpec
+    $psi.Arguments = '/d /s /c "npx --no-install ' + $quoted + '"'
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.CreateNoWindow = $true
+    $psi.EnvironmentVariables['CLOUDFLARE_ACCOUNT_ID'] = $pages.AccountId
+    $p = [System.Diagnostics.Process]::Start($psi)
+    $errTask = $p.StandardError.ReadToEndAsync()
+    $text = ''
+    if ($StdoutPath) {
+        $fs = [System.IO.File]::Create($StdoutPath)
+        try { $p.StandardOutput.BaseStream.CopyTo($fs) } finally { $fs.Dispose() }
+    } else {
+        $text = $p.StandardOutput.ReadToEnd()
+    }
+    $p.WaitForExit()
+    return [pscustomobject]@{ ExitCode = $p.ExitCode; Text = ($text + $errTask.Result) }
+}
+
+# Which route reaches KV this run: CLOUDFLARE_API_TOKEN, else a wrangler login to the seam's account.
+# A function so a publish and a retirement (#3506) authenticate the one way; it sets $useWrangler and
+# $apiToken at script scope, which Publish-BwjKvValue and the retirement read.
+function Connect-BwjKv {
+    $script:apiToken = $env:CLOUDFLARE_API_TOKEN
+    $script:useWrangler = [string]::IsNullOrWhiteSpace($script:apiToken)
+    if ($script:useWrangler) {
+        # A WRANGLER LOGIN TO THIS ACCOUNT IS THE SECOND ROUTE (issue #2569). It is neither a seam answer
+        # nor a file in the repo, which is what the rule about the token protects, and it is how a machine
+        # that deployed the worker is usually authenticated. The proof is the same: read the value back
+        # and compare SHA-256. Test-BwjWranglerSession explains why the account id, not the exit code,
+        # decides.
+        $who = Invoke-BwjNpx -Arguments @('wrangler', 'whoami')
+        if (-not (Test-BwjWranglerSession -WhoamiText $who.Text -ExitCode $who.ExitCode -AccountId $pages.AccountId)) {
+            throw ("CLOUDFLARE_API_TOKEN is not set, and '$npx wrangler whoami' shows no login to account " +
+                   "$($pages.AccountId). Either route publishes: (1) CLOUDFLARE_API_TOKEN in the environment " +
+                   "-- never a seam answer, never a file in the repo, because both of those are committed by " +
+                   "construction; it needs 'Workers KV Storage: Edit' on this account and nothing more -- or " +
+                   "(2) '$npx wrangler login' as a user who can reach this account.")
+        }
+        Write-Host "  auth     : wrangler login to account $($pages.AccountId) (CLOUDFLARE_API_TOKEN is not set)" -ForegroundColor DarkGray
+    }
+}
+
 # --- The kind, the token and the URL ----------------------------------------------------------------
 if (-not (Test-BwjPageKind -Kind $Kind)) {
     $known = (Get-BwjPageKinds | ForEach-Object { "$($_.Kind) -- $($_.What)" }) -join "`n           "
@@ -237,11 +322,116 @@ if (-not (Test-BwjPageKind -Kind $Kind)) {
 
 $tokenPath = Join-Path $pageDir (Get-BwjPageTokenFileName -Kind $Kind)
 
+# --- -RetireToken: close a leaked link (#3506) ---------------------------------------------------------
+# A FRESH TOKEN ALONE DOES NOT CLOSE A LEAK. The next publish goes to a new URL, and every key under the
+# old token goes on serving the old content to whoever holds the old link. So retiring is deleting
+# those keys, and only then the token file, so -InitToken can mint the next one.
+# -Token IS THE SAME VARIABLE as the $token the publish path assigns below -- PowerShell names are
+# case-insensitive -- so it is refused here unless this block consumes it and exits.
+if ($Token -and -not $RetireToken) { throw "-Token names the token -RetireToken retires; on its own it does nothing." }
+if ($RetireToken) {
+    if ($InitToken) { throw "-RetireToken and -InitToken are two runs: retire first, then mint the next token." }
+    $onFile = $null
+    if (Test-Path -LiteralPath $tokenPath -PathType Leaf) {
+        $onFile = ([System.IO.File]::ReadAllText($tokenPath, [System.Text.Encoding]::UTF8)).Trim()
+    }
+    $retired = if ($Token) { $Token.Trim() } else { $onFile }
+    if (-not $retired) {
+        throw ("There is no token for '$Kind' at $tokenPath to retire. Name the leaked one with -Token " +
+               "<32 hex> -- it is the last part of the leaked link.")
+    }
+    $prefix    = Get-BwjPageKeyPrefix -Kind $Kind -Token $retired
+    $isOnFile  = ($retired -ceq $onFile)
+    Write-Host "  retire   : every key under $prefix$(if ($isOnFile) { ' (the token on file)' } else { ' (not the token on file, which is left alone)' })" -ForegroundColor Yellow
+
+    Connect-BwjKv
+    $retireHeaders = @{ Authorization = "Bearer $apiToken" }
+    function Get-BwjRetireKeys {
+        # A listing that cannot be read throws rather than answering 'none': 'no keys left' is the one
+        # answer that would let a leaked token look retired.
+        if ($useWrangler) {
+            $listPath = Join-Path ([System.IO.Path]::GetTempPath()) ("bwj-page-list-" + [guid]::NewGuid().ToString('N') + '.tmp')
+            try {
+                $list = Invoke-BwjNpx -Arguments (Get-BwjPageWranglerListArgs -Prefix $prefix -NamespaceId $pages.NamespaceId) -StdoutPath $listPath
+                if ($list.ExitCode -ne 0) { throw "Listing $prefix through wrangler failed (exit $($list.ExitCode)): $($list.Text.Trim())" }
+                $names = ConvertFrom-BwjWranglerKeyList -Text ([System.IO.File]::ReadAllText($listPath, [System.Text.Encoding]::UTF8))
+            } finally {
+                Remove-Item -LiteralPath $listPath -Force -ErrorAction SilentlyContinue
+            }
+        } else {
+            $names = New-Object System.Collections.Generic.List[string]
+            $cursor = $null
+            do {
+                $uri = Get-BwjPageKvKeysApiUrl -AccountId $pages.AccountId -NamespaceId $pages.NamespaceId -Prefix $prefix -Cursor $cursor
+                try { $page = Invoke-RestMethod -Method Get -Uri $uri -Headers $retireHeaders -TimeoutSec 120 }
+                catch { throw "Listing $prefix through the KV API failed: $($_.Exception.Message)" }
+                $ok = $page.PSObject.Properties['success']
+                if ($null -eq $ok -or -not $ok.Value) { throw "Cloudflare refused the listing of ${prefix}." }
+                foreach ($item in @($page.result)) { $names.Add([string]$item.name) }
+                $cursor = $null
+                $info = $page.PSObject.Properties['result_info']
+                if ($null -ne $info -and $info.Value -and $info.Value.PSObject.Properties['cursor']) { $cursor = [string]$info.Value.cursor }
+            } while ($cursor)
+            $names = $names.ToArray()
+        }
+        return @(Select-BwjTokenKeys -Names @($names) -Kind $Kind -Token $retired)
+    }
+
+    $keys = @(Get-BwjRetireKeys)
+    # The index first: it is the page the leaked link opens on, so it stops serving soonest.
+    $keys = @($keys | Sort-Object { $_ -ne $prefix }, { $_ })
+    Write-Host "  keys     : $($keys.Count) under $prefix" -ForegroundColor DarkGray
+    foreach ($k in $keys) { Write-Host "             $k" -ForegroundColor DarkGray }
+
+    if ($DryRun) {
+        Write-Host ""
+        Write-Host "  -DryRun: nothing was deleted, and the token file is as it was." -ForegroundColor Yellow
+        exit 0
+    }
+
+    foreach ($k in $keys) {
+        if ($useWrangler) {
+            $del = Invoke-BwjNpx -Arguments (Get-BwjPageWranglerArgs -Action delete -Key $k -NamespaceId $pages.NamespaceId)
+            if ($del.ExitCode -ne 0) { throw "Deleting $k through wrangler failed (exit $($del.ExitCode)): $($del.Text.Trim()). Run -RetireToken again; it is safe to repeat." }
+        } else {
+            $valueUrl = Get-BwjPageKvApiUrl -AccountId $pages.AccountId -NamespaceId $pages.NamespaceId -Key $k
+            try { $del = Invoke-RestMethod -Method Delete -Uri $valueUrl -Headers $retireHeaders -TimeoutSec 120 }
+            catch { throw "Deleting $k through the KV API failed: $($_.Exception.Message). Run -RetireToken again; it is safe to repeat." }
+            $ok = $del.PSObject.Properties['success']
+            if ($null -eq $ok -or -not $ok.Value) { throw "Cloudflare refused to delete ${k}. Run -RetireToken again; it is safe to repeat." }
+        }
+        Write-Host "  deleted  : $k" -ForegroundColor DarkGray
+    }
+
+    # THE LISTING AGAIN IS THE PROOF, as the read-back is for a publish. KV listings are eventually
+    # consistent too, so a key that still shows is reported and the token file is KEPT: the run is
+    # repeated, and the next one starts from the same token.
+    $left = @(Get-BwjRetireKeys)
+    if ($left.Count) {
+        throw ("$($left.Count) key(s) still list under ${prefix}: " + ($left -join ', ') + ". KV listings can lag " +
+               "for up to a minute -- run -RetireToken again" + $(if (-not $isOnFile) { " -Token $retired" } else { '' }) +
+               ". The token file was left in place so it can.")
+    }
+    Write-Host "  verified : no key lists under $prefix any more" -ForegroundColor Green
+    if ($isOnFile) {
+        Remove-Item -LiteralPath $tokenPath -Force
+        Write-Host "  token    : $tokenPath (removed)" -ForegroundColor Yellow
+    }
+    Write-Host ""
+    Write-Host "  The leaked link answers 404 once each edge's copy expires -- up to a minute." -ForegroundColor DarkGray
+    if ($isOnFile) {
+        Write-Host "  Next: -InitToken for a fresh path, publish again, COMMIT the new token file, and send the" -ForegroundColor Cyan
+        Write-Host "  new link to whoever should still have it." -ForegroundColor Cyan
+    }
+    exit 0
+}
+
 if ($InitToken) {
     if (Test-Path -LiteralPath $tokenPath -PathType Leaf) {
         throw ("A path token for '$Kind' already exists at $tokenPath. This script does not replace " +
                "one: the URL carrying it has been sent, so a new token means every existing link " +
-               "404s. Delete the file deliberately if that is really what you want.")
+               "404s. If its link has leaked, -RetireToken deletes the keys under it and then this file; " +
+               "deleting the file alone leaves the old link serving.")
     }
     # THE GUARD ABOVE ASKS 'IS THERE A TOKEN HERE', WHICH IS THE WRONG QUESTION AFTER A FOLDER MOVE.
     # The page directory is derived and gitignored, so repointing the note root strands the token
@@ -362,71 +552,7 @@ if ($DryRun) {
 }
 
 # --- The upload, and the read-back that is the actual proof -------------------------------------------
-function Invoke-BwjNpx {
-    <#
-        Runs `npx --no-install <Arguments>` through cmd.exe, with CLOUDFLARE_ACCOUNT_ID set to the
-        seam's account for the child only. Returns ExitCode and Text (stdout + stderr). With
-        -StdoutPath, stdout is copied to that file AS BYTES and is not in Text: the read-back is
-        hashed, and a PowerShell pipe would decode it with the console code page first.
-
-        --no-install so a machine without wrangler gets a refusal rather than a download.
-
-        EVERY ARGUMENT IS QUOTED, AND '"' AND '%' ARE REFUSED. The line runs through cmd.exe, and a
-        path is a legal NTFS name that may carry & | < > ^ ( ) with no space in it. Quoting only on
-        whitespace let 'C:\a&cmd&b.html' run a second command (Sebastian, on this branch, exercised
-        against a real cmd.exe). Inside double quotes those characters are literal. Two are not:
-        '"' ends the quote, and '%' still expands a variable. Windows forbids '"' in a file name
-        anyway, so refusing both costs a path nobody has.
-    #>
-    param(
-        [Parameter(Mandatory)][string[]]$Arguments,
-        [string]$StdoutPath
-    )
-    foreach ($a in $Arguments) {
-        if ($a -match '["%]') {
-            throw "Refusing to hand '$a' to cmd.exe: a '`"' or '%' in an argument is not safe to quote there. Rename the file."
-        }
-    }
-    $quoted = ($Arguments | ForEach-Object { '"' + $_ + '"' }) -join ' '
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = $env:ComSpec
-    $psi.Arguments = '/d /s /c "npx --no-install ' + $quoted + '"'
-    $psi.UseShellExecute = $false
-    $psi.RedirectStandardOutput = $true
-    $psi.RedirectStandardError = $true
-    $psi.CreateNoWindow = $true
-    $psi.EnvironmentVariables['CLOUDFLARE_ACCOUNT_ID'] = $pages.AccountId
-    $p = [System.Diagnostics.Process]::Start($psi)
-    $errTask = $p.StandardError.ReadToEndAsync()
-    $text = ''
-    if ($StdoutPath) {
-        $fs = [System.IO.File]::Create($StdoutPath)
-        try { $p.StandardOutput.BaseStream.CopyTo($fs) } finally { $fs.Dispose() }
-    } else {
-        $text = $p.StandardOutput.ReadToEnd()
-    }
-    $p.WaitForExit()
-    return [pscustomobject]@{ ExitCode = $p.ExitCode; Text = ($text + $errTask.Result) }
-}
-
-$apiToken = $env:CLOUDFLARE_API_TOKEN
-$useWrangler = [string]::IsNullOrWhiteSpace($apiToken)
-if ($useWrangler) {
-    # A WRANGLER LOGIN TO THIS ACCOUNT IS THE SECOND ROUTE (issue #2569). It is neither a seam answer
-    # nor a file in the repo, which is what the rule about the token protects, and it is how a machine
-    # that deployed the worker is usually authenticated. The proof is the same: read the value back
-    # and compare SHA-256. Test-BwjWranglerSession explains why the account id, not the exit code,
-    # decides.
-    $who = Invoke-BwjNpx -Arguments @('wrangler', 'whoami')
-    if (-not (Test-BwjWranglerSession -WhoamiText $who.Text -ExitCode $who.ExitCode -AccountId $pages.AccountId)) {
-        throw ("CLOUDFLARE_API_TOKEN is not set, and '$npx wrangler whoami' shows no login to account " +
-               "$($pages.AccountId). Either route publishes: (1) CLOUDFLARE_API_TOKEN in the environment " +
-               "-- never a seam answer, never a file in the repo, because both of those are committed by " +
-               "construction; it needs 'Workers KV Storage: Edit' on this account and nothing more -- or " +
-               "(2) '$npx wrangler login' as a user who can reach this account.")
-    }
-    Write-Host "  auth     : wrangler login to account $($pages.AccountId) (CLOUDFLARE_API_TOKEN is not set)" -ForegroundColor DarkGray
-}
+Connect-BwjKv
 $headers = @{ Authorization = "Bearer $apiToken" }
 
 function Publish-BwjKvValue {
