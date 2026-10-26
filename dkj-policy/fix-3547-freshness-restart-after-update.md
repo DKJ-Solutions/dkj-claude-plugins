@@ -39,19 +39,43 @@
 
 ### PLAN
 
+Inbound #3547: `release-freshness-sessioncheck` said `[CURRENT]` after `update-plugins` had rewritten
+every install record inside a running process, followed by `/clear`, while an older payload still ran.
+Verified: the hook reads only the records, and a record names what the NEXT process loads. Repair: hold
+each relevant record's `lastUpdated` against the Claude Code process's start (`CLAUDE_PID`, else the
+nearest `claude(.exe)` ancestor) and answer `[RESTART]` ahead of every other verdict.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `release-freshness-sessioncheck.ps1`: the restart check, `[RESTART]` outranking `[MIXED]`, `[CURRENT]`
+  and `[BEHIND]`; record collection shared by the mix and restart checks; `-ProcessStartOverride` for tests.
+- [x] `release-freshness-sessioncheck.tests.ps1`: the measured shape, updated-before-start, restart over
+  mixed, and an absent or unparseable `lastUpdated`; every run pins the process start.
 
 ### TEST
 
+- [x] The suite: 45 asserts green.
+- [x] Live in this session without an override: `CLAUDE_PID` resolved, records older than the process
+  start, `[CURRENT]` as before -- no false restart.
+
 ### DEPLOY: fix/3547-freshness-restart-after-update
 
-**Score:**
+A session whose dkj plugins were updated after Claude Code started -- `update-plugins` inside the
+session, then `/clear` -- is no longer told it is up to date while older copies still run. The release
+check now says which plugins were updated after the start, and that only restarting Claude Code loads
+them ([#3547](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3547)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: a corrected session-start line; nothing a consumer runs or configures changes.
+
+**Score:** N/A
 
 #### Pull Request
+
+release-freshness-sessioncheck: say [RESTART] when install records were updated after the process started
+
+Plugins: dkj-policy
 

@@ -95,6 +95,7 @@ function New-Fixture {
         foreach ($rec in $Records) {
             $entry = [ordered]@{ scope = $rec.Scope; version = $rec.Version; installPath = "C:\\x\\$($rec.Version)" }
             if ($rec.Scope -ne 'user') { $entry.projectPath = $repo }
+            if ($rec.LastUpdated) { $entry.lastUpdated = $rec.LastUpdated }
             if (-not $plugins.Contains($rec.Id)) { $plugins[$rec.Id] = @() }
             $plugins[$rec.Id] += [pscustomobject]$entry
         }
@@ -105,11 +106,14 @@ function New-Fixture {
 }
 
 function Invoke-Hook {
-    <# Runs the hook in a child powershell. -Payload is written to its stdin (a session id). #>
-    param([Parameter(Mandatory = $true)]$Fixture, [string]$Payload = '')
+    <# Runs the hook in a child powershell. -Payload is written to its stdin (a session id).
+       -ProcessStart is ALWAYS pinned: unpinned, the child would read the CLAUDE_PID of whatever session
+       runs this suite, and the restart check (#3547) would turn on that session's start time. #>
+    param([Parameter(Mandatory = $true)]$Fixture, [string]$Payload = '', [string]$ProcessStart = '2026-10-26T20:00:00Z')
     $hookArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $Hook,
                   '-PluginJsonOverride', $Fixture.PluginJson, '-CloneOverride', $Fixture.Clone,
-                  '-CacheRootOverride', $Fixture.Cache, '-RootOverride', $Fixture.Repo, '-UserHomeOverride', $Fixture.Home)
+                  '-CacheRootOverride', $Fixture.Cache, '-RootOverride', $Fixture.Repo, '-UserHomeOverride', $Fixture.Home,
+                  '-ProcessStartOverride', $ProcessStart)
     if ($Payload) {
         $out = $Payload | & powershell @hookArgs 2>&1
     } else {
@@ -253,6 +257,40 @@ $f = New-Fixture -Label hostile -Tags @('v5.27.0') -Running '5.27.0' -Enabled $h
     @{ Id = $hostile[2]; Scope = 'project'; Version = '5.20.0' })
 $r = Invoke-Hook -Fixture $f
 Assert-True ($r.Code -eq 0 -and $r.Out -match '\[CURRENT\]' -and $r.Out -notmatch 'Ignore|skipped') 'ids that are not a slug of exactly this marketplace are not part of the mix, and nothing throws'
+
+# --- records updated after the process started (#3547) ---------------------------------------------
+# The measured shape: update-plugins moved both records to the newest release INSIDE a process that had
+# loaded an older payload, then /clear. Every record agrees, so without the restart check this is [CURRENT].
+$f = New-Fixture -Label restart -Tags @('v5.23.0', 'v5.33.0') -Running '5.33.0' -Enabled $ids -Records @(
+    @{ Id = "dkj-policy@$mp"; Scope = 'project'; Version = '5.33.0'; LastUpdated = '2026-10-26T21:30:59.000Z' },
+    @{ Id = "dkj-solutions@$mp"; Scope = 'project'; Version = '5.33.0'; LastUpdated = '2026-10-26T21:31:00.000Z' },
+    @{ Id = "other@elsewhere"; Scope = 'project'; Version = '1.0.0'; LastUpdated = '2026-10-26T21:40:00.000Z' })
+$r = Invoke-Hook -Fixture $f -ProcessStart '2026-10-26T20:22:49Z'
+$json = $null
+try { $json = $r.Out | ConvertFrom-Json } catch { $json = $null }
+Assert-True ($r.Code -eq 0 -and $null -ne $json) 'restart -- exit 0 and one JSON object'
+if ($json) {
+    $m = [string]$json.systemMessage
+    Assert-True ($m -notmatch 'up to date') 'restart -- never confirms "up to date" off records rewritten after the process started'
+    Assert-True ($m -match 'dkj-policy, dkj-solutions' -and $m -match 'Restart Claude Code' -and $m -match '/clear is not enough') 'restart -- names the updated plugins and says a restart, not /clear, loads them'
+    Assert-True ($m -notmatch 'other') 'restart -- a plugin of another marketplace is not named'
+    Assert-True ([string]$json.hookSpecificOutput.additionalContext -match '\[RESTART\]') 'restart -- the model is told under a marker'
+}
+
+$r = Invoke-Hook -Fixture $f -ProcessStart '2026-10-26T22:00:00Z'
+Assert-True ($r.Out -match '\[CURRENT\]' -and $r.Out -notmatch 'RESTART') 'records updated BEFORE the process started -- the ordinary verdict stands'
+
+$f = New-Fixture -Label restartmixed -Tags @('v5.33.0') -Running '5.33.0' -Enabled $ids -Records @(
+    @{ Id = "dkj-policy@$mp"; Scope = 'user'; Version = '5.33.0'; LastUpdated = '2026-10-26T21:30:59Z' },
+    @{ Id = "dkj-solutions@$mp"; Scope = 'project'; Version = '5.23.0'; LastUpdated = '2026-10-01T08:00:00Z' })
+$r = Invoke-Hook -Fixture $f -ProcessStart '2026-10-26T20:22:49Z'
+Assert-True ($r.Out -match '\[RESTART\]' -and $r.Out -notmatch 'MIXED' -and $r.Out -match 'dkj-policy' -and $r.Out -notmatch 'dkj-solutions\)') 'restart outranks mixed, and names only the plugin whose record moved'
+
+$f = New-Fixture -Label nostamp -Tags @('v5.33.0') -Running '5.33.0' -Enabled $ids -Records @(
+    @{ Id = "dkj-policy@$mp"; Scope = 'project'; Version = '5.33.0' },
+    @{ Id = "dkj-solutions@$mp"; Scope = 'project'; Version = '5.33.0'; LastUpdated = 'not a time' })
+$r = Invoke-Hook -Fixture $f
+Assert-True ($r.Code -eq 0 -and $r.Out -match '\[CURRENT\]') 'a record with no or an unparseable lastUpdated -- nothing is guessed, the ordinary verdict stands'
 
 # --- conventions ----------------------------------------------------------------------------------
 $raw = Get-Content -LiteralPath $Hook -Raw
