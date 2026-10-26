@@ -49,14 +49,20 @@
 # two lists agree, which is the only thing that can hold them together.
 $script:BwjPageKinds = @(
     [pscustomobject]@{
-        Kind = 'notes'
-        What = "the release notes, built by dkj-policy's build-release-notes-page.ps1 (without -Worker)"
+        Kind  = 'notes'
+        What  = "the release notes, built by dkj-policy's build-release-notes-page.ps1 (without -Worker)"
+        Paged = $true
     },
     [pscustomobject]@{
-        Kind = 'backlog'
-        What = 'the minor backlog -- the open issues carrying the reach label, with their Asana tasks'
+        Kind  = 'backlog'
+        What  = 'the minor backlog -- the open issues carrying the reach label, with their Asana tasks'
+        Paged = $false
     }
 )
+
+# The address a hub serves the release notes at, and so the one the builder's links carry by default
+# (its own -LinkBase). publish-page maps it onto the worker's route -- see Convert-BwjPageLinks.
+$script:BwjNotesLinkBase = '/release-notes'
 
 # Cloudflare's own value ceiling for a KV entry. Stated rather than discovered: the release-notes
 # page measured 352 KB when it was last built in the source repo, so a page that approaches this is
@@ -78,6 +84,31 @@ function Test-BwjPageKind {
     param([string]$Kind)
     if ([string]::IsNullOrWhiteSpace($Kind)) { return $false }
     return ($script:BwjPageKinds.Kind -ccontains $Kind)
+}
+
+function Test-BwjPageKindPaged {
+    <#
+        Is this kind a SET of pages -- an index plus one page per release -- rather than one page (#3500)?
+        KEPT IN STEP WITH the worker's PAGED Set by hand, and the suite asserts the two agree.
+    #>
+    param([string]$Kind)
+    return [bool](@($script:BwjPageKinds | Where-Object { $_.Kind -ceq $Kind -and $_.Paged }).Count)
+}
+
+function Test-BwjPageRelease {
+    <#
+        Is this a release page's name -- 'v' and a full x.y.z? The worker's route also takes 'v2.39' and
+        reads it as 'v2.39.0', but a key is only ever written under the full version, because that is the
+        address the builder links to.
+    #>
+    param([string]$Release)
+    if ([string]::IsNullOrWhiteSpace($Release)) { return $false }
+    return ($Release -cmatch '^v\d{1,6}\.\d{1,6}\.\d{1,6}$')
+}
+
+function Get-BwjNotesLinkBase {
+    <# The address the release-notes builder links to by default, '/release-notes'. #>
+    return $script:BwjNotesLinkBase
 }
 
 function Test-BwjPageToken {
@@ -161,7 +192,10 @@ function Get-BwjPageKvKey {
     #>
     param(
         [Parameter(Mandatory)][string]$Kind,
-        [Parameter(Mandatory)][string]$Token
+        [Parameter(Mandatory)][string]$Token,
+        # One release's own page in a paged kind (#3500): the key becomes '<kind>:<token>/v<x.y.z>', the
+        # path the worker reads it under.
+        [string]$Release
     )
     if (-not (Test-BwjPageKind -Kind $Kind)) {
         throw ("'$Kind' is not a kind this worker routes. The kinds are: " +
@@ -173,7 +207,62 @@ function Get-BwjPageKvKey {
         throw ("The path token is not 32 lowercase hex characters: '$Token'. The worker's route " +
                "matches nothing else, so a token of any other shape is a page no link can reach.")
     }
-    return "${Kind}:${Token}"
+    if (-not $Release) { return "${Kind}:${Token}" }
+    if (-not (Test-BwjPageKindPaged -Kind $Kind)) {
+        throw "'$Kind' is one page, not a set: the worker serves no '/$Release' under it."
+    }
+    if (-not (Test-BwjPageRelease -Release $Release)) {
+        throw "'$Release' is not a release page's name -- 'v' and a full x.y.z, the address the builder links to."
+    }
+    return "${Kind}:${Token}/${Release}"
+}
+
+function Convert-BwjPageLinks {
+    <#
+        Pure: a built release-notes page with its links moved from the address a hub serves it at onto
+        the worker's route -- href="/release-notes" and href="/release-notes/v<x>" become
+        href="/notes/<token>" and href="/notes/<token>/v<x>" (#3500).
+
+        WHY HERE AND NOT IN THE BUILDER. The builder already takes -LinkBase, but its output directory is
+        the one the hub serves '/release-notes' from, and the hub rebuilds it only when an input is newer.
+        A build for the worker's address would leave the hub's cards pointing at '/notes/<token>' until the
+        next release. So the page is built once, for the hub, and the publish maps the one address it
+        knows onto the route it holds the token for. Only the attribute form the builder writes is
+        touched; a note body's own links are rendered from data on the client and never carry it.
+    #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Html,
+        [Parameter(Mandatory)][string]$FromBase,
+        [Parameter(Mandatory)][string]$ToBase
+    )
+    $from = [regex]::Escape($FromBase.TrimEnd('/'))
+    $to   = $ToBase.TrimEnd('/')
+    return [regex]::Replace($Html, ('href="' + $from + '(?=["/])'), { param($m) 'href="' + $to })
+}
+
+function Find-BwjDeadPageLinks {
+    <#
+        Pure: every site-absolute href in a page that the worker would NOT serve once this set is
+        published -- anything outside the route, or a release page the set does not carry. Empty means
+        every card leads somewhere (#3500, where every card led to a 404 while the publish reported
+        success). A link to another site, a fragment or a relative link is not this function's business.
+    #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Html,
+        [Parameter(Mandatory)][string]$Route,
+        [AllowEmptyCollection()][string[]]$Releases = @()
+    )
+    $route = $Route.TrimEnd('/')
+    $dead = New-Object System.Collections.Generic.List[string]
+    foreach ($m in [regex]::Matches($Html, 'href="(/(?!/)[^"]*)"')) {
+        $href = $m.Groups[1].Value.TrimEnd('/')
+        if ($href -ceq $route) { continue }
+        $page = [regex]::Match($href, '^' + [regex]::Escape($route) + '/(v\d+\.\d+\.\d+)$')
+        if ($page.Success -and ($Releases -ccontains $page.Groups[1].Value)) { continue }
+        if (-not $dead.Contains($m.Groups[1].Value)) { $dead.Add($m.Groups[1].Value) }
+    }
+    # Unrolled, so an empty answer is no output at all: wrap the call in @( ).
+    return $dead.ToArray()
 }
 
 function Get-BwjPageUrl {
@@ -261,7 +350,7 @@ function Get-BwjPageWranglerArgs {
         [Parameter(Mandatory)][string]$NamespaceId,
         [string]$Path
     )
-    if ($Key -cnotmatch '^[a-z]+:[0-9a-f]{32}$') { throw "Not a page key this lib builds: '$Key'." }
+    if ($Key -cnotmatch '^[a-z]+:[0-9a-f]{32}(/v\d{1,6}\.\d{1,6}\.\d{1,6})?$') { throw "Not a page key this lib builds: '$Key'." }
     if ($NamespaceId -cnotmatch '^[0-9a-f]{32}$') { throw "Not a Cloudflare id: '$NamespaceId'." }
     $a = @('wrangler', 'kv', 'key', $Action, $Key)
     if ($Action -eq 'put') {

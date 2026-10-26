@@ -10,8 +10,8 @@
 // store re-uploads byte-identical code and cannot touch what the other store published -- which is
 // what makes "both repos, the same worker" a true statement rather than a race.
 //
-// THE ROUTE IS THE ONLY LOCK, exactly as it is on dkj-policy's single-repo worker: /<kind>/<32 hex>,
-// no login, anyone with the link can read. That is defensible here for a narrower reason than it is
+// THE ROUTE IS THE ONLY LOCK, exactly as it is on dkj-policy's single-repo worker: /<kind>/<32 hex>
+// (and /<kind>/<32 hex>/v<x.y.z> for one release's own page, #3500), no login, anyone with the link can read. That is defensible here for a narrower reason than it is
 // there. dkj-policy's notes are public in a public repository, so the path guards the route and not
 // the content; a BWJ store repo is PRIVATE, so here the path is guarding content that is not public
 // anywhere else. Publish only what is safe in the hands of whoever receives the link.
@@ -30,7 +30,12 @@
 // binds BWJ_PAGES to the KV namespace this account holds.
 
 const KINDS = new Set(["notes", "backlog"]);
-const ROUTE = /^\/([a-z]+)\/([0-9a-f]{32})\/?$/;
+// THE KINDS THAT ARE A SET OF PAGES rather than one (#3500). The release notes are an index of cards
+// plus a page per release, and the index links each card to /<kind>/<token>/v<x.y.z>. Every page is a
+// key of its own -- '<kind>:<token>/v<x.y.z>' beside the index's '<kind>:<token>' -- so a release page
+// is fetched as one value, exactly like the index, and nothing here assembles a page.
+const PAGED = new Set(["notes"]);
+const ROUTE = /^\/([a-z]+)\/([0-9a-f]{32})(?:\/(v\d{1,6}\.\d{1,6}(?:\.\d{1,6})?))?\/?$/;
 
 const HEADERS = {
   "content-type": "text/html; charset=utf-8",
@@ -63,15 +68,19 @@ export default {
     const match = ROUTE.exec(new URL(request.url).pathname);
     if (!match) return notFound();
 
-    const [, kind, token] = match;
+    const [, kind, token, release] = match;
     if (!KINDS.has(kind)) return notFound();
+    if (release && !PAGED.has(kind)) return notFound();
 
     // The binding is optional at the type level and required in practice: a worker deployed with a
     // wrangler.toml that lost its kv_namespaces block would otherwise throw on every request, and a
     // 500 says something a 404 does not.
     if (!env || !env.BWJ_PAGES) return notFound();
 
-    const html = await env.BWJ_PAGES.get(`${kind}:${token}`, { type: "text" });
+    // A version typed as the page shows it ('v2.39') reaches the page whose address carries '.0' --
+    // the same courtesy dkj-policy's own worker extends.
+    const page = !release ? "" : /^v\d+\.\d+$/.test(release) ? `/${release}.0` : `/${release}`;
+    const html = await env.BWJ_PAGES.get(`${kind}:${token}${page}`, { type: "text" });
     if (html === null) return notFound();
 
     return new Response(request.method === "HEAD" ? null : html, { headers: HEADERS });

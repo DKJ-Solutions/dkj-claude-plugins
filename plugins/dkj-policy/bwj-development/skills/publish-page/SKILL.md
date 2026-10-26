@@ -51,8 +51,25 @@ afterwards ([#2913](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2
 | `notes` | the release notes for a reader outside the development work | `dkj-policy`'s `build-release-notes-page.ps1`, run **without** `-Worker` — it leaves `release-notes.html` in the page directory |
 | `backlog` | the minor backlog — the open issues carrying the reach label, shown with their mirrored Asana tasks' colleague-facing text | [`build-backlog-page`](../build-backlog-page/SKILL.md) (issue #1979) — it leaves `minor-backlog.html` in the page directory |
 
+**The notes are a set of pages, not one**
+([#3500](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3500)). The builder writes an
+index of cards and, in the `release-notes/` folder beside it, one page per release, and every card
+links to its release's own page. So `-Kind notes` uploads the whole set: each release page under
+`notes:<token>/v<x.y.z>` and the index **last** under `notes:<token>`, each read back and compared.
+The builder's links carry the hub's address (`/release-notes/v<x.y.z>`), and the publish moves them
+onto the worker's route (`/notes/<token>/v<x.y.z>`) in its own copy. The page is not rebuilt for the
+worker, because the hub serves the same folder. **Before anything is uploaded, every site-absolute link
+in the set has to be one the worker will serve**, and a link that is not stops the run. That is the
+measured failure: an index whose every card led to a 404. Two costs to know about. Through a wrangler
+login every page is two `npx` calls, so a long history takes minutes where the API token takes seconds.
+A release taken out of the history keeps its old key, reachable only by whoever holds that exact link.
+
+**A worker deployed before #3500 serves the index and 404s every release page.** Redeploy it once
+(`-EmitWorker`, then `wrangler deploy`, as in the setup below) before the first publish of a set.
+
 Adding a third kind means adding it in **both** `scripts/lib/page-publish-rules.ps1` and
-`worker/bwj-pages-worker.js`, then redeploying. A kind known to only one of the two publishes
+`worker/bwj-pages-worker.js` (and, for a set of pages, in both `Paged` and the worker's `PAGED`), then
+redeploying. A kind known to only one of the two publishes
 successfully to a key nothing ever serves — a green run and a 404 somebody else finds. Nothing but
 the suite holds those two files together, which is why it asserts they agree.
 
@@ -201,7 +218,8 @@ Two limits it does not pretend to cover:
 | parameter | what it does |
 |---|---|
 | `-Kind <notes\|backlog>` | which page. Defaults to `notes` |
-| `-Html <path>` | the file to publish, instead of the kind's own default in the page directory |
+| `-Html <path>` | the file to publish, instead of the kind's own default in the page directory; for `notes`, the release pages are read from the folder of the same name beside it |
+| `-LinkBase <path>` | for `notes`: the address the build's links carry, which the publish maps onto the worker's route. Defaults to `/release-notes`, the builder's own default |
 | `-InitToken` | create this kind's path token when there is none; refuses to replace one |
 | `-EmitWorker` | write `worker.js` and (only when absent) `wrangler.toml` for the one-time deploy |
 | `-ShowUrl` | print this kind's link and stop |

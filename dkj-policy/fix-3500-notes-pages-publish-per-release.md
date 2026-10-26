@@ -39,21 +39,42 @@
 
 ### PLAN
 
+Issue #3500: the builder's per-release pages could not be published. The design choice the issue left
+to the plugin: the shared worker and `publish-page` learn the set (one KV key per release page), rather
+than a single-file builder mode, because the owner chose a page per release on October 25.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The worker routes `/<kind>/<token>/v<x.y.z>` for a paged kind and reads `<kind>:<token>/v<x.y.z>`
+- [x] `page-publish-rules.ps1`: `Paged`, release keys, `Convert-BwjPageLinks`, `Find-BwjDeadPageLinks`
+- [x] `publish-page.ps1` uploads the whole notes set, pages first and index last, after a dead-link guard
+- [x] The `publish-page` skill page describes the set and the one-time redeploy
 
 ### TEST
 
+- [x] `bwj-page-publish.tests.ps1`: route, the PAGED seam, keys, link mapping, dead links, a set through
+      the wrangler shim, and the real builder's output against the worker's own route (153 pass)
+
 ### DEPLOY: fix/3500-notes-pages-publish-per-release
 
-**Score:**
+`publish-page -Kind notes` now publishes the release notes as the set the builder writes: the index of
+cards and one page per release, each under a KV key of its own (`notes:<token>/v<x.y.z>`), and the
+shared BWJ pages worker serves those pages at `/notes/<token>/v<x.y.z>`
+([#3500](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3500)). The builder's
+`/release-notes/...` links are mapped onto the worker's route in the published copy. A link the
+published set would not serve stops the run before anything is uploaded.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Both BWJ stores can publish their release notes again. Until now every card on a freshly built page led
+to a 404, so neither store had published this week's release. **Redeploy the shared worker once**
+(`publish-page.ps1 -EmitWorker`, then `wrangler deploy`) before the first publish: a worker deployed
+before this release serves the index and 404s every release page.
+
+**Score:** 4
 
 #### Pull Request
 
 publish-page and the shared worker serve the per-release notes pages
-
