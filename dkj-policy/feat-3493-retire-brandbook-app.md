@@ -70,7 +70,8 @@ A house-style page is a visible result, so this branch stops for the owner's loo
 
 - [x] `dev-pages` (355), `connector-dashboard` (226), `ci-suite-selection-lib` (49), `affected-suites` (194) green
 - [x] `check-house-style` green over the tree, the specimens page included
-- [ ] The owner's look at `/plugins/dkj-solutions/house-style` on the hub, at full width and at 360px
+- [x] The owner's look at `/plugins/dkj-solutions/house-style` on the hub, at full width and at 360px (Maikel,
+  October 26, 2026: seen and approved)
 
 ### DEPLOY: feat/3493-retire-brandbook-app
 
