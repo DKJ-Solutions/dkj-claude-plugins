@@ -2,39 +2,6 @@
     "machine":  "9a3c5423",
     "runs":  [
                  {
-                     "id":  "20261023-112047-da87",
-                     "label":  "CSS comment change (reconstructed)",
-                     "start":  "2026-10-23T10:38:30.000Z",
-                     "end":  "2026-10-23T11:20:54.000Z",
-                     "sessions":  2,
-                     "phases":  [
-                                    {
-                                        "name":  "Ship: CI wait, merge, fold",
-                                        "seconds":  2335.231
-                                    },
-                                    {
-                                        "name":  "Local gates and tests",
-                                        "seconds":  11.751
-                                    },
-                                    {
-                                        "name":  "Branch and claim",
-                                        "seconds":  8.101
-                                    },
-                                    {
-                                        "name":  "Other tool calls",
-                                        "seconds":  29.791
-                                    },
-                                    {
-                                        "name":  "Claude thinking and writing",
-                                        "seconds":  134.352
-                                    },
-                                    {
-                                        "name":  "Waiting on you",
-                                        "seconds":  24.774
-                                    }
-                                ]
-                 },
-                 {
                      "id":  "20261023-152237-c1a2",
                      "label":  "CSS comment, start to end",
                      "start":  "2026-10-23T15:22:37.328Z",
