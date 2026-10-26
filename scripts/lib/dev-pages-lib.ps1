@@ -1,9 +1,8 @@
 <#
 .SYNOPSIS
     The hub of this repo's dev server -- the home page on '/', which holds what was About this repo (#3270;
-    '/about' sends there since October 22, 2026) -- and its own pages: the Connectors and Specialists pages (the
-    product's since October 22, 2026: its dev server links and relays them, so the hub lists neither) and the DKJ
-    repos page, the product's too. The Test gate (#3097), the Stopwatch (#3315) and the Logbook (#3364) began here
+    '/about' sends there since October 22, 2026) -- and its own pages: Repository, Connectors, Specialists and DKJ
+    repos, all linked from the home page since the product port went with the brandbook app (#3493). The Test gate (#3097), the Stopwatch (#3315) and the Logbook (#3364) began here
     and are the dkj-policy plugin's since #3470, so every repo's hub has them: this hub links them with the other
     general pages (Get-GeneralPages) and still serves them itself, from the plugin's libs in this tree, the Test gate
     with this checkout's suite selection, which only this repo has. No I/O -- the server
@@ -25,13 +24,12 @@
     one every repo has. This file dot-sources the plugin's general-pages-lib.ps1 for the page shell, the number formats and
     the tile and bar helpers this hub's own pages share with those pages, so nothing is written twice.
 
-    NO BRAND BOOK HERE. The brand book is this repo's product: the brandbook/ app's Vite dev server, which
-    the dev-preview hook starts beside this hub on a port of its own (#3283) and which shows the tree as it
-    is edited. The hub served a build of the same app at /brandbook and linked it from its home page, so
-    one brand book was visible on two ports; the owner put it on the product port alone (October 22, 2026).
-    So the hub does not serve it, and links it only as the product: its first card is the product port,
-    read from the hook's state file, as on the plugin's hub every consumer runs (#3468). Every other
-    DKJ-Solutions repo still gets the brand book from the dkj-solutions plugin, through the general server.
+    NO BRAND BOOK, AND NO HOUSE STYLE PAGE OF ITS OWN (#3493). The brandbook/ app was this repo's product until
+    the owner retired it (October 26, 2026), so that the house style is the one place DKJ styling lives. The house
+    style is the dkj-solutions plugin's product, not this repo's page (Maikel, October 26, 2026), so its specimens
+    ship beside the stylesheet (assets/house-style/specimens.html) and are shown under Plugins, on that plugin's
+    page (plugins-page-lib.ps1), here as on every hub that enables it. With the app went the product port, so the
+    pages it linked and relayed (Connectors, Specialists, DKJ repos) are this hub's again.
 
     ONE SHELL FOR EVERY PAGE BELOW THE HUB. Each page opens with the house breadcrumb bar, its trail
     starting at the hub on '/' and ending at the page itself, unlinked ("Every page: the breadcrumb
@@ -40,8 +38,7 @@
     Format-GeneralPageHtml.
 
 
-    THE DKJ REPOS PAGE (#3231) is built here and is the product's, like Connectors and Specialists: the product's
-    root page links it and its dev server relays it (October 22, 2026). Every DKJ-Solutions repo on GitHub, its
+    THE DKJ REPOS PAGE (#3231) is built here and linked from the hub, like Connectors and Specialists. Every DKJ-Solutions repo on GitHub, its
     checkout beside this repo, and the command that opens Claude Code there. Find-DkjCheckouts is the one function in this file that reads the disk.
 
     EVERY VALUE THAT REACHES THE PAGE IS ESCAPED, through connector-dashboard-lib's ConvertTo-DashboardText
@@ -54,8 +51,6 @@
 # The plugin's lib: this repo is its source, so it reads it from its own tree -- dkj-policy's page shell and
 # General card (#3198).
 . (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\general-pages-lib.ps1')
-# And its believe-rule for a state-file url (Test-RepoHubLocalUrl), for the Product card (#3468). No I/O.
-. (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\dev-preview-rules.ps1')
 # The Test gate page, every repo's since #3470: the plugin's lib, which this repo's hub serves with its selection.
 . (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\test-gate-lib.ps1')
 
@@ -65,12 +60,11 @@ $script:RepoHubOwnGeneralRoutes = @('/test-gate', '/stopwatch', '/logbook', '/pl
 
 function Format-DevPageHtml {
     <#
-        The whole page around -Body, for this repo's own pages (Specialists, DKJ repos): the plugin's page shell with
-        this repo's site header and title, its theme key (the general pages' own, so a theme picked on one page
-        holds on every page this server serves, the general pages it relays included, #3168) and the Repo
-        hub crumb on '/'. -BrandTag is the word after the name in the header: 'hub' for the hub's own
-        pages, 'product' for the pages the product port relays (Specialists, DKJ repos), so it names the port
-        they are seen on.
+        The whole page around -Body, for this repo's own pages (Repository, Specialists, DKJ repos): the
+        plugin's page shell with this repo's site header and title, its theme key (the general pages' own, so a
+        theme picked on one page holds on every page this server serves, the general pages it relays included,
+        #3168) and the Repo hub crumb on '/'. The header's tag is 'hub' on every one: the 'product' tag the
+        relayed pages carried went with the product port (#3493).
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Title,
@@ -79,25 +73,28 @@ function Format-DevPageHtml {
         [AllowEmptyString()][string]$Style = '',
         [AllowEmptyString()][string]$FooterNote = '',
         [string]$ThemeKey = 'general-pages',
-        [ValidateSet('hub', 'product')][string]$BrandTag = 'hub',
         [switch]$Bare,
         [AllowEmptyCollection()][object[]]$ParentCrumbs = @()
     )
     # -Bare: no h1 or lead above the body, the general banner still on top (Format-GeneralPageHtml's own switch, #3356), for a page that opens on its content.
     return Format-GeneralPageHtml -Title $Title -Lead $Lead -Body $Body -Style $Style -FooterNote $FooterNote -ThemeKey $ThemeKey `
-        -Brand 'dkj-claude-plugins' -BrandTag $BrandTag -SiteName 'dkj-claude-plugins' -HubHref '/' -Bare:$Bare -ParentCrumbs $ParentCrumbs
+        -Brand 'dkj-claude-plugins' -BrandTag 'hub' -SiteName 'dkj-claude-plugins' -HubHref '/' -Bare:$Bare -ParentCrumbs $ParentCrumbs
 }
 
 function Get-RepoHubPages {
     <#
         The pages the hub links in its "This repo" card, in the order it lists them: each a route on this
         server, its label the page's own name as its breadcrumb reads it, and one line on what it shows. The
-        general pages are the plugin's (Get-GeneralPages), on a server of their own. Connectors and Specialists
-        are built here and are the product's pages (October 22, 2026): its root page links them, so they are
-        not listed here.
+        general pages are the plugin's (Get-GeneralPages), on a server of their own. Connectors, Specialists and
+        DKJ repos were the product port's from October 22, 2026 until that port went with the brandbook app
+        (#3493). The house style is no page of this hub: it is the dkj-solutions plugin's product, so its specimens
+        are under Plugins, on /plugins/dkj-solutions/house-style, as on every hub that enables that plugin.
     #>
     @(
         @{ Href = '/repository';  Label = 'Repository';  Sub = 'The GitHub repo: its facts, its open issues and its pull requests'; Icon = 'repository' }
+        @{ Href = '/connectors';  Label = 'Connectors';  Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine'; Icon = 'connectors' }
+        @{ Href = '/specialists'; Label = 'Specialists'; Sub = 'Every specialist the plugins ship, and how much context each one costs'; Icon = 'specialists' }
+        @{ Href = '/dkj-repos';   Label = 'DKJ repos';   Sub = 'Every DKJ-Solutions repo: its checkout on this machine, its open issues, and a session to open there'; Icon = 'dkj-repos' }
     )
 }
 
@@ -136,19 +133,18 @@ function Format-RepoGitHubPageHtml {
         -Lead 'The GitHub repo this hub serves: its facts, its open issues and its pull requests.' `
         -FooterNote 'The facts are this repo''s own; Issues is the dkj-policy general pages server''s page, relayed here.'
 }
+
 function Format-RepoHubHtml {
     <#
         The repo's home page on '/' (#3270): under the site header and the bar, everything that was About this
         repo (Format-RepoAboutBodyHtml: the Pages block and the facts) and its footer note; '/about' now sends
-        here (owner, October 22, 2026). The brand book, Connectors, Specialists and DKJ repos are the product
-        port's, so they are not here -- but the product port itself is, as the first card (#3468). The parameters
-        are Format-RepoAboutBodyHtml's.
+        here (owner, October 22, 2026). This repo states no product since #3493, so no Product card leads the
+        pages. The parameters are Format-RepoAboutBodyHtml's.
     #>
     param(
         [AllowEmptyCollection()][object[]]$Pages = @(Get-RepoHubPages),
         [AllowEmptyString()][string]$SourceCommit = '',
-        [AllowEmptyString()][string]$GeneralPagesUrl = '',
-        [AllowEmptyString()][string]$ProductUrl = ''
+        [AllowEmptyString()][string]$GeneralPagesUrl = ''
     )
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')
@@ -165,7 +161,7 @@ function Format-RepoHubHtml {
     [void]$sb.AppendLine('<body>')
     [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName 'dkj-claude-plugins' -Brand 'dkj-claude-plugins' -BrandTag 'hub' -Lead 'The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.'))
     # Everything that was About this repo, on the home page itself (owner, October 22, 2026).
-    [void]$sb.Append((Format-RepoAboutBodyHtml -Pages $Pages -SourceCommit $SourceCommit -GeneralPagesUrl $GeneralPagesUrl -ProductUrl $ProductUrl))
+    [void]$sb.Append((Format-RepoAboutBodyHtml -Pages $Pages -SourceCommit $SourceCommit -GeneralPagesUrl $GeneralPagesUrl))
     [void]$sb.AppendLine('<p class="footer-note">Each page names its own source. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
@@ -180,16 +176,13 @@ function Format-RepoAboutBodyHtml {
         block: every page a card of its own, this repo's then the general ones but Issues, with no heading above
         them. The facts and Issues are the Repository page's (Format-RepoGitHubPageHtml). -Pages is
         Get-RepoHubPages' shape; -SourceCommit is unused here and kept for the callers; -GeneralPagesUrl is the general pages server's base url when it answers, or
-        empty (one card then says it is not running). -ProductUrl is the product port's url from the state file
-        the hook writes (the brand book's dev server, #3468), believed only as a plain loopback url
-        (Test-RepoHubLocalUrl, the plugin hub's own rule), so the first card links it as the plugin's hub does;
-        empty, that card says the server is not running, since this repo always states one.
+        empty (one card then says it is not running). The Product card that led the block (#3468) went with the
+        product port (#3493).
     #>
     param(
         [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Pages,
         [AllowEmptyString()][string]$SourceCommit = '',
-        [AllowEmptyString()][string]$GeneralPagesUrl = '',
-        [AllowEmptyString()][string]$ProductUrl = ''
+        [AllowEmptyString()][string]$GeneralPagesUrl = ''
     )
     $sb = New-Object System.Text.StringBuilder
     # Pages: every page a card of its own, three to a row (.grid-3), with no heading above them (owner, October 22,
@@ -200,12 +193,6 @@ function Format-RepoAboutBodyHtml {
     $pageCard = { param($p) Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon }
     $general = $GeneralPagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z'
     [void]$sb.AppendLine('<div class="grid-3">')
-    # The product first, as on the plugin's hub (#3468): the card and its not-running line are that hub's.
-    if (Test-RepoHubLocalUrl $ProductUrl) {
-        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href $ProductUrl -Label 'Product' -Sub ($ProductUrl + ' -- the server this repo states in Get-DevPreview') -Icon 'product'))
-    } else {
-        [void]$sb.AppendLine('<section class="card"><p class="msg" role="status">This repo''s own server is not running. The session-start line says why, and it is started again at the next session start.</p></section>')
-    }
     foreach ($p in @($Pages)) { [void]$sb.AppendLine((& $pageCard $p)) }
     if ($general) {
         # Issues is the Repository page's (owner, October 22, 2026), so the home page links the other three.
@@ -366,7 +353,7 @@ function Format-SpecialistsPageHtml {
     [void]$body.AppendLine('</section>')
     [void]$body.AppendLine('</div>')
     $factor = $CharsPerToken.ToString('0.00', $inv)
-    return Format-DevPageHtml -Title 'Specialists' -BrandTag 'product' -Style $script:DevBarStyle -Body $body.ToString() `
+    return Format-DevPageHtml -Title 'Specialists' -Style $script:DevBarStyle -Body $body.ToString() `
         -Lead 'Every specialist the dkj-subagents plugins ship, and how much context each one brings along: what every session pays for it, what it costs when it is called, and what its manual and lens add.' `
         -FooterNote ('Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Bytes are measured (hover a cell); tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.')
 }
@@ -549,7 +536,7 @@ function Format-DkjReposPageHtml {
         '.dr-sessions code { flex: 1 1 24ch; font-size: var(--text-xs); overflow-wrap: anywhere; }'
     ) -join "`n"
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
-    return Format-DevPageHtml -Title 'DKJ repos' -BrandTag 'product' -Style $style -Body $body.ToString() `
+    return Format-DevPageHtml -Title 'DKJ repos' -Style $style -Body $body.ToString() `
         -Lead 'Every DKJ-Solutions repo on GitHub, where it is checked out on this machine, and a Claude Code session to open there. Work in a repo runs in that repo, and an issue for it is filed there.' `
         -FooterNote ('Read from GitHub (one <code>gh api graphql</code> call) and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="dr-link" href="/refresh?page=dkj-repos">read again</a>). Nothing here is written to this repo.')
 }

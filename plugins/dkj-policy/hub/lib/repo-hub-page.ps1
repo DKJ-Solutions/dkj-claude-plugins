@@ -58,8 +58,8 @@ function Format-PluginRepoHubHtml {
         server's url, or empty where it is not running (its card says so). -PagesUrl is this server's own base
         url; it is always the general server that serves this page, so every card links by bare path, and
         without one the General cards give way to a line saying the server is not running. -Folder is kept for
-        the callers: the facts it named are the Repository page's now. No Brand book card: the brand book is the
-        source repo's product, and a consumer hub neither links nor serves it (#3475).
+        the callers: the facts it named are the Repository page's now. No Brand book card: no hub has linked or served the
+        brand book since #3475, and the source repo retired the app under #3493.
     #>
     param(
         [AllowNull()][AllowEmptyString()][string]$RepoName,

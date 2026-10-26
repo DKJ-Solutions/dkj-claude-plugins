@@ -115,13 +115,16 @@ function Get-PluginRowStatus {
 
 function Resolve-PluginsPageRequest {
     <#
-        Which Plugins page -Path asks for: @{ Name = '' } for the overview on /plugins, @{ Name = '<plugin>' } for one
-        plugin's page on /plugins/<plugin>, or $null for a path that is neither. The name is held to a plugin slug,
-        so nothing else reaches a lookup; whether a plugin of that name is enabled is the page's question (a 404 when not).
+        Which Plugins page -Path asks for: @{ Name = ''; Page = '' } for the overview on /plugins, @{ Name = '<plugin>';
+        Page = '' } for one plugin's page on /plugins/<plugin>, @{ Name = 'dkj-solutions'; Page = 'house-style' } for
+        the house style's specimens under the plugin that ships them (#3493), or $null for a path that is none of
+        these. The name is held to a plugin slug, so nothing else reaches a lookup; whether a plugin of that name is
+        enabled is the page's question (a 404 when not).
     #>
     param([AllowEmptyString()][string]$Path = '')
-    if ($Path -eq '/plugins' -or $Path -eq '/plugins/') { return @{ Name = '' } }
-    if ($Path -cmatch '^/plugins/([a-z0-9][a-z0-9-]{0,63})/?$') { return @{ Name = $Matches[1] } }
+    if ($Path -eq '/plugins' -or $Path -eq '/plugins/') { return @{ Name = ''; Page = '' } }
+    if ($Path -cmatch '^/plugins/([a-z0-9][a-z0-9-]{0,63})/?$') { return @{ Name = $Matches[1]; Page = '' } }
+    if ($Path -cmatch '^/plugins/dkj-solutions/house-style/?$') { return @{ Name = 'dkj-solutions'; Page = 'house-style' } }
     return $null
 }
 
@@ -259,10 +262,37 @@ function Format-PluginPageHtml {
     }
     [void]$body.AppendLine('<div><dt>Enabled in</dt><dd>' + $(if ($Model.Consulted) { & $e $Model.Consulted } else { '--' }) + '</dd></div>')
     [void]$body.AppendLine('</dl></section></div>')
+    # What a plugin ships that can be looked at: dkj-solutions' house style, its specimens one page below (#3493).
+    if ($Row.Name -ceq 'dkj-solutions') {
+        [void]$body.AppendLine('<div class="grid-3">')
+        [void]$body.AppendLine((Format-HubCardLinkHtml -Href '/plugins/dkj-solutions/house-style' -Label 'House style' -Sub 'Every token, the twelve themes and every component, with their variants and states' -Icon 'house-style'))
+        [void]$body.AppendLine('</div>')
+    }
     # No lead: the crumbs and the Id fact already say which plugin and marketplace this is (the density rule).
     return Format-GeneralPageHtml -Title ([string]$Row.Name) -Body $body.ToString() -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
         -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }) -HeadAside $badge `
         -Style '.dp-about p { font-size: var(--text-base); }' `
         -Lead '' `
         -FooterNote 'Read on every request by <code>plugin-versions.ps1 -Json</code>, the plugin-versions skill''s own script.'
+}
+
+function Format-HouseStyleSpecimensPageHtml {
+    <#
+        The house style's specimens on /plugins/dkj-solutions/house-style (#3493): every token, theme and component
+        of the stylesheet, under the Plugins and dkj-solutions crumbs, because the house style is that plugin's rule
+        (its files sit in dkj-policy since #3531) and not any one repo's page. -Body is assets/house-style/specimens.html
+        from the same payload as house-style.css (Get-HouseStyleDir), a body fragment trusted as the plugin's own
+        markup; -ReadError is why it could not be read, shown, escaped, in its place.
+    #>
+    param(
+        [AllowEmptyString()][string]$Body = '',
+        [AllowEmptyString()][string]$ReadError = '',
+        [AllowEmptyString()][string]$RepoName = '',
+        [string]$HubHref = '/hub'
+    )
+    $content = if ($ReadError) { '<section class="card"><p class="msg msg--warn" role="status">The specimens could not be read: ' + (ConvertTo-GeneralPageText $ReadError) + '</p></section>' } else { $Body }
+    return Format-GeneralPageHtml -Title 'House style' -Body $content -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
+        -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }, @{ Label = 'dkj-solutions'; Href = '/plugins/dkj-solutions' }) `
+        -Lead 'Every token, the twelve themes and every component of the DKJ-Solutions house style, with their variants and states.' `
+        -FooterNote 'The stylesheet and these specimens are <code>assets/house-style/</code> in the dkj-policy plugin this hub runs from.'
 }

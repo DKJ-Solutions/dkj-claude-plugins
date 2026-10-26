@@ -39,9 +39,9 @@ another matter: BWJ-Development styles those itself.
 
 **No hub shows or serves the Brandbook, whether or not the repo enables `dkj-solutions`**
 ([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475), the owner, October 25, 2026). The
-brand book is a product of `dkj-claude-plugins`, and only that repo shows it, on its own product port
-(#3283). On every other hub `/brandbook` is a plain 404 and the home page has no Brand book card. Until
-then, a repo enabling `dkj-solutions` got both (#3198, #3270).
+brand book was a product of `dkj-claude-plugins`, shown only there on its own product port (#3283), and
+that app is retired (#3493). On every hub `/brandbook` is a plain 404 and the home page has no Brand book
+card. Until #3475, a repo enabling `dkj-solutions` got both (#3198, #3270).
 
 ## The hub and the product
 
@@ -87,8 +87,9 @@ the same `Get-DevPreview` ([#3283](https://github.com/DKJ-Solutions/dkj-claude-p
 `Product` takes the fields the server itself takes (`Command`, `Ports`, `Path`, `Requires`,
 `WaitSeconds`), under the same rules, and its ports may not overlap the hub's. It is refused without
 `OwnHub = $true`, because there the server itself is already the product. Any other fault in it costs the
-product alone: the own hub still starts, and the line says `product not started: the Product: <why>`. This repo uses it: the
-connector dashboard is the hub, and the brand book's Vite dev server is the product.
+product alone: the own hub still starts, and the line says `product not started: the Product: <why>`. This repo used it, from
+#3283 until #3493 retired the brand book app: the connector dashboard was the hub, and the app's Vite dev
+server the product. It states no `Product` now.
 
 ## The dev-preview hook
 
@@ -120,7 +121,7 @@ connector dashboard is the hub, and the brand book's Vite dev server is the prod
 | states a server that binds and then quits | `... -- product: the server on port 3001 stopped right after it started listening -- see <log>`: a started server reads as `(started)` only once it is still listening two seconds after its first answer (#3404) |
 | `Requires` a `node_modules` older than the `package-lock.json` beside it | the product's clause ends `; 'node_modules' is older than its package-lock.json -- run npm install` where a package the lock pins is installed at another version, or not at all, according to npm's own `node_modules/.package-lock.json`. A lock that was only rewritten is not named (#3419), and the server is still started (#3404) |
 | states `OwnHub = $true` | `Hub: http://localhost:4870/ (started)`, as before #3245 |
-| states `OwnHub = $true` and a `Product` | `Hub: http://localhost:4870/ (started) -- product: http://localhost:5173/brandbook/ (started)` |
+| states `OwnHub = $true` and a `Product` | `Hub: http://localhost:4870/ (started) -- product: http://localhost:5173/app/ (started)` |
 | and the hub cannot start | `Hub: not started -- <why>`, then the product's clause where there is one |
 
 The route hint appears only where the repo states no server and does not route the hub's port; with the
@@ -202,8 +203,9 @@ names the checkout), started hidden and detached.
 
 **It serves no Brandbook, in any repo** ([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475),
 the owner, October 25, 2026). From #3198 to #3475 a DKJ-Solutions repo's server served a fifth page, the
-brand book app's build from `dkj-solutions/assets/brandbook/`, under `/brandbook/`. The brand book is the
-source repo's product, though, so that repo alone shows it, on its own product port.
+brand book app's build from `dkj-solutions/assets/brandbook/`, under `/brandbook/`. The route went with #3475, and the app itself with #3493: no repo has a Brand book to
+show. The house style's own specimens are a page under Plugins instead, on `/plugins/dkj-solutions/house-style`,
+in every repo that enables `dkj-solutions`.
 
 | Page | Reads, from the repo it was started in | When it is absent |
 |---|---|---|
@@ -276,8 +278,8 @@ hub has its own port, so two repo hubs on one machine already disagreed.
 - **The page asks its own server**: `GET /api/airsquats` every 15 seconds and at the turn of the hour, and a
   `POST` to `/api/airsquats/clear` when the box is ticked. It counts the minutes down by itself.
 - **Every hub server on a machine shares one file**, `%LOCALAPPDATA%\dkj-hub\airsquats.json`, written under
-  a lock. The plugin's servers and the source repo's own hub read the same file, and the source repo's
-  product port relays the two routes to its hub.
+  a lock. The plugin's servers and the source repo's own hub read the same file. Until #3493 the source
+  repo's product port relayed the two routes to its hub.
 - **Where you opt in, that file is merged with a private GitHub gist**, by `pages/sync-airsquats.ps1` in a
   hidden child at most every 20 seconds while a hub page is open, and at once after a tick-off. The server
   never waits on the network, so another machine sees a tick-off within about half a minute.
