@@ -89,3 +89,13 @@ dkj-policy/releases/page/
 # ANCHORED, like /Microsoft/: the cause is a run at the root, and the rule must not silence a
 # legitimately-named folder deeper in the tree.
 /.wrangler/
+
+# THE RETIRED BRANDBOOK APP'S BUILD RESIDUE (#3537). #3535 deleted brandbook/ from the tree, and with it the
+# brandbook/.gitignore that kept its node_modules/, dist/ and .vite/ out of git. So every checkout that ever
+# ran `npm install` there was left with an untracked brandbook/ after pulling, and every script that wants a
+# clean tree (cut-release, new-branch, sync-main, prune-merged) refused there. Nothing under brandbook/ is
+# tracked any more, so the whole folder is ignored; delete it by hand once its dev server has stopped.
+#
+# THE GENERAL LESSON: deleting a directory that carried its own .gitignore turns its ignored build output into
+# untracked files on every other checkout, so its ignore line moves here in the same change.
+/brandbook/
