@@ -1560,11 +1560,11 @@ function Write-MergeOnGreenScopeVerdict {
         moment anything looks at it again.
 
         READ IN THE SHAPE THIS SCAFFOLDER WRITES, AND NO FURTHER: a column-0 `permissions:` and the
-        two-space lines under it. A file without that block is said to be unread, never judged clean.
+        two-space lines under it, a column-0 comment among them not ending it. A file without that block is said to be unread, never judged clean.
     #>
     param([string]$Text)
 
-    $m = [regex]::Match($Text, '(?m)^permissions:[ \t]*\n(?<body>(?: {2}[^\n]*\n?|[ \t]*\n)*)')
+    $m = [regex]::Match($Text, '(?m)^permissions:[ \t]*\n(?<body>(?: {2}[^\n]*\n?|#[^\n]*\n|[ \t]*\n)*)')
     if (-not $m.Success) {
         Write-Host '            its top-level permissions block could not be read, so whether the picker can read the' -ForegroundColor DarkGray
         Write-Host '            required checks (#3491) was NOT established.' -ForegroundColor DarkGray
