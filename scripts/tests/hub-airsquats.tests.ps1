@@ -62,6 +62,10 @@ try {
     Write-Host '-- the API the banner asks' -ForegroundColor Cyan
     $r = Invoke-AirsquatsApi -Method GET -Path '/api/airsquats' -Now ($base + $H - 10000)
     Assert-True ($r.Status -eq 200 -and $r.Body -match '"owed":0' -and $r.Body -match '"per":10' -and $r.Body -match '"announce":false') 'a GET answers JSON: nothing owed, 10 per hour, no tone'
+# THE ACCOUNT (#3476): ports are machine-wide, so the hub names the Windows account it runs under.
+Assert-True ($r.Body -match ('"account":"' + [regex]::Escape(($env:USERNAME -replace '[^A-Za-z0-9._ -]', '')) + '"')) 'and names the Windows account the server runs under'
+$r = Invoke-AirsquatsApi -Method GET -Path '/api/airsquats' -Now ($base + $H - 10000) -Account ('dave"},<x>\' + ('a' * 80))
+Assert-True ($r.Body -match '"account":"davexa{59}"' -and ($r.Body | ConvertFrom-Json).account.Length -eq 64) 'an account name is held to plain characters and 64 of them, so it cannot break the JSON or the page'
     Assert-True (Test-Path -LiteralPath (Join-Path $scratch 'airsquats.json')) 'and the machine''s file is written'
     $r = Invoke-AirsquatsApi -Method GET -Path '/api/airsquats' -Now ($base + $H + 5000)
     Assert-True ($r.Body -match '"owed":1' -and $r.Body -match '"announce":true') 'the poll past the hour owes one and plays the tone'
