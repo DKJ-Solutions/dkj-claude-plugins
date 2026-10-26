@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**1 / 4 minor entries** <!-- pending-tally -->
+**2 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/sessionstart-section-pages · 20261026-213937Z
+
+The hub's SessionStart page was one long column of seven sections, each a wide table or block, so finding
+one part meant scrolling past the rest. It is now shaped like the Stopwatch page: an overview of seven
+cards, each naming its section with one headline figure (the path against the budget, the efficiency
+score, the open actions), and each opening a page of its own at `/sessionstart/<section>`. A failed or
+over-budget measurement is still warned about on the overview.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo running the hub gets the new SessionStart overview on its next plugin update: the same numbers,
+now one card per section, each with its own page.
+
+**Score:** 2
+
+#### Pull Request
+
+SessionStart: one card and one page per section
+
+Plugins: dkj-policy
+
+[PR #3543](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3543)
+
+---
 
 ### DEPLOY: feat/dkj-repos-cards · 20261026-194924Z
 
