@@ -214,7 +214,7 @@ Once the GitHub issue exists and carries the reach label, mirror it to Asana in 
 `Get-AsanaProjectGid` names, where the card lands in the board's `Filed` section. **After that, the
 workflow's messages update the task: the closed message and the reopened message** (Dave, October 5 and 6, 2026,
 #2818 and #2854), and the on-hold message beside them (#2902). When the issue closes as completed, closes as
-not planned while waiting for information, or is reopened, the `asana-closed-message`
+not planned while parked under an `awaiting-*` label, or is reopened, the `asana-closed-message`
 workflow posts the matching one on the task (step 4). The prio sync came
 back as its own workflow (step 5); the rest of the CI automation that used to follow the issue is
 retired (step 6). The Asana task is **not** a paste of the issue body. It is written for
@@ -508,8 +508,14 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   reopened and the work picks up again."* (#2902, in the requester's fixed form from #2909). It never
   says *"in review"*: development is stuck, so the task goes back rather than on. It reads no go-live
   block, because nothing was built, and it moves no card.
-- **Closing as not planned without that label, or as a duplicate, posts nothing** (#2765): nothing was
-  built, so there is nothing to test, and a rejection is said by a person.
+- **Closing as not planned with any other `awaiting-*` label kept on** (`awaiting-action-external`,
+  `awaiting-review-client`, `awaiting-decision-client` and the rest of the family) posts the same header with a neutral intro, *"GitHub issue <owner>/<repo>#<n> is now **closed**: this Asana task is on hold,
+  and will be reopened when the work can pick up again."*, and no ask under it
+  ([#3494](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3494)). Every one of those labels
+  means parked, not rejected, and *"not enough information"* would be false there. With
+  `awaiting-info-client` on as well, the message above wins, because its ask is the one the requester answers.
+- **Closing as not planned without an `awaiting-*` label, or as a duplicate, posts nothing** (#2765):
+  nothing was built, so there is nothing to test, and a rejection is said by a person.
 - **Reopening an issue** posts one comment on the linked task, whatever it was closed as: the header
   and the reopened line, *"GitHub issue <owner>/<repo>#<n> is **reopened:** this Asana task is now back in
   development."* (#2854, in #2656's fixed form). **Only the state word is bold**, in every one of these

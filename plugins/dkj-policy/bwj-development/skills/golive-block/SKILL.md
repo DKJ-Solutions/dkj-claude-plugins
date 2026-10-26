@@ -383,8 +383,8 @@ command encodes as ASCII, which is why `-Post` sends the body through a UTF-8 fi
   that nothing will reach Asana. A close whose newest block predates the issue's last reopen carries
   none and says the result message follows (#2968, the second-block paragraph below), and so does any
   completed close with no block on it: the closed line never goes out alone (#3004).
-  A close as not planned sends no block: it sends nothing, or -- with `awaiting-info-client` kept on --
-  the on-hold line alone (#2902).
+  A close as not planned sends no block: it sends nothing, or -- with an `awaiting-*` label kept on --
+  the on-hold line alone (#2902, #3494).
 - **It never promises.** *"Het staat gepland voor de release van maandag 22 september 2026"* is a
   cadence, and a release can slip. This block is the one surface a colleague quotes back, so it must
   not read as a commitment nobody made.
