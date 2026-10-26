@@ -39,19 +39,31 @@
 
 ### PLAN
 
+Repair #3512: the registration grace in `Invoke-TrunkCatchUp` parsed its payload inside `@()`, which
+under 5.1 collects the parsed array as one element, so every readable payload read as absent.
+Measured before the repair: a two-record payload counts 0 inline and 2 when it is assigned first.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Move the predicate into gate-lib as `Test-NamedCheckUnregistered` (assign first, wrap second) and call it from cut-release
+- [x] Copy both scripts into their `plugins/dkj-policy/scripts/` mirrors
 
 ### TEST
 
+- [x] `gate-lib.tests.ps1`: a registered check (red among two, one record) is not absent; a missing check, `[]`, an empty payload and an unparseable one are absent; cut-release's wiring is pinned
+
 ### DEPLOY: fix/3512-registration-grace-json-unroll
 
-**Score:**
+When the trunk moves while its gates run, `cut-release` waits for the trunk's CI run. Under Windows
+PowerShell 5.1 it no longer reads a check that has already registered as "has not registered yet". A
+registered red check now refuses at the first read. Before, the cut spent all four grace reads, one
+poll interval apart, printing a line that was not true.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+**Score:** N/A
 
 #### Pull Request
 
