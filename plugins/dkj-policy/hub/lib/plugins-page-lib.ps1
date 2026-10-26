@@ -140,6 +140,25 @@ function Get-PluginProblemText {
     return $Row.Verdict
 }
 
+function ConvertTo-PluginDescriptionHtml {
+    <#
+        A plugin's description as paragraphs rather than one block (the owner, October 26, 2026): a manifest
+        description runs to a dozen sentences and marks its chapters with a lead-in in capitals ("THE HOUSE STYLE:"),
+        so each such lead-in becomes an h3 in sentence case ("The house style") over the paragraph it opens. The text is
+        escaped first; a lead-in is two or more capital letters, spaces or hyphens before a colon, after a sentence end.
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$Text)
+    $html = ConvertTo-GeneralPageText ([string]$Text)
+    $parts = @([regex]::Split($html, '(?<=[.!?])\s+(?=[A-Z][A-Z -]*[A-Z]:)') | Where-Object { $_.Trim() })
+    return (@($parts | ForEach-Object {
+        $part = $_.Trim()
+        if ($part -cmatch '^([A-Z][A-Z -]*[A-Z]):\s*(.*)$') {
+            $head = $Matches[1].Substring(0, 1) + $Matches[1].Substring(1).ToLowerInvariant()
+            '<h3>' + $head + '</h3>' + $(if ($Matches[2]) { '<p>' + $Matches[2] + '</p>' })
+        } else { '<p>' + $part + '</p>' }
+    }) -join '')
+}
+
 function Format-PluginBadgeHtml {
     <#
         The status badge for -Level: the house .badge is an 18px round icon, so it holds a mark -- a check, a '!' or a
@@ -213,22 +232,23 @@ function Format-PluginPageHtml {
     )
     $e = { param($v) ConvertTo-GeneralPageText $v }
     if (-not $Row.Status) { $Row.Status = Get-PluginRowStatus -Code $Row.Code -InstallPathMissing $Row.InstallPathMissing }
+    # The house badge row: the mark, then the status in words (as the Issues page's Done row does), at the far
+    # right of the h1's row (the owner, October 26, 2026).
+    $badge = '<p class="badge-row">' + (Format-PluginBadgeHtml $Row.Status.Level) + (& $e $Row.Status.Label) + '</p>'
     $body = New-Object System.Text.StringBuilder
-    # The house badge row: the mark, then the status in words (as the Issues page's Done row does).
-    $badge = '<span class="badge-row">' + (Format-PluginBadgeHtml $Row.Status.Level) + (& $e $Row.Status.Label) + '</span>'
-    [void]$body.AppendLine('<p>' + $badge + '</p>')
-    if ($Row.Status.Level -eq 'ok') {
-        [void]$body.AppendLine('<p class="msg" role="status">' + (& $e $Row.Verdict) + '.</p>')
-    } else {
+    # One screen, side by side (the owner, October 26, 2026; the house density rule): the description and the
+    # state of this machine as two cards in one row, rather than a status block and two full-width groups stacked.
+    [void]$body.AppendLine('<div class="grid-2">')
+    if ($Row.Description) {
+        [void]$body.AppendLine('<section class="card dp-about" id="about"><h2>What it is</h2>' + (ConvertTo-PluginDescriptionHtml $Row.Description) + '</section>')
+    }
+    [void]$body.AppendLine('<section class="card' + $(if (-not $Row.Description) { ' grid__full' }) + '" id="facts"><h2>On this machine</h2>')
+    # A healthy plugin gets no verdict line: the badge beside the h1 already says it (the owner, October 26, 2026).
+    if ($Row.Status.Level -ne 'ok') {
         [void]$body.AppendLine('<p class="msg msg--warn" role="status">' + (& $e (Get-PluginProblemText $Row)) + '.</p>')
         if ($Row.Action -and -not $Row.InstallPathMissing) { [void]$body.AppendLine('<p class="note">To close it: <code>' + (& $e $Row.Action) + '</code></p>') }
     }
-    if ($Row.Description) {
-        [void]$body.AppendLine('<div class="grid-2" id="about"><div class="grid__head"><h2>What it is</h2></div>')
-        [void]$body.AppendLine('<section class="card grid__full"><p>' + (& $e $Row.Description) + '</p></section></div>')
-    }
-    [void]$body.AppendLine('<div class="grid-2" id="facts"><div class="grid__head"><h2>On this machine</h2></div>')
-    [void]$body.AppendLine('<section class="card grid__full"><dl class="facts">')
+    [void]$body.AppendLine('<dl class="facts">')
     [void]$body.AppendLine('<div><dt>Id</dt><dd><code>' + (& $e $Row.Id) + '</code></dd></div>')
     [void]$body.AppendLine('<div><dt>Installed here</dt><dd>' + (& $e $Row.InstText) + '</dd></div>')
     [void]$body.AppendLine('<div><dt>Marketplace clone</dt><dd>' + (& $e $Row.CloneText) + '</dd></div>')
@@ -239,8 +259,10 @@ function Format-PluginPageHtml {
     }
     [void]$body.AppendLine('<div><dt>Enabled in</dt><dd>' + $(if ($Model.Consulted) { & $e $Model.Consulted } else { '--' }) + '</dd></div>')
     [void]$body.AppendLine('</dl></section></div>')
+    # No lead: the crumbs and the Id fact already say which plugin and marketplace this is (the density rule).
     return Format-GeneralPageHtml -Title ([string]$Row.Name) -Body $body.ToString() -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
-        -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }) `
-        -Lead ('The plugin ' + (& $e $Row.Name) + ' from the ' + (& $e $Row.Marketplace) + ' marketplace, and its state for this checkout on this machine.') `
+        -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }) -HeadAside $badge `
+        -Style '.dp-about p { font-size: var(--text-base); }' `
+        -Lead '' `
         -FooterNote 'Read on every request by <code>plugin-versions.ps1 -Json</code>, the plugin-versions skill''s own script.'
 }

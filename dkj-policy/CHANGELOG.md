@@ -2,7 +2,112 @@
 
 ## [Unreleased]
 
-**11 / 18 minor entries** <!-- pending-tally -->
+**14 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3502-house-style-font-longhands · 20261026-103340Z
+
+The house style's stylesheet no longer uses the `font` shorthand with a size/line-height pair: the four
+places that did (`body`, `.badge`, `.info-button`, `.moretoggle`) now spell out `font-family`,
+`font-size`, `font-weight` and `line-height`, so each value can be read on its own. The `house-style`
+skill's checksum follows the new file.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+House style: write the font longhands instead of the size/line-height shorthand
+
+Plugins: dkj-solutions
+
+[PR #3508](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3508)
+
+---
+
+### DEPLOY: fix/3498-notify-live-noresolves-issues · 20261026-102423Z
+
+`notify-live` now finds the issues a release carried, not only the ones its PRs closed through a
+closing keyword. It also reads the issue a PR's head branch is named after, and every `#<n>` in the
+PR body that GitHub confirms is an issue. The verdict is unchanged, so a number a PR merely mentions
+shows up as a `skipped` row in the dry run and never becomes a message.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+In a store repo that answers `Get-ResolvesExemptMatchers`, every Asana-linked issue ships with
+`-NoResolves` and is closed by hand, so `notify-live` could never tell any of their tasks that the work
+was live. From this release on, it does.
+
+**Score:** 4
+
+#### Pull Request
+
+notify-live finds the issues a -NoResolves PR carried
+
+Plugins: bwj-development
+
+[PR #3507](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3507)
+
+---
+
+### DEPLOY: feat/3494-on-hold-for-every-awaiting-label · 20261026-101354Z
+
+The `asana-closed-message` script now tells the Asana task when an issue is closed as not planned under any
+`awaiting-*` label, not only `awaiting-info-client`
+([#3494](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3494)). The task is told it is on
+hold and will be reopened when the work can pick up again. The message under `awaiting-info-client` is
+unchanged.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A requester whose ticket is closed while parked, for example waiting on their own sign-off, is told it is on
+hold instead of hearing nothing. A store picks it up by re-adopting the `asana-closed-message` script through
+`adopt-bwj-development`'s stop-and-diff.
+
+**Score:** 3
+
+#### Pull Request
+
+asana-closed-message: a close as not planned under any awaiting-* label posts an on-hold message
+
+Plugins: bwj-development
+
+[PR #3503](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3503)
+
+---
+
+### DEPLOY: feat/plugin-page-side-by-side · 20261026-100313Z
+
+A plugin's page on the hub (`/plugins/<name>`) now sets its description and its state on this machine side by
+side, as two cards in one row, with its state at the far right of the title's row and the description broken
+into paragraphs at each chapter, so it reads on one screen without scrolling.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In every repo's hub, a plugin's page now fits one screen: what the plugin is on the left, whether it is up to
+date here (with the command that fixes it) on the right.
+
+**Score:** 2
+
+#### Pull Request
+
+hub: plugin page side by side on one screen
+
+Plugins: dkj-policy
+
+[PR #3504](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3504)
+
+---
 
 ### DEPLOY: fix/3488-repo-settings-admin-only-fields · 20261026-095402Z
 

@@ -77,6 +77,50 @@ function Get-ReleaseRangePullNumbers {
     return @($seen)
 }
 
+function Get-PullIssueCandidates {
+    <#
+        Pure: the issue numbers one merged PR carried, as @{ Closing; Named }. -Closing is gh's
+        closingIssuesReferences, which GitHub has already confirmed are issues. -Named is every OTHER
+        number the PR points at -- the issue its head branch is named after ('<prefix>/<n>-<name>') and
+        each bare '#<n>' in its body -- which the driver still has to ask GitHub about, because from the
+        text alone a '#<n>' may be a pull request.
+
+        WHY NOT CLOSING REFERENCES ALONE (inbound #3498). A repo that answers Get-ResolvesExemptMatchers
+        ships every Asana-linked issue with -NoResolves and closes it by hand, because its go-live block
+        has to go on while the issue is still open. So none of those issues is ever in
+        closingIssuesReferences -- and they are exactly the issues this message exists to tell. Measured on
+        BWJ-Development/smartwatchbanden: PR #1015 (branch liquid/1011-..., body naming #1011) had an empty
+        closingIssuesReferences, and #1011 was never found. A surplus candidate costs nothing: the verdict
+        still demands a closed-as-completed issue whose newest go-live block is this round's, so a number
+        the PR merely mentions becomes a 'skipped' row in the dry run rather than a message.
+
+        Not read as mentions: the PR's own number, anything inside a code span or fence, 'PR #<n>' /
+        'pull request #<n>', and 'owner/repo#<n>' (another repo's issue -- the lookbehind refuses a word
+        character before the '#').
+    #>
+    param(
+        [int]$PullNumber = 0,
+        [AllowNull()][AllowEmptyCollection()][int[]]$ClosingNumbers,
+        [AllowNull()][string]$HeadRefName = '',
+        [AllowNull()][string]$Body = ''
+    )
+    $closing = New-Object 'System.Collections.Generic.List[int]'
+    foreach ($n in @($ClosingNumbers)) { if ($null -ne $n -and $n -gt 0 -and -not $closing.Contains([int]$n)) { $closing.Add([int]$n) } }
+
+    $named = New-Object 'System.Collections.Generic.List[int]'
+    $add = { param($n) if ($n -gt 0 -and $n -ne $PullNumber -and -not $closing.Contains($n) -and -not $named.Contains($n)) { $named.Add($n) } }
+
+    if ($HeadRefName -and ([string]$HeadRefName) -match '^[^/]+/(\d{1,9})-') { & $add ([int]$Matches[1]) }
+
+    if ($Body) {
+        $text = [regex]::Replace([string]$Body, '(?s)```.*?```', ' ')
+        $text = [regex]::Replace($text, '`[^`]*`', ' ')
+        $text = [regex]::Replace($text, '(?i)\b(pull\s*requests?|PRs?)\s*#\s*\d+', ' ')
+        foreach ($m in [regex]::Matches($text, '(?<![\w/])#(\d{1,9})\b')) { & $add ([int]$m.Groups[1].Value) }
+    }
+    return @{ Closing = @($closing); Named = @($named) }
+}
+
 function Get-PullChangedPaths {
     <#
         Pure: the paths one merged PR changed, for the live-push record (#3190), as @{ Paths; Complete }.
