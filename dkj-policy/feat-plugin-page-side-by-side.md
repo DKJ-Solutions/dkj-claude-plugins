@@ -39,19 +39,36 @@
 
 ### PLAN
 
+The owner asked for the hub's plugin page (/plugins/<name>) to read on one 1300 x 900 screen, blocks side by
+side rather than stacked.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-PluginPageHtml`: the description and the machine state as two cards in one `.grid-2` row; the
+  status badge, verdict and command move into the state card; the lead is dropped (density rule)
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` green (353 passed); the live hub serves the new form
+- [ ] the owner's look at /plugins/dkj-solutions (a visible result)
+
 ### DEPLOY: feat/plugin-page-side-by-side
 
-**Score:**
+A plugin's page on the hub (`/plugins/<name>`) now sets its description and its state on this machine side by
+side, as two cards in one row, and drops the lead line, so it reads on one screen without scrolling.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In every repo's hub, a plugin's page now fits one screen: what the plugin is on the left, whether it is up to
+date here (with the command that fixes it) on the right.
+
+**Score:** 2
 
 #### Pull Request
+
+hub: plugin page side by side on one screen
+
+Plugins: dkj-policy
 

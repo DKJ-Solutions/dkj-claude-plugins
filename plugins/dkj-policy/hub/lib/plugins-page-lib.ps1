@@ -214,6 +214,13 @@ function Format-PluginPageHtml {
     $e = { param($v) ConvertTo-GeneralPageText $v }
     if (-not $Row.Status) { $Row.Status = Get-PluginRowStatus -Code $Row.Code -InstallPathMissing $Row.InstallPathMissing }
     $body = New-Object System.Text.StringBuilder
+    # One screen, side by side (the owner, October 26, 2026; the house density rule): the description and the
+    # state of this machine as two cards in one row, rather than a status block and two full-width groups stacked.
+    [void]$body.AppendLine('<div class="grid-2">')
+    if ($Row.Description) {
+        [void]$body.AppendLine('<section class="card" id="about"><h2>What it is</h2><p>' + (& $e $Row.Description) + '</p></section>')
+    }
+    [void]$body.AppendLine('<section class="card' + $(if (-not $Row.Description) { ' grid__full' }) + '" id="facts"><h2>On this machine</h2>')
     # The house badge row: the mark, then the status in words (as the Issues page's Done row does).
     $badge = '<span class="badge-row">' + (Format-PluginBadgeHtml $Row.Status.Level) + (& $e $Row.Status.Label) + '</span>'
     [void]$body.AppendLine('<p>' + $badge + '</p>')
@@ -223,12 +230,7 @@ function Format-PluginPageHtml {
         [void]$body.AppendLine('<p class="msg msg--warn" role="status">' + (& $e (Get-PluginProblemText $Row)) + '.</p>')
         if ($Row.Action -and -not $Row.InstallPathMissing) { [void]$body.AppendLine('<p class="note">To close it: <code>' + (& $e $Row.Action) + '</code></p>') }
     }
-    if ($Row.Description) {
-        [void]$body.AppendLine('<div class="grid-2" id="about"><div class="grid__head"><h2>What it is</h2></div>')
-        [void]$body.AppendLine('<section class="card grid__full"><p>' + (& $e $Row.Description) + '</p></section></div>')
-    }
-    [void]$body.AppendLine('<div class="grid-2" id="facts"><div class="grid__head"><h2>On this machine</h2></div>')
-    [void]$body.AppendLine('<section class="card grid__full"><dl class="facts">')
+    [void]$body.AppendLine('<dl class="facts">')
     [void]$body.AppendLine('<div><dt>Id</dt><dd><code>' + (& $e $Row.Id) + '</code></dd></div>')
     [void]$body.AppendLine('<div><dt>Installed here</dt><dd>' + (& $e $Row.InstText) + '</dd></div>')
     [void]$body.AppendLine('<div><dt>Marketplace clone</dt><dd>' + (& $e $Row.CloneText) + '</dd></div>')
@@ -239,8 +241,9 @@ function Format-PluginPageHtml {
     }
     [void]$body.AppendLine('<div><dt>Enabled in</dt><dd>' + $(if ($Model.Consulted) { & $e $Model.Consulted } else { '--' }) + '</dd></div>')
     [void]$body.AppendLine('</dl></section></div>')
+    # No lead: the crumbs and the Id fact already say which plugin and marketplace this is (the density rule).
     return Format-GeneralPageHtml -Title ([string]$Row.Name) -Body $body.ToString() -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
         -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }) `
-        -Lead ('The plugin ' + (& $e $Row.Name) + ' from the ' + (& $e $Row.Marketplace) + ' marketplace, and its state for this checkout on this machine.') `
+        -Lead '' `
         -FooterNote 'Read on every request by <code>plugin-versions.ps1 -Json</code>, the plugin-versions skill''s own script.'
 }
