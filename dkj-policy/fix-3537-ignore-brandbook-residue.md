@@ -39,19 +39,32 @@
 
 ### PLAN
 
+Of the issue's two directions, the root `.gitignore` line: the smallest change, one revert away, and it
+covers every checkout at its next pull. Verified that nothing under `brandbook/` is tracked any more, so
+ignoring the whole anchored folder hides nothing real.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `/brandbook/` in the root `.gitignore`, with why and the general lesson
 
 ### TEST
 
+- [x] `git status` on a checkout carrying the residue reads clean apart from `.gitignore` itself
+
 ### DEPLOY: fix/3537-ignore-brandbook-residue
 
-**Score:**
+The root `.gitignore` now ignores `/brandbook/`, so the build output the retired brandbook app left behind
+(`node_modules/`, `dist/`, `.vite/`) no longer makes a checkout dirty after pulling #3535, and
+`cut-release`, `new-branch`, `sync-main` and `prune-merged` run there again
+([#3537](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3537)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: this repo's own checkouts only; no plugin ships it.
+
+**Score:** N/A
 
 #### Pull Request
 
