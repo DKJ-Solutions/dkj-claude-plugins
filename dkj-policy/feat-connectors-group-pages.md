@@ -55,6 +55,7 @@ owner's look before it ships.
 
 - [x] `connector-dashboard.tests.ps1` rewritten for the overview and the group pages: 223 passed, 0 failed.
 - [x] Owner feedback: the overview drops its tiles and its lead; a group page keeps both.
+- [x] Owner feedback: the three cards sit under an h2, Repo groups, in the house's `.grid__head`.
 - [x] `eslint` and `tsc` clean on `brandbook/vite.config.ts`.
 - [ ] The owner has looked at `/connectors` and a group page on the product port.
 

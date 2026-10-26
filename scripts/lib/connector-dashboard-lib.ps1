@@ -398,6 +398,8 @@ function Format-ConnectorDashboardHtml {
     # linking its group's page with that group's summary under the label. An empty group keeps its card ('0 repos').
     if (-not $groupDef) {
         [void]$sb.AppendLine('<div class="grid-3" id="groups">')
+        # The house's heading above a group of cards (owner, October 26, 2026).
+        [void]$sb.AppendLine('<div class="grid__head"><h2>Repo groups</h2><p class="card__sub">By owner, each group on a page of its own</p></div>')
         foreach ($g in @(Get-DashboardOwnerGroups)) {
             $members = @($all | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $g.Key })
             # The card escapes its own text, so the summary's entity separator becomes the character itself.

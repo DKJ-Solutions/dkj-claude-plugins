@@ -242,7 +242,7 @@ Assert-True ($overview -match '<h1>Connectors</h1>' -and $overview -match 'site-
 $cD = $overview.IndexOf('href="/connectors/dkj"'); $cB = $overview.IndexOf('href="/connectors/bwj"'); $cO = $overview.IndexOf('href="/connectors/other"')
 Assert-True ($cD -ge 0 -and $cD -lt $cB -and $cB -lt $cO) 'the overview has a card per owner group, DKJ, BWJ, Other, each linking its own page (owner, October 26, 2026)'
 Assert-Equal 3 ([regex]::Matches($overview, '<section class="card card--link">')).Count 'three cards, in the hub''s card form'
-Assert-True ($overview -match '<div class="grid-3" id="groups">') 'the cards sit three to a row'
+Assert-True ($overview -match '<div class="grid-3" id="groups">\r?\n<div class="grid__head"><h2>Repo groups</h2>') 'the cards sit three to a row, under the house''s h2 heading for a group of cards'
 Assert-True ($overview.Contains('menu-item__label">DKJ<span class="menu-item__sub">2 repos ' + [char]0x00B7 + ' 1 needs action ' + [char]0x00B7 + ' 1 in sync</span>')) 'a card carries its group''s summary under its label'
 Assert-True ($overview.Contains('menu-item__label">BWJ<span class="menu-item__sub">0 repos</span>')) 'an empty group keeps its card'
 Assert-True ($overview -notmatch 'Connected repos</h2>' -and $overview -notmatch '<section class="mini-card' -and $overview -notmatch 'id="issues"') 'the overview holds no table and no repo card: those are the group pages'
