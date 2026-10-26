@@ -58,6 +58,8 @@ A run card on the Logbook and the Stopwatch pages is three lines at most: its st
 
 #### What makes this deploy extra special
 
+A one-rule styling change to the hub's run cards; it reaches no reader who takes the next version.
+
 **Score:** N/A
 
 #### Pull Request
