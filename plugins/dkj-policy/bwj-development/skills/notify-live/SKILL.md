@@ -3,7 +3,7 @@ name: notify-live
 description: >-
   Tell the Asana task of every issue a store release carried that its work is now live -- run right
   after the live push (or the promotion merge) and the cut, as the release-day runbook's step after the
-  cut. It finds the PRs merged in the release's tag range, the issues they closed, and tells only those
+  cut. It finds the PRs merged in the release's tag range, the issues they carried, and tells only those
   whose closed message named a planned release (the after-release marker): a -LiveSince issue was told
   at the close and a research issue changed nothing. A dry run by default; -Post sends one comment per
   task and marks the issue so nobody is told twice. Use it when a release has just gone live.
@@ -37,7 +37,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
    versions.
 2. **The PRs** -- every `#<n>` in the range's first-parent commit subjects, kept only where that PR is
    merged and its merge commit is inside the range, whatever form the store merges in.
-3. **The issues** -- the issues those PRs closed, each read with its comments and its last reopen.
+3. **The issues** -- the issues those PRs carried, each read with its comments and its last reopen:
+   the ones they closed, plus the issue each head branch is named after and every `#<n>` in its body
+   that GitHub confirms is an issue (#3498). A PR shipped with `-NoResolves` closes nothing, and its
+   issues are exactly the ones this message exists for.
 4. **The verdict** -- an issue is owed the message only where it is closed as completed, links exactly
    one Asana task (the same matchers the closed message uses, so it is the same task), has not been told
    yet, and its newest go-live block is this round's and carries the after-release marker. Every other
