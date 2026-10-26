@@ -548,7 +548,11 @@ function Get-LiveValue {
                     }
                     $gqlWhy = $gql.Note
                     if (-not $gqlWhy) { $gqlWhy = "it carried no '$gqlName'" }
-                    return (& $unreadable "the repo object carries no '$prop' field (returned to repo administrators only), and the GraphQL read of '$gqlName' failed too: $gqlWhy")
+                    # Only claim what the REST object lacked when it was actually read; a failed read
+                    # says nothing about its fields, so its own note is what gets reported.
+                    $restWhy = "the repo object carries no '$prop' field (returned to repo administrators only)"
+                    if (-not $repoObject.Ok) { $restWhy = "the repo object was not read: $($repoObject.Note)" }
+                    return (& $unreadable "$restWhy, and the GraphQL read of '$gqlName' failed too: $gqlWhy")
                 }
                 if (-not $repoObject.Ok) { return (& $unreadable $repoObject.Note) }
                 if (-not $restHas) {

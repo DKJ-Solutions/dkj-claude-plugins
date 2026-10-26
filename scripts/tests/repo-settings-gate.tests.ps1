@@ -251,6 +251,9 @@ try {
     $r = Invoke-Check -Root $dir -Repo $pNoAdmin -RepoGraphQl 'NONE'
     Assert-True ($r.Code -eq 0 -and $r.Out -match 'administrators only' -and $r.Out -match 'GraphQL read of .squashMergeAllowed. failed') `
         'REST omits it and GraphQL is refused -- unreadable, and the report names both reads'
+    $r = Invoke-Check -Root $dir -Repo 'NONE' -RepoGraphQl 'NONE'
+    Assert-True ($r.Out -match 'repo object was not read: the read was refused' -and $r.Out -notmatch 'carries no .allow_squash_merge.') `
+        'REST itself refused -- its own note is reported, not a claim about fields it never returned'
     $pGqlErr = New-Payload -Dir $dir -Name 'gql-err' -Json '{"errors":[{"message":"nope"}]}'
     $r = Invoke-Check -Root $dir -Repo $pNoAdmin -RepoGraphQl $pGqlErr
     Assert-True ($r.Code -eq 0 -and $r.Out -match 'carried no repository') 'a GraphQL error payload -- unreadable, never a match'
