@@ -48,7 +48,7 @@ side rather than stacked.
   status badge, verdict and command move into the state card; the lead is dropped (density rule)
 - [x] the state badge row at the far right of the h1's row: `Format-GeneralPageHtml -HeadAside`, drawn as the house
   page-header row (`main > header`)
-- [x] the description split into paragraphs at each capitals lead-in, the lead-in in bold
+- [x] the description split into paragraphs at each capitals lead-in, the lead-in an `h3`
   (`ConvertTo-PluginDescriptionHtml`)
 - [x] no verdict line for a healthy plugin, since the badge already says it
 

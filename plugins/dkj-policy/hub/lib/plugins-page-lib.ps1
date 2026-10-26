@@ -144,13 +144,19 @@ function ConvertTo-PluginDescriptionHtml {
     <#
         A plugin's description as paragraphs rather than one block (the owner, October 26, 2026): a manifest
         description runs to a dozen sentences and marks its chapters with a lead-in in capitals ("THE HOUSE STYLE:"),
-        so a new paragraph starts at each such lead-in, which is set in bold. The text is escaped first; a lead-in is
-        two or more capital letters, spaces or hyphens before a colon, after a sentence end.
+        so each such lead-in becomes an h3 in sentence case ("The house style") over the paragraph it opens. The text is
+        escaped first; a lead-in is two or more capital letters, spaces or hyphens before a colon, after a sentence end.
     #>
     param([AllowNull()][AllowEmptyString()][string]$Text)
     $html = ConvertTo-GeneralPageText ([string]$Text)
     $parts = @([regex]::Split($html, '(?<=[.!?])\s+(?=[A-Z][A-Z -]*[A-Z]:)') | Where-Object { $_.Trim() })
-    return (@($parts | ForEach-Object { '<p>' + ([regex]::Replace($_.Trim(), '^([A-Z][A-Z -]*[A-Z]:)', '<strong>$1</strong>')) + '</p>' }) -join '')
+    return (@($parts | ForEach-Object {
+        $part = $_.Trim()
+        if ($part -cmatch '^([A-Z][A-Z -]*[A-Z]):\s*(.*)$') {
+            $head = $Matches[1].Substring(0, 1) + $Matches[1].Substring(1).ToLowerInvariant()
+            '<h3>' + $head + '</h3>' + $(if ($Matches[2]) { '<p>' + $Matches[2] + '</p>' })
+        } else { '<p>' + $part + '</p>' }
+    }) -join '')
 }
 
 function Format-PluginBadgeHtml {
