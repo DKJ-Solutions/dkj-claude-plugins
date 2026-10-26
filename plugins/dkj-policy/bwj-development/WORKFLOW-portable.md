@@ -420,8 +420,9 @@ same day brought back **the closed message** (#2818), and the next day **the reo
   2026, [#3070](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3070)). The closed message
   posts before the release, and nothing automated knows when the live push has been made, so a person
   runs [`notify-live`](skills/notify-live/SKILL.md) right after the push and the cut. It is the runbook
-  step `prepare-release` prints after the cut. It posts *"is now **live**, as version vX.Y.Z: the review
-  can start now."* and the block's closing ask, on the task of every issue the release carried whose
+  step `prepare-release` prints after the cut. It posts *"is now **live**, as version vX.Y.Z."* and a
+  fixed notice line that the review already took place on the preview, so nothing more is asked
+  ([#3492](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3492)), on the task of every issue the release carried whose
   block carries the after-release marker. A `-LiveSince` issue and a research issue are skipped.
 - **The closed line is never sent alone** (Maikel, October 14, 2026,
   [#3004](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3004)): *"there must always be an

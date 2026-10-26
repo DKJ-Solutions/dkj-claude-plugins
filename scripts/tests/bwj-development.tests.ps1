@@ -1260,12 +1260,13 @@ Assert-True (Get-LiveMessageVerdict -Issue (New-NlIssue -Comments $nlRound2 -Reo
 Assert-True (-not (Get-LiveMessageVerdict -Issue (New-NlIssue -Comments @(New-NlBlockComment -Kinds @('after-release')) -Reopened '2026-10-13T10:00:00Z')).Owed) 'a block from before the last reopen is not this round''s -- skipped'
 
 $nlLines = (Get-LiveMessageLines -IssueRef 'o/r#5' -Version 'v1.3.0' -Language 'nl') -join "`n"
-Assert-True $nlLines.Contains('GitHub issue o/r#5 is now **live**, as version v1.3.0: the review can start now.') 'the live line, only the state word bold'
-Assert-True ($nlLines.Contains('WAT WE VAN JE VRAGEN') -and $nlLines.Contains('Klopt het: laat het weten en vink deze taak af.')) 'the block''s own closing ask, in its language'
-Assert-True (-not $nlLines.Contains('link hierboven')) 'the look-sentence pointing at a link above is left out -- this message carries none'
+Assert-True $nlLines.Contains('GitHub issue o/r#5 is now **live**, as version v1.3.0.') 'the live line, only the state word bold'
+Assert-True $nlLines.Contains('the review already took place on the preview') 'a notice: it says the review already happened (#3492)'
+Assert-True (-not $nlLines.Contains('review can start')) 'and never that the review starts at live (#3492)'
+Assert-True (-not ($nlLines.Contains('WAT WE VAN JE VRAGEN') -or $nlLines.Contains('vink deze taak af'))) 'the block''s ask is not asked a second time (#3492)'
 $nlHtml = New-LiveMessageHtml -IssueRef 'o/r#5' -Version '1.3.0' -Language 'en'
 Assert-True $nlHtml.Contains('<a href="https://github.com/o/r/issues/5">o/r#5</a> is now <strong>live</strong>, as version v1.3.0') 'html: the issue as a link, the state word in <strong>, a bare version gets its v'
-Assert-True ($nlHtml.StartsWith('<body>') -and $nlHtml.EndsWith('</body>') -and $nlHtml.Contains('<strong>WHAT WE ASK OF YOU</strong>')) 'html: one body, the ask heading bold'
+Assert-True ($nlHtml.StartsWith('<body>') -and $nlHtml.EndsWith('</body>') -and $nlHtml.Contains('the review already took place on the preview') -and -not $nlHtml.Contains('WHAT WE ASK OF YOU')) 'html: one body, the notice and no second ask (#3492)'
 Assert-True ($nlHtml -notmatch '<(?!/?(body|a|strong)\b)') 'html: only <body>, <a> and <strong>'
 Assert-Throws { New-LiveMessageHtml -IssueRef 'o/r#5"><x' -Version 'v1' } 'html: a ref that is not owner/repo#<n> is refused'
 Assert-Throws { Format-LiveMessageIssueComment -Version 'v1.0.0' -Gid '12/../x' } 'the issue comment refuses a non-numeric GID'
