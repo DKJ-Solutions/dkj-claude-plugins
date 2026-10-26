@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**1 / 1 minor entry** <!-- pending-tally -->
+**1 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/connectors-group-pages · 20261026-140548Z
+
+The product's Connectors page is now an overview of three cards, one per owner group -- DKJ, BWJ and Other, in that
+order, each headed by an h2 and showing its repo count and status summary -- and each card opens a page of its own
+at `/connectors/dkj`, `/connectors/bwj` or `/connectors/other` holding that group's overview table and repo cards.
+No Connectors page carries tiles or a lead any more. The hub serves the new paths and the product's dev server
+relays them; a group page's re-run comes back to that same page.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the Connectors page is this repo's own dev page; nothing a plugin ships changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Connectors page: one card per owner group, each with its own page
+
+[PR #3523](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3523)
+
+---
 
 ### DEPLOY: feat/3493-house-style-components · 20261026-135008Z
 
