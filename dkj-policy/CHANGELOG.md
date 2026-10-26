@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**7 / 14 minor entries** <!-- pending-tally -->
+**8 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/house-style-density · 20261026-091734Z
+
+The house style now states a density rule, and Gwen's manual a "nothing unasked" rule: pages are designed to one 1400 x 600 screen at the full width, without eyebrows, sub lines, intros or extra rows the brief did not ask for.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions page a session designs now starts from one screen without scrolling and the full width, instead of a tall column with decorative extra rows the owner then has to strip out.
+
+**Score:** 3
+
+#### Pull Request
+
+House style: density first -- one screen, the full width, nothing unasked
+
+Plugins: dkj-solutions, dkj-subagents-alpha
+
+[PR #3495](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3495)
+
+---
 
 ### DEPLOY: feat/3474-record-suite-durations-in-plugin · 20261026-082905Z
 

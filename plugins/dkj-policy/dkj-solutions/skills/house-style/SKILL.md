@@ -86,6 +86,28 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    value that is wrong for one app is a new domain token in that app, not an override. Extend, never
    override.
 
+## Density: one screen, the full width, nothing unasked
+
+**The owner works on a 1400 x 600 viewport, does not like to scroll, and wants the width used** (the
+owner, October 26, 2026). A layout that is correct, on-brand and tall still fails here. So every page,
+dashboard and Artifact is designed to that screen first:
+
+- **The first view holds the content.** Vertical scroll is a defect to design away, not a given. Where
+  the content cannot fit, cut ornament first, then go wider, and only then accept a scroll.
+- **Use the width.** Put blocks side by side in grid columns instead of stacking them, and keep the
+  page at the whole width rather than narrowing it to a reading column. `full` is the default only where
+  `house-theme.js` runs; a page without it (an Artifact, a static report) is fluid at 1080px, so it sets
+  `<html data-width="full">` itself.
+- **Nothing the brief did not ask for.** No eyebrow above a heading, no sub line or lead under it, no
+  intro paragraph that repeats the heading, no hero, no extra row of meta. `.eyebrow`, `.sub`, `.lead`
+  and `.card__sub` exist for the brief that asks for one; that they exist is not an invitation.
+- **One row where one row does.** Label and value on one line (`.facts--row`), a card's action beside
+  its heading rather than on a row of its own, filters in one bar. A second row has to carry something
+  the first could not.
+- **Check it before handing it over**: at 1400 x 600, does it fit without scrolling, and is every
+  element there because the brief needs it? An element that fails the second question goes, however
+  good it looks.
+
 ## The gate: `check-house-style`
 
 **[`scripts/lint/check-house-style.ps1`](../../scripts/lint/check-house-style.ps1) holds a repo to these
