@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**16 / 28 minor entries** <!-- pending-tally -->
+**16 / 29 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/logbook-card-three-lines · 20261026-130009Z
+
+A run card on the Logbook and the Stopwatch pages is three lines at most: its start, its prompt label on one line ending in an ellipsis, and its time with the Logbook's work time beside it. The run's own page still shows the label whole.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A one-rule styling change to the hub's run cards; it reaches no reader who takes the next version.
+
+**Score:** N/A
+
+#### Pull Request
+
+Logbook cards: three lines at most
+
+Plugins: dkj-policy
+
+[PR #3519](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3519)
+
+---
 
 ### DEPLOY: feat/3515-awaiting-release-external · 20261026-114838Z
 
