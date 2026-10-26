@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**2 / 5 minor entries** <!-- pending-tally -->
+**3 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3524-armed-ship-clearance · 20261026-151651Z
+
+A close-out after a backgrounded ship no longer tells the requester to keep the session open when the PR
+is already armed `merge-when-green` and the checkout is back on `main`. Chris's persona and manual now
+name that case as a plain clearance, matching the line `ship-pr` has printed since #3442. The second-session
+advice stays for what really dies with the harness: an unarmed ship, a subagent, a local-only wait. The
+`ship-pr` skill page adds why the run must not go through `tail`: the clearance line never reaches the
+session until the run ends (#3524).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a consuming repo, the orchestrator stops warning that a session must stay open while an armed pull
+request ships, and says plainly that it can be cleared.
+
+**Score:** 2
+
+#### Pull Request
+
+Clear the session plainly when a backgrounded ship is armed merge-when-green
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #3527](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3527)
+
+---
 
 ### DEPLOY: fix/brandbook-shared-theme · 20261026-145517Z
 
