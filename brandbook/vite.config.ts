@@ -103,13 +103,14 @@ async function relayToHub(req: IncomingMessage, res: ServerResponse, target: str
 }
 
 /**
- * The product's pages the hub builds: each path, and the refresh that re-reads the connectors or the DKJ repos. And
- * the banner's state on those pages (#3438), so its box works here as on the hub.
+ * The product's pages the hub builds: each path (the Connectors overview and its three group pages among them), and
+ * the refresh that re-reads the connectors or the DKJ repos. And the banner's state on those pages (#3438), so its box
+ * works here as on the hub.
  */
 function hubTarget(path: string, query: string): string | null {
-  if (path === '/connectors' || path === '/specialists' || path === '/dkj-repos') return path
+  if (/^\/connectors(\/(dkj|bwj|other))?$/.test(path) || path === '/specialists' || path === '/dkj-repos') return path
   if (path === '/api/airsquats' || path === '/api/airsquats/clear') return path
-  const page = path === '/refresh' ? /(?:^|&)page=(connectors|dkj-repos)(?:&|$)/.exec(query) : null
+  const page = path === '/refresh' ? /(?:^|&)page=(connectors(?:\/(?:dkj|bwj|other))?|dkj-repos)(?:&|$)/.exec(query) : null
   return page ? `/refresh?page=${page[1]}` : null
 }
 

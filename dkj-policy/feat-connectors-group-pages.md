@@ -39,19 +39,39 @@
 
 ### PLAN
 
+The owner asked (October 26, 2026) for three cards on the product's `/connectors` page -- DKJ, BWJ and Other --
+each with a page of its own holding that group's connectors. A visible result, so the branch waits for the
+owner's look before it ships.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-ConnectorDashboardHtml -Group`: empty is the overview (tiles over every repo, one card per owner group
+      in the hub's card form, its summary under the label); a group key is that group's page (three-crumb trail,
+      its tiles, its overview table and its repo cards). Groups now ordered DKJ, BWJ, Other.
+- [x] The hub serves `/connectors/dkj`, `/bwj` and `/other`, and `/refresh?page=` comes back to a group page.
+- [x] The product's Vite relay (`brandbook/vite.config.ts`) passes the three group paths and their refresh on.
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1` rewritten for the overview and the group pages: 223 passed, 0 failed.
+- [x] `eslint` and `tsc` clean on `brandbook/vite.config.ts`.
+- [ ] The owner has looked at `/connectors` and a group page on the product port.
+
 ### DEPLOY: feat/connectors-group-pages
 
-**Score:**
+The product's Connectors page is now an overview with one card per owner group -- DKJ, BWJ and Other, in that
+order, each showing its repo count and status summary -- and each card opens a page of its own at
+`/connectors/dkj`, `/connectors/bwj` or `/connectors/other` holding that group's tiles, overview table and repo
+cards. The hub serves the new paths and the product's dev server relays them; a group page's re-run comes back to
+that same page.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the Connectors page is this repo's own dev page; nothing a plugin ships changes.
+
+**Score:** N/A
 
 #### Pull Request
 

@@ -208,19 +208,21 @@ $connectors = @(
     @{ Repo = 'Org/gamma'; Visibility = 'public'; File = 'gamma.json'; Checkout = @('../gamma'); Present = $false
        Plugins = @(); Signals = @($parsed['Org/gamma'].Signals); Status = 'skip'; Git = $null; Notes = '' }
 )
-$html = Format-ConnectorDashboardHtml -Connectors $connectors -Meta @{ GeneratedAt = 'now'; SourceCommit = 'abc1234'; Seconds = 1.25; CheckFailed = $null }
+# Both repos are owned by neither DKJ nor BWJ, so their details are the Other group's page (owner, October 26, 2026).
+$html = Format-ConnectorDashboardHtml -Connectors $connectors -Meta @{ GeneratedAt = 'now'; SourceCommit = 'abc1234'; Seconds = 1.25; CheckFailed = $null } -Group 'other'
 Assert-True ($html -notmatch '<script>alert') 'a git subject is shown as text, never as markup'
 Assert-True ($html -match '&lt;script&gt;alert') 'and it is still shown'
 Assert-True ($html -match 'a&quot;note') 'the register notes are escaped too'
 Assert-True ($html -match 'Last commit on main 2 days ago: ' -and $html -notmatch 'feat/y') 'the card states the trunk''s last commit, never the checked-out branch'
 Assert-True ($html -match 'not on this machine') 'an absent checkout says so'
 Assert-True ($html.IndexOf('id="repo-org-beta"') -lt $html.IndexOf('id="repo-org-gamma"')) 'a repo that needs action comes before a skipped one'
+Assert-True ($html -match 'href="/refresh\?page=connectors/other"') 'a group page''s re-run comes back to that same group page'
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'the page loads the house style from its own server'
 Assert-True ($html -match 'DKJTheme\.settings\(' -and $html -notmatch 'DKJTheme\.picker\(') 'the theme choice is the house settings button, not a hand-built picker card'
 Assert-True ($html -match '<div id="settings"></div></div></header>' -and $html -notmatch 'theme-settings--floating') 'the settings button sits at the far right of the site header'
 Assert-True (([regex]::Matches($html, 'var\(--(primary|muted|fg-|paper-)')).Count -ge 6 -and $html -match 'class="cd-link"') 'the chosen theme reaches the page beyond its buttons, through the repo layer''s own theme-colour accents'
-Assert-True ($html -notmatch 'class="eyebrow"' -and $html -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/"' -and $html -match '<h1>Connectors</h1>' -and $html -match '<main class="page-column">') 'the page keeps the hub frame: the site header in place of the eyebrow, its own h1, the page column'
-Assert-True ($html -match '(?s)<body>\s*<div class="notice" id="hub-banner".*?</script>\s*<header class="site-header">.*?</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep" aria-hidden="true"><svg\ viewBox="0\ 0\ 24\ 24"><path\ fill="currentColor"\ fill-rule="evenodd"\ d="M9\.793\ 16\.707a1\ 1\ 0\ 0\ 1\ 0-1\.414L13\.086\ 12\ 9\.793\ 8\.707a1\ 1\ 0\ 0\ 1\ 1\.414-1\.414l4\ 4a1\ 1\ 0\ 0\ 1\ 0\ 1\.414l-4\ 4a1\ 1\ 0\ 0\ 1-1\.414\ 0"\ clip-rule="evenodd"/></svg></span><span aria-current="page">Connectors</span></li>') 'the banner opens <body>, then the site header and the breadcrumb bar, its trail from the hub to Connectors (#3090, #3097)'
+Assert-True ($html -notmatch 'class="eyebrow"' -and $html -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/"' -and $html -match '<h1>Other repos</h1>' -and $html -match '<main class="page-column">') 'the page keeps the hub frame: the site header in place of the eyebrow, its own h1, the page column'
+Assert-True ($html -match '(?s)<body>\s*<div class="notice" id="hub-banner".*?</script>\s*<header class="site-header">.*?</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep" aria-hidden="true"><svg\ viewBox="0\ 0\ 24\ 24"><path\ fill="currentColor"\ fill-rule="evenodd"\ d="M9\.793\ 16\.707a1\ 1\ 0\ 0\ 1\ 0-1\.414L13\.086\ 12\ 9\.793\ 8\.707a1\ 1\ 0\ 0\ 1\ 1\.414-1\.414l4\ 4a1\ 1\ 0\ 0\ 1\ 0\ 1\.414l-4\ 4a1\ 1\ 0\ 0\ 1-1\.414\ 0"\ clip-rule="evenodd"/></svg></span><a href="/connectors">Connectors</a></li>\s*<li><span class="breadcrumbs__sep" aria-hidden="true"><svg[^>]*><path[^>]*/></svg></span><span aria-current="page">Other repos</span></li>') 'the banner opens <body>, then the site header and the breadcrumb bar, its trail from the hub through Connectors to the group (#3090, #3097)'
 Assert-True (([regex]::Matches($html, '<header')).Count -eq 1 -and $html -notmatch 'cd-band|cd-accent') 'and its intro is no <header> (the one is the site header), and no decoration the form does not carry'
 Assert-True ($html -notmatch 'About this repo</h2>' -and $html -match 'href="#overview">Back to overview') 'the facts card is the hub''s, and the card the overview links down to carries the way back'
 Assert-True ($html.Contains((Format-RepoHubBanner)) -and ([regex]::Matches($html, 'id="hub-banner"')).Count -eq 1) 'the page carries the hub''s general banner once, as every hub page does (#3356)'
@@ -231,29 +233,34 @@ Assert-Equal 'bwj' (Get-ConnectorOwnerGroup 'BWJ-Development/shop') 'a BWJ-Devel
 Assert-Equal 'dkj' (Get-ConnectorOwnerGroup 'dkj-solutions/hub') 'a DKJ-Solutions repo is in the DKJ group, whatever the case'
 Assert-Equal 'other' (Get-ConnectorOwnerGroup 'DaveKJohn/djcylow-react') 'any other owner is Other'
 Assert-Equal 'other' (Get-ConnectorOwnerGroup '') 'no slug is Other, not an error'
-$grouped = Format-ConnectorDashboardHtml -Connectors @(
+$three = @(
     @{ Repo = 'Someone/x'; Status = 'bad'; Plugins = @(); Signals = @(); Present = $false; Git = $null },
     @{ Repo = 'DKJ-Solutions/y'; Status = 'good'; Plugins = @(); Signals = @(); Present = $false; Git = $null },
-    @{ Repo = 'BWJ-Development/z'; Status = 'good'; Plugins = @(); Signals = @(); Present = $false; Git = $null }) -Meta @{ GeneratedAt = 'now' }
-$iB = $grouped.IndexOf('id="group-bwj"'); $iD = $grouped.IndexOf('id="group-dkj"'); $iO = $grouped.IndexOf('id="group-other"')
-Assert-True ($iB -ge 0 -and $iB -lt $iD -and $iD -lt $iO) 'the groups come BWJ, DKJ, Other -- owner order beats status order'
-Assert-True ($iO -lt $grouped.IndexOf('id="repo-someone-x"')) 'a repo sits under its own group heading'
-Assert-True ($grouped -match '<h1>Connectors</h1>' -and $grouped -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span></span>') 'the h1 is Connectors, and the site header names this repo''s product, the port that relays the page'
-Assert-Equal 1 ([regex]::Matches($grouped, '<div class="grid-2" id="overview">\r?\n<div class="grid__head"><h2>Connected repos</h2>')).Count 'the overview stays one card, its h2 Connected repos above it (#3175)'
-$oB = $grouped.IndexOf('id="overview-bwj"'); $oD = $grouped.IndexOf('id="overview-dkj"'); $oO = $grouped.IndexOf('id="overview-other"')
-Assert-True ($grouped.IndexOf('<h2>Connected repos</h2>') -lt $oB -and $oB -lt $oD -and $oD -lt $oO -and $oO -lt $iB) 'inside Connected repos a table per group, BWJ, DKJ, Other, before the Status cards'
-Assert-True ($grouped -notmatch '<h3[^>]*id="overview-' -and $grouped -match '<th>BWJ repos</th>' -and $grouped -match '<th>DKJ repos</th>' -and $grouped -match '<th>Other repos</th>' -and $grouped -notmatch '<th>Repo</th>') 'no h3 over the tables: each table names its group in its first column head'
-$tables = [regex]::Matches($grouped, '<table class="table cd-overview"[^>]*><colgroup>(.*?)</colgroup>')
-Assert-True ($tables.Count -eq 3 -and @($tables | ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique).Count -eq 1) 'every group''s table carries the same fixed column set, so the columns line up'
-Assert-True ($grouped -match '\.cd-overview \{ table-layout: fixed;') 'the overview tables use a fixed layout'
-$iS = $grouped.IndexOf('<div class="grid-2" id="issues">')
-Assert-True ($oO -lt $iS -and $iS -lt $iB -and $grouped -match '<h3 class="cd-subgroup" id="group-bwj">' -and $grouped -match '<p class="cd-repo__name">Someone/x</p>') 'the details sit beside Connected repos: an h2 Issues, an h3 per group, the repo name a bold line under it'
-Assert-True (([regex]::Matches($grouped, 'class="card grid__full"')).Count -eq 2 -and $grouped -notmatch 'card__head.{0,2}<h2' -and ([regex]::Matches($grouped, '<section class="mini-card cd-repo-card"')).Count -eq 3) 'Connected repos and Issues are a card each, and each repo a house mini-card inside Issues'
-Assert-True ($html -notmatch 'id="group-bwj"' -and $html -match 'id="group-other"') 'an empty group is left out'
+    @{ Repo = 'DKJ-Solutions/w'; Status = 'bad'; Plugins = @(); Signals = @(); Present = $false; Git = $null })
+$overview = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' }
+Assert-True ($overview -match '<h1>Connectors</h1>' -and $overview -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span></span>' -and $overview -match '<span aria-current="page">Connectors</span>') 'the overview''s h1 is Connectors, and the site header names this repo''s product, the port that relays the page'
+$cD = $overview.IndexOf('href="/connectors/dkj"'); $cB = $overview.IndexOf('href="/connectors/bwj"'); $cO = $overview.IndexOf('href="/connectors/other"')
+Assert-True ($cD -ge 0 -and $cD -lt $cB -and $cB -lt $cO) 'the overview has a card per owner group, DKJ, BWJ, Other, each linking its own page (owner, October 26, 2026)'
+Assert-Equal 3 ([regex]::Matches($overview, '<section class="card card--link">')).Count 'three cards, in the hub''s card form'
+Assert-True ($overview -match '<div class="grid-3" id="groups">' -and $overview.IndexOf('class="tiles"') -lt $overview.IndexOf('id="groups"')) 'the cards sit three to a row, under the tiles'
+Assert-True ($overview.Contains('menu-item__label">DKJ<span class="menu-item__sub">2 repos ' + [char]0x00B7 + ' 1 needs action ' + [char]0x00B7 + ' 1 in sync</span>')) 'a card carries its group''s summary under its label'
+Assert-True ($overview.Contains('menu-item__label">BWJ<span class="menu-item__sub">0 repos</span>')) 'an empty group keeps its card'
+Assert-True ($overview -notmatch 'Connected repos</h2>' -and $overview -notmatch '<section class="mini-card' -and $overview -notmatch 'id="issues"') 'the overview holds no table and no repo card: those are the group pages'
+Assert-True ($overview -match '<div class="tile"><div class="label">Registered repos</div><div class="v num">3</div>') 'the overview''s tiles count every repo'
+$dkj = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' } -Group 'dkj'
+Assert-True ($dkj -match '<h1>DKJ repos</h1>' -and $dkj -match '<title>dkj-claude-plugins -- DKJ repos</title>' -and $dkj -match 'owned by DKJ-Solutions') 'a group page is headed by its group'
+Assert-True ($dkj -match '<div class="tile"><div class="label">Registered repos</div><div class="v num">2</div>' -and $dkj -notmatch 'Someone/x') 'and holds that group''s repos alone, its tiles counting them'
+Assert-True ($dkj.IndexOf('id="repo-dkj-solutions-w"') -lt $dkj.IndexOf('id="repo-dkj-solutions-y"')) 'inside a group, worst first'
+Assert-Equal 1 ([regex]::Matches($dkj, '<div class="grid-2" id="overview">\r?\n<div class="grid__head"><h2>Connected repos</h2>')).Count 'the group''s overview is one card, its h2 Connected repos above it (#3175)'
+Assert-True ($dkj -match '<table class="table cd-overview" id="overview-dkj">' -and $dkj -match '<th>DKJ repos</th>' -and $dkj -notmatch '<th>Repo</th>' -and $dkj -match '\.cd-overview \{ table-layout: fixed;') 'one fixed-layout table, its group named in its first column head'
+$iS = $dkj.IndexOf('<div class="grid-2" id="issues">')
+Assert-True ($dkj.IndexOf('id="overview-dkj"') -lt $iS -and $dkj -match '<div id="group-dkj">\r?\n<p class="sub cd-group-summary">2 repos &#183; 1 needs action &#183; 1 in sync</p>' -and $dkj -match '<p class="cd-repo__name">DKJ-Solutions/w</p>' -and $dkj -notmatch '<h3') 'the details sit beside Connected repos: an h2 Issues, the group''s summary line, no h3 repeating the page''s own heading'
+Assert-True (([regex]::Matches($dkj, 'class="card grid__full"')).Count -eq 2 -and $dkj -notmatch 'card__head.{0,2}<h2' -and ([regex]::Matches($dkj, '<section class="mini-card cd-repo-card"')).Count -eq 2) 'Connected repos and Issues are a card each, and each repo a house mini-card inside Issues'
+$bwj = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' } -Group 'bwj'
+Assert-True ($bwj -match '<h1>BWJ repos</h1>' -and $bwj -match 'No repo owned by BWJ-Development is registered' -and $bwj -notmatch 'id="issues"') 'an empty group''s page says so, and has no details card'
 Assert-Equal '3 repos &#183; 1 needs action &#183; 2 in sync' (Format-DashboardGroupSummary @(@{ Status = 'good' }, @{ Status = 'bad' }, @{ Status = 'good' })) 'a group summary counts its repos, then each status worst first'
 Assert-Equal '1 repo &#183; 1 not on this machine' (Format-DashboardGroupSummary @(@{ Status = 'skip' })) 'one repo is singular'
 Assert-Equal '2 repos &#183; 2 need action' (Format-DashboardGroupSummary @(@{ Status = 'bad' }, @{ Status = 'bad' })) 'and several agree with their verb'
-Assert-True ($grouped -match '<h3 class="cd-subgroup" id="group-bwj">BWJ repos</h3>\r?\n<p class="sub cd-group-summary">1 repo &#183; 1 in sync</p>') 'every Issues group heading is followed by its own summary line'
 Assert-True ($html -match '\.cd-repo__name \{ margin: 0; font-weight: 600; \}' -and $html -notmatch '<h4') 'a repo name is a bold line, not a heading: the house style has no h4 (October 25, 2026)'
 Assert-True ($html -notmatch '<th>Errors</th>' -and $html -notmatch '<th>Notes</th>' -and ([regex]::Match($html, '<colgroup>.*?</colgroup>').Value -split '<col ').Count -eq 6) 'the overview has no Errors or Notes column: five columns, five widths'
 Assert-True ($html -notmatch '>Main</th>' -and $html -notmatch '>Checkout</th>' -and $html -notmatch 'behind') 'the overview has no Main or Checkout column, and nothing measures a trunk against origin'
@@ -361,6 +368,8 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             Assert-True ($who -match 'HTTP/1.1 200' -and $who.EndsWith("`r`n`r`n" + (Get-DevPreviewRootHash -Root $RepoRoot))) '/whoami answers the hash of this root, as the general server does'
             Assert-Equal 303 (Get-Status 'GET' '/refresh' "localhost:$port") '/refresh redirects to the page'
             Assert-True ((Get-Raw 'GET' '/refresh?page=connectors' "localhost:$port") -match 'Location: /connectors\r') '/refresh?page= goes back to the page that asked'
+            Assert-True ((Get-Raw 'GET' '/refresh?page=connectors/bwj' "localhost:$port") -match 'Location: /connectors/bwj\r') 'and to a Connectors group page that asked (owner, October 26, 2026)'
+            Assert-Equal 404 (Get-Status 'GET' '/connectors/nope' "localhost:$port") 'a Connectors group no owner has is not found'
             Assert-True ((Get-Raw 'GET' '/refresh?page=sessionstart' "localhost:$port") -match 'Location: /\r') 'and a page that moved to the general pages server (#3119) is no page of this one''s'
             Assert-True ((Get-Raw 'GET' '/refresh?page=//evil.example' "localhost:$port") -match 'Location: /\r') 'and to the index for a page outside its list'
             Assert-Equal 403 (Get-Status 'GET' '/refresh' "localhost:$port" "Sec-Fetch-Site: cross-site`r`n") 'a request another site makes is refused'
@@ -436,7 +445,9 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             # come back -- the question #3038 could not answer from four asserts failing together.
             $up = Wait-ServerUp $port3
             Assert-True $up 'the group-3 server listens on the port it was given'
-            $page = if ($up) { Get-Raw 'GET' '/connectors' "localhost:$port3" '' $port3 } else { '' }
+            # The fixture's repos are all Org/*, so their details are on the Other group's page (owner, October 26, 2026).
+            $page = if ($up) { Get-Raw 'GET' '/connectors/other' "localhost:$port3" '' $port3 } else { '' }
+            $overviewPage = if ($up) { Get-Raw 'GET' '/connectors' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($page -match 'HTTP/1.1 200') 'the page is served with a checkout that has no upstream'
             Assert-True ($page -match 'Last commit on (master|main) [^:]*: local only') 'and that checkout shows its trunk''s last commit'
             Assert-True ($page -match 'class="msg msg--warn"') 'a check that could not run is reported, not fatal'
@@ -533,7 +544,8 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $hubDown = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($hubDown -match 'HTTP/1.1 200' -and $hubDown -match 'The general pages server is not running') 'and the General card is back to not running once nothing answers there'
             Remove-Item -LiteralPath $srcState -Force -ErrorAction SilentlyContinue
-            Assert-True ($page -match 'HTTP/1.1 200' -and $page -match '<h1>Connectors</h1>' -and $page -match '<a href="/">Home</a>') '/connectors serves the overview as a page under the hub'
+            Assert-True ($overviewPage -match 'HTTP/1.1 200' -and $overviewPage -match '<h1>Connectors</h1>' -and $overviewPage -match '<a href="/">Home</a>' -and $overviewPage -match 'href="/connectors/other"') '/connectors serves the overview as a page under the hub, linking each group''s page'
+            Assert-True ($page -match '<h1>Other repos</h1>' -and $page -match '<a href="/connectors">Connectors</a>') '/connectors/other serves that group''s page under the overview'
             $tg = if ($up) { Get-Raw 'GET' '/test-gate' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($tg -match 'HTTP/1.1 200' -and $tg -match 'No test gate has been measured in this repo yet') '/test-gate shows a missing suite-durations.json as its empty state, rather than failing'
         } finally {
