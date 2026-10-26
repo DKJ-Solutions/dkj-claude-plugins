@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Inbound #3488: the reason was verified before the repair. An unauthenticated `GET /repos/<repo>` leaves
+out `allow_squash_merge` and `allow_auto_merge`, and an admin read carries them. This repo's own
+scheduled run read `allow_auto_merge` and `allow_update_branch` as not-read every day. GraphQL's
+`squashMergeAllowed` and its siblings answer at `viewerPermission: READ` (measured on `cli/cli`).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `check-repo-settings.ps1` (and its plugin mirror): an admin-only `repo.*` switch the REST object omits is read from GraphQL, lazily and once; the docstring's claim that the repo object reads without admin is corrected
+- [x] `repo-settings.yml` header says the same
+- [x] six asserts in `repo-settings-gate.tests.ps1`, offline through the new `-RepoGraphQlJsonOverride`
 
 ### TEST
 
+- [x] the suite passes, 77 of 77; a live run with the REST payload stripped of the admin fields reads all 7 declared settings through GraphQL
+
 ### DEPLOY: fix/3488-repo-settings-admin-only-fields
 
-**Score:**
+`check-repo-settings.ps1` now reads the repo's merge switches (`allow_squash_merge`, `allow_auto_merge`,
+`allow_update_branch` and their siblings) from GraphQL when the REST repo object leaves them out. REST
+leaves them out for any token without admin, which includes every CI token. In this repo's own
+scheduled run two of the seven declared settings read as not-read every day. They are now compared.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo that declares only a merge switch in `Get-ExpectedRepoSettings` had a scheduled
+`Repo settings` run that was red by construction under `-RequireRead`
+(`BWJ-Development/smartwatchbanden`). With this release it reads the switch and goes green, or red
+only on a real drift.
+
+**Score:** 3
 
 #### Pull Request
 

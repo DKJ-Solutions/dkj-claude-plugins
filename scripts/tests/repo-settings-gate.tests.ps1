@@ -122,6 +122,8 @@ function Invoke-Check {
         [Parameter(Mandatory = $true)][string]$Root,
         [string]$BranchRules = 'NONE',
         [string]$Repo = 'NONE',
+        # 'NONE' by default like the other three, so no case ever reaches the live GraphQL API.
+        [string]$RepoGraphQl = 'NONE',
         [string]$Ruleset = 'NONE',
         [string]$Trunk = '',
         [switch]$RequireRead,
@@ -133,6 +135,7 @@ function Invoke-Check {
     $a = @('-RootOverride', $Root,
            '-BranchRulesJsonOverride', $BranchRules,
            '-RepoJsonOverride', $Repo,
+           '-RepoGraphQlJsonOverride', $RepoGraphQl,
            '-RulesetJsonOverride', $Ruleset)
     if ($Trunk) { $a += @('-Trunk', $Trunk) }
     if ($RequireRead) { $a += '-RequireRead' }
@@ -225,6 +228,36 @@ try {
     $r = Invoke-Check -Root $dirVis -Repo (New-Payload -Dir $dirVis -Name 'priv' -Json '{"visibility":"private"}')
     Assert-True ($r.Code -eq 1 -and $r.Out -match 'live\s+private') `
         'gone private -- exit 1, the change that would break every consumer install silently'
+
+    Write-Host ''
+    Write-Host 'an admin-only merge switch the REST object omits is read from GraphQL (#3488)'
+    # The smartwatchbanden state: ONE declared field, and it is one the REST repo object leaves out for
+    # every non-admin token -- so before this repair the scheduled run was red by construction.
+    $declareSquash = "@(@{ Field = 'repo.allow_squash_merge'; Expected = `$false; Recorded = '2026-10-26'; Where = 'Get-PrMergeMethod'; Why = 'a squash collapses the reconciliation base' })"
+    $dir = New-Fixture -Label 'gql' -Declared $declareSquash
+    $pNoAdmin = New-Payload -Dir $dir -Name 'repo-noadmin' -Json '{"visibility":"public"}'
+    $pGqlOff  = New-Payload -Dir $dir -Name 'gql-off' -Json '{"data":{"repository":{"squashMergeAllowed":false}}}'
+    $pGqlOn   = New-Payload -Dir $dir -Name 'gql-on'  -Json '{"data":{"repository":{"squashMergeAllowed":true}}}'
+    $r = Invoke-Check -Root $dir -Repo $pNoAdmin -RepoGraphQl $pGqlOff -RequireRead
+    Assert-True ($r.Code -eq 0 -and $r.Out -match '\[OK\]\s+repo\.allow_squash_merge = false') `
+        'REST omits it, GraphQL answers false as declared -- [OK], and -RequireRead no longer fails the run'
+    $r = Invoke-Check -Root $dir -Repo $pNoAdmin -RepoGraphQl $pGqlOn
+    Assert-True ($r.Code -eq 1 -and $r.Out -match 'live\s+true') 'GraphQL answers true against a declared false -- a real drift, exit 1'
+    # The REST value wins where it is present (an admin running it locally), so GraphQL is not consulted.
+    $pAdmin = New-Payload -Dir $dir -Name 'repo-admin' -Json '{"allow_squash_merge":false}'
+    $r = Invoke-Check -Root $dir -Repo $pAdmin -RepoGraphQl $pGqlOn
+    Assert-True ($r.Code -eq 0) 'REST carries the field -- its answer is used, and a contradicting GraphQL payload is never read'
+    # Both reads failing stays the third verdict, and the reason names both halves.
+    $r = Invoke-Check -Root $dir -Repo $pNoAdmin -RepoGraphQl 'NONE'
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'administrators only' -and $r.Out -match 'GraphQL read of .squashMergeAllowed. failed') `
+        'REST omits it and GraphQL is refused -- unreadable, and the report names both reads'
+    $pGqlErr = New-Payload -Dir $dir -Name 'gql-err' -Json '{"errors":[{"message":"nope"}]}'
+    $r = Invoke-Check -Root $dir -Repo $pNoAdmin -RepoGraphQl $pGqlErr
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'carried no repository') 'a GraphQL error payload -- unreadable, never a match'
+    # A field outside the admin-only set still reports the plain REST reason, with no GraphQL detour.
+    $dirVis2 = New-Fixture -Label 'gqlvis' -Declared "@(@{ Field = 'repo.visibility'; Expected = 'public'; Recorded = 'x'; Where = 'x'; Why = 'y' })"
+    $r = Invoke-Check -Root $dirVis2 -Repo (New-Payload -Dir $dirVis2 -Name 'repo' -Json '{}') -RepoGraphQl $pGqlOff
+    Assert-True ($r.Out -match "carries no 'visibility' field" -and $r.Out -notmatch 'GraphQL') 'visibility is not admin-only -- no GraphQL fallback for it'
 
     Write-Host ''
     Write-Host 'unreadable is a THIRD verdict -- never green, never a mismatch'
