@@ -1,0 +1,48 @@
+# The house style's own CSS gate (#3493): CSS syntax, custom properties and colour literals, on every change to
+# the house-style stylesheets or to the gate itself. Until #3493 these three checks ran only inside the brandbook
+# app's `npm run gate`, so retiring that app would have left house-style.css ungated.
+name: house-style-css
+
+# Least-privilege: this workflow only reads.
+permissions:
+  contents: read
+
+# PATH-SCOPED, AND THEREFORE NOT A REQUIRED CHECK: a required check that a path filter skips never reports, and the PR
+# then waits on it forever. lint-en-tests stays the one required check; this one gates the house style's own changes.
+on:
+  pull_request:
+    paths:
+      - 'plugins/dkj-policy/dkj-solutions/assets/house-style/**'
+      - 'scripts/lint/house-style-css/**'
+      - '.github/workflows/house-style-css.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'plugins/dkj-policy/dkj-solutions/assets/house-style/**'
+      - 'scripts/lint/house-style-css/**'
+      - '.github/workflows/house-style-css.yml'
+  merge_group:
+
+concurrency:
+  group: house-style-css-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  gate:
+    name: "house-style-css-gate"
+    runs-on: ubuntu-latest
+    # A wedged check reads as "still running" forever (#2296); the gate takes seconds.
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: scripts/lint/house-style-css
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: 'scripts/lint/house-style-css/.nvmrc'
+          cache: 'npm'
+          cache-dependency-path: 'scripts/lint/house-style-css/package-lock.json'
+      - run: npm ci
+      - name: Gate (CSS syntax + custom properties + colour tokens)
+        run: npm run gate

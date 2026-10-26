@@ -721,6 +721,7 @@ Assert-True ($glCoRefuse -gt $goLiveDriver.IndexOf('if (-not $PostArg) {') -and 
 Assert-True ($goLiveDriver -match '\$coClaimText = if \(\$coClaimants\.Count -gt 0\)') 'the refusal text comes from co-claimants found, so a search that could not answer cannot refuse'
 Assert-Equal 1 ([regex]::Matches($goLiveDriver, 'if \(-not \$ForceArg -and \$coClaimText\)').Count) 'and the text is refused in one place only'
 Assert-True ($goLiveDriver -notmatch '(?m)^.*\$coClaimUnread.*exit') 'nothing on the unread path exits'
+Assert-True ($goLiveDriver -notmatch '\$peers = @\(\(\$peerRun\.Output[^\r\n]*\|\s*ConvertFrom-Json\)') 'the peer list is assigned before it is wrapped, so 5.1 does not hold it as one element (#3511)'
 
 # THE DRIVER, RUN THE WAY THE SKILL RUNS IT -- '-File', in a fresh process -- issue #2339. The config used
 # to be dot-sourced inside a '& { }' scriptblock, so Get-StorefrontMarkets died with that scope and -Path

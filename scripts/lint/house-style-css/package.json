@@ -1,0 +1,12 @@
+{
+  "name": "house-style-css-gate",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "gate": "node check-css-syntax.mjs && node check-css-vars.mjs && node check-colour-literals.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  }
+}
