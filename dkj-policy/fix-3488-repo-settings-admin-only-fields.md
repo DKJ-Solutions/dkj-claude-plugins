@@ -52,7 +52,8 @@ scheduled run read `allow_auto_merge` and `allow_update_branch` as not-read ever
 
 ### TEST
 
-- [x] the suite passes, 77 of 77; a live run with the REST payload stripped of the admin fields reads all 7 declared settings through GraphQL
+- [x] code review (one minor message fix, applied with its own assert) and security review (no findings)
+- [x] the suite passes, 78 of 78; a live run with the REST payload stripped of the admin fields reads all 7 declared settings through GraphQL
 
 ### DEPLOY: fix/3488-repo-settings-admin-only-fields
 
