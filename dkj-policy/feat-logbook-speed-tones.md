@@ -51,11 +51,12 @@ Bounds chosen as a default and named in the page footer: under 15 minutes of wor
 
 - [x] `logbook.tests.ps1`: the three tones at their bounds, work time over whole time, an open run uncoloured, the card class and the footer (55/0); `stopwatch.tests.ps1` 241/0
 - [x] Checked on the live hub at `/logbook`: 11 green, 28 orange, 11 red cards
+- [x] Dave's look: the coloured time stays, the left border goes
 
 ### DEPLOY: feat/logbook-speed-tones
 
-The hub's Logbook overview colours each finished run's card by its work time: a coloured band down its left edge and its time line in
-the same colour, green under 15 minutes, orange under 45, red from 45 on. The time spent waiting on the owner does not count, and a run
+The hub's Logbook overview colours each finished run's time line by its work time: green under 15 minutes, orange under 45, red
+from 45 on. The time spent waiting on the owner does not count, and a run
 whose work time was not measured is read off its whole time. The page footer names the bounds.
 
 **Score:** 2

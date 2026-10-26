@@ -273,7 +273,7 @@ function Format-LogbookPageHtml {
     $work = Get-LogbookWorkTimes -Runs $Runs -Transcript $Transcript
     foreach ($id in $work.Keys) { $notes[$id] = 'work ' + (Format-DevSeconds $work[$id].Work) }
     $tones = Get-LogbookSpeedTones -Runs $Runs -WorkTimes $work
-    $note = 'A finished run''s card is green under ' + ($script:LogbookFastSeconds / 60) + ' minutes of work, orange under ' + ($script:LogbookSlowSeconds / 60) + ' and red from there on; a run with no work time is read off its whole time. ' +
+    $note = 'A finished run''s time is green under ' + ($script:LogbookFastSeconds / 60) + ' minutes of work, orange under ' + ($script:LogbookSlowSeconds / 60) + ' and red from there on; a run with no work time is read off its whole time. ' +
         'Kept on this machine in <code>' + (ConvertTo-GeneralPageText $StorePath) + '</code>, outside the checkout, and not shared: a label is the first line of a prompt. ' +
         'The first prompt of a new Claude Code session starts a run when the checkout is on the trunk and clean; a Stop hook ends it once a turn ends with the checkout back on the trunk and clean, ' +
         'also when nothing was merged, and not while a ship-pr is still waiting on CI. Both are the dkj-policy plugin''s <code>hooks/logbook-hook.ps1</code>. ' +

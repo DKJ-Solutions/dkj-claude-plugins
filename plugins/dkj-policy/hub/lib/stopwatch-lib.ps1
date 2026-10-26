@@ -909,11 +909,8 @@ function Format-StopwatchPageShell {
         '.sw-change { margin-left: var(--spacing-2); font-size: var(--text-xs); font-weight: 400; color: var(--muted); }' + "`n" +
         '.sw-change--good { color: var(--positive-5); }' + "`n" +
         '.sw-change--bad { color: var(--negative-5); }' + "`n" +
-        # A run card's speed (-CardTones, the Logbook's): a band down its left edge and its time line in the same colour,
-        # green fast, orange medium, red slow (the owner, October 26, 2026).
-        '.sw-card--fast { border-left: var(--spacing-1) solid var(--positive-3); }' + "`n" +
-        '.sw-card--medium { border-left: var(--spacing-1) solid var(--warning-3); }' + "`n" +
-        '.sw-card--slow { border-left: var(--spacing-1) solid var(--negative-3); }' + "`n" +
+        # A run card's speed (-CardTones, the Logbook's): its time line in colour, green fast, orange medium, red slow, and
+        # no band along the card's edge (the owner, October 26, 2026).
         '.sw-card--fast .sw-time, .sw-card--fast .sw-time .sw-change { color: var(--positive-5); font-weight: 600; }' + "`n" +
         '.sw-card--medium .sw-time, .sw-card--medium .sw-time .sw-change { color: var(--warning-5); font-weight: 600; }' + "`n" +
         '.sw-card--slow .sw-time, .sw-card--slow .sw-time .sw-change { color: var(--negative-5); font-weight: 600; }' + "`n" +
