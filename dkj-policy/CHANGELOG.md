@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**13 / 20 minor entries** <!-- pending-tally -->
+**14 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3498-notify-live-noresolves-issues · 20261026-102423Z
+
+`notify-live` now finds the issues a release carried, not only the ones its PRs closed through a
+closing keyword. It also reads the issue a PR's head branch is named after, and every `#<n>` in the
+PR body that GitHub confirms is an issue. The verdict is unchanged, so a number a PR merely mentions
+shows up as a `skipped` row in the dry run and never becomes a message.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+In a store repo that answers `Get-ResolvesExemptMatchers`, every Asana-linked issue ships with
+`-NoResolves` and is closed by hand, so `notify-live` could never tell any of their tasks that the work
+was live. From this release on, it does.
+
+**Score:** 4
+
+#### Pull Request
+
+notify-live finds the issues a -NoResolves PR carried
+
+Plugins: bwj-development
+
+[PR #3507](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3507)
+
+---
 
 ### DEPLOY: feat/3494-on-hold-for-every-awaiting-label · 20261026-101354Z
 
