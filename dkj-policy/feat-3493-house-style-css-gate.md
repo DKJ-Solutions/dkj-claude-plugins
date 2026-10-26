@@ -75,6 +75,8 @@ token declaration in `house-style.css`. Until now those checks ran only inside t
 
 #### What makes this deploy extra special
 
+Nothing reaches a consumer: the gate runs in this repo's CI only, and the house-style files are unchanged.
+
 **Score:** N/A
 
 #### Pull Request
