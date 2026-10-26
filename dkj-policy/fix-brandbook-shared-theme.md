@@ -39,19 +39,33 @@
 
 ### PLAN
 
+The owner (October 26, 2026): the brand book is part of this repo's product, so it behaves like the other
+product pages on the product port (`/connectors`, the root page). It had its own default theme (blue) and its own
+storage key, so the theme changed on the way in and a pick made elsewhere did not carry over.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `brandbook/index.html`: `data-theme-default="lilac"` and `data-theme-key="general-pages"`, the root page's pair
+- [x] `brandbook/root.html` and `brandbook/src/showcase/theme.ts`: the comments that said the app keeps its own theme
 
 ### TEST
 
+- [x] `npx tsc -b --noEmit` in `brandbook/`: no errors
+- [ ] The owner's look at `http://localhost:5174/`: root page, brand book and `/connectors` keep one theme
+
 ### DEPLOY: fix/brandbook-shared-theme
 
-**Score:**
+The brand book now opens in the product's theme, lilac, and keeps whatever theme was picked on any other page of
+the product port, because it stores the pick under the same `general-pages` key. A repo preview inside it still
+opens in that repo's own default theme while no theme has been picked.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the brand book is this repo's own dev preview; nothing a consumer installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 
