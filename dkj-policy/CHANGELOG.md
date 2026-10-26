@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**14 / 21 minor entries** <!-- pending-tally -->
+**14 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3502-house-style-font-longhands · 20261026-103340Z
+
+The house style's stylesheet no longer uses the `font` shorthand with a size/line-height pair: the four
+places that did (`body`, `.badge`, `.info-button`, `.moretoggle`) now spell out `font-family`,
+`font-size`, `font-weight` and `line-height`, so each value can be read on its own. The `house-style`
+skill's checksum follows the new file.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+House style: write the font longhands instead of the size/line-height shorthand
+
+Plugins: dkj-solutions
+
+[PR #3508](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3508)
+
+---
 
 ### DEPLOY: fix/3498-notify-live-noresolves-issues · 20261026-102423Z
 
