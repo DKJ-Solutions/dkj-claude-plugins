@@ -143,6 +143,12 @@ $peers = @(
 $co = @(Get-AsanaTaskCoClaimants -Gid $gid -Number 402 -Issues $peers)
 Assert-Equal '401' ($co -join ',') 'the other issue resolving to the same task is found, the issue itself and a bare number are not'
 Assert-Equal 0 @(Get-AsanaTaskCoClaimants -Gid $gid -Number 402 -Issues @()).Count 'an empty search names nobody'
+# FROM gh's OWN JSON TEXT, parsed the way build-golive-block parses it (#3511). Two or more results are the
+# case that threw under 5.1, where @(<text> | ConvertFrom-Json) held the whole list as one element.
+$peerJson = (@($peers | Select-Object number, body) | ConvertTo-Json -Compress)
+$peerList = $peerJson | ConvertFrom-Json; $parsedPeers = @($peerList)
+Assert-Equal 4 $parsedPeers.Count 'gh''s JSON list, assigned before it is wrapped, is one element per issue'
+Assert-Equal '401' (@(Get-AsanaTaskCoClaimants -Gid $gid -Number 402 -Issues $parsedPeers) -join ',') 'and the rule reads it without throwing on the number cast'
 $cw = Format-AsanaCoClaimWarning -Number 402 -Gid $gid -Others @(401)
 Assert-True ($cw -like "ONE TASK, TWO ISSUES*task $gid is linked from issue #402 and also from #401.*") 'the warning names the task and both issues'
 Assert-Equal '' (Format-AsanaCoClaimWarning -Number 402 -Gid $gid -Others @()) 'and with no other issue there is nothing to say'

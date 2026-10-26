@@ -715,7 +715,10 @@ if ($asanaRef -and $asanaLink -eq 'linked' -and -not $ByHandArg) {
     $peerRun = $null
     try { $peerRun = Invoke-Native { gh issue list --repo $StoreRepo --state open --search "$($asanaRef.Gid) in:body" --json number,body --limit 20 } } catch { $peerRun = $null }
     $peers = $null
-    if ($peerRun -and $peerRun.Code -eq 0) { try { $peers = @(($peerRun.Output -join "`n") | ConvertFrom-Json) } catch { $peers = $null } }
+    # Assigned before it is wrapped (#3511): in 5.1 ConvertFrom-Json emits a JSON array as ONE pipeline object,
+    # so @(<text> | ConvertFrom-Json) is a one-element array holding the whole list, and with two or more
+    # results the co-claim rule's [int]$i.number cast threw on it and stopped the run before any output.
+    if ($peerRun -and $peerRun.Code -eq 0) { try { $peerList = ($peerRun.Output -join "`n") | ConvertFrom-Json; $peers = @($peerList) } catch { $peers = $null } }
     if ($null -eq $peers) { $coClaimUnread = $true }
     else { $coClaimants = @(Get-AsanaTaskCoClaimants -Gid $asanaRef.Gid -Number ([int]$issueNumber) -Issues $peers) }
 }
