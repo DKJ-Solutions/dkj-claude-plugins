@@ -28,8 +28,8 @@ always pins the release that carries the bytes its checksums name.
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.31.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css` | `32983a02d71c355ac18e021630f75021d4589c34a71b3761864430e302467c62` |
-| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.31.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-theme.js` | `24ed94dd5f096274826bbdc47ff63f29932369f6bd55f2b47ab9ece25a09599f` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.32.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css` | `32983a02d71c355ac18e021630f75021d4589c34a71b3761864430e302467c62` |
+| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.32.0/plugins/dkj-policy/dkj-solutions/assets/house-style/house-theme.js` | `24ed94dd5f096274826bbdc47ff63f29932369f6bd55f2b47ab9ece25a09599f` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
 [`assets/house-style/README.md`](../../assets/house-style/README.md) in this plugin. It ships in the same
