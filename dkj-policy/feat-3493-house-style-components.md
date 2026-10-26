@@ -48,24 +48,39 @@ A house-style change is a visible result, so this branch stops for the owner's l
 
 ### CREATE
 
-- [ ] Gwen: the missing component families appended to `house-style.css`, their tokens added or mapped
-  onto existing house tokens
-- [ ] Gwen: the README's reserved-name list and a section on the new group, with the measured collisions
-- [ ] The house-style skill's sha256 for `house-style.css` updated
+- [x] Gwen: the missing component families appended to `house-style.css`, their tokens added or mapped
+  onto existing house tokens (67 KB to 108 KB). The generic `.warn` tone helper she ported was taken out
+  again: MesoWise and the ETF tracker both style a `.warn` of their own
+- [x] Gwen: the README's reserved-name list and a section on the new group, with the measured collisions
+- [x] The house-style skill's sha256 for `house-style.css` updated
+- [x] `Get-HouseStyleAllowlist`: the app's own `prose.css`/`tables.css` set `--prose-h1..3` and `--gutter`,
+  now house tokens; four entries until the app is removed
 
 ### TEST
 
-- [ ] `house-style-css` gate (syntax, `var()` definitions, colour literals) green
-- [ ] `check-house-style` and `house-palette` suites green
-- [ ] Edith: copy edit of the README diff
+- [x] `house-style-css` gate (syntax, `var()` definitions, colour literals) green
+- [x] `check-house-style` (81/81) and `house-palette` (128/128) suites green
+- [x] Edith: copy edit of the README diff; the MesoWise section's "the chips stayed in the app" and five
+  missing reserved names repaired
+- [x] Specimen page for the owner's look (scratchpad, not in the tree; a hub specimen page is point 3)
 
 ### DEPLOY: feat/3493-house-style-components
 
-**Score:**
+The house style gains the components that until now existed only in this repo's brandbook app, the first
+step of retiring it ([#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)). The CSS
+gate, the checksum and an allowlist entry for the app's own copies moved with it.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions app that takes the next copy of `house-style.css` gets alerts, banners, panels, chips,
+tags, filter chips, steppers, a search combobox, value boxes, stat rows, bill/compare/calc tables, date
+rows, figures and prose as house classes. An app that already styles a class of the same name (MesoWise:
+`.chip`, `.help`, `.amount`, `.calc`, `.verdict`, `.question-head`) now collides with the house name, and
+its `check-house-style` gate says so: it renames its class or adopts the house one.
+
+**Score:** 4
 
 #### Pull Request
 
