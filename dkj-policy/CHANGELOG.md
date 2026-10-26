@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**6 / 13 minor entries** <!-- pending-tally -->
+**7 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3474-record-suite-durations-in-plugin · 20261026-082905Z
+
+`record-suite-durations` now ships in `dkj-policy`, with a skill page of its own
+([#3474](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3474)). It writes
+`scripts/tests/suite-durations.json` from CI runs, and until now only this repo could run it. The skill page
+states what a repo's CI must do for it to read the runs: keep its suites in `scripts/tests`, run them through
+the plugin's gate, which prints the per-suite table, and let `gh run view --log` read the log. The runner's
+description is no longer hard-coded to this repo's: `-Machine` names it, and a refresh keeps the value already
+in the file. `suite-durations-lib.ps1` travels with it; `measure-suites` stays here.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A repo using this workflow can fill the hub's Test gate page, which so far showed its empty state everywhere
+but here: run the `record-suite-durations` skill on two or three pull-request runs and commit the file.
+
+**Score:** 3
+
+#### Pull Request
+
+record-suite-durations ships in dkj-policy, with the CI contract it reads
+
+Plugins: dkj-policy
+
+[PR #3490](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3490)
+
+---
 
 ### DEPLOY: feat/3476-hub-names-its-account · 20261026-080745Z
 
