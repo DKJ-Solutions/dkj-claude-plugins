@@ -54,8 +54,8 @@ polling that API) ends its one row on it. Visible result: parks for the owner's 
 
 ### TEST
 
-- [ ] The owner has looked at the banner on the hub (parked: `awaiting-review-dev`)
-- [ ] The gates run in `ship-pr` once it is approved
+- [x] The owner has looked at the banner on the hub (approved October 26, 2026)
+- [x] The gates run in `ship-pr` once it is approved
 
 ### DEPLOY: feat/3476-hub-names-its-account
 
