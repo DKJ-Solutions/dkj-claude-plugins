@@ -53,7 +53,7 @@ than a single-file builder mode, because the owner chose a page per release on O
 ### TEST
 
 - [x] `bwj-page-publish.tests.ps1`: route, the PAGED seam, keys, link mapping, dead links, a set through
-      the wrangler shim, and the real builder's output against the worker's own route (153 pass)
+      the wrangler shim, and the real builder's output against the worker's own route (156 pass)
 
 ### DEPLOY: fix/3500-notes-pages-publish-per-release
 

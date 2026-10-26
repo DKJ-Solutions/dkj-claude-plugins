@@ -69,6 +69,7 @@
 .PARAMETER LinkBase
     For 'notes': the address the builder's links carry, which this run maps onto the worker's route.
     Defaults to '/release-notes', the builder's own default.
+    Refused for a kind that is one page, where there is nothing to map.
 
 .PARAMETER InitToken
     Create this kind's path token when there is none. Refuses to replace one: that is the
@@ -318,8 +319,10 @@ if (Test-BwjPageKindPaged -Kind $Kind) {
                    Where-Object { Test-BwjPageRelease -Release $_.BaseName } | Sort-Object Name)
     }
     $releases = @($files | ForEach-Object { $_.BaseName })
-    foreach ($f in (@($files) + @(Get-Item -LiteralPath $Html))) {
-        $isIndex = ($f.FullName -eq $Html)
+    $set = @($files) + @(Get-Item -LiteralPath $Html)
+    for ($i = 0; $i -lt $set.Count; $i++) {
+        $f = $set[$i]
+        $isIndex = ($i -eq $set.Count - 1)   # the index is last, by construction
         $text = Convert-BwjPageLinks -Html ([System.IO.File]::ReadAllText($f.FullName, [System.Text.Encoding]::UTF8)) `
                                      -FromBase $LinkBase -ToBase $route
         $dead = @(Find-BwjDeadPageLinks -Html $text -Route $route -Releases $releases)
@@ -334,6 +337,7 @@ if (Test-BwjPageKindPaged -Kind $Kind) {
         $uploads.Add([pscustomobject]@{ Key = $pageKey; From = $f.FullName; Text = $text; Path = $null })
     }
 } else {
+    if ($LinkBase) { throw "-LinkBase applies to a set of pages, and '$Kind' is one page: there are no links to map." }
     $uploads.Add([pscustomobject]@{ Key = $key; From = $Html; Text = $null; Path = $Html })
 }
 
@@ -496,7 +500,12 @@ function Publish-BwjKvValue {
 # their own and uploaded from there; the folder goes in the finally, warned about if it stays.
 $stage = $null
 try {
+    $n = 0
     foreach ($u in $uploads) {
+        $n++
+        # A line per page: through a wrangler login each one is two npx calls, so a long history runs for
+        # minutes, and a failure names its key while this line shows which ones already landed.
+        if ($uploads.Count -gt 1) { Write-Host "  upload   : $n/$($uploads.Count) $($u.Key)" -ForegroundColor DarkGray }
         if ($null -eq $u.Path) {
             if (-not $stage) {
                 $stage = Join-Path ([System.IO.Path]::GetTempPath()) ("bwj-page-stage-" + [guid]::NewGuid().ToString('N'))

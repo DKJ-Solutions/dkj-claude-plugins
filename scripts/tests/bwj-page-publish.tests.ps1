@@ -164,6 +164,8 @@ Assert-Throws { Get-BwjPageKvKey -Kind 'notes' -Token 'nope' }   'a token of the
 Assert-Equal "notes:$HexA/v2.48.0" (Get-BwjPageKvKey -Kind 'notes' -Token $HexA -Release 'v2.48.0') 'a release page''s key is <kind>:<token>/v<x.y.z>'
 Assert-Throws { Get-BwjPageKvKey -Kind 'backlog' -Token $HexA -Release 'v1.0.0' } 'a kind that is one page takes no release key' '*one page, not a set*'
 Assert-Throws { Get-BwjPageKvKey -Kind 'notes' -Token $HexA -Release 'v2.48' }   'a key is only written under the full x.y.z'   '*full x.y.z*'
+Assert-True  (-not (Test-BwjPageRelease -Release "v2.48.0`n")) 'a release name with a trailing newline is refused -- \z, not $'
+Assert-Throws { Get-BwjPageWranglerArgs -Action get -Key "notes:$HexA`n" -NamespaceId $HexB } '...and so is a key with one, before it reaches the cmd.exe line'
 Assert-Equal "wrangler kv key get notes:$HexA/v2.48.0 --namespace-id $HexB --remote" ((Get-BwjPageWranglerArgs -Action get -Key "notes:$HexA/v2.48.0" -NamespaceId $HexB) -join ' ') 'wrangler takes a release page''s key'
 
 Write-Host ''
@@ -447,6 +449,9 @@ Assert-True ($backlogToken -ne $writtenToken) '...a DIFFERENT one, which is what
 $missingPage = Invoke-PublishPage -ScriptArgs @('-Kind', 'backlog', '-DryRun')
 Assert-True ($missingPage.ExitCode -ne 0) 'a kind whose page has not been built yet is refused'
 Assert-True ($missingPage.Text -like '*it does not build one*') '...and the refusal says this script publishes a page rather than building one'
+[System.IO.File]::WriteAllText((Join-Path $Fixture 'releases\page\minor-backlog.html'), '<!doctype html><title>b</title>', $Utf8NoBom)
+$backlogLinkBase = Invoke-PublishPage -ScriptArgs @('-Kind', 'backlog', '-LinkBase', '/x', '-DryRun')
+Assert-True ($backlogLinkBase.ExitCode -ne 0 -and $backlogLinkBase.Text -like '*-LinkBase applies to a set of pages*') '-LinkBase on a kind that is one page is refused rather than ignored'
 
 $emit = Invoke-PublishPage -ScriptArgs @('-EmitWorker')
 Assert-Equal 0 $emit.ExitCode '-EmitWorker writes the bundle for the one-time deploy'

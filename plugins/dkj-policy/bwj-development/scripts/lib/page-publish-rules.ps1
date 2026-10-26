@@ -64,6 +64,11 @@ $script:BwjPageKinds = @(
 # (its own -LinkBase). publish-page maps it onto the worker's route -- see Convert-BwjPageLinks.
 $script:BwjNotesLinkBase = '/release-notes'
 
+# A release page's name, the one shape every check here uses: 'v' and a full x.y.z. The worker's ROUTE
+# carries the same digits, plus the short 'v2.39' it reads as '.0' -- a copy in another language, held
+# to this one by the suite. Anchor it with \z, never $, which also matches before a trailing newline.
+$script:BwjReleasePattern = 'v\d{1,6}\.\d{1,6}\.\d{1,6}'
+
 # Cloudflare's own value ceiling for a KV entry. Stated rather than discovered: the release-notes
 # page measured 352 KB when it was last built in the source repo, so a page that approaches this is
 # a page that has stopped being a page, and saying so before the upload beats a 413 from the API.
@@ -103,7 +108,7 @@ function Test-BwjPageRelease {
     #>
     param([string]$Release)
     if ([string]::IsNullOrWhiteSpace($Release)) { return $false }
-    return ($Release -cmatch '^v\d{1,6}\.\d{1,6}\.\d{1,6}$')
+    return ($Release -cmatch ('^' + $script:BwjReleasePattern + '\z'))
 }
 
 function Get-BwjNotesLinkBase {
@@ -257,7 +262,7 @@ function Find-BwjDeadPageLinks {
     foreach ($m in [regex]::Matches($Html, 'href="(/(?!/)[^"]*)"')) {
         $href = $m.Groups[1].Value.TrimEnd('/')
         if ($href -ceq $route) { continue }
-        $page = [regex]::Match($href, '^' + [regex]::Escape($route) + '/(v\d+\.\d+\.\d+)$')
+        $page = [regex]::Match($href, '^' + [regex]::Escape($route) + '/(' + $script:BwjReleasePattern + ')\z')
         if ($page.Success -and ($Releases -ccontains $page.Groups[1].Value)) { continue }
         if (-not $dead.Contains($m.Groups[1].Value)) { $dead.Add($m.Groups[1].Value) }
     }
@@ -350,7 +355,7 @@ function Get-BwjPageWranglerArgs {
         [Parameter(Mandatory)][string]$NamespaceId,
         [string]$Path
     )
-    if ($Key -cnotmatch '^[a-z]+:[0-9a-f]{32}(/v\d{1,6}\.\d{1,6}\.\d{1,6})?$') { throw "Not a page key this lib builds: '$Key'." }
+    if ($Key -cnotmatch ('^[a-z]+:[0-9a-f]{32}(/' + $script:BwjReleasePattern + ')?\z')) { throw "Not a page key this lib builds: '$Key'." }
     if ($NamespaceId -cnotmatch '^[0-9a-f]{32}$') { throw "Not a Cloudflare id: '$NamespaceId'." }
     $a = @('wrangler', 'kv', 'key', $Action, $Key)
     if ($Action -eq 'put') {
