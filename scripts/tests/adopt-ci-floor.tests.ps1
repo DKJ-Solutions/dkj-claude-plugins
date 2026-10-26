@@ -570,6 +570,10 @@ try {
         'the ship step sets the commit identity in both trees, not only where the fold commits'
     Assert-True ($mergeOnGreen -like '*NO CHECKOUT PERSISTS A CREDENTIAL*') 'the header argues the one-credential-for-both-trees trade itself (Sebastian #23, #2449)'
     Assert-True ($mergeOnGreen -notmatch '(?m)^\s*issues:\s*write\s*$') 'it holds no issues: write beside the standing credential'
+    # THE PICKER READS THE REQUIRED CHECKS (#3491): a block without these two leaves a private repo's
+    # check runs unreadable, so nothing is ever picked.
+    Assert-True ($mergeOnGreen -match '(?m)^  checks: read\s*$') 'the job token can read check runs'
+    Assert-True ($mergeOnGreen -match '(?m)^  statuses: read\s*$') 'and commit statuses'
     Assert-True ($mergeOnGreen -match '(?m)^\s*group:\s*merge-on-green\s*$') 'one sweep at a time, repo-wide'
     Assert-True ($mergeOnGreen -like '*cancel-in-progress: false*') 'and never cancelled -- it merges and folds'
     Assert-True ($mergeOnGreen -match '(?m)^\s+-\s+cron:') 'the schedule is present -- the durable half of the three triggers'
@@ -1348,6 +1352,16 @@ try {
     [System.IO.File]::WriteAllText($mogPath, "name: Merge on green`n# hand-written`n")
     $rUnread = Invoke-Adopt -Dir $pinDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
     Assert-True ($rUnread.Flat -like '*its checkout shape could not be read*') 'a runner of neither shape is said to be unread, never judged clean'
+    Assert-True ($rUnread.Flat -like '*its top-level permissions block could not be read*') 'and a runner with no permissions block is said to be unread too (#3491)'
+
+    # A RUNNER PLACED BEFORE #3491 IS NAMED ON A RE-RUN: its block lacks the two scopes the picker reads with.
+    Assert-True ($rPin.Flat -notlike '*`[scope`]*') 'a merge-on-green.yml with checks: and statuses: read draws no scope advisory'
+    [System.IO.File]::WriteAllText($mogPath, "name: Merge on green`n`npermissions:`n  contents: read`n  pull-requests: read`n`non:`n  schedule: []`n")
+    $rScope = Invoke-Adopt -Dir $pinDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
+    Assert-True ($rScope.Flat -like '*`[scope`] its job token has no checks: read and statuses: read*') 'a pre-#3491 block is reported with both missing scopes'
+    [System.IO.File]::WriteAllText($mogPath, "name: Merge on green`n`npermissions:`n  contents: read`n  pull-requests: read`n  checks: read`n`non:`n  schedule: []`n")
+    $rScopeOne = Invoke-Adopt -Dir $pinDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
+    Assert-True ($rScopeOne.Flat -like '*`[scope`] its job token has no statuses: read, so*') 'and a block missing one names only that one'
 
     # THE PRE-#2813 CONCURRENCY GROUP IS NAMED ON A RE-RUN TOO (#2816), and the runners this floor just
     # placed carry the current one, so the pin-rerun pass above already proved the silent case.

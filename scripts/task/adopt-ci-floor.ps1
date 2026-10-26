@@ -1187,9 +1187,14 @@ $mergeOnGreenRunner = @(
     'name: Merge on green',
     '',
     '# The job token only reads; the write half arrives as FOLD_PUSH_TOKEN on the one step that needs it.',
+    '# checks: AND statuses: ARE NOT OPTIONAL IN A PRIVATE REPO (#3491): the picker reads the required',
+    '# checks with `gh pr checks --required`, and a block that leaves them out sets them to none, so the',
+    '# list is never readable and nothing is ever picked -- while every run still concludes success.',
     'permissions:',
     '  contents: read',
     '  pull-requests: read',
+    '  checks: read',
+    '  statuses: read',
     '',
     'on:'
 ) + $mogWakeLines + @(
@@ -1544,6 +1549,34 @@ function Write-MergeOnGreenShapeVerdict {
     Write-Host '            token (#2449) was NOT established.' -ForegroundColor DarkGray
 }
 
+function Write-MergeOnGreenScopeVerdict {
+    <#
+        One line about the job-token scopes of an existing merge-on-green.yml (#3491): a top-level
+        permissions block without checks: and statuses: read. It prints nothing when both are there.
+
+        WHY THIS IS SAID AT ALL -- #2449's reason, for a different correction. In a private repo that
+        block leaves the picker unable to read the required checks, so it never picks anything and every
+        run still concludes success. The file is never rewritten, so a re-run of this command is the one
+        moment anything looks at it again.
+
+        READ IN THE SHAPE THIS SCAFFOLDER WRITES, AND NO FURTHER: a column-0 `permissions:` and the
+        two-space lines under it. A file without that block is said to be unread, never judged clean.
+    #>
+    param([string]$Text)
+
+    $m = [regex]::Match($Text, '(?m)^permissions:[ \t]*\n(?<body>(?: {2}[^\n]*\n?|[ \t]*\n)*)')
+    if (-not $m.Success) {
+        Write-Host '            its top-level permissions block could not be read, so whether the picker can read the' -ForegroundColor DarkGray
+        Write-Host '            required checks (#3491) was NOT established.' -ForegroundColor DarkGray
+        return
+    }
+    $missing = @('checks', 'statuses' | Where-Object { $m.Groups['body'].Value -notmatch ('(?m)^ {2}' + $_ + ':[ \t]*(read|write)[ \t]*(#.*)?$') })
+    if ($missing.Count -eq 0) { return }
+    Write-Host "            [scope] its job token has no $(($missing | ForEach-Object { "$($_): read" }) -join ' and '), so in a private repo the" -ForegroundColor Yellow
+    Write-Host '            picker cannot read the required checks and never merges anything (#3491). Add the missing' -ForegroundColor Yellow
+    Write-Host '            line(s) under permissions:, or delete this file and re-run adopt-ci-floor -Apply.' -ForegroundColor Yellow
+}
+
 function Write-RunnerGroupVerdict {
     <#
         One line about the concurrency group of an existing fold-on-merge.yml or verify-resolved.yml
@@ -1834,7 +1867,10 @@ foreach ($t in $targets) {
         if ($writeRunnerRels -contains $t.Rel) {
             $existing = ([System.IO.File]::ReadAllText($abs)) -replace "`r`n", "`n"
             Write-WriteRunnerPinVerdict -Rel $t.Rel -Text $existing
-            if ($t.Rel -eq $mergeOnGreenRunnerRel) { Write-MergeOnGreenShapeVerdict -Text $existing }
+            if ($t.Rel -eq $mergeOnGreenRunnerRel) {
+                Write-MergeOnGreenShapeVerdict -Text $existing
+                Write-MergeOnGreenScopeVerdict -Text $existing
+            }
             else { Write-RunnerGroupVerdict -Rel $t.Rel -Text $existing -TemplateText $t.Content }
         }
         continue
