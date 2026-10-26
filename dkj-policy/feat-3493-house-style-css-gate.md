@@ -39,19 +39,43 @@
 
 ### PLAN
 
+#3493 retires the `brandbook/` app, and names four things it does that need a home first. This branch is
+the first: **the only automated check on `house-style.css`** ran inside the app's `npm run gate`
+(`brandbook/scripts/lint/`), so removing the app would leave the stylesheet ungated. The three CSS checks
+move to `scripts/lint/house-style-css/` with a path-scoped workflow of their own, reading every `.css` in
+the house-style folder, so the component stylesheets the next step promotes there are gated on arrival.
+The app and its own gate stay until the step that removes them. The issue stays open (`-NoResolves`).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lint/house-style-css/`: the syntax, custom-property and colour-literal checks, ported from
+  the app's to read the house-style folder, with esbuild (the version the app's lock already held) as
+  the one dependency
+- [x] the custom-property check now reads `house-style.css`'s own `var()`s too, which the app's never did,
+  and accepts a parameter the markup sets where the stylesheet documents it as `style="--name: ..."`
+  (the legend's `--c`, the one hit)
+- [x] `.github/workflows/house-style-css.yml`: path-scoped, not required, the brandbook gate's shape
+- [x] the house-style `README.md` names the gate
 
 ### TEST
 
+- [x] `npm run gate` locally: green on the tree, and red on a planted undefined `var()` and a planted colour
+  literal (both removed again)
+- [x] The repo's gates run in `ship-pr`
+
 ### DEPLOY: feat/3493-house-style-css-gate
 
-**Score:**
+The house style has a CSS gate of its own, `house-style-css`
+([#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)): every change to a stylesheet in
+`assets/house-style/` is parsed, and fails on a `var()` that nothing defines or a colour code outside a
+token declaration in `house-style.css`. Until now those checks ran only inside the brandbook app, which
+#3493 retires.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+**Score:** N/A
 
 #### Pull Request
 
