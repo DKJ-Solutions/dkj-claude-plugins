@@ -51,7 +51,7 @@ storage key, so the theme changed on the way in and a pick made elsewhere did no
 ### TEST
 
 - [x] `npx tsc -b --noEmit` in `brandbook/`: no errors
-- [ ] The owner's look at `http://localhost:5174/`: root page, brand book and `/connectors` keep one theme
+- [x] The owner's look at `http://localhost:5174/`: root page, brand book and `/connectors` keep one theme
 
 ### DEPLOY: fix/brandbook-shared-theme
 
