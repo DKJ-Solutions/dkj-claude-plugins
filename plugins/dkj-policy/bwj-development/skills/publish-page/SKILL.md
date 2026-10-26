@@ -135,6 +135,29 @@ restore the 32 hex characters from the URL you have; read them off the namespace
 Cloudflare dashboard, which holds `<kind>:<token>` for every page ever published; and only once both
 are exhausted, `-InitToken` for a fresh path.
 
+### When a link has leaked: `-RetireToken`
+
+**A fresh token alone does not close a leak**
+([#3506](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3506)). The next publish goes to a
+new URL, and every key under the old token keeps serving the old content to whoever holds the old
+link: `notes:<oldtoken>`, and every `notes:<oldtoken>/v<x.y.z>` under it. Retiring the token means
+deleting those keys:
+
+```powershell
+... /publish-page.ps1 -Kind notes -RetireToken -DryRun   # lists the keys, deletes nothing
+... /publish-page.ps1 -Kind notes -RetireToken           # deletes them, then the token file
+... /publish-page.ps1 -Kind notes -InitToken             # the next token; publish, commit it, send the new link
+```
+
+It lists every key under `<kind>:<token>` through whichever route a publish would take (the API token
+or a wrangler login), deletes the index first and then the release pages, and **lists again as the
+proof**. The token file goes only once nothing lists any more. KV listings lag like KV reads do, so a
+key that still shows fails the run and keeps the file; run it again, which is safe to repeat. A token
+already replaced on file is retired with `-Token <32 hex>`, the last part of the leaked link, and the
+file is then left alone. Only keys this script could have written for that token are deleted. The
+wrangler route's `kv key list` and `kv key delete` are exercised against a shim in the suite, not yet
+against a live namespace.
+
 **And here the token is also what separates the two stores.** Both repos answer the same four seam
 values, so the token is the only thing that makes one store's URL not the other's — which is why
 there is one per kind per repo, and why two stores can share a namespace without being able to reach
@@ -221,6 +244,8 @@ Two limits it does not pretend to cover:
 | `-Html <path>` | the file to publish, instead of the kind's own default in the page directory; for `notes`, the release pages are read from the folder of the same name beside it |
 | `-LinkBase <path>` | for `notes`: the address the build's links carry, which the publish maps onto the worker's route. Defaults to `/release-notes`, the builder's own default |
 | `-InitToken` | create this kind's path token when there is none; refuses to replace one |
+| `-RetireToken` | delete every KV key under this kind's token, verify by listing again, then remove the token file; with `-DryRun`, list only |
+| `-Token <32 hex>` | with `-RetireToken`: retire this token instead of the one on file, and leave the file alone |
 | `-EmitWorker` | write `worker.js` and (only when absent) `wrangler.toml` for the one-time deploy |
 | `-ShowUrl` | print this kind's link and stop |
 | `-DryRun` | resolve the seam, read the page, name the key and the URL — upload nothing |
