@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**5 / 8 minor entries** <!-- pending-tally -->
+**6 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3531-house-style-files-to-dkj-policy · 20261026-163420Z
+
+The house style's files now live in `dkj-policy`, at `plugins/dkj-policy/assets/house-style/`, because
+that plugin's hub renders in them in every repo, BWJ-Development's included; `dkj-solutions` keeps the
+rule that a DKJ-Solutions app starts from them, with the skill, its pin and the `check-house-style` gate
+([#3531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3531)). The files are byte for byte
+the same, so every checksum stands.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions repo that vendors the house style fetches it from a new path from this release on: the
+skill's pin table names it, and the old path still serves every earlier tag. A copy already vendored
+stays valid, since its checksum is unchanged.
+
+**Score:** 1
+
+#### Pull Request
+
+Move the house style's files to dkj-policy; dkj-solutions keeps only the rule
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3532](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3532)
+
+---
 
 ### DEPLOY: docs/3528-house-style-h2-18px · 20261026-154751Z
 
