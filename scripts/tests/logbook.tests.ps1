@@ -181,6 +181,12 @@ Assert-Equal 'sw1-1|/dkj-policy:sweep-issues issue 1|0-600' (& $shape (Split-Log
 Assert-Equal 'sw1|/sweep-issues|0-1830' (& $shape (Split-LogbookSweepRuns -Runs @($sw) -Folds @(@{ At = (& $at 1900); Issue = '1' }))) 'a sweep with no fold inside it stays whole'
 Assert-Equal 'o1|fix the thing|100-700' (& $shape (Split-LogbookSweepRuns -Runs @($other) -Folds $folds)) 'a run that is not a sweep is never cut, whatever it shipped'
 Assert-Equal 'sw1|/sweep-issues|0-1830' (& $shape (Get-LogbookRuns -Runs @($sw) -StepLogPath '')) 'without a step log the pages show the sweep whole'
+$old = 24 * 3600 + 3600
+$stale = Split-LogbookSweepRuns -Runs @($going) -Folds @($folds[0], @{ At = (& $at ($old - 600)); Issue = '3500' })
+$sm = ConvertTo-LogbookModel -Runs $stale -Now (& $at $old)
+Assert-True ($stale[-1].RunStart -eq $going.Start -and @($sm.Groups | Where-Object { $_.Running }).Count -eq 0 -and @($sm.Groups).Count -eq 2) 'an open sweep older than a day shows no going lap, even with a fold inside the last hour; its finished laps stay (#3533)'
+$young = Split-LogbookSweepRuns -Runs @($going) -Folds @($folds[0], @{ At = (& $at 85000); Issue = '3500' })
+Assert-Equal 1 @((ConvertTo-LogbookModel -Runs $young -Now (& $at 86000)).Groups | Where-Object { $_.Running }).Count 'and a sweep under a day old still shows its issue in progress going'
 
 Write-Host ''
 Write-Host "logbook: $script:pass passed, $script:fail failed"

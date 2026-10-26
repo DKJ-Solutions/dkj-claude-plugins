@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Verified against the code: `timing-pages.ps1` passes `Get-LogbookRuns` (which splits a sweep at the
+checkout's folds) into `ConvertTo-LogbookModel`, so the 24h open-run cut read each lap's start. An
+abandoned sweep's going lap starts at the latest fold, and never aged out. Carry the sweep's own start on
+every lap and age an open run by that.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Split-LogbookSweepRuns` sets `RunStart` (the sweep's start) on every lap
+- [x] `ConvertTo-LogbookModel` ages an open run by `RunStart` where it has one
+- [x] Two asserts in `scripts/tests/logbook.tests.ps1`: an open sweep older than a day with a fold in its
+  last hour shows no going lap, and one under a day still does
 
 ### TEST
 
+- [x] `logbook.tests.ps1` green with the fix (57/57), and the new assert red without it
+
 ### DEPLOY: fix/3533-logbook-abandoned-sweep-ages-out
 
-**Score:**
+The hub's Logbook no longer shows an abandoned `/sweep-issues` run as a going issue for ever: an open
+sweep is aged by its own start rather than by its last lap's, which began at the latest fold in the
+checkout, so it now drops off after a day like any other open run
+([#3533](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3533)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo's maintainer reading `/logbook` no longer sees a sweep closed a day ago listed as "Going now".
+
+**Score:** 1
 
 #### Pull Request
 
