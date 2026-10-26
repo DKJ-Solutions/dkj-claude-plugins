@@ -39,19 +39,31 @@
 
 ### PLAN
 
+Inbound #3545, verified against the tree: `house-theme.js` writes `dkj-width` beside `dkj-theme`
+(lines 61, 101), a documented part of the settings panel, so the skill's inline check is stale.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Widen the house-style skill's inline check to the two keys the settings panel stores
 
 ### TEST
 
+- [x] Text-only change to a skill page; the gates run inside ship-pr
+
 ### DEPLOY: fix/3545-house-style-inline-check-width
 
-**Score:**
+The `house-style` skill's check before inlining `house-theme.js` said the script may store nothing but
+the theme choice, while the script also remembers the page width (`dkj-width`), so a session read
+literally had to stop and report on every pinned copy. The check now names both settings-panel keys.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions repo taking the house style no longer has its session stop on a correct `house-theme.js`
+because it stores the chosen page width.
+
+**Score:** 2
 
 #### Pull Request
 
