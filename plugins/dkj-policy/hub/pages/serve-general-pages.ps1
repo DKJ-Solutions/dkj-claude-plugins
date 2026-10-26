@@ -2,8 +2,8 @@
 .SYNOPSIS
     Serve the plugin's REPOSITORY (#3245) and the GENERAL pages (#3119) on http://localhost:<Port>/ -- the hub on
     '/', then /artifacts, /issues, /release-notes, /sessionstart, /test-gate, /stopwatch, /logbook and /plugins --
-    from the repo this server was started in. Not /brandbook: the brand book is the source repo's product, served by
-    that repo's own server (#3475).
+    from the repo this server was started in. Not /brandbook: no hub has served the brand book since #3475, and the
+    source repo retired the app itself under #3493.
 
 .DESCRIPTION
     Started by hooks/dev-preview-sessionstart.ps1 in EVERY repo, beside the repo's own dev server where it

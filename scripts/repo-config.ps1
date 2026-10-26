@@ -1495,21 +1495,13 @@ function Get-DevPreview {
        server as its product; OwnHub opts this repo out, because its connector dashboard IS its hub and
        relays the general pages from its own origin. The server binds to 127.0.0.1 itself, so the Command
        needs no bind flag. It runs under cmd.exe, hence the backslashes.
-       The Product beside that hub is the brand book (#3283): the brandbook/ app's Vite dev server, bound to
-       127.0.0.1. It starts at the root, a page linking the brand book under the /brandbook/ base its
-       vite.config.ts sets (productRoot there, October 22, 2026). #>
+       No Product: the brandbook/ app's Vite dev server was one from #3283 until the owner retired the app
+       (#3493, October 26, 2026); its pages are the hub's now, House style among them. #>
     @{
         Command     = 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dashboard\serve-connector-dashboard.ps1 -Port {port}'
         Ports       = 4870..4879
         WaitSeconds = 15
         OwnHub      = $true
-        Product     = @{
-            Command     = 'cd brandbook && npm run dev -- --host 127.0.0.1 --port {port} --strictPort'
-            Ports       = 5173..5180
-            Path        = '/'
-            Requires    = 'brandbook\node_modules'
-            WaitSeconds = 30
-        }
     }
 }
 
@@ -1530,18 +1522,5 @@ function Get-HouseStyleAllowlist {
         @{ Path = 'plugins/dkj-policy/hub/lib/general-pages-lib.ps1'; Name = '--ink'; Reason = 'the release-notes template''s own token, which Format-ReleaseNotesDevPage points AT a house token (#3108, moved to the plugin in #3119, to dkj-policy in #3198)' }
         @{ Path = 'scripts/tests/check-house-style.tests.ps1';  Reason = "the gate's own suite: every name in it is a fixture" }
         @{ Path = 'scripts/tests/house-palette.tests.ps1';      Reason = 'the palette suite: every name in it is a pattern or a fixture of the stylesheet it holds' }
-        @{ Path = 'brandbook/src/showcase/sections/HouseStyle.tsx'; Name = '.theme-swatch'; Reason = 'the brand book''s themes table READS the house stylesheet''s theme blocks by their selector, not a rule of its own' }
-        # The brandbook app (#3131): five deliberate extensions it brought from dkj-brandbook, which never ran this gate.
-        @{ Path = 'brandbook/src/components/dialog.css'; Name = '--paper-2'; Reason = 'the dialog tint, the one exception house-style/README.md rule 3 grants' }
-        @{ Path = 'brandbook/src/components/dialog.css'; Name = '--muted'; Reason = 'the dialog tint, the one exception house-style/README.md rule 3 grants' }
-        @{ Path = 'brandbook/src/components/metrics.css'; Name = '.v'; Reason = 'a .dkj-v--warn modifier on the house class, not a restyle of it' }
-        @{ Path = 'brandbook/src/components/metrics.css'; Name = '.badge'; Reason = 'a .dkj-badge--series modifier on the house class, not a restyle of it' }
-        @{ Path = 'brandbook/src/showcase/showcase.css'; Name = '.tooltip'; Reason = 'a .dkj-tooltip-static modifier that draws the house tooltip open for the showcase' }
-        # The app's own copies of the components promoted into the house style (#3493): the tokens they set on
-        # their own class became house tokens of the same name. They go when the app is removed under #3493.
-        @{ Path = 'brandbook/src/components/prose.css'; Name = '--prose-h1'; Reason = 'the app''s own copy of the .prose the house style promoted (#3493); removed with the app' }
-        @{ Path = 'brandbook/src/components/prose.css'; Name = '--prose-h2'; Reason = 'the app''s own copy of the .prose the house style promoted (#3493); removed with the app' }
-        @{ Path = 'brandbook/src/components/prose.css'; Name = '--prose-h3'; Reason = 'the app''s own copy of the .prose the house style promoted (#3493); removed with the app' }
-        @{ Path = 'brandbook/src/components/tables.css'; Name = '--gutter'; Reason = 'the app''s own copy of the table gutter the house style promoted (#3493); removed with the app' }
     )
 }

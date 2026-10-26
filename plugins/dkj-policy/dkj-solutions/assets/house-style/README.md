@@ -30,6 +30,12 @@ CI runs `scripts/lint/house-style-css/`, which parses each stylesheet, fails a `
 and fails a colour code anywhere but a token declaration in `house-style.css`. It reads every `.css` here,
 so a stylesheet added later is gated without an edit.
 
+**A house-style change is judged by eye on the House style page** of this plugin's source repo's hub,
+`/house-style` (`scripts/dashboard/house-style-specimens.html` there): every token, the twelve themes and every
+component with its variants and states, drawn from the stylesheet in this folder. It replaces the brand book
+app's showcase, which is retired (#3493), and only the source repo's hub has it. `house-style-css` is the gate
+that checks the stylesheet's syntax and tokens; the page is the look.
+
 ## How to use it
 
 1. **Copy `house-style.css` into the output, unchanged**, and `house-theme.js` with it where the app
@@ -62,7 +68,7 @@ so a stylesheet added later is gated without an edit.
 | Direction | `--positive-3` and `--negative-3` (also the gain and the loss in charts, so a direction chart can share a view with any series), `--positive-5`, `--negative-5` (numbers in text) | result and direction, never a category. `--positive-5`/`--negative-5` are the text versions of `--positive-3`/`--negative-3`, a step more contrast so a number reads as text: darker on light, lighter on dark |
 | Status | `--positive-3`, `--warning-3`, `--negative-3`, `--warning-5`, `--warning-1`, `--negative-1`, `--positive-1` | badges, meters, notices. `--warning-1`, `--negative-1` and `--positive-1` are the backgrounds of a warning, negative or positive message. The mark inside a status icon (check, cross, "!") is `--paper-1` |
 | Primary | `--primary` | the theme's colour, **one** step (owner, #3235, October 21, 2026): the most saturated colour of the theme's hue that reads on all four paper steps, so the paper reads on it too. **The highlight**: `h1`, the fill of `.btn--primary` (a filled main action, like the filled icon button; #109) and of `.fill-primary`, a state (hover, pressed, sorted, active, today), `strong`, list markers, links, a value meant to stand out, the accent dialog's title and the settings panel's title, and native controls through `accent-color` |
-| Greys | `--muted`, `--muted-inverse` | a grey of the theme's colour, for what may recede: `--muted` reads extra well (7:1) on the page, `--muted-inverse` on the far end (7:1 on `--fg-1`). `--muted` is the eyebrow, every sub line (`.sub`, `.dialog__sub`, a component's `-sub`), every note (`.note`, `.footer-note`, `.muted`, on a `<p>` too), the tile label, the pressed `.seg` button, `.badge--info`, `.meter--info`, focus rings, meters and the `--accent` modifiers ([below](#how-far-a-theme-reaches)); `--muted-inverse` the same roles on an inverted surface (`.fill-inverse`, the showcase's panel). Never a status or a number |
+| Greys | `--muted`, `--muted-inverse` | a grey of the theme's colour, for what may recede: `--muted` reads extra well (7:1) on the page, `--muted-inverse` on the far end (7:1 on `--fg-1`). `--muted` is the eyebrow, every sub line (`.sub`, `.dialog__sub`, a component's `-sub`), every note (`.note`, `.footer-note`, `.muted`, on a `<p>` too), the tile label, the pressed `.seg` button, `.badge--info`, `.meter--info`, focus rings, meters and the `--accent` modifiers ([below](#how-far-a-theme-reaches)); `--muted-inverse` the same roles on an inverted surface (`.fill-inverse`). Never a status or a number |
 | Text | `--fg-1` … `--fg-4` | what sits **on** the paper: four colours near black on light (near white on dark), in **very small** steps, so `fg-4` is still very dark, only a little less so than `fg-1` (owner, #3235). `fg-1` is **all text**, every paragraph and everything else: labels, table heads, legends, quiet icons, the text on a tinted surface, and the ground of an inverted surface; `fg-2` is `h2` and `.meta` on a span; `fg-3` is `h3`; `fg-4` has no role yet (the breadcrumb's current page took it until the bar turned `--primary`, #3235). On a fill the text switches to the paper ([Fills](#fills-the-text-switches-with-the-ground)) |
 | Elevation | `--shadow-pop` | tooltips |
 | Spacing | `--spacing-0-5` … `--spacing-96` | the spacing scale, same in both modes: `--spacing-N` is N × 4px, a half step (`-0-5`, `-1-5`, …) adds 2px. Every gap, margin and padding uses one, and a repo layer spaces its own components from the same scale |
@@ -78,7 +84,7 @@ name says which side it is on, and the black, white and grey ones merged into on
 |---|---|
 | `--good`, `--up` | `--positive-3`, `--positive-5` |
 | `--bad`, `--down` | `--negative-3`, `--negative-5` |
-| `--loss` | removed: a loss in a chart takes `--negative-3` (in the brand book, `LegendItem color="negative-3"`) |
+| `--loss` | removed: a loss in a chart takes `--negative-3` (a legend item takes `--negative-3` through its `--c`) |
 | `--warn`, `--warn-bg` | `--warning-3`, `--warning-1` |
 | `--on-warn` | removed: text on a `--warning-3` fill takes `--neutral-3`, which turns light on the dark themes |
 | (new) | `--warning-5`: a warning in text, a step darker on light and lighter on dark, like `--negative-5` |
@@ -221,12 +227,12 @@ greys are the theme's own, a greyed step of its colour. For the status families:
 `-1` is the background of a message, `-3` the fill (icon, badge, meter, a
 loss in a chart), `-5` the text.
 
-**The colour tokens grouped by what a theme switch changes** (the grouping the showcase's Tokens section
-uses):
+**The colour tokens grouped by what a theme switch changes** (the grouping the House style page's tokens
+section uses):
 
 | A switch … | Tokens | Why |
 |---|---|---|
-| to any other theme changes them | `--primary`, `--muted`, `--muted-inverse`, `--paper-1` … `--paper-4`, `--fg-1` … `--fg-4` | each theme sets all eleven as fixed values, computed from its own hue; the showcase lists the primary and the greys, the paper and the text as three groups |
+| to any other theme changes them | `--primary`, `--muted`, `--muted-inverse`, `--paper-1` … `--paper-4`, `--fg-1` … `--fg-4` | each theme sets all eleven as fixed values, computed from its own hue; the House style page lists the primary and the greys, the paper and the text as three groups |
 | changes them only between light and dark: categories | `--cat-1`, `--cat-2`, `--cat-3` | series slots, set once in the light block and once in the dark block, a shade apart |
 | changes them only between light and dark: status colours | `--negative-1`, `--negative-3`, `--negative-5`, `--positive-1`, `--positive-3`, `--positive-5`, `--warning-1`, `--warning-3`, `--warning-5` | set once in the light block and once in the dark block, a shade apart. One exception: `--warning-3` also moves in Roest and Geel ([below](#themes-the-user-picks-the-colour)) |
 
@@ -313,8 +319,8 @@ primary colour, its `--primary` in either mode (the dot the picker draws):
 4. otherwise the house defaults, Blauw (light) and Cyaan (dark).
 
 **Each repo has one default theme of its own** (the owner's decision, October 17, 2026). Twelve themes,
-eight repos: all eight differ, four light and four dark. The brand book is the source of the assignment,
-and `src/repos.ts` carries it in code. Each repo declares its theme on its own `<html>`, as above.
+eight repos: all eight differ, four light and four dark. The assignment was made in the brand book app
+(`src/repos.ts`, until #3493 retired it) and is this table now. Each repo declares its theme on its own `<html>`, as above.
 
 | Repo | Default theme |
 |---|---|
@@ -552,7 +558,7 @@ generic `.chip`, the stat rows and the stepper are house classes since the
 
 ## Brand-book components
 
-**The brand-book app is being retired under [#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)** (owner's decision, October 26, 2026), and its component CSS moved here first so consumers receive it. Only the families the house style had no class for were ported, renamed to the house convention (unprefixed, `.block`, `.block__part`, `.block--modifier`); a family the house style already had was dropped in favour of the house class, so there is one vocabulary. The components were lifted from MesoWise and the ETF tracker, plus brand-book originals (`.prose`, `.figure`, `.filter-chips`, `.date-list`). The group sits at the end of [`house-style.css`](house-style.css), under "Brand-book components".
+**The brand-book app was retired under [#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)** (owner's decision, October 26, 2026), and its component CSS moved here first so consumers receive it. Only the families the house style had no class for were ported, renamed to the house convention (unprefixed, `.block`, `.block__part`, `.block--modifier`); a family the house style already had was dropped in favour of the house class, so there is one vocabulary. The components were lifted from MesoWise and the ETF tracker, plus brand-book originals (`.prose`, `.figure`, `.filter-chips`, `.date-list`). The group sits at the end of [`house-style.css`](house-style.css), under "Brand-book components".
 
 **Ported:** alert, banner, panel, chip, tag, filter chips, round and badge toggles, help, a structured disclosure (`.more--structured`), group heading, question head and verdict, amount, answer box, flash, page header, read-only field value, checkbox, stepper, search combobox, value box, stat and formula rows, step header, info rows, bill, comparison and calculation tables, date list, figure, prose, and the chart's tooltip rows.
 
@@ -579,7 +585,7 @@ Both are gone: an `h2` may now title a card, as the Stopwatch's label cards do.
 
 - **The grouping form still stands where a page groups cards**: a `.grid-2` whose first child is a
   `.grid__head` (the `h2`, then a `p.card__sub`), then the cards; a card with `.grid__full` takes the whole
-  row. With React, the brand book's `CardGroup`. In a `.page-column`, a `.grid-2` with a `.grid__head` takes
+  row. In a `.page-column`, a `.grid-2` with a `.grid__head` takes
   an extra `--spacing-5` above it, so an `h2` sits closer to its own cards than to the group before it.
 - **A card's own title under such a group is still an `h3`**: `.card__head` > `h3.card__title` (room for a
   `.badge` before the text) or a plain `h3`, then an optional `.card__sub`. A `.card__title` renders at
@@ -594,7 +600,7 @@ Both are gone: an `h2` may now title a card, as the Stopwatch's label cards do.
 page below either. The bar says where the page sits and is the way back, so no page needs a "back" link of
 its own.
 
-- **Place:** the first element in `<body>` (in React, the first thing the page renders), above `<main>` and
+- **Place:** the first element in `<body>` above `<main>` and
   outside it, so it spans the full width. Its trail lines up with the page column.
 - **Always visible:** the bar sticks to the top of the screen while the page scrolls. It is one `--tap`
   (44px) high and one line: a trail longer than the screen scrolls sideways inside the bar instead of
@@ -613,7 +619,7 @@ its own.
   render both from it. A page whose current crumb is a label or a run (a Stopwatch label, a single run)
   takes that same text as its `h1`. The one page without an `h1` is the home page under a site header
   ([below](#the-site-header-above-the-bar)), and the rule has nothing to match there.
-- **Without React:** `.breadcrumbs-bar` > `.container` > `nav.breadcrumbs[aria-label="Breadcrumb"]` > `ol`,
+- **The markup:** `.breadcrumbs-bar` > `.container` > `nav.breadcrumbs[aria-label="Breadcrumb"]` > `ol`,
   one `li` per crumb, and a `<span class="breadcrumbs__sep" aria-hidden="true">` holding the chevron at the start
   of every `li` but the first (the stylesheet sizes it to `1.25rem` and thickens it with a stroke):
 
@@ -621,8 +627,7 @@ its own.
   <svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg>
   ```
 
-  [`patterns/repo-dashboard.html`](patterns/repo-dashboard.html) carries it. With React,
-  the brand book's `Breadcrumbs` component with `bar` renders the same.
+  [`patterns/repo-dashboard.html`](patterns/repo-dashboard.html) carries it.
 
 **What this changes for an app that takes the update:** nothing that exists, only an addition. A page
 without the bar does not break, but it does not follow the house style until it has one. An app with its
@@ -633,8 +638,7 @@ or the bar covers it.
 
 **An app may open with a site header, and the breadcrumb bar then stands right under it** (owner, October
 22, 2026). **Every hub page carries it**: the dkj-policy plugin's hub server draws it on the home page and
-every general page of every repo, with the repo's name and `hub` after it, and the brand book app carries it as
-*DKJ brand book*. A repo's own product may add it; an app without one keeps the bar as described above.
+every general page of every repo, with the repo's name and `hub` after it. A repo's own product may add it; an app without one keeps the bar as described above.
 
 - **The header:** `header.site-header` > `.container`, at most `--spacing-18` (72px) high, on `--primary`
   over the full width. On the left the app's mark and name, `a.site-header__brand` linking home (`/`); on
@@ -727,8 +731,8 @@ saying so, in the place its card would take. `Format-HubCardLinkHtml` in `dkj-po
 **The order of the cards.** The products come first, because they are what the repo offers its visitors; a
 product is never the page on `/`. Then the repo's own pages, **Repository** among them; then the general
 pages every repo has (Artifacts, Release notes, SessionStart), Issues left to the Repository page. No hub
-carries a Brand book card: the brand book is a product of `dkj-claude-plugins`, shown only there
-([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475)).
+carries a Brand book card ([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475)), and the
+brand book app is retired ([#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)).
 
 **The in-flight lists, where a repo has them:** open pull requests, newest first, with the branch as the
 sub line (and "(draft)" on a draft); open issues by their `prio-N` label, unprioritised last and the highest
@@ -746,7 +750,7 @@ access and says how in the footer note.
 flex row with its controls beside the title. The site header stands above `<main>`, outside it, and #137
 hit exactly this with an intro that was a `<header>`.
 
-**Without React, the form is complete from `house-style.css`** ([#141](https://github.com/DKJ-Solutions/dkj-brandbook/issues/141)).
+**The form is complete from `house-style.css`** ([#141](https://github.com/DKJ-Solutions/dkj-brandbook/issues/141)).
 Every block above has a house class. The blocks stack in the page column, `.page-column` on `<main>`, which
 takes the top margin of its direct `.card`, `.tiles`, `.notice` and `.footer-note`, so they sit one
 `--spacing-5` apart; `.grid-2` does the same for a direct `.card`, `.tiles` or `.notice`, so its rows sit
@@ -757,9 +761,9 @@ button in its card head ([#156](https://github.com/DKJ-Solutions/dkj-brandbook/i
 a build copies [`patterns/repo-dashboard.html`](patterns/repo-dashboard.html) and
 [`patterns/repo-repository.html`](patterns/repo-repository.html), the stylesheet-only reference pages for
 the home page and the Repository page: they link `house-style.css` and `house-theme.js` and carry no CSS of
-their own, and their settings button sits in the site header. **These patterns are the only reference**: the brand book app no longer draws a hub specimen or previews of other repos' hubs (owner,
-October 21, 2026, [#3274](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3274)), so a repo with
-React builds the form from the blocks above with its own components.
+their own, and their settings button sits in the site header. **These patterns are the only reference**: the brand book app drew no hub specimen or previews of other repos' hubs from October 21, 2026 (owner,
+[#3274](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3274)) and is retired now, so a repo with
+a framework builds the form from the blocks above with its own components.
 
 **`.btn` draws no underline on a link any more** (#141): a `.btn` on an `<a>` showed the browser's underline,
 because the house link rules set its thickness and not whether it shows. An app with link buttons loses that

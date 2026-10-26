@@ -200,7 +200,7 @@ $list = @('c-tool.ps1', 'docs/data.json')
 
     Write-Host "`n== 3b. Test-WalkScopeMatch ==" -ForegroundColor Cyan
     Assert-True (Test-WalkScopeMatch -Path 'scripts/lib/deep/x.ps1' -Pattern '*.ps1') 'a pattern without a directory matches the leaf at any depth'
-    Assert-True (-not (Test-WalkScopeMatch -Path 'brandbook/src/styles.css' -Pattern '*.ps1')) 'and nothing with another extension -- the saving'
+    Assert-True (-not (Test-WalkScopeMatch -Path 'web/src/styles.css' -Pattern '*.ps1')) 'and nothing with another extension -- the saving'
     Assert-True (Test-WalkScopeMatch -Path 'scripts/release/open-pr.ps1' -Pattern 'scripts/*.ps1') 'a pattern with a directory matches the whole path, and * crosses folders'
     Assert-True (-not (Test-WalkScopeMatch -Path 'plugins/p/scripts/x.ps1' -Pattern 'scripts/*.ps1')) 'but is anchored at the root'
     Assert-True (Test-WalkScopeMatch -Path 'plugins/p/.claude-plugin/plugin.json' -Pattern 'plugin.json') 'a bare file name matches that file wherever it sits'

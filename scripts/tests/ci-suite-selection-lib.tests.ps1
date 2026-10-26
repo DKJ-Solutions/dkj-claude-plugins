@@ -37,11 +37,11 @@ function Assert-True {
 Write-Host ''
 Write-Host 'Get-StaticAssetVerdict' -ForegroundColor Cyan
 
-$v = Get-StaticAssetVerdict -ChangedPaths @('brandbook/src/index.css', 'assets/logo.SVG', 'fonts/a.woff2')
+$v = Get-StaticAssetVerdict -ChangedPaths @('web/src/index.css', 'assets/logo.SVG', 'fonts/a.woff2')
 Assert-True $v.AssetOnly 'stylesheets, images and fonts are assets only, whatever the case of the extension'
 Assert-Equal '.css,.svg,.woff2' ($v.Extensions -join ',') 'and the extensions come back distinct, lower case, sorted'
 
-$v = Get-StaticAssetVerdict -ChangedPaths @('brandbook/src/index.css', 'scripts/lib/gate-lib.ps1')
+$v = Get-StaticAssetVerdict -ChangedPaths @('web/src/index.css', 'scripts/lib/gate-lib.ps1')
 Assert-True (-not $v.AssetOnly) 'one script among the stylesheets makes the change not asset-only'
 Assert-True ($v.Reason -match 'gate-lib\.ps1') 'and the reason names the first path that is not an asset'
 
@@ -58,8 +58,8 @@ Write-Host ''
 Write-Host 'Remove-BranchDocumentPath (#3370)' -ForegroundColor Cyan
 
 $doc = 'dkj-policy/docs-stopwatch-css-comment-v4.md'
-$left = @(Remove-BranchDocumentPath -ChangedPaths @('brandbook/src/showcase/showcase.css', $doc) -BranchDocument $doc)
-Assert-Equal 'brandbook/src/showcase/showcase.css' ($left -join ',') 'the branch document is taken out of the judged change'
+$left = @(Remove-BranchDocumentPath -ChangedPaths @('web/src/app/app.css', $doc) -BranchDocument $doc)
+Assert-Equal 'web/src/app/app.css' ($left -join ',') 'the branch document is taken out of the judged change'
 Assert-True (Get-StaticAssetVerdict -ChangedPaths $left).AssetOnly 'so a CSS change with its branch document is asset-only (the #3369 case)'
 $left = @(Remove-BranchDocumentPath -ChangedPaths @('a.css', $doc, 'dkj-policy/other-branch.md', 'README.md') -BranchDocument $doc)
 Assert-Equal 'a.css,dkj-policy/other-branch.md,README.md' ($left -join ',') 'only that one path goes: another branch document and any other .md stay'
@@ -81,7 +81,7 @@ try {
     Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\walks-css.tests.ps1') -Value "Get-ChildItem -Filter '*.css'" -Encoding ASCII
     Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\matched.tests.ps1') -Value 'x' -Encoding ASCII
     Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\declared-css.tests.ps1') -Value "# gate-selection: walks *.ps1`nGet-ChildItem -Filter '*.css'" -Encoding ASCII
-    Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\scoped.tests.ps1') -Value "# gate-selection: walks brandbook/*" -Encoding ASCII
+    Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\scoped.tests.ps1') -Value "# gate-selection: walks web/*" -Encoding ASCII
     Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\walks-open.tests.ps1') -Value "Get-ChildItem `$RepoRoot -Recurse" -Encoding ASCII
     Set-Content -LiteralPath (Join-Path $fixture 'scripts\tests\declared-open.tests.ps1') -Value "# gate-selection: walks plugins/*`nCopy-Item `$RepoRoot\plugins\x `$tmp -Recurse" -Encoding ASCII
 
@@ -98,7 +98,7 @@ try {
                     'scripts/tests/declared-open.tests.ps1')
         Open = @('scripts/tests/walks-open.tests.ps1', 'scripts/tests/declared-open.tests.ps1')
     }
-    $s = Get-StaticAssetSuiteSelection -RepoRoot $fixture -ChangedPaths @('brandbook/src/index.css')
+    $s = Get-StaticAssetSuiteSelection -RepoRoot $fixture -ChangedPaths @('web/src/index.css')
     Assert-True $s.Proven 'an asset-only change over a proven map is a proven selection'
     Assert-True ($s.Suites -contains 'scripts/tests/matched.tests.ps1') 'a suite the map ties to the changed path runs'
     Assert-True ($s.Suites -contains 'scripts/tests/walks-css.tests.ps1') 'a tree walk that names the extension runs'
@@ -118,12 +118,12 @@ try {
     Assert-True ($s.Suites -notcontains 'scripts/tests/walks-css.tests.ps1') 'the extension guard is per change: a PNG does not keep the walk that names css'
 
     $script:stub = [pscustomobject]@{ Proven = $false; PoolCount = 164; Matched = @(); Always = @(); Scoped = @(); Walkers = @(); Reason = 'git could not list the tree' }
-    $s = Get-StaticAssetSuiteSelection -RepoRoot $fixture -ChangedPaths @('brandbook/src/index.css')
+    $s = Get-StaticAssetSuiteSelection -RepoRoot $fixture -ChangedPaths @('web/src/index.css')
     Assert-True (-not $s.Proven) 'an unproven map is an unproven selection, so the caller runs the whole pool'
     Assert-Equal 'git could not list the tree' $s.Reason 'and the map''s reason is passed through'
 
     $script:stub = $null
-    $s = Get-StaticAssetSuiteSelection -RepoRoot $fixture -ChangedPaths @('brandbook/src/index.css', 'scripts/x.ps1')
+    $s = Get-StaticAssetSuiteSelection -RepoRoot $fixture -ChangedPaths @('web/src/index.css', 'scripts/x.ps1')
     Assert-True (-not $s.Proven) 'a mixed change never reaches the map at all'
 } finally {
     Remove-Item -LiteralPath $fixture -Recurse -Force -ErrorAction SilentlyContinue

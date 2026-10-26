@@ -1,0 +1,783 @@
+<!-- House style specimens: a body fragment. The hub wraps it in its page shell (site header, breadcrumbs,
+     house-style.css, house-theme.js). House classes and tokens only; the one <style> block below is layout for the
+     specimens themselves (.spec-*), and reads house tokens only. -->
+<style>
+.spec-page { display: grid; gap: var(--spacing-5); }
+.spec-jump { display: flex; flex-wrap: wrap; gap: var(--spacing-1) var(--spacing-4); margin: 0; padding: 0; list-style: none; font-size: var(--text-sm); }
+.spec-stack { display: grid; gap: var(--spacing-4); }
+.spec-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-3); }
+.spec-item { display: grid; gap: var(--spacing-1); min-width: 0; align-content: start; }
+.spec-item > .note { margin: 0; }
+.spec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--spacing-3); }
+.spec-sample { display: block; height: var(--spacing-10); border: 1px solid var(--muted); border-radius: var(--radius-md); }
+.spec-dots { display: flex; flex-wrap: wrap; gap: var(--spacing-1); margin: var(--spacing-2) 0; }
+.spec-dot { display: block; width: var(--spacing-5); height: var(--spacing-5); border: 1px solid var(--muted); border-radius: var(--radius-xs); }
+.spec-themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: var(--spacing-3); }
+.spec-themes .theme-swatch { display: block; width: auto; height: auto; padding: var(--spacing-3); border-radius: var(--radius-lg); cursor: default; text-align: left; color: var(--fg-1); }
+.spec-themes .theme-swatch h3 { margin: 0; }
+.spec-space { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); align-items: center; gap: var(--spacing-2); }
+.spec-bar { display: block; width: var(--w); max-width: 100%; height: var(--spacing-2); border-radius: var(--radius-xs); background: var(--muted); }
+.spec-radius { display: block; width: var(--spacing-12); height: var(--spacing-12); border: 2px solid var(--muted); background: var(--paper-3); }
+.spec-stage { position: relative; min-width: 0; overflow-x: auto; }
+.spec-stage--tall { height: 22rem; }
+.spec-stage .dialog { position: static; max-width: 100%; }
+.spec-stage .tooltip { position: static; }
+.spec-stage .topbar, .spec-stage .breadcrumbs-bar { position: static; }
+</style>
+
+<!-- icons, drawn once; the specimens reference them with <use> -->
+<svg class="sr-only" aria-hidden="true" focusable="false">
+  <symbol id="hs-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="hs-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="hs-undo" viewBox="0 0 24 24"><path d="M9 7L4 12l5 5M4 12h10a6 6 0 0 1 0 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="hs-back" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="hs-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="hs-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="hs-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 16l4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="hs-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="hs-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7M12 17h.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="hs-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="hs-image" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="10" r="1.5" fill="currentColor"/><path d="M4 18l5-5 4 4 3-3 4 4" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+  <symbol id="hs-cal" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M4 10h16M9 3v4M15 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="spec-page">
+
+<ul class="spec-jump" aria-label="Sections">
+  <li><a href="#hs-tokens">Tokens</a></li>
+  <li><a href="#hs-themes">Themes</a></li>
+  <li><a href="#hs-text">Text</a></li>
+  <li><a href="#hs-actions">Actions</a></li>
+  <li><a href="#hs-surfaces">Surfaces</a></li>
+  <li><a href="#hs-status">Status and charts</a></li>
+  <li><a href="#hs-tables">Tables</a></li>
+  <li><a href="#hs-forms">Forms</a></li>
+  <li><a href="#hs-nav">Navigation and shell</a></li>
+  <li><a href="#hs-overlays">Overlays</a></li>
+  <li><a href="#hs-media">Figure and prose</a></li>
+</ul>
+
+<!-- ======================================================== TOKENS -->
+<div class="grid-3">
+  <div class="grid__head"><h2 id="hs-tokens">Tokens</h2><p class="card__sub">Colour, spacing, type, radius and size, shown as the stylesheet defines them. Switch the theme in the header to see the colour groups move.</p></div>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Theme colours</h3><p class="card__sub">Change with every theme</p></div>
+    <div class="spec-grid">
+      <div class="spec-item"><span class="spec-sample" style="background: var(--primary)"></span><p class="note">--primary</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--muted)"></span><p class="note">--muted</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--muted-inverse)"></span><p class="note">--muted-inverse</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--paper-1)"></span><p class="note">--paper-1</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--paper-2)"></span><p class="note">--paper-2</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--paper-3)"></span><p class="note">--paper-3</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--paper-4)"></span><p class="note">--paper-4</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--fg-1)"></span><p class="note">--fg-1</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--fg-2)"></span><p class="note">--fg-2</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--fg-3)"></span><p class="note">--fg-3</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--fg-4)"></span><p class="note">--fg-4</p></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Categories</h3><p class="card__sub">Series slots; change only between light and dark</p></div>
+    <div class="spec-grid">
+      <div class="spec-item"><span class="spec-sample" style="background: var(--cat-1)"></span><p class="note">--cat-1</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--cat-2)"></span><p class="note">--cat-2</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--cat-3)"></span><p class="note">--cat-3</p></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Status and direction</h3><p class="card__sub">-1 background, -3 fill, -5 text</p></div>
+    <div class="spec-grid">
+      <div class="spec-item"><span class="spec-sample" style="background: var(--positive-1)"></span><p class="note">--positive-1</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--positive-3)"></span><p class="note">--positive-3</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--positive-5)"></span><p class="note">--positive-5</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--warning-1)"></span><p class="note">--warning-1</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--warning-3)"></span><p class="note">--warning-3</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--warning-5)"></span><p class="note">--warning-5</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--negative-1)"></span><p class="note">--negative-1</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--negative-3)"></span><p class="note">--negative-3</p></div>
+      <div class="spec-item"><span class="spec-sample" style="background: var(--negative-5)"></span><p class="note">--negative-5</p></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Type scale</h3><p class="card__sub">--text-h1 to --text-xs, --font-serif, --font-mono</p></div>
+    <div class="spec-stack">
+      <div class="spec-item"><p class="note">--text-h1 (32px)</p><span style="font-size: var(--text-h1); font-weight: 700; color: var(--primary)">Aa Heading one</span></div>
+      <div class="spec-item"><p class="note">--text-h2 (18px)</p><span style="font-size: var(--text-h2); font-weight: 700">Heading two</span></div>
+      <div class="spec-item"><p class="note">--text-h3 (14px)</p><span style="font-size: var(--text-h3); font-weight: 600">Heading three</span></div>
+      <div class="spec-item"><p class="note">--text-lg (18px)</p><span style="font-size: var(--text-lg)">Large running text</span></div>
+      <div class="spec-item"><p class="note">--text-base (14px)</p><span style="font-size: var(--text-base)">Body text</span></div>
+      <div class="spec-item"><p class="note">--text-sm (12px)</p><span style="font-size: var(--text-sm)">Small text</span></div>
+      <div class="spec-item"><p class="note">--text-xs (11px)</p><span style="font-size: var(--text-xs)">Extra small text</span></div>
+      <div class="spec-item"><p class="note">--font-serif</p><span style="font-family: var(--font-serif); font-size: var(--text-lg)">Serif face for a title that keeps it</span></div>
+      <div class="spec-item"><p class="note">--font-mono</p><span style="font-family: var(--font-mono)">code 0123456789</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Radius</h3><p class="card__sub">--radius-xs to --radius-pill</p></div>
+    <div class="spec-row">
+      <div class="spec-item"><span class="spec-radius" style="border-radius: var(--radius-xs)"></span><p class="note">xs 4</p></div>
+      <div class="spec-item"><span class="spec-radius" style="border-radius: var(--radius-sm)"></span><p class="note">sm 6</p></div>
+      <div class="spec-item"><span class="spec-radius" style="border-radius: var(--radius-md)"></span><p class="note">md 8</p></div>
+      <div class="spec-item"><span class="spec-radius" style="border-radius: var(--radius-md-plus)"></span><p class="note">md-plus 10</p></div>
+      <div class="spec-item"><span class="spec-radius" style="border-radius: var(--radius-lg)"></span><p class="note">lg 12</p></div>
+      <div class="spec-item"><span class="spec-radius" style="border-radius: var(--radius-pill)"></span><p class="note">pill</p></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Sizes and elevation</h3><p class="card__sub">--control-h, --tap, --control-lg, --topbar-h, --datecol, --shadow-pop</p></div>
+    <div class="spec-stack">
+      <div class="spec-item"><p class="note">--control-h (38px): a value field and the button beside it</p><span class="spec-bar" style="--w: var(--control-h); height: var(--control-h)"></span></div>
+      <div class="spec-item"><p class="note">--tap (44px): the smallest touch target</p><span class="spec-bar" style="--w: var(--tap); height: var(--tap)"></span></div>
+      <div class="spec-item"><p class="note">--control-lg (52px): the large stepper</p><span class="spec-bar" style="--w: var(--control-lg); height: var(--control-lg)"></span></div>
+      <div class="spec-item"><p class="note">--topbar-h (56px), --column-narrow (512px, as the bar below, capped to the card), --datecol (10ch)</p><span class="spec-bar" style="--w: var(--column-narrow); height: var(--topbar-h)"></span></div>
+      <div class="spec-item"><p class="note">--shadow-pop</p><span class="spec-sample" style="background: var(--paper-2); box-shadow: var(--shadow-pop)"></span></div>
+    </div>
+  </section>
+
+  <section class="card grid__full">
+    <div class="card__head"><h3 class="card__title">Spacing scale</h3><p class="card__sub">--spacing-N is N x 4px; a half step adds 2px. Bars wider than the cell are capped to it.</p></div>
+    <div class="spec-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr))">
+      <div class="spec-space"><span class="note">0-5 (2px)</span><span class="spec-bar" style="--w: var(--spacing-0-5)"></span></div>
+      <div class="spec-space"><span class="note">1 (4px)</span><span class="spec-bar" style="--w: var(--spacing-1)"></span></div>
+      <div class="spec-space"><span class="note">1-5 (6px)</span><span class="spec-bar" style="--w: var(--spacing-1-5)"></span></div>
+      <div class="spec-space"><span class="note">2 (8px)</span><span class="spec-bar" style="--w: var(--spacing-2)"></span></div>
+      <div class="spec-space"><span class="note">2-5 (10px)</span><span class="spec-bar" style="--w: var(--spacing-2-5)"></span></div>
+      <div class="spec-space"><span class="note">3 (12px)</span><span class="spec-bar" style="--w: var(--spacing-3)"></span></div>
+      <div class="spec-space"><span class="note">3-5 (14px)</span><span class="spec-bar" style="--w: var(--spacing-3-5)"></span></div>
+      <div class="spec-space"><span class="note">4 (16px)</span><span class="spec-bar" style="--w: var(--spacing-4)"></span></div>
+      <div class="spec-space"><span class="note">4-5 (18px)</span><span class="spec-bar" style="--w: var(--spacing-4-5)"></span></div>
+      <div class="spec-space"><span class="note">5 (20px)</span><span class="spec-bar" style="--w: var(--spacing-5)"></span></div>
+      <div class="spec-space"><span class="note">5-5 (22px)</span><span class="spec-bar" style="--w: var(--spacing-5-5)"></span></div>
+      <div class="spec-space"><span class="note">6 (24px)</span><span class="spec-bar" style="--w: var(--spacing-6)"></span></div>
+      <div class="spec-space"><span class="note">6-5 (26px)</span><span class="spec-bar" style="--w: var(--spacing-6-5)"></span></div>
+      <div class="spec-space"><span class="note">7 (28px)</span><span class="spec-bar" style="--w: var(--spacing-7)"></span></div>
+      <div class="spec-space"><span class="note">7-5 (30px)</span><span class="spec-bar" style="--w: var(--spacing-7-5)"></span></div>
+      <div class="spec-space"><span class="note">8 (32px)</span><span class="spec-bar" style="--w: var(--spacing-8)"></span></div>
+      <div class="spec-space"><span class="note">8-5 (34px)</span><span class="spec-bar" style="--w: var(--spacing-8-5)"></span></div>
+      <div class="spec-space"><span class="note">9 (36px)</span><span class="spec-bar" style="--w: var(--spacing-9)"></span></div>
+      <div class="spec-space"><span class="note">9-5 (38px)</span><span class="spec-bar" style="--w: var(--spacing-9-5)"></span></div>
+      <div class="spec-space"><span class="note">10 (40px)</span><span class="spec-bar" style="--w: var(--spacing-10)"></span></div>
+      <div class="spec-space"><span class="note">11 (44px)</span><span class="spec-bar" style="--w: var(--spacing-11)"></span></div>
+      <div class="spec-space"><span class="note">12 (48px)</span><span class="spec-bar" style="--w: var(--spacing-12)"></span></div>
+      <div class="spec-space"><span class="note">14 (56px)</span><span class="spec-bar" style="--w: var(--spacing-14)"></span></div>
+      <div class="spec-space"><span class="note">16 (64px)</span><span class="spec-bar" style="--w: var(--spacing-16)"></span></div>
+      <div class="spec-space"><span class="note">18 (72px)</span><span class="spec-bar" style="--w: var(--spacing-18)"></span></div>
+      <div class="spec-space"><span class="note">20 (80px)</span><span class="spec-bar" style="--w: var(--spacing-20)"></span></div>
+      <div class="spec-space"><span class="note">24 (96px)</span><span class="spec-bar" style="--w: var(--spacing-24)"></span></div>
+      <div class="spec-space"><span class="note">28 (112px)</span><span class="spec-bar" style="--w: var(--spacing-28)"></span></div>
+      <div class="spec-space"><span class="note">32 (128px)</span><span class="spec-bar" style="--w: var(--spacing-32)"></span></div>
+      <div class="spec-space"><span class="note">36 (144px)</span><span class="spec-bar" style="--w: var(--spacing-36)"></span></div>
+      <div class="spec-space"><span class="note">40 (160px)</span><span class="spec-bar" style="--w: var(--spacing-40)"></span></div>
+      <div class="spec-space"><span class="note">44 (176px)</span><span class="spec-bar" style="--w: var(--spacing-44)"></span></div>
+      <div class="spec-space"><span class="note">48 (192px)</span><span class="spec-bar" style="--w: var(--spacing-48)"></span></div>
+      <div class="spec-space"><span class="note">52 (208px)</span><span class="spec-bar" style="--w: var(--spacing-52)"></span></div>
+      <div class="spec-space"><span class="note">56 (224px)</span><span class="spec-bar" style="--w: var(--spacing-56)"></span></div>
+      <div class="spec-space"><span class="note">60 (240px)</span><span class="spec-bar" style="--w: var(--spacing-60)"></span></div>
+      <div class="spec-space"><span class="note">64 (256px)</span><span class="spec-bar" style="--w: var(--spacing-64)"></span></div>
+      <div class="spec-space"><span class="note">72 (288px)</span><span class="spec-bar" style="--w: var(--spacing-72)"></span></div>
+      <div class="spec-space"><span class="note">80 (320px)</span><span class="spec-bar" style="--w: var(--spacing-80)"></span></div>
+      <div class="spec-space"><span class="note">96 (384px)</span><span class="spec-bar" style="--w: var(--spacing-96)"></span></div>
+    </div>
+  </section>
+</div>
+
+<!-- ======================================================== THEMES -->
+<div class="grid-2">
+  <div class="grid__head"><h2 id="hs-themes">Themes</h2><p class="card__sub">All twelve, each card scoped to its own theme through the house's <code>.theme-swatch[data-id]</code> selector, so every token inside it is that theme's. The dots run primary, muted, muted-inverse, paper-1 to 4, fg-1 to 4.</p></div>
+
+  <section class="card grid__full">
+    <div class="card__head"><h3 class="card__title">Light</h3><p class="card__sub">Magenta, Paars, Blauw, Petrol, Oker, Roest</p></div>
+    <div class="spec-themes">
+      <div class="theme-swatch" data-id="magenta"><h3>Magenta</h3><p class="note">magenta</p><div class="spec-dots" aria-hidden="true"><span class="spec-dot" style="background: var(--primary)"></span><span class="spec-dot" style="background: var(--muted)"></span><span class="spec-dot" style="background: var(--muted-inverse)"></span><span class="spec-dot" style="background: var(--paper-1)"></span><span class="spec-dot" style="background: var(--paper-2)"></span><span class="spec-dot" style="background: var(--paper-3)"></span><span class="spec-dot" style="background: var(--paper-4)"></span><span class="spec-dot" style="background: var(--fg-1)"></span><span class="spec-dot" style="background: var(--fg-2)"></span><span class="spec-dot" style="background: var(--fg-3)"></span><span class="spec-dot" style="background: var(--fg-4)"></span></div><div class="spec-row"><span class="btn btn--primary">Primary</span><a href="#hs-themes">Link</a><span class="badge badge--info">i</span><span class="tag">Tag</span></div></div>
+      <div class="theme-swatch" data-id="purple"><h3>Paars</h3><p class="note">purple</p><div class="spec-dots" aria-hidden="true"><span class="spec-dot" style="background: var(--primary)"></span><span class="spec-dot" style="background: var(--muted)"></span><span class="spec-dot" style="background: var(--muted-inverse)"></span><span class="spec-dot" style="background: var(--paper-1)"></span><span class="spec-dot" style="background: var(--paper-2)"></span><span class="spec-dot" style="background: var(--paper-3)"></span><span class="spec-dot" style="background: var(--paper-4)"></span><span class="spec-dot" style="background: var(--fg-1)"></span><span class="spec-dot" style="background: var(--fg-2)"></span><span class="spec-dot" style="background: var(--fg-3)"></span><span class="spec-dot" style="background: var(--fg-4)"></span></div><div class="spec-row"><span class="btn btn--primary">Primary</span><a href="#hs-themes">Link</a><span class="badge badge--info">i</span><span class="tag">Tag</span></div></div>
+      <div class="theme-swatch" data-id="blue"><h3>Blauw</h3><p class="note">blue</p><div class="spec-dots" aria-hidden="true"><span class="spec-dot" style="background: var(--primary)"></span><span class="spec-dot" style="background: var(--muted)"></span><span class="spec-dot" style="background: var(--muted-inverse)"></span><span class="spec-dot" style="background: var(--paper-1)"></span><span class="spec-dot" style="background: var(--paper-2)"></span><span class="spec-dot" style="background: var(--paper-3)"></span><span class="spec-dot" style="background: var(--paper-4)"></span><span class="spec-dot" style="background: var(--fg-1)"></span><span class="spec-dot" style="background: var(--fg-2)"></span><span class="spec-dot" style="background: var(--fg-3)"></span><span class="spec-dot" style="background: var(--fg-4)"></span></div><div class="spec-row"><span class="btn btn--primary">Primary</span><a href="#hs-themes">Link</a><span class="badge badge--info">i</span><span class="tag">Tag</span></div></div>
+      <div class="theme-swatch" data-id="teal"><h3>Petrol</h3><p class="note">teal</p><div class="spec-dots" aria-hidden="true"><span class="spec-dot" style="background: var(--primary)"></span><span class="spec-dot" style="background: var(--muted)"></span><span class="spec-dot" style="background: var(--muted-inverse)"></span><span class="spec-dot" style="background: var(--paper-1)"></span><span class="spec-dot" style="background: var(--paper-2)"></span><span class="spec-dot" style="background: var(--paper-3)"></span><span class="spec-dot" style="background: var(--paper-4)"></span><span class="spec-dot" style="background: var(--fg-1)"></span><span class="spec-dot" style="background: var(--fg-2)"></span><span class="spec-dot" style="background: var(--fg-3)"></span><span class="spec-dot" style="background: var(--fg-4)"></span></div><div class="spec-row"><span class="btn btn--primary">Primary</span><a href="#hs-themes">Link</a><span class="badge badge--info">i</span><span class="tag">Tag</span></div></div>
+      <div class="theme-swatch" data-id="ochre"><h3>Oker</h3><p class="note">ochre</p><div class="spec-dots" aria-hidden="true"><span class="spec-dot" style="background: var(--primary)"></span><span class="spec-dot" style="background: var(--muted)"></span><span class="spec-dot" style="background: var(--muted-inverse)"></span><span class="spec-dot" style="background: var(--paper-1)"></span><span class="spec-dot" style="background: var(--paper-2)"></span><span class="spec-dot" style="background: var(--paper-3)"></span><span class="spec-dot" style="background: var(--paper-4)"></span><span class="spec-dot" style="background: var(--fg-1)"></span><span class="spec-dot" style="background: var(--fg-2)"></span><span class="spec-dot" style="background: var(--fg-3)"></span><span class="spec-dot" style="background: var(--fg-4)"></span></div><div class="spec-row"><span class="btn btn--primary">Primary</span><a href="#hs-themes">Link</a><span class="badge badge--info">i</span><span class="tag">Tag</span></div></div>
+      <div class="theme-swatch" data-id="rust"><h3>Roest</h3><p class="note">rust (moves the warning to a dark yellow)</p><div class="spec-dots" aria-hidden="true"><span class="spec-dot" style="background: var(--primary)"></span><span class="spec-dot" style="background: var(--muted)"></span><span class="spec-dot" style="background: var(--muted-inverse)"></span><span class="spec-dot" style="background: var(--paper-1)"></span><span class="spec-dot" style="background: var(--paper-2)"></span><span class="spec-dot" style="background: var(--paper-3)"></span><span class="spec-dot" style="background: var(--paper-4)"></span><span class="spec-dot" style="background: var(--fg-1)"></span><span class="spec-dot" style="background: var(--fg-2)"></span><span class="spec-dot" style="background: var(--fg-3)"></span><span class="spec-dot" style="background: var(--fg-4)"></span><span class="spec-dot" style="background: var(--warning-3)"></span></div><div class="spec-row"><span class="btn btn--primary">Primary</span><a href="#hs-themes">Link</a><span class="badge badge--info">i</span><span class="badge badge--warn">!</span></div></div>
+    </div>
+  </section>
+
+  <section class="card grid__full">
+    <div class="card__head"><h3 class="card__title">Dark</h3><p class="card__sub">Roze, Lila, Hemelsblauw, Cyaan, Geel, Oranje</p></div>
+    <div class="spec-themes">
+      <div class="theme-swatch" data-id="pink"><h3>Roze</h3><p class="note">pink</p><div class="spec-dots" aria-hidden="true"><span class="spec-dot" style="background: var(--primary)"></span><span class="spec-dot" style="background: var(--muted)"></span><span class="spec-dot" style="background: var(--muted-inverse)"></span><span class="spec-dot" style="background: var(--paper-1)"></span><span class="spec-dot" style="background: var(--paper-2)"></span><span class="spec-dot" style="background: var(--paper-3)"></span><span class="spec-dot" style="background: var(--paper-4)"></span><span class="spec-dot" style="background: var(--fg-1)"></span><span class="spec-dot" style="background: var(--fg-2)"></span><span class="spec-dot" style="background: var(--fg-3)"></span><span class="spec-dot" style="background: var(--fg-4)"></span></div><div class="spec-row"><span class="btn btn--primary">Primary</span><a href="#hs-themes">Link</a><span class="badge badge--info">i</span><span class="tag">Tag</span></div></div>
+      <div class="theme-swatch" data-id="lilac"><h3>Lila</h3><p class="note">lilac</p><div class="spec-dots" aria-hidden="true"><span class="spec-dot" style="background: var(--primary)"></span><span class="spec-dot" style="background: var(--muted)"></span><span class="spec-dot" style="background: var(--muted-inverse)"></span><span class="spec-dot" style="background: var(--paper-1)"></span><span class="spec-dot" style="background: var(--paper-2)"></span><span class="spec-dot" style="background: var(--paper-3)"></span><span class="spec-dot" style="background: var(--paper-4)"></span><span class="spec-dot" style="background: var(--fg-1)"></span><span class="spec-dot" style="background: var(--fg-2)"></span><span class="spec-dot" style="background: var(--fg-3)"></span><span class="spec-dot" style="background: var(--fg-4)"></span></div><div class="spec-row"><span class="btn btn--primary">Primary</span><a href="#hs-themes">Link</a><span class="badge badge--info">i</span><span class="tag">Tag</span></div></div>
+      <div class="theme-swatch" data-id="sky"><h3>Hemelsblauw</h3><p class="note">sky</p><div class="spec-dots" aria-hidden="true"><span class="spec-dot" style="background: var(--primary)"></span><span class="spec-dot" style="background: var(--muted)"></span><span class="spec-dot" style="background: var(--muted-inverse)"></span><span class="spec-dot" style="background: var(--paper-1)"></span><span class="spec-dot" style="background: var(--paper-2)"></span><span class="spec-dot" style="background: var(--paper-3)"></span><span class="spec-dot" style="background: var(--paper-4)"></span><span class="spec-dot" style="background: var(--fg-1)"></span><span class="spec-dot" style="background: var(--fg-2)"></span><span class="spec-dot" style="background: var(--fg-3)"></span><span class="spec-dot" style="background: var(--fg-4)"></span></div><div class="spec-row"><span class="btn btn--primary">Primary</span><a href="#hs-themes">Link</a><span class="badge badge--info">i</span><span class="tag">Tag</span></div></div>
+      <div class="theme-swatch" data-id="cyan"><h3>Cyaan</h3><p class="note">cyan</p><div class="spec-dots" aria-hidden="true"><span class="spec-dot" style="background: var(--primary)"></span><span class="spec-dot" style="background: var(--muted)"></span><span class="spec-dot" style="background: var(--muted-inverse)"></span><span class="spec-dot" style="background: var(--paper-1)"></span><span class="spec-dot" style="background: var(--paper-2)"></span><span class="spec-dot" style="background: var(--paper-3)"></span><span class="spec-dot" style="background: var(--paper-4)"></span><span class="spec-dot" style="background: var(--fg-1)"></span><span class="spec-dot" style="background: var(--fg-2)"></span><span class="spec-dot" style="background: var(--fg-3)"></span><span class="spec-dot" style="background: var(--fg-4)"></span></div><div class="spec-row"><span class="btn btn--primary">Primary</span><a href="#hs-themes">Link</a><span class="badge badge--info">i</span><span class="tag">Tag</span></div></div>
+      <div class="theme-swatch" data-id="yellow"><h3>Geel</h3><p class="note">yellow (moves the warning to orange)</p><div class="spec-dots" aria-hidden="true"><span class="spec-dot" style="background: var(--primary)"></span><span class="spec-dot" style="background: var(--muted)"></span><span class="spec-dot" style="background: var(--muted-inverse)"></span><span class="spec-dot" style="background: var(--paper-1)"></span><span class="spec-dot" style="background: var(--paper-2)"></span><span class="spec-dot" style="background: var(--paper-3)"></span><span class="spec-dot" style="background: var(--paper-4)"></span><span class="spec-dot" style="background: var(--fg-1)"></span><span class="spec-dot" style="background: var(--fg-2)"></span><span class="spec-dot" style="background: var(--fg-3)"></span><span class="spec-dot" style="background: var(--fg-4)"></span><span class="spec-dot" style="background: var(--warning-3)"></span></div><div class="spec-row"><span class="btn btn--primary">Primary</span><a href="#hs-themes">Link</a><span class="badge badge--info">i</span><span class="badge badge--warn">!</span></div></div>
+      <div class="theme-swatch" data-id="orange"><h3>Oranje</h3><p class="note">orange</p><div class="spec-dots" aria-hidden="true"><span class="spec-dot" style="background: var(--primary)"></span><span class="spec-dot" style="background: var(--muted)"></span><span class="spec-dot" style="background: var(--muted-inverse)"></span><span class="spec-dot" style="background: var(--paper-1)"></span><span class="spec-dot" style="background: var(--paper-2)"></span><span class="spec-dot" style="background: var(--paper-3)"></span><span class="spec-dot" style="background: var(--paper-4)"></span><span class="spec-dot" style="background: var(--fg-1)"></span><span class="spec-dot" style="background: var(--fg-2)"></span><span class="spec-dot" style="background: var(--fg-3)"></span><span class="spec-dot" style="background: var(--fg-4)"></span></div><div class="spec-row"><span class="btn btn--primary">Primary</span><a href="#hs-themes">Link</a><span class="badge badge--info">i</span><span class="tag">Tag</span></div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Theme picker</h3><p class="card__sub">The live <code>DKJTheme.picker</code>: choosing a swatch re-themes this whole page</p></div>
+    <div id="hs-picker"></div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Fills</h3><p class="card__sub"><code>.fill-primary</code> and <code>.fill-inverse</code>: the text switches to the paper</p></div>
+    <div class="spec-stack">
+      <div class="fill-primary card"><h2>Heading two</h2><p>Paragraph on the primary.</p><p class="sub">A quieter line.</p><a href="#hs-themes">A link</a></div>
+      <div class="fill-inverse card"><h2>Heading two</h2><p>Paragraph on the far end.</p><p class="sub">A quieter line.</p><a href="#hs-themes">A link</a></div>
+    </div>
+  </section>
+</div>
+
+<!-- ======================================================== TEXT -->
+<div class="grid-2">
+  <div class="grid__head"><h2 id="hs-text">Text</h2><p class="card__sub">Headings, running text, links, numbers and message lines</p></div>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Headings and running text</h3><p class="card__sub">h2, h3, .eyebrow, .sub, .lead, .meta, .muted, .note, .footer-note</p></div>
+    <div class="spec-stack">
+      <p class="eyebrow">Eyebrow</p>
+      <h2>Heading two</h2>
+      <p class="sub">A sub line under a heading.</p>
+      <h3>Heading three</h3>
+      <p class="lead">A lead paragraph, held to a readable measure.</p>
+      <p>A plain paragraph with a <a href="#hs-text">link</a> and <strong>strong text</strong>.</p>
+      <p><span class="meta">.meta on a span</span> and <span class="muted">.muted</span></p>
+      <p class="note">A note.</p>
+      <p class="footer-note">A footer note.</p>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Numbers, messages, group heading</h3><p class="card__sub">.num, .delta, .msg, .group-heading, .verdict, .amount</p></div>
+    <div class="spec-stack">
+      <p>Tabular figures: <span class="num">1,234.50</span> <span class="num">9.99</span></p>
+      <p><span class="delta delta--up">+1,2%</span> <span class="delta delta--down">-1,1%</span> <span class="pos">pos</span> <span class="neg">neg</span></p>
+      <p class="msg">A message line.</p>
+      <p class="msg msg--warn">A warning line.</p>
+      <p class="msg msg--error">An error line.</p>
+      <h3 class="group-heading"><span>Group heading</span><span class="group-heading__count">3 / 5</span></h3>
+      <h3 class="group-heading"><span>Over the limit</span><span class="group-heading__count group-heading__count--over">6 / 5</span></h3>
+      <p class="verdict">A verdict: yes, this holds.</p>
+      <span class="amount"><span>12,50</span><svg width="12" height="12" aria-hidden="true"><use href="#hs-plus"/></svg></span>
+    </div>
+  </section>
+</div>
+
+<!-- ======================================================== ACTIONS -->
+<div class="grid-2">
+  <div class="grid__head"><h2 id="hs-actions">Actions</h2><p class="card__sub">Buttons, switches, toggles and disclosures. Hover and focus rings show on the live controls.</p></div>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Buttons</h3><p class="card__sub">.btn, --primary, :disabled, --touch, --block</p></div>
+    <div class="spec-stack">
+      <div class="spec-row"><button class="btn" type="button">Default</button><button class="btn btn--primary" type="button">Primary</button><button class="btn" type="button" disabled>Disabled</button><button class="btn btn--primary" type="button" disabled>Disabled primary</button><a class="btn" href="#hs-actions">Link as button</a></div>
+      <div class="spec-row"><button class="btn btn--touch" type="button">Touch</button><button class="btn btn--touch btn--primary" type="button">Touch primary</button></div>
+      <button class="btn btn--touch btn--block" type="button">Block</button>
+      <button class="btn btn--touch btn--primary btn--block" type="button">Block primary</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Icon buttons and switches</h3><p class="card__sub">.icon-btn, --ghost, .action-row, .seg, .controls</p></div>
+    <div class="spec-stack">
+      <div class="spec-row"><button class="icon-btn" type="button" aria-label="Add"><svg width="20" height="20"><use href="#hs-plus"/></svg></button><button class="icon-btn icon-btn--ghost" type="button" aria-label="Menu"><svg width="20" height="20"><use href="#hs-menu"/></svg></button></div>
+      <div class="action-row"><button class="icon-btn" type="button" aria-label="Cancel"><svg width="20" height="20"><use href="#hs-undo"/></svg></button><button class="icon-btn" type="button" aria-label="Save"><svg width="20" height="20"><use href="#hs-check"/></svg></button></div>
+      <span class="seg" role="group" aria-label="View"><button type="button" aria-pressed="true">Day</button><button type="button" aria-pressed="false">Week</button><button type="button" aria-pressed="false">Month</button></span>
+      <div class="controls"><span class="seg" role="group" aria-label="Range"><button type="button" aria-pressed="true">1Y</button><button type="button" aria-pressed="false">5Y</button></span><button class="btn" type="button">Export</button></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Toggles and help</h3><p class="card__sub">.info-button, .round-toggle, .badge-toggle, .help</p></div>
+    <div class="spec-stack">
+      <p>Label with an inline help mark <button class="info-button" type="button" aria-label="Explain" aria-expanded="false">?</button> <button class="info-button" type="button" aria-label="Explain, open" aria-expanded="true">?</button></p>
+      <div class="spec-row"><button class="round-toggle" type="button" aria-label="Closed" aria-expanded="false"><svg width="20" height="20"><use href="#hs-help"/></svg></button><button class="round-toggle" type="button" aria-label="Open" aria-expanded="true"><svg width="20" height="20"><use href="#hs-help"/></svg></button><button class="badge-toggle" type="button" aria-label="Closed" aria-expanded="false">i</button><button class="badge-toggle" type="button" aria-label="Open" aria-expanded="true">i</button></div>
+      <div class="help"><button class="round-toggle" type="button" aria-label="Explain" aria-expanded="true"><svg width="20" height="20"><use href="#hs-help"/></svg></button><p class="msg">The text this toggle opens, under it at full width.</p></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Disclosures</h3><p class="card__sub">.more, .moretoggle, .more--structured</p></div>
+    <div class="spec-stack">
+      <details class="more"><summary>Closed disclosure</summary><p>Hidden detail.</p></details>
+      <details class="more" open><summary>Open disclosure</summary><p>Shown detail.</p></details>
+      <details class="more more--structured" open><summary><span class="more__title">Structured disclosure with a long title that wraps</span><span class="more__meta">12 items</span><span class="more__trailing"><span class="more__version">v2</span></span></summary><p>Detail under a structured summary.</p></details>
+      <div><p>Content above the toggle, which opens upward.</p><button class="moretoggle" type="button" aria-expanded="false">Read more</button><button class="moretoggle" type="button" aria-expanded="true">Read less</button></div>
+    </div>
+  </section>
+</div>
+
+<!-- ======================================================== SURFACES -->
+<div class="grid-2">
+  <div class="grid__head"><h2 id="hs-surfaces">Surfaces</h2><p class="card__sub">Cards, tiles, boxes and messages</p></div>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title"><span class="badge badge--good">&#10003;</span>Card with a badge in its head</h3><p class="card__sub">.card, .card__head, .card__title, .card__sub</p></div>
+    <p>The card body.</p>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Card states</h3><p class="card__sub">.card--open, .card--invalid, .card--link</p></div>
+    <div class="spec-stack">
+      <div class="card card--open"><p class="msg">Open card: the stronger border.</p></div>
+      <div class="card card--invalid"><p class="msg msg--error">Invalid card: a negative border.</p></div>
+      <div class="card card--link"><nav class="menu-list" aria-label="Specimen"><a class="menu-item" href="#hs-surfaces"><span class="menu-item__label">Card that is one link<span class="menu-item__sub">Hover the card</span></span><svg class="menu-item__chevron" width="20" height="20"><use href="#hs-chev"/></svg></a></nav></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Tiles and hero</h3><p class="card__sub">.tiles, .tile, .hero, .mini-cards, .mini-card</p></div>
+    <div class="spec-stack">
+      <div class="tiles"><div class="tile"><div class="label">Label</div><div class="v num">1,234</div></div><div class="tile"><div class="label">Another</div><div class="v num">56</div></div></div>
+      <div class="hero"><div><div class="label muted">Hero figure</div><div class="value num">12,34</div></div></div>
+      <div class="mini-cards"><div class="mini-card"><div class="mini-card__label">Plain</div><div class="mini-card__value">12</div><div class="meter meter--good"><span style="width: 60%"></span></div></div><div class="mini-card mini-card--highlight"><div class="mini-card__label">Highlight</div><div class="mini-card__value">34</div><div class="meter meter--warn"><span style="width: 40%"></span></div></div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Messages</h3><p class="card__sub">.notice, .banner, .alert, .panel</p></div>
+    <div class="spec-stack">
+      <div class="notice"><p class="msg">A boxed warning (.notice).</p></div>
+      <p class="banner"><span class="banner__lead"><svg width="16" height="16" aria-hidden="true"><use href="#hs-alert"/></svg>Lead</span> A bordered line of text.</p>
+      <p class="banner banner--accent">A centred statement with <strong>a highlight</strong>.</p>
+      <div class="alert" role="alert"><p class="alert__title"><svg class="alert__icon" width="20" height="20" aria-hidden="true"><use href="#hs-alert"/></svg>Alert title</p><p>A danger box.</p></div>
+      <div class="panel"><p class="panel__label">Panel</p><p class="panel__value">12,50</p></div>
+      <div class="panel panel--accent"><p class="panel__label">Accent panel</p><p class="panel__value">12,50</p></div>
+      <div class="panel panel--positive"><p class="panel__label">Positive panel</p><p class="panel__value">12,50</p></div>
+      <button class="panel panel--button" type="button"><span class="panel__label">Button panel</span><span class="panel__value">Tap me</span></button>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Chips and tags</h3><p class="card__sub">.chip, .tag, .filter-chips, .filter-chip</p></div>
+    <div class="spec-stack">
+      <div class="spec-row"><span class="chip chip--yes">Yes</span><span class="chip chip--no">No</span><span class="chip chip--todo">To do</span></div>
+      <div class="spec-row"><span class="tag">Tag</span><span class="tag tag--info">Info</span><span class="tag tag--warn">Warn</span></div>
+      <div class="filter-chips" role="group" aria-label="Filters"><button class="filter-chip" type="button" aria-pressed="true"><svg class="filter-chip__check" width="14" height="14" aria-hidden="true"><use href="#hs-check"/></svg>Pressed</button><button class="filter-chip" type="button" aria-pressed="false">Idle</button><button class="filter-chip" type="button" aria-pressed="false"><span class="filter-chip__dot" style="--c: var(--cat-1)"></span>With dot</button><button class="filter-chip" type="button" aria-pressed="true"><span class="filter-chip__dot" style="--c: var(--cat-2)"></span>Dot, pressed</button><button class="filter-chips__clear" type="button">Clear</button></div>
+      <div class="question-head"><h3>A question?</h3><span class="chip chip--yes">Yes</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Facts and items</h3><p class="card__sub">.facts, --row, __detail, __total, .item-grid, .item</p></div>
+    <div class="spec-stack">
+      <dl class="facts"><div><dt>Term</dt><dd>Value</dd></div><div><dt>With detail<span class="facts__detail">A line under the term</span></dt><dd>42</dd></div><div class="facts__total"><dt>Total</dt><dd>100</dd></div></dl>
+      <dl class="facts facts--row"><div><dt>Label</dt><dd>Value</dd></div><div><dt>Another</dt><dd>Value</dd></div></dl>
+      <div class="item-grid"><div class="item"><b>Item</b><p>An item in a grid.</p></div><div class="item"><b>Item</b><p>Another item.</p></div></div>
+    </div>
+  </section>
+
+  <section class="card grid__full">
+    <div class="card__head"><h3 class="card__title">Page header</h3><p class="card__sub">.page-header, .header--accent, .controls</p></div>
+    <div class="page-header header--accent"><h3>A block header with an accent rule</h3><div class="controls"><button class="btn" type="button">Action</button></div></div>
+  </section>
+</div>
+
+<!-- ======================================================== STATUS -->
+<div class="grid-2">
+  <div class="grid__head"><h2 id="hs-status">Status and charts</h2><p class="card__sub">Badges, meters, legends, deltas and the chart scope</p></div>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Badges</h3><p class="card__sub">.badge, --good, --warn, --bad, --info, --neutral, --sm, .badge-row, .badge-list</p></div>
+    <div class="spec-stack">
+      <div class="spec-row"><span class="badge badge--good">&#10003;</span><span class="badge badge--warn">!</span><span class="badge badge--bad">&times;</span><span class="badge badge--info">i</span><span class="badge badge--neutral">-</span><span class="badge badge--sm badge--good">&#10003;</span></div>
+      <ul class="badge-list"><li class="badge-row"><span class="badge badge--good">&#10003;</span><span>Done</span></li><li class="badge-row"><span class="badge badge--warn">!</span><span>Needs a look, with text long enough to wrap onto a second line at a narrow width</span></li><li class="badge-row"><span class="badge badge--bad">&times;</span><span>Failed</span></li></ul>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Meters and legend</h3><p class="card__sub">.meter, --good, --warn, --bad, --info, .legend, .swatch</p></div>
+    <div class="spec-stack">
+      <div class="meter meter--good"><span style="width: 70%"></span></div>
+      <div class="meter meter--warn"><span style="width: 50%"></span></div>
+      <div class="meter meter--bad"><span style="width: 30%"></span></div>
+      <div class="meter meter--info"><span style="width: 60%"></span></div>
+      <div class="legend"><span class="legend__item" style="--c: var(--cat-1)">Series one</span><span class="legend__item" style="--c: var(--cat-2)">Series two</span><span class="legend__item legend__item--line" style="--c: var(--cat-3)">A line</span></div>
+      <p><span class="swatch" style="--c: var(--cat-1)"></span>Swatch beside text</p>
+    </div>
+  </section>
+
+  <section class="card grid__full">
+    <div class="card__head"><h3 class="card__title">Chart scope</h3><p class="card__sub">.chart (inline SVG), .bar, .bar--active, and the tooltip rows .chart-detail, .chart-row, .chart-swatch, .chart-figure</p></div>
+    <div class="grid-2">
+      <div class="chart">
+        <svg viewBox="0 0 300 140" role="img" aria-label="A bar chart of three values">
+          <line x1="20" y1="110" x2="290" y2="110" style="stroke: var(--paper-4)"/>
+          <rect class="bar" tabindex="0" x="40" y="50" width="50" height="60" style="fill: var(--cat-1)"/>
+          <rect class="bar bar--active" tabindex="0" x="120" y="30" width="50" height="80" style="fill: var(--cat-2)"/>
+          <rect class="bar" tabindex="0" x="200" y="70" width="50" height="40" style="fill: var(--positive-3)"/>
+          <text x="65" y="128" text-anchor="middle">One</text>
+          <text x="145" y="128" text-anchor="middle">Two</text>
+          <text x="225" y="128" text-anchor="middle">Three</text>
+          <text class="val" x="145" y="24" text-anchor="middle">80</text>
+          <text class="axis-note" x="20" y="12">Axis note</text>
+        </svg>
+      </div>
+      <div class="spec-stage">
+        <div class="tooltip tooltip--open">
+          <b>Series detail</b>
+          <div class="chart-row"><span class="chart-swatch" style="background: var(--cat-1)"></span><span>Series one</span><span class="chart-figure num">12</span></div>
+          <div class="chart-row"><span class="chart-swatch" style="background: var(--cat-2)"></span><span>Series two</span><span class="chart-figure num">34</span></div>
+          <span class="chart-detail">A second line under a label</span>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ======================================================== TABLES -->
+<div class="grid-2">
+  <div class="grid__head"><h2 id="hs-tables">Tables</h2><p class="card__sub">Data table, bill, comparison and calculation</p></div>
+
+  <section class="card grid__full">
+    <div class="card__head"><h3 class="card__title">Data table</h3><p class="card__sub">.table-wrap, .table, --accent, sortable headers, .row-total, .row-negative, .row-positive, .row-warn, .col-start, .col-end</p></div>
+    <div class="table-wrap" tabindex="0">
+      <table class="table table--accent">
+        <thead><tr>
+          <th aria-sort="none"><button class="sort" type="button">Name <span class="arrow" aria-hidden="true"><svg viewBox="0 0 8 12"><path class="u" d="M1 4.5 4 1.5 7 4.5"/><path class="d" d="M1 7.5 4 10.5 7 7.5"/></svg></span></button></th>
+          <th aria-sort="ascending"><button class="sort" type="button">Value <span class="arrow" aria-hidden="true"><svg viewBox="0 0 8 12"><path class="u" d="M1 4.5 4 1.5 7 4.5"/><path class="d" d="M1 7.5 4 10.5 7 7.5"/></svg></span></button></th>
+          <th aria-sort="descending"><button class="sort" type="button">Change <span class="arrow" aria-hidden="true"><svg viewBox="0 0 8 12"><path class="u" d="M1 4.5 4 1.5 7 4.5"/><path class="d" d="M1 7.5 4 10.5 7 7.5"/></svg></span></button></th>
+          <th class="col-start">Note (col-start)</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>Plain row</td><td>1,234</td><td><span class="delta delta--up">+1,2%</span></td><td class="col-start">Left aligned</td></tr>
+          <tr class="row-positive"><td>Positive row</td><td>2,345</td><td><span class="delta delta--up">+3,4%</span></td><td class="col-start">Tinted</td></tr>
+          <tr class="row-warn"><td>Warning row</td><td>3,456</td><td>0,0%</td><td class="col-start">Tinted</td></tr>
+          <tr class="row-negative"><td>Negative row</td><td>4,567</td><td><span class="delta delta--down">-2,1%</span></td><td class="col-start">Tinted</td></tr>
+          <tr class="row-total"><td>Total</td><td>11,602</td><td>-</td><td class="col-start">Bold, no rule</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Bill</h3><p class="card__sub">.bill, --qty, __head, __slot, __name, __qty, __price, __action, __subtotal, __total</p></div>
+    <div class="table-wrap" tabindex="0">
+      <table class="bill bill--qty">
+        <thead><tr class="bill__head"><th>Slot</th><th>Item</th><th>Qty</th><th class="num">Price</th><th><span class="sr-only">Action</span></th></tr></thead>
+        <tbody>
+          <tr><th class="bill__slot" scope="row">Hat</th><td class="bill__name">A very long item name that truncates</td><td class="bill__qty">2</td><td class="bill__price num">12,00</td><td class="bill__action"><button class="icon-btn" type="button" aria-label="Remove"><svg width="18" height="18"><use href="#hs-x"/></svg></button></td></tr>
+          <tr><th class="bill__slot" scope="row">Coat</th><td class="bill__name">Coat</td><td class="bill__qty">1</td><td class="bill__price num">30,00</td><td class="bill__action"></td></tr>
+          <tr class="bill__subtotal"><th colspan="3">Subtotal</th><td class="num"><strong>42,00</strong></td><td></td></tr>
+        </tbody>
+        <tfoot><tr class="bill__total"><th colspan="3">Total</th><td class="num"><strong>42,00</strong></td><td></td></tr></tfoot>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Comparison</h3><p class="card__sub">.compare, closing row in a tfoot</p></div>
+    <div class="table-wrap" tabindex="0">
+      <table class="compare">
+        <thead><tr><td></td><th>Option A</th><th>Option B</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Cost</th><td class="num">120</td><td class="num">95</td></tr>
+          <tr><th scope="row">Upkeep</th><td class="num">10</td><td class="num">25</td></tr>
+        </tbody>
+        <tfoot><tr><th scope="row">Total</th><td class="num">130</td><td class="num">120</td></tr></tfoot>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Calculation</h3><p class="card__sub">.calc, __row, __what, __sub, __op, __num, __result</p></div>
+    <div class="calc-section">
+      <p class="calc-section__question">How much in total?</p>
+      <div class="calc">
+        <div class="calc__row"><span class="calc__what">Base<span class="calc__sub">before bonus</span></span><span class="calc__op">+</span><span class="calc__num">100</span></div>
+        <div class="calc__row"><span class="calc__what">Bonus</span><span class="calc__op">+</span><span class="calc__num">25</span></div>
+        <div class="calc__row calc__result"><span class="calc__what">Result</span><span class="calc__op">=</span><span class="calc__num">125</span></div>
+      </div>
+      <div class="answer"><span class="answer__label">Answer</span><span class="answer__value">125</span></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Boxed calculation</h3><p class="card__sub">.calc--boxed, __box (nests)</p></div>
+    <div class="calc calc--boxed">
+      <div class="calc__box">
+        <div class="calc__row"><span class="calc__what">Group A</span><span class="calc__op">+</span><span class="calc__num">40</span></div>
+        <div class="calc__box">
+          <div class="calc__row"><span class="calc__what">Nested</span><span class="calc__op">+</span><span class="calc__num">10</span></div>
+          <div class="calc__row"><span class="calc__what">Nested</span><span class="calc__op">+</span><span class="calc__num">5</span></div>
+        </div>
+      </div>
+      <div class="calc__row calc__result"><span class="calc__what">Result</span><span class="calc__op">=</span><span class="calc__num">55</span></div>
+    </div>
+  </section>
+</div>
+
+<!-- ======================================================== FORMS -->
+<div class="grid-2">
+  <div class="grid__head"><h2 id="hs-forms">Forms</h2><p class="card__sub">Fields, checkbox, stepper, combobox, value boxes, stat rows and info rows</p></div>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Fields</h3><p class="card__sub">.field, __error, .field__fixed, .check</p></div>
+    <div class="spec-stack">
+      <label class="field"><span>Text field</span><input type="text" value="A value"></label>
+      <label class="field"><span>Select</span><select><option>One</option><option>Two</option></select></label>
+      <label class="field"><span>Disabled</span><input type="text" value="Disabled" disabled></label>
+      <label class="field"><span>With an error</span><input type="text" value="Wrong" aria-invalid="true"></label>
+      <p class="field__error" role="alert">That value is not allowed.</p>
+      <p class="field__fixed">A read-only value</p>
+      <label class="check"><input type="checkbox" checked><span>Checked<small>A help line under it</small></span></label>
+      <label class="check"><input type="checkbox"><span>Unchecked</span></label>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Stepper</h3><p class="card__sub">.stepper, --lg, a disabled end</p></div>
+    <div class="spec-stack">
+      <div class="stepper"><button type="button" aria-label="Less">-</button><input type="number" value="3" aria-label="Amount"><button type="button" aria-label="More">+</button></div>
+      <div class="stepper stepper--lg"><button type="button" aria-label="Less">-</button><input type="number" value="12" aria-label="Amount"><button type="button" aria-label="More">+</button></div>
+      <div class="stepper"><button type="button" aria-label="Less" disabled>-</button><input type="number" value="0" aria-label="Amount"><button type="button" aria-label="More">+</button></div>
+      <div class="step-head"><button class="btn" type="button">Previous</button><p class="step-head__value">12</p><button class="btn" type="button">Next</button></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Search combobox</h3><p class="card__sub">.combo, __input, __picked, __list, __option (--own, --more), aria-selected</p></div>
+    <div class="spec-stack">
+      <div class="spec-item"><p class="note">Open, with an active option</p>
+        <div class="combo"><input class="combo__input" type="text" role="combobox" aria-expanded="true" aria-controls="hs-combo-list" value="ar" aria-label="Search"><svg class="combo__glass" width="20" height="20" aria-hidden="true"><use href="#hs-search"/></svg>
+          <ul class="combo__list" role="listbox" id="hs-combo-list">
+            <li class="combo__option" role="option" aria-selected="true"><span class="combo__name">Arrow</span><span class="combo__meta">Weapon, level 10</span></li>
+            <li class="combo__option" role="option" aria-selected="false"><span class="combo__name">Armor</span><span class="combo__meta">Body, level 20</span></li>
+            <li class="combo__option combo__option--own" role="option" aria-selected="false">Add "ar"</li>
+            <li class="combo__option combo__option--more" role="presentation"><span class="combo__meta">3 more, keep typing</span></li>
+          </ul></div></div>
+      <div class="spec-item"><p class="note">An option picked</p>
+        <div class="combo"><input class="combo__input combo__input--under" type="text" role="combobox" aria-expanded="false" aria-label="Search" tabindex="-1"><button class="combo__picked" type="button">Arrow</button><svg class="combo__glass" width="20" height="20" aria-hidden="true"><use href="#hs-search"/></svg></div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Value box</h3><p class="card__sub">.value-box, __num (--regular, --lg, --negative, --positive), __was, __unit, --changed, --flush</p></div>
+    <div class="spec-row">
+      <span class="value-box"><span class="value-box__num">12</span></span>
+      <span class="value-box"><span class="value-box__num value-box__num--regular">12</span></span>
+      <span class="value-box"><span class="value-box__num value-box__num--lg">12</span></span>
+      <span class="value-box"><span class="value-box__num value-box__num--negative">-4</span></span>
+      <span class="value-box"><span class="value-box__num value-box__num--positive">+4</span></span>
+      <span class="value-box"><span class="value-box__num">12<span class="value-box__unit">kg</span></span></span>
+      <span class="value-box value-box--changed"><span class="value-box__num"><span class="value-box__was">8</span>12</span></span>
+      <span class="value-box value-box--flush"><span class="value-box__num">12</span></span>
+      <span class="value-box"><span class="value-box__num flash">12</span></span>
+    </div>
+  </section>
+
+  <section class="card grid__full">
+    <div class="card__head"><h3 class="card__title">Stat rows</h3><p class="card__sub">.stat-rows, .stat-row (--help, --formula, --head), __name, __sub, __help, __op</p></div>
+    <div class="grid-2">
+      <div class="stat-rows">
+        <div class="stat-row"><span class="stat-row__name">Strength<span class="stat-row__sub">base 12</span></span><span class="value-box"><span class="value-box__num">14</span></span><button class="icon-btn" type="button" aria-label="Edit"><svg width="18" height="18"><use href="#hs-plus"/></svg></button></div>
+        <div class="stat-row"><span class="stat-row__name">Dexterity</span><span class="value-box value-box--changed"><span class="value-box__num"><span class="value-box__was">8</span>10</span></span><button class="icon-btn" type="button" aria-label="Edit"><svg width="18" height="18"><use href="#hs-plus"/></svg></button></div>
+      </div>
+      <div class="stat-rows stat-rows--help">
+        <div class="stat-row"><span class="stat-row__name">With help</span><span class="value-box"><span class="value-box__num">7</span></span><span class="stat-row__help"><button class="round-toggle" type="button" aria-label="Explain" aria-expanded="false"><svg width="20" height="20"><use href="#hs-help"/></svg></button></span><button class="icon-btn" type="button" aria-label="Edit"><svg width="18" height="18"><use href="#hs-plus"/></svg></button></div>
+        <div class="stat-row"><span class="stat-row__name">Without, kept in line</span><span class="value-box"><span class="value-box__num">9</span></span><button class="icon-btn" type="button" aria-label="Edit"><svg width="18" height="18"><use href="#hs-plus"/></svg></button></div>
+      </div>
+      <div class="stat-rows" style="grid-column: 1 / -1">
+        <div class="stat-row stat-row--formula stat-row--head"><span></span><span>Base</span><span></span><span>Bonus</span><span></span><span>Total</span><span></span></div>
+        <div class="stat-row stat-row--formula"><span class="stat-row__name">Formula row</span><span class="value-box"><span class="value-box__num">10</span></span><span class="stat-row__op">+</span><span class="value-box"><span class="value-box__num">4</span></span><span class="stat-row__op">=</span><span class="value-box"><span class="value-box__num">14</span></span><button class="icon-btn" type="button" aria-label="Edit"><svg width="18" height="18"><use href="#hs-plus"/></svg></button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card grid__full">
+    <div class="card__head"><h3 class="card__title">Info rows</h3><p class="card__sub">.info-rows, --info, .info-row, __box, __named, __value, --placeholder, .info-dot, .info-stem</p></div>
+    <div class="grid-2">
+      <div class="info-rows"><p class="info-rows__head">On the tint</p><div class="info-rows__list">
+        <div class="info-row"><div class="info-row__box"><button class="info-row__named" type="button">Named value</button><span class="info-row__value">42</span><button class="round-toggle" type="button" aria-label="Explain" aria-expanded="false"><svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/><circle class="info-dot" cx="12" cy="7.5" r="1.4"/><path class="info-stem" d="M12 11v6" stroke-width="2" stroke-linecap="round"/></svg></button></div></div>
+        <div class="info-row"><div class="info-row__box"><button class="info-row__named" type="button">No value yet</button><span class="info-row__value info-row__value--placeholder">not set</span></div></div>
+      </div></div>
+      <div class="info-rows info-rows--info"><p class="info-rows__head">Info variant</p><div class="info-rows__list">
+        <div class="info-row"><div class="info-row__box"><button class="info-row__named" type="button">Named value</button><span class="info-row__value">42</span></div></div>
+      </div></div>
+    </div>
+  </section>
+</div>
+
+<!-- ======================================================== NAVIGATION -->
+<div class="grid-2">
+  <div class="grid__head"><h2 id="hs-nav">Navigation and shell</h2><p class="card__sub">Static, non-sticky copies of the shell parts. The live site header and breadcrumb bar are above.</p></div>
+
+  <section class="card grid__full">
+    <div class="card__head"><h3 class="card__title">Site header and breadcrumb bar</h3><p class="card__sub">.site-header, .breadcrumbs-bar, .breadcrumbs</p></div>
+    <div class="spec-stage">
+      <header class="site-header"><div class="container"><a class="site-header__brand" href="#hs-nav" aria-label="specimen, home"><span class="site-header__mark" aria-hidden="true">DKJ</span><span class="site-header__name">specimen <span class="site-header__tag">hub</span></span></a></div></header>
+      <div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb specimen"><ol><li><a href="#hs-nav">Home</a></li><li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span><span aria-current="page">Current page</span></li></ol></nav></div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Breadcrumb bar without a header</h3><p class="card__sub">On the primary, with the paper steps as text</p></div>
+    <div class="spec-stage">
+      <div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb specimen, no header"><ol><li><a href="#hs-nav">Home</a></li><li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span><a href="#hs-nav">Product</a></li><li><span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span><span aria-current="page">Page</span></li></ol></nav></div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Top bar</h3><p class="card__sub">.topbar, __inner, __brand, __name</p></div>
+    <div class="spec-stage">
+      <header class="topbar"><div class="topbar__inner"><div class="topbar__brand"><span class="topbar__name">App name</span></div><button class="icon-btn icon-btn--ghost" type="button" aria-label="Menu"><svg width="20" height="20"><use href="#hs-menu"/></svg></button></div></header>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Menu items and rows</h3><p class="card__sub">.menu-list, .menu-item (__icon, __label, __sub, __chevron), .menu-row</p></div>
+    <div class="spec-stack">
+      <nav class="menu-list" aria-label="Menu specimen"><a class="menu-item" href="#hs-nav"><svg class="menu-item__icon" width="20" height="20" aria-hidden="true"><use href="#hs-cal"/></svg><span class="menu-item__label">Link row<span class="menu-item__sub">With a description</span></span><svg class="menu-item__chevron" width="20" height="20" aria-hidden="true"><use href="#hs-chev"/></svg></a><button class="menu-item" type="button"><svg class="menu-item__icon" width="20" height="20" aria-hidden="true"><use href="#hs-help"/></svg><span class="menu-item__label">Button row</span><svg class="menu-item__chevron" width="20" height="20" aria-hidden="true"><use href="#hs-chev"/></svg></button></nav>
+      <ul class="menu-list"><li class="menu-row"><span class="menu-row__label">Setting</span><span class="menu-row__value">A value</span><button class="icon-btn" type="button" aria-label="Edit"><svg width="18" height="18"><use href="#hs-plus"/></svg></button></li><li class="menu-row"><span class="menu-row__label">Another</span><span class="menu-row__value">Another value</span><button class="icon-btn" type="button" aria-label="Edit"><svg width="18" height="18"><use href="#hs-plus"/></svg></button></li></ul>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Date list</h3><p class="card__sub">.date-list, .date-row, --near, --today, --invalid, --link</p></div>
+    <ul class="date-list">
+      <li class="date-row"><div class="date-row__when">Mon 26 Oct</div><div class="date-row__main"><div class="date-row__body"><span class="date-row__title">A plain row</span><span class="date-row__sub">09:00-10:30</span></div><span class="date-row__trailing">Room 2</span></div></li>
+      <li class="date-row date-row--near"><div class="date-row__when">Tue 27 Oct</div><div class="date-row__main"><div class="date-row__body"><span class="date-row__title">Near</span><span class="date-row__sub">Tomorrow</span></div></div></li>
+      <li class="date-row date-row--today"><div class="date-row__when">Today</div><div class="date-row__main"><div class="date-row__body"><span class="date-row__title">Today</span></div><span class="date-row__trailing">A trailing label that wraps under the title on a narrow row</span></div></li>
+      <li class="date-row date-row--invalid"><div class="date-row__when"><svg class="date-row__icon" width="14" height="14" aria-hidden="true"><use href="#hs-alert"/></svg>31 Feb</div><div class="date-row__main"><div class="date-row__body"><span class="date-row__title">Invalid</span><span class="date-row__reason">That date does not exist.</span></div></div></li>
+      <li class="date-row date-row--link"><div class="date-row__when">Fri 30 Oct</div><div class="date-row__main"><div class="date-row__body"><span class="date-row__title"><a href="#hs-nav">A row that is one link</a></span></div></div></li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Settings button</h3><p class="card__sub">.theme-settings: the live one sits in the site header (top right). It is drawn by house-theme.js and opens the theme picker, page width and reset.</p></div>
+    <p class="muted">Not repeated here: a second copy would fight the header's for the same panel.</p>
+  </section>
+</div>
+
+<!-- ======================================================== OVERLAYS -->
+<div class="grid-2">
+  <div class="grid__head"><h2 id="hs-overlays">Overlays</h2><p class="card__sub">Tooltips, dialogs and the drawer, shown open in place. The buttons open the real modal.</p></div>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Tooltip</h3><p class="card__sub">.tooltip, --explain, --open (shown in place here; live it is fixed to its trigger)</p></div>
+    <div class="spec-stage"><div class="spec-stack">
+      <div class="tooltip tooltip--open"><b>Chart tooltip</b>A short line of detail.</div>
+      <div class="tooltip tooltip--open tooltip--explain"><b>Explaining tooltip</b><p>A longer explanation that opens from an info button and can be hovered.</p></div>
+    </div></div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Live modals</h3><p class="card__sub">showModal: backdrop, focus, Escape</p></div>
+    <div class="spec-row"><button class="btn btn--touch" type="button" data-hs-open="hs-modal">Open dialog</button><button class="btn btn--touch" type="button" data-hs-open="hs-modal-drawer">Open drawer</button></div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Dialog</h3><p class="card__sub">.dialog, __body, __head, __title, __sub, __close (--save, --cancel)</p></div>
+    <div class="spec-stage">
+      <dialog class="dialog" open><div class="dialog__body">
+        <div class="dialog__head dialog__head--two"><div><h3 class="dialog__title">Dialog title</h3><p class="dialog__sub">A sub line</p></div></div>
+        <button class="dialog__close dialog__close--cancel" type="button" aria-label="Cancel"><svg width="20" height="20"><use href="#hs-undo"/></svg></button>
+        <button class="dialog__close dialog__close--save" type="button" aria-label="Save"><svg width="20" height="20"><use href="#hs-check"/></svg></button>
+        <label class="field"><span>A field in the dialog</span><input type="text" value="Value"></label>
+      </div></dialog>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Dialog, close and back</h3><p class="card__sub">__close, __head--back, __close--back</p></div>
+    <div class="spec-stage">
+      <dialog class="dialog" open><div class="dialog__body">
+        <div class="dialog__head"><h3 class="dialog__title">With a close button</h3></div>
+        <button class="dialog__close" type="button" aria-label="Close"><svg width="20" height="20"><use href="#hs-x"/></svg></button>
+        <p>Body text.</p>
+      </div></dialog>
+      <dialog class="dialog" open><div class="dialog__body">
+        <div class="dialog__head dialog__head--back"><h3 class="dialog__title">A second panel</h3></div>
+        <button class="dialog__close dialog__close--back" type="button" aria-label="Back"><svg width="20" height="20"><use href="#hs-back"/></svg></button>
+        <p>Body text.</p>
+      </div></dialog>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Drawer</h3><p class="card__sub">.dialog--drawer, shown in a 22rem stage</p></div>
+    <div class="spec-stage spec-stage--tall">
+      <dialog class="dialog dialog--drawer" open><div class="dialog__body">
+        <div class="dialog__head"><h3 class="dialog__title">Drawer title</h3></div>
+        <button class="dialog__close" type="button" aria-label="Close"><svg width="20" height="20"><use href="#hs-x"/></svg></button>
+        <nav class="menu-list" aria-label="Drawer specimen"><a class="menu-item" href="#hs-overlays"><span class="menu-item__label">Item</span><svg class="menu-item__chevron" width="20" height="20" aria-hidden="true"><use href="#hs-chev"/></svg></a><a class="menu-item" href="#hs-overlays"><span class="menu-item__label">Item</span><svg class="menu-item__chevron" width="20" height="20" aria-hidden="true"><use href="#hs-chev"/></svg></a></nav>
+      </div></dialog>
+    </div>
+  </section>
+</div>
+
+<!-- ======================================================== MEDIA -->
+<div class="grid-2">
+  <div class="grid__head"><h2 id="hs-media">Figure and prose</h2><p class="card__sub">Framed images (placeholders here; cover and contain need a real image) and a rendered long-form body</p></div>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Figure</h3><p class="card__sub">.figure, __frame, __placeholder, __glyph, __label, __caption, --ratio-*</p></div>
+    <div class="spec-stack">
+      <figure class="figure"><div class="figure__frame"><div class="figure__placeholder"><svg class="figure__glyph" width="32" height="32" aria-hidden="true"><use href="#hs-image"/></svg><span class="figure__label">16:9, no image yet</span></div></div><figcaption class="figure__caption">A caption under the frame.</figcaption></figure>
+      <div class="spec-grid" style="grid-template-columns: repeat(auto-fill, minmax(96px, 1fr))">
+        <figure class="figure figure--ratio-4-3"><div class="figure__frame"><div class="figure__placeholder"><span class="figure__label">4:3</span></div></div></figure>
+        <figure class="figure figure--ratio-3-2"><div class="figure__frame"><div class="figure__placeholder"><span class="figure__label">3:2</span></div></div></figure>
+        <figure class="figure figure--ratio-1-1"><div class="figure__frame"><div class="figure__placeholder"><span class="figure__label">1:1</span></div></div></figure>
+        <figure class="figure figure--ratio-3-4"><div class="figure__frame"><div class="figure__placeholder"><span class="figure__label">3:4</span></div></div></figure>
+        <figure class="figure figure--ratio-9-16"><div class="figure__frame"><div class="figure__placeholder"><span class="figure__label">9:16</span></div></div></figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card__head"><h3 class="card__title">Prose</h3><p class="card__sub">.prose, --sm, --fill; plain elements, no classes</p></div>
+    <div class="prose">
+      <h1>Prose heading one</h1>
+      <p>A paragraph with <strong>strong text</strong>, <a href="#hs-media">a link</a> and <code>inline code</code>.</p>
+      <h2>Heading two</h2>
+      <ul><li>A bullet</li><li>Another, with a nested list<ul><li>Nested</li></ul></li></ul>
+      <ol><li>First</li><li>Second</li></ol>
+      <ul><li><input type="checkbox" checked disabled aria-label="Done"> A done task</li><li><input type="checkbox" disabled aria-label="Open"> An open task</li></ul>
+      <h3>Heading three</h3>
+      <blockquote>A quotation.</blockquote>
+      <pre tabindex="0"><code>const x = 1;
+console.log(x);</code></pre>
+      <table><thead><tr><th>Name</th><th align="right">Value</th></tr></thead><tbody><tr><td>One</td><td align="right">1</td></tr><tr><td>Two</td><td align="right">2</td></tr></tbody></table>
+      <hr>
+      <p>After the rule.</p>
+    </div>
+  </section>
+
+  <section class="card grid__full">
+    <div class="card__head"><h3 class="card__title">Prose, small and filled</h3><p class="card__sub">.prose--sm, .prose--fill</p></div>
+    <div class="prose prose--sm prose--fill">
+      <h1>Small prose</h1>
+      <p>The smaller size, lifted to the full width of its card: <strong>strong</strong> and <code>code</code> keep their looks.</p>
+    </div>
+  </section>
+</div>
+
+</div>
+
+<!-- Modal specimens, opened by the buttons in "Overlays" (outside .spec-stage, so they keep the real modal look) -->
+<dialog class="dialog" id="hs-modal"><div class="dialog__body">
+  <div class="dialog__head dialog__head--two"><div><h3 class="dialog__title">Modal dialog</h3><p class="dialog__sub">Escape or the buttons close it</p></div></div>
+  <button class="dialog__close dialog__close--cancel" type="button" aria-label="Cancel" data-hs-close><svg width="20" height="20"><use href="#hs-undo"/></svg></button>
+  <button class="dialog__close dialog__close--save" type="button" aria-label="Save" data-hs-close><svg width="20" height="20"><use href="#hs-check"/></svg></button>
+  <label class="field"><span>A field</span><input type="text" value="Value"></label>
+</div></dialog>
+<dialog class="dialog dialog--drawer" id="hs-modal-drawer"><div class="dialog__body">
+  <div class="dialog__head"><h3 class="dialog__title">Modal drawer</h3></div>
+  <button class="dialog__close" type="button" aria-label="Close" data-hs-close><svg width="20" height="20"><use href="#hs-x"/></svg></button>
+  <p>Slides in from the right.</p>
+</div></dialog>
+
+<script>
+/* Opens and closes the two modal specimens and draws the live theme picker; nothing else on the page needs script. */
+(function () {
+  document.addEventListener('click', function (e) {
+    var o = e.target.closest && e.target.closest('[data-hs-open]');
+    if (o) { var d = document.getElementById(o.getAttribute('data-hs-open')); if (d && d.showModal) d.showModal(); return; }
+    var c = e.target.closest && e.target.closest('[data-hs-close]');
+    if (c) { var p = c.closest('dialog'); if (p) p.close(); }
+  });
+  var slot = document.getElementById('hs-picker');
+  if (slot && window.DKJTheme && window.DKJTheme.picker) window.DKJTheme.picker(slot, { light: 'Light', dark: 'Dark' });
+})();
+</script>

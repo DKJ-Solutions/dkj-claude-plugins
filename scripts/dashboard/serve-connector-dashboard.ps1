@@ -8,8 +8,8 @@
     plugin's own router (Resolve-HubTimingPage) as the plugin's server answers them; and /plugins, every plugin this
     repo enables and its state on this machine, from this tree's plugin-versions.ps1 -Json (#3482). The server takes
     no POST but the banner's.
-    It also builds three pages the product relays, which the hub does not link (below):
-    /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
+    It also builds this repo's own pages, which the hub links: /house-style, the specimens of every token, theme
+    and component of the house style (#3493); /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
     check-connectors.ps1 reports for it on this machine (#2976), one card per owner group with each
     group a page of its own at /connectors/dkj, /bwj and /other; /specialists, every specialist the
     dkj-subagents plugins ship and the context each one costs, read from this tree; and /dkj-repos, every
@@ -17,15 +17,11 @@
     the hub and of each page are in scripts/lib/dev-pages-lib.ps1; the Test gate's, the Stopwatch's and the
     Logbook's in plugins/dkj-policy/hub/lib/.
 
-    NO /brandbook HERE. The brand book is this repo's product: the brandbook/ app's Vite dev server, which the
-    dev-preview hook starts on a port of its own (#3283). This server built and served the same app at
-    /brandbook too, so one brand book was visible on two ports; the owner put it on the product port alone
-    (October 22, 2026), and /brandbook is a 404 here like any other path this server does not have.
-
-    /connectors, /specialists AND /dkj-repos ARE THE PRODUCT'S PAGES, BUILT HERE. The owner moved them to the
-    product port too (October 22, 2026): its dev server (productRoot in brandbook/vite.config.ts) links them on
-    its root page and relays each request here, finding this server by /whoami. So this server still answers
-    all three, for that relay, and the hub links none of them.
+    NO PRODUCT BESIDE IT (#3493). From October 22, 2026 the brandbook/ app's Vite dev server was this repo's
+    product, on a port of its own, and linked and relayed /connectors, /specialists and /dkj-repos from here.
+    The owner retired the app (October 26, 2026) so that the house style is the one place DKJ styling lives:
+    its check by eye is /house-style now, and the three pages are the hub's own again. /brandbook is a 404 here
+    like any other path this server does not have.
 
     THE GENERAL PAGES ARE BUILT ELSEWHERE AND SERVED FROM HERE (#3119, #3168): Artifacts, Issues and
     SessionStart belong to every repo, so the dkj-policy plugin builds them in a server of its own
@@ -164,6 +160,8 @@ $static = @{
     '/house-style.css' = @{ File = (Join-Path $styleDir 'house-style.css'); Type = 'text/css; charset=utf-8' }
     '/house-theme.js'  = @{ File = (Join-Path $styleDir 'house-theme.js');  Type = 'text/javascript; charset=utf-8' }
 }
+# The House style page's body (#3493): the specimens this server wraps in the page shell.
+$specimenFile = Join-Path $root 'scripts\dashboard\house-style-specimens.html'
 # The routes that moved to the general pages server (#3119): each is sent on, or answered with a 404 text.
 # /release-notes is not among them: it is built here, from this tree (below).
 $generalRoutes = @('/artifacts', '/issues', '/sessionstart')
@@ -462,9 +460,8 @@ try {
                 continue
             }
             if ($path -eq '/whoami') {
-                # Whose server this is, as the general server answers it: the hash of this root. The product's dev
-                # server asks before it relays /connectors and /specialists here, so it never relays another
-                # checkout's hub. Before the restart check, so a probe never restarts the server.
+                # Whose server this is, as the general server answers it: the hash of this root. Before the restart
+                # check, so a probe never restarts the server.
                 Send-LoopbackResponse $stream 200 'OK' 'text/plain; charset=utf-8' ($utf8.GetBytes((Get-DevPreviewRootHash -Root $root))) -Method $method
                 continue
             }
@@ -509,10 +506,18 @@ try {
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html') {
-                # The Product card links the product port the hook wrote to the state file, as the plugin's hub does (#3468).
-                $html = Format-RepoHubHtml -Pages (Get-RepoHubPages) -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' }) -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500) -ProductUrl (Read-RepoHubState -Root $root).Product
+                $html = Format-RepoHubHtml -Pages (Get-RepoHubPages) -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' }) -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
                 $body = $utf8.GetBytes($html)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
+                continue
+            }
+            if ($path -eq '/house-style') {
+                # The house style's specimens (#3493), read from the tree on every request so an edit shows on reload.
+                $specimenError = ''
+                $specimens = ''
+                try { $specimens = [System.IO.File]::ReadAllText($specimenFile, $utf8) } catch { $specimenError = $_.Exception.Message }
+                $html = Format-HouseStylePageHtml -Body $specimens -ReadError $specimenError
+                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
             if ($path -eq '/repository') {
