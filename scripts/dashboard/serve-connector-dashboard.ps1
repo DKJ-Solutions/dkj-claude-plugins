@@ -10,7 +10,8 @@
     no POST but the banner's.
     It also builds three pages the product relays, which the hub does not link (below):
     /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
-    check-connectors.ps1 reports for it on this machine (#2976); /specialists, every specialist the
+    check-connectors.ps1 reports for it on this machine (#2976), one card per owner group with each
+    group a page of its own at /connectors/dkj, /bwj and /other; /specialists, every specialist the
     dkj-subagents plugins ship and the context each one costs, read from this tree; and /dkj-repos, every
     DKJ-Solutions repo on GitHub with its checkout here and a session to open there (#3231). The rules of
     the hub and of each page are in scripts/lib/dev-pages-lib.ps1; the Test gate's, the Stopwatch's and the
@@ -501,7 +502,7 @@ try {
                 }
                 # At most one re-run per -MinRefreshSeconds, however often /refresh is asked for. ?page= names
                 # where to go back to, from a fixed list, so the redirect never leaves this server.
-                $page = if ([string]$target -match '[?&]page=(connectors|dkj-repos)(&|$)') { $Matches[1] } else { '' }
+                $page = if ([string]$target -cmatch '[?&]page=(connectors(?:/(?:dkj|bwj|other))?|dkj-repos)(&|$)') { $Matches[1] } else { '' }
                 if ($cache -and ((Get-Date) - $cache.At).TotalSeconds -ge $MinRefreshSeconds) { $cache = $null }
                 if ($dkjCache -and ((Get-Date) - $dkjCache.At).TotalSeconds -ge $MinRefreshSeconds) { $dkjCache = $null }
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = "/$page" } -Method $method
@@ -525,9 +526,11 @@ try {
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/' } -Method $method
                 continue
             }
-            if ($path -eq '/connectors') {
+            if ($path -cmatch '^/connectors(?:/(dkj|bwj|other))?\z') {
+                # The overview with one card per owner group, or one group's own page (owner, October 26, 2026).
+                $group = [string]$Matches[1]
                 if ($null -eq $cache -or ((Get-Date) - $cache.At).TotalSeconds -ge $CacheSeconds) { $cache = Get-DashboardModel }
-                $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta
+                $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta -Group $group
                 $body = $utf8.GetBytes($html)
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
