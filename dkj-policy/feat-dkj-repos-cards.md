@@ -41,17 +41,23 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Rebuild the DKJ repos page as cards: no tiles, lead or section heading; the session command in its repo's card
+- [x] Try two columns, then back to three at the owner's word
+- [x] dev-pages suite green (357 passed), checked on the live hub by the owner
 
 ### TEST
 
 ### DEPLOY: feat/dkj-repos-cards
 
-**Score:**
+The hub's DKJ repos page is now one card per repo, three to a row like the Stopwatch overview, under the page's h1: the four tiles, the lead and the Repos heading are gone, and each checked-out repo's session command, with its Copy button, sits in that repo's own card instead of a list of its own.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: a page of this repo's own hub, which no consumer takes.
+
+**Score:** N/A
 
 #### Pull Request
 
