@@ -362,11 +362,10 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             Assert-True ($lbRun -match 'HTTP/1.1 200' -and $lbRun -match 'Logbook fixture' -and $lbRun -match 'href="/logbook"') 'a Logbook run''s page shows the run and links back'
             Assert-Equal 404 (Get-Status 'GET' '/logbook/no-such-run' "localhost:$port") 'an unknown Logbook slug is not found'
             Assert-Equal 404 (Get-Status 'GET' '/../connectors/x.json' "localhost:$port") 'a path outside the routes is not found'
-            # The brandbook app is retired (#3493): the hub neither serves nor redirects it, and serves the house style's specimens.
+            # The brandbook app is retired (#3493): the hub neither serves nor redirects it, and the house style's specimens are under /plugins.
             Assert-Equal 404 (Get-Status 'GET' '/brandbook' "localhost:$port") '/brandbook is not a page of the hub'
             Assert-Equal 404 (Get-Status 'GET' '/brandbook/' "localhost:$port") 'and neither is /brandbook/'
-            $hsPage = Get-Raw 'GET' '/house-style' "localhost:$port"
-            Assert-True ($hsPage -match 'HTTP/1.1 200' -and $hsPage -match '<span aria-current="page">House style</span>' -and $hsPage -match 'href="/house-style.css"' -and $hsPage -notmatch 'could not be read') '/house-style serves the specimens from the tree, in the hub''s page shell'
+            Assert-Equal 404 (Get-Status 'GET' '/house-style' "localhost:$port") 'and no /house-style of the hub either: the house style is the dkj-solutions plugin''s, under /plugins (#3493)'
             # Whose server this is: the general server's own question, answered the same way.
             $who = Get-Raw 'GET' '/whoami' "localhost:$port"
             Assert-True ($who -match 'HTTP/1.1 200' -and $who.EndsWith("`r`n`r`n" + (Get-DevPreviewRootHash -Root $RepoRoot))) '/whoami answers the hash of this root, as the general server does'
@@ -491,7 +490,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Assert-True ($hub -match 'HTTP/1.1 200' -and $hub -match 'site-header__name">dkj-claude-plugins' -and $hub -match '<a class="menu-item" href="/repository">' -and $hub -notmatch 'href="/about"') '/ serves the home page, linking the Repository page'
             Assert-True ($hub -match 'The general pages server is not running' -and $hub -notmatch 'href="/brandbook' -and $hub -match 'href="/dkj-repos"') 'its General card says the general pages server is not running while no state file names one; it links no brand book, and DKJ repos is its own (#3493)'
             $about = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($about -match 'HTTP/1.1 200' -and $about -match '<a class="menu-item" href="/test-gate">' -and $about -match 'href="/connectors"' -and $about -match 'href="/specialists"' -and $about -match 'href="/house-style"') 'the home page links the pages below the hub: Test gate, Connectors, Specialists and House style (#3493)'
+            Assert-True ($about -match 'HTTP/1.1 200' -and $about -match '<a class="menu-item" href="/test-gate">' -and $about -match 'href="/connectors"' -and $about -match 'href="/specialists"') 'the home page links the pages below the hub: Test gate, Connectors and Specialists (#3493)'
             Assert-True ((Get-Raw 'GET' '/about' "localhost:$port3" '' $port3) -match 'HTTP/1.1 303[\s\S]*Location: /\r') '/about sends an old link on to the home page, which holds what it held'
             Assert-True ($about -match 'The general pages server is not running' -and $about -notmatch 'href="http://localhost') 'and its General card says the general pages server is not running too'
             # A state file naming a port nobody answers on is no server.

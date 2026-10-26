@@ -8,8 +8,7 @@
     plugin's own router (Resolve-HubTimingPage) as the plugin's server answers them; and /plugins, every plugin this
     repo enables and its state on this machine, from this tree's plugin-versions.ps1 -Json (#3482). The server takes
     no POST but the banner's.
-    It also builds this repo's own pages, which the hub links: /house-style, the specimens of every token, theme
-    and component of the house style (#3493); /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
+    It also builds this repo's own pages, which the hub links: /connectors, every repo registered under connectors/ with its plugins, its local checkout and what
     check-connectors.ps1 reports for it on this machine (#2976), one card per owner group with each
     group a page of its own at /connectors/dkj, /bwj and /other; /specialists, every specialist the
     dkj-subagents plugins ship and the context each one costs, read from this tree; and /dkj-repos, every
@@ -20,7 +19,8 @@
     NO PRODUCT BESIDE IT (#3493). From October 22, 2026 the brandbook/ app's Vite dev server was this repo's
     product, on a port of its own, and linked and relayed /connectors, /specialists and /dkj-repos from here.
     The owner retired the app (October 26, 2026) so that the house style is the one place DKJ styling lives:
-    its check by eye is /house-style now, and the three pages are the hub's own again. /brandbook is a 404 here
+    its check by eye is /plugins/dkj-solutions/house-style now, under the plugin that ships it, as on every
+    hub that enables dkj-solutions, and the three pages are the hub's own again. /brandbook is a 404 here
     like any other path this server does not have.
 
     THE GENERAL PAGES ARE BUILT ELSEWHERE AND SERVED FROM HERE (#3119, #3168): Artifacts, Issues and
@@ -159,10 +159,7 @@ $styleDir = Join-Path $root 'plugins\dkj-policy\dkj-solutions\assets\house-style
 $static = @{
     '/house-style.css' = @{ File = (Join-Path $styleDir 'house-style.css'); Type = 'text/css; charset=utf-8' }
     '/house-theme.js'  = @{ File = (Join-Path $styleDir 'house-theme.js');  Type = 'text/javascript; charset=utf-8' }
-}
-# The House style page's body (#3493): the specimens this server wraps in the page shell.
-$specimenFile = Join-Path $root 'scripts\dashboard\house-style-specimens.html'
-# The routes that moved to the general pages server (#3119): each is sent on, or answered with a 404 text.
+}# The routes that moved to the general pages server (#3119): each is sent on, or answered with a 404 text.
 # /release-notes is not among them: it is built here, from this tree (below).
 $generalRoutes = @('/artifacts', '/issues', '/sessionstart')
 $releaseNotesFile = Join-Path $root 'dkj-policy\releases\page\release-notes.html'
@@ -511,15 +508,6 @@ try {
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' $body -Method $method
                 continue
             }
-            if ($path -eq '/house-style') {
-                # The house style's specimens (#3493), read from the tree on every request so an edit shows on reload.
-                $specimenError = ''
-                $specimens = ''
-                try { $specimens = [System.IO.File]::ReadAllText($specimenFile, $utf8) } catch { $specimenError = $_.Exception.Message }
-                $html = Format-HouseStylePageHtml -Body $specimens -ReadError $specimenError
-                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
-                continue
-            }
             if ($path -eq '/repository') {
                 # The GitHub repo: its facts, Issues and its pages on GitHub (owner, October 22, 2026).
                 $html = Format-RepoGitHubPageHtml -SourceCommit $(if ($loadedSha) { $loadedSha.Substring(0, 8) } else { '' }) -GeneralPagesUrl (Get-GeneralPagesUrl -Root $root -TimeoutMs 500)
@@ -564,8 +552,15 @@ try {
                     Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('No plugin of that name is enabled in this repo.')) -Method $method
                     continue
                 }
-                $html = if ($plRow) { Format-PluginPageHtml -Row $plRow -Model $pl.Model -RepoName 'dkj-claude-plugins' -HubHref '/' }
-                        else { Format-PluginsPageHtml -Model $pl.Model -ReadError $pl.Error -RepoName 'dkj-claude-plugins' -HubHref '/' }
+                if ($plRow -and $plReq.Page -eq 'house-style') {
+                    # The house style's specimens, under the plugin that ships them (#3493), read from this tree per request.
+                    $specError = ''; $spec = ''
+                    try { $spec = [System.IO.File]::ReadAllText((Join-Path $styleDir 'specimens.html'), $utf8) } catch { $specError = $_.Exception.Message }
+                    $html = Format-HouseStyleSpecimensPageHtml -Body $spec -ReadError $specError -RepoName 'dkj-claude-plugins' -HubHref '/'
+                } else {
+                    $html = if ($plRow) { Format-PluginPageHtml -Row $plRow -Model $pl.Model -RepoName 'dkj-claude-plugins' -HubHref '/' }
+                            else { Format-PluginsPageHtml -Model $pl.Model -ReadError $pl.Error -RepoName 'dkj-claude-plugins' -HubHref '/' }
+                }
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }

@@ -506,7 +506,14 @@ try {
                 if (-not $plReq.Name) {
                     $html = Format-PluginsPageHtml -Model $pl.Model -ReadError $pl.Error -RepoName (Get-RepoIdentity).Name
                 } elseif ($plRow = Find-PluginsPageRow -Model $pl.Model -Name $plReq.Name) {
-                    $html = Format-PluginPageHtml -Row $plRow -Model $pl.Model -RepoName (Get-RepoIdentity).Name
+                    if ($plReq.Page -eq 'house-style') {
+                        # The specimens beside the stylesheet this server already serves (#3493), read per request.
+                        $specError = ''; $spec = ''
+                        try { $spec = [System.IO.File]::ReadAllText((Join-Path $styleDir 'specimens.html'), $utf8) } catch { $specError = $_.Exception.Message }
+                        $html = Format-HouseStyleSpecimensPageHtml -Body $spec -ReadError $specError -RepoName (Get-RepoIdentity).Name
+                    } else {
+                        $html = Format-PluginPageHtml -Row $plRow -Model $pl.Model -RepoName (Get-RepoIdentity).Name
+                    }
                 } else {
                     Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('No plugin of that name is enabled in this repo.')) -Method $method
                     continue

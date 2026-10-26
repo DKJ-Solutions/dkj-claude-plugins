@@ -30,10 +30,11 @@ CI runs `scripts/lint/house-style-css/`, which parses each stylesheet, fails a `
 and fails a colour code anywhere but a token declaration in `house-style.css`. It reads every `.css` here,
 so a stylesheet added later is gated without an edit.
 
-**A house-style change is judged by eye on the House style page** of this plugin's source repo's hub,
-`/house-style` (`scripts/dashboard/house-style-specimens.html` there): every token, the twelve themes and every
-component with its variants and states, drawn from the stylesheet in this folder. It replaces the brand book
-app's showcase, which is retired (#3493), and only the source repo's hub has it. `house-style-css` is the gate
+**A house-style change is judged by eye on the House style page**, `specimens.html` in this folder: every
+token, the twelve themes and every component with its variants and states, drawn from the stylesheet beside it.
+It ships with the plugin, and every hub that enables `dkj-solutions` shows it under Plugins, on
+`/plugins/dkj-solutions/house-style` (#3493); in the source repo that page reads the working tree, so a change
+shows there before the release that ships it. It replaces the brand book app's showcase, which is retired. `house-style-css` is the gate
 that checks the stylesheet's syntax and tokens; the page is the look.
 
 ## How to use it

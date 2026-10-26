@@ -1,9 +1,8 @@
 <#
 .SYNOPSIS
     The hub of this repo's dev server -- the home page on '/', which holds what was About this repo (#3270;
-    '/about' sends there since October 22, 2026) -- and its own pages: Repository, House style, Connectors,
-    Specialists and DKJ repos, all linked from the home page since the product port went with the brandbook app
-    (#3493). The Test gate (#3097), the Stopwatch (#3315) and the Logbook (#3364) began here
+    '/about' sends there since October 22, 2026) -- and its own pages: Repository, Connectors, Specialists and DKJ
+    repos, all linked from the home page since the product port went with the brandbook app (#3493). The Test gate (#3097), the Stopwatch (#3315) and the Logbook (#3364) began here
     and are the dkj-policy plugin's since #3470, so every repo's hub has them: this hub links them with the other
     general pages (Get-GeneralPages) and still serves them itself, from the plugin's libs in this tree, the Test gate
     with this checkout's suite selection, which only this repo has. No I/O -- the server
@@ -25,12 +24,12 @@
     one every repo has. This file dot-sources the plugin's general-pages-lib.ps1 for the page shell, the number formats and
     the tile and bar helpers this hub's own pages share with those pages, so nothing is written twice.
 
-    THE HOUSE STYLE PAGE, NOT A BRAND BOOK (#3493). The brandbook/ app was this repo's product until the owner
-    retired it (October 26, 2026), so that the house style is the one place DKJ styling lives. What the app still
-    did for that stylesheet -- the check by eye of every token, theme and component -- is the House style page:
-    scripts/dashboard/house-style-specimens.html, a body the server wraps in the page shell (Format-DevPageHtml)
-    and reads from the tree on every request, so it shows the stylesheet as it is edited. With the app went the
-    product port, so the pages it linked and relayed (Connectors, Specialists, DKJ repos) are this hub's again.
+    NO BRAND BOOK, AND NO HOUSE STYLE PAGE OF ITS OWN (#3493). The brandbook/ app was this repo's product until
+    the owner retired it (October 26, 2026), so that the house style is the one place DKJ styling lives. The house
+    style is the dkj-solutions plugin's product, not this repo's page (Maikel, October 26, 2026), so its specimens
+    ship beside the stylesheet (assets/house-style/specimens.html) and are shown under Plugins, on that plugin's
+    page (plugins-page-lib.ps1), here as on every hub that enables it. With the app went the product port, so the
+    pages it linked and relayed (Connectors, Specialists, DKJ repos) are this hub's again.
 
     ONE SHELL FOR EVERY PAGE BELOW THE HUB. Each page opens with the house breadcrumb bar, its trail
     starting at the hub on '/' and ending at the page itself, unlinked ("Every page: the breadcrumb
@@ -61,7 +60,7 @@ $script:RepoHubOwnGeneralRoutes = @('/test-gate', '/stopwatch', '/logbook', '/pl
 
 function Format-DevPageHtml {
     <#
-        The whole page around -Body, for this repo's own pages (Repository, House style, Specialists, DKJ repos): the
+        The whole page around -Body, for this repo's own pages (Repository, Specialists, DKJ repos): the
         plugin's page shell with this repo's site header and title, its theme key (the general pages' own, so a
         theme picked on one page holds on every page this server serves, the general pages it relays included,
         #3168) and the Repo hub crumb on '/'. The header's tag is 'hub' on every one: the 'product' tag the
@@ -88,11 +87,11 @@ function Get-RepoHubPages {
         server, its label the page's own name as its breadcrumb reads it, and one line on what it shows. The
         general pages are the plugin's (Get-GeneralPages), on a server of their own. Connectors, Specialists and
         DKJ repos were the product port's from October 22, 2026 until that port went with the brandbook app
-        (#3493); House style is the check by eye that app used to give the house style.
+        (#3493). The house style is no page of this hub: it is the dkj-solutions plugin's product, so its specimens
+        are under Plugins, on /plugins/dkj-solutions/house-style, as on every hub that enables that plugin.
     #>
     @(
         @{ Href = '/repository';  Label = 'Repository';  Sub = 'The GitHub repo: its facts, its open issues and its pull requests'; Icon = 'repository' }
-        @{ Href = '/house-style'; Label = 'House style'; Sub = 'The house style: its tokens, its twelve themes and its components, with their variants and states'; Icon = 'house-style' }
         @{ Href = '/connectors';  Label = 'Connectors';  Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine'; Icon = 'connectors' }
         @{ Href = '/specialists'; Label = 'Specialists'; Sub = 'Every specialist the plugins ship, and how much context each one costs'; Icon = 'specialists' }
         @{ Href = '/dkj-repos';   Label = 'DKJ repos';   Sub = 'Every DKJ-Solutions repo: its checkout on this machine, its open issues, and a session to open there'; Icon = 'dkj-repos' }
@@ -133,23 +132,6 @@ function Format-RepoGitHubPageHtml {
     return Format-DevPageHtml -Title 'Repository' -Body $sb.ToString() `
         -Lead 'The GitHub repo this hub serves: its facts, its open issues and its pull requests.' `
         -FooterNote 'The facts are this repo''s own; Issues is the dkj-policy general pages server''s page, relayed here.'
-}
-
-function Format-HouseStylePageHtml {
-    <#
-        The House style page on '/house-style' (#3493): the specimens of every token, theme and component in the
-        house style, the check by eye a change to it is judged by now that the brandbook app is gone. -Body is
-        scripts/dashboard/house-style-specimens.html as the server read it, a body fragment trusted as this tree's
-        own markup; -ReadError is why it could not be read, shown instead of the specimens.
-    #>
-    param(
-        [AllowEmptyString()][string]$Body = '',
-        [AllowEmptyString()][string]$ReadError = ''
-    )
-    $content = if ($ReadError) { '<section class="card"><p class="msg" role="status">The specimens could not be read: ' + (ConvertTo-DashboardText $ReadError) + '</p></section>' } else { $Body }
-    return Format-DevPageHtml -Title 'House style' -Body $content `
-        -Lead 'Every token, the twelve themes and every component of the house style, with their variants and states, as this tree''s stylesheet draws them.' `
-        -FooterNote 'The stylesheet is plugins/dkj-policy/dkj-solutions/assets/house-style/house-style.css, served from this tree; the specimens are scripts/dashboard/house-style-specimens.html.'
 }
 
 function Format-RepoHubHtml {

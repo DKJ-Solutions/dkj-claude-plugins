@@ -40,19 +40,26 @@
 ### PLAN
 
 The rest of #3493 after #3521 (which promoted the components and gave house-style.css its own CSS gate): points 3
-and 4, and the app itself. Point 3, the check by eye, becomes a House style page on this repo's hub; point 4, the
+and 4, and the app itself. Point 3, the check by eye, becomes the house style's own specimens page; point 4, the
 product port's root page, goes with the product port, so its three pages (Connectors, Specialists, DKJ repos)
 are linked from the hub again. Then `brandbook/`, its workflow and every reference to it are removed.
+
+Maikel, October 26, 2026, on the first version, which put the page on this repo's hub: the hub holds what is
+unique to the repo, and the house style is a plugin many repos fetch, so it is a product of dkj-claude-plugins and
+belongs under the Plugins card. So the specimens ship in the plugin beside the stylesheet, and every hub that
+enables dkj-solutions shows them on that plugin's page.
 
 A house-style page is a visible result, so this branch stops for the owner's look instead of merging.
 
 ### CREATE
 
-- [x] Gwen: `scripts/dashboard/house-style-specimens.html`, a body fragment with every token, the twelve themes and
-  every component with its variants and states, on house classes plus a layout-only `.spec-*` layer
-- [x] Sylvester: `/house-style` on the hub (`Format-HouseStylePageHtml`, read from the tree per request); the hub
-  links House style, Connectors, Specialists and DKJ repos; the Product card and the `product` header tag go;
-  four hub icons in the plugin's `$script:HubIcons`
+- [x] Gwen: `dkj-solutions/assets/house-style/specimens.html` (first written to `scripts/dashboard/`), a body
+  fragment with every token, the twelve themes and every component with its variants and states, on house classes
+  plus a layout-only `.spec-*` layer
+- [x] Sylvester: `/plugins/dkj-solutions/house-style` in both hub servers (`Format-HouseStyleSpecimensPageHtml`,
+  read per request from the folder `house-style.css` is served from), linked as a card on the dkj-solutions plugin
+  page; the hub links Connectors, Specialists and DKJ repos again; the Product card and the `product` header tag
+  go; four hub icons in the plugin's `$script:HubIcons`
 - [x] Sylvester: `Get-DevPreview` states no `Product`; the app's eleven `Get-HouseStyleAllowlist` entries go
 - [x] `brandbook/` and `.github/workflows/brandbook.yml` deleted; this checkout's running Vite server stopped
 - [x] Tessa: the house-style README, the dkj-solutions and hub READMEs, Cody's lens (back to the empty scaffold)
@@ -61,25 +68,28 @@ A house-style page is a visible result, so this branch stops for the owner's loo
 
 ### TEST
 
-- [x] `dev-pages` (350), `connector-dashboard` (226), `ci-suite-selection-lib` (49), `affected-suites` (194) green
+- [x] `dev-pages` (355), `connector-dashboard` (226), `ci-suite-selection-lib` (49), `affected-suites` (194) green
 - [x] `check-house-style` green over the tree, the specimens page included
-- [ ] The owner's look at `/house-style` on the hub, at full width and at 360px
+- [ ] The owner's look at `/plugins/dkj-solutions/house-style` on the hub, at full width and at 360px
 
 ### DEPLOY: feat/3493-retire-brandbook-app
 
 This repo's `brandbook/` app is retired ([#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)),
-so the house style is the one place DKJ styling lives. A house-style change is judged on the hub's new House
-style page, which shows every token, theme and component from the tree as it is edited; the hub links
-Connectors, Specialists and DKJ repos again, and the session start no longer starts a product server.
+so the house style is the one place DKJ styling lives. A house-style change is judged on the house style's own
+specimens page, under the dkj-solutions plugin on the Plugins card, which this repo's hub draws from the tree as
+it is edited; the hub links Connectors, Specialists and DKJ repos again, and the session start no longer starts a
+product server.
 
 **Score:** 3
 
 #### What makes this deploy extra special
 
-N/A: the app and its product port were this repo's own dev preview; no consumer ever received them since #3477.
+A DKJ-Solutions repo's hub gains a House style page under Plugins, on the dkj-solutions plugin's page: every
+token, the twelve themes and every component of the stylesheet that release ships, so a repo sees what it can use
+without leaving its own hub. Its own pages and styling do not change.
 
-**Score:** N/A
+**Score:** 2
 
 #### Pull Request
 
-Retire the brandbook app: a house-style specimen page on the hub, the product pages back on it
+Retire the brandbook app: the house style's specimens under its plugin, the product pages back on the hub
