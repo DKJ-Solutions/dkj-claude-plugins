@@ -349,6 +349,10 @@ Assert-True ($shipRunPage -match 'card card--link sw-card' -and $shipRunPage -no
 $cssPage = Format-StopwatchLabelPageHtml -Set $cssLabel -StorePath 's'
 Assert-True ($cssPage -notmatch 'sw-steps">|How to time it|sw-prompt"|data-copy') 'a label that is not pinned has no steps and no prompt on its page'
 $flatNone = Format-StopwatchPageHtml -Model $noneModel -StorePath 's' -Flat
+# THE h1 NAMES THE PAGE ITS BREADCRUMB NAMES: it was a fixed "Measurements" on the Logbook and on an empty overview.
+$flatRun = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk 'Docs' 0 10))) -StorePath 's' -Flat -Route '/logbook' -PageTitle 'Logbook'
+Assert-True ($flatRun -match '<div class="grid__head"><h1>Logbook</h1></div>' -and $flatRun -notmatch 'Measurements') 'the flat overview''s h1 is its -PageTitle, as the Logbook passes it'
+Assert-True ($none -match '<div class="grid__head"><h1>Stopwatch</h1></div>' -and $none -notmatch 'Measurements') 'and an empty overview is headed with its page title too'
 # EVERY PAGE BEGINS WITH AN h1 (the owner, October 25, 2026): the overview, a label's page with or without runs,
 # and the Logbook's flat overview. The run page is held to it beside its own asserts below.
 foreach ($pg in @(@{ N = 'the overview'; H = $page }, @{ N = 'an empty overview'; H = $none }, @{ N = 'a label page'; H = $cssPage }, @{ N = 'the Ship PR page'; H = $shipPage }, @{ N = 'the flat overview'; H = $flatNone })) {
