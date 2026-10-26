@@ -39,19 +39,37 @@
 
 ### PLAN
 
+#3473 was parked `awaiting-release` until a release shipping #3470's plugin-level Stopwatch and Logbook hooks was
+installed here. v5.32.0 is installed (release-freshness session check: CURRENT) and its `hooks/hooks.json` wires
+both hooks on `UserPromptSubmit` and `Stop`, so the label was stale and has been removed.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Remove the `hooks` block (two `UserPromptSubmit`, two `Stop` entries) from `.claude/settings.json`; keep the
+      `DKJ_STOPWATCH_SHARE` env entry, which the plugin's hooks read too.
+- [x] Drop the "until then in the source repo's .claude/settings.json alone" clause from both hook headers.
 
 ### TEST
 
+- [x] `.claude/settings.json` still parses as JSON, and nothing else in it changed.
+- [x] The installed v5.32.0 `hooks/hooks.json` carries both hooks on both events, so this repo's runs stay recorded.
+
 ### DEPLOY: fix/3473-drop-local-timing-hooks
 
-**Score:**
+This repo no longer wires the Stopwatch and Logbook hooks itself in `.claude/settings.json`
+([#3473](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3473)). The installed release ships them in
+`dkj-policy`'s own `hooks/hooks.json` since #3470, so each prompt and each turn's end ran both hooks twice; the
+second copy was a no-op under the store's mutex and cost two extra PowerShell processes per event.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** 0
 
 #### Pull Request
+
+Drop this repo's own Stopwatch and Logbook hook wiring
 

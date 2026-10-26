@@ -5,7 +5,7 @@
 
 .DESCRIPTION
     Wired up in this plugin's hooks/hooks.json as a UserPromptSubmit hook (-Hook Prompt) and a Stop hook (-Hook Stop),
-    in every repo that runs dkj-policy (#3470; until then in the source repo's .claude/settings.json alone):
+    in every repo that runs dkj-policy (#3470), the source repo included (#3473):
 
         powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/hooks/logbook-hook.ps1" -Hook Prompt
 
