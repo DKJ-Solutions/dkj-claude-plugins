@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**8 / 15 minor entries** <!-- pending-tally -->
+**9 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3491-merge-on-green-checks-scope · 20261026-092801Z
+
+The merge-on-green runner that `adopt-ci-floor` places now grants its job token `checks: read` and
+`statuses: read` ([#3491](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3491)). Without them a
+private repo's picker could not read the required checks, so it never merged anything and every run still
+concluded success. A re-run of `adopt-ci-floor` names a runner placed earlier with `[scope]` and the line(s) to
+add.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In a private repo, a pull request armed with merge-when-green now merges itself once its checks are green, where
+before it waited forever with no error. A runner already placed has to be changed by hand: add the two lines
+under `permissions:`, or delete the file and re-run `adopt-ci-floor -Apply`. A re-run says which.
+
+**Score:** 4
+
+#### Pull Request
+
+merge-on-green: grant the pick step checks and statuses read
+
+Plugins: dkj-policy
+
+[PR #3496](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3496)
+
+---
 
 ### DEPLOY: docs/house-style-density · 20261026-091734Z
 
