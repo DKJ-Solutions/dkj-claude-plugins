@@ -39,19 +39,40 @@
 
 ### PLAN
 
+phone-factory's owner adopted `asana-closed-message` (BWJ-Development/phone-factory#15, shipped there in
+#19, `ASANA_PAT` set), and `asana-prio-label` was not decided. Give each workflow its own reach in the
+session check, and make the adopt skill and the pages that state the reach agree.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `closed-message-sessioncheck.ps1`: each workflow carries its reach; phone-factory is checked for the
+  closed-message pair, `ASANA_PAT` (the line names only the workflows that repo copies) and the seam
+- [x] `adopt-bwj-development` steps 1 and 3, the bwj-development README hook row and two `WORKFLOW-portable.md`
+  sentences name phone-factory's reach
 
 ### TEST
 
+- [x] `closed-message-sessioncheck.tests.ps1`: phone-factory cases (pair missing, secret line, silent when
+  complete, seam, prio pair never asked); 31 passed
+
 ### DEPLOY: feat/3518-closed-message-phone-factory
 
-**Score:**
+`bwj-development`'s `closed-message-sessioncheck` now checks `phone-factory` too, for the
+`asana-closed-message` workflow alone. That repo adopted it on October 26, 2026
+(BWJ-Development/phone-factory#15), so a missing or drifted copy, a missing `ASANA_PAT` or an unstated
+`Get-ResolvesExemptMatchers` is reported there at session start. `adopt-bwj-development` step 1 copies that
+pair there and leaves `asana-prio-label` out, because that workflow was not decided there
+([#3518](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3518)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+phone-factory's maintainer gets the same session-start warning the two stores get when the closed message
+cannot reach the Asana task. The measured case is phone-factory's own: #3's closed message failed on a missing
+`ASANA_PAT`, and nothing in the session reported it.
+
+**Score:** 2
 
 #### Pull Request
 

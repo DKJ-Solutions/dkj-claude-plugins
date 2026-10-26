@@ -5,7 +5,8 @@
     and a store config that states no Get-ResolvesExemptMatchers (#2959).
 
 .DESCRIPTION
-    What is pinned is WHEN it speaks: only in the two store repos, once per kind of gap, never on a secret
+    What is pinned is WHEN it speaks: only in the two store repos and, for asana-closed-message alone,
+    phone-factory (#3518), once per kind of gap, never on a secret
     list it could not read, and never when everything is in place. Each case runs the hook as a child
     process against a scratch fixture, with the repo slug and the secret names passed in, so nothing here
     reads a real origin or calls gh.
@@ -121,16 +122,32 @@ try {
     Assert-True ($r.Text -match 'states no Get-ResolvesExemptMatchers') 'a longer name that merely starts with the seam''s does not'
 
     $r = Invoke-Hook -Root $noSeam -Slug 'DKJ-Solutions/dkj-claude-plugins' -Secret 'ASANA_PAT'
-    Assert-True ($r.Text.Trim() -eq '') 'and the seam is not asked of a repo outside the two stores'
+    Assert-True ($r.Text.Trim() -eq '') 'and the seam is not asked of a repo that copies no workflow'
 
     $r = Invoke-Hook -Root $none -Slug 'BWJ-Development/smartwatchbanden' -Secret '<unreadable>'
     Assert-True ($r.Text -notmatch 'ASANA_PAT') 'a secret list it could not read is not reported as a missing secret'
 
-    foreach ($slug in @('DKJ-Solutions/dkj-claude-plugins', 'BWJ-Development/phone-factory', 'someone/else')) {
+    foreach ($slug in @('DKJ-Solutions/dkj-claude-plugins', 'someone/else')) {
         # A real list without ASANA_PAT, so silence here can only come from the repo name.
         $r = Invoke-Hook -Root $none -Slug $slug -Secret 'CLAUDE_CODE_OATH_TOKEN'
-        Assert-True ($r.Text.Trim() -eq '') "silent outside the two stores: $slug"
+        Assert-True ($r.Text.Trim() -eq '') "silent outside the repos that copy a workflow: $slug"
     }
+
+    # PHONE-FACTORY (#3518): adopted asana-closed-message alone, so that pair, the secret and the seam are
+    # checked there, and the prio pair, which was not decided there, never is.
+    $r = Invoke-Hook -Root $none -Slug 'BWJ-Development/phone-factory' -Secret 'CLAUDE_CODE_OATH_TOKEN'
+    Assert-True ($r.Text -match 'phone-factory has no \.github/workflows/asana-closed-message\.yml and \.github/scripts/asana-closed-message\.ps1') 'phone-factory without the closed-message pair is reported'
+    Assert-True ($r.Text -match 'phone-factory has no ASANA_PAT secret, so the asana-closed-message workflow cannot post on the Asana task\.') 'and its missing secret names the closed-message workflow alone'
+    Assert-True ($r.Text -notmatch 'asana-prio-label') 'and the prio pair is never asked of it'
+
+    $pf = New-Store -Label 'phone-factory' -Copy
+    Remove-Item -LiteralPath (Join-Path $pf '.github\workflows\asana-prio-label.yml'), (Join-Path $pf '.github\scripts\asana-prio-label.ps1')
+    $r = Invoke-Hook -Root $pf -Slug 'BWJ-Development/phone-factory' -Secret 'ASANA_PAT'
+    Assert-True ($r.Text.Trim() -eq '') 'phone-factory with the closed-message pair and the secret is silent'
+
+    $r = Invoke-Hook -Root $noSeam -Slug 'BWJ-Development/phone-factory' -Secret 'ASANA_PAT'
+    Assert-True ($r.Text -match 'phone-factory states no Get-ResolvesExemptMatchers') 'and a phone-factory config without the seam is reported'
+    Assert-True ($r.Text -notmatch 'asana-prio-label') 'without blaming the prio pair the fixture also holds'
 
     # THE REAL ORIGIN READ, no slug override: an ssh origin naming a store is recognised as that store.
     $ssh = New-Store -Label 'ssh'

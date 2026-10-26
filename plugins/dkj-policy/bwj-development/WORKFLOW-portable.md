@@ -402,8 +402,8 @@ the issue: it commented on the linked task when the issue closed or reopened, mo
 board's numbered sections, ran a daily reconciliation sweep, synced the task's `Prio-Score` into `prio-N`
 labels and posted a placeholder backstop block on the issue. Dave retired all of it that morning, and the
 same day brought back **the closed message** (#2818), and the next day **the reopened message** beside it
-(#2854); the on-hold message followed (#2902). All three are the `asana-closed-message` workflow, copied into each store by
-`adopt-bwj-development`, and it needs `ASANA_PAT` only. **The prio sync came back on October 12, 2026
+(#2854); the on-hold message followed (#2902). All three are the `asana-closed-message` workflow, copied into each store, and since October 26,
+2026 into `phone-factory` too (#3518), by `adopt-bwj-development`, and it needs `ASANA_PAT` only. **The prio sync came back on October 12, 2026
 (#2945) as a second, separate copied workflow, `asana-prio-label`** (step 5). In practice:
 
 - **Closing an issue as completed** posts one comment on the linked task: the automation's header, the
@@ -813,7 +813,7 @@ task-link shapes this page already defines above, so a repo that has run that st
 reminded. **A repo that has NOT stated the seam is exactly where this paragraph left it before #2120**: the
 rule stands, nothing reads it, and the difference between a correct ship and a wrong one is whether the
 session remembered. The measurement behind that sentence is one of each, days apart, in the same repo.
-**In the two stores that absence is no longer silent** ([#2959](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2959)):
+**In the two stores and `phone-factory` that absence is no longer silent** ([#2959](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2959)):
 `closed-message-sessioncheck` names it at every session start. Measured in `xoxowildhearts`, the store that
 had never stated the seam: a `Closes #417` merged, the issue closed before its block was posted, and the
 closed message reached the Asana task bare (the closed line alone, as it was before #3004).
