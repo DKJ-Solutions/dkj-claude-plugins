@@ -39,21 +39,41 @@
 
 ### PLAN
 
+Issue #3515: no parking label named "waits on another repo's release". Landed in the places #3044 put
+`awaiting-pull-external`. The question the issue left open, whether the label surfaces anywhere on its
+own, is settled as **no**: the other repo's cut reads only its own tracker, so the label keeps the issue
+out of the pickup routes and the issue body names the repo and release. CONTRIBUTING says so.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The canonical set: `repo-config.ps1` `Get-TriageLabels` and both copies of `adopt-triage-labels.ps1`, the contract text, the blueprint regenerated
+- [x] The default `-SkipLabel` of both pickup routes and the `claim-issue <n>` parked warning, in both mirrors
+- [x] The issue dashboard's parked set and tooltip
+- [x] `CONTRIBUTING-portable.md` defines it; the claim-issue, sweep-issues and issue-dashboard skills, the scripts README, and Chris's and Derek's lenses list it; the counts move to sixteen labels and twelve `awaiting-*`
 
 ### TEST
 
+- [x] `adopt-triage-labels`, `repo-config`, `script-contract`, `pr-issues`, `claim-issue`, `issue-dashboard` and `config-blueprint` suites green with the new label pinned
+
 ### DEPLOY: feat/3515-awaiting-release-external
 
-**Score:**
+A new parking label, `awaiting-release-external`, for an issue whose remaining step runs only once
+**another** repo cuts a release
+([#3515](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3515)). `awaiting-release` names
+this repo's own cut and surfaces at it, which said the wrong moment for such an issue. The issue names
+that repo and release, and the label comes off once the release is out and the step has run. Both pickup
+routes skip it, `claim-issue <n>` warns on it, the issue dashboard shows it as waiting, and
+`adopt-triage-labels` prints the `gh label create` for a tracker that lacks it. Nothing lists it at the
+other repo's cut.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
 Add the awaiting-release-external parking label
-

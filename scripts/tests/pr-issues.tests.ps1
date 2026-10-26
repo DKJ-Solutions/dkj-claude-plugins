@@ -3370,6 +3370,7 @@ Assert-True (-not $former.ContainsKey('awaiting-decision-client')) 'while the cl
 Assert-True (-not $former.ContainsKey('awaiting-review-dev')) 'and the review-by-eye parking labels are new and have no former names (#2977)'
 Assert-True (-not $former.ContainsKey('awaiting-review-client')) 'and neither does its client twin (#2977)'
 Assert-True (-not $former.ContainsKey('awaiting-pull-external')) 'nor the pull request parking label for a blocker outside this repo (#3044)'
+Assert-True (-not $former.ContainsKey('awaiting-release-external')) 'nor the parking label for another repo''s release (#3515)'
 Assert-Equal 'awaiting-owner-act' (@($former['awaiting-action-dev']) -join ',') 'and the former name of the owner-act parking label (#2896)'
 Assert-Equal 'awaiting-event' (@($former['awaiting-action-external']) -join ',') 'and the former name of the external-event parking label (#2896)'
 Assert-Equal '801' ((Get-DossierClosingFindings -Issues @(801, 802) -Labels $dLabels) -join ',') 'the issue carrying the label is found, the other is not'

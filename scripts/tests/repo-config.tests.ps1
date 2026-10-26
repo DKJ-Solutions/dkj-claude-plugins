@@ -188,17 +188,17 @@ $mlPaths = @(Get-MachineLocalPaths)
 Assert-True ($mlPaths -contains '.claude/settings.json') 'Get-MachineLocalPaths watches the shared harness settings file'
 Assert-Equal 0 (@($mlPaths | Where-Object { $_ -match '^[\\/]|^[A-Za-z]:' }).Count) 'Get-MachineLocalPaths entries are repo-root-relative, not absolute'
 
-# The shared triage labels (issue #1895; 'awaiting-recurrences' added by #2462 as 'dossier' and renamed by #2683, #2723 and #2904, 'awaiting-decision-dev' by #2519 (named 'awaiting-decision' until #2890 and 'needs-decision' until #2741), 'awaiting-decision-client' by #2890, 'awaiting-review-dev' and 'awaiting-review-client' by #2977, 'awaiting-pull-external' by #3044, 'awaiting-recurrences-first' by #2587 as 'awaiting-recurrence' and renamed by #2723 and #2904), Adopt='copy' in the script contract -- this repo's
-# own live answer, and the same fifteen values adopt-triage-labels.ps1 carries as its own built-in
+# The shared triage labels (issue #1895; 'awaiting-recurrences' added by #2462 as 'dossier' and renamed by #2683, #2723 and #2904, 'awaiting-decision-dev' by #2519 (named 'awaiting-decision' until #2890 and 'needs-decision' until #2741), 'awaiting-decision-client' by #2890, 'awaiting-review-dev' and 'awaiting-review-client' by #2977, 'awaiting-pull-external' by #3044, 'awaiting-release-external' by #3515, 'awaiting-recurrences-first' by #2587 as 'awaiting-recurrence' and renamed by #2723 and #2904), Adopt='copy' in the script contract -- this repo's
+# own live answer, and the same sixteen values adopt-triage-labels.ps1 carries as its own built-in
 # fallback (asserted there, against this repo's REAL gh labels, since that duality is the whole point
 # of the two copies never being allowed to disagree).
 $triageLabels = @(Get-TriageLabels)
-Assert-Equal 15 $triageLabels.Count 'Get-TriageLabels names exactly fifteen labels -- four rungs, the record kind and the ten parking labels'
+Assert-Equal 16 $triageLabels.Count 'Get-TriageLabels names exactly sixteen labels -- four rungs, the record kind and the eleven parking labels'
 # Joined into one string rather than compared as two arrays: PowerShell's -eq on two arrays compares
 # elementwise against the WHOLE right-hand array per element, never a deep sequence equality, so
 # Assert-Equal would silently pass or fail on the wrong thing. Same join-then-compare shape
 # script-contract.tests.ps1 already uses for its own Scripts-list assertions.
-Assert-Equal 'prio-1,prio-2,prio-3,prio-4,awaiting-recurrences,awaiting-decision-dev,awaiting-decision-client,awaiting-review-dev,awaiting-review-client,awaiting-pull,awaiting-pull-external,awaiting-action-external,awaiting-action-dev,awaiting-release,awaiting-recurrences-first' (($triageLabels | ForEach-Object { $_.Name }) -join ',') `
+Assert-Equal 'prio-1,prio-2,prio-3,prio-4,awaiting-recurrences,awaiting-decision-dev,awaiting-decision-client,awaiting-review-dev,awaiting-review-client,awaiting-pull,awaiting-pull-external,awaiting-action-external,awaiting-action-dev,awaiting-release,awaiting-release-external,awaiting-recurrences-first' (($triageLabels | ForEach-Object { $_.Name }) -join ',') `
     'Get-TriageLabels names prio-1 through prio-4, then awaiting-recurrences, then awaiting-decision-dev, awaiting-decision-client, awaiting-review-dev, awaiting-review-client, awaiting-pull, awaiting-pull-external, awaiting-action-external, awaiting-action-dev, awaiting-release and awaiting-recurrences-first, in that order'
 foreach ($l in $triageLabels) {
     Assert-Match $l.Color '^[0-9A-Fa-f]{6}$' "Get-TriageLabels: '$($l.Name)' has a 6-digit hex colour"
@@ -219,6 +219,7 @@ $expectedTriage = @{
     'awaiting-review-client' = @{ Color = '5319E7'; Description = 'Waiting on the client''s review by eye -- parks the issue so no session picks it up' }
     'awaiting-pull' = @{ Color = '5319E7'; Description = 'Waiting on another issue to land through a pull request -- parks the issue so no session picks it up' }
     'awaiting-pull-external' = @{ Color = '5319E7'; Description = 'Waiting on a pull request in another repo -- parks the issue so no session picks it up' }
+    'awaiting-release-external' = @{ Color = '5319E7'; Description = 'Waiting on a release of another repo -- parks the issue so no session picks it up' }
     'awaiting-action-external' = @{ Color = '5319E7'; Description = 'Waiting on an external event or date -- parks the issue so no session picks it up' }
     'awaiting-action-dev' = @{ Color = '5319E7'; Description = 'Waiting on an act only the owner performs -- parks the issue so no session picks it up' }
     'awaiting-release' = @{ Color = '5319E7'; Description = 'Waiting on the next release -- parks the issue so no session picks it up' }

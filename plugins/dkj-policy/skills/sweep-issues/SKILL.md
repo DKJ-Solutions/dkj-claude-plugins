@@ -70,7 +70,7 @@ disagree you follow it and say so.
 ### 1. Choose -- and it writes nothing
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" -Candidates -SkipLabel awaiting-info-client,awaiting-decision-dev,awaiting-decision-client,awaiting-review-dev,awaiting-review-client,awaiting-pull,awaiting-pull-external,awaiting-action-external,awaiting-action-dev,awaiting-release,awaiting-recurrences-first,awaiting-recurrences,awaiting-first-recurrence,awaiting-more-recurrences,awaiting-more-info,needs-info,needs-decision,awaiting-decision,awaiting-recurrence,record,dossier,awaiting-owner-act,awaiting-event
+powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/task/claim-issue.ps1" -Candidates -SkipLabel awaiting-info-client,awaiting-decision-dev,awaiting-decision-client,awaiting-review-dev,awaiting-review-client,awaiting-pull,awaiting-pull-external,awaiting-action-external,awaiting-action-dev,awaiting-release,awaiting-release-external,awaiting-recurrences-first,awaiting-recurrences,awaiting-first-recurrence,awaiting-more-recurrences,awaiting-more-info,needs-info,needs-decision,awaiting-decision,awaiting-recurrence,record,dossier,awaiting-owner-act,awaiting-event
 ```
 
 It prints every open issue as `free`, `mine`, `held`, `branch`, `stale-park` or `skipped` with the reason, and names
@@ -110,7 +110,7 @@ light** -- report the number as unjudged and move on.
 **A `free` issue that turns out to be WAITING is parked on the tracker, not held out**
 ([#2843](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2843)). The wait might be a live
 push, a release, a deletion or a credential (`awaiting-action-dev`), work that may only run inside the
-next release (`awaiting-release`, which the cut lists), another issue's pull request (`awaiting-pull`), a pull request in another repo whose work is not yet available here (`awaiting-pull-external`), an external event or date (`awaiting-action-external`), the owner's choice
+next release (`awaiting-release`, which the cut lists), a release of another repo (`awaiting-release-external`), another issue's pull request (`awaiting-pull`), a pull request in another repo whose work is not yet available here (`awaiting-pull-external`), an external event or date (`awaiting-action-external`), the owner's choice
 (`awaiting-decision-dev`), or a choice that belongs to the client or requester outside the dev team (`awaiting-decision-client`, #2890), or somebody's look at a result (`awaiting-review-dev` for the owner's, `awaiting-review-client` for the client's or requester's, #2977). Set the matching label and say in one comment what it waits on:
 
 ```powershell
