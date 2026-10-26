@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Issue #3524. The reason was verified against the tree: the persona's "Cleared" paragraph and the
+manual's "And say what they MAY do" both still treat every backgrounded ship as dying with the harness,
+which predates the arming (#2319, #2393) and `Get-ShipClearanceVerdict` (#3442).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Persona: an armed ship with the checkout on the trunk is a plain clearance, stated as a fact
+- [x] Manual: the same case, its four facts, and "relay ship-pr's line", with the #3524 measurement
+- [x] ship-pr skill: a backgrounded ship through `tail`/`head` prints nothing until it ends
 
 ### TEST
 
+- [x] Docs only; the gates run inside ship-pr
+
 ### DEPLOY: fix/3524-armed-ship-clearance
 
-**Score:**
+A close-out after a backgrounded ship no longer tells the requester to keep the session open when the PR
+is already armed `merge-when-green` and the checkout is back on `main`. Chris's persona and manual now
+name that case as a plain clearance, matching the line `ship-pr` has printed since #3442. The second-session
+advice stays for what really dies with the harness: an unarmed ship, a subagent, a local-only wait. The
+`ship-pr` skill page adds why the run must not go through `tail`: the clearance line never reaches the
+session until the run ends (#3524).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In a consuming repo, the orchestrator stops warning that a session must stay open while an armed pull
+request ships, and says plainly that it can be cleared.
+
+**Score:** 2
 
 #### Pull Request
 
