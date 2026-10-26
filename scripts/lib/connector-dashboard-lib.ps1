@@ -369,23 +369,25 @@ function Format-ConnectorDashboardHtml {
     # The intro is a <div>, never a <header>, which the house style lays out as a flex row.
     [void]$sb.AppendLine('<div>')
     [void]$sb.AppendLine('<h1>' + $pageName + '</h1>')
+    # A lead on a group's page only: the overview is its h1 and its cards (owner, October 26, 2026).
     if ($groupDef) {
         [void]$sb.AppendLine('<p class="lead">The repos registered under <code>connectors/</code> ' + $groupDef.Owner + ', as <code>check-connectors.ps1</code> reports them on this machine.</p>')
-    } else {
-        [void]$sb.AppendLine('<p class="lead">Every repo registered under <code>connectors/</code>, as <code>check-connectors.ps1</code> reports it on this machine, by owner: each group has a page of its own.</p>')
     }
     [void]$sb.AppendLine('</div>')
 
-    # One tile per count.
-    [void]$sb.AppendLine('<div class="tiles">')
-    foreach ($t in @(
-            @{ L = 'Registered repos'; V = $all.Count },
-            @{ L = 'Checked out here'; V = $present },
-            @{ L = 'Errors'; V = $errors },
-            @{ L = 'Notes'; V = $infos })) {
-        [void]$sb.AppendLine('<div class="tile"><div class="label">' + $t.L + '</div><div class="v num">' + $t.V + '</div></div>')
+    # One tile per count, on a group's page only: the overview's cards carry each group's own summary (owner,
+    # October 26, 2026).
+    if ($groupDef) {
+        [void]$sb.AppendLine('<div class="tiles">')
+        foreach ($t in @(
+                @{ L = 'Registered repos'; V = $all.Count },
+                @{ L = 'Checked out here'; V = $present },
+                @{ L = 'Errors'; V = $errors },
+                @{ L = 'Notes'; V = $infos })) {
+            [void]$sb.AppendLine('<div class="tile"><div class="label">' + $t.L + '</div><div class="v num">' + $t.V + '</div></div>')
+        }
+        [void]$sb.AppendLine('</div>')
     }
-    [void]$sb.AppendLine('</div>')
 
     # The warning that the signals could not be read.
     if ($Meta.CheckFailed) {

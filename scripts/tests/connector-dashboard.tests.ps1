@@ -242,11 +242,11 @@ Assert-True ($overview -match '<h1>Connectors</h1>' -and $overview -match 'site-
 $cD = $overview.IndexOf('href="/connectors/dkj"'); $cB = $overview.IndexOf('href="/connectors/bwj"'); $cO = $overview.IndexOf('href="/connectors/other"')
 Assert-True ($cD -ge 0 -and $cD -lt $cB -and $cB -lt $cO) 'the overview has a card per owner group, DKJ, BWJ, Other, each linking its own page (owner, October 26, 2026)'
 Assert-Equal 3 ([regex]::Matches($overview, '<section class="card card--link">')).Count 'three cards, in the hub''s card form'
-Assert-True ($overview -match '<div class="grid-3" id="groups">' -and $overview.IndexOf('class="tiles"') -lt $overview.IndexOf('id="groups"')) 'the cards sit three to a row, under the tiles'
+Assert-True ($overview -match '<div class="grid-3" id="groups">') 'the cards sit three to a row'
 Assert-True ($overview.Contains('menu-item__label">DKJ<span class="menu-item__sub">2 repos ' + [char]0x00B7 + ' 1 needs action ' + [char]0x00B7 + ' 1 in sync</span>')) 'a card carries its group''s summary under its label'
 Assert-True ($overview.Contains('menu-item__label">BWJ<span class="menu-item__sub">0 repos</span>')) 'an empty group keeps its card'
 Assert-True ($overview -notmatch 'Connected repos</h2>' -and $overview -notmatch '<section class="mini-card' -and $overview -notmatch 'id="issues"') 'the overview holds no table and no repo card: those are the group pages'
-Assert-True ($overview -match '<div class="tile"><div class="label">Registered repos</div><div class="v num">3</div>') 'the overview''s tiles count every repo'
+Assert-True ($overview -notmatch 'class="tiles"' -and $overview -notmatch 'class="lead"') 'the overview has no tiles and no lead: its h1, then its cards, each carrying its group''s summary (owner, October 26, 2026)'
 $dkj = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' } -Group 'dkj'
 Assert-True ($dkj -match '<h1>DKJ repos</h1>' -and $dkj -match '<title>dkj-claude-plugins -- DKJ repos</title>' -and $dkj -match 'owned by DKJ-Solutions') 'a group page is headed by its group'
 Assert-True ($dkj -match '<div class="tile"><div class="label">Registered repos</div><div class="v num">2</div>' -and $dkj -notmatch 'Someone/x') 'and holds that group''s repos alone, its tiles counting them'
