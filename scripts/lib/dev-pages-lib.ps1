@@ -468,7 +468,7 @@ function Format-DkjReposPageHtml {
         }
     }
 
-    # One card per repo, newest push first, in the Stopwatch overview's three-column grid with the h1 at its head
+    # One card per repo, newest push first, in a two-column grid with the h1 at its head, as the Stopwatch overview's cards stand
     # (the owner, October 26, 2026): no tiles, no lead, no section headings, and a checkout's session command in
     # its own repo's card rather than a list of its own. The server starts nothing (#3231).
     $body = New-Object System.Text.StringBuilder
@@ -508,8 +508,7 @@ function Format-DkjReposPageHtml {
 
     $style = @(
         '.dr-link { color: var(--primary); text-underline-offset: 2px; }',
-        '.dr-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-4); }',
-        '@media (max-width: 1000px) { .dr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }',
+        '.dr-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-4); }',
         '@media (max-width: 760px) { .dr-grid { grid-template-columns: 1fr; } }',
         '.dr-grid > .grid__head { grid-column: 1 / -1; }',
         '.dr-grid > .card { margin-top: 0; }',
