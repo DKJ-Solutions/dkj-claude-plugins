@@ -2025,7 +2025,11 @@ foreach ($af in $auditFiles) {
 # 101 -> 102 (#3602): new-branch.ps1's $siblingHeads (`git ls-remote --heads origin`), at the shared network
 # bound, on a fresh cut of a numbered name. It asks Test-NativeExitMeasured, and anything but a measured 0 is
 # said and passed -- the remote could not rule a sibling out -- as the claim's unmarked-branch check passes it.
-Assert-Equal 102 $boundedTotal 'the parser still counts 102 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 102 -> 107 (#3605): trunk-sync-lib.ps1's five git captures -- Get-TrunkSyncGitLine's read, $probe, $fetch,
+# $status and $merge -- each bounded because the SessionStart prep step runs before the dispatcher's pool and
+# nothing else can interrupt it. Each asks Test-NativeExitMeasured, and anything but a measured 0 is "could not
+# establish": a skip or a failure, never a fast-forward.
+Assert-Equal 107 $boundedTotal 'the parser still counts 107 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
