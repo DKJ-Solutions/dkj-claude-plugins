@@ -2,7 +2,82 @@
 
 ## [Unreleased]
 
-**1 / 2 minor entries** <!-- pending-tally -->
+**3 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3580-release-notes-empty-state · 20261027-145208Z
+
+A repo that has adopted the workflow but never cut a release now gets an empty-state release-notes page
+in its hub ("No release has been cut yet. The release notes appear here with the first cut.") instead of
+a build error telling it to create files that would not help. `build-release-notes-page.ps1` answers that
+state -- no history, or a history whose table has no release row -- with exit 3 and writes nothing.
+Closes #3580.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer before its first release no longer sees a hub link that reads as a defect to repair.
+
+**Score:** 2
+
+#### Pull Request
+
+The release-notes page shows an empty state, not a build error, before a repo's first release
+
+Plugins: dkj-policy
+
+[PR #3587](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3587)
+
+---
+
+### DEPLOY: fix/3581-first-release-bump · 20261027-141622Z
+
+A first release in a repo with no plugins and no tag no longer gets two answers that cannot both be followed:
+`cut-release` accepts `-Bump` and counts it from 0.0.0, so the tier gate's "What the pending work does earn:
+-Bump minor" runs as written and cuts v0.1.0.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo cutting its first release follows the refusal's own advice instead of guessing the `-Version` it implies.
+
+**Score:** 2
+
+#### Pull Request
+
+cut-release accepts -Bump on a first release, so the tier gate's advice runs
+
+Plugins: dkj-policy
+
+[PR #3589](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3589)
+
+---
+
+### DEPLOY: feat/plugins-product-card · 20261027-140810Z
+
+The product's home page gains a third card, Plugins, and `/plugins` lists every plugin
+`.claude-plugin/marketplace.json` ships, one link card each saying its kind, version and whether this repo enables it -- the specialist
+teams sharing one card, `dkj-subagents`, with a page of their own -- and
+each plugin has its own page under it: what it holds (subagents, personas, skills, hook
+commands), its source path, and its full description in paragraphs. It is the tree, read on every request. The
+hub's own Plugins page stays what this checkout enables.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a page of this repo's own product server, which no consumer runs.
+
+**Score:** N/A
+
+#### Pull Request
+
+A Plugins card on the product's home page, listing every plugin this marketplace ships
+
+[PR #3586](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3586)
+
+---
 
 ### DEPLOY: feat/github-hub-card · 20261027-135157Z
 

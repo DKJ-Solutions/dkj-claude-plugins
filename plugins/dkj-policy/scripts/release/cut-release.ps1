@@ -998,14 +998,13 @@ if ($pluginTier) {
     if ($latestTag) {
         $current = ($latestTag -replace '^v', '')
         $currentSource = "the highest 'v*' git tag ($latestTag)"
-    } elseif ($Version) {
-        # First release in a repo with neither manifests nor tags: -Version says what it is, and
-        # 0.0.0 exists only so the bump-type label below has something to compare against.
+    } else {
+        # First release in a repo with neither manifests nor tags: 0.0.0 is the baseline, so -Version
+        # gets a bump-type label to compare against and -Bump counts from it (-Bump minor is 0.1.0).
+        # -Bump used to be refused here, while the tier gate below names a -Bump as its advice, so a
+        # first release got two answers that could not both be followed (#3581).
         $current = '0.0.0'
         $currentSource = 'neither a plugin manifest nor a v* tag -- this is a first release'
-    } else {
-        Write-Error "This repo publishes no plugins (Get-ReleasePluginTier is false) and carries no vX.Y.Z tag, so there is no current version to bump from. Pass -Version <X.Y.Z> for the first release."
-        exit 1
     }
 }
 

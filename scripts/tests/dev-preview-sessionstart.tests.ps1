@@ -715,7 +715,10 @@ try {
         Assert-True ((& $getRaw $genPort '/artifacts') -match 'href="https://claude.ai/artifact/Fx1"[^>]*>Fixture page</a>') 'and lists the repo''s own register, read on every request'
         Assert-True ((& $getRaw $genPort '/brandbook') -match 'HTTP/1.1 404' -and (& $getRaw $genPort '/brandbook/') -match 'HTTP/1.1 404') '/brandbook and /brandbook/ are not found, in a repo that enables dkj-solutions too (#3475)'
         $r2 = & $getRaw $genPort '/release-notes'
-        Assert-True ($r2 -match 'HTTP/1.1 404' -and $r2 -match 'Not built yet' -and $r2 -match 'could not build it \(the build exited 1: [^)]*release history is missing') '/release-notes builds a page that is absent, and where it cannot, is a 404 text naming why (#3189)'
+        # A repo with no release yet (this fixture has no history) is an empty state, not a build error (#3580).
+        Assert-True ($r2 -match 'HTTP/1.1 200' -and $r2 -match '<h1>Release notes</h1>' -and $r2 -match 'No release has been cut yet') '/release-notes tries to build a page that is absent, and before the first cut answers with an empty state (#3189, #3580)'
+        $r2 = & $getRaw $genPort '/release-notes/v1.0'
+        Assert-True ($r2 -match 'HTTP/1.1 404' -and $r2 -match 'Not built yet' -and $r2 -match 'no release has been cut yet') 'while a release''s own page is a 404 text naming why'
         New-Item -ItemType Directory -Force -Path (Join-Path $noConfig 'dkj-policy\releases\page') | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $noConfig 'dkj-policy\releases\page\release-notes.html'), '<html lang="en"><head><style>a{}</style></head><body>shaped notes</body></html>')
         $r2 = & $getRaw $genPort '/release-notes'

@@ -893,6 +893,28 @@ $cutSectH11 Pull Request
     Assert-True (Test-Path -LiteralPath $holderExe) 'build held: refused before the build removed its output'
     $v21 = (Get-Content -LiteralPath (Join-Path $root21 'plugins\dkj-subagents\team-fixture\.claude-plugin\plugin.json') -Raw | ConvertFrom-Json).version
     Assert-Equal '1.4.0' $v21 'build held: nothing was written'
+
+    # --- 15. A first release in a repo with no plugins and no tag: the tier gate's advice runs (#3581) ---
+    # The gate named '-Bump patch' while the baseline refused every -Bump without a tag, so the advice of
+    # one refusal was the input of the other. -Bump now counts from the 0.0.0 baseline.
+    Write-Host ""
+    Write-Host "cut-release.ps1 -- a tagless, plugin-less first release takes -Bump from 0.0.0" -ForegroundColor Cyan
+    $root22 = New-CutFixture -Name 'first-release' -HistoryMajors "#### 0.x`n`n| Version | Date | Type | Title |`n|---|---|---|---|`n"
+    $cfg22Path = Join-Path $root22 'scripts\repo-config.ps1'
+    $cfg22 = Get-Content -LiteralPath $cfg22Path -Raw
+    $patched22 = $cfg22 -replace '(?m)^\$script:ReleasePluginTier\s*=\s*\$true\s*$', '$script:ReleasePluginTier = $false'
+    if ($patched22 -eq $cfg22) { throw "fixture: could not repoint ReleasePluginTier to false -- the seam literal in repo-config.ps1 changed shape." }
+    Write-Utf8 $cfg22Path $patched22
+    Push-Location $root22
+    try { Invoke-NativeCapture -FilePath 'git' -Arguments @('commit', '--quiet', '-am', 'fixture: no plugin tier') | Out-Null }
+    finally { Pop-Location }
+    $r22 = Invoke-Cut -Root $root22 -Arguments @('-Bump', 'major', '-NoPush', '-SkipLint', '-SkipTests')
+    Assert-True ($r22.Code -ne 0) 'first release: an unearned major is refused'
+    Assert-NotMatch 'no current version to bump from' $r22.Out 'first release: -Bump is not refused for want of a tag'
+    Assert-Says 'What the pending work does earn: -Bump patch.' $r22.Out 'first release: the tier gate names the bump the pending work earns'
+    $r23 = Invoke-Cut -Root $root22 -Arguments @('-Bump', 'patch', '-NoPush', '-SkipLint', '-SkipTests')
+    Assert-Equal 0 $r23.Code 'first release: following the advice cuts'
+    Assert-Equal 'v0.0.1' (Get-GitOut -Root $root22 -GitArgs @('tag', '--list', 'v*')).Trim() 'first release: the patch counts from the 0.0.0 baseline'
 } finally {
     if (Test-Path -LiteralPath $FixtureDir) {
         Remove-Item -LiteralPath $FixtureDir -Recurse -Force -ErrorAction SilentlyContinue

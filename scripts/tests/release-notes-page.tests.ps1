@@ -487,13 +487,28 @@ try {
     Assert-Equal 0 $w6.Code 'wrangler: a drifted name does not fail the build'
     Assert-Says $w6.Out 'something-else' 'wrangler: but it is reported'
 
-    # --- 10. A missing history file ----------------------------------------------------------------
-    Write-Host "build -- the release history has to be there" -ForegroundColor Cyan
+    # --- 10. A repo that has never cut a release (#3580) -------------------------------------------
+    # Not an error: before the first cut there is no history row and no note root, and nothing the repo
+    # could add changes that. Exit 3 is the builder's "no release yet", which the hub shows as an empty
+    # state. The three shapes are the issue's own: no history; no history and no note root; a history
+    # whose table has no row.
+    Write-Host "build -- a repo with no release yet is an empty state, not an error (#3580)" -ForegroundColor Cyan
     $r10 = New-FixtureRepo -Label 'nohistory'
     Remove-Item -LiteralPath (Join-Path $r10 'releases\README.md') -Force
     $b10 = Invoke-Build -Root $r10
-    Assert-Equal 1 $b10.Code 'no history: refuses'
-    Assert-Says $b10.Out 'Get-ReleaseHistoryPath' 'no history: the error names the seam that points at it'
+    Assert-Equal 3 $b10.Code 'no history: exit 3, the no-release-yet answer'
+    Assert-Says $b10.Out 'No release has been cut yet' 'no history: says so, rather than naming a file to create'
+    Assert-Says $b10.Out 'Get-ReleaseHistoryPath' 'no history: and names the seam, for a repo that has released after all'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $r10 'releases\page\release-notes.html'))) 'no history: and writes no page'
+    Remove-Item -Recurse -Force -LiteralPath (Join-Path $r10 'releases\audience')
+    Assert-Equal 3 (Invoke-Build -Root $r10).Code 'no history and no note root: exit 3 too'
+    Write-FixtureFile (Join-Path $r10 'releases\README.md') "# Releases`n`n| Version | Date | Type | Title |`n|---|---|---|---|`n"
+    Assert-Equal 3 (Invoke-Build -Root $r10).Code 'a history whose table has no row: exit 3 too'
+    # One release row is past that state: the missing note root is a real refusal again.
+    Write-FixtureFile (Join-Path $r10 'releases\README.md') "| Version | Date | Type | Title |`n|---|---|---|---|`n| [1.0.0](audience/1.x/1.0.0.md) | 2026-07-01 | Major | First |`n"
+    $b10r = Invoke-Build -Root $r10
+    Assert-Equal 1 $b10r.Code 'a history with a release and no note root: still refuses'
+    Assert-Says $b10r.Out 'note root is missing' 'and says which half is missing'
 
     # --- 10b. An unanswered history seam (#3243) ---------------------------------------------------
     # The page reads the history where the cut writes it: the computed default, not the pre-#885
