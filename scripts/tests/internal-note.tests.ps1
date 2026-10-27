@@ -315,27 +315,13 @@ Assert-True (Test-Line -Text $doc -Pattern '\*\*For whom:\*\* colleagues and man
 # match -- the guard would pass on a document full of trailing spaces. Written the wrong way first.
 $internalDirty = @(($doc -split "`r?`n") | Where-Object { $_ -match '[ \t]+$' })
 Assert-Equal 0 $internalDirty.Count 'no generated line in the internal note ends in whitespace'
-foreach ($h in @('What is different now', 'What it is worth', 'What was still open at this release')) {
-    Assert-True (Test-Line -Text $doc -Pattern ('## ' + [regex]::Escape($h))) "the fixed heading '$h' is present"
-}
-Assert-True ($doc -match '(?s)What is different now.*What it is worth.*What was still open at this release') 'the three headings are in order'
-# The third heading is PAST TENSE and names the release, and that is the fix rather than a wording
-# preference: this document is a PUBLISHED record of one release, so it does not move with reality. A
-# NOT THE GITHUB RELEASE BODY, corrected with inbound #1101. That line stood here until the one-document
-# reorganisation (Dave, August 10-12, 2026) moved the generated body into its own root, and cut-release
-# has passed 'releases/github/<dir>/<X.Y.Z>.md' to 'gh release create --notes-file' ever since; nothing
-# calls this script in a repo running that flow. The stale claim is worth naming rather than just
-# deleting, because it was repeated verbatim in inbound #1101 as the stake of the repair -- "the one of
-# the three a reader outside the repo actually opens" -- and a wrong reason attached to a correct symptom
-# is exactly what this repo checks for before repairing a report. The repair still stands on its other
-# leg: three documents of one release should not differ in shape.
-# present-tense heading invites lines that go stale in hours -- measured three times on August 4, 2026,
-# once by a line stating the previous release had no public page, published minutes before it got one.
-# Asserted as a negative too, because the old wording is the natural thing to type back in.
-Assert-True ($doc -notmatch '(?m)^## What is still open') 'the open heading is not present tense (it would date the published body)'
-# Not Test-Line: the hint sits mid-line inside the skeleton comment block, so a whole-line match is the
-# wrong tool here even though every heading assert above uses one.
-Assert-True ($doc -match 'SNAPSHOT of this release') 'the skeleton hint tells the writer to write a snapshot, not a claim about the present'
+Assert-True (Test-Line -Text $doc -Pattern '## What is different now') "the fixed heading 'What is different now' is present"
+# THE TWO ORGANISATIONAL SECTIONS ARE GONE, in this note as in the audience note (the owner, #3584 and
+# #3590, October 27, 2026). Asserted as negatives, the old open heading's present-tense form included,
+# because each is the natural thing to type back in.
+Assert-True ($doc -notmatch '(?m)^## What it is worth') "no 'What it is worth' heading (#3590)"
+Assert-True ($doc -notmatch '(?m)^## What (was|is) still open') "no 'What was still open' heading, in either tense (#3590)"
+Assert-Equal 1 (@([regex]::Matches($doc, '(?m)^## ')).Count) 'exactly one H2: the note is its bullets under one heading'
 # The titles carry over WITHOUT the PR number and date -- this document has a reader with no branch.
 Assert-True (Test-Line -Text $doc -Pattern '- \[Feat\] Turn the highlights tier on') 'an entry becomes a [type] bullet with a bare title'
 Assert-True (Test-Line -Text $doc -Pattern '- \[Fix\] The teardown audit walks every file') 'and so does one from another category'
@@ -414,8 +400,6 @@ function Get-InternalNoteWording {
         AudienceLabel  = 'Voor wie'
         Audience       = 'werkgevers en management'
         SectionChanged = 'Wat er nu anders is'
-        SectionValue   = 'Wat het oplevert'
-        SectionOpen    = 'Wat er nog open staat'
     }
 }
 '@
@@ -425,14 +409,11 @@ Assert-Equal 0 $r.Code 'translated wording: exit 0'
 $doc = [System.IO.File]::ReadAllText((Join-Path $translated 'dkj-policy\releases\internal\3.x\3.2.0.md'))
 Assert-True (Test-Line -Text $doc -Pattern '# Interne samenvatting v3\.2\.0') 'the title is overridden'
 Assert-True (Test-Line -Text $doc -Pattern '\*\*Voor wie:\*\* werkgevers en management') 'the audience label AND its text are overridden'
-foreach ($h in @('Wat er nu anders is', 'Wat het oplevert', 'Wat er nog open staat')) {
-    Assert-True (Test-Line -Text $doc -Pattern ('## ' + [regex]::Escape($h))) "the heading '$h' is overridden"
-}
+Assert-True (Test-Line -Text $doc -Pattern '## Wat er nu anders is') "the heading 'Wat er nu anders is' is overridden"
 Assert-True ($doc -notmatch 'What is different now') 'no English heading survives alongside the override'
 # MERGED, not substituted: a key the override does not mention keeps its English default rather than
-# vanishing. Without this, a consumer translating three headings would silently lose the fill-in hints.
+# vanishing. Without this, a consumer translating the heading would silently lose the skeleton note.
 Assert-True ($doc -match 'SKELETON') 'an unmentioned key keeps its default -- the map is merged'
-Assert-True ($doc -match 'cannot be generated') 'the value hint survives untranslated rather than disappearing'
 Remove-Item -Recurse -Force -LiteralPath $translated -ErrorAction SilentlyContinue
 
 # ===================================================================================================
