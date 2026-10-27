@@ -1011,8 +1011,9 @@ function Get-ReleaseMajorMinMinors {
 # EMPTY HERE, for the third time in this file and for the same reason: an English repo is already served
 # by the English defaults in the script. The knob exists for a consumer whose colleagues read another
 # language, where an unset heading is the wrong word rather than a missing one -- the #410 class. Keys:
-# Title, AudienceLabel, Audience, SkeletonNote, SectionChanged, SectionValue, HintValue, SectionOpen,
-# HintOpen, NoEntries, Unknown. Merged over the defaults, so overriding one leaves the rest alone.
+# Title, AudienceLabel, Audience, SkeletonNote, SectionChanged, NoEntries, Unknown (SectionValue,
+# HintValue, SectionOpen and HintOpen went with their sections, #3590). Merged over the defaults, so
+# overriding one leaves the rest alone.
 $script:InternalNoteWording = @{}
 
 function Get-InternalNoteWording {
@@ -1043,15 +1044,6 @@ $script:ReleaseNoteWording = @{}
 function Get-ReleaseNoteWording {
     <# Overrides for the release note's headings, audience line and fill-in hints. Empty = English. #>
     return $script:ReleaseNoteWording
-}
-
-# WHICH OF THAT NOTE'S THREE SECTIONS THIS REPO'S READERS GET (inbound #2564). The wording map above can
-# rename a section but never omit one; this is the seam that omits. Names are the wording keys without
-# 'Section': Audience (what changed), Value (what it is worth), Open (what was still open). All three
-# here, which is also what an absent function means -- this repo's note is written for two readers.
-function Get-ReleaseNoteSections {
-    <# The sections the hand-written release note carries, in any order: Audience, Value, Open. #>
-    return @('Audience', 'Value', 'Open')
 }
 
 # --- The hosted page built from those notes (Dave, August 15, 2026) -------------------------------

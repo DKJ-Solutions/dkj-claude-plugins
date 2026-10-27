@@ -69,6 +69,16 @@ catch {
     exit 2
 }
 
+# Run by hand from an install, the page beside this script may be newer than the tag it names (#3588):
+# a copy that fails it is judged again against the page at that tag. A -SkillPath is already that page.
+if (-not $PSBoundParameters.ContainsKey('SkillPath') -and @($result.Findings | Where-Object { $_.Check -eq 'pin' }).Count) {
+    $tagPin = Get-HouseStyleTagPin -Pin $pin
+    if ($tagPin) {
+        Write-Host "  [note]     a copy failed the installed page's checksums; judged against the page as it reads at $($pin.Tag) instead." -ForegroundColor Yellow
+        $result = Invoke-HouseStyleCheck -RepoRoot $root -Pin $tagPin -Allow $allow.Entries
+    }
+}
+
 foreach ($c in $result.Copies) {
     if ($c.Ok) { Write-Host "  [pinned]   $($c.Path) -- the $($result.Tag) copy" -ForegroundColor DarkGray }
 }

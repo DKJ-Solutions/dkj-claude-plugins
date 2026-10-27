@@ -32,15 +32,17 @@ always pins the release that carries the bytes its checksums name.
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.34.0/plugins/dkj-policy/assets/house-style/house-style.css` | `0a2664f68d408df50018096be8c652c57af057dd771695fbf477fc2ea974451e` |
-| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.34.0/plugins/dkj-policy/assets/house-style/house-theme.js` | `24ed94dd5f096274826bbdc47ff63f29932369f6bd55f2b47ab9ece25a09599f` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.35.0/plugins/dkj-policy/assets/house-style/house-style.css` | `0a2664f68d408df50018096be8c652c57af057dd771695fbf477fc2ea974451e` |
+| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.35.0/plugins/dkj-policy/assets/house-style/house-theme.js` | `24ed94dd5f096274826bbdc47ff63f29932369f6bd55f2b47ab9ece25a09599f` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
 [`assets/house-style/README.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/assets/house-style/README.md) in `dkj-policy`. It ships in the same
 release as this page, so it describes the files that tag serves.
 
-**Check each fetched file's sha256 against the table before you use it, and if it does not match, stop
-and report it to the owner.** Never inline a mismatched file, and never take a substitute from `main`. The checksums live
+**Check each fetched file's sha256 against the table before you use it. If it does not match, check it
+once more against the table on this page as it reads at the tag above** (the same URL with
+`plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md` as its path, #3588). **Only if that does not
+match either, stop and report it to the owner.** Never inline a mismatched file, and never take a substitute from `main`. The checksums live
 on this page rather than beside the files because a checksum stored next to the file guards nothing
 against a change to that file.
 
@@ -106,8 +108,13 @@ page, dashboard and Artifact is designed to that screen first:
   `house-theme.js` runs; a page without it (an Artifact, a static report) is fluid at 1080px, so it sets
   `<html data-width="full">` itself.
 - **Nothing the brief did not ask for.** No eyebrow above a heading, no sub line or lead under it, no
-  intro paragraph that repeats the heading, no hero, no extra row of meta. `.eyebrow`, `.sub`, `.lead`
-  and `.card__sub` exist for the brief that asks for one; that they exist is not an invitation.
+  hero, no extra row of meta. `.eyebrow`, `.sub`, `.lead` and `.card__sub` exist for the brief that asks
+  for one; that they exist is not an invitation.
+- **A page opens on its `h1` and goes straight to its content** (Dave, every DKJ-Solutions product,
+  [#3585](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3585)): no intro or explainer
+  paragraph under it, whether `.lead`, a `.lede` of the repo's own or a plain `<p>`. Screen height is
+  scarce. What the page is for goes in its `<meta name="description">`. An empty state that says a list is
+  empty is content, not an intro, and stays.
 - **One row where one row does.** Label and value on one line (`.facts--row`), a card's action beside
   its heading rather than on a row of its own, filters in one bar. A second row has to carry something
   the first could not.
@@ -215,5 +222,8 @@ previous tag beside the new checksums, and a fetch from it would mismatch. **So 
 from `main`, reads the table from this page as it stands at the tag the page names**
 ([#3148](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3148)). That page is coherent by
 construction: the cut writes its own tag into it, and the tagged tree holds the very files those checksums
-were taken from. A session reads this
-page from the installed release, where it holds the same way.
+were taken from. **An installed copy of this page is NOT coherent that way**: an install tracks `main`, so
+in the same window it carries the new checksums beside the old tag
+([#3588](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3588)). So the session check, and a
+session following the rule above, check a copy that fails against the page at its tag: the check fetches
+it only then, so a clean session never touches the network.

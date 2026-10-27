@@ -2,55 +2,30 @@
 
 ## [Unreleased]
 
-**1 / 2 minor entries** <!-- pending-tally -->
+**1 / 1 minor entry** <!-- pending-tally -->
 
-### DEPLOY: feat/github-hub-card · 20261027-135157Z
+### DEPLOY: feat/3608-default-theme-pair · 20261027-204641Z
 
-The hub's Repository card and page are now called **GitHub**, and the card carries the GitHub logo instead of the
-branch drawing. The page still lives on `/repository`, so every existing link keeps working.
+The hub's `DefaultTheme` gains a second form beside the single theme id; the single form renders byte-identically.
 
-**Score:** 2
+**Score:** 1
 
 #### What makes this deploy extra special
 
-Every repo running dkj-policy shows its hub card as GitHub, with the GitHub logo, from the next release on.
+A DKJ-Solutions repo whose product opens in a light/dark theme pair can now state the same pair for the plugin's
+hub and general pages, `DefaultTheme = @{ Light = 'blue'; Dark = 'sky' }` in `Get-DevPreview`, so on a dark OS the
+hub no longer opens in the light theme while the product opens in the dark one. See the
+[hub README](../plugins/dkj-policy/hub/README.md).
 
-**Score:** 2
+**Score:** 3
 
 #### Pull Request
 
-The hub's Repository card and page are called GitHub, with a GitHub logo
+Hub: let DefaultTheme state a light/dark theme pair
 
 Plugins: dkj-policy
 
-[PR #3583](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3583)
-
----
-
-### DEPLOY: feat/3566-one-hub-card-component · 20261027-130047Z
-
-Every card link on the hub is now the one house card. `Format-HubCardLinkHtml` gained the slots the
-hand-written variants existed for: a headline figure on a line of its own, a status badge in the icon's
-place, the label as an `h2`, and an `id` and extra classes. SessionStart, Plugins, Stopwatch, Logbook, Test
-gate, Connectors and Specialists use it, keeping what each card shows. The suite that refuses a hand-written
-card now allows only that function, so a new overview cannot add a shape of its own again.
-
-**Score:** 2
-
-#### What makes this deploy extra special
-
-N/A -- the hub's overview cards look alike and keep their content; nothing changes for the person who takes
-the next version beyond that.
-
-**Score:** N/A
-
-#### Pull Request
-
-Hub cards: one card component, every variant moved onto it
-
-Plugins: dkj-policy, dkj-solutions
-
-[PR #3579](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3579)
+[PR #3609](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3609)
 
 ---
 

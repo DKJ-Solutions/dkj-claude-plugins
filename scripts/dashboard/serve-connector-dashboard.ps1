@@ -6,7 +6,9 @@
     with each group a page of its own at /connectors/dkj, /bwj and /other -- the DKJ one also holding every
     DKJ-Solutions repo on GitHub with its checkout here and a session to open there (#3231; its own page at
     /dkj-repos until #3549, which now redirects there); and /specialists, every specialist the dkj-subagents
-    plugins ship and the context each one costs, read from this tree. The rules of
+    plugins ship and the context each one costs, read from this tree; and /plugins, every plugin
+    .claude-plugin/marketplace.json lists, each with a page of its own at /plugins/<name>, the specialist
+    teams (dkj-subagents-*) one card whose page is /plugins/dkj-subagents. The rules of
     each page are in scripts/lib/dev-pages-lib.ps1. The server takes no POST but the banner's.
 
     EVERY REPO HAS A PRODUCT PORT (Maikel, October 26, 2026, #3540). This server was this repo's own hub
@@ -239,6 +241,49 @@ function Get-SpecialistsModel {
     return @{ Rows = $rows; Error = ($errs -join ', '); CharsPerToken = $factor }
 }
 
+function Get-PluginsModel {
+    <#
+        Every plugin .claude-plugin/marketplace.json lists, in its order, read on every request: its plugin.json
+        for the version and the full description, and a count of what it holds -- the subagents its plugin.json
+        names, its personas/*-persona.md, its skills/*/SKILL.md and the hook commands in hooks/hooks.json.
+        Whether it is enabled here is read from .claude/settings.json. A file that cannot be read is named in
+        the ReadError, and the plugin keeps its card with what could be read.
+    #>
+    $out = @(); $errs = @(); $enabled = @{}
+    try {
+        $settings = Get-Content -LiteralPath (Join-Path $root '.claude\settings.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        foreach ($p in @($settings.enabledPlugins.PSObject.Properties)) { if ($p.Value -eq $true) { $enabled[($p.Name -split '@')[0]] = $true } }
+    } catch { $errs += '.claude/settings.json' }
+    try { $market = Get-Content -LiteralPath (Join-Path $root '.claude-plugin\marketplace.json') -Raw -Encoding UTF8 | ConvertFrom-Json }
+    catch { return @{ Plugins = @(); Error = '.claude-plugin/marketplace.json' } }
+    foreach ($m in @($market.plugins)) {
+        $name = [string]$m.name; $source = [string]$m.source
+        if (-not $name) { continue }
+        $row = @{ Name = $name; Source = $source; Kind = (Get-MarketplacePluginKind -Name $name -Source $source); Enabled = [bool]$enabled[$name]
+                  Summary = [string]$m.description; Version = ''; Description = ''; Subagents = 0; Personas = 0; Skills = 0; Hooks = 0 }
+        # The source is data from a tracked file, so it is held inside plugins/ before anything is read from it.
+        $dir = if ($source -cmatch '^\./plugins/[A-Za-z0-9._/-]+\z' -and $source -notmatch '\.\.') { Join-Path $root ($source.Substring(2) -replace '/', '\') } else { $null }
+        if (-not $dir -or -not (Test-Path -LiteralPath $dir -PathType Container)) { $errs += "$name (its source)"; $out += $row; continue }
+        try {
+            $manifest = Get-Content -LiteralPath (Join-Path $dir '.claude-plugin\plugin.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+            $row.Version = [string]$manifest.version; $row.Description = [string]$manifest.description
+            $row.Subagents = @($manifest.agents | Where-Object { $_ }).Count
+        } catch { $errs += "$name/.claude-plugin/plugin.json" }
+        $row.Personas = @(Get-ChildItem -LiteralPath (Join-Path $dir 'personas') -File -Filter '*-persona.md' -ErrorAction SilentlyContinue).Count
+        $row.Skills = @(Get-ChildItem -LiteralPath (Join-Path $dir 'skills') -Directory -ErrorAction SilentlyContinue |
+            Where-Object { Test-Path -LiteralPath (Join-Path $_.FullName 'SKILL.md') -PathType Leaf }).Count
+        $hooksFile = Join-Path $dir 'hooks\hooks.json'
+        if (Test-Path -LiteralPath $hooksFile -PathType Leaf) {
+            try {
+                $hooks = (Get-Content -LiteralPath $hooksFile -Raw -Encoding UTF8 | ConvertFrom-Json).hooks
+                foreach ($ev in @($hooks.PSObject.Properties)) { foreach ($g in @($ev.Value)) { $row.Hooks += @($g.hooks | Where-Object { $_ }).Count } }
+            } catch { $errs += "$name/hooks/hooks.json" }
+        }
+        $out += $row
+    }
+    return @{ Plugins = $out; Error = ($errs -join ', ') }
+}
+
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $Port)
 $listener.Start()
@@ -357,6 +402,22 @@ try {
                 $html = Format-SpecialistsPageHtml -Rows $sp.Rows -ReadError $sp.Error -CharsPerToken $sp.CharsPerToken -Plugin $spPlugin -Specialist $spOne
                 if ($null -eq $html) {
                     Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found: no specialist plugin or specialist of that name.')) -Method $method
+                } else {
+                    Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                }
+                continue
+            }
+            if ($path -cmatch '^/plugins(?:/([a-z0-9-]+)(?:/([a-z0-9-]+))?)?/?\z') {
+                # Every plugin this marketplace ships, the specialist teams' page, or one plugin's own page (the
+                # owner, October 27, 2026): /plugins/dkj-subagents[/<team>] or /plugins/<name>. Anything the
+                # marketplace does not list is a 404, never an empty page.
+                $plFirst = [string]$Matches[1]; $plSecond = [string]$Matches[2]
+                $plGroup = if ($plFirst -ceq 'dkj-subagents') { $plFirst } elseif ($plSecond) { 'none' } else { '' }
+                $plName = if ($plGroup) { $plSecond } else { $plFirst }
+                $pl = Get-PluginsModel
+                $html = Format-MarketplacePluginsPageHtml -Plugins $pl.Plugins -ReadError $pl.Error -Group $plGroup -Plugin $plName
+                if ($null -eq $html) {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found: the marketplace lists no plugin of that name.')) -Method $method
                 } else {
                     Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 }

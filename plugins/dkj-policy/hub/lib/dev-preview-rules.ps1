@@ -21,7 +21,8 @@
                 OpenInVsCode = $false           # optional: also hand the URL to VS Code (see the hook)
                 OwnHub       = $false           # optional: this server IS the repo's hub, so the plugin's is not used (#3245)
                 DefaultTheme = 'teal'           # optional: the house theme the plugin's hub and general pages open in
-                                                #   while the visitor has picked none; lilac where unstated (#3390)
+                                                #   while the visitor has picked none; lilac where unstated (#3390), or
+                                                #   a pair by OS mode, @{ Light = 'blue'; Dark = 'sky' } (#3608)
                 Product      = @{ ... }         # optional, only with OwnHub = $true: a product beside that hub, stating
                                                 #   Command, Ports, Path, Requires and WaitSeconds as above (#3283)
             }
@@ -111,6 +112,15 @@ function Test-DevPreviewThemeId {
     return [bool]($Theme -cmatch '^[a-z][a-z0-9-]{0,31}\z')
 }
 
+function Test-DevPreviewThemeValue {
+    <#
+        True when -Theme is a DefaultTheme as the state file carries it: one theme id, or a light/dark pair
+        written 'light/dark' (#3608), each half a theme id (Test-DevPreviewThemeId).
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$Theme)
+    return [bool]($Theme -cmatch '^[a-z][a-z0-9-]{0,31}(/[a-z][a-z0-9-]{0,31})?\z')
+}
+
 function ConvertTo-DevPreviewConfig {
     <#
         Validates Get-DevPreview's answer and fills the defaults. Returns @{ Ok; Config; Problem }:
@@ -191,13 +201,25 @@ function ConvertTo-DevPreviewConfig {
 
     # The theme the plugin's hub and general pages open in (#3390): a theme id, the shape house-theme.js names its
     # themes in, so it can be written into an attribute as it stands. One the house style does not know falls
-    # back in the browser, the way a stored choice naming a retired theme does.
+    # back in the browser, the way a stored choice naming a retired theme does. A pair, @{ Light; Dark } (#3608),
+    # is carried as 'light/dark' and opens the pages in the half that matches the OS mode, as house-theme.js reads
+    # data-theme-light/dark; both halves are stated, and nothing else, so a typo is a problem and not a fallback.
     $theme = ''
     if ($null -ne $Raw['DefaultTheme']) {
-        $theme = [string]$Raw['DefaultTheme']
-        if (-not (Test-DevPreviewThemeId $theme)) {
-            $result.Problem = 'DefaultTheme must be a theme id: a lowercase letter, then lowercase letters, digits or hyphens, at most 32'
-            return $result
+        $raw = $Raw['DefaultTheme']
+        if ($raw -is [System.Collections.IDictionary]) {
+            $extra = @($raw.Keys | Where-Object { @('Light', 'Dark') -notcontains $_ })
+            if ($extra.Count -or -not (Test-DevPreviewThemeId ([string]$raw['Light'])) -or -not (Test-DevPreviewThemeId ([string]$raw['Dark']))) {
+                $result.Problem = 'a DefaultTheme pair must state Light and Dark, each a theme id, and nothing else'
+                return $result
+            }
+            $theme = [string]$raw['Light'] + '/' + [string]$raw['Dark']
+        } else {
+            $theme = [string]$raw
+            if (-not (Test-DevPreviewThemeId $theme)) {
+                $result.Problem = 'DefaultTheme must be a theme id: a lowercase letter, then lowercase letters, digits or hyphens, at most 32'
+                return $result
+            }
         }
     }
 
@@ -682,16 +704,25 @@ function Get-DevPreviewWatchStep {
         once the session has been disconnected for -GraceSeconds without a break: a brief Remote Desktop drop
         or a quick switch back keeps it. Any other state, an unreadable one included, resets the clock, so
         an uncertain read never stops a server.
+
+        A DISCONNECT COUNTS ONLY AFTER THE SESSION WAS SEEN CONNECTED (#3595), so the result carries -Armed
+        too: $false until a read of WTSActive (0) or WTSConnected (1). A session that already reads
+        disconnected when its server starts is in use while disconnected -- the hook that started the server
+        ran there -- and that is how Claude Code runs under another account on a machine that switches
+        accounts: measured October 27, 2026, the hook's session 42 read WTSDisconnected while the console was
+        another account's session 43, and the hub stopped about two minutes after every start.
     #>
     param(
         [int]$State,
         [AllowNull()]$Since,
         [Parameter(Mandatory = $true)][datetime]$Now,
-        [int]$GraceSeconds = $script:DevPreviewWatchGraceSeconds
+        [int]$GraceSeconds = $script:DevPreviewWatchGraceSeconds,
+        [bool]$Armed = $false
     )
-    if ($State -ne 4) { return @{ Stop = $false; Since = $null } }
+    if ($State -eq 0 -or $State -eq 1) { $Armed = $true }
+    if ($State -ne 4 -or -not $Armed) { return @{ Stop = $false; Since = $null; Armed = $Armed } }
     $from = if ($null -ne $Since) { [datetime]$Since } else { $Now }
-    return @{ Stop = (($Now - $from).TotalSeconds -ge $GraceSeconds); Since = $from }
+    return @{ Stop = (($Now - $from).TotalSeconds -ge $GraceSeconds); Since = $from; Armed = $Armed }
 }
 
 function Get-DevPreviewWatchArgs {
@@ -807,8 +838,8 @@ function ConvertFrom-RepoHubState {
         (Get-GeneralPagesPortRange), so a file another process can write cannot point a hub's links at any
         other local service. The urls are redirect targets and link hrefs, so a state file that names anything
         else is ignored. Mode is believed only as one of its three words; a file written before #3245 has
-        none, and reads as 'none': the plugin's own hub. Theme is believed only in a theme id's shape
-        (Test-DevPreviewThemeId), since every page writes it into its <html> (#3390).
+        none, and reads as 'none': the plugin's own hub. Theme is believed only as a theme id or a 'light/dark'
+        pair of them (Test-DevPreviewThemeValue), since every page writes it into its <html> (#3390, #3608).
     #>
     param([AllowNull()][AllowEmptyString()][string]$Text, [Parameter(Mandatory = $true)][string]$Root)
     $state = @{ Hub = ''; Pages = ''; Product = ''; Mode = 'none'; Theme = '' }
@@ -825,6 +856,6 @@ function ConvertFrom-RepoHubState {
     if ($p -cmatch '^http://localhost:([0-9]{4,5})/?\z' -and (@(Get-GeneralPagesPortRange) -contains [int]$Matches[1])) { $state.Pages = $p.TrimEnd('/') }
     if ($m -cmatch '^(none|product|ownhub)\z') { $state.Mode = $m }
     $t = if ($s.PSObject.Properties['theme']) { [string]$s.theme } else { '' }
-    if (Test-DevPreviewThemeId $t) { $state.Theme = $t }
+    if (Test-DevPreviewThemeValue $t) { $state.Theme = $t }
     return $state
 }

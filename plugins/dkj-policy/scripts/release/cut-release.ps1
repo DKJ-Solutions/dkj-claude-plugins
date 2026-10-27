@@ -557,20 +557,12 @@ $consumerBumps = @(Get-SeamValue -Name 'Get-ReleaseConsumerBumps', 'Get-ReleaseH
 $audienceTier = Get-EntryAudienceTier
 if ($null -eq $audienceTier) { $audienceTier = 2 }
 
-# AND WHICH OF THAT DOCUMENT'S THREE SECTIONS ITS READERS GET AT ALL (inbound #2564). Read and validated
-# HERE, before anything is written, so a misspelt answer stops the cut at the top instead of after the
-# version moved. $null (not defined) is all three -- the document every repo got before this seam.
-try {
-    $noteSections = Resolve-ReleaseNoteSections -Answer (Get-SeamValue -Name 'Get-ReleaseNoteSections' -Default $null)
-} catch {
-    # Guarded: the seam is consumer code, so the message it throws is foreign text (check-report-lib).
-    Write-Error "$(Format-SafeProseToken -Value $_.Exception.Message) Nothing was written."
-    exit 1
-}
+# Get-ReleaseNoteSections IS RETIRED (#3584): the note's two organisational sections are gone in every
+# repo, so the seam that switched them off has nothing left to choose, and an answer to it is not read.
 
 # AND WHETHER ITS AUDIENCE SECTION IS DRAFTED AS SOLVED TASKS, AND WHAT THE LIVE PUSH CARRIED (#2586,
-# #2570). Both are read and validated HERE, before anything is written, for the reason the sections seam
-# above is: a misspelt answer or a malformed record must stop the cut at the top.
+# #2570). Both are read and validated HERE, before anything is written: a misspelt answer or a malformed
+# record must stop the cut at the top.
 #
 # THE REFUSAL IS NARROW ON PURPOSE. Only a repo that asked for the task form AND has a live stage is
 # stopped without a record. Its note may list only what is live (the owner's third rule, #2564), and with
@@ -1006,14 +998,13 @@ if ($pluginTier) {
     if ($latestTag) {
         $current = ($latestTag -replace '^v', '')
         $currentSource = "the highest 'v*' git tag ($latestTag)"
-    } elseif ($Version) {
-        # First release in a repo with neither manifests nor tags: -Version says what it is, and
-        # 0.0.0 exists only so the bump-type label below has something to compare against.
+    } else {
+        # First release in a repo with neither manifests nor tags: 0.0.0 is the baseline, so -Version
+        # gets a bump-type label to compare against and -Bump counts from it (-Bump minor is 0.1.0).
+        # -Bump used to be refused here, while the tier gate below names a -Bump as its advice, so a
+        # first release got two answers that could not both be followed (#3581).
         $current = '0.0.0'
         $currentSource = 'neither a plugin manifest nor a v* tag -- this is a first release'
-    } else {
-        Write-Error "This repo publishes no plugins (Get-ReleasePluginTier is false) and carries no vX.Y.Z tag, so there is no current version to bump from. Pass -Version <X.Y.Z> for the first release."
-        exit 1
     }
 }
 
@@ -1736,7 +1727,7 @@ if ($cutNote) {
     $noteLinkPrefix = Get-EntryLinkPrefix -NoteRelPath $noteRelPath -ChangelogRelPath $changelogRel
     $noteContent = Build-ReleaseNoteDraft -Entries $audienceEntries -Version $new -Date $today `
         -Type $typeLabel -Title $Title -Wording $noteWording -LinkPrefix $noteLinkPrefix `
-        -AudienceTier $audienceTier -WithheldNote $noteWithheldNote -Sections $noteSections -TaskItems $taskItems
+        -AudienceTier $audienceTier -WithheldNote $noteWithheldNote -TaskItems $taskItems
 }
 
 # --- Write the release-notes file -------------------------------------------------------------

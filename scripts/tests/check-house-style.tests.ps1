@@ -63,6 +63,13 @@ $oldRow = '| `{0}` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude
 $oldPage = ($oldRow -f 'house-style.css', ('a' * 64)) + "`n" + ($oldRow -f 'house-theme.js', ('b' * 64))
 Assert-Equal 'v5.32.0' (Get-HouseStylePin -SkillText $oldPage).Tag 'a pin URL on the pre-#3531 path still yields its tag'
 
+# The page at the tag (#3588): taken only when it pins the same tag the installed page names.
+$installed = @{ Tag = 'v5.32.0'; Hashes = @{} }
+Assert-Equal ('a' * 64) (Get-HouseStyleTagPin -Pin $installed -TagPageText $oldPage).Hashes['house-style.css'] 'the page at the tag yields its own checksums'
+Assert-True ($null -eq (Get-HouseStyleTagPin -Pin @{ Tag = 'v5.33.0'; Hashes = @{} } -TagPageText $oldPage)) 'a page naming another tag is no pin'
+Assert-True ($null -eq (Get-HouseStyleTagPin -Pin $installed -TagPageText 'no table')) 'a page without a table is no pin'
+Assert-True ($null -eq (Get-HouseStyleTagPin -Pin @{ Tag = 'main'; Hashes = @{} } -TagPageText $oldPage)) 'a pin that names no release tag is never fetched'
+
 Write-Host '-- group 1b: a CRLF checkout of the pinned file is still the pinned file' -ForegroundColor Cyan
 
 $lf   = [System.Text.Encoding]::ASCII.GetBytes("a{}`nb{}`n")
@@ -173,6 +180,10 @@ function Invoke-Child([string]$Script, [string]$Dir, [string]$ParamName) {
     return @{ Code = $LASTEXITCODE; Out = $out }
 }
 
+# A drifted copy makes the gate and the hook ask for the page at the tag (#3588); a name with no file behind
+# it keeps every child offline and reads as an unreadable page, unless a case below points it at one.
+$env:DKJ_HOUSE_STYLE_TAG_PAGE = Join-Path $Fixture 'no-tag-page.md'
+
 try {
     $clean = New-FixtureRepo 'clean'
     Add-PinnedCopy $clean
@@ -189,6 +200,24 @@ try {
     [System.IO.File]::WriteAllText($otherPage, ([System.IO.File]::ReadAllText($Skill) -replace [regex]::Escape($pin.Hashes['house-style.css']), ('0' * 64)))
     $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Gate -RepoRoot $clean -SkillPath $otherPage 2>&1 | Out-String
     Assert-True ($LASTEXITCODE -eq 1 -and $out -match '\[pin\] web/house-style\.css') '-SkillPath: the copies are held to the page handed in, not to the one beside the gate'
+
+    # #3588: the installed page is newer than its tag, and the copy is the tag's. The page at the tag clears it.
+    $released = New-FixtureRepo 'released'
+    Add-PinnedCopy $released
+    Add-Content -LiteralPath (Join-Path $released 'web\house-style.css') -Value '/* the released bytes */'
+    Invoke-FixtureGitIn $released add -A
+    $releasedHash = (Get-HouseStyleSha256 -Bytes ([System.IO.File]::ReadAllBytes((Join-Path $released 'web\house-style.css'))))[0]
+    $r = Invoke-Child $Hook $released 'RepoRootOverride'
+    Assert-True ($r.Out -match '\[pin\] web/house-style\.css') 'with the page at the tag unreadable, the copy is still a finding'
+    $env:DKJ_HOUSE_STYLE_TAG_PAGE = Join-Path $Fixture 'SKILL-released.md'
+    [System.IO.File]::WriteAllText($env:DKJ_HOUSE_STYLE_TAG_PAGE, ([System.IO.File]::ReadAllText($Skill) -replace [regex]::Escape($pin.Hashes['house-style.css']), $releasedHash))
+    $r = Invoke-Child $Hook $released 'RepoRootOverride'
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'holds at') 'the session check judges a failing copy again at the tag, and it holds'
+    $r = Invoke-Child $Gate $released 'RepoRoot'
+    Assert-True ($r.Code -eq 0 -and $r.Out -match '\[note\].*as it reads at') '...and so does the gate run from an install, saying so'
+    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Gate -RepoRoot $released -SkillPath $Skill 2>&1 | Out-String
+    Assert-True ($LASTEXITCODE -eq 1) 'a -SkillPath is already the page at the tag, so the gate does not look again'
+    $env:DKJ_HOUSE_STYLE_TAG_PAGE = Join-Path $Fixture 'no-tag-page.md'
 
     $drift = New-FixtureRepo 'drift'
     Add-PinnedCopy $drift
@@ -229,6 +258,8 @@ try {
 } finally {
     Remove-Item -LiteralPath $Fixture -Recurse -Force -ErrorAction SilentlyContinue
 }
+# The self-run below is a clean repo and asks for no page.
+Remove-Item Env:\DKJ_HOUSE_STYLE_TAG_PAGE -ErrorAction SilentlyContinue
 
 $r = Invoke-Child $Gate $RepoRoot 'RepoRoot'
 Assert-Equal 0 $r.Code 'this repo passes its own house-style gate'

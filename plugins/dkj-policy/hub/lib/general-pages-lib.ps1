@@ -50,7 +50,7 @@
 $script:GeneralPagesThemeDefault = ''
 
 function Set-GeneralPagesThemeDefault {
-    <# The theme every page opens in when the visitor has picked none (#3390); '' or $null restores lilac. #>
+    <# The theme every page opens in when the visitor has picked none (#3390), or a 'light/dark' pair (#3608); '' or $null restores lilac. #>
     param([AllowNull()][AllowEmptyString()][string]$Theme)
     $script:GeneralPagesThemeDefault = [string]$Theme
 }
@@ -60,6 +60,19 @@ function Get-GeneralPagesThemeDefault {
     $t = Get-Variable -Name GeneralPagesThemeDefault -Scope Script -ValueOnly -ErrorAction SilentlyContinue
     if ($t) { return [string]$t }
     return 'lilac'
+}
+
+function Format-GeneralPagesThemeAttributes {
+    <#
+        The <html> attributes that state the default theme, escaped: data-theme-default for one theme id, or
+        data-theme-light and data-theme-dark for a 'light/dark' pair (#3608), which house-theme.js picks from
+        by the OS mode. A pair leaves data-theme-default out, since that one would win in both modes.
+    #>
+    $e = { param($v) ConvertTo-GeneralPageText $v }
+    $t = Get-GeneralPagesThemeDefault
+    $slash = $t.IndexOf('/')
+    if ($slash -lt 0) { return 'data-theme-default="' + (& $e $t) + '"' }
+    return 'data-theme-light="' + (& $e $t.Substring(0, $slash)) + '" data-theme-dark="' + (& $e $t.Substring($slash + 1)) + '"'
 }
 
 function ConvertTo-GeneralPageText {
@@ -118,11 +131,13 @@ function Format-GeneralPageHtml {
         the first crumb, "Home" (#3270), goes: '/hub' on the general server, which answers it with the home page or, under OwnHub,
         sends the visitor on to the repo's own hub -- or, where a hub relays these pages from its own origin, '/hub' on that hub, which
         answers it itself (#3168). -Style is the page's own layer, names the house file does not define. -Lead and
-        -FooterNote are markup the caller has escaped. -Brand opts into the house site header (Format-SiteHeaderHtml):
+        -FooterNote are markup the caller has escaped. -Lead is the page's <meta name="description">, never a
+        paragraph under the h1: screen height is scarce, so a page opens on its h1 and goes straight to its content
+        (owner, #3585). -Brand opts into the house site header (Format-SiteHeaderHtml):
         the app's name on the primary above the bar, linking -HubHref, with the settings button in it; the eyebrow
         then goes, since the header already names the site. -BrandTag is the word after the name. A page that
         names -SiteName and no -Brand gets the header anyway (ConvertTo-SiteHeaderName), since October 22, 2026. Without it the page is as it always was.
-        -Bare (a page's own choice, default off) leaves out the intro above -Body: the h1 and the lead, so the page
+        -Bare (a page's own choice, default off) leaves out the intro above -Body: the h1, so the page
         opens on the general banner (the first block of every page, above the h1 where there is one) and then its own content; the crumbs, the site header and the banner stay (the
         banner is on every hub page without exception, #3356), and -Title still names the crumb and the <title>.
         -Lead may then be empty.
@@ -157,11 +172,14 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine('<!doctype html>')
     # The theme key is shared by every page of one server, so a theme picked on one page holds on the next.
     # With no width picked yet the pages open full width: a hub is tables and cards, not a reading column.
-    [void]$sb.AppendLine('<html lang="en" data-theme-default="' + (& $e (Get-GeneralPagesThemeDefault)) + '" data-width-default="full" data-theme-key="' + (& $e $ThemeKey) + '">')
+    [void]$sb.AppendLine('<html lang="en" ' + (Format-GeneralPagesThemeAttributes) + ' data-width-default="full" data-theme-key="' + (& $e $ThemeKey) + '">')
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
     [void]$sb.AppendLine('<title>' + $site + (& $e $Title) + '</title>')
+    # The lead is metadata, not a line on screen (#3585): its tags go, its entities are already escaped.
+    $description = ([regex]::Replace($Lead, '<[^>]*>', '')).Replace('"', '&quot;').Trim()
+    if ($description) { [void]$sb.AppendLine('<meta name="description" content="' + $description + '">') }
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The page layer: only names the house file does not define (.dp-*).
@@ -191,8 +209,6 @@ function Format-GeneralPageHtml {
         [void]$sb.AppendLine('<div>')
         if ($Eyebrow -and -not $Brand) { [void]$sb.AppendLine('<p class="eyebrow">' + (& $e $Eyebrow) + '</p>') }
         [void]$sb.AppendLine('<h1>' + (& $e $Title) + '</h1>')
-        # An empty -Lead draws no empty paragraph (the Plugins overview, #3482).
-        if ($Lead) { [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>') }
         [void]$sb.AppendLine('</div>')
         if ($HeadAside) { [void]$sb.AppendLine($HeadAside); [void]$sb.AppendLine('</header>') }
     }
@@ -277,7 +293,7 @@ function Format-RepoHubBanner {
         gist every machine shares. The rules are in airsquats-lib.ps1. The countdown is the page's own and needs
         nothing. An hour still counts only where a hub saw it begin, so a night with every hub closed adds nothing,
         and the server says when to play the tone: once per machine, within two minutes of the hour. A page on a
-        server without the API (a request that fails) shows no banner at all. A browser may hold the tone back
+        server without the API (a request answered with an error) shows no banner at all. A browser may hold the tone back
         until the page has had a click, which is its rule, not this page's.
 
         ONLY WHILE SOMETHING IS DUE (Dave, October 27, 2026): the strip is hidden until the server reports an hour
@@ -291,10 +307,16 @@ function Format-RepoHubBanner {
         once the first answer arrives. On a machine with several Windows accounts logged on, localhost ports
         are shared between them, so the hub a browser opens may be another account's, and this is where that
         shows. A server that names no account leaves the row as it was.
+
+        AND IT SAYS SO WHEN ITS SERVER STOPS ANSWERING (#3596): after two polls in a row whose request fails
+        outright -- about 30 seconds -- the strip opens on 'hub offline, this hour is not counted', because an hour
+        counts only where a server sees it begin and one missed that way cannot be recovered. The countdown is the
+        page's own and would otherwise keep ticking towards nothing. The first answer clears it. A server that
+        answers without the API is not offline, so it still shows no banner.
     #>
     return @'
 <div class="notice" id="hub-banner" role="region" aria-label="Airsquats" style="margin: 0; border: 0; border-radius: 0" hidden>
-<p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong><span class="msg--warn" data-hub-due hidden> &middot; <label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> due</label></span><span data-hub-owner hidden title="The Windows account this toolbox runs under"> &middot; <span data-hub-account></span></span></p>
+<p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong><span class="msg--warn" data-hub-due hidden> &middot; <label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> due</label></span><span class="msg--warn" data-hub-offline hidden> &middot; hub offline, this hour is not counted</span><span data-hub-owner hidden title="The Windows account this toolbox runs under"> &middot; <span data-hub-account></span></span></p>
 </div>
 <script>
 (function () {
@@ -304,6 +326,7 @@ function Format-RepoHubBanner {
   var timer = box.querySelector("[data-hub-timer]"), due = box.querySelector("[data-hub-due]");
   var done = box.querySelector("[data-hub-done]"), count = box.querySelector("[data-hub-count]");
   var owner = box.querySelector("[data-hub-owner]"), account = box.querySelector("[data-hub-account]");
+  var offline = box.querySelector("[data-hub-offline]"), fails = 0, OFFLINE = 2;
   var asked = 0, hour = Math.floor(Date.now() / HOUR), first = true, want = false, anim = null;
   var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   function slide(open) {
@@ -328,15 +351,29 @@ function Format-RepoHubBanner {
   function show(s) {
     if (!s || typeof s.owed !== "number") { return; }
     if (typeof s.account === "string" && s.account) { account.textContent = s.account; owner.hidden = false; }
-    if (s.owed > 0) { due.hidden = false; count.textContent = String((s.per || 10) * s.owed); }
+    due.hidden = !(s.owed > 0);
+    if (s.owed > 0) { count.textContent = String((s.per || 10) * s.owed); }
     slide(s.owed > 0);
     first = false;
     if (s.announce) { tone(); }
   }
+  function down() {
+    fails++;
+    if (fails < OFFLINE) { return; }
+    offline.hidden = false;
+    slide(true);
+    first = false;
+  }
+  function up() {
+    fails = 0;
+    if (offline.hidden) { return; }
+    offline.hidden = true;
+    slide(!due.hidden);
+  }
   function ask(method, path) {
     if (!window.fetch) { return; }
     fetch(path, { method: method, cache: "no-store", credentials: "same-origin" })
-      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (r) { up(); return r.ok ? r.json() : null; }, function () { down(); return null; })
       .then(show, function () { });
   }
   done.addEventListener("change", function () {
@@ -516,8 +553,9 @@ function Format-RepoHomeHeadHtml {
     <#
         The top of a repo's home page on '/' (#3270), the same in every hub: the breadcrumb bar with its one
         crumb, Home; the settings button; and the opening of <main> with the intro, whose h1 is the repo's
-        name (-RepoName, escaped by the caller) and whose lead (-Lead, markup the caller escaped) is what the
-        repo is for. No eyebrow: the h1 already names the repo. The general banner (#3250) opens it, above the
+        name (-RepoName, escaped by the caller). -Lead (markup the caller escaped) is what the repo is for; it is
+        kept for the callers that pass it, and drawn nowhere, since a page carries no lead under its h1 (#3585):
+        the caller's own <head> is where a description goes. No eyebrow: the h1 already names the repo. The general banner (#3250) opens it, above the
         site header. With -Brand the site header stands above the bar and there is no intro: <main> opens on the
         sections. The caller writes the <head> and '<body>' before it and the sections and </main> after it.
     #>
@@ -539,7 +577,6 @@ function Format-RepoHomeHeadHtml {
     if (-not $Brand) {
         [void]$sb.AppendLine('<div>')
         [void]$sb.AppendLine('<h1>' + $RepoName + '</h1>')
-        [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>')
         [void]$sb.AppendLine('</div>')
     }
     return $sb.ToString()
@@ -1102,13 +1139,15 @@ function Get-SessionStartSnapshotSections {
 
     $sb = New-Object System.Text.StringBuilder
     $h = $Snapshot.header
-    if ($h -and $h.lede) { [void]$sb.AppendLine('<p>' + (& $md $h.lede) + '</p>') }
     $scoreText = if ($null -ne $score) { "$score / 100" + $(if ($null -ne $prevScore -and $prevScore -ne $score) { ' (was ' + $prevScore + ')' } else { '' }) } else { '--' }
     [void]$sb.Append((Format-DevTiles @(
         @{ L = 'Efficiency score'; V = $scoreText },
         @{ L = 'Direct (tokens)'; V = ('~' + (Format-DevNumber $sum.direct) + (& $pct $sum.direct)) },
         @{ L = 'Via a setting (tokens)'; V = ('~' + (Format-DevNumber $sum.setting) + (& $pct $sum.setting)) },
         @{ L = 'No influence (tokens)'; V = ('~' + (Format-DevNumber $sum.none) + (& $pct $sum.none)) })))
+    # The lede is the measurement's own finding, so it stays, but below the figures it sums up rather than
+    # under the heading: a page opens on its h1 and goes straight to its content (#3585, #3591).
+    if ($h -and $h.lede) { [void]$sb.AppendLine('<p>' + (& $md $h.lede) + '</p>') }
     [void]$sb.AppendLine('<p class="note">The score is the share of the start that Claude Code itself brings, against everything this repo and this account add on top. Only a start that adds nothing scores 100.</p>')
     $sections.Add(@{ Slug = 'last-measurement'; Title = 'The last full measurement'
         Sub = (& $e $(if ($h) { $h.eyebrow } else { $Snapshot.asOf })); Value = ('Efficiency score ' + $scoreText); Body = $sb.ToString() })
@@ -1171,13 +1210,14 @@ function Get-SessionStartSnapshotSections {
     $adv = $Snapshot.advice
     if ($adv) {
         $sb = New-Object System.Text.StringBuilder
-        if ($adv.lede) { [void]$sb.AppendLine('<p>' + (& $md $adv.lede) + '</p>') }
         $steps = @(@($adv.steps) | Where-Object { $_ })
         if ($steps.Count) {
             [void]$sb.AppendLine('<ol>')
             foreach ($s in $steps) { [void]$sb.AppendLine('<li><strong>' + (& $md $s.title) + '</strong> ' + (& $md $s.text) + '</li>') }
             [void]$sb.AppendLine('</ol>')
         }
+        # The advice's conclusion follows its steps, never opens the section (#3591).
+        if ($adv.lede) { [void]$sb.AppendLine('<p>' + (& $md $adv.lede) + '</p>') }
         if ($adv.dont -and $adv.dont.text) {
             [void]$sb.AppendLine('<p class="msg" role="note"><strong>' + (& $e $(if ($adv.dont.label) { $adv.dont.label } else { 'Do not' })) + ':</strong> ' + (& $md $adv.dont.text) + '</p>')
         }
@@ -1312,6 +1352,43 @@ function Format-SessionStartPageHtml {
     return Format-GeneralPageHtml -Title 'SessionStart' -Style $script:SessionStartStyle -Body $body.ToString() -Lead '' -Bare -SiteName $RepoName -FooterNote $footer
 }
 
+function Format-ReleaseNotesEmptyPageHtml {
+    <#
+        Pure: the release-notes index of a repo that has never cut a release (#3580). The builder answers that
+        state with exit 3 rather than a page, because before the first cut there is nothing to build from and
+        nothing the repo could add to change that -- so the hub says so as an empty state, not as an error.
+    #>
+    param([AllowEmptyString()][string]$RepoName = '')
+    $body = '<p class="msg" role="status">No release has been cut yet. The release notes appear here with the first cut.</p>'
+    return Format-GeneralPageHtml -Title 'Release notes' -Lead '' -Body $body -SiteName $RepoName
+}
+
+$script:ReleaseNotesHouseColors = [ordered]@{
+    'bg' = 'paper-1'; 'panel' = 'paper-2'; 'ink' = 'fg-1'; 'ink-soft' = 'fg-2'; 'ink-faint' = 'muted'
+    'line' = 'paper-3'; 'accent' = 'primary'; 'accent-soft' = 'paper-2'; 'code-bg' = 'paper-1'
+}
+
+function ConvertTo-ReleaseNotesHouseColors {
+    <#
+        Pure: the template's own <style> with every colour it reads from its own palette read from a house
+        token instead -- 'background: var(--code-bg)' becomes 'background: var(--paper-1)'. ONLY HOUSE COLOUR
+        TOKENS ON THE HUB (owner, October 27, 2026): until then a layer here pointed the template's tokens at
+        house ones, so the served page still read var(--code-bg) and reached the house through it. Only uses
+        (var(--x)) are rewritten, never the palette's own definitions, which nothing reads any more on this
+        copy; and only in the first <style>, the template's, so its script and its notes are left alone. The
+        template on disk keeps its palette, because a Worker and a BWJ-Development repo serve it without the
+        house style.
+    #>
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Html)
+    $end = $Html.IndexOf('</style>')
+    if ($end -lt 0) { return $Html }
+    $names = ($script:ReleaseNotesHouseColors.Keys | Sort-Object -Property Length -Descending) -join '|'
+    $css = ([regex]('var\(--(' + $names + ')\)')).Replace($Html.Substring(0, $end), {
+        param($m) 'var(--' + $script:ReleaseNotesHouseColors[$m.Groups[1].Value] + ')'
+    })
+    return $css + $Html.Substring($end)
+}
+
 function Format-ReleaseNotesDevPage {
     <#
         The built release-notes page (#3108), as a dev server serves it: the house stylesheet and theme
@@ -1325,10 +1402,10 @@ function Format-ReleaseNotesDevPage {
         who reads it. So the page is dressed here, on the way out, and the file on disk stays the template's.
 
         THE ORDER IS THE MECHANISM. The house file goes in AFTER the template's own <style>, so the house
-        body (surface, ink, font) wins on equal specificity; then a layer that points the template's own
-        tokens at house tokens, so its panel, lines and accent follow whichever theme is picked. Those token
-        names are the template's, none of them a house name, so nothing in the house file is redefined.
-        The same layer gives the template's column, masthead, sheet and colophon the Stopwatch page's
+        body (surface, ink, font) wins on equal specificity. Every colour the template's own rules read is
+        rewritten to a house token first (ConvertTo-ReleaseNotesHouseColors), so its panel, lines and accent
+        follow whichever theme is picked and the served page reads house colour tokens only; nothing in the
+        house file is redefined. Then a layer gives the template's column, masthead, sheet and colophon the Stopwatch page's
         measures (owner, October 25, 2026): the page column's width, padding and gap, the house h1, a
         .card's border and radius, and a .footer-note's ink. Its width rules keep winning on specificity.
 
@@ -1358,9 +1435,6 @@ function Format-ReleaseNotesDevPage {
         '<link rel="stylesheet" href="/house-style.css">'
         '<script src="/house-theme.js"></script>'
         '<style>'
-        '/* The template''s tokens, read from the house ones (#3108). */'
-        ':root { --bg: var(--paper-1); --panel: var(--paper-2); --ink: var(--fg-1); --ink-soft: var(--fg-2); --ink-faint: var(--muted);'
-        '  --line: var(--paper-3); --accent: var(--primary); --accent-soft: var(--paper-2); --code-bg: var(--paper-1); }'
         '/* The template''s layout, read as the Stopwatch page''s: main.page-column, a house h1, a .card, a .footer-note. */'
         '.wrap { max-width: 1080px; display: grid; gap: var(--spacing-5); align-content: start; padding: var(--spacing-4) var(--spacing-4) var(--spacing-12); }'
         'header.masthead { padding: 0; }'
@@ -1399,6 +1473,7 @@ function Format-ReleaseNotesDevPage {
     # site header, which already names the site. Only here -- the Worker's page has no header, and there the
     # eyebrow is the one line naming whose releases these are.
     if ($RepoName) { $Html = ([regex]'<span class="eyebrow">[^<]*</span>\s*').Replace($Html, '', 1) }
+    $Html = ConvertTo-ReleaseNotesHouseColors -Html $Html
     $bodyEnd = $Html.LastIndexOf('</body>')
     # The general banner above the site header, as on every other hub page (#3297; owner, October 24, 2026). It
     # stands outside the template's layout, so that is left alone.
@@ -1414,6 +1489,6 @@ function Format-ReleaseNotesDevPage {
     # The theme key is the server's, so a theme picked on one page holds on this one too, and with no
     # choice stored it falls back to the defaults every other dev page uses: the repo's stated theme or lilac
     # (#3162, #3390) and full width.
-    $out = $htmlRx.Replace($out, ('<html lang="en" data-theme-default="' + (& $e (Get-GeneralPagesThemeDefault)) + '" data-width-default="full" data-theme-key="' + (& $e $ThemeKey) + '">'), 1)
+    $out = $htmlRx.Replace($out, ('<html lang="en" ' + (Format-GeneralPagesThemeAttributes) + ' data-width-default="full" data-theme-key="' + (& $e $ThemeKey) + '">'), 1)
     return $out
 }

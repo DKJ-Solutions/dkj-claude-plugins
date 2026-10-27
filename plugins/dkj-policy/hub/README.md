@@ -120,7 +120,11 @@ its product and the hub is this plugin's.
    account's, which cannot stop it without elevation. So each server gets a watcher in the same session,
    [`pages/dev-preview-watch.ps1`](pages/dev-preview-watch.ps1). Once that session has stayed disconnected for
    a minute, the watcher stops the server's whole tree, and it exits with the server either way. Session 0 gets
-   none, because it always reads as disconnected.
+   none, because it always reads as disconnected. **A disconnect counts only after the session was seen
+   connected** ([#3595](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3595)): a session that
+   reads disconnected from the start is in use while disconnected, because the hook ran there. Claude Code
+   under a second account on a machine that switches accounts runs exactly so, and its hub used to stop about
+   two minutes after every start.
 4. It writes the state file, and prints **one line**, which hands out both links:
 
 | The repo | The line |
@@ -172,7 +176,10 @@ function Get-DevPreview {
 - **`DefaultTheme` is the theme the plugin's pages open in while the visitor has picked none**
   ([#3390](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3390)): a house theme id, such as
   `teal`. A repo whose own product or hub opens in its own theme states it here, so the hub and the general
-  pages it links do not open in another. Unstated, they keep lilac (#3162). It must have a theme id's shape
+  pages it links do not open in another. Unstated, they keep lilac (#3162). A product that opens in a
+  light/dark pair states the same pair, `DefaultTheme = @{ Light = 'blue'; Dark = 'sky' }`
+  ([#3608](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3608)), and the pages then open in the
+  half that matches the OS mode; a pair states both halves and nothing else. Each theme must have a theme id's shape
   (a lowercase letter, then lowercase letters, digits or hyphens); anything else is a problem the line
   names. It belongs to the hub alone, so a `Product` may not state it. The hook writes it into the state
   file, and the general pages server reads it per request, so a change reaches the next page after a

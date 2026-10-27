@@ -236,13 +236,19 @@
 
   /* ---------- the note itself ---------- */
   article h1 { font-size: 1.35rem; letter-spacing: -.015em; margin: 0 0 .5rem; line-height: 1.25; }
-  article h2 { font-size: 1.1rem; margin: 1.75rem 0 .5rem; padding-top: 1rem; border-top: 1px solid var(--line); }
-  article h3 { font-size: 1rem; margin: 1.5rem 0 .35rem; }
+  /* NO RULE ABOVE A SECTION'S H2 (owner, October 27, 2026), and no padding either, which only held the rule
+     off the heading: the grid of cards under it already marks where a section starts. */
+  /* THE HOUSE TYPE SCALE WHERE THERE IS ONE (owner, October 27, 2026): --text-h2, --text-h3 and, for a
+     paragraph below, --text-base come from the
+     house stylesheet the hub puts around this page. The page is self-contained, so where nothing defines them
+     (a Worker-served page) the fallback is the size it always had. */
+  article h2 { font-size: var(--text-h2, 1.1rem); margin: 1.75rem 0 .5rem; }
+  article h3 { font-size: var(--text-h3); font-weight: 800; margin: 1.5rem 0 .35rem; }
   article h4 {
     font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
     color: var(--accent); margin: 1.5rem 0 .5rem;
   }
-  article p { margin: .8rem 0; max-width: 66ch; }
+  article p { margin: .8rem 0; max-width: 66ch; font-size: var(--text-base, 1rem); }
   article ul, article ol { padding-left: 1.35rem; margin: .8rem 0; max-width: 66ch; }
   article li { margin: .3rem 0; }
   article li > p { margin: .3rem 0; }
@@ -267,6 +273,38 @@
   article table { border-collapse: collapse; width: 100%; font-size: .92rem; }
   article th, article td { border: 1px solid var(--line); padding: .4rem .6rem; text-align: left; vertical-align: top; }
   article th { background: var(--code-bg); font-weight: 620; }
+
+  /* ---------- a section's points, as a grid ----------
+     THREE COLUMNS AT MOST (owner, October 27, 2026). A note section is a run of independent points -- a
+     paragraph led by a bold sentence, or a bullet -- so they are laid out as cells side by side rather
+     than as one long column. The same max() trick as the index cards: a column is never narrower than
+     14rem and never narrower than a third of the row, so a wide page stops at three and a phone gets one.
+     gridNoteSections() below decides which sections qualify; this only says how a qualifying one looks. */
+  .note-grid {
+    --cell-gap: 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(max(14rem, (100% - 2 * var(--cell-gap)) / 3), 1fr));
+    gap: var(--cell-gap);
+    margin: .9rem 0 0;
+  }
+  .note-cell {
+    padding: .85rem 1rem;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: .6rem;
+    min-width: 0;
+  }
+  .note-cell > :first-child { margin-top: 0; }
+  .note-cell > :last-child { margin-bottom: 0; }
+  .note-cell p, .note-cell ul, .note-cell ol { max-width: none; }
+  /* EVERY CARD IS TITLED WITH AN H3, NEVER AN H2 (owner, October 27, 2026): the bold sentence a point opens
+     with is lifted into one by liftCellTitle(). The house style's hard rule (#206, #3175) -- an h2 heads a
+     group of cards and stands ABOVE it, so a card under it takes an h3 or no title at all. Here the section's
+     own h2 is that heading. Sized as a card title, without a heading's rule and air. */
+  article .note-cell h3 {
+    font-size: var(--text-h3); line-height: 1.4; font-weight: 800;
+    margin: 0 0 .4rem; padding: 0; border: 0;
+  }
 
   footer.colophon {
     margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line);
@@ -493,12 +531,74 @@
   var bodies = {};
   DATA.releases.forEach(function (r) { bodies[r.version] = r.body; });
 
+  // A SECTION OF POINTS BECOMES A GRID (owner, October 27, 2026). Done on the rendered DOM rather than
+  // inside renderMd, so the renderer stays a plain markdown renderer. A section is everything between two
+  // h2s; it qualifies only when it holds nothing but paragraphs and lists and adds up to two points or
+  // more -- a section with a table, code or a sub-heading has a shape of its own and is left alone, and a
+  // single point gains nothing from a grid. Each paragraph is a point, and so is each item of a list.
+  // A card whose first paragraph OPENS with a bold sentence gets that sentence as its h3 -- never an h2,
+  // which is the section heading standing above the grid (the house style's rule, #3175) -- and the rest
+  // of the paragraph stays below it; a paragraph that was only the sentence goes. A card that does not
+  // open that way keeps its text as it is -- a title is lifted, never invented.
+  function liftCellTitle(cell) {
+    var p = cell.firstChild;
+    if (!p || p.tagName !== 'P') { return; }
+    var lead = p.firstChild;
+    if (!lead || lead.tagName !== 'STRONG') { return; }
+    var h = document.createElement('h3');
+    while (lead.firstChild) { h.appendChild(lead.firstChild); }
+    p.removeChild(lead);
+    var next = p.firstChild;
+    if (next && next.nodeType === 3) { next.nodeValue = next.nodeValue.replace(/^\s+/, ''); }
+    cell.insertBefore(h, p);
+    if (!/\S/.test(p.textContent)) { cell.removeChild(p); }
+  }
+
+  function gridNoteSections(article) {
+    var kids = Array.prototype.slice.call(article.children);
+    var runs = [];
+    var run = null;
+    kids.forEach(function (k) {
+      if (/^H[12]$/.test(k.tagName)) { run = []; runs.push(run); return; }
+      if (run) { run.push(k); }
+    });
+    runs.forEach(function (nodes) {
+      if (!nodes.length) { return; }
+      var plain = nodes.every(function (n) { return /^(P|UL|OL)$/.test(n.tagName); });
+      if (!plain) { return; }
+      var points = [];
+      nodes.forEach(function (n) {
+        if (n.tagName === 'P') { points.push([n]); return; }
+        Array.prototype.slice.call(n.children).forEach(function (li) {
+          points.push(Array.prototype.slice.call(li.childNodes));
+        });
+      });
+      if (points.length < 2) { return; }
+      // The grid is placed BEFORE anything moves, while nodes[0] still sits in the article. Afterwards a
+      // paragraph lives in its cell, so only what is still the article's own -- an emptied list -- is
+      // removed; removing every node by its current parent took each paragraph back out of its cell.
+      var grid = document.createElement('div');
+      grid.className = 'note-grid';
+      article.insertBefore(grid, nodes[0]);
+      points.forEach(function (parts) {
+        var cell = document.createElement('div');
+        cell.className = 'note-cell';
+        // renderList wraps an item's text in <p>, so a bullet's cell starts with one as a paragraph's does.
+        parts.forEach(function (x) { cell.appendChild(x); });
+        liftCellTitle(cell);
+        grid.appendChild(cell);
+      });
+      nodes.forEach(function (n) { if (n.parentNode === article) { article.removeChild(n); } });
+    });
+  }
+
   // A release's page carries exactly one note, so it is rendered at once.
   Array.prototype.slice.call(document.querySelectorAll('article[data-version]')).forEach(function (el) {
     var md = bodies[el.getAttribute('data-version')];
     // A page with no body in its data is a build-time inconsistency rather than a reader's problem: say
     // so in place instead of leaving an empty panel that looks like a rendering failure.
     el.innerHTML = md ? renderMd(md) : '<p>This release has no note in the repository.</p>';
+    if (md) { gridNoteSections(el); }
   });
 
   // AN OLD LINK FORWARDS TO THE RELEASE'S OWN PAGE. Before every release had a page, a link to one was

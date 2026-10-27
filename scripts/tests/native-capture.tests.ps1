@@ -2022,7 +2022,14 @@ foreach ($af in $auditFiles) {
 # 100 -> 101 (#3572): claim-issue.ps1's stale-park release read (`gh api repos/<owner/repo>/releases/latest`), at
 # the shared network bound, for the two external waits. It asks Test-NativeExitMeasured, and anything but a
 # measured 0 -- a repo that never published a release answers 404 -- is unread, so the issue stays skipped.
-Assert-Equal 101 $boundedTotal 'the parser still counts 101 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 101 -> 102 (#3602): new-branch.ps1's $siblingHeads (`git ls-remote --heads origin`), at the shared network
+# bound, on a fresh cut of a numbered name. It asks Test-NativeExitMeasured, and anything but a measured 0 is
+# said and passed -- the remote could not rule a sibling out -- as the claim's unmarked-branch check passes it.
+# 102 -> 107 (#3605): trunk-sync-lib.ps1's five git captures -- Get-TrunkSyncGitLine's read, $probe, $fetch,
+# $status and $merge -- each bounded because the SessionStart prep step runs before the dispatcher's pool and
+# nothing else can interrupt it. Each asks Test-NativeExitMeasured, and anything but a measured 0 is "could not
+# establish": a skip or a failure, never a fast-forward.
+Assert-Equal 107 $boundedTotal 'the parser still counts 107 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
