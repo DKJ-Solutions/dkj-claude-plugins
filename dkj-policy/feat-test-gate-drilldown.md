@@ -66,7 +66,7 @@ the window should say so at once.
 - [x] `dev-pages.tests.ps1`: the page section rewritten for the levels, plus the fit alarm (368 passed); the two asserts that counted every `msg--warn` on a page now leave the hidden alarm aside, as they did the banner
 - [x] The other hub suites green: connector-dashboard, dev-preview-sessionstart, native-capture, hub-airsquats, logbook, stopwatch, stopwatch-sync
 - [x] Every Test gate page served from this tree and judged by the fit alarm in headless Chrome at a 1300 x 900 window (a 1284 x 805 viewport): all thirteen groups, the overview, the measurement's page and two suite pages fit
-- [ ] The owner judges the pages in the working copy (a visible result)
+- [x] The owner judges the pages in the working copy (a visible result): looked, and said "ship it", October 27, 2026
 
 ### DEPLOY: feat/test-gate-drilldown
 
