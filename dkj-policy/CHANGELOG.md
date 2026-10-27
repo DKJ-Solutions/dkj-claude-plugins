@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**3 / 9 minor entries** <!-- pending-tally -->
+**4 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3552-sweep-continues-past-visible-park · 20261027-084148Z
+
+A sweep no longer ends at the first result that has to be judged by eye. It parks that branch on
+`origin` with `awaiting-review-dev` and a comment on what to look at, returns to the trunk and carries on
+with the next issue; the close-out lists every parked branch with the `git checkout` line that shows it
+([#3552](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3552)). The constitution now names
+the sweep as the one carve-out from "the checkout stays on that branch until the owner has looked"; a
+single assignment still stays on its branch, and no visible result is merged unseen.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A sweep over a backlog of visible results now handles all of them in one run, where it used to stop
+after the first one. You look at each parked branch afterwards by checking it out.
+
+**Score:** 3
+
+#### Pull Request
+
+sweep-issues: a visible result parks the issue and the sweep continues
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #3555](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3555)
+
+---
 
 ### DEPLOY: feat/3549-merge-dkj-repos-into-connectors · 20261027-083154Z
 
