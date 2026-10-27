@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    This repo's PRODUCT (#3540): the home page on '/' and its own pages -- Connectors and Specialists.
+    This repo's PRODUCT (#3540): the home page on '/' and its own pages -- Connectors, Specialists and Plugins.
     The hub is the dkj-policy plugin's, as in every other repo (#3245): this repo states its dev server as
     its product and no longer opts out with OwnHub, so the general pages -- Repository, Artifacts, Issues,
     Release notes, SessionStart, Test gate, Stopwatch, Logbook and Plugins -- are the plugin hub's, and the
@@ -42,7 +42,7 @@
 
 function Format-DevPageHtml {
     <#
-        The whole page around -Body, for this repo's own pages (Connectors, Specialists): the
+        The whole page around -Body, for this repo's own pages (Connectors, Specialists, Plugins): the
         plugin's page shell with this repo's site header, tagged 'product' (#3540), its title and theme key,
         and the Home crumb on '/', the product's home page.
     #>
@@ -70,6 +70,7 @@ function Get-ProductPages {
     @(
         @{ Href = '/connectors';  Label = 'Connectors';  Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine'; Icon = 'connectors' }
         @{ Href = '/specialists'; Label = 'Specialists'; Sub = 'Every specialist the plugins ship, and how much context each one costs'; Icon = 'specialists' }
+        @{ Href = '/plugins';     Label = 'Plugins';     Sub = 'Every plugin this marketplace ships, its version and what it holds'; Icon = 'plugins' }
     )
 }
 
@@ -429,6 +430,65 @@ function Format-SpecialistsPageHtml {
             -ParentCrumbs @(@{ Label = 'Specialists'; Href = '/specialists' }) -Lead ''
     }
     return Format-DevPageHtml -Title 'Specialists' -Style $style -Body $body.ToString() -FooterNote $footer -Lead ''
+}
+
+function Get-MarketplacePluginKind {
+    <#
+        What kind of plugin -Name is, from its name and its -Source path in marketplace.json: a team (the core
+        team or an add-on team), the workflow, or an add-on to that workflow -- the split the marketplace's own
+        description draws.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Name, [AllowEmptyString()][string]$Source = '')
+    if ($Name -eq 'dkj-subagents-alpha') { return 'core team' }
+    if ($Name -like 'dkj-subagents-*') { return 'add-on team' }
+    if ($Name -eq 'dkj-policy') { return 'workflow' }
+    if ($Source -like './plugins/dkj-policy/*') { return 'add-on to dkj-policy' }
+    return 'plugin'
+}
+
+function Format-PluginsPageHtml {
+    <#
+        The Plugins page, /plugins: every plugin this marketplace ships, one card each in marketplace.json's
+        order. -Plugins is the server's model, each @{ Name; Kind; Source; Version; Enabled; Summary; Description;
+        Subagents; Personas; Skills; Hooks }: Summary is the marketplace's own line, Description the plugin.json's,
+        folded under the card because it runs to paragraphs. Where the hub's Plugins page shows what THIS checkout
+        enables, this page shows what the repo OFFERS -- enabled here or not, each one is listed.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Plugins,
+        [AllowEmptyString()][string]$ReadError = ''
+    )
+    $e = { param($v) ConvertTo-DashboardText $v }
+    # '' rather than no output for a zero: in 5.1 a call that writes nothing empties the whole @(a, b, ...) it stands in.
+    $count = { param($n, $word) if ([int]$n -gt 0) { [string]$n + ' ' + $word + $(if ([int]$n -ne 1) { 's' } else { '' }) } else { '' } }
+    $body = New-Object System.Text.StringBuilder
+    if ($ReadError) {
+        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The plugins could not all be read: ' + (& $e $ReadError) + '.</p>')
+    }
+    [void]$body.AppendLine('<div class="grid-3" id="plugins">')
+    foreach ($p in @($Plugins | Where-Object { $_ })) {
+        $sub = @((& $e $p.Kind), $(if ($p.Version) { 'v' + (& $e $p.Version) }), $(if ($p.Enabled) { 'enabled here' } else { 'off here' })) | Where-Object { $_ }
+        $holds = @((& $count $p.Subagents 'subagent'), (& $count $p.Personas 'persona'), (& $count $p.Skills 'skill'), (& $count $p.Hooks 'hook')) | Where-Object { $_ }
+        [void]$body.AppendLine('<section class="card pl-card' + $(if ($p.Enabled) { '' } else { ' pl-card--off' }) + '" id="plugin-' + (& $e $p.Name) + '">')
+        [void]$body.AppendLine('<div class="card__head"><h2>' + (& $e $p.Name) + '</h2><p class="card__sub">' + ($sub -join ' &middot; ') + '</p></div>')
+        if ($p.Summary) { [void]$body.AppendLine('<p>' + (& $e $p.Summary) + '</p>') }
+        [void]$body.AppendLine('<dl class="facts">')
+        [void]$body.AppendLine('<div><dt>Holds</dt><dd>' + $(if ($holds) { $holds -join ' &middot; ' } else { '<span class="note">nothing counted</span>' }) + '</dd></div>')
+        [void]$body.AppendLine('<div><dt>Source</dt><dd><code>' + (& $e $p.Source) + '</code></dd></div>')
+        [void]$body.AppendLine('</dl>')
+        if ($p.Description) {
+            [void]$body.AppendLine('<details class="more"><summary>Show the full description</summary><p>' + (& $e $p.Description) + '</p></details>')
+        }
+        [void]$body.AppendLine('</section>')
+    }
+    if (-not @($Plugins | Where-Object { $_ }).Count) {
+        [void]$body.AppendLine('<section class="card grid__full"><p class="note">No plugin was found.</p></section>')
+    }
+    [void]$body.AppendLine('</div>')
+    # An off plugin's card is muted, never hidden, as on the Specialists page.
+    $style = '.pl-card--off { opacity: 0.7; }' + "`n" + '.pl-card .facts { margin-top: var(--spacing-3); }'
+    $footer = 'Read from this checkout''s <code>.claude-plugin/marketplace.json</code> and each plugin''s <code>.claude-plugin/plugin.json</code> on every request, so it is the tree, not the installed release; enabled or off is <code>.claude/settings.json</code>. What this checkout loads, and any problem with it, is on the hub''s own Plugins page.'
+    return Format-DevPageHtml -Title 'Plugins' -Style $style -Body $body.ToString() -FooterNote $footer -Lead ''
 }
 
 function Find-DkjCheckouts {
