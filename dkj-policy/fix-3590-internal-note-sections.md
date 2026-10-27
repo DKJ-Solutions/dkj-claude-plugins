@@ -39,19 +39,32 @@
 
 ### PLAN
 
+#3590, decided by the owner on the issue: the internal note of the retired two-document flow drops
+'What it is worth' and 'What was still open at this release', as #3584 does for the audience note.
+`release-lib.ps1` (the audience note) is #3584's and stays untouched here.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `new-internal-note.ps1` (and its plugin mirror): the two headings, their hints and their wording keys go
+- [x] `internal-note.tests.ps1`: the presence asserts become absence asserts, plus one H2 in all
+- [x] The wording-map key lists (`repo-config.ps1`, the contract registry) and the regenerated blueprint
 
 ### TEST
 
+- [x] Gates run by `ship-pr`
+
 ### DEPLOY: fix/3590-internal-note-sections
 
-**Score:**
+The internal release note that `new-internal-note.ps1` drafts (the two-document flow) no longer carries
+'What it is worth' or 'What was still open at this release': the note is its entry bullets under one
+heading, as the audience note became with #3584. A consumer still on that flow writes neither section
+again ([#3590](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3590)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+**Score:** N/A
 
 #### Pull Request
 
