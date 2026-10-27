@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**10 / 15 minor entries** <!-- pending-tally -->
+**11 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3605-trunk-autosync · 20261027-175608Z
+
+A checkout's trunk now follows origin by itself. At every session start, a checkout standing clean on
+its trunk and merely behind is fast-forwarded before the session checks run. It is silent when there is
+nothing to report, and `DKJ_TRUNK_AUTOSYNC=0` turns it off. The new
+[`sync-trunk`](../plugins/dkj-policy/skills/sync-trunk/SKILL.md) command does the same on request, and
+with `-AllCheckouts` it covers every checkout on the machine. Nothing is ever stashed or rebased, and no
+merge commit is ever created. A checkout off its trunk, with an uncommitted change or with local commits
+origin lacks is left alone: the command says why, and the session-start step stays silent unless the
+trunk is behind.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+You no longer pull the trunk by hand after every merge, in this repo or in any other checkout on your
+machine. Work in progress is never moved.
+
+**Score:** 3
+
+#### Pull Request
+
+Fast-forward a clean trunk automatically, at session start and across every checkout
+
+Plugins: dkj-policy
+
+[PR #3607](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3607)
+
+---
 
 ### DEPLOY: fix/3591-session-start-no-lede · 20261027-172526Z
 
