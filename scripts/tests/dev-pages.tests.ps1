@@ -111,6 +111,7 @@ $bannerJs = Format-RepoHubBanner
 Assert-True ($bannerJs -notmatch 'localStorage' -and $bannerJs -match 'fetch\(path' -and ([regex]::Matches($bannerJs, '"/api/airsquats')).Count -eq 1 -and $bannerJs -notmatch 'XMLHttpRequest|WebSocket|sendBeacon|eval\(|new Function|document\.cookie') 'its state is the server''s, shared by every hub and machine: it asks /api/airsquats on its own origin and nothing else (#3438)'
 Assert-True ($bannerJs -match 'ask\("POST", API \+ "/clear"\)' -and $bannerJs -match '\(s\.per \|\| 10\) \* s\.owed' -and $bannerJs -match 'if \(s\.announce\) \{ tone\(\); \}') 'ticking the box is a POST to /clear, the box shows 10 per hour owed, and the server says when to play the tone'
 Assert-True ($bannerJs -match '<span data-hub-owner hidden[^>]*> &middot; <span data-hub-account></span></span></p>' -and $bannerJs -match 'account\.textContent = s\.account; owner\.hidden = false;' -and $bannerJs -notmatch 'innerHTML') 'the row ends on the Windows account the hub runs under, written as text and shown only once the server names one (#3476)'
+Assert-True ($bannerJs -match '<div class="notice" id="hub-banner"[^>]* hidden>' -and $bannerJs -match 'slide\(s\.owed > 0\);' -and $bannerJs -match 'asked = Date\.now\(\); slide\(false\);' -and $bannerJs -match 'box\.animate\(' -and $bannerJs -match 'prefers-reduced-motion: reduce' -and $bannerJs -match 'if \(first \|\| still \|\| !box\.animate\)') 'the banner is hidden until something is due, slides down when it comes due and up once ticked, and opens without the slide on load or under reduced motion (Dave, October 27, 2026)'
 $ix = @('id="hub-banner"', 'class="site-header"', 'id="settings"', 'class="breadcrumbs-bar"', 'class="grid-3"', 'class="footer-note"') | ForEach-Object { $ph.IndexOf($_) }
 Assert-True ((@($ix | Where-Object { $_ -lt 0 }).Count -eq 0) -and ((($ix | Sort-Object) -join ',') -eq ($ix -join ','))) 'the blocks stand in the form''s order'
 $evil = Format-ProductHomeHtml -Pages @(@{ Href = '/x"><script>'; Label = '<b>'; Sub = '' })
@@ -236,6 +237,10 @@ Write-Host '-- the fit alarm (the owner, October 27, 2026)' -ForegroundColor Cya
 $fit = Format-FitAlarmHtml
 Assert-True ($tg -match 'id="fit-alarm"' -and $all -match 'id="fit-alarm"') 'every page the shell draws carries the fit alarm'
 Assert-True ($fit -match 'id="fit-alarm" role="alert" hidden' -and $fit -match 'd\.scrollHeight - window\.innerHeight' -and $fit -match 'd\.scrollWidth - d\.clientWidth') 'it starts hidden and judges the document against the window it is read in, both ways'
+# The product server's two shells that do not go through Format-GeneralPageHtml carry it too (#3558).
+$fitHome = Format-ProductHomeHtml
+$fitCd = Format-ConnectorDashboardHtml -Connectors @() -Meta @{ GeneratedAt = 'now' }
+Assert-True ($fitHome.Contains($fit) -and $fitHome.IndexOf('id="fit-alarm"') -lt $fitHome.LastIndexOf('</body>') -and $fitCd.Contains($fit) -and $fitCd.IndexOf('id="fit-alarm"') -lt $fitCd.LastIndexOf('</body>')) 'the product''s home page and its Connectors page carry the fit alarm before </body>'
 Assert-True ($fit -match 'window\.innerWidth < 1000' -and $fit -match 'ResizeObserver' -and $fit -match 'addEventListener\("resize"') 'it stays quiet in the narrow layout, and judges again on every resize'
 Assert-True ($fit -match 'alarm\.textContent = ' -and $fit -notmatch 'innerHTML|fetch\(|XMLHttpRequest') 'it writes text only, and asks nothing of any server'
 
@@ -453,6 +458,7 @@ $barAt = $rn.IndexOf('<div class="breadcrumbs-bar">')
 Assert-True ($barAt -gt $bodyAt -and $rn.Substring($bodyAt + 6, $barAt - $bodyAt - 6).Trim() -eq (Format-RepoHubBanner).Trim()) 'the banner is the first thing in <body>, and with no repo named the breadcrumb bar comes straight after it'
 Assert-True ($rn -match '<li><a href="/hub">Home</a></li>\s*<li><span class="breadcrumbs__sep" aria-hidden="true"><svg\ viewBox="0\ 0\ 24\ 24"><path\ fill="currentColor"\ fill-rule="evenodd"\ d="M9\.793\ 16\.707a1\ 1\ 0\ 0\ 1\ 0-1\.414L13\.086\ 12\ 9\.793\ 8\.707a1\ 1\ 0\ 0\ 1\ 1\.414-1\.414l4\ 4a1\ 1\ 0\ 0\ 1\ 0\ 1\.414l-4\ 4a1\ 1\ 0\ 0\ 1-1\.414\ 0"\ clip-rule="evenodd"/></svg></span><span aria-current="page">Release notes</span></li>') 'its trail runs from the hub, on /hub of the general server, to this page'
 Assert-True ($rn.IndexOf('DKJTheme.settings(') -gt $rn.IndexOf('id="settings"') -and $rn.IndexOf('DKJTheme.settings(') -lt $rn.LastIndexOf('</body>')) 'the settings button is mounted before </body>'
+Assert-True ($rn.Contains((Format-FitAlarmHtml)) -and $rn.IndexOf('id="fit-alarm"') -gt $rn.IndexOf('DKJTheme.settings(') -and $rn.IndexOf('id="fit-alarm"') -lt $rn.LastIndexOf('</body>') -and ([regex]::Matches($rn, 'id="fit-alarm"')).Count -eq 1) 'and the fit alarm once after it, as every other hub page closes (#3558)'
 Assert-True ($rn.Contains('<div class="wrap">') -and $rn.Contains('@@PAGE_MAIN@@') -and $rn.Contains('@@PAGE_STYLE@@')) 'the template''s own content is left alone'
 # The settings panel's width reaches main and .container only, and the template's column is neither, so the
 # template answers data-width itself -- every width the theme script offers but fluid, which is its own column.
