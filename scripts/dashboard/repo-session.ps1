@@ -86,7 +86,7 @@ $connectors = @(foreach ($f in @(Get-ChildItem -LiteralPath (Join-Path $root 'co
     @{ Repo = [string]$m.repo; File = $f.Name; Visibility = [string]$m.visibility
        Path = (Resolve-ConnectorCheckout -Root $root -LocalCheckout $m.localCheckout -ScopeRoot $scopeRoot) }
 })
-# And every DKJ-Solutions checkout beside this repo, registered or not, as the DKJ repos page finds them: the
+# And every DKJ-Solutions checkout beside this repo, registered or not, as the DKJ repos page (/connectors/dkj) finds them: the
 # register lists only the repos that run a plugin of this marketplace.
 foreach ($d in @(Find-DkjCheckouts -ParentDir (Split-Path -Parent $root) -Owner 'DKJ-Solutions')) {
     $known = @($connectors | Where-Object { $_.Repo -eq $d.Repo })

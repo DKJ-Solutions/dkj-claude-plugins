@@ -442,7 +442,9 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $srcState = Get-RepoHubStatePath -Root $src
             # The product's home page on '/' and the pages under it (#3540).
             $home3 = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($home3 -match 'HTTP/1.1 200' -and $home3 -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span>' -and $home3 -match 'href="/connectors"' -and $home3 -match 'href="/specialists"' -and $home3 -match 'href="/dkj-repos"') '/ serves the product''s home page, linking Connectors, Specialists and DKJ repos'
+            Assert-True ($home3 -match 'HTTP/1.1 200' -and $home3 -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span>' -and $home3 -match 'href="/connectors"' -and $home3 -match 'href="/specialists"' -and $home3 -notmatch 'href="/dkj-repos"') '/ serves the product''s home page, linking Connectors and Specialists'
+            $r = if ($up) { Get-Raw 'GET' '/dkj-repos' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($r -match 'HTTP/1.1 303' -and $r -match 'Location: /connectors/dkj\r') 'the old /dkj-repos sends an old link to /connectors/dkj, which holds the repos on GitHub since #3549'
             Assert-True ($home3 -match 'The hub is not running' -and $home3 -notmatch 'href="http://localhost' -and $home3 -notmatch 'href="/brandbook' -and $home3 -notmatch 'href="/test-gate"') 'with no state file it says the hub is not running, and links no general page of its own'
             $r = if ($up) { Get-Raw 'GET' '/hub' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($r -match 'HTTP/1.1 404' -and $r -match 'hub is not running') 'and /hub is a 404 text, never a redirect to a port nobody answers on'

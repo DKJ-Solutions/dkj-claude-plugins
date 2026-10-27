@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    This repo's PRODUCT (#3540): the home page on '/' and its own pages -- Connectors, Specialists and DKJ repos.
+    This repo's PRODUCT (#3540): the home page on '/' and its own pages -- Connectors and Specialists.
     The hub is the dkj-policy plugin's, as in every other repo (#3245): this repo states its dev server as
     its product and no longer opts out with OwnHub, so the general pages -- Repository, Artifacts, Issues,
     Release notes, SessionStart, Test gate, Stopwatch, Logbook and Plugins -- are the plugin hub's, and the
@@ -25,8 +25,9 @@
     Format-GeneralPageHtml, which this file dot-sources for the page shell, the number formats and the tile
     and bar helpers, so nothing is written twice.
 
-    THE DKJ REPOS PAGE (#3231): every DKJ-Solutions repo on GitHub, its checkout beside this repo, and the
-    command that opens Claude Code there. Find-DkjCheckouts is the one function in this file that reads the disk.
+    THE DKJ REPOS ON GITHUB (#3231): every DKJ-Solutions repo, its checkout beside this repo, and the command that
+    opens Claude Code there -- a section of the DKJ group's connector page, /connectors/dkj, since #3549, not a page
+    of its own. Find-DkjCheckouts is the one function in this file that reads the disk.
 
     EVERY VALUE THAT REACHES THE PAGE IS ESCAPED, through connector-dashboard-lib's ConvertTo-DashboardText
     here and the plugin lib's own escape there (the two are the same five replacements).
@@ -41,7 +42,7 @@
 
 function Format-DevPageHtml {
     <#
-        The whole page around -Body, for this repo's own pages (Connectors, Specialists, DKJ repos): the
+        The whole page around -Body, for this repo's own pages (Connectors, Specialists): the
         plugin's page shell with this repo's site header, tagged 'product' (#3540), its title and theme key,
         and the Home crumb on '/', the product's home page.
     #>
@@ -69,7 +70,6 @@ function Get-ProductPages {
     @(
         @{ Href = '/connectors';  Label = 'Connectors';  Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine'; Icon = 'connectors' }
         @{ Href = '/specialists'; Label = 'Specialists'; Sub = 'Every specialist the plugins ship, and how much context each one costs'; Icon = 'specialists' }
-        @{ Href = '/dkj-repos';   Label = 'DKJ repos';   Sub = 'Every DKJ-Solutions repo: its checkout on this machine, its open issues, and a session to open there'; Icon = 'dkj-repos' }
     )
 }
 
@@ -304,7 +304,7 @@ function Find-DkjCheckouts {
 
 function Get-DkjRepoQuery {
     <#
-        The one GraphQL query the DKJ repos page asks: every repo of the organisation named by the variable
+        The one GraphQL query the DKJ repos section asks: every repo of the organisation named by the variable
         $owner (gh api graphql -f owner=...), newest push first, with its open issue and pull request counts.
         The name goes as a variable, not inline: the query then holds no double quote, which Windows PowerShell
         5.1 would split on its way to gh.
@@ -354,12 +354,16 @@ function Get-CopyButtonScript {
         '})();</script>'
 }
 
-function Format-DkjReposPageHtml {
+function Format-DkjReposSectionHtml {
     <#
-        The DKJ repos page (#3231). -Query is ConvertFrom-DkjRepoQuery's result; -Checkouts is Find-DkjCheckouts'
-        list; -Meta is @{ GeneratedAt; Seconds }. A checkout whose repo GitHub did not list (the query failed,
-        a repo outside the first hundred, or an archived one, marked so) still gets its card, so the page never
-        hides a folder on disk.
+        The DKJ repos on GitHub (#3231), as a section of the DKJ group's connector page (#3549): the old
+        /dkj-repos page and /connectors/dkj both covered the DKJ repos under one title, so the cards moved onto
+        the connector page, between its Connected repos table and its Issues card. Returns @{ Html; Style;
+        FooterNote } for Format-ConnectorDashboardHtml's -Section* parameters.
+        -Query is ConvertFrom-DkjRepoQuery's result; -Checkouts is Find-DkjCheckouts' list; -Meta is
+        @{ GeneratedAt; Seconds }. A checkout whose repo GitHub did not list (the query failed, a repo outside
+        the first hundred, or an archived one, marked so) still gets its card, so the page never hides a
+        folder on disk.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Query,
@@ -378,15 +382,15 @@ function Format-DkjReposPageHtml {
         }
     }
 
-    # One card per repo, newest push first, in the Stopwatch overview's three-column grid with the h1 at its head
-    # (the owner, October 26, 2026): no tiles, no lead, no section headings, and a checkout's session command in
-    # its own repo's card rather than a list of its own. The server starts nothing (#3231).
+    # One card per repo, newest push first, in the Stopwatch overview's three-column grid (the owner, October 26,
+    # 2026): no tiles and no table, and a checkout's session command in its own repo's card rather than a list of
+    # its own. Its h2 heads the grid as Connected repos and Issues head theirs. The server starts nothing (#3231).
     $body = New-Object System.Text.StringBuilder
+    [void]$body.AppendLine('<div class="dr-grid" id="repos">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>On GitHub</h2><p class="card__sub">Every DKJ-Solutions repo, its checkout here, and a session to open there</p></div>')
     if ($Query.Error) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">GitHub could not be read: ' + (& $e $Query.Error) + '. The checkouts on this machine are shown without their issues.</p>')
     }
-    [void]$body.AppendLine('<div class="dr-grid" id="repos">')
-    [void]$body.AppendLine('<div class="grid__head"><h1>DKJ repos</h1></div>')
     foreach ($r in $rows) {
         # The link is built from the repo's owner/name, never taken from the answer's url field (Sebastian, #3231).
         $url = 'https://github.com/' + (& $e $r.Repo)
@@ -396,7 +400,7 @@ function Format-DkjReposPageHtml {
         $facts += (& $count $r.Issues '/issues' 'issues')
         $facts += (& $count $r.Pulls '/pulls' 'PRs')
         if ($r.PushedAt -match '^(\d{4}-\d{2}-\d{2})') { $facts += $Matches[1] }
-        [void]$body.Append('<section class="card dr-card"><h2><a href="' + $url + '">' + (& $e $r.Name) + '</a></h2>')
+        [void]$body.Append('<section class="card dr-card"><h3><a href="' + $url + '">' + (& $e $r.Name) + '</a></h3>')
         if ($r.Description) { [void]$body.Append('<p class="dr-desc" title="' + (& $e $r.Description) + '">' + (& $e $r.Description) + '</p>') }
         [void]$body.Append('<p class="dr-line">' + ($facts -join ' &middot; ') + '</p>')
         $c = $byRepo[$r.Repo]
@@ -421,9 +425,11 @@ function Format-DkjReposPageHtml {
         '.dr-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-4); }',
         '@media (max-width: 1000px) { .dr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }',
         '@media (max-width: 760px) { .dr-grid { grid-template-columns: 1fr; } }',
-        '.dr-grid > .grid__head { grid-column: 1 / -1; }',
+        '.dr-grid > .grid__head, .dr-grid > .msg { grid-column: 1 / -1; }',
+        '.dr-grid > .msg { margin: 0; }',
         '.dr-grid > .card { margin-top: 0; }',
-        '.dr-card > h2 a { color: inherit; text-decoration: none; }',
+        '.dr-card > h3 { margin: 0 0 var(--spacing-1); }',
+        '.dr-card > h3 a { color: inherit; text-decoration: none; }',
         '.dr-card > p { margin: 0; }',
         '.dr-card > p + p { margin-top: var(--spacing-1); }',
         # A card's lines in the Stopwatch card's sizes: the description one muted line ending in an ellipsis, its
@@ -435,6 +441,7 @@ function Format-DkjReposPageHtml {
         '.dr-session code { flex: 1 1 auto; min-width: 0; font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }'
     ) -join "`n"
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
-    return Format-DevPageHtml -Title 'DKJ repos' -Style $style -Body $body.ToString() -Lead '' -Bare `
-        -FooterNote ('Read from GitHub (one <code>gh api graphql</code> call) and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="dr-link" href="/refresh?page=dkj-repos">read again</a>). Nothing here is written to this repo.')
+    # The page's one refresh link re-reads both, so this note names its source and time and offers no link of its own.
+    return @{ Html = $body.ToString(); Style = $style
+              FooterNote = 'On GitHub: read with one <code>gh api graphql</code> call and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + $secs + '.' }
 }

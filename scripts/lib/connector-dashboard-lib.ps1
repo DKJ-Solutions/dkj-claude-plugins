@@ -299,12 +299,20 @@ function Format-ConnectorDashboardHtml {
         -Group splits it in two (owner, October 26, 2026). Empty, it is /connectors: the tiles over every repo and
         one card per owner group (Get-DashboardOwnerGroups), each linking that group's page. A group's Key, it is
         /connectors/<Key>: a three-crumb trail, the tiles over that group, its overview table and its repo cards.
+
+        -SectionHtml, with its -SectionStyle and -SectionFooterNote, is a block a group's page holds between its
+        Connected repos and its Issues: on /connectors/dkj, the DKJ repos on GitHub (Format-DkjReposSectionHtml,
+        #3549), which the server hands in so this lib stays free of the GitHub read. The overview ignores it.
     #>
     param(
         [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Connectors,
         [Parameter(Mandatory = $true)][hashtable]$Meta,
-        [ValidateSet('', 'dkj', 'bwj', 'other')][AllowEmptyString()][string]$Group = ''
+        [ValidateSet('', 'dkj', 'bwj', 'other')][AllowEmptyString()][string]$Group = '',
+        [AllowEmptyString()][string]$SectionHtml = '',
+        [AllowEmptyString()][string]$SectionStyle = '',
+        [AllowEmptyString()][string]$SectionFooterNote = ''
     )
+    if (-not $Group) { $SectionHtml = ''; $SectionStyle = ''; $SectionFooterNote = '' }
     $groupDef = if ($Group) { @(Get-DashboardOwnerGroups | Where-Object { $_.Key -eq $Group })[0] } else { $null }
     $pageName = if ($groupDef) { $groupDef.Title } else { 'Connectors' }
     $e = { param($v) ConvertTo-DashboardText $v }
@@ -345,6 +353,7 @@ function Format-ConnectorDashboardHtml {
     # Fixed layout, so the table takes these widths rather than sizing to its own content; the min-width keeps them readable, scrolling inside .table-wrap on a narrow screen.
     [void]$sb.AppendLine('.cd-overview { table-layout: fixed; width: 100%; min-width: 860px; }')
     [void]$sb.AppendLine('.cd-overview td { overflow-wrap: anywhere; }')
+    if ($SectionStyle) { [void]$sb.AppendLine($SectionStyle) }
     [void]$sb.AppendLine('.cd-col-repo { width: 36%; } .cd-col-status { width: 24%; } .cd-col-vis { width: 14%; } .cd-col-num { width: 10%; } .cd-col-ver { width: 16%; }')
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
@@ -418,6 +427,8 @@ function Format-ConnectorDashboardHtml {
         [void]$sb.AppendLine('</section>')
         [void]$sb.AppendLine('</div>')
 
+        if ($SectionHtml) { [void]$sb.Append($SectionHtml) }
+
         # The per-repo details, a card of their own beside Connected repos, headed Issues: an h2, the group's summary line,
         # and a house mini-card per repo (a card inside a card). The overview links down to it, so its head carries the way
         # back. A group with no repo has no details.
@@ -475,7 +486,7 @@ function Format-ConnectorDashboardHtml {
     # Where the data comes from, with the way to read it again: the refresh comes back to this same page.
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
     $back = if ($groupDef) { 'connectors/' + $Group } else { 'connectors' }
-    [void]$sb.AppendLine('<p class="footer-note">Read from <code>check-connectors.ps1</code>, checked ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=' + $back + '">re-run the check</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.</p>')
+    [void]$sb.AppendLine('<p class="footer-note">Read from <code>check-connectors.ps1</code>, checked ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=' + $back + '">re-run the check</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.' + $(if ($SectionFooterNote) { ' ' + $SectionFooterNote } else { '' }) + '</p>')
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
     [void]$sb.AppendLine('</body>')

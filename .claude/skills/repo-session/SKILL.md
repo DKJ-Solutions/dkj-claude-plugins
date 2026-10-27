@@ -31,8 +31,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dashboard/repo-sessi
 The name is what a person calls the repo: `lifehub`, `life-hub`, `dkj-lifehub` and
 `DKJ-Solutions/dkj-lifehub` all resolve to the same one, and a name that matches two repos is refused
 with both. `-WhatIf` with `-Open` prints the command and starts nothing. The **DKJ repos** page
-(`/dkj-repos`, one of this repo's product pages) shows every DKJ-Solutions repo with its open issues and pull
-requests, and the same command per checkout, to copy.
+(`/connectors/dkj`, one of this repo's product pages; `/dkj-repos` until #3549) shows every DKJ-Solutions repo on
+GitHub with its open issues and pull requests, and the same command per checkout, to copy.
 
 ## Why the work opens THERE and never here
 

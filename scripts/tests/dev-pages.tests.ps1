@@ -71,7 +71,7 @@ Assert-True ($bshell -notmatch 'class="eyebrow"' -and $bshell -notmatch 'theme-s
 
 Write-Host '-- the product: the home page on / (#3540)' -ForegroundColor Cyan
 $pages = @(Get-ProductPages)
-Assert-Equal '/connectors,/specialists,/dkj-repos' (($pages | ForEach-Object { $_.Href }) -join ',') 'the product links its three pages: Connectors, Specialists and DKJ repos; the general pages are the plugin hub''s (#3540)'
+Assert-Equal '/connectors,/specialists' (($pages | ForEach-Object { $_.Href }) -join ',') 'the product links its two pages: Connectors and Specialists, the DKJ repos on GitHub a section of /connectors/dkj since #3549; the general pages are the plugin hub''s (#3540)'
 Assert-Equal '/artifacts,/issues,/release-notes,/sessionstart,/test-gate,/stopwatch,/logbook,/plugins' ((Get-GeneralPages | ForEach-Object { $_.Href }) -join ',') 'the plugin lists the eight general pages, in order: Test gate, Stopwatch and Logbook every repo''s since #3470, Plugins since #3482'
 $ph = Format-ProductHomeHtml -HubUrl 'http://localhost:4890' -SourceCommit 'abc1234'
 Assert-True ($ph -match '<title>dkj-claude-plugins -- Home</title>' -and $ph -notmatch '<h1' -and $ph -notmatch 'class="lead"') 'under the site header the home page has no intro at all, and its title says Home'
@@ -79,8 +79,8 @@ Assert-True ($ph -match '(?s)<body>\s*<div class="notice" id="hub-banner".*?</sc
 Assert-True ($ph -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span>' -and $ph -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/"') 'the site header names the repo with product after it, and goes home'
 Assert-True ($ph -notmatch 'class="eyebrow"' -and ([regex]::Matches($ph, '<header')).Count -eq 1 -and $ph -notmatch 'theme-settings--floating' -and $ph -match '<div id="settings"></div></div></header>') 'no eyebrow, no <header> but the site header, which holds the settings button'
 Assert-True ($ph -match '<div class="grid-3">\r?\n<section class="card card--link"><nav class="menu-list" aria-label="Hub"><a class="menu-item" href="http://localhost:4890">') 'the grid opens on the Hub card, linking the plugin hub'
-Assert-True ($ph.IndexOf('aria-label="Hub"') -lt $ph.IndexOf('href="/connectors"') -and $ph.IndexOf('href="/connectors"') -lt $ph.IndexOf('href="/specialists"') -and $ph.IndexOf('href="/specialists"') -lt $ph.IndexOf('href="/dkj-repos"')) 'then Connectors, Specialists and DKJ repos, in that order'
-Assert-Equal 4 ([regex]::Matches($ph, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="[^"]+"><svg class="menu-item__icon"')).Count 'four cards, each a .card--link with its icon first'
+Assert-True ($ph.IndexOf('aria-label="Hub"') -lt $ph.IndexOf('href="/connectors"') -and $ph.IndexOf('href="/connectors"') -lt $ph.IndexOf('href="/specialists"') -and $ph -notmatch 'href="/dkj-repos"') 'then Connectors and Specialists, in that order, and no DKJ repos card of its own (#3549)'
+Assert-Equal 3 ([regex]::Matches($ph, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="[^"]+"><svg class="menu-item__icon"')).Count 'three cards, each a .card--link with its icon first'
 Assert-True ($ph -notmatch 'href="/(repository|test-gate|stopwatch|logbook|plugins|artifacts|issues|release-notes|sessionstart|brandbook)"') 'and no general page of its own: those are the plugin hub''s (#3540)'
 Assert-True ($ph -match 'class="footer-note">[^\n]*serve-connector-dashboard\.ps1</code>, from <code>abc1234</code>') 'the footer names the server and the commit it loaded'
 Assert-True ((Format-ProductHomeHtml) -notmatch ', from <code>') 'and leaves the commit out when it could not be read'
@@ -551,7 +551,7 @@ Assert-True ($sp.Contains('~' + (Format-DevNumber ([Math]::Round(1000 / 3.12))) 
 Assert-True ($sp.Contains('3.12 characters per token')) 'the footer names the factor, so the estimate is labelled as one'
 Assert-True ((Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3.12).Contains('No specialist was found')) 'none found says so instead of an empty table'
 Assert-True ((Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3.12 -ReadError 'x.md').Contains('msg--warn')) 'a failed read is a warning on the page'
-Write-Host '-- the DKJ repos page (#3231): what it shows' -ForegroundColor Cyan
+Write-Host '-- the DKJ repos on GitHub (#3231), a section of /connectors/dkj since #3549: what it shows' -ForegroundColor Cyan
 $gql = '{"data":{"organization":{"repositories":{"nodes":[' +
     '{"name":"dkj-lifehub","nameWithOwner":"DKJ-Solutions/dkj-lifehub","url":"https://github.com/DKJ-Solutions/dkj-lifehub","description":"<b>life</b>","visibility":"PRIVATE","isArchived":false,"pushedAt":"2026-10-20T10:00:00Z","issues":{"totalCount":3},"pullRequests":{"totalCount":0}},' +
     '{"name":"old","nameWithOwner":"DKJ-Solutions/old","url":"https://github.com/DKJ-Solutions/old","description":null,"visibility":"PUBLIC","isArchived":true,"pushedAt":"2025-01-01T00:00:00Z","issues":{"totalCount":0},"pullRequests":{"totalCount":0}}]}}}}'
@@ -560,22 +560,32 @@ Assert-True ($q.Repos.Count -eq 1 -and (@($q.Archived) -join ',') -eq 'DKJ-Solut
 Assert-True ((ConvertFrom-DkjRepoQuery -Json '').Error -and (ConvertFrom-DkjRepoQuery -Json 'nope').Error -and (ConvertFrom-DkjRepoQuery -Json '{"errors":[{"message":"bad"}]}').Error -match 'bad' -and (ConvertFrom-DkjRepoQuery -Json '{"data":{}}').Error) 'no answer, no JSON, an error answer or a wrong shape is an Error, never an empty organisation'
 Assert-True ((Get-DkjRepoQuery) -notmatch '"') 'the query holds no double quote, which Windows PowerShell 5.1 would split on its way to gh'
 $co = @(@{ Repo = 'DKJ-Solutions/dkj-lifehub'; Path = 'C:\x\dkj-lifehub'; Branch = 'main'; Dirty = 2 }, @{ Repo = 'DKJ-Solutions/unlisted'; Path = 'C:\x\unlisted'; Branch = 'dev'; Dirty = 0 })
-$page = Format-DkjReposPageHtml -Query $q -Checkouts $co -Meta @{ GeneratedAt = '2026-10-20 12:00:00'; Seconds = 1.2 }
-Assert-True ($page -match '<span aria-current="page">DKJ repos</span>' -and $page -match '<h1>DKJ repos</h1>') 'the page opens with the breadcrumb bar and its own h1'
-Assert-True ($page -match '<div class="dr-grid" id="repos">\s*<div class="grid__head"><h1>DKJ repos</h1></div>\s*<section class="card dr-card">' -and $page -notmatch 'class="tiles"' -and $page -notmatch 'class="lead"' -and $page -notmatch '<h2>Repos</h2>' -and $page -notmatch '<table') 'the repos are cards in a grid headed by the h1, with no tiles, no lead, no section heading and no table (the owner, October 26, 2026)'
-Assert-True ($page -match '<section class="card dr-card"><h2><a href="https://github.com/DKJ-Solutions/dkj-lifehub">dkj-lifehub</a></h2>[^\n]*data-copy="Set-Location[^\n]*</section>') 'a checkout''s session command sits in its own repo''s card'
+$sec = Format-DkjReposSectionHtml -Query $q -Checkouts $co -Meta @{ GeneratedAt = '2026-10-20 12:00:00'; Seconds = 1.2 }
+$page = $sec.Html
+Assert-True ($page -match '<div class="dr-grid" id="repos">\s*<div class="grid__head"><h2>On GitHub</h2><p class="card__sub">[^<]+</p></div>\s*<section class="card dr-card">' -and $page -notmatch '<h1' -and $page -notmatch 'class="tiles"' -and $page -notmatch '<table') 'the repos are cards in a grid headed by an h2, as Connected repos and Issues head theirs, with no h1, no tiles and no table (#3549)'
+Assert-True ($sec.Style -match '\.dr-grid \{' -and $sec.FooterNote -match '^On GitHub: read with one <code>gh api graphql</code> call[^<]*2026-10-20 12:00:00 in 1\.2s\.$' -and $sec.FooterNote -notmatch 'href=') 'it hands the page its style and a footer clause naming its source and time, with no refresh link of its own'
+Assert-True ($page -match '<section class="card dr-card"><h3><a href="https://github.com/DKJ-Solutions/dkj-lifehub">dkj-lifehub</a></h3>[^\n]*data-copy="Set-Location[^\n]*</section>') 'a repo card is titled with an h3 under the section''s h2, and a checkout''s session command sits in its own repo''s card'
 Assert-True ($page -match '&lt;b&gt;life&lt;/b&gt;' -and $page -notmatch '<b>life</b>') 'a repo description is escaped'
 Assert-True ($page -match 'href="https://github.com/DKJ-Solutions/dkj-lifehub/issues">3</a>' -and $page -match '2 uncommitted') 'a repo row links its open issues and names its checkout state'
 Assert-True ($page -match '>unlisted</a>' -and $page -match 'unlisted&#39;; claude') 'a checkout GitHub did not list still gets its card and its session'
 Assert-True ($page.Contains('data-copy="Set-Location -LiteralPath &#39;C:\x\dkj-lifehub&#39;; claude"') -and $page -match 'execCommand\("copy"\)') 'each checkout has its command to copy, with the fallback the Simple Browser needs'
 Assert-True ($page -match '1 archived repo is left out' -and $page -notmatch '>old</a>') 'an archived repo is counted, not listed'
-$pageArch = Format-DkjReposPageHtml -Query $q -Checkouts @(@{ Repo = 'DKJ-Solutions/old'; Path = 'C:\x\old'; Branch = 'main'; Dirty = 0 }) -Meta @{ GeneratedAt = 'x' }
+$pageArch = (Format-DkjReposSectionHtml -Query $q -Checkouts @(@{ Repo = 'DKJ-Solutions/old'; Path = 'C:\x\old'; Branch = 'main'; Dirty = 0 }) -Meta @{ GeneratedAt = 'x' }).Html
 Assert-True ($pageArch -match '>old</a>' -and $pageArch -match '<p class="dr-line">archived &middot; ' -and $pageArch -notmatch 'archived repo is left out') 'an archived repo checked out here is listed, marked archived, and not counted as left out'
 $evil = @{ Repos = @(@{ Repo = 'DKJ-Solutions/x'; Name = 'x'; Url = 'javascript:alert(1)'; Description = ''; Visibility = 'public'; PushedAt = ''; Issues = 1; Pulls = 0 }); Archived = @(); Error = '' }
-Assert-True ((Format-DkjReposPageHtml -Query $evil -Checkouts @() -Meta @{ GeneratedAt = 'x' }) -notmatch 'javascript:' ) 'a link is built from owner/name, never from the url field'
-$pageErr = Format-DkjReposPageHtml -Query (ConvertFrom-DkjRepoQuery -Json '') -Checkouts $co -Meta @{ GeneratedAt = 'x'; Seconds = $null }
-Assert-True ($pageErr -match 'msg--warn' -and $pageErr -match '>dkj-lifehub</a>') 'when GitHub cannot be read the page says so and still lists the checkouts'
-Assert-True ((Format-DkjReposPageHtml -Query $q -Checkouts @() -Meta @{ GeneratedAt = 'x' }) -match 'No DKJ-Solutions checkout was found') 'no checkout at all says so'
+Assert-True ((Format-DkjReposSectionHtml -Query $evil -Checkouts @() -Meta @{ GeneratedAt = 'x' }).Html -notmatch 'javascript:' ) 'a link is built from owner/name, never from the url field'
+$pageErr = (Format-DkjReposSectionHtml -Query (ConvertFrom-DkjRepoQuery -Json '') -Checkouts $co -Meta @{ GeneratedAt = 'x'; Seconds = $null }).Html
+Assert-True ($pageErr -match 'msg--warn' -and $pageErr -match '>dkj-lifehub</a>' -and $pageErr.IndexOf('<h2>On GitHub</h2>') -lt $pageErr.IndexOf('msg--warn')) 'when GitHub cannot be read the section says so under its heading and still lists the checkouts'
+Assert-True ((Format-DkjReposSectionHtml -Query $q -Checkouts @() -Meta @{ GeneratedAt = 'x' }).Html -match 'No DKJ-Solutions checkout was found') 'no checkout at all says so'
+Write-Host '-- the DKJ group''s connector page holds the section (#3549)' -ForegroundColor Cyan
+$cdk = @(@{ Repo = 'DKJ-Solutions/dkj-lifehub'; Status = 'bad'; Plugins = @(); Signals = @(); Present = $false; Git = $null })
+$merged = Format-ConnectorDashboardHtml -Connectors $cdk -Meta @{ GeneratedAt = 'now' } -Group 'dkj' -SectionHtml $sec.Html -SectionStyle $sec.Style -SectionFooterNote $sec.FooterNote
+$mO = $merged.IndexOf('id="overview"'); $mR = $merged.IndexOf('id="repos"'); $mI = $merged.IndexOf('id="issues"')
+Assert-True ($mO -ge 0 -and $mO -lt $mR -and $mR -lt $mI) 'on /connectors/dkj the repos on GitHub sit between Connected repos and Issues'
+Assert-True ($merged -match '<h1>DKJ repos</h1>' -and ([regex]::Matches($merged, '<h1')).Count -eq 1 -and $merged -match '\.dr-grid \{' -and $merged -match 'serve-connector-dashboard\.ps1</code>\. On GitHub: read with one') 'the page keeps its one h1, and takes the section''s style and footer clause'
+Assert-True ($merged -match 'href="/refresh\?page=connectors/dkj"' -and $merged -notmatch 'page=dkj-repos') 'its one refresh link comes back to /connectors/dkj'
+$plain = Format-ConnectorDashboardHtml -Connectors $cdk -Meta @{ GeneratedAt = 'now' } -SectionHtml $sec.Html -SectionStyle $sec.Style -SectionFooterNote $sec.FooterNote
+Assert-True ($plain -notmatch 'id="repos"' -and $plain -notmatch 'dr-grid' -and $plain -notmatch 'On GitHub') 'the overview on /connectors ignores a section'
 Write-Host '-- the Plugins page (#3482): plugin-versions -Json read into a model, and the page it draws' -ForegroundColor Cyan
 . (Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\plugins-page-lib.ps1')
 Assert-True ((Get-HubIconSvg -Name 'plugins') -match '<svg') 'the Plugins card has an icon'
