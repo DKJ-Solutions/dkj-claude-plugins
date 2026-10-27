@@ -238,8 +238,11 @@
   article h1 { font-size: 1.35rem; letter-spacing: -.015em; margin: 0 0 .5rem; line-height: 1.25; }
   /* NO RULE ABOVE A SECTION'S H2 (owner, October 27, 2026), and no padding either, which only held the rule
      off the heading: the grid of cards under it already marks where a section starts. */
-  article h2 { font-size: 1.1rem; margin: 1.75rem 0 .5rem; }
-  article h3 { font-size: 1rem; margin: 1.5rem 0 .35rem; }
+  /* THE HOUSE TYPE SCALE WHERE THERE IS ONE (owner, October 27, 2026): --text-h2 and --text-h3 come from the
+     house stylesheet the hub puts around this page. The page is self-contained, so where nothing defines them
+     (a Worker-served page) the fallback is the size it always had. */
+  article h2 { font-size: var(--text-h2, 1.1rem); margin: 1.75rem 0 .5rem; }
+  article h3 { font-size: var(--text-h3, 1rem); margin: 1.5rem 0 .35rem; }
   article h4 {
     font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
     color: var(--accent); margin: 1.5rem 0 .5rem;
@@ -298,7 +301,7 @@
      group of cards and stands ABOVE it, so a card under it takes an h3 or no title at all. Here the section's
      own h2 is that heading. Sized as a card title, without a heading's rule and air. */
   article .note-cell h3 {
-    font-size: 1rem; line-height: 1.4; font-weight: 640;
+    font-size: var(--text-h3, 1rem); line-height: 1.4; font-weight: 640;
     margin: 0 0 .4rem; padding: 0; border: 0;
   }
 
