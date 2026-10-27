@@ -39,19 +39,32 @@
 
 ### PLAN
 
+The owner asked (October 27, 2026) to rename the hub's Repository card to GitHub and give it a GitHub logo.
+The route stays `/repository`, so no link breaks.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `general-pages-lib.ps1`: the `repository` icon replaced by a `github` icon, the GitHub mark as a line drawing (Feather's `github`, MIT)
+- [x] `repo-hub-page.ps1`: the card's label and the page's title read GitHub
+- [x] `hub/README.md`: the page is named GitHub
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: title and crumb asserts read GitHub, plus a new assert on the card's label and logo -- 395 passed, 0 failed
+- [ ] The owner has looked at the hub card and the page
+
 ### DEPLOY: feat/github-hub-card
 
-**Score:**
+The hub's Repository card and page are now called **GitHub**, and the card carries the GitHub logo instead of the
+branch drawing. The page still lives on `/repository`, so every existing link keeps working.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every repo running dkj-policy shows its hub card as GitHub, with the GitHub logo, from the next release on.
+
+**Score:** 2
 
 #### Pull Request
 
