@@ -63,7 +63,7 @@
 
 - [x] `scripts/tests/dev-pages.tests.ps1`: the overview's cards, links, order and off state, and the
   detail page's trail, table and 404 case (370 passed, 0 failed, run alone before the park).
-- [ ] The owner's look at `http://localhost:4870/specialists` on this branch.
+- [x] The owner's look at `http://localhost:4870/specialists` on this branch: approved after two rounds (link cards to a page per plugin; the overview trimmed to its cards).
 
 ### DEPLOY: feat/3550-specialists-page-plugin-cards
 
