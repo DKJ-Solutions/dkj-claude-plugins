@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**10 / 17 minor entries** <!-- pending-tally -->
+**10 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/allow-tree-hub-server · 20261027-102329Z
+
+A session in this repo can now serve the tree's own hub on a spare port without a permission refusal, so a
+merged hub change can be looked at before the release that carries it to `:4892`. The allow rules name the
+one server script and nothing wider.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a permission in this repo's own settings and a note in the source-repo section; no consumer takes
+either.
+
+**Score:** N/A
+
+#### Pull Request
+
+Allow a session to serve the tree's own hub without a permission refusal
+
+Plugins: dkj-policy
+
+[PR #3571](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3571)
+
+---
 
 ### DEPLOY: feat/3563-long-pages-become-cards · 20261027-101351Z
 
