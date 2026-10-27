@@ -471,7 +471,9 @@ function Format-PluginsPageHtml {
         $holds = @((& $count $p.Subagents 'subagent'), (& $count $p.Personas 'persona'), (& $count $p.Skills 'skill'), (& $count $p.Hooks 'hook')) | Where-Object { $_ }
         [void]$body.AppendLine('<section class="card pl-card' + $(if ($p.Enabled) { '' } else { ' pl-card--off' }) + '" id="plugin-' + (& $e $p.Name) + '">')
         [void]$body.AppendLine('<div class="card__head"><h2>' + (& $e $p.Name) + '</h2><p class="card__sub">' + ($sub -join ' &middot; ') + '</p></div>')
-        if ($p.Summary) { [void]$body.AppendLine('<p>' + (& $e $p.Summary) + '</p>') }
+        # The marketplace's line up to its first sentence: some run to paragraphs, and those are in the fold below.
+        $lead = if ([string]$p.Summary -cmatch '^(.+?[.!?])\s+[A-Z]') { $Matches[1] } else { [string]$p.Summary }
+        if ($lead) { [void]$body.AppendLine('<p>' + (& $e $lead) + '</p>') }
         [void]$body.AppendLine('<dl class="facts">')
         [void]$body.AppendLine('<div><dt>Holds</dt><dd>' + $(if ($holds) { $holds -join ' &middot; ' } else { '<span class="note">nothing counted</span>' }) + '</dd></div>')
         [void]$body.AppendLine('<div><dt>Source</dt><dd><code>' + (& $e $p.Source) + '</code></dd></div>')

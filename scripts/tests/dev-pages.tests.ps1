@@ -616,6 +616,8 @@ Assert-True ($pp.Contains('<h2>dkj-policy</h2><p class="card__sub">workflow &mid
 Assert-True ($pp.Contains('<dd>26 skills &middot; 1 hook</dd>') -and $pp.Contains('<dd>3 subagents</dd>')) 'it counts what the plugin holds, singular where it is one and leaving out what it has none of'
 Assert-True ($pp.Contains('<summary>Show the full description</summary><p>All of it.</p>') -and ([regex]::Matches($pp, '<details class="more">')).Count -eq 1) 'the full description is folded, and a plugin without one has no fold'
 Assert-True ($pp.Contains('pl-card pl-card--off" id="plugin-dkj-subagents-ecomm"') -and $pp.Contains('add-on team &middot; off here') -and $pp -notmatch 'add-on team &middot; v') 'a plugin not enabled here keeps its card, muted, and a missing version is left out'
+$long = Format-PluginsPageHtml -Plugins @(@{ Name = 'x'; Kind = 'plugin'; Source = 's'; Enabled = $true; Summary = 'Add-on team (e.g. smartwatchbanden): one. Two follows.'; Description = 'Full.' })
+Assert-True ($long.Contains('<p>Add-on team (e.g. smartwatchbanden): one.</p>') -and -not $long.Contains('Two follows')) 'a card shows the marketplace''s line up to its first sentence, a lower-case abbreviation not ending it'
 Assert-True ((Format-PluginsPageHtml -Plugins @()).Contains('No plugin was found') -and (Format-PluginsPageHtml -Plugins @() -ReadError 'm.json').Contains('msg--warn')) 'none found says so, and a failed read is a warning on the page'
 
 Write-Host '-- a plugin''s own Specialists page (#3550)' -ForegroundColor Cyan

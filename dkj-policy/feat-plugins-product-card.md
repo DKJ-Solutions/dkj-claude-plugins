@@ -39,19 +39,35 @@
 
 ### PLAN
 
+The owner asked for a Plugins card on the product port (localhost:4870), its page listing every plugin
+this repo offers. A visible result, so the branch waits for the owner's look before it merges.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/dev-pages-lib.ps1`: a third product page in `Get-ProductPages`, `Get-MarketplacePluginKind` and `Format-PluginsPageHtml`
+- [x] `scripts/dashboard/serve-connector-dashboard.ps1`: `Get-PluginsModel` and the `/plugins` route
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` and `connector-dashboard.tests.ps1` green, the Plugins page covered in both
+- [x] `check-house-style.ps1` green
+- [ ] The owner has looked at http://localhost:4870/plugins
+
 ### DEPLOY: feat/plugins-product-card
 
-**Score:**
+The product's home page gains a third card, Plugins, and `/plugins` lists every plugin
+`.claude-plugin/marketplace.json` ships, one card each: its kind (core team, add-on team, workflow, add-on
+to dkj-policy), version, whether this repo enables it, what it holds (subagents, personas, skills, hook
+commands), its source path, and its full description folded. It is the tree, read on every request. The
+hub's own Plugins page stays what this checkout enables.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a page of this repo's own product server, which no consumer runs.
+
+**Score:** N/A
 
 #### Pull Request
 
