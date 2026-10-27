@@ -118,11 +118,13 @@ function Format-GeneralPageHtml {
         the first crumb, "Home" (#3270), goes: '/hub' on the general server, which answers it with the home page or, under OwnHub,
         sends the visitor on to the repo's own hub -- or, where a hub relays these pages from its own origin, '/hub' on that hub, which
         answers it itself (#3168). -Style is the page's own layer, names the house file does not define. -Lead and
-        -FooterNote are markup the caller has escaped. -Brand opts into the house site header (Format-SiteHeaderHtml):
+        -FooterNote are markup the caller has escaped. -Lead is the page's <meta name="description">, never a
+        paragraph under the h1: screen height is scarce, so a page opens on its h1 and goes straight to its content
+        (owner, #3585). -Brand opts into the house site header (Format-SiteHeaderHtml):
         the app's name on the primary above the bar, linking -HubHref, with the settings button in it; the eyebrow
         then goes, since the header already names the site. -BrandTag is the word after the name. A page that
         names -SiteName and no -Brand gets the header anyway (ConvertTo-SiteHeaderName), since October 22, 2026. Without it the page is as it always was.
-        -Bare (a page's own choice, default off) leaves out the intro above -Body: the h1 and the lead, so the page
+        -Bare (a page's own choice, default off) leaves out the intro above -Body: the h1, so the page
         opens on the general banner (the first block of every page, above the h1 where there is one) and then its own content; the crumbs, the site header and the banner stay (the
         banner is on every hub page without exception, #3356), and -Title still names the crumb and the <title>.
         -Lead may then be empty.
@@ -161,6 +163,9 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
     [void]$sb.AppendLine('<title>' + $site + (& $e $Title) + '</title>')
+    # The lead is metadata, not a line on screen (#3585): its tags go, its entities are already escaped.
+    $description = ([regex]::Replace($Lead, '<[^>]*>', '')).Replace('"', '&quot;').Trim()
+    if ($description) { [void]$sb.AppendLine('<meta name="description" content="' + $description + '">') }
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The page layer: only names the house file does not define (.dp-*).
@@ -190,8 +195,6 @@ function Format-GeneralPageHtml {
         [void]$sb.AppendLine('<div>')
         if ($Eyebrow -and -not $Brand) { [void]$sb.AppendLine('<p class="eyebrow">' + (& $e $Eyebrow) + '</p>') }
         [void]$sb.AppendLine('<h1>' + (& $e $Title) + '</h1>')
-        # An empty -Lead draws no empty paragraph (the Plugins overview, #3482).
-        if ($Lead) { [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>') }
         [void]$sb.AppendLine('</div>')
         if ($HeadAside) { [void]$sb.AppendLine($HeadAside); [void]$sb.AppendLine('</header>') }
     }
@@ -515,8 +518,9 @@ function Format-RepoHomeHeadHtml {
     <#
         The top of a repo's home page on '/' (#3270), the same in every hub: the breadcrumb bar with its one
         crumb, Home; the settings button; and the opening of <main> with the intro, whose h1 is the repo's
-        name (-RepoName, escaped by the caller) and whose lead (-Lead, markup the caller escaped) is what the
-        repo is for. No eyebrow: the h1 already names the repo. The general banner (#3250) opens it, above the
+        name (-RepoName, escaped by the caller). -Lead (markup the caller escaped) is what the repo is for; it is
+        kept for the callers that pass it, and drawn nowhere, since a page carries no lead under its h1 (#3585):
+        the caller's own <head> is where a description goes. No eyebrow: the h1 already names the repo. The general banner (#3250) opens it, above the
         site header. With -Brand the site header stands above the bar and there is no intro: <main> opens on the
         sections. The caller writes the <head> and '<body>' before it and the sections and </main> after it.
     #>
@@ -538,7 +542,6 @@ function Format-RepoHomeHeadHtml {
     if (-not $Brand) {
         [void]$sb.AppendLine('<div>')
         [void]$sb.AppendLine('<h1>' + $RepoName + '</h1>')
-        [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>')
         [void]$sb.AppendLine('</div>')
     }
     return $sb.ToString()
