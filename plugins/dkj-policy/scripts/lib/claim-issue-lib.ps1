@@ -2851,33 +2851,89 @@ function Get-ParkingWaitReferences {
             comment goes on to cite a file path that is branch-shaped. Not at a comma: #3130 waits on
             "#3131, #3132, #3133 and #3134", and a list cut at its first comma clears on one of four.
 
+            THE TWO EXTERNAL WAITS READ THE SAME CLAUSE (#3572). `awaiting-pull-external` names its blocker
+            as `owner/repo#n`, which comes back in External and is kept out of Issues and Branches: read as
+            local, `DKJ-Solutions/dkj-lifehub#577` was a branch `DKJ-Solutions/dkj-lifehub` and this repo's
+            #577. `awaiting-release-external` names `owner/repo`, which comes back in Repos. Its wait is
+            "the next release after the park", so Since carries when the parking comment was written.
+
         .PARAMETER Comments
-            The issue's comments as `gh issue list --json comments` returns them (objects with a body).
+            The issue's comments as `gh issue list --json comments` returns them (objects with a body, and
+            a createdAt the caller dates the park by).
 
         .OUTPUTS
-            @{ Issues = [int[]]; Branches = [string[]] } -- both empty when no parking comment names one.
+            @{ Issues = [int[]]; Branches = [string[]]; External = [string[]]; Repos = [string[]];
+            Since = [string] } -- all empty when no parking comment names one. External holds `owner/repo#n`;
+            Repos holds every branch-shaped name with exactly one slash, so it overlaps Branches and the
+            caller reads whichever its label means. Since is the parking comment's createdAt, round-trip
+            formatted, or '' where the comment carries none.
     #>
     param([AllowNull()][object[]]$Comments = @())
 
     $issues = New-Object System.Collections.Generic.List[int]
     $branches = New-Object System.Collections.Generic.List[string]
+    $external = New-Object System.Collections.Generic.List[string]
+    $repos = New-Object System.Collections.Generic.List[string]
     $clause = ''
+    $since = ''
     foreach ($c in @(@($Comments) | Where-Object { $_ })) {
         $body = if ($c.PSObject.Properties['body']) { [string]$c.body } else { '' }
         $m = [regex]::Match($body, '(?is)\bparked\b.*?\bwaiting on\b(?<w>.*)')
-        if ($m.Success) { $clause = $m.Groups['w'].Value }
+        if ($m.Success) {
+            $clause = $m.Groups['w'].Value
+            # PowerShell 7's ConvertFrom-Json hands a date back as [datetime], 5.1 as the ISO string.
+            $at = if ($c.PSObject.Properties['createdAt']) { $c.createdAt } else { $null }
+            $since = if ($at -is [datetime]) { ([DateTimeOffset]$at).ToString('o') } elseif ($at) { [string]$at } else { '' }
+        }
     }
     if ($clause) {
         $clause = ([regex]::Split($clause, '(?<=\S)[.;:]\s|\s--\s|\s\(|\r?\n'))[0]
-        foreach ($n in [regex]::Matches($clause, '#(\d+)')) {
+        $crossRepo = '(?<![\w./-])(?<repo>[A-Za-z0-9][\w.-]*/[\w.-]*[A-Za-z0-9_])#(?<n>\d+)'
+        foreach ($x in [regex]::Matches($clause, $crossRepo)) {
+            $v = "$($x.Groups['repo'].Value)#$($x.Groups['n'].Value)"
+            if (-not $external.Contains($v)) { $external.Add($v) }
+        }
+        $local = [regex]::Replace($clause, $crossRepo, ' ')
+        # Not after a name: `dkj-recipes#29` is another repo's number with its owner left off, never this one's.
+        foreach ($n in [regex]::Matches($local, '(?<![\w.-])#(\d+)')) {
             $v = [int]$n.Groups[1].Value
             if (-not $issues.Contains($v)) { $issues.Add($v) }
         }
-        foreach ($b in [regex]::Matches($clause, '(?<![\w#/.-])[A-Za-z0-9][\w.-]*/[\w./-]*[\w-]')) {
+        foreach ($b in [regex]::Matches($local, '(?<![\w#/.-])[A-Za-z0-9][\w.-]*/[\w./-]*[\w-]')) {
             if (-not $branches.Contains($b.Value)) { $branches.Add($b.Value) }
+            if ($b.Value -match '^[^/]+/[^/]+$' -and -not $repos.Contains($b.Value)) { $repos.Add($b.Value) }
         }
     }
-    return @{ Issues = [int[]]@($issues); Branches = [string[]]@($branches) }
+    return @{ Issues = [int[]]@($issues); Branches = [string[]]@($branches); External = [string[]]@($external)
+              Repos = [string[]]@($repos); Since = $since }
+}
+
+function Test-PublishedSince {
+    <#
+        .SYNOPSIS
+            Whether a release published at -Published came after -Since -- the one comparison both external
+            waits turn on (#3572).
+
+        .DESCRIPTION
+            FALSE WHENEVER EITHER SIDE IS UNREAD. An empty or unparseable time is an unread answer, and an
+            unread answer keeps the issue skipped, the same bound the awaiting-pull read keeps (#3136): a
+            wait wrongly read as cleared hands the sweep work it cannot do yet.
+
+        .PARAMETER Published
+            The release's published_at, as the GitHub API writes it.
+
+        .PARAMETER Since
+            What the wait started at: the parking comment's createdAt, or the moment an upstream blocker
+            merged.
+    #>
+    param([string]$Published = '', [string]$Since = '')
+
+    $inv = [Globalization.CultureInfo]::InvariantCulture
+    $p = [DateTimeOffset]::MinValue
+    $s = [DateTimeOffset]::MinValue
+    if (-not [DateTimeOffset]::TryParse($Published, $inv, [Globalization.DateTimeStyles]::AssumeUniversal, [ref]$p)) { return $false }
+    if (-not [DateTimeOffset]::TryParse($Since, $inv, [Globalization.DateTimeStyles]::AssumeUniversal, [ref]$s)) { return $false }
+    return ($p -gt $s)
 }
 
 function Get-OwnTagClaims {

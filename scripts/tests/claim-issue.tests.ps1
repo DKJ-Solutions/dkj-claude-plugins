@@ -1636,7 +1636,21 @@ $rNone = & $w @('Parked by a sweep: waiting on the owner to look.', 'just a comm
 Assert-True ($rNone.Issues.Count -eq 0 -and $rNone.Branches.Count -eq 0) 'a parking comment naming nothing yields nothing'
 Assert-True ((Get-ParkingWaitReferences -Comments @()).Issues.Count -eq 0) 'and so do no comments'
 $cand = Get-Content -LiteralPath (Join-Path $repoRoot 'scripts\task\claim-issue.ps1') -Raw
-Assert-True ($cand -match "Verdict = 'stale-park'" -and $cand -match '--remove-label awaiting-pull') '-Candidates reads a cleared park as stale-park and prints the unpark line'
+Assert-True ($cand -match "Verdict = 'stale-park'" -and $cand -match '--remove-label \$sLabel') '-Candidates reads a cleared park as stale-park and prints the unpark line for the label it read'
+
+# #3572: the two external waits read the same clause -- cross-repo numbers apart, and the park's own date
+$rExt = & $w @('Parked by a sweep: waiting on DKJ-Solutions/dkj-lifehub#577 and dkj-recipes#29 and #12.')
+Assert-True (($rExt.External -join ',') -eq 'DKJ-Solutions/dkj-lifehub#577') 'an owner/repo#n is read as an external reference'
+Assert-True (($rExt.Issues -join ',') -eq '12' -and $rExt.Branches.Count -eq 0) 'and neither it nor an owner-less repo#n is read as this repo''s number or a branch'
+$rRel = Get-ParkingWaitReferences -Comments @([pscustomobject]@{ body = "Re-parked under awaiting-release-external (#3515): waiting on BWJ-Development/smartwatchbanden's next release (v2.50.0; v2.49.0 is the newest today)."; createdAt = '2026-10-26T18:00:00Z' })
+Assert-True (($rRel.Repos -join ',') -eq 'BWJ-Development/smartwatchbanden') 'an owner/repo is read as the repo whose release is awaited (#3505''s comment)'
+Assert-True ($rRel.Since -eq '2026-10-26T18:00:00Z') 'and the parking comment''s createdAt dates the park'
+$rDt = Get-ParkingWaitReferences -Comments @([pscustomobject]@{ body = 'Parked: waiting on a/b.'; createdAt = [datetime]::SpecifyKind([datetime]'2026-10-26 18:00:00', 'Utc') })
+Assert-True (Test-PublishedSince -Published '2026-10-26T18:00:01Z' -Since $rDt.Since) 'a createdAt PowerShell 7 already parsed into a [datetime] dates the park just the same'
+Assert-True (Test-PublishedSince -Published '2026-10-27T08:00:00Z' -Since '2026-10-26T18:00:00Z') 'a release after the park clears it'
+Assert-True (-not (Test-PublishedSince -Published '2026-10-21T08:42:03Z' -Since '2026-10-26T18:00:00Z')) 'a release before the park does not'
+Assert-True (-not (Test-PublishedSince -Published '' -Since '2026-10-26T18:00:00Z') -and -not (Test-PublishedSince -Published '2026-10-27T08:00:00Z' -Since '')) 'and an unread side never clears it'
+Assert-True ($cand -match "awaiting-\(pull\|pull-external\|release-external\)") '-Candidates reads both external waits beside awaiting-pull'
 
 Assert-True ($parkArm -match 'Format-ParkingLabelConflict -Labels \$parkingLabels') 'the single-issue route reads the pair inside the parking arm, from the matches already in hand'
 

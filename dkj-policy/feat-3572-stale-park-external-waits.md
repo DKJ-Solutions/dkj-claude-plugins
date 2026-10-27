@@ -39,21 +39,43 @@
 
 ### PLAN
 
+Extend the `stale-park` read in `claim-issue -Candidates` (#3136) to the two parking labels whose wait a
+script can read: `awaiting-pull-external` and `awaiting-release-external` (#3572). Verified before building:
+`awaiting-release` is already listed by `cut-release`, and the other parking labels wait on a person or on
+nothing a tracker records, so they stay out.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ParkingWaitReferences` reads `owner/repo#n` apart from local numbers and branches, the `owner/repo`
+  a release is awaited from, and the parking comments date; `Test-PublishedSince` compares a release to it
+- [x] `-Candidates` reads both external waits, with one new bounded read (`releases/latest`), and prints the
+  unpark line for the label it read
+- [x] `sweep-issues` and `CONTRIBUTING-portable` name the parking-comment form and what clears each label
 
 ### TEST
 
+- [x] `claim-issue.tests.ps1`: the cross-repo parse on #3464s shape, #3505s real comment, both date
+  shapes, and the comparison; `native-capture.tests.ps1` moves the bounded count to 101
+- [x] a live `-Candidates` run: #3505 stays skipped (smartwatchbandens newest release predates the park),
+  #3464 says its comment names no `owner/repo#n`, and `awaiting-pull` still reads #3566 as `stale-park`
+
 ### DEPLOY: feat/3572-stale-park-external-waits
 
-**Score:**
+A sweep now also notices when an issue parked on another repo has stopped waiting. `claim-issue -Candidates`
+reports an `awaiting-pull-external` issue as `stale-park` once its upstream pull request has merged and
+that repo has published a release since. It does the same for an `awaiting-release-external` issue once
+the repo it names has published a release after the park. It prints the two lines that unpark the issue,
+so the issue is free for the same sweep. Before this, only `awaiting-pull` was ever read again.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a sweep in a consumer reads two more parked labels again; nothing changes for the person who takes
+the next version unless they run sweeps on issues waiting on another repo.
+
+**Score:** N/A
 
 #### Pull Request
 
 stale-park reads the two external waits
-
