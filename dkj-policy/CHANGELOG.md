@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**8 / 15 minor entries** <!-- pending-tally -->
+**9 / 16 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3562-asana-reopen-card-back · 20261027-100117Z
+
+When a GitHub issue linked to an Asana task is reopened, `asana-closed-message` now moves the card into
+the board's `InDevelopment` section and marks the task incomplete if it was completed, after posting the
+reopened message ([#3562](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3562)). Unlike the
+review move (#3248) it does take a card out of `Completed`. Where the task is on several boards, or its
+board has no single section with the `InDevelopment` code, the move is skipped and the message and the
+untick still go out. The untick only ever sets `completed` to false. A store takes it by re-copying
+`.github/scripts/asana-closed-message.ps1`, and the move needs `InDevelopment` in its
+`Get-AsanaStageMap`; without it, only the untick happens.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A reopened ticket's Asana card now goes back to In Progress and is unticked on its own, so the board
+agrees with the "back in development" message instead of waiting for someone to drag it.
+
+**Score:** 3
+
+#### Pull Request
+
+asana-closed-message: on a reopen, move the card to InDevelopment and mark it incomplete
+
+Plugins: bwj-development
+
+[PR #3568](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3568)
+
+---
 
 ### DEPLOY: feat/test-gate-drilldown · 20261027-094730Z
 
