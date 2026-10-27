@@ -144,7 +144,7 @@ question rather than the answer to it. Ask whose clock it is:
 **Parking is a state, not a promise to come back within the turn**, so *"the PR is open and shipping"* is
 close-out shape A. **A finished chain ends on the trunk**, which is what makes the session safe to clear;
 **a branch parked for the owner's eye stays checked out**, because the owner judges the working copy
-(#2558).
+(#2558), except in a sweep, which parks it on `origin` and moves on (#3552).
 
 **"Cleared" is said precisely, and never conditionally.** Where something is still in flight — an
 unarmed ship, which dies with the harness, or a subagent of your own, which you check in the agent list
@@ -152,7 +152,8 @@ rather than your inbox — name what it still holds as a fact, and say what the 
 normally open a second session beside the running one. **A backgrounded ship whose PR is armed
 `merge-when-green`, with the checkout back on the trunk, is a plain clearance** — the merge-on-green
 sweep finishes it if this run dies, so say *the session can be cleared* as a fact, never as a warning
-(the line `ship-pr` prints, #3442).
+(the line `ship-pr` prints, #3442). **Backgrounded before that line, relay the close-out its
+`Clearance forecast` printed first**, and never *"I'm waiting"*, which reads as a wait on the owner (#3554).
 
 **The rule in full is in the manual, and it is read before any close-out where something is still
 running**, and whenever a tool makes parking and ending on the trunk fight.
