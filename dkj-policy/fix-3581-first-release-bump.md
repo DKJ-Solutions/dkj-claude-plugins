@@ -39,21 +39,35 @@
 
 ### PLAN
 
+Inbound #3581 (DKJ-Solutions/dkj-music-library, October 27, 2026): in a repo with no plugins and no `v*` tag,
+the tier gate advises `-Bump minor`, and the baseline then refuses every `-Bump` for want of a tag. Verified in
+`cut-release.ps1`: the baseline refusal sits at the tag read, the advice at the tier gate. The repair is the
+issue's second option, the smaller one: `-Bump` counts from the 0.0.0 baseline the script already used for
+`-Version`, so the gate's advice runs as written.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `cut-release.ps1`: a tagless, plugin-less repo takes 0.0.0 as its baseline for `-Bump` as well as `-Version`; the refusal is gone
+- [x] The plugin mirror rebuilt with `build-shared-scripts.ps1`
 
 ### TEST
 
+- [x] `cut-release-drive.tests.ps1` scenario 15: an unearned `-Bump major` is refused by the tier gate (not the baseline) with `-Bump patch` as its advice, and following that advice cuts `v0.0.1` -- 124 passed, 0 failed
+
 ### DEPLOY: fix/3581-first-release-bump
 
-**Score:**
+A first release in a repo with no plugins and no tag no longer gets two answers that cannot both be followed:
+`cut-release` accepts `-Bump` and counts it from 0.0.0, so the tier gate's "What the pending work does earn:
+-Bump minor" runs as written and cuts v0.1.0.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A repo cutting its first release follows the refusal's own advice instead of guessing the `-Version` it implies.
+
+**Score:** 2
 
 #### Pull Request
 
 cut-release accepts -Bump on a first release, so the tier gate's advice runs
-
