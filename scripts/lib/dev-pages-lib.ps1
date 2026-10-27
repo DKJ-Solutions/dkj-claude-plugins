@@ -222,7 +222,7 @@ function Format-SpecialistsPageHtml {
         estimate at that factor, and the page says which is which.
 
         TWO LEVELS (#3550, the owner: the cards must link to a deeper page). Without -Plugin it is /specialists:
-        the tiles over every specialist and one card per specialist plugin, three to a row in the hub's card
+        one card per specialist plugin and nothing above them but the h1, three to a row in the hub's card
         form, each linking its plugin's page. With -Plugin (a Short from Get-SpecialistPlugins) it is
         /specialists/<plugin>: a three-crumb trail, the tiles over that plugin and its specialists' table. A
         -Plugin the rows do not name returns $null, so the server answers 404 rather than an empty page.
@@ -245,9 +245,6 @@ function Format-SpecialistsPageHtml {
         if (-not $pick) { return $null }
         $rows = @($pick.Rows)
     }
-    $enabled = @($rows | Where-Object { $_.Enabled })
-    $listingHere = [int64]0
-    foreach ($r in $enabled) { $listingHere += [int64]$r.ListingBytes }
     $max = if ($rows.Count) { [double]$rows[0].TotalBytes } else { 0 }
     $largest = @{ L = 'Largest full read'; V = $(if ($rows.Count) { $rows[0].Name + ' ' + (& $tok $rows[0].TotalBytes) } else { '--' }) }
 
@@ -259,14 +256,8 @@ function Format-SpecialistsPageHtml {
             @{ L = $(if ($pick.Enabled) { 'Listing, every session here' } else { 'Listing, if enabled' }); V = (& $tok $pick.ListingBytes) },
             @{ L = 'Full read, all of them'; V = (& $tok $pick.TotalBytes) },
             $largest)))
-    } else {
-        [void]$body.Append((Format-DevTiles @(
-            @{ L = 'Specialists'; V = $rows.Count },
-            @{ L = 'Plugins'; V = $plugins.Count },
-            @{ L = 'Enabled here'; V = $enabled.Count },
-            @{ L = 'Listing, every session here'; V = (& $tok $listingHere) },
-            $largest)))
     }
+    # The overview opens on its cards: no tiles, no heading over the grid and no lead (the owner, #3550).
     if ($ReadError) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The specialists could not all be read: ' + (& $e $ReadError) + '.</p>')
     }
@@ -275,7 +266,6 @@ function Format-SpecialistsPageHtml {
         # /specialists: one card per plugin in the hub's card form, its label an h2 and its summary under it, the
         # whole card the link (as /connectors does its owner groups). An off plugin keeps its card, muted.
         [void]$body.AppendLine('<div class="grid-3" id="plugins">')
-        [void]$body.AppendLine('<div class="grid__head"><h2>Plugins</h2><p class="card__sub">One card per specialist plugin, the core team first. Open one for its specialists and what each costs</p></div>')
         foreach ($p in $plugins) {
             $sub = @($p.Kind, $(if ($p.Enabled) { 'enabled here' } else { 'off here' }),
                 ([string]$p.Rows.Count + ' specialist' + $(if ($p.Rows.Count -ne 1) { 's' } else { '' })),
@@ -317,19 +307,20 @@ function Format-SpecialistsPageHtml {
         [void]$body.AppendLine('</tbody></table></div>')
         [void]$body.AppendLine('</section>')
         [void]$body.AppendLine('</div>')
+        # What each column means, under the table it explains; the overview has no table, so it has none (#3550).
+        [void]$body.AppendLine('<div class="grid-2" id="when">')
+        [void]$body.AppendLine('<div class="grid__head"><h2>When each part loads</h2></div>')
+        [void]$body.AppendLine('<section class="card grid__full">')
+        [void]$body.AppendLine('<dl class="facts">')
+        [void]$body.AppendLine('<div><dt>Listing</dt><dd>A subagent''s description. Every session of a repo that enables its plugin carries it, whether the specialist is called or not. A persona has none.</dd></div>')
+        [void]$body.AppendLine('<div><dt>Definition</dt><dd>The file without its frontmatter: a subagent''s system prompt each time it is spawned, or a persona''s body when it is read. The orchestrator''s persona is imported on every turn.</dd></div>')
+        [void]$body.AppendLine('<div><dt>Manual</dt><dd>The portable playbook, read on demand.</dd></div>')
+        [void]$body.AppendLine('<div><dt>Lens</dt><dd>This repo''s own lens, read on demand. A plugin not enabled here has none.</dd></div>')
+        [void]$body.AppendLine('<div><dt>Full read</dt><dd>All four together: what a specialist costs when everything about it is in context.</dd></div>')
+        [void]$body.AppendLine('</dl>')
+        [void]$body.AppendLine('</section>')
+        [void]$body.AppendLine('</div>')
     }
-    [void]$body.AppendLine('<div class="grid-2" id="when">')
-    [void]$body.AppendLine('<div class="grid__head"><h2>When each part loads</h2></div>')
-    [void]$body.AppendLine('<section class="card grid__full">')
-    [void]$body.AppendLine('<dl class="facts">')
-    [void]$body.AppendLine('<div><dt>Listing</dt><dd>A subagent''s description. Every session of a repo that enables its plugin carries it, whether the specialist is called or not. A persona has none.</dd></div>')
-    [void]$body.AppendLine('<div><dt>Definition</dt><dd>The file without its frontmatter: a subagent''s system prompt each time it is spawned, or a persona''s body when it is read. The orchestrator''s persona is imported on every turn.</dd></div>')
-    [void]$body.AppendLine('<div><dt>Manual</dt><dd>The portable playbook, read on demand.</dd></div>')
-    [void]$body.AppendLine('<div><dt>Lens</dt><dd>This repo''s own lens, read on demand. A plugin not enabled here has none.</dd></div>')
-    [void]$body.AppendLine('<div><dt>Full read</dt><dd>All four together: what a specialist costs when everything about it is in context.</dd></div>')
-    [void]$body.AppendLine('</dl>')
-    [void]$body.AppendLine('</section>')
-    [void]$body.AppendLine('</div>')
     $factor = $CharsPerToken.ToString('0.00', $inv)
     # The card title sits flush in its card (as /connectors' do); an off plugin's card is muted, never hidden.
     $style = $script:DevBarStyle + "`n" + '.sp-card-title { margin: 0; }' + "`n" + '.sp-card--off { opacity: 0.7; }'
@@ -339,8 +330,7 @@ function Format-SpecialistsPageHtml {
             -ParentCrumbs @(@{ Label = 'Specialists'; Href = '/specialists' }) `
             -Lead ('The specialists the <code>' + (& $e $pick.Plugin) + '</code> plugin ships, the ' + (& $e $pick.Kind) + ', and how much context each one brings along.')
     }
-    return Format-DevPageHtml -Title 'Specialists' -Style $style -Body $body.ToString() -FooterNote $footer `
-        -Lead 'Every specialist the dkj-subagents plugins ship, one card per plugin, and how much context each one brings along: what every session pays for it, what it costs when it is called, and what its manual and lens add.'
+    return Format-DevPageHtml -Title 'Specialists' -Style $style -Body $body.ToString() -FooterNote $footer -Lead ''
 }
 
 function Find-DkjCheckouts {

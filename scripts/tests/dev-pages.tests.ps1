@@ -542,7 +542,8 @@ $evil = ConvertTo-SpecialistRow -Id '06-99' -Plugin 'dkj-subagents-ecomm' -Form 
 $sp = Format-SpecialistsPageHtml -Rows @($sa, $pa, $evil) -CharsPerToken 3.12
 Assert-True ($sp -match '<h1>Specialists</h1>' -and $sp -match '<span aria-current="page">Specialists</span>') 'the page is named Specialists, in the h1 and the trail'
 Assert-True ($sp -notmatch 'href="/plugins') 'its trail is Home > Specialists: the product has no Plugins page, so the page sits under the product home (#3540)'
-Assert-True ($sp -match 'Specialists</div><div class="v num">3<' -and $sp -match 'Plugins</div><div class="v num">2<' -and $sp -match 'Enabled here</div><div class="v num">2<') 'the tiles count the specialists, the plugins and those enabled here'
+Assert-True (-not $sp.Contains('class="tiles"') -and -not $sp.Contains('class="lead"') -and -not $sp.Contains('grid__head"><h2>Plugins')) 'the overview opens on its cards: no tiles, no lead and no heading over the grid (the owner, #3550)'
+Assert-True (-not $sp.Contains('id="when"')) 'and the column explanation is left to the plugin pages, where the table is'
 Assert-True ($sp.Contains('<section class="card card--link sp-card" id="plugin-alpha">') -and $sp.Contains('href="/specialists/alpha"') -and $sp.Contains('href="/specialists/ecomm"')) 'each plugin is a link card to its own page'
 Assert-Equal 2 ([regex]::Matches($sp, '<h2 class="sp-card-title">')).Count 'one card per plugin, its label an h2'
 Assert-True ($sp.IndexOf('id="plugin-alpha"') -lt $sp.IndexOf('id="plugin-ecomm"')) 'the core team''s card comes first, even where an add-on''s specialist reads larger'
@@ -568,6 +569,7 @@ Assert-True ($al.Contains('<code>dkj-subagents-alpha</code>') -and $al.Contains(
 Assert-True ($al.Contains('always-on</span>')) 'the orchestrator carries the always-on badge'
 Assert-True ($al.Contains('~' + (Format-DevNumber ([Math]::Round(1000 / 3.12))) + '<')) 'tokens are the bytes at the given factor'
 Assert-True (-not $al.Contains('Not enabled in')) 'an enabled plugin carries no off notice'
+Assert-True ($al.Contains('id="when"') -and $al.IndexOf('</table>') -lt $al.IndexOf('id="when"')) 'the column explanation sits under the table it explains'
 $ec = Format-SpecialistsPageHtml -Rows @($sa, $pa, $evil) -CharsPerToken 3.12 -Plugin 'ecomm'
 Assert-True ($ec.Contains('Eve &lt;i&gt;') -and -not $ec.Contains('Eve <i>')) 'a name is escaped'
 Assert-True ($ec.Contains('Not enabled in') -and $ec -match 'Here</div><div class="v num">Off<' -and $ec.Contains('Listing, if enabled')) 'an off plugin''s page says what being off means here'

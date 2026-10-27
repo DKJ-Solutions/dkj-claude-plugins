@@ -1,4 +1,4 @@
-## feat/3550-specialists-page-plugin-cards
+﻿## feat/3550-specialists-page-plugin-cards
 
 > **How this file is read.** A step is `- [ ]` until it is resolved -- `- [x]` done, or
 > `- [~]` dropped with the reason, which exists so nobody ticks a box for work they did not do.
@@ -49,6 +49,8 @@
 - **Plugins not enabled here get a card too**, muted rather than hidden; their page says what being off
   means here: no session carries its listing, and it has no lens.
 - **Order:** the core team first, then add-on teams enabled here, then the off ones, by name.
+- **The overview is the cards and nothing else** (the owner, on the second look): no tiles, no lead, no
+  heading over the grid, and no "When each part loads", which stays on the plugin pages under their table.
 - **URL scheme:** `/specialists/<short>`, the plugin name without `dkj-subagents-`; an unknown one is a 404.
 
 ### CREATE
@@ -60,7 +62,7 @@
 ### TEST
 
 - [x] `scripts/tests/dev-pages.tests.ps1`: the overview's cards, links, order and off state, and the
-  detail page's trail, table and 404 case (368 passed, 0 failed, run alone before the park).
+  detail page's trail, table and 404 case (370 passed, 0 failed, run alone before the park).
 - [ ] The owner's look at `http://localhost:4870/specialists` on this branch.
 
 ### DEPLOY: feat/3550-specialists-page-plugin-cards
