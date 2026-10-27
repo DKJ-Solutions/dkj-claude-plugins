@@ -1125,13 +1125,15 @@ function Get-SessionStartSnapshotSections {
 
     $sb = New-Object System.Text.StringBuilder
     $h = $Snapshot.header
-    if ($h -and $h.lede) { [void]$sb.AppendLine('<p>' + (& $md $h.lede) + '</p>') }
     $scoreText = if ($null -ne $score) { "$score / 100" + $(if ($null -ne $prevScore -and $prevScore -ne $score) { ' (was ' + $prevScore + ')' } else { '' }) } else { '--' }
     [void]$sb.Append((Format-DevTiles @(
         @{ L = 'Efficiency score'; V = $scoreText },
         @{ L = 'Direct (tokens)'; V = ('~' + (Format-DevNumber $sum.direct) + (& $pct $sum.direct)) },
         @{ L = 'Via a setting (tokens)'; V = ('~' + (Format-DevNumber $sum.setting) + (& $pct $sum.setting)) },
         @{ L = 'No influence (tokens)'; V = ('~' + (Format-DevNumber $sum.none) + (& $pct $sum.none)) })))
+    # The lede is the measurement's own finding, so it stays, but below the figures it sums up rather than
+    # under the heading: a page opens on its h1 and goes straight to its content (#3585, #3591).
+    if ($h -and $h.lede) { [void]$sb.AppendLine('<p>' + (& $md $h.lede) + '</p>') }
     [void]$sb.AppendLine('<p class="note">The score is the share of the start that Claude Code itself brings, against everything this repo and this account add on top. Only a start that adds nothing scores 100.</p>')
     $sections.Add(@{ Slug = 'last-measurement'; Title = 'The last full measurement'
         Sub = (& $e $(if ($h) { $h.eyebrow } else { $Snapshot.asOf })); Value = ('Efficiency score ' + $scoreText); Body = $sb.ToString() })
@@ -1194,13 +1196,14 @@ function Get-SessionStartSnapshotSections {
     $adv = $Snapshot.advice
     if ($adv) {
         $sb = New-Object System.Text.StringBuilder
-        if ($adv.lede) { [void]$sb.AppendLine('<p>' + (& $md $adv.lede) + '</p>') }
         $steps = @(@($adv.steps) | Where-Object { $_ })
         if ($steps.Count) {
             [void]$sb.AppendLine('<ol>')
             foreach ($s in $steps) { [void]$sb.AppendLine('<li><strong>' + (& $md $s.title) + '</strong> ' + (& $md $s.text) + '</li>') }
             [void]$sb.AppendLine('</ol>')
         }
+        # The advice's conclusion follows its steps, never opens the section (#3591).
+        if ($adv.lede) { [void]$sb.AppendLine('<p>' + (& $md $adv.lede) + '</p>') }
         if ($adv.dont -and $adv.dont.text) {
             [void]$sb.AppendLine('<p class="msg" role="note"><strong>' + (& $e $(if ($adv.dont.label) { $adv.dont.label } else { 'Do not' })) + ':</strong> ' + (& $md $adv.dont.text) + '</p>')
         }

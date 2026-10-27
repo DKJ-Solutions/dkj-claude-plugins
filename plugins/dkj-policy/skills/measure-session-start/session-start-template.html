@@ -34,7 +34,7 @@ header{display:flex;flex-direction:column;gap:6px}
 .eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 h1{font-size:30px;line-height:1.15;margin:0;font-weight:600;text-wrap:balance}
 h2{font-size:18px;margin:0;font-weight:600;text-wrap:balance}
-.lede{color:var(--fg-2);max-width:66ch;margin:0}
+.finding{color:var(--fg-2);max-width:66ch;margin:0}
 .panel{background:var(--surface);border:1px solid var(--ring);border-radius:10px;padding:22px 22px 18px;display:flex;flex-direction:column;gap:16px;min-width:0}
 .panel > p{margin:0;color:var(--fg-2);max-width:70ch}
 
@@ -130,7 +130,6 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
   <header>
     <div class="eyebrow" id="h-eyebrow"></div>
     <h1 id="h-title"></h1>
-    <p class="lede" id="h-lede"></p>
   </header>
 
   <section class="panel score" aria-labelledby="score-h">
@@ -143,6 +142,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
   </section>
 
   <div class="tiles" id="tiles"></div>
+  <p class="finding" id="h-lede"></p>
 
   <section class="panel" aria-labelledby="h-over">
     <h2 id="h-over"></h2>
@@ -161,16 +161,16 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 
   <section class="panel" aria-labelledby="h-act">
     <h2 id="h-act"></h2>
-    <p id="act-lede"></p>
     <div class="actions" id="actions"></div>
+    <p id="act-lede"></p>
   </section>
 
   <section class="panel" aria-labelledby="h-docs">
     <h2 id="h-docs"></h2>
-    <p id="docs-lede"></p>
     <div class="bars" id="docs" style="margin-top:22px"></div>
     <div class="axis" aria-hidden="true"><div></div><div class="ticks" id="ticks2"></div><div></div></div>
     <p class="gone" id="gone"></p>
+    <p id="docs-lede"></p>
     <details>
       <summary id="sum2"></summary>
       <div class="tablewrap"><table id="t2"><thead></thead><tbody></tbody></table></div>
@@ -179,15 +179,15 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 
   <section class="panel" aria-labelledby="h-none">
     <h2 id="h-none"></h2>
-    <p id="none-lede"></p>
     <ul class="none-list" id="none-list"></ul>
+    <p id="none-lede"></p>
   </section>
 
   <section class="panel advice" aria-labelledby="h-adv">
     <div class="eyebrow" id="adv-eyebrow"></div>
     <h2 id="h-adv"></h2>
-    <p id="adv-lede"></p>
     <ol class="steps" id="steps"></ol>
+    <p id="adv-lede"></p>
     <div class="dont" id="dont"></div>
   </section>
 
@@ -216,13 +216,11 @@ var L=Object.assign({
   showTable:'Show as table',
   colItem:'Item', colInfluence:'Influence', colTokens:'Tokens', colSource:'Source',
   actionsHeading:'What you can do, biggest gain first',
-  actionsLede:'The gain is in tokens per session. Blue actions are done in this repo, through a branch and a PR. Orange actions are a setting on your machine or in claude.ai. Struck through is already done.',
   done:'Done', measured:'Measured', estimated:'Estimated',
   docsHeading:'The biggest direct block: the always-on documents',
-  docsLede:'Every file each session loads: the @-imports from CLAUDE.md, plus the unscoped rules. Measured, and entirely in your hands. The red line is the budget.',
   colDocument:'Document', colBytes:'Bytes', colPrevious:'Previous', colApprox:'~ Tokens',
   total:'Total', totalSub:'all together', budget:'budget', newDoc:'new', gone:'No longer on the path:',
-  noneHeading:'What you cannot change', noneLede:'Claude Code ships this itself, in every repo.',
+  noneHeading:'What you cannot change',
   adviceEyebrow:'Advice', dont:'Do not:',
   vs:'vs.', tokensWord:'tokens', bytesWord:'B'
 }, D.labels||{});
@@ -241,6 +239,8 @@ function fmt(n){return Number(n).toLocaleString(loc)}
 function k(n){return (Math.round(n/100)/10).toLocaleString(loc)+'k'}
 function setText(id,v){$(id).textContent=v==null?'':v}
 function setMd(id,v){$(id).innerHTML=md(v)}
+/* A lede is drawn after the block it sums up, never under a heading, and not at all when the data has none (#3585, #3591). */
+function setLede(id,v){setMd(id,v);$(id).hidden=!v}
 var tip=$('tip');
 function hover(el,html){
   el.addEventListener('mouseenter',function(){tip.innerHTML=html;tip.style.opacity=1});
@@ -264,7 +264,7 @@ function ths(id,cols){
 /* ---- header ---- */
 var H=D.header||{};
 document.title=D.pageTitle||H.title||document.title;
-setText('h-eyebrow',H.eyebrow);setText('h-title',H.title);setMd('h-lede',H.lede);
+setText('h-eyebrow',H.eyebrow);setText('h-title',H.title);setLede('h-lede',H.lede);
 
 /* ---- tiles, legend, stack ---- */
 var items=D.items||[];
@@ -346,7 +346,7 @@ items.forEach(function(x){
 /* ---- actions ---- */
 var A=D.actions||{};
 var acts=Array.isArray(A)?A:(A.items||[]);
-setText('h-act',L.actionsHeading);setMd('act-lede',(!Array.isArray(A)&&A.lede)||L.actionsLede);
+setText('h-act',L.actionsHeading);setLede('act-lede',!Array.isArray(A)&&A.lede);
 acts.forEach(function(a){
   var d=document.createElement('div');d.className='act'+(a.done?' done':'');
   var inf=INF[a.influence]||INF.none;
@@ -362,7 +362,7 @@ var docs=DOC.items||[];
 var ratio=CPT;
 var hasPrev=!!DOC.hasPrevious;
 var prevLabel=DOC.previousLabel||L.colPrevious;
-setText('h-docs',DOC.heading||L.docsHeading);setMd('docs-lede',DOC.lede||L.docsLede);
+setText('h-docs',DOC.heading||L.docsHeading);setLede('docs-lede',DOC.lede);
 var TOTAL=docs.reduce(function(a,d){return a+d.bytes},0);
 var budget=Number(DOC.budgetBytes)||0;
 var maxDoc=Math.max(budget,TOTAL,1);
@@ -414,14 +414,14 @@ docs.forEach(function(d){
 
 /* ---- no influence ---- */
 var N=D.none||{};
-setText('h-none',N.heading||L.noneHeading);setMd('none-lede',N.lede||L.noneLede);
+setText('h-none',N.heading||L.noneHeading);setLede('none-lede',N.lede);
 (N.items||[]).forEach(function(x){
   var li=document.createElement('li');li.innerHTML='<b>'+esc(x.title)+'</b> '+md(x.text);$('none-list').appendChild(li);
 });
 
 /* ---- advice ---- */
 var V=D.advice||{};
-setText('adv-eyebrow',V.eyebrow||L.adviceEyebrow);setText('h-adv',V.heading);setMd('adv-lede',V.lede);
+setText('adv-eyebrow',V.eyebrow||L.adviceEyebrow);setText('h-adv',V.heading);setLede('adv-lede',V.lede);
 (V.steps||[]).forEach(function(s){
   var li=document.createElement('li');li.innerHTML='<b>'+esc(s.title)+'</b> '+md(s.text);$('steps').appendChild(li);
 });
