@@ -345,18 +345,18 @@ now"* is gone rather than moved — it **was** the duplicated half, and the *For
 replaced it.
 
 `cut-release.ps1` drafts a note under `Get-ReleaseNoteRoot` — `releases/audience/<dir>/<X.Y.Z>.md` here —
-for every bump `Get-ReleaseConsumerBumps` names. Three sections, in this order:
+for every bump `Get-ReleaseConsumerBumps` names. One section:
 
 | section | for whom | how it arrives |
 |---|---|---|
 | the audience section — *What changed*, at either tier | whoever your repo publishes to | **pre-filled** — your audience tier's entries, still in the words their authors wrote for a diff reviewer. Absent where no entry reached that tier. |
-| *What it is worth* | the organisation | **empty** — it cannot be generated. Think in time, risk and reduced dependence on a developer. |
-| *What was still open at this release* | the organisation | **empty**, and past tense on purpose: a published document does not move with reality, so a present-tense line goes stale in hours rather than months. |
 
-**Those are the three your repo can have, and `Get-ReleaseNoteSections` says which it does have** (inbound
-#2564). Name any of `Audience`, `Value` and `Open`; a section left out is not drafted at all, heading and
-hint. The wording map (`Get-ReleaseNoteWording`) renames a section, and this seam is the one that omits it.
-A repo whose readers only ask what changed answers `@('Audience')`. Absent, it means all three.
+**The two organisational sections that followed it are gone in every repo** (Dave,
+[#3584](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3584), October 27, 2026). *What it is
+worth* and *What was still open at this release* were opt-out through `Get-ReleaseNoteSections` (inbound
+#2564), whose absent answer still meant all three, so every repo that never learned the seam kept getting
+them. The seam is retired and no longer read; a repo that still defines it changes nothing. The
+measurement above is why the sections once existed, and published notes keep them as written.
 
 **The audience section can be drafted as SOLVED TASKS instead of ranked entries** (#2586), where the repo
 answers `Get-ReleaseNoteTaskLink` — a hashtable naming the marker and URL of its own task tracker, e.g.
@@ -374,10 +374,8 @@ exactly as a tier-2 repo's do. A repo asks its entries about tier 0 and its own 
 tier's entries are the only non-zero ones it has, and reading a fixed 2 discarded all of them.
 
 **A minor with no entry at that tier gets the note without the section**, which is an occasional minor in
-either kind of repo. Whichever of the organisational two sections
-`Get-ReleaseNoteSections` keeps belongs to every bump the seam names — the version moves for everyone, so the
-organisation's question is always answered wherever the repo still asks it — while a section about work the
-audience cannot see would be worse than none, because it looks written.
+either kind of repo: a header and nothing under it, because a section about work the audience cannot see
+would be worse than none, since it looks written.
 
 **That distinction is younger than it looks, and it shipped as a defect first.** Until inbound
 [#747](https://github.com/DaveKJohn/claude-code-specialists/issues/747) the selection was the literal 2, and

@@ -227,12 +227,8 @@ $firstWrite = $cutReleaseText.IndexOf('Write-Utf8NoBom -Path')
 Assert-True ($firstWrite -gt 0) 'found the first content write in cut-release.ps1'
 Assert-True ($guardLoop.Success -and $firstWrite -gt ($guardLoop.Index + $guardLoop.Length)) `
     'the guard runs BEFORE any file is written, so a collision leaves the tree untouched'
-# THE SECTIONS SEAM IS VALIDATED BEFORE ANY WRITE TOO (inbound #2564): a misspelt Get-ReleaseNoteSections
-# answer must stop the cut at the top, not after the version has moved.
-$sectionsIdx = $cutReleaseText.IndexOf('Resolve-ReleaseNoteSections -Answer')
-Assert-True ($sectionsIdx -gt 0 -and $sectionsIdx -lt $firstWrite) `
-    'Get-ReleaseNoteSections is resolved before the first file is written'
-Assert-True ($cutReleaseText -match '-Sections \$noteSections') 'and the resolved answer reaches Build-ReleaseNoteDraft'
+# THE SECTIONS SEAM IS RETIRED (#3584): the cut no longer reads Get-ReleaseNoteSections at all.
+Assert-True ($cutReleaseText -notmatch "Get-SeamValue -Name 'Get-ReleaseNoteSections'") 'cut-release no longer reads the retired Get-ReleaseNoteSections seam'
 # THE LIVE-PUSH RECORD AND ITS TASK-LINK SIBLING ARE ALSO VALIDATED BEFORE ANY WRITE (#2570, #2586): a
 # malformed record, or a malformed Get-ReleaseNoteTaskLink answer, must stop the cut at the top -- the
 # same reasoning as the sections seam directly above, and for the same reason: neither refusal is safe

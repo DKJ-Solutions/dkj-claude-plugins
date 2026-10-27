@@ -39,21 +39,42 @@
 
 ### PLAN
 
+Inbound #3584 (the owner, October 27, 2026: "ik wil dit gewoon nooit meer zien nergens"): no `## What it is worth`
+and no `## What was still open at this release` in any audience release note, in any repo. #2564 had made them
+opt-out through `Get-ReleaseNoteSections`, whose absent answer still meant all three. Verified: the default lives in
+`Resolve-ReleaseNoteSections` and `Build-ReleaseNoteDraft`, and the blueprint copies the source's all-three answer.
+The repair is the issue's full ask, not the minimal one: the sections leave the generator, and the seam is retired
+in the contract the way earlier seams were, so a consumer that still defines it changes nothing.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `release-lib.ps1`: `Build-ReleaseNoteDraft` drafts the audience section only; the Value/Open defaults and hints, `-Sections` and `Resolve-ReleaseNoteSections` are gone; `Compare-ReleaseNoteForm` loses `-Sections`
+- [x] The audience line no longer promises colleagues a section: `consumers of this product` at tier 2, `colleagues in the organisation` at tier 1
+- [x] `cut-release.ps1` and `check-release-note-form.ps1` no longer read `Get-ReleaseNoteSections`
+- [x] `script-contract-lib.ps1`: the record retired with a dated note; the `Get-ReleaseNoteWording` Returns text names the keys no longer read; `repo-config.ps1` drops its answer; the blueprint and the mirrors rebuilt
+- [x] The cut-release skill (step 0a, step 2, step 4), `RELEASES-portable.md` and the release lens describe one section
+- [~] `new-internal-note.ps1` still drafts both headings in the retired two-document flow's internal note -- outside this issue's list, so filed as #3590 for the owner's call
 
 ### TEST
 
+- [x] `release-lib.tests.ps1` (624), `release-note-form.tests.ps1`, `cut-release-guardrail.tests.ps1` (127), `cut-release-drive.tests.ps1` (119), `script-contract.tests.ps1`: all green, with new asserts that neither heading nor hint is drafted, that a retired wording key brings no heading back, that the form check refuses the two headings written back by hand even where the retired seam still answers all three, and that the contract counts fifty records
+
 ### DEPLOY: feat/3584-audience-note-only
 
-**Score:**
+The audience release note that `cut-release` drafts now has one section, *What changed*, in every repo. The two
+organisational sections, *What it is worth* and *What was still open at this release*, are gone, and so is the
+`Get-ReleaseNoteSections` seam that could only switch them off; a repo that still defines it changes nothing. The
+`For whom` line names only the reader the note has, and the release-notes form check refuses either heading
+written back by hand.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every repo's next release note arrives without the two sections nobody filled in, with nothing to configure.
+
+**Score:** 3
 
 #### Pull Request
 
 The audience release note drops 'What it is worth' and 'What was still open' everywhere
-
