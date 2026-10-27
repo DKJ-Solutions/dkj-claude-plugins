@@ -54,7 +54,7 @@ A server that answers with an error (no API) is not offline and still shows no b
 ### TEST
 
 - [x] `dev-pages.tests.ps1` (462), `connector-dashboard.tests.ps1` (218), `stopwatch.tests.ps1` (243): green, with two new asserts on the offline mark and the due box; the script passes `node --check`
-- [ ] The owner has looked at the banner with the hub server stopped
+- [x] The owner has looked at the banner with the hub server stopped (approved October 27, 2026)
 
 ### DEPLOY: fix/3596-banner-hub-offline
 
