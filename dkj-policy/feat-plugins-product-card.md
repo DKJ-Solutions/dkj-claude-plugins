@@ -46,19 +46,20 @@ this repo offers. A visible result, so the branch waits for the owner's look bef
 
 - [x] `scripts/lib/dev-pages-lib.ps1`: a third product page in `Get-ProductPages`, `Get-MarketplacePluginKind` and `Format-PluginsPageHtml`
 - [x] `scripts/dashboard/serve-connector-dashboard.ps1`: `Get-PluginsModel` and the `/plugins` route
+- [x] The overview's cards made lean link cards, the detail on `/plugins/<name>` (the owner: the cards were crammed); the page function renamed `Format-MarketplacePluginsPageHtml`, since the hub's lib has a `Format-PluginsPageHtml` of its own
 
 ### TEST
 
-- [x] `dev-pages.tests.ps1` and `connector-dashboard.tests.ps1` green, the Plugins page covered in both
+- [x] `dev-pages`, `connector-dashboard`, `logbook`, `stopwatch` and `stopwatch-sync` suites green (every suite loading `dev-pages-lib`), both Plugins levels covered
 - [x] `check-house-style.ps1` green
-- [ ] The owner has looked at http://localhost:4870/plugins
+- [ ] The owner has looked at http://localhost:4870/plugins and a plugin's own page
 
 ### DEPLOY: feat/plugins-product-card
 
 The product's home page gains a third card, Plugins, and `/plugins` lists every plugin
-`.claude-plugin/marketplace.json` ships, one card each: its kind (core team, add-on team, workflow, add-on
-to dkj-policy), version, whether this repo enables it, what it holds (subagents, personas, skills, hook
-commands), its source path, and its full description folded. It is the tree, read on every request. The
+`.claude-plugin/marketplace.json` ships, one link card each saying its kind, version and whether this repo enables it, and
+`/plugins/<name>` gives each plugin its own page: what it holds (subagents, personas, skills, hook
+commands), its source path, and its full description in paragraphs. It is the tree, read on every request. The
 hub's own Plugins page stays what this checkout enables.
 
 **Score:** 2

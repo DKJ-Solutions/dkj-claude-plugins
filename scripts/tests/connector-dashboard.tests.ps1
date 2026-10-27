@@ -452,8 +452,12 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $home3 = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($home3 -match 'HTTP/1.1 200' -and $home3 -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span>' -and $home3 -match 'href="/connectors"' -and $home3 -match 'href="/specialists"' -and $home3 -match 'href="/plugins"' -and $home3 -notmatch 'href="/dkj-repos"') '/ serves the product''s home page, linking Connectors, Specialists and Plugins'
             $r = if ($up) { Get-Raw 'GET' '/plugins' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Plugins</h1>' -and $r -match 'id="plugin-p-one"' -and $r -match 'v9\.8\.7' -and $r -match '1 skill &middot; 2 hooks' -and $r -match 'The first &lt;b&gt;one&lt;/b&gt;\.') '/plugins lists each marketplace plugin with its version and what it holds, escaped'
+            Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Plugins</h1>' -and $r -match 'href="/plugins/p-one"' -and $r -match 'v9\.8\.7') '/plugins lists each marketplace plugin as a card linking its own page, with its version'
             Assert-True ($r -match 'id="plugin-p-bad"' -and $r -match 'msg--warn[^\n]*p-bad \(its source\)') 'and a plugin whose source leaves plugins/ keeps its card, with nothing read from it and the reason named'
+            $r = if ($up) { Get-Raw 'GET' '/plugins/p-one' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>p-one</h1>' -and $r -match '1 skill &middot; 2 hooks' -and $r -match 'class="lead">The first &lt;b&gt;one&lt;/b&gt;\.' -and $r -match '<p>Full text\.</p>') '/plugins/<name> is its own page: what it holds, its line as the lead and its full description'
+            $r = if ($up) { Get-Raw 'GET' '/plugins/nope' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($r -match 'HTTP/1.1 404') 'a plugin the marketplace does not list is not found'
             $r = if ($up) { Get-Raw 'GET' '/dkj-repos' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($r -match 'HTTP/1.1 303' -and $r -match 'Location: /connectors/dkj\r') 'the old /dkj-repos sends an old link to /connectors/dkj, which holds the repos on GitHub since #3549'
             Assert-True ($home3 -match 'The hub is not running' -and $home3 -notmatch 'href="http://localhost' -and $home3 -notmatch 'href="/brandbook' -and $home3 -notmatch 'href="/test-gate"') 'with no state file it says the hub is not running, and links no general page of its own'
@@ -625,8 +629,8 @@ $rsRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('repo-session-' + [guid]:
 $rsHub = Join-Path $rsRoot 'org\hub'
 New-Item -ItemType Directory -Force -Path (Join-Path $rsHub 'connectors'), (Join-Path $rsHub 'scripts\lib'), (Join-Path $rsRoot 'org\dkj-lifehub') | Out-Null
 # repo-session.ps1 loads the hub's page lib, which loads the connector lib and the plugin libs beside it
-# (dev-preview-rules.ps1 for the Product card's url rule, #3468; test-gate-lib.ps1, the Test gate's page, #3470).
-foreach ($lib in 'scripts\lib\connector-dashboard-lib.ps1', 'scripts\lib\dev-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\general-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\dev-preview-rules.ps1', 'plugins\dkj-policy\hub\lib\test-gate-lib.ps1') {
+# (dev-preview-rules.ps1 for the Product card's url rule, #3468; test-gate-lib.ps1, the Test gate's page, #3470; plugins-page-lib.ps1, whose description paragraphs the product's Plugins pages use).
+foreach ($lib in 'scripts\lib\connector-dashboard-lib.ps1', 'scripts\lib\dev-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\general-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\dev-preview-rules.ps1', 'plugins\dkj-policy\hub\lib\test-gate-lib.ps1', 'plugins\dkj-policy\hub\lib\plugins-page-lib.ps1') {
     $to = Join-Path $rsHub (Split-Path -Parent $lib)
     New-Item -ItemType Directory -Force -Path $to | Out-Null
     Copy-Item -LiteralPath (Join-Path $RepoRoot $lib) -Destination $to

@@ -7,7 +7,7 @@
     DKJ-Solutions repo on GitHub with its checkout here and a session to open there (#3231; its own page at
     /dkj-repos until #3549, which now redirects there); and /specialists, every specialist the dkj-subagents
     plugins ship and the context each one costs, read from this tree; and /plugins, every plugin
-    .claude-plugin/marketplace.json lists, with its version and what it holds. The rules of
+    .claude-plugin/marketplace.json lists, each with a page of its own at /plugins/<name>. The rules of
     each page are in scripts/lib/dev-pages-lib.ps1. The server takes no POST but the banner's.
 
     EVERY REPO HAS A PRODUCT PORT (Maikel, October 26, 2026, #3540). This server was this repo's own hub
@@ -406,11 +406,17 @@ try {
                 }
                 continue
             }
-            if ($path -eq '/plugins' -or $path -eq '/plugins/') {
-                # Every plugin this marketplace ships (the owner, October 27, 2026).
+            if ($path -cmatch '^/plugins(?:/([a-z0-9-]+))?/?\z') {
+                # Every plugin this marketplace ships, or one plugin's own page (the owner, October 27, 2026); a
+                # plugin the marketplace does not list is a 404, never an empty page.
+                $plName = [string]$Matches[1]
                 $pl = Get-PluginsModel
-                $html = Format-PluginsPageHtml -Plugins $pl.Plugins -ReadError $pl.Error
-                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                $html = Format-MarketplacePluginsPageHtml -Plugins $pl.Plugins -ReadError $pl.Error -Plugin $plName
+                if ($null -eq $html) {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found: the marketplace lists no plugin of that name.')) -Method $method
+                } else {
+                    Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                }
                 continue
             }
             if ($path -eq '/hub') {

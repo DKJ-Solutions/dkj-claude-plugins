@@ -39,6 +39,8 @@
 # The plugin's lib: this repo is its source, so it reads it from its own tree -- dkj-policy's page shell and
 # card (#3198).
 . (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\general-pages-lib.ps1')
+# And the hub's Plugins page lib, for ConvertTo-PluginDescriptionHtml: a plugin's description as paragraphs.
+. (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\plugins-page-lib.ps1')
 
 function Format-DevPageHtml {
     <#
@@ -446,51 +448,71 @@ function Get-MarketplacePluginKind {
     return 'plugin'
 }
 
-function Format-PluginsPageHtml {
+function Format-MarketplacePluginsPageHtml {
     <#
-        The Plugins page, /plugins: every plugin this marketplace ships, one card each in marketplace.json's
-        order. -Plugins is the server's model, each @{ Name; Kind; Source; Version; Enabled; Summary; Description;
-        Subagents; Personas; Skills; Hooks }: Summary is the marketplace's own line, Description the plugin.json's,
-        folded under the card because it runs to paragraphs. Where the hub's Plugins page shows what THIS checkout
-        enables, this page shows what the repo OFFERS -- enabled here or not, each one is listed.
+        The Plugins pages: every plugin this marketplace ships. -Plugins is the server's model, in
+        marketplace.json's order, each @{ Name; Kind; Source; Version; Enabled; Summary; Description; Subagents;
+        Personas; Skills; Hooks }: Summary is the marketplace's own line, Description the plugin.json's. Where the
+        hub's Plugins page shows what THIS checkout enables, these show what the repo OFFERS, enabled here or not.
+
+        TWO LEVELS (the owner, October 27, 2026: the cards were crammed, so the detail goes a level deeper, as on
+        the Specialists pages). Without -Plugin it is /plugins: one link card per plugin saying what it is, its
+        version and whether it is on here. With -Plugin it is /plugins/<name>: the marketplace's line as the lead,
+        a facts card and the full description as paragraphs (the hub's ConvertTo-PluginDescriptionHtml). A -Plugin
+        the model does not name returns $null, so the server answers 404 rather than an empty page.
     #>
     param(
         [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Plugins,
-        [AllowEmptyString()][string]$ReadError = ''
+        [AllowEmptyString()][string]$ReadError = '',
+        [AllowEmptyString()][string]$Plugin = ''
     )
     $e = { param($v) ConvertTo-DashboardText $v }
-    # '' rather than no output for a zero: in 5.1 a call that writes nothing empties the whole @(a, b, ...) it stands in.
-    $count = { param($n, $word) if ([int]$n -gt 0) { [string]$n + ' ' + $word + $(if ([int]$n -ne 1) { 's' } else { '' }) } else { '' } }
+    $all = @($Plugins | Where-Object { $_ })
+    $state = { param($p) @((& $e $p.Kind), $(if ($p.Version) { 'v' + (& $e $p.Version) }), $(if ($p.Enabled) { 'enabled here' } else { 'off here' })) | Where-Object { $_ } }
     $body = New-Object System.Text.StringBuilder
     if ($ReadError) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The plugins could not all be read: ' + (& $e $ReadError) + '.</p>')
     }
-    [void]$body.AppendLine('<div class="grid-3" id="plugins">')
-    foreach ($p in @($Plugins | Where-Object { $_ })) {
-        $sub = @((& $e $p.Kind), $(if ($p.Version) { 'v' + (& $e $p.Version) }), $(if ($p.Enabled) { 'enabled here' } else { 'off here' })) | Where-Object { $_ }
-        $holds = @((& $count $p.Subagents 'subagent'), (& $count $p.Personas 'persona'), (& $count $p.Skills 'skill'), (& $count $p.Hooks 'hook')) | Where-Object { $_ }
-        [void]$body.AppendLine('<section class="card pl-card' + $(if ($p.Enabled) { '' } else { ' pl-card--off' }) + '" id="plugin-' + (& $e $p.Name) + '">')
-        [void]$body.AppendLine('<div class="card__head"><h2>' + (& $e $p.Name) + '</h2><p class="card__sub">' + ($sub -join ' &middot; ') + '</p></div>')
-        # The marketplace's line up to its first sentence: some run to paragraphs, and those are in the fold below.
-        $lead = if ([string]$p.Summary -cmatch '^(.+?[.!?])\s+[A-Z]') { $Matches[1] } else { [string]$p.Summary }
-        if ($lead) { [void]$body.AppendLine('<p>' + (& $e $lead) + '</p>') }
-        [void]$body.AppendLine('<dl class="facts">')
-        [void]$body.AppendLine('<div><dt>Holds</dt><dd>' + $(if ($holds) { $holds -join ' &middot; ' } else { '<span class="note">nothing counted</span>' }) + '</dd></div>')
-        [void]$body.AppendLine('<div><dt>Source</dt><dd><code>' + (& $e $p.Source) + '</code></dd></div>')
-        [void]$body.AppendLine('</dl>')
-        if ($p.Description) {
-            [void]$body.AppendLine('<details class="more"><summary>Show the full description</summary><p>' + (& $e $p.Description) + '</p></details>')
-        }
-        [void]$body.AppendLine('</section>')
-    }
-    if (-not @($Plugins | Where-Object { $_ }).Count) {
-        [void]$body.AppendLine('<section class="card grid__full"><p class="note">No plugin was found.</p></section>')
-    }
-    [void]$body.AppendLine('</div>')
-    # An off plugin's card is muted, never hidden, as on the Specialists page.
-    $style = '.pl-card--off { opacity: 0.7; }' + "`n" + '.pl-card .facts { margin-top: var(--spacing-3); }'
     $footer = 'Read from this checkout''s <code>.claude-plugin/marketplace.json</code> and each plugin''s <code>.claude-plugin/plugin.json</code> on every request, so it is the tree, not the installed release; enabled or off is <code>.claude/settings.json</code>. What this checkout loads, and any problem with it, is on the hub''s own Plugins page.'
-    return Format-DevPageHtml -Title 'Plugins' -Style $style -Body $body.ToString() -FooterNote $footer -Lead ''
+    # An off plugin's card is muted, never hidden, as on the Specialists pages.
+    $style = '.pl-card--off { opacity: 0.7; }'
+
+    if (-not $Plugin) {
+        [void]$body.AppendLine('<div class="grid-3" id="plugins">')
+        foreach ($p in $all) {
+            [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/plugins/' + $p.Name) -Label $p.Name -SubHtml ((& $state $p) -join ' &middot; ') -Heading 2 `
+                -Id ('plugin-' + $p.Name) -Class ('pl-card' + $(if ($p.Enabled) { '' } else { ' pl-card--off' }))))
+        }
+        if (-not $all.Count) {
+            [void]$body.AppendLine('<section class="card grid__full"><p class="note">No plugin was found.</p></section>')
+        }
+        [void]$body.AppendLine('</div>')
+        return Format-DevPageHtml -Title 'Plugins' -Style $style -Body $body.ToString() -FooterNote $footer -Lead ''
+    }
+
+    $p = @($all | Where-Object { $_.Name -ceq $Plugin })[0]
+    if (-not $p) { return $null }
+    # '' rather than no output for a zero: in 5.1 a call that writes nothing empties the whole @(a, b, ...) it stands in.
+    $count = { param($n, $word) if ([int]$n -gt 0) { [string]$n + ' ' + $word + $(if ([int]$n -ne 1) { 's' } else { '' }) } else { '' } }
+    $holds = @((& $count $p.Subagents 'subagent'), (& $count $p.Personas 'persona'), (& $count $p.Skills 'skill'), (& $count $p.Hooks 'hook')) | Where-Object { $_ }
+    # The lead is the marketplace's line up to its first sentence: some run to paragraphs, which the description card holds.
+    $lead = if ([string]$p.Summary -cmatch '^(.+?[.!?])\s+[A-Z]') { $Matches[1] } else { [string]$p.Summary }
+    if (-not $p.Enabled) {
+        [void]$body.AppendLine('<p class="msg" role="status">Not enabled in this repo''s <code>.claude/settings.json</code>: no session here loads it.</p>')
+    }
+    [void]$body.AppendLine('<div class="grid-2" id="about">')
+    [void]$body.AppendLine('<section class="card grid__full"><div class="card__head"><h2>What it is</h2></div><dl class="facts">')
+    [void]$body.AppendLine('<div><dt>Kind</dt><dd>' + (& $e $p.Kind) + '</dd></div>')
+    [void]$body.AppendLine('<div><dt>Version</dt><dd>' + $(if ($p.Version) { 'v' + (& $e $p.Version) } else { '<span class="note">none stated</span>' }) + '</dd></div>')
+    [void]$body.AppendLine('<div><dt>Here</dt><dd>' + $(if ($p.Enabled) { 'enabled' } else { 'off' }) + '</dd></div>')
+    [void]$body.AppendLine('<div><dt>Holds</dt><dd>' + $(if ($holds) { $holds -join ' &middot; ' } else { '<span class="note">nothing counted</span>' }) + '</dd></div>')
+    [void]$body.AppendLine('<div><dt>Source</dt><dd><code>' + (& $e $p.Source) + '</code></dd></div>')
+    [void]$body.AppendLine('</dl></section>')
+    [void]$body.AppendLine('<section class="card grid__full"><div class="card__head"><h2>Description</h2><p class="card__sub">From its <code>.claude-plugin/plugin.json</code></p></div>' +
+        $(if ($p.Description) { ConvertTo-PluginDescriptionHtml -Text $p.Description } else { '<p class="note">None.</p>' }) + '</section>')
+    [void]$body.AppendLine('</div>')
+    return Format-DevPageHtml -Title $p.Name -Style $style -Body $body.ToString() -FooterNote $footer -Lead (& $e $lead) `
+        -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' })
 }
 
 function Find-DkjCheckouts {
