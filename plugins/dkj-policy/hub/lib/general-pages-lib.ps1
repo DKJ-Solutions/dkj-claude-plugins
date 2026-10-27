@@ -50,7 +50,7 @@
 $script:GeneralPagesThemeDefault = ''
 
 function Set-GeneralPagesThemeDefault {
-    <# The theme every page opens in when the visitor has picked none (#3390); '' or $null restores lilac. #>
+    <# The theme every page opens in when the visitor has picked none (#3390), or a 'light/dark' pair (#3608); '' or $null restores lilac. #>
     param([AllowNull()][AllowEmptyString()][string]$Theme)
     $script:GeneralPagesThemeDefault = [string]$Theme
 }
@@ -60,6 +60,19 @@ function Get-GeneralPagesThemeDefault {
     $t = Get-Variable -Name GeneralPagesThemeDefault -Scope Script -ValueOnly -ErrorAction SilentlyContinue
     if ($t) { return [string]$t }
     return 'lilac'
+}
+
+function Format-GeneralPagesThemeAttributes {
+    <#
+        The <html> attributes that state the default theme, escaped: data-theme-default for one theme id, or
+        data-theme-light and data-theme-dark for a 'light/dark' pair (#3608), which house-theme.js picks from
+        by the OS mode. A pair leaves data-theme-default out, since that one would win in both modes.
+    #>
+    $e = { param($v) ConvertTo-GeneralPageText $v }
+    $t = Get-GeneralPagesThemeDefault
+    $slash = $t.IndexOf('/')
+    if ($slash -lt 0) { return 'data-theme-default="' + (& $e $t) + '"' }
+    return 'data-theme-light="' + (& $e $t.Substring(0, $slash)) + '" data-theme-dark="' + (& $e $t.Substring($slash + 1)) + '"'
 }
 
 function ConvertTo-GeneralPageText {
@@ -158,7 +171,7 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine('<!doctype html>')
     # The theme key is shared by every page of one server, so a theme picked on one page holds on the next.
     # With no width picked yet the pages open full width: a hub is tables and cards, not a reading column.
-    [void]$sb.AppendLine('<html lang="en" data-theme-default="' + (& $e (Get-GeneralPagesThemeDefault)) + '" data-width-default="full" data-theme-key="' + (& $e $ThemeKey) + '">')
+    [void]$sb.AppendLine('<html lang="en" ' + (Format-GeneralPagesThemeAttributes) + ' data-width-default="full" data-theme-key="' + (& $e $ThemeKey) + '">')
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
@@ -1475,6 +1488,6 @@ function Format-ReleaseNotesDevPage {
     # The theme key is the server's, so a theme picked on one page holds on this one too, and with no
     # choice stored it falls back to the defaults every other dev page uses: the repo's stated theme or lilac
     # (#3162, #3390) and full width.
-    $out = $htmlRx.Replace($out, ('<html lang="en" data-theme-default="' + (& $e (Get-GeneralPagesThemeDefault)) + '" data-width-default="full" data-theme-key="' + (& $e $ThemeKey) + '">'), 1)
+    $out = $htmlRx.Replace($out, ('<html lang="en" ' + (Format-GeneralPagesThemeAttributes) + ' data-width-default="full" data-theme-key="' + (& $e $ThemeKey) + '">'), 1)
     return $out
 }

@@ -111,6 +111,15 @@ foreach ($badTheme in 'Teal', 'teal"x', '1teal', 'te al', ('t' * 33), '') {
     $bad = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; DefaultTheme = $badTheme }
     Assert-True (-not $bad.Ok -and $bad.Problem -match 'DefaultTheme must be a theme id') "a DefaultTheme of '$($badTheme.Substring(0, [Math]::Min(12, $badTheme.Length)))' is refused, since it lands in an attribute"
 }
+# A light/dark pair (#3608).
+Assert-Equal 'blue/sky' (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; DefaultTheme = @{ Light = 'blue'; Dark = 'sky' } }).Config.DefaultTheme 'a DefaultTheme pair is carried as light/dark'
+foreach ($badPair in @(@{ Light = 'blue' }, @{ Dark = 'sky' }, @{ Light = 'blue'; Dark = 'Sky' }, @{ Light = 'blue'; Dark = 'sky'; Default = 'teal' }, @{ Light = 'b/x'; Dark = 'sky' }, @{})) {
+    $bad = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; DefaultTheme = $badPair }
+    Assert-True (-not $bad.Ok -and $bad.Problem -match 'pair must state Light and Dark') "a DefaultTheme pair of $(@($badPair.Keys | Sort-Object) -join '+') is refused: both halves, each a theme id, nothing else"
+}
+Assert-True (Test-DevPreviewThemeValue 'teal') 'a state value may be one theme id'
+Assert-True (Test-DevPreviewThemeValue 'blue/sky') 'or a light/dark pair'
+foreach ($badValue in 'blue/', '/sky', 'blue/sky/cyan', 'blue/Sky', 'blue/sky"') { Assert-True (-not (Test-DevPreviewThemeValue $badValue)) "but not '$badValue'" }
 $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 5173..5180; Path = 'dashboard.html'; Requires = @('node_modules', 'data\processed') }
 Assert-Equal '/dashboard.html' $c.Config.Path 'a Path without its slash gets one'
 Assert-Equal '5173 5174 5175 5176 5177 5178 5179 5180' (@($c.Config.Ports) -join ' ') 'a range keeps its order'
@@ -356,6 +365,9 @@ Assert-True ($html.Contains((Format-FitAlarmHtml)) -and $html.IndexOf('id="fit-a
 Assert-True ($html -match '<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">') 'with no stored theme it falls back to lilac, and it shares the general pages'' theme key: one origin now'
 Set-GeneralPagesThemeDefault 'teal'
 Assert-True ((Format-PluginRepoHubHtml -RepoName 'r' -PagesUrl 'http://localhost:4890') -match '<html lang="en" data-theme-default="teal" ') 'a repo''s DefaultTheme replaces lilac on the hub (#3390)'
+Set-GeneralPagesThemeDefault 'blue/sky'
+$pairHub = Format-PluginRepoHubHtml -RepoName 'r' -PagesUrl 'http://localhost:4890'
+Assert-True ($pairHub -match '<html lang="en" data-theme-light="blue" data-theme-dark="sky" ' -and $pairHub -notmatch 'data-theme-default=') 'a pair opens the hub in the half for the OS mode, with no data-theme-default to override it (#3608)'
 Set-GeneralPagesThemeDefault ''
 Assert-True ((Format-PluginRepoHubHtml -RepoName 'r' -PagesUrl 'http://localhost:4890') -match 'data-theme-default="lilac"') 'and handing in nothing restores lilac'
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'and starts from the house style its own server serves'
@@ -542,6 +554,7 @@ $st = ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Prod
 Assert-True ($st.Product -eq '' -and $st.Mode -eq 'none') 'and for another root the product and the mode are nothing too'
 # The theme (#3390).
 Assert-Equal 'teal' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Mode 'ownhub' -Theme 'teal') -Root $stateRoot).Theme 'a state file reads back the repo''s DefaultTheme'
+Assert-Equal 'blue/sky' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Mode 'product' -Theme 'blue/sky') -Root $stateRoot).Theme 'and a light/dark pair (#3608)'
 Assert-Equal '' (ConvertFrom-RepoHubState -Text $legacy -Root $stateRoot).Theme 'a file written before #3390 has no theme, so the pages keep lilac'
 Assert-Equal '' (ConvertFrom-RepoHubState -Text ((([ordered]@{ root = $stateRoot; theme = 'x" onload="y' }) | ConvertTo-Json -Compress)) -Root $stateRoot).Theme 'a theme that is not an id''s shape is not believed: every page writes it into an attribute'
 $threw = $false

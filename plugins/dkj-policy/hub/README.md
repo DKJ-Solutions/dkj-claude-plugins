@@ -174,7 +174,10 @@ function Get-DevPreview {
 - **`DefaultTheme` is the theme the plugin's pages open in while the visitor has picked none**
   ([#3390](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3390)): a house theme id, such as
   `teal`. A repo whose own product or hub opens in its own theme states it here, so the hub and the general
-  pages it links do not open in another. Unstated, they keep lilac (#3162). It must have a theme id's shape
+  pages it links do not open in another. Unstated, they keep lilac (#3162). A product that opens in a
+  light/dark pair states the same pair, `DefaultTheme = @{ Light = 'blue'; Dark = 'sky' }`
+  ([#3608](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3608)), and the pages then open in the
+  half that matches the OS mode; a pair states both halves and nothing else. Each theme must have a theme id's shape
   (a lowercase letter, then lowercase letters, digits or hyphens); anything else is a problem the line
   names. It belongs to the hub alone, so a `Product` may not state it. The hook writes it into the state
   file, and the general pages server reads it per request, so a change reaches the next page after a
