@@ -613,7 +613,7 @@ $script:ContractRecords = @(
     @{ Lib = 'scripts\repo-config.ps1';     Function = 'Get-InternalNoteWording'; Scripts = @('new-internal-note');
        Adopt = 'copy'; AdoptWhy = 'empty means the English defaults, which is exactly what a consumer gets without the function. Copying puts the (empty) override map in their own file, where a repo whose colleagues read another language fills in the keys it needs';
        Optional = $true; Default = 'the English headings and hints';
-       Returns = "overrides for the internal note's own text, merged over the English defaults: Title, AudienceLabel, Audience, SkeletonNote, SectionChanged, SectionValue, HintValue, SectionOpen, HintOpen, NoEntries and Unknown -- the document is read by this repo's own colleagues, so its language is the repo's rather than the script's. This is new-internal-note.ps1's map, i.e. the two-document flow; cut-release reads Get-ReleaseNoteWording first and only falls back to this one" }
+       Returns = "overrides for the internal note's own text, merged over the English defaults: Title, AudienceLabel, Audience, SkeletonNote, SectionChanged, NoEntries and Unknown -- the document is read by this repo's own colleagues, so its language is the repo's rather than the script's. This is new-internal-note.ps1's map, i.e. the two-document flow; cut-release reads Get-ReleaseNoteWording first and only falls back to this one" }
     # THE REPO-SETTINGS DECLARATION (issue #1843, once check-repo-settings.ps1 became a shared script).
     # What each record states is GITHUB-SIDE state this repo's constitution depends on -- bypass actors,
     # required checks, allow_auto_merge -- which is the textbook 'decide' case: the VALUE is a fact about
