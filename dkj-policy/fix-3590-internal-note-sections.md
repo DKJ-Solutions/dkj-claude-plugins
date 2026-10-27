@@ -64,6 +64,8 @@ again ([#3590](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3590))
 
 #### What makes this deploy extra special
 
+Nothing beyond the entry above: it removes two drafted headings from a retired flow's skeleton.
+
 **Score:** N/A
 
 #### Pull Request
