@@ -31,9 +31,10 @@
                       the repo's own scripts/lib, else in this plugin's own. Kept for -CacheSeconds.
                       The child first dot-sources the repo's own scripts/repo-config.ps1, the trust the
                       dev-preview hook already gives it, and is bounded at 60 s.
-      /test-gate      scripts/tests/suite-durations.json, grouped by suite-groups.json where the repo keeps one, and
-                      each suite's own header (Read-TestGateModel, hub/lib/test-gate-lib.ps1, #3470). Absent, the page
-                      says no test gate has been measured in this repo yet.
+      /test-gate, /test-gate/<list>[/<suite>], /test-gate/measured
+                      scripts/tests/suite-durations.json, grouped by suite-groups.json where the repo keeps one, and
+                      each suite's own header (Read-TestGateModel, hub/lib/test-gate-lib.ps1, #3470): an overview, a
+                      page per group and per suite. Absent, the page says no test gate has been measured in this repo yet.
       /plugins, /plugins/<name>   a card per enabled plugin, and each one's own page: plugin-versions.ps1 -Json, the repo's
                       own copy first, then this plugin's, run in a CHILD process bounded at 30 s (Read-PluginsPageModel,
                       hub/lib/plugins-page-lib.ps1, #3482). A script that fails or is missing is a warning on the page.
@@ -505,10 +506,16 @@ try {
             if ($gp = Format-HubGroupPageHtml -Href $path -RepoName (Get-RepoIdentity).Name) {
                 # A group page (Get-HubGroups): /clock, holding the Stopwatch and the Logbook (the owner, October 27, 2026).
                 $html = $gp
-            } elseif ($path -eq '/test-gate') {
+            } elseif ($path -match '^/test-gate(?:/([a-z0-9-]{1,40})(?:/([A-Za-z0-9._-]{1,120}))?)?/?$') {
+                # The overview, a list's page, or one suite's (the owner, October 27, 2026); a path none names is a 404.
+                $tgPath = (@($Matches[1], $Matches[2]) | Where-Object { $_ }) -join '/'
                 $id = Get-RepoIdentity
                 $tg = Read-TestGateModel -RepoRoot $root
-                $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error -GroupsError $tg.GroupsError -RepoName $id.Name -RepoSlug $id.Slug
+                $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error -GroupsError $tg.GroupsError -RepoName $id.Name -RepoSlug $id.Slug -Path $tgPath
+                if ($null -eq $html) {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('No Test gate page of that name.')) -Method $method
+                    continue
+                }
             } elseif ($plReq = Resolve-PluginsPageRequest -Path $path) {
                 # The overview, or one plugin's page (#3482); a name no enabled plugin has is a 404.
                 $pl = Read-PluginsPageModel -Script (Resolve-DkjPolicyScript -RelativePath 'scripts\task\plugin-versions.ps1') -RepoRoot $root

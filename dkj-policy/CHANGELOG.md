@@ -2,7 +2,86 @@
 
 ## [Unreleased]
 
-**5 / 12 minor entries** <!-- pending-tally -->
+**8 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/test-gate-drilldown · 20261027-094730Z
+
+In this repo the Test gate stops being one long scroll: an overview of cards drills down through the
+breadcrumbs into a page per group and per suite, each fitting a screen of about 1300 x 900, and every hub
+page now warns at its bottom right the moment it runs past the window.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo's hub gets the same: the Test gate drills down from an overview (`/test-gate`) to a group
+(`/test-gate/<group>`) and a suite (`/test-gate/<group>/<suite>`), and every hub page carries the fit
+alarm. The house style's density rule now names a screen of about 1300 x 900, a guideline, instead of
+1400 x 600.
+
+**Score:** 3
+
+#### Pull Request
+
+Test gate: one screen per level, drill down by breadcrumbs, and a hub-wide overflow signal
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3561](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3561)
+
+---
+
+### DEPLOY: docs/3557-sweep-lane-mode · 20261027-093501Z
+
+`sweep-issues` now has a **lane mode** for a second sweep on the same machine
+([#3557](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3557)). Open a detached worktree
+beside the primary, start Claude Code there, and run the skill. Steps 0, 3 and 7 detach at `origin/main`
+instead of checking out the trunk, and `ship-pr` runs from the lane unchanged: it merges and leaves the
+fold to the CI fold runner (#2087). The `worktree-lane` page and script header no longer say a lane must
+always hand back to ship, because that holds only in a repo without that runner.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+You can now run a second issue sweep beside a running one on the same machine, which roughly halves the
+time a backlog takes when the gates prove it.
+
+**Score:** 3
+
+#### Pull Request
+
+sweep-issues gets a lane mode: a second sweep in a worktree lane ships through the CI-fold arm
+
+Plugins: dkj-policy
+
+[PR #3564](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3564)
+
+---
+
+### DEPLOY: feat/hub-clock-card · 20261027-092452Z
+
+The hub's home page links Test gate, Stopwatch and Logbook through one card, Clock, in the place the Test
+gate's card held; it opens `/clock`, a page with a card for each, and their trails read Home > Clock > the page. A page
+joins a group by a `Group` key in `Get-GeneralPages`, and a hub card stays one link.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo's hub home page shows one Clock card instead of the Test gate, Stopwatch and Logbook cards; all three are a click further, on `/clock`.
+
+**Score:** 2
+
+#### Pull Request
+
+Group Test gate, Stopwatch and Logbook under one Clock card on the hub home page
+
+Plugins: dkj-policy
+
+[PR #3560](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3560)
+
+---
 
 ### DEPLOY: feat/3550-specialists-page-plugin-cards · 20261027-091242Z
 

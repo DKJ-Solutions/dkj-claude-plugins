@@ -206,9 +206,46 @@ function Format-GeneralPageHtml {
     if ($FooterNote) { [void]$sb.AppendLine('<p class="footer-note">' + $FooterNote + '</p>') }
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
+    [void]$sb.AppendLine((Format-FitAlarmHtml))
     [void]$sb.AppendLine('</body>')
     [void]$sb.AppendLine('</html>')
     return $sb.ToString()
+}
+
+function Format-FitAlarmHtml {
+    <#
+        THE FIT ALARM (the owner, October 27, 2026): every hub page is designed to one screen of about 1300 x 900, a
+        guideline rather than a measure, and a page that runs past the window it is read in says so at once, instead
+        of waiting for somebody to notice the scroll. So it judges the window, not a fixed box: the document taller or
+        wider than the viewport is the alarm, a warning pinned to the bottom right that names how far past it runs.
+
+        It stays quiet below 1000 px of width, where the page has stepped down to its narrow layout and a scroll is
+        the expected shape, and re-judges on resize and whenever the page's own size changes (the banner filling in).
+        House classes only (.msg, .msg--warn) and an inline position, since the hub restyles nothing.
+    #>
+    return @'
+<p class="msg msg--warn" id="fit-alarm" role="alert" hidden style="position: fixed; right: 16px; bottom: 16px; margin: 0; z-index: 50; box-shadow: var(--shadow-pop)"></p>
+<script>
+(function () {
+  var alarm = document.getElementById("fit-alarm");
+  if (!alarm) { return; }
+  function judge() {
+    var d = document.documentElement;
+    var tall = d.scrollHeight - window.innerHeight, wide = d.scrollWidth - d.clientWidth;
+    if (window.innerWidth < 1000 || (tall <= 1 && wide <= 1)) { alarm.hidden = true; return; }
+    var past = [];
+    if (tall > 1) { past.push(tall + " px too tall"); }
+    if (wide > 1) { past.push(wide + " px too wide"); }
+    alarm.textContent = "Does not fit one screen: " + past.join(", ");
+    alarm.hidden = false;
+  }
+  window.addEventListener("load", judge);
+  window.addEventListener("resize", judge);
+  if (window.ResizeObserver) { new ResizeObserver(judge).observe(document.body); }
+  judge();
+})();
+</script>
+'@
 }
 
 function Format-RepoHubBanner {
