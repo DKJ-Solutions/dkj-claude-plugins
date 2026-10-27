@@ -39,19 +39,54 @@
 
 ### PLAN
 
+Give `Format-HubCardLinkHtml` the slots the hand-written card variants existed for, move every variant onto
+it, and shrink the guard #3563 added to the one function (#3566). The wait it was parked on (#3563) landed
+through #3567, so the `awaiting-pull` label was removed at pickup.
+
+#### A visible result -- it stops for the owner's look
+
+Every overview's cards change markup, so this branch is parked unmerged. To look: run
+`plugins/dkj-policy/hub/pages/serve-general-pages.ps1 -Port 4899` from this checkout (the hub on 4890
+serves the installed release, not this tree), and open /sessionstart, /test-gate, /plugins, /stopwatch,
+/logbook; /connectors and /specialists are on the product server (4870).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-HubCardLinkHtml` takes `-SubHtml`, `-ValueHtml` (a headline figure on its own line),
+  `-BadgeHtml` (in the icon's place), `-Heading 2`, `-Id` and `-Class`; the house stylesheet gains
+  `.menu-item__value`, `.menu-item__title` and a badge in the row
+- [x] moved onto it: SessionStart's `ss-card`, the Plugins badge card (its badge and sub line kept), the
+  Stopwatch label and run cards (the run card keeps the owner's order: start, prompt label, time, its tone and
+  its live clock), the Test gate's three `tg-card`s (its bar kept), the Connectors groups and the Specialists
+  plugins (both their `h2` labels kept)
+- [x] the guard in `dev-pages.tests.ps1` names `Format-HubCardLinkHtml` alone; the house-style README
+  describes the slots; the skill's pinned sha256 follows the stylesheet
 
 ### TEST
 
+- [x] `dev-pages`, `connector-dashboard`, `dev-preview-sessionstart`, `logbook` and `stopwatch` suites green
+  with their markup asserts moved to the one card shape; `check-plugin-integrity` 0 errors
+- [x] the tree's general pages server (port 4899) serves every overview with the one card and none of the
+  old shapes
+
 ### DEPLOY: feat/3566-one-hub-card-component
 
-**Score:**
+Every card link on the hub is now the one house card. `Format-HubCardLinkHtml` gained the slots the
+hand-written variants existed for: a headline figure on a line of its own, a status badge in the icon's
+place, the label as an `h2`, and an `id` and extra classes. SessionStart, Plugins, Stopwatch, Logbook, Test
+gate, Connectors and Specialists use it, keeping what each card shows. The suite that refuses a hand-written
+card now allows only that function, so a new overview cannot add a shape of its own again.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the hub's overview cards look alike and keep their content; nothing changes for the person who takes
+the next version beyond that.
+
+**Score:** N/A
 
 #### Pull Request
+
+Hub cards: one card component, every variant moved onto it
 

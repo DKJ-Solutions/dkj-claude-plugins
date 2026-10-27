@@ -272,10 +272,8 @@ function Format-SpecialistsPageHtml {
             $sub = @($p.Kind, $(if ($p.Enabled) { 'enabled here' } else { 'off here' }),
                 ([string]$p.Rows.Count + ' specialist' + $(if ($p.Rows.Count -ne 1) { 's' } else { '' })),
                 ('listing ' + (& $tok $p.ListingBytes)), ('full read ' + (& $tok $p.TotalBytes))) -join ' &middot; '
-            [void]$body.AppendLine('<section class="card card--link sp-card' + $(if ($p.Enabled) { '' } else { ' sp-card--off' }) + '" id="plugin-' + (& $e $p.Short) + '">' +
-                '<nav class="menu-list" aria-label="' + (& $e $p.Short) + '"><a class="menu-item" href="/specialists/' + (& $e $p.Short) + '">' +
-                '<div class="menu-item__label"><h2 class="sp-card-title">' + (& $e $p.Short) + '</h2><span class="menu-item__sub">' + $sub + '</span></div>' +
-                $script:RepoHubChevron + '</a></nav></section>')
+            [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/specialists/' + $p.Short) -Label $p.Short -SubHtml $sub -Heading 2 -Id ('plugin-' + $p.Short) `
+                -Class ('sp-card' + $(if ($p.Enabled) { '' } else { ' sp-card--off' }))))
         }
         if (-not $plugins.Count) {
             [void]$body.AppendLine('<section class="card grid__full"><p class="note">No specialist was found.</p></section>')
@@ -324,8 +322,8 @@ function Format-SpecialistsPageHtml {
         [void]$body.AppendLine('</div>')
     }
     $factor = $CharsPerToken.ToString('0.00', $inv)
-    # The card title sits flush in its card (as /connectors' do); an off plugin's card is muted, never hidden.
-    $style = $script:DevBarStyle + "`n" + '.sp-card-title { margin: 0; }' + "`n" + '.sp-card--off { opacity: 0.7; }'
+    # An off plugin's card is muted, never hidden.
+    $style = $script:DevBarStyle + "`n" + '.sp-card--off { opacity: 0.7; }'
     $footer = 'Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Bytes are measured (hover a cell); tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.'
     if ($pick) {
         return Format-DevPageHtml -Title $pick.Short -Style $style -Body $body.ToString() -FooterNote $footer `

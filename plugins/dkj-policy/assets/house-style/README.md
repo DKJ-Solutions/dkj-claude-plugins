@@ -655,7 +655,9 @@ growing page gets this shape without anyone having to point it out.
   holding one `.menu-item` row, written by `Format-HubCardLinkHtml`), three to a row in a `.grid-3`. Its
   label is the section's name, and its one-line description is the section's **headline**: the figure
   that tells you whether the page is worth opening, such as the number of specimens in a house-style
-  section. No hand-written variant: no `h2` or `h3` link inside the card, and no extra rows.
+  section. No hand-written variant: no `h2` or `h3` link inside the card, and no extra rows. A card that
+  needs more (a figure on its own line, a badge, its label as a heading) takes it from the card's slots
+  ([The card](#the-hub)).
 - **The section's page** is that section alone, under one more crumb, so the trail reads Home >
   ... > the overview > the section. Its `h1` is the section's name and its lead is the section's line. Its
   own `.grid__head` goes, because the `h1` already says it.
@@ -755,7 +757,19 @@ reads it, short, in the app's language; its description is one line or nothing. 
 same dev server; only the Repository page's GitHub cards leave it. A page that cannot be linked (a product
 whose server is not running, a general pages server that is not up) is a plain `.card` holding one `.msg`
 saying so, in the place its card would take. `Format-HubCardLinkHtml` in `dkj-policy`'s
-`hub/lib/general-pages-lib.ps1` writes the card; both served hubs use it.
+`hub/lib/general-pages-lib.ps1` writes the card; both served hubs use it, and **every** card link in the hub's
+page code goes through it, since a suite in `dev-pages.tests.ps1` fails on one written by hand
+([#3566](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3566)).
+
+**Its slots**, so that no overview needs a card of its own. Each one is optional:
+
+- **A headline figure**, the value that tells you whether the page is worth opening (a size against its
+  budget, a run's time), on a line of its own under the description: `.menu-item__value`.
+- **A status badge** in the icon's place, where the card stands for something that has a state (a plugin):
+  the house `.badge`.
+- **The label as an `h2`** (`.menu-item__title`, inside a `<div class="menu-item__label">`) where the cards
+  are a page's sections or groups, so the page's outline still names them.
+- **An `id` and extra classes** on the card, for an anchor or a tone of the page's own (a run's speed colour).
 
 ```html
 <section class="card card--link"><nav class="menu-list" aria-label="Repository"><a class="menu-item" href="/repository"><span class="menu-item__label">Repository<span class="menu-item__sub">This repo's facts and its open issues</span></span><svg class="menu-item__chevron">...</svg></a></nav></section>

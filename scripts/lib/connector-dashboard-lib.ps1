@@ -338,8 +338,6 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('.cd-table-gap { margin-top: var(--spacing-4); }')
     [void]$sb.AppendLine('.cd-repo-card { margin-top: var(--spacing-3); background: var(--paper-1); }')
     [void]$sb.AppendLine('.cd-group-summary { margin: 0 0 var(--spacing-1); }')
-    # A group card's h2 sits in the menu row, so it takes no margin of its own.
-    [void]$sb.AppendLine('.cd-card-title { margin: 0; }')
     [void]$sb.AppendLine('.cd-repo { display: flex; align-items: center; gap: var(--spacing-2); }')
     [void]$sb.AppendLine('.cd-repo__name { margin: 0; font-weight: 600; }')
     [void]$sb.AppendLine('.cd-signals { list-style: none; padding: 0; margin: var(--spacing-2) 0 0; }')
@@ -389,11 +387,9 @@ function Format-ConnectorDashboardHtml {
         [void]$sb.AppendLine('<div class="grid-3" id="groups">')
         foreach ($g in @(Get-DashboardOwnerGroups)) {
             $members = @($all | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $g.Key })
-            # The hub's card form (Format-HubCardLinkHtml), its label an h2 (owner, October 26, 2026): so the label is
-            # a <div>, which may hold a heading where a <span> may not. Label and summary are this file's own text.
-            [void]$sb.AppendLine('<section class="card card--link"><nav class="menu-list" aria-label="' + $g.Label + '"><a class="menu-item" href="/connectors/' + $g.Key +
-                '"><div class="menu-item__label"><h2 class="cd-card-title">' + $g.Label + '</h2><span class="menu-item__sub">' + (Format-DashboardGroupSummary $members) +
-                '</span></div>' + $script:RepoHubChevron + '</a></nav></section>')
+            # The hub's card (Format-HubCardLinkHtml), its label an h2 (owner, October 26, 2026). The summary is this
+            # file's own markup.
+            [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/' + $g.Key) -Label $g.Label -SubHtml (Format-DashboardGroupSummary $members) -Heading 2))
         }
         [void]$sb.AppendLine('</div>')
     } else {

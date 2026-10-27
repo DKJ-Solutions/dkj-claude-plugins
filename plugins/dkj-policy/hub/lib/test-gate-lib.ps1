@@ -184,9 +184,8 @@ function Format-TestGatePageHtml {
         '.tg-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: var(--spacing-4); align-items: start; }' + "`n" +
         ':is(.tg-cards, .tg-cols) > .card { margin-top: 0; }' + "`n" +
         '.tg-card { padding: var(--spacing-3) var(--spacing-4); }' + "`n" +
-        '.tg-card > h2 { margin: 0; font-size: var(--text-base); }' + "`n" +
-        '.tg-card > h2 a { color: inherit; text-decoration: none; }' + "`n" +
-        '.tg-card > p { margin: var(--spacing-1) 0 var(--spacing-2); }' + "`n" +
+        '.tg-card .menu-item__title { font-size: var(--text-base); }' + "`n" +
+        '.tg-card .dp-bar { margin-top: var(--spacing-2); }' + "`n" +
         '.tg-tips > h3 { margin-top: 0; }' + "`n" +
         '.tg-guards { margin: 0 0 var(--spacing-3); }' + "`n" +
         '.tg-tips > ul { margin: 0; padding-left: var(--spacing-5); }' + "`n" +
@@ -376,18 +375,19 @@ function Format-TestGatePageHtml {
     $heaviest = [double](($lists | ForEach-Object { $_.Total } | Measure-Object -Maximum).Maximum)
     foreach ($l in $lists) {
         $n = @($l.Suites).Count + @($l.Unmeasured).Count
-        [void]$body.AppendLine('<section class="card card--link tg-card" id="group-' + (& $e $l.Key) + '"><h2><a href="/test-gate/' + (& $e $l.Key) + '">' + (& $e $l.Title) + '</a></h2>' +
-            '<p class="num">' + $n + ' suites' + $dot + (Format-DevSeconds $l.Total) + $dot + (& $pct $l.Total) + '</p>' + (& $bar $l.Total $heaviest) + '</section>')
+        [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/test-gate/' + $l.Key) -Label $l.Title -Heading 2 -Id ('group-' + $l.Key) -Class 'tg-card' `
+            -ValueHtml ('<span class="num">' + $n + ' suites' + $dot + (Format-DevSeconds $l.Total) + $dot + (& $pct $l.Total) + '</span>' + (& $bar $l.Total $heaviest))))
     }
     if ($null -ne $Selection) {
         $picked = if (-not @($Selection.Changed | Where-Object { $_ }).Count) { 'nothing changed' }
                   elseif (-not $Selection.Proven -or @($Selection.Selected).Count -ge $Selection.PoolCount) { 'every suite' }
                   else { '' + @($Selection.Selected).Count + ' of ' + $Selection.PoolCount + ' suites' }
-        [void]$body.AppendLine('<section class="card card--link tg-card" id="selection"><h2><a href="/test-gate/selection">This checkout''s change</a></h2><p class="num">' + $picked + '</p></section>')
+        [void]$body.AppendLine((Format-HubCardLinkHtml -Href '/test-gate/selection' -Label 'This checkout''s change' -Heading 2 -Id 'selection' -Class 'tg-card' `
+            -ValueHtml ('<span class="num">' + $picked + '</span>')))
     }
-    [void]$body.AppendLine('<section class="card card--link tg-card" id="recorded"><h2><a href="/test-gate/measured">Where it was measured</a></h2><p class="num">' +
-        $(if ($Model.Date) { & $e $Model.Date } else { '--' }) + $dot + @($Model.Runs).Count + ' CI runs' +
-        $(if (@($Model.Missing).Count -and -not $unmeasured) { $dot + @($Model.Missing).Count + ' not recorded' } else { '' }) + '</p></section>')
+    [void]$body.AppendLine((Format-HubCardLinkHtml -Href '/test-gate/measured' -Label 'Where it was measured' -Heading 2 -Id 'recorded' -Class 'tg-card' `
+        -ValueHtml ('<span class="num">' + $(if ($Model.Date) { & $e $Model.Date } else { '--' }) + $dot + @($Model.Runs).Count + ' CI runs' +
+        $(if (@($Model.Missing).Count -and -not $unmeasured) { $dot + @($Model.Missing).Count + ' not recorded' } else { '' }) + '</span>')))
     [void]$body.AppendLine('</div>')
     return & $page 'Test gate' $body.ToString() '' $clock $footer
 }

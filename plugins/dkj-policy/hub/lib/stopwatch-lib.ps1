@@ -886,21 +886,18 @@ function Format-StopwatchPageShell {
         '.sw-grid--wide { grid-template-columns: repeat(3, minmax(0, 1fr)); }' + "`n" +
         '@media (max-width: 1000px) { .sw-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }' + "`n" +
         '@media (max-width: 760px) { .sw-grid { grid-template-columns: 1fr; } }' + "`n" +
-        '.sw-card > h2 a { color: inherit; text-decoration: none; }' + "`n" +
-        # A card's lines are built from the house text sizes (--text-lg, -base, -sm, -xs), the text colour or --muted, and the
-        # weights 300 to 800, and nothing else: no heading (the owner, October 24, 2026). The start is the card's
-        # header (base, 800), the prompt label the least visible line under it (sm, regular, muted, its version likewise),
-        # and the time under it (base, 300) with its change beside it (xs, regular).
-        '.sw-card > p { margin: 0; }' + "`n" +
-        '.sw-card > p + p { margin-top: var(--spacing-1); }' + "`n" +
-        '.sw-stamp { font-size: var(--text-base); font-weight: 800; color: var(--fg-1); }' + "`n" +
-        '.sw-instruction { font-size: var(--text-sm); font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }' + "`n" +
+        # A card is the house one (Format-HubCardLinkHtml, #3566), its lines in the house text sizes and nothing else
+        # (the owner, October 24, 2026). On a run card the start is the card's header (base, 800), the prompt label the
+        # least visible line under it (the description), and the time under it (the value) with its change beside it.
+        '.sw-run .menu-item__label { font-weight: 800; }' + "`n" +
         # A card is three lines at most (the owner, October 26, 2026): the label one line ending in an ellipsis, since a
         # Logbook label is the first line of a prompt, and a card's note beside its time. The run's page shows the label whole.
-        '.sw-card > .sw-instruction { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' + "`n" +
-        '.sw-instruction a { color: inherit; text-decoration: none; }' + "`n" +
-        '.sw-instruction .muted { font-size: var(--text-sm); font-weight: 400; }' + "`n" +
-        '.sw-time { font-size: var(--text-base); font-weight: 300; color: var(--fg-1); }' + "`n" +
+        '.sw-run .menu-item__sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }' + "`n" +
+        '.sw-card .menu-item__sub { overflow-wrap: anywhere; }' + "`n" +
+        # A label page's plain cards (its prompt, its steps): their lines sit close.
+        '.sw-card > p { margin: 0; }' + "`n" +
+        '.sw-card > p + p { margin-top: var(--spacing-1); }' + "`n" +
+        '.sw-instruction { font-size: var(--text-sm); font-weight: 400; color: var(--muted); overflow-wrap: anywhere; }' + "`n" +
         # A pinned label's steps (Format-StopwatchPinnedSteps): the instruction line's size and colour, numbered.
         '.sw-steps { margin: var(--spacing-2) 0 0; padding-left: var(--spacing-5); font-size: var(--text-sm); font-weight: 400; color: var(--muted); }' + "`n" +
         '.sw-steps > li + li { margin-top: var(--spacing-1); }' + "`n" +
@@ -938,12 +935,12 @@ function Format-StopwatchCardTime {
     <# A card's time line: the live clock of a run going, else its time with its change in percent beside it (-NoDelta: none). #>
     param([Parameter(Mandatory = $true)][hashtable]$Group, [datetime]$Now = [datetime]::UtcNow, [switch]$NoDelta)
     if ($Group.Running) {
-        return '<p class="sw-time num" data-start="' + (Format-StopwatchStamp $Group.Running.Start) + '">' + (Format-DevSeconds ($Now - $Group.Running.Start).TotalSeconds) + '</p>'
+        return '<span class="sw-time num" data-start="' + (Format-StopwatchStamp $Group.Running.Start) + '">' + (Format-DevSeconds ($Now - $Group.Running.Start).TotalSeconds) + '</span>'
     }
     if (-not @($Group.Rows).Count) { return '' }
     $row = $Group.Rows[0]
     $change = if ($NoDelta) { '' } else { Format-StopwatchChangePercent -Seconds $row.Seconds -DeltaSeconds $row.DeltaSeconds }
-    return '<p class="sw-time num">' + (Format-DevSeconds $row.Seconds) + $change + '</p>'
+    return '<span class="sw-time num">' + (Format-DevSeconds $row.Seconds) + $change + '</span>'
 }
 
 function Format-StopwatchRunCard {
@@ -957,19 +954,18 @@ function Format-StopwatchRunCard {
     #>
     param([Parameter(Mandatory = $true)][hashtable]$Group, [string]$Route = '/stopwatch', [datetime]$Now = [datetime]::UtcNow, [switch]$NoDelta, [hashtable]$CardNotes = @{}, [hashtable]$CardTones = @{}, [switch]$ShortLabel)
     $e = { param($v) ConvertTo-GeneralPageText $v }
-    $stamp = & $e ($Group.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture))
-    $href = (& $e $Route) + '/' + (& $e $Group.PageSlug)
+    $stamp = $Group.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
     $label = if ($ShortLabel) { Get-StopwatchShortTitle $Group.Label } else { $Group.Label }
     $tone = if (-not $Group.Running -and @($Group.Rows).Count) { [string]$CardTones[$Group.Rows[0].Run.Id] } else { '' }
     $toneClass = if ($tone -in @('fast', 'medium', 'slow')) { ' sw-card--' + $tone } else { '' }
-    $card = '<section class="card card--link sw-card' + $toneClass + '"><p class="sw-stamp">' + $stamp + '</p>' +
-        '<p class="sw-instruction"><a href="' + $href + '">' + (& $e $label) + '</a>' +
-        $(if ($Group.Versions -gt 1) { ' <span class="muted">v' + $Group.Version + '</span>' } else { '' }) + '</p>' +
-        (Format-StopwatchCardTime -Group $Group -Now $Now -NoDelta:$NoDelta)
+    $time = Format-StopwatchCardTime -Group $Group -Now $Now -NoDelta:$NoDelta
     if (-not $Group.Running -and @($Group.Rows).Count -and $CardNotes[$Group.Rows[0].Run.Id]) {
-        $card = $card -replace '</p>$', ('<span class="sw-change">' + (& $e ([string]$CardNotes[$Group.Rows[0].Run.Id])) + '</span></p>')
+        $time = $time -replace '</span>$', ('<span class="sw-change">' + (& $e ([string]$CardNotes[$Group.Rows[0].Run.Id])) + '</span></span>')
     }
-    return $card + '</section>'
+    # The house card (Format-HubCardLinkHtml, #3566), in the owner's order: the start is its label, the prompt label
+    # its description, the time its value.
+    $sub = (& $e $label) + $(if ($Group.Versions -gt 1) { ' v' + $Group.Version } else { '' })
+    return Format-HubCardLinkHtml -Href ($Route + '/' + $Group.PageSlug) -Label $stamp -SubHtml $sub -ValueHtml $time -Class ('sw-card' + $toneClass + ' sw-run')
 }
 
 function Format-StopwatchLabelCard {
@@ -984,12 +980,11 @@ function Format-StopwatchLabelCard {
     $stop = if ([string]$Set.Title -match '^release') { 'the release notes of the cut are committed' } else { 'Claude is back on the trunk, clean, with a commit of its own' }
     $fastest = @($Set.Groups | ForEach-Object { $_.Rows } | Where-Object { $_ } | Sort-Object { $_.Seconds }) | Select-Object -First 1
     # A pinned label with no run yet (Get-StopwatchOverviewSets) has no time to show, and says so.
-    $time = if ($fastest) { '<p class="sw-time num">' + (Format-DevSeconds $fastest.Seconds) + '</p>' }
-            elseif (-not @($Set.Groups).Count) { '<p class="sw-time">No run yet</p>' }
+    $time = if ($fastest) { '<span class="sw-time num">' + (Format-DevSeconds $fastest.Seconds) + '</span>' }
+            elseif (-not @($Set.Groups).Count) { '<span class="sw-time">No run yet</span>' }
             else { Format-StopwatchCardTime -Group $Set.Groups[0] -Now $Now }
-    return '<section class="card card--link sw-card"><h2><a href="/stopwatch/' + (& $e $Set.Slug) + '">' + (& $e (Get-StopwatchShortTitle $Set.Title)) + '</a></h2>' +
-        '<p class="sw-instruction">From the prompt <code>stopwatch: ' + (& $e $Set.Title) + '</code> until ' + $stop + '.</p>' +
-        $time + '</section>'
+    return Format-HubCardLinkHtml -Href ('/stopwatch/' + $Set.Slug) -Label (Get-StopwatchShortTitle $Set.Title) -Heading 2 -Class 'sw-card' -ValueHtml $time `
+        -SubHtml ('From the prompt <code>stopwatch: ' + (& $e $Set.Title) + '</code> until ' + $stop + '.')
 }
 
 # A LABEL THE OVERVIEW SHOWS BEFORE ITS FIRST RUN (the owner, October 25, 2026), with the steps that time it the same
