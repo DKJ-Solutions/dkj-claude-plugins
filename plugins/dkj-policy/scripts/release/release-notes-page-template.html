@@ -544,8 +544,12 @@
         });
       });
       if (points.length < 2) { return; }
+      // The grid is placed BEFORE anything moves, while nodes[0] still sits in the article. Afterwards a
+      // paragraph lives in its cell, so only what is still the article's own -- an emptied list -- is
+      // removed; removing every node by its current parent took each paragraph back out of its cell.
       var grid = document.createElement('div');
       grid.className = 'note-grid';
+      article.insertBefore(grid, nodes[0]);
       points.forEach(function (parts) {
         var cell = document.createElement('div');
         cell.className = 'note-cell';
@@ -553,8 +557,7 @@
         parts.forEach(function (x) { cell.appendChild(x); });
         grid.appendChild(cell);
       });
-      nodes[0].parentNode.insertBefore(grid, nodes[0]);
-      nodes.forEach(function (n) { if (n.parentNode) { n.parentNode.removeChild(n); } });
+      nodes.forEach(function (n) { if (n.parentNode === article) { article.removeChild(n); } });
     });
   }
 
