@@ -50,7 +50,7 @@ A visible result: the owner judges http://localhost:4890/release-notes/v5.34.0 b
 ### TEST
 
 - [x] release-notes-page.tests.ps1 green; the renderer run against the v5.34.0 note gives 9 + 4 cells and leaves the one-bullet section alone
-- [ ] The owner has looked at the page
+- [x] The owner has looked at the page (approved with "ship it", October 27, 2026)
 
 ### DEPLOY: feat/release-note-grid
 
