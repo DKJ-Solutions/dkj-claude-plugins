@@ -48,12 +48,13 @@
 # repo's own .git/config and hooks: 'status' runs core.fsmonitor, and 'merge' runs post-merge and
 # post-checkout. In the checkout a session opens, that is the same trust as opening it. A sweep over
 # every checkout in the install administration would extend it to repos nobody opened this time, so
-# that caller passes -NoRepoHooks and every git call below carries this prefix. A hooksPath that does
-# not exist means git finds no hook to run.
+# that caller passes -NoRepoHooks and every git call below carries this prefix. hooksPath points INTO
+# the null device, a directory that cannot exist on any machine, so git finds no hook to run -- and no
+# temp path is composed for it, so nothing can be planted there first.
 function Get-TrunkSyncGitPrefix {
     param([switch]$NoRepoHooks)
     if (-not $NoRepoHooks) { return @() }
-    $none = Join-Path ([System.IO.Path]::GetTempPath()) 'dkj-trunk-sync-no-hooks'
+    $none = if ([System.IO.Path]::DirectorySeparatorChar -eq [char]92) { 'NUL' } else { '/dev/null' }
     return @('-c', 'core.fsmonitor=false', '-c', "core.hooksPath=$none")
 }
 
@@ -62,7 +63,7 @@ function Get-TrunkSyncGitLine {
     # as "could not establish", never as a value.
     param([string]$Path, [string[]]$GitArgs)
     $r = Invoke-NativeCapture -FilePath 'git' -Arguments (@('-C', $Path) + $script:TrunkSyncPrefix + $GitArgs) -DiscardStderr -TimeoutSeconds 15
-    if ($r.ExitCode -ne 0) { return '' }
+    if (-not (Test-NativeExitMeasured -Capture $r) -or $r.ExitCode -ne 0) { return '' }
     return ("$(@($r.Output) | Where-Object { "$_".Trim() } | Select-Object -First 1)").Trim()
 }
 
@@ -111,7 +112,7 @@ function Invoke-TrunkFastForward {
     #    code page can corrupt (#2115). An empty cdup line inside a work tree means this IS the root.
     $probe = Invoke-NativeCapture -FilePath 'git' -Arguments (& $git @('rev-parse', '--is-inside-work-tree', '--show-cdup')) -DiscardStderr -TimeoutSeconds 15
     $probeLines = @(@($probe.Output) | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
-    if ($probe.ExitCode -ne 0 -or $probeLines.Count -ne 1 -or $probeLines[0] -ne 'true') {
+    if (-not (Test-NativeExitMeasured -Capture $probe) -or $probe.ExitCode -ne 0 -or $probeLines.Count -ne 1 -or $probeLines[0] -ne 'true') {
         $result.Detail = 'not the root of a git checkout'
         return $result
     }
@@ -139,7 +140,7 @@ function Invoke-TrunkFastForward {
     # The fetch, narrowed to the trunk. Git's own first line is kept on failure: it is the only
     # diagnosis a reader gets, and a failing fetch leaks no credential (#1313).
     $fetch = Invoke-NativeCapture -FilePath 'git' -Arguments (& $git @('fetch', '--quiet', 'origin', $Trunk)) -TimeoutSeconds $TimeoutSeconds
-    if ($fetch.ExitCode -ne 0) {
+    if (-not (Test-NativeExitMeasured -Capture $fetch) -or $fetch.ExitCode -ne 0) {
         $why = if ($fetch.PSObject.Properties['TimedOut'] -and $fetch.TimedOut) { "no answer within $TimeoutSeconds s" }
                else { "$(@($fetch.Output) | Where-Object { "$_".Trim() } | Select-Object -First 1)".Trim() }
         $result.Outcome = 'failed'
@@ -162,7 +163,7 @@ function Invoke-TrunkFastForward {
     # 4. No uncommitted change to a tracked file. A git failure counts as dirty: the move runs only on a
     #    positive answer.
     $status = Invoke-NativeCapture -FilePath 'git' -Arguments (& $git @('status', '--porcelain', '--untracked-files=no')) -DiscardStderr -TimeoutSeconds 15
-    if ($status.ExitCode -ne 0 -or @(@($status.Output) | Where-Object { "$_".Trim() }).Count -gt 0) {
+    if (-not (Test-NativeExitMeasured -Capture $status) -or $status.ExitCode -ne 0 -or @(@($status.Output) | Where-Object { "$_".Trim() }).Count -gt 0) {
         $result.Detail = 'uncommitted changes (or git could not say) -- commit or stash them, then sync'
         return $result
     }
@@ -179,7 +180,7 @@ function Invoke-TrunkFastForward {
     }
 
     $merge = Invoke-NativeCapture -FilePath 'git' -Arguments (& $git @('merge', '--ff-only', '--quiet', $ref)) -TimeoutSeconds 60
-    if ($merge.ExitCode -ne 0) {
+    if (-not (Test-NativeExitMeasured -Capture $merge) -or $merge.ExitCode -ne 0) {
         $why = "$(@($merge.Output) | Where-Object { "$_".Trim() } | Select-Object -First 1)".Trim()
         $result.Outcome = 'failed'
         $result.Detail = "fast-forward refused$(if ($why) { ": $why" })"

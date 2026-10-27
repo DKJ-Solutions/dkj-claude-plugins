@@ -174,12 +174,13 @@
                                       "release-freshness-sessioncheck.tests.ps1",
                                       "sessioncheck-dispatch.tests.ps1",
                                       "session-cache-lib.tests.ps1",
+                                      "trunk-sync.tests.ps1",
                                       "working-copy-guard-lib.tests.ps1"
                                   ],
                        "tips":  [
                                     "A session runs the installed plugin copy, not this tree, so a hook change reaches a session here only after a release."
                                 ],
-                       "split":  "the SessionStart checks (claude-home, connector, consumer-prose, git-identity, release-freshness); the tool-use guards (command-guard-lib, guard-working-copy, background-run-lib, hook-fail-closed); the Stop hooks and the close-out (cycle-autopark, closeout-gate, closeout-lib); and the hook plumbing (hook-check-lib, hook-stdin-guard, session-cache-lib, sessioncheck-dispatch)."
+                       "split":  "the SessionStart checks (claude-home, connector, consumer-prose, git-identity, release-freshness) and the trunk-sync prep step; the tool-use guards (command-guard-lib, guard-working-copy, background-run-lib, hook-fail-closed); the Stop hooks and the close-out (cycle-autopark, closeout-gate, closeout-lib); and the hook plumbing (hook-check-lib, hook-stdin-guard, session-cache-lib, sessioncheck-dispatch)."
                    },
                    {
                        "key":  "adopt",
