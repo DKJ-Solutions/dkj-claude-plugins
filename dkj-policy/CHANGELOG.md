@@ -2,7 +2,58 @@
 
 ## [Unreleased]
 
-**3 / 5 minor entries** <!-- pending-tally -->
+**4 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3584-audience-note-only · 20261027-151359Z
+
+The audience release note that `cut-release` drafts now has one section, *What changed*, in every repo. The two
+organisational sections, *What it is worth* and *What was still open at this release*, are gone, and so is the
+`Get-ReleaseNoteSections` seam that could only switch them off; a repo that still defines it changes nothing. The
+`For whom` line names only the reader the note has, and the release-notes form check refuses either heading
+written back by hand.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo's next release note arrives without the two sections nobody filled in, with nothing to configure.
+
+**Score:** 3
+
+#### Pull Request
+
+The audience release note drops 'What it is worth' and 'What was still open' everywhere
+
+Plugins: dkj-policy
+
+[PR #3592](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3592)
+
+---
+
+### DEPLOY: fix/3590-internal-note-sections · 20261027-150206Z
+
+The internal release note that `new-internal-note.ps1` drafts (the two-document flow) no longer carries
+'What it is worth' or 'What was still open at this release': the note is its entry bullets under one
+heading, as the audience note became with #3584. A consumer still on that flow writes neither section
+again ([#3590](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3590)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing beyond the entry above: it removes two drafted headings from a retired flow's skeleton.
+
+**Score:** N/A
+
+#### Pull Request
+
+Internal note no longer drafts 'What it is worth' and 'What was still open'
+
+Plugins: dkj-policy
+
+[PR #3593](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3593)
+
+---
 
 ### DEPLOY: fix/3580-release-notes-empty-state · 20261027-145208Z
 

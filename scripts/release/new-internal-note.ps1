@@ -22,10 +22,12 @@
     exists to avoid.
 
     IT GENERATES ONLY HALF, AND THAT IS THE POINT. Version, date, type and the entry titles come from the
-    developer notes; "what it is worth" cannot be derived from a changelog. So what you get is a SKELETON
-    with the titles as bullets and three fixed headings to fill in -- the same "edit it afterwards" shape
-    the consumer tier has. The three headings are fixed on purpose: without that boundary this tier
-    grows back into the developer notes it was created to avoid.
+    developer notes; what they mean to a colleague cannot be derived from a changelog. So what you get is a
+    SKELETON with the titles as bullets under one fixed heading to rewrite -- the same "edit it afterwards"
+    shape the consumer tier has. The heading is fixed on purpose: without that boundary this tier grows
+    back into the developer notes it was created to avoid. It once had two more, 'What it is worth' and
+    'What was still open at this release'; the owner dropped both from every release note (#3584, #3590,
+    October 27, 2026).
 
     WHY THIS IS ITS OWN SCRIPT RATHER THAN PART OF cut-release.ps1. In the repo this was ported from the
     reason was that cut-release was marked "temporarily diverged" and must not be extended; that reason is
@@ -161,22 +163,7 @@ $w = @{
         'outside the team, remove -- this tier is not complete, it is readable.'
     ) -join "`n     "
     SectionChanged = 'What is different now'
-    SectionValue   = 'What it is worth'
-    HintValue      = @(
-        'This is the core of this tier and the only part that cannot be generated. Think in time,',
-        'risk and reduced dependence on a developer. For example: "changing an amount took five',
-        'edits in code and can now be done by the team itself".'
-    ) -join "`n     "
-    SectionOpen    = 'What was still open at this release'
-    HintOpen       = @(
-        'What was deliberately left, and with whom the next step sits. "Nothing" is also an answer',
-        '-- leave the heading standing with that one line.',
-        'Write it as a SNAPSHOT of this release, not as a claim about the present. Where this note is',
-        'the published release body it does not move with reality, so a line here goes stale in hours',
-        'rather than months -- measured three times in one day, once by a line stating that the',
-        'previous release had no public page, which its own author then published.'
-    ) -join "`n     "
-    NoEntries      = '(no entries found -- fill in by hand)'
+    NoEntries     = '(no entries found -- fill in by hand)'
     Unknown        = '(fill in)'
 }
 $override = Get-SeamValue -Name 'Get-InternalNoteWording' -Default @{}
@@ -451,15 +438,7 @@ $skeleton =
     $nl +
     "## $($w.SectionChanged)$nl" +
     $nl +
-    ($bullets -join $nl) + $nl +
-    $nl +
-    "## $($w.SectionValue)$nl" +
-    $nl +
-    "<!-- $($w.HintValue) -->$nl" +
-    $nl +
-    "## $($w.SectionOpen)$nl" +
-    $nl +
-    "<!-- $($w.HintOpen) -->$nl"
+    ($bullets -join $nl) + $nl
 
 New-Item -ItemType Directory -Force -Path (Split-Path -Parent $intFile) | Out-Null
 [System.IO.File]::WriteAllText($intFile, $skeleton, $Utf8NoBom)
@@ -511,7 +490,7 @@ if ($historyTouched) {
     Write-Host "skipped :  $historyRelPath  (no row for v$verNum to repoint, or it already points here -- nothing changed)"
 }
 Write-Host ""
-Write-Host "Step 1 -- fill in the note (the three headings stay):"
+Write-Host "Step 1 -- fill in the note (the heading stays):"
 Write-Host "  code $intRel"
 Write-Host ""
 # Via a branch + PR, NOT appended to the release commit. cut-release.ps1 has already committed and

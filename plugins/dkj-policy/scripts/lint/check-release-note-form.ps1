@@ -11,9 +11,9 @@
     header labels and section shape.
 
     IT ADDS NO RULE OF ITS OWN. Compare-ReleaseNoteForm in release-lib.ps1 draws the expected form from
-    Build-ReleaseNoteDraft, called with this repo's own Get-ReleaseNoteWording, Get-ReleaseNoteSections and
-    audience tier -- the same three answers cut-release.ps1 passes -- so the check and the cut cannot
-    disagree about what the form is.
+    Build-ReleaseNoteDraft, called with this repo's own Get-ReleaseNoteWording and audience tier -- the
+    same two answers cut-release.ps1 passes -- so the check and the cut cannot disagree about what the form
+    is.
 
     ONLY THE NEWEST NOTE IS JUDGED, and that is the answer to the design question #2812 left open. Published
     notes are records and keep the form they were written with, so judging every note would refuse this
@@ -104,21 +104,15 @@ $noteRel = if ($notePath.StartsWith($repoRoot, [System.StringComparison]::Ordina
     $notePath.Substring($repoRoot.Length).TrimStart('\', '/') -replace '\\', '/'
 } else { $notePath }
 
-# THE SAME THREE ANSWERS cut-release.ps1 reads, read the same way: the wording under both its names, the
-# sections validated by the cut's own resolver, and the tier with the cut's fallback of 2.
+# THE SAME TWO ANSWERS cut-release.ps1 reads, read the same way: the wording under both its names, and the
+# tier with the cut's fallback of 2.
 $wording = Get-SeamValue -Name 'Get-ReleaseNoteWording', 'Get-InternalNoteWording' -Default @{}
 if ($wording -isnot [hashtable]) { $wording = @{} }
-try {
-    $sections = Resolve-ReleaseNoteSections -Answer (Get-SeamValue -Name 'Get-ReleaseNoteSections' -Default $null)
-} catch {
-    Write-Error "check-release-note-form: $(Format-SafeProseToken -Value $_.Exception.Message)"
-    exit 1
-}
 $tier = Get-EntryAudienceTier
 if ($null -eq $tier) { $tier = 2 }
 
 $text = [System.IO.File]::ReadAllText($notePath, (New-Object System.Text.UTF8Encoding $false))
-$findings = @(Compare-ReleaseNoteForm -Text $text -Wording $wording -Sections $sections -AudienceTier $tier)
+$findings = @(Compare-ReleaseNoteForm -Text $text -Wording $wording -AudienceTier $tier)
 
 if ($findings.Count -eq 0) {
     Write-Host "[OK] $noteRel has the form cut-release drafts for this repo."
