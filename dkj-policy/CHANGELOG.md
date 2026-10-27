@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**12 / 21 minor entries** <!-- pending-tally -->
+**13 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3569-product-outlives-its-session · 20261027-112722Z
+
+A server the dev-preview hook starts no longer holds its port after its Windows session is left behind. A
+watcher runs beside it in the same session and stops the server's whole tree once that session has been
+disconnected for a minute. It exits with the server either way, and session 0 gets none. A holder that is
+still in another logon session is named with that session's number and the one elevated command that frees
+the port.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+On a machine where people switch Windows accounts, or leave a session disconnected instead of signing out,
+the next session no longer starts without its product. The port is free about a minute after the switch. A
+session that is started sooner, or a holder from before this release, gets the exact `Stop-Process`
+command instead of a bare pid.
+
+**Score:** 3
+
+#### Pull Request
+
+dev-preview: a server the hook starts no longer outlives its session
+
+Plugins: dkj-policy
+
+[PR #3574](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3574)
+
+---
 
 ### DEPLOY: feat/3572-stale-park-external-waits · 20261027-110905Z
 
