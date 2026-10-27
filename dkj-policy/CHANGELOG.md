@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**4 / 7 minor entries** <!-- pending-tally -->
+**5 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3588-house-style-tag-fallback · 20261027-152421Z
+
+The house-style session check no longer flags a consumer's copy that is exactly the released file. An
+install tracks `main`, so between a house-style merge and the next cut the installed skill page named
+the old tag beside the new checksums, and the check told a correct repo to replace its copy with itself.
+A copy that fails the installed page is now judged again against the page as it reads at that tag. The
+page is fetched only in that case, so a clean session makes no network call. A hand run of
+`check-house-style.ps1` from an install does the same, and the skill tells a session that fetches the
+files to check that page before it stops.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions repo's session no longer opens with a house-style warning it cannot clear in the days
+between a house-style change and the release that carries it.
+
+**Score:** 2
+
+#### Pull Request
+
+house-style check falls back to the skill page at its tag
+
+Plugins: dkj-solutions
+
+[PR #3594](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3594)
+
+---
 
 ### DEPLOY: feat/3584-audience-note-only · 20261027-151359Z
 
