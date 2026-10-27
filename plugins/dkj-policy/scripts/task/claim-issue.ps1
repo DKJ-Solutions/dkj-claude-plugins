@@ -128,7 +128,7 @@
 .PARAMETER Candidates
     List which open issues a sweep may pick up -- free, this tag's already, held by another tag, or
     skipped with the reason, or 'stale-park' for an awaiting-pull issue whose blocker has landed (#3136),
-    or an awaiting-pull-external / awaiting-release-external issue whose upstream release is out (#3572).
+    or for an awaiting-pull-external / awaiting-release-external issue whose upstream release is out (#3572).
     Takes no issue number and WRITES NOTHING: choosing is a separate step from
     claiming, because between the two a session may still find the issue is not this repo's work.
 
@@ -620,7 +620,7 @@ if ($Candidates) {
         } catch { }
         $landedCache = @{}
         # Kind 'issue' takes a bare number (this repo) or `owner/repo#n`, and answers the time it landed
-        # (merged_at, else closed_at) for a landed one, $false for one that has not, $null for an unread
+        # (merged_at, else closed_at, else $true) for a landed one, $false for one that has not, $null for an unread
         # one. Kind 'release' takes `owner/repo` and answers its newest release's published_at, or $null.
         # Kind 'branch' answers $true, $false or $null, as it always has.
         $isLanded = {
@@ -670,13 +670,16 @@ if ($Candidates) {
                     $c.Reason = "$($c.Reason); its parking comment names no owner/repo#<n>, so whether the wait has cleared is not read"
                     continue
                 }
-                # Landed upstream, then a release of that repo published after the landing.
+                # Landed upstream, then a release of that repo published after the landing. The release is
+                # asked about only once the blocker has landed. A local #<n> or branch named beside it is
+                # read by neither half here, so it keeps the issue skipped rather than clearing unread.
                 $pending = @($refs.External | Where-Object {
                     $at = & $isLanded 'issue' $_
+                    if ($at -isnot [string]) { return $true }
                     $rel = & $isLanded 'release' ($_ -replace '#\d+$', '')
-                    -not ($at -is [string] -and $rel -and (Test-PublishedSince -Published $rel.Published -Since $at))
+                    -not ($rel -and (Test-PublishedSince -Published $rel.Published -Since $at))
                 })
-                if ($pending.Count -eq 0) {
+                if ($pending.Count -eq 0 -and $refs.Issues.Count -eq 0 -and $refs.Branches.Count -eq 0) {
                     $c.Verdict = 'stale-park'
                     $c.Reason = "label 'awaiting-pull-external', but what it waits on has merged and been released upstream: $($refs.External -join ', ')"
                 }

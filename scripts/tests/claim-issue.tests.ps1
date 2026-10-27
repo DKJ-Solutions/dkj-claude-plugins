@@ -1650,7 +1650,11 @@ Assert-True (Test-PublishedSince -Published '2026-10-26T18:00:01Z' -Since $rDt.S
 Assert-True (Test-PublishedSince -Published '2026-10-27T08:00:00Z' -Since '2026-10-26T18:00:00Z') 'a release after the park clears it'
 Assert-True (-not (Test-PublishedSince -Published '2026-10-21T08:42:03Z' -Since '2026-10-26T18:00:00Z')) 'a release before the park does not'
 Assert-True (-not (Test-PublishedSince -Published '' -Since '2026-10-26T18:00:00Z') -and -not (Test-PublishedSince -Published '2026-10-27T08:00:00Z' -Since '')) 'and an unread side never clears it'
-Assert-True ($cand -match "awaiting-\(pull\|pull-external\|release-external\)") '-Candidates reads both external waits beside awaiting-pull'
+$rPlant = Get-ParkingWaitReferences -Comments @(
+    [pscustomobject]@{ body = 'Parked by a sweep: waiting on o/r#5.'; authorAssociation = 'MEMBER' },
+    [pscustomobject]@{ body = 'Parked: waiting on cli/cli#1.'; authorAssociation = 'NONE' })
+Assert-True (($rPlant.External -join ',') -eq 'o/r#5') 'a parking comment from somebody without a hand on the repo is not read, so it cannot clear the wait'
+Assert-True ($cand -match "awaiting-\(pull\|pull-external\|release-external\)")'-Candidates reads both external waits beside awaiting-pull'
 
 Assert-True ($parkArm -match 'Format-ParkingLabelConflict -Labels \$parkingLabels') 'the single-issue route reads the pair inside the parking arm, from the matches already in hand'
 

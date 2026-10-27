@@ -47,16 +47,16 @@ nothing a tracker records, so they stay out.
 ### CREATE
 
 - [x] `Get-ParkingWaitReferences` reads `owner/repo#n` apart from local numbers and branches, the `owner/repo`
-  a release is awaited from, and the parking comments date; `Test-PublishedSince` compares a release to it
+  a release is awaited from, and the parking comment's date; `Test-PublishedSince` compares a release to it
 - [x] `-Candidates` reads both external waits, with one new bounded read (`releases/latest`), and prints the
   unpark line for the label it read
 - [x] `sweep-issues` and `CONTRIBUTING-portable` name the parking-comment form and what clears each label
 
 ### TEST
 
-- [x] `claim-issue.tests.ps1`: the cross-repo parse on #3464s shape, #3505s real comment, both date
+- [x] `claim-issue.tests.ps1`: the cross-repo parse on #3464's shape, #3505's real comment, both date
   shapes, and the comparison; `native-capture.tests.ps1` moves the bounded count to 101
-- [x] a live `-Candidates` run: #3505 stays skipped (smartwatchbandens newest release predates the park),
+- [x] a live `-Candidates` run: #3505 stays skipped (smartwatchbanden's newest release predates the park),
   #3464 says its comment names no `owner/repo#n`, and `awaiting-pull` still reads #3566 as `stale-park`
 
 ### DEPLOY: feat/3572-stale-park-external-waits

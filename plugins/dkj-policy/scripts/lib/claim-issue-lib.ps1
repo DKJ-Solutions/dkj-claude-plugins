@@ -2877,6 +2877,10 @@ function Get-ParkingWaitReferences {
     $clause = ''
     $since = ''
     foreach ($c in @(@($Comments) | Where-Object { $_ })) {
+        # ONLY A COMMENT FROM SOMEBODY WITH A HAND ON THE REPO PARKS (#3572 review). Anybody who can comment
+        # could otherwise append "parked, waiting on cli/cli#1" and turn the issue stale-park. A comment
+        # without the field (a fixture) is read as before.
+        if ($c.PSObject.Properties['authorAssociation'] -and [string]$c.authorAssociation -notin @('OWNER', 'MEMBER', 'COLLABORATOR')) { continue }
         $body = if ($c.PSObject.Properties['body']) { [string]$c.body } else { '' }
         $m = [regex]::Match($body, '(?is)\bparked\b.*?\bwaiting on\b(?<w>.*)')
         if ($m.Success) {
