@@ -61,7 +61,7 @@ explains the page is an intro, so it goes.**
 
 ### TEST
 
-- [ ] The owner looks at both pages; the gates run at `ship-pr`
+- [x] The owner looked at both pages and approved (October 27, 2026); the gates run at `ship-pr`
 
 ### DEPLOY: fix/3591-session-start-no-lede
 
