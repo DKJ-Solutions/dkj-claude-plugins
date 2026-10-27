@@ -217,14 +217,18 @@ label's name moved. Six things follow from being a record:
   label and `[RECORD]` prefix kept** ([#2904](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2904),
   October 9, 2026; made immediate by Dave, October 22, 2026). There is no need to wait for it to go
   quiet first: a record waits on its next instance or its root cause, so it is never ready work, and
-  left open it only crowds the list. The label is what keeps it findable once closed. A new instance is
-  then a comment on the record and a **reopen**. The two closing reasons keep their meanings apart: *completed* says the root cause is
+  left open it only crowds the list. The label is what keeps it findable once closed. **A new instance is
+  then a comment on the closed record, and nothing more: no reopen**, so the record stays closed through
+  every recurrence (Maikel, October 27, 2026,
+  [#3576](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3576)). A reopen had no step after it
+  that closed the record again, so the first recurrence left it open for good. The two closing reasons keep their meanings apart: *completed* says the root cause is
   repaired, *not planned* says only that nothing is being built until the next instance. Because a closed
   record drops out of the default issue list, the search before filing reads closed issues too (below).
   **Where the CI floor is adopted, this close is automatic**
   ([#3422](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3422)): the
   `close-parked-recurrences.yml` runner closes an open issue the moment it is filed with or given either
-  recurrence label, and adds the `[RECORD]` prefix where it is missing. A reopen does not wake it.
+  recurrence label, and adds the `[RECORD]` prefix where it is missing. A reopen does not wake it, because
+  the one recurrence that reopens is `awaiting-recurrences-first`'s, below, which takes the label off.
 - **A record is parked** (Dave, September 30, 2026). It waits on its next instance or its root cause,
   and no single repair closes it, so a sweep that picks one up finds nothing to build. Both pickup routes
   skip `awaiting-recurrences` by default, exactly as they skip `awaiting-decision-dev`, `awaiting-decision-client`, `awaiting-review-dev`, `awaiting-review-client`, `awaiting-pull`, `awaiting-pull-external`, `awaiting-action-external`, `awaiting-action-dev`, `awaiting-release`, `awaiting-release-external` and
@@ -293,8 +297,8 @@ gh issue list --state all --label awaiting-recurrences
 ```
 
 A tracker that has not renamed its labels yet answers to the former names (or an older one)
-(`awaiting-first-recurrence`, `awaiting-more-recurrences`) instead. A match is reopened and commented on,
-never filed beside.
+(`awaiting-first-recurrence`, `awaiting-more-recurrences`) instead. A match is commented on, never filed
+beside, and reopened only where it waits on its first recurrence: a record stays closed (#3576, above).
 
 **`awaiting-pull` parks an issue that waits on another issue landing through its pull request**
 ([#2757](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2757), Dave, October 3, 2026). Work that

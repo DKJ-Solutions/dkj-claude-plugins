@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**13 / 22 minor entries** <!-- pending-tally -->
+**14 / 23 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3576-record-recurrence-stays-closed · 20261027-115033Z
+
+A new instance of a recurring problem is now only a comment on its closed `[RECORD]` issue. The record is no
+longer reopened, so it stays closed through every recurrence. Before, the page said to reopen it and named
+no step that closed it again, so the first recurrence left a record open for good (#3459). An issue still
+waiting on its first recurrence is reopened as before. The workflow page and the comment the
+`close-parked-recurrences` runner posts both say so.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer that follows the workflow page now logs a recurrence on a record as a comment instead of a
+reopen, and once the CI floor is adopted again, its runner's close comment says the same.
+
+**Score:** 2
+
+#### Pull Request
+
+A recurrence on a record is a comment only, and the record stays closed
+
+Plugins: dkj-policy
+
+[PR #3577](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3577)
+
+---
 
 ### DEPLOY: fix/3569-product-outlives-its-session · 20261027-112722Z
 
