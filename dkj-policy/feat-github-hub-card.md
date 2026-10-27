@@ -51,7 +51,7 @@ The route stays `/repository`, so no link breaks.
 ### TEST
 
 - [x] `dev-preview-sessionstart.tests.ps1`: title and crumb asserts read GitHub, plus a new assert on the card's label and logo -- 395 passed, 0 failed
-- [ ] The owner has looked at the hub card and the page
+- [x] The owner has looked at the hub card and the page ("gezien en akkoord", October 27, 2026)
 
 ### DEPLOY: feat/github-hub-card
 
