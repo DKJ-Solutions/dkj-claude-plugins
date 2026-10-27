@@ -67,7 +67,7 @@ This is a visible result, so the branch stops for the owner's look before it mer
   `Format-HubCardLinkHtml`. The README's "The card" now says it is the card link on every page, and
   `dev-pages.tests.ps1` fails on any `card card--link` written outside it. The five older variants are on
   an allow-list that #3566 shrinks to empty.
-- [ ] The owner's look at `/plugins/dkj-solutions/house-style` and a section page.
+- [x] The owner's look at `/plugins/dkj-solutions/house-style` and a section page: approved ("ship it", Maikel, October 27, 2026).
 
 ### TEST
 
