@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Owner decision on #3576 (Maikel, October 27, 2026): option A, a recurrence on a record is a comment only.
+Reword the workflow page and the runner's close comment, then close #3459 again as not planned.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `CONTRIBUTING-portable.md`: a new instance on a record is a comment, no reopen; the search-before-filing
+      line reopens only an `awaiting-recurrences-first` match
+- [x] `close-parked-recurrences.yml` and the `adopt-ci-floor.ps1` template (both copies): the close comment
+      says a record stays closed and a first recurrence reopens
 
 ### TEST
 
+- [x] The template and the source repo's runner carry the identical new comment, the two `adopt-ci-floor.ps1`
+      copies stay byte-identical, and no old wording is left in the tree
+
 ### DEPLOY: fix/3576-record-recurrence-stays-closed
 
-**Score:**
+A new instance of a recurring problem is now only a comment on its closed `[RECORD]` issue. The record is no
+longer reopened, so it stays closed through every recurrence. Before, the page said to reopen it and named
+no step that closed it again, so the first recurrence left a record open for good (#3459). An issue still
+waiting on its first recurrence is reopened as before. The workflow page and the comment the
+`close-parked-recurrences` runner posts both say so.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer that follows the workflow page now logs a recurrence on a record as a comment instead of a
+reopen, and once the CI floor is adopted again, its runner's close comment says the same.
+
+**Score:** 2
 
 #### Pull Request
 
