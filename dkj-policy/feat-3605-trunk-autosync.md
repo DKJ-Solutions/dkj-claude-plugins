@@ -39,19 +39,48 @@
 
 ### PLAN
 
+Issue #3605. A trunk that is merely standing there is fast-forwarded to origin in two places, through one
+shared definition (`Invoke-TrunkFastForward`, `scripts/lib/trunk-sync-lib.ps1`):
+
+- a SessionStart prep step, `trunk-sync-sessionprep.ps1`, which the dispatcher runs before its parallel
+  checks because those checks read the trunk it moves;
+- a command, `sync-trunk.ps1` (skill `sync-trunk`), for one checkout or `-AllCheckouts`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `trunk-sync-lib.ps1`: the safety conditions (root, origin ref, on the trunk, no tracked change, not diverged) and `merge --ff-only`
+- [x] `sync-trunk.ps1` with `-AllCheckouts` / `-DryRun`, registered in `Get-SharedScriptPairs`, mirrors built
+- [x] `trunk-sync-sessionprep.ps1` hook, `DKJ_TRUNK_AUTOSYNC=0` opt-out
+- [x] `sessioncheck-dispatch.ps1` runs `*-sessionprep.ps1` sequentially before the pool
+- [x] `sync-trunk` skill page and rows in `plugins/dkj-policy/scripts/README.md`
 
 ### TEST
 
+- [x] `scripts/tests/trunk-sync.tests.ps1`: every outcome and every safety condition against real fixture repos, plus the dispatcher ordering
+- [x] `sessioncheck-dispatch`, `shared-scripts` and `source-repo-guard` suites green; `check-plugin-integrity` 0 errors
+- [ ] code review (Victor) and security review (Sebastian) findings handled
+
 ### DEPLOY: feat/3605-trunk-autosync
 
-**Score:**
+A checkout's trunk now follows origin by itself. At every session start, a checkout standing clean on
+its trunk and merely behind is fast-forwarded before the session checks run. It is silent when there is
+nothing to report, and `DKJ_TRUNK_AUTOSYNC=0` turns it off. The new
+[`sync-trunk`](../plugins/dkj-policy/skills/sync-trunk/SKILL.md) command does the same on request, and
+with `-AllCheckouts` it covers every checkout on the machine. Nothing is ever stashed, rebased or merged.
+A checkout off its trunk, with an uncommitted change or with local commits origin lacks is skipped, and
+the reason is given.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+You no longer pull the trunk by hand after every merge, in this repo or in any other checkout on your
+machine. Work in progress is never moved.
+
+**Score:** 3
 
 #### Pull Request
 
+Fast-forward a clean trunk automatically, at session start and across every checkout
+
+Plugins: dkj-policy
