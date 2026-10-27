@@ -450,7 +450,10 @@ Assert-True ((Format-ReleaseNotesDevPage -Html $tpl -ThemeKey 'k"x' -HubHref '/'
 $tplStyleEnd = $rn.IndexOf('</style>')
 $houseAt = $rn.IndexOf('<link rel="stylesheet" href="/house-style.css">')
 Assert-True ($houseAt -gt $tplStyleEnd -and $tplStyleEnd -gt 0) 'the house stylesheet loads after the template''s own style, so the house body wins'
-Assert-True ($rn.IndexOf('--panel: var(--paper-2)') -gt $houseAt) 'and the template''s tokens are pointed at house tokens after it'
+$tplStyle = $rn.Substring(0, $tplStyleEnd)
+Assert-True ($tpl.Contains('var(--code-bg)') -and -not ([regex]'var\(--(bg|panel|ink|ink-soft|ink-faint|line|accent|accent-soft|code-bg)\)').IsMatch($tplStyle) -and $tplStyle.Contains('var(--paper-1)') -and $tplStyle.Contains('var(--primary)')) 'the served template style reads house colour tokens only, never its own palette (owner, October 27, 2026)'
+Assert-True (-not $rn.Contains('--panel: var(--paper-2)')) 'so no layer pointing the template''s tokens at house ones is left'
+Assert-True ((ConvertTo-ReleaseNotesHouseColors -Html '<style>a{color:var(--accent-soft);b:var(--accent)}</style><script>var(--accent)</script>') -eq '<style>a{color:var(--paper-2);b:var(--primary)}</style><script>var(--accent)</script>') 'the rewrite takes the longest name first and stops at the first </style>'
 Assert-True ($rn.IndexOf('.wrap { max-width: 1080px; display: grid;') -gt $houseAt -and $rn.Contains('header.masthead h1 { font-family: inherit; font-size: var(--text-h1);') -and $rn.Contains('footer.colophon { margin: 0; padding: 0; border: 0; color: var(--muted);')) 'and its column, h1 and colophon take the Stopwatch page''s measures (owner, October 25, 2026)'
 Assert-True ($rn.IndexOf('<script src="/house-theme.js"></script>') -lt $rn.IndexOf('<body')) 'the theme script loads in the head'
 $bodyAt = $rn.IndexOf('<body>')
