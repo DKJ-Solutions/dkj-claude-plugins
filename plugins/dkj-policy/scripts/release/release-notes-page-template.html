@@ -291,10 +291,11 @@
   .note-cell > :first-child { margin-top: 0; }
   .note-cell > :last-child { margin-bottom: 0; }
   .note-cell p, .note-cell ul, .note-cell ol { max-width: none; }
-  /* EVERY CARD HAS AN H2 (owner, October 27, 2026): the bold sentence a point opens with is lifted into
-     one by gridNoteSections(). Sized as a card title, not as the section heading above the grid, and
-     without that heading's rule and air. */
-  article .note-cell h2 {
+  /* EVERY CARD IS TITLED WITH AN H3, NEVER AN H2 (owner, October 27, 2026): the bold sentence a point opens
+     with is lifted into one by liftCellTitle(). The house style's hard rule (#206, #3175) -- an h2 heads a
+     group of cards and stands ABOVE it, so a card under it takes an h3 or no title at all. Here the section's
+     own h2 is that heading. Sized as a card title, without a heading's rule and air. */
+  article .note-cell h3 {
     font-size: 1rem; line-height: 1.4; font-weight: 640;
     margin: 0 0 .4rem; padding: 0; border: 0;
   }
@@ -529,7 +530,8 @@
   // h2s; it qualifies only when it holds nothing but paragraphs and lists and adds up to two points or
   // more -- a section with a table, code or a sub-heading has a shape of its own and is left alone, and a
   // single point gains nothing from a grid. Each paragraph is a point, and so is each item of a list.
-  // A card whose first paragraph OPENS with a bold sentence gets that sentence as its h2, and the rest
+  // A card whose first paragraph OPENS with a bold sentence gets that sentence as its h3 -- never an h2,
+  // which is the section heading standing above the grid (the house style's rule, #3175) -- and the rest
   // of the paragraph stays below it; a paragraph that was only the sentence goes. A card that does not
   // open that way keeps its text as it is -- a title is lifted, never invented.
   function liftCellTitle(cell) {
@@ -537,7 +539,7 @@
     if (!p || p.tagName !== 'P') { return; }
     var lead = p.firstChild;
     if (!lead || lead.tagName !== 'STRONG') { return; }
-    var h = document.createElement('h2');
+    var h = document.createElement('h3');
     while (lead.firstChild) { h.appendChild(lead.firstChild); }
     p.removeChild(lead);
     var next = p.firstChild;
