@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**9 / 16 minor entries** <!-- pending-tally -->
+**10 / 17 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3563-long-pages-become-cards · 20261027-101351Z
+
+The hub rule "a page with more than four sections becomes an overview of cards, each opening a page of its
+own" is now written down in the house-style README and the `house-style` skill. The hub's page shell checks
+it on every page it renders and puts a warning at the top of any page that breaks it. The House style page
+under `/plugins/dkj-solutions/house-style` follows the rule itself: it shows 11 cards instead of 85 KB of
+specimens in one column, and each section has its own page.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo running the hub gets the House style page as cards, with one page per section. A hub page that
+grows past four sections now says so on the page itself, so the shape is caught as it happens instead of
+being spotted later.
+
+**Score:** 3
+
+#### Pull Request
+
+Hub pages: a long page becomes cards with a page each, written down and guarded
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3567](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3567)
+
+---
 
 ### DEPLOY: feat/3562-asana-reopen-card-back · 20261027-100117Z
 
