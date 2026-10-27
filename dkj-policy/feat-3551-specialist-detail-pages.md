@@ -52,6 +52,9 @@ parked for the owner's look.
 - [x] `Format-SpecialistPageHtml`: the specialist's own page, with the trail, its tiles, what it is and when
   it loads, its files, its listing, and its definition folded
 - [x] The server routes `/specialists/<plugin>/<specialist>`, with a 404 for one the plugin does not ship
+- [x] After the owner's look (October 27, 2026): the specialist cards sit four to a row (`.sp-grid-4`, stepping
+  down 4, 3, 2, 1), and a plugin's page opens on them as the overview does, with no tiles, no lead and no
+  heading over the grid, each card title an h2
 
 ### TEST
 

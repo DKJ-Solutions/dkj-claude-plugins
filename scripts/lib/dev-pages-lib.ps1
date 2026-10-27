@@ -336,18 +336,10 @@ function Format-SpecialistsPageHtml {
         return Format-SpecialistPageHtml -Row $one -Pick $pick -CharsPerToken $CharsPerToken -ReadError $ReadError
     }
     $max = if ($rows.Count) { [double]$rows[0].TotalBytes } else { 0 }
-    $largest = @{ L = 'Largest full read'; V = $(if ($rows.Count) { $rows[0].Name + ' ' + (& $tok $rows[0].TotalBytes) } else { '--' }) }
 
     $body = New-Object System.Text.StringBuilder
-    if ($pick) {
-        [void]$body.Append((Format-DevTiles @(
-            @{ L = 'Specialists'; V = $rows.Count },
-            @{ L = 'Here'; V = $(if ($pick.Enabled) { 'Enabled' } else { 'Off' }) },
-            @{ L = $(if ($pick.Enabled) { 'Listing, every session here' } else { 'Listing, if enabled' }); V = (& $tok $pick.ListingBytes) },
-            @{ L = 'Full read, all of them'; V = (& $tok $pick.TotalBytes) },
-            $largest)))
-    }
-    # The overview opens on its cards: no tiles, no heading over the grid and no lead (the owner, #3550).
+    # Both levels open on their cards: no tiles, no heading over the grid and no lead (the owner, #3550; on a
+    # plugin's page too since October 27, 2026, #3551).
     if ($ReadError) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The specialists could not all be read: ' + (& $e $ReadError) + '.</p>')
     }
@@ -373,16 +365,16 @@ function Format-SpecialistsPageHtml {
         if (-not $pick.Enabled) {
             [void]$body.AppendLine('<p class="msg" role="status">Not enabled in this repo''s <code>.claude/settings.json</code>: no session here carries its listing, and its specialists have no lens here.</p>')
         }
-        # One card per specialist, in roster order, each the link to its own page (#3551).
-        [void]$body.AppendLine('<div class="grid-3" id="cards">')
-        [void]$body.AppendLine('<div class="grid__head"><h2>The specialists</h2><p class="card__sub">One card each, in roster order; open one for its files, its listing and its definition</p></div>')
+        # One card per specialist, in roster order, each the link to its own page (#3551), four to a row (the
+        # owner, October 27, 2026): .grid-3 keeps its head and spacing rules, .sp-grid-4 only sets the columns.
+        [void]$body.AppendLine('<div class="grid-3 sp-grid-4" id="cards">')
         foreach ($r in @($rows | Sort-Object @{ Expression = { $_.Id } })) {
             $label = (& $e $r.Name) + $(if ($r.Emoji) { ' ' + (& $e $r.Emoji) } else { '' })
             $sub = @(('#' + (& $e $r.Number)), $(if ($r.Title) { & $e $r.Title }), (& $e $r.Form), ('full read ' + (& $tok $r.TotalBytes))) |
                 Where-Object { $_ }
             [void]$body.AppendLine('<section class="card card--link sp-card" id="specialist-' + (& $e $r.Slug) + '">' +
                 '<nav class="menu-list" aria-label="' + (& $e $r.Name) + '"><a class="menu-item" href="/specialists/' + (& $e $pick.Short) + '/' + (& $e $r.Slug) + '">' +
-                '<div class="menu-item__label"><h3 class="sp-card-title">' + $label + '</h3><span class="menu-item__sub">' + ($sub -join ' &middot; ') + '</span></div>' +
+                '<div class="menu-item__label"><h2 class="sp-card-title">' + $label + '</h2><span class="menu-item__sub">' + ($sub -join ' &middot; ') + '</span></div>' +
                 $script:RepoHubChevron + '</a></nav></section>')
         }
         [void]$body.AppendLine('</div>')
@@ -426,12 +418,19 @@ function Format-SpecialistsPageHtml {
     }
     $factor = $CharsPerToken.ToString('0.00', $inv)
     # The card title sits flush in its card (as /connectors' do); an off plugin's card is muted, never hidden.
-    $style = $script:DevBarStyle + "`n" + '.sp-card-title { margin: 0; }' + "`n" + '.sp-card--off { opacity: 0.7; }'
+    # The specialist grid steps down 4 -> 3 -> 2 -> 1; its own breakpoints, since this rule sits after the house
+    # stylesheet's and would otherwise outrank its steps.
+    $style = $script:DevBarStyle + "`n" + '.sp-card-title { margin: 0; }' + "`n" + '.sp-card--off { opacity: 0.7; }' + "`n" +
+        (@(
+            '.grid-3.sp-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }',
+            '@media (max-width: 1200px) { .grid-3.sp-grid-4 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }',
+            '@media (max-width: 1000px) { .grid-3.sp-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }',
+            '@media (max-width: 760px) { .grid-3.sp-grid-4 { grid-template-columns: 1fr; } }'
+        ) -join "`n")
     $footer = 'Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Bytes are measured (hover a cell); tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.'
     if ($pick) {
         return Format-DevPageHtml -Title $pick.Short -Style $style -Body $body.ToString() -FooterNote $footer `
-            -ParentCrumbs @(@{ Label = 'Specialists'; Href = '/specialists' }) `
-            -Lead ('The specialists the <code>' + (& $e $pick.Plugin) + '</code> plugin ships, the ' + (& $e $pick.Kind) + ', and how much context each one brings along.')
+            -ParentCrumbs @(@{ Label = 'Specialists'; Href = '/specialists' }) -Lead ''
     }
     return Format-DevPageHtml -Title 'Specialists' -Style $style -Body $body.ToString() -FooterNote $footer -Lead ''
 }
