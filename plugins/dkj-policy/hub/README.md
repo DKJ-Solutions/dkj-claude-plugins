@@ -220,7 +220,7 @@ in every repo that enables `dkj-solutions`.
 | `/test-gate` | `scripts/tests/suite-durations.json`, grouped by `scripts/tests/suite-groups.json` where the repo keeps one, and each suite's own `.SYNOPSIS` (#3470) | The page says no test gate has been measured in this repo yet |
 | `/stopwatch`, `/stopwatch/<label>[/<run>]` | This repo's Stopwatch store on this machine, and the session transcripts for a run's phases (#3470; see the timing pages below) | An empty overview |
 | `/logbook`, `/logbook/<slug>` | This repo's Logbook store on this machine, and the session transcripts (#3470; see the timing pages below) | An empty overview |
-| `/api/airsquats` | The banner's state as JSON; `POST /api/airsquats/clear` ticks its box off, the one `POST` the server takes, served same-origin only (#3438). Below | A state that cannot be read is a 503, and the banner keeps its countdown and shows no box |
+| `/api/airsquats` | The banner's state as JSON; `POST /api/airsquats/clear` ticks its box off, the one `POST` the server takes, served same-origin only (#3438). Below | A state that cannot be read is a 503, and the banner stays hidden |
 
 **Two things to know about what these pages read and who can read them.** `/sessionstart` and
 `/release-notes` run a child process that first dot-sources the repo's own `scripts/repo-config.ps1`, and
@@ -276,6 +276,10 @@ the hub and the 303 to an opted-out repo's hub are served, a same-site fetch or 
 ([#3438](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3438), Dave, October 25, 2026). Until
 then the banner kept its count in the browser's `localStorage`. That is one count per origin, and every repo
 hub has its own port, so two repo hubs on one machine already disagreed.
+
+**And it shows only while something is due** (Dave, October 27, 2026): hidden until an hour is owed, it
+slides down when the hour turns on an open page and back up once the box is ticked. A page opened with squats
+already owed shows it at once, and `prefers-reduced-motion` drops the slide.
 
 - **The page asks its own server**: `GET /api/airsquats` every 15 seconds and at the turn of the hour, and a
   `POST` to `/api/airsquats/clear` when the box is ticked. It counts the minutes down by itself.

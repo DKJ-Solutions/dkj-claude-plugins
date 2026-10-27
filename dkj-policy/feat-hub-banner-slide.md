@@ -39,19 +39,29 @@
 
 ### PLAN
 
+Dave, October 27, 2026: show the hub banner only while airsquats are due; slide it down when the hour turns and back up once ticked off.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-RepoHubBanner`: start hidden, `slide()` via the Web Animations API, no slide on first load or under reduced motion
+- [x] Docstring and hub README describe the new behaviour
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` asserts the hidden start, the slide on due and on tick-off, and the no-motion paths (396 passed)
+- [ ] Owner looks at the slide in a browser (visible result)
+
 ### DEPLOY: feat/hub-banner-slide
 
-**Score:**
+The hub banner no longer sits on every page all hour: it is hidden until airsquats are due, slides down when the hour turns, and slides back up once the box is ticked.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The hub banner now appears only when airsquats are due, sliding in at the hour and out once ticked off, instead of a permanent countdown strip on every hub page.
+
+**Score:** 2
 
 #### Pull Request
 

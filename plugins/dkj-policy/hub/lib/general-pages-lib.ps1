@@ -255,8 +255,15 @@ function Format-RepoHubBanner {
         gist every machine shares. The rules are in airsquats-lib.ps1. The countdown is the page's own and needs
         nothing. An hour still counts only where a hub saw it begin, so a night with every hub closed adds nothing,
         and the server says when to play the tone: once per machine, within two minutes of the hour. A page on a
-        server without the API (a request that fails) keeps the countdown and shows no box. A browser may hold the
-        tone back until the page has had a click, which is its rule, not this page's.
+        server without the API (a request that fails) shows no banner at all. A browser may hold the tone back
+        until the page has had a click, which is its rule, not this page's.
+
+        ONLY WHILE SOMETHING IS DUE (Dave, October 27, 2026): the strip is hidden until the server reports an hour
+        owed. When that happens while the page is open -- the hour turns -- it slides down; ticking the box slides
+        it back up. A page that opens with squats already owed shows it at once, without the slide, so moving
+        between hub pages does not replay it, and prefers-reduced-motion drops the slide altogether. The motion
+        is the Web Animations API on the element itself, because the hub restyles nothing and a page carries no
+        <style> of its own.
 
         THE ROW ENDS ON THE ACCOUNT THE HUB RUNS UNDER (#3476): the server's "account", filled in by textContent
         once the first answer arrives. On a machine with several Windows accounts logged on, localhost ports
@@ -264,7 +271,7 @@ function Format-RepoHubBanner {
         shows. A server that names no account leaves the row as it was.
     #>
     return @'
-<div class="notice" id="hub-banner" role="region" aria-label="Airsquats" style="margin: 0; border: 0; border-radius: 0">
+<div class="notice" id="hub-banner" role="region" aria-label="Airsquats" style="margin: 0; border: 0; border-radius: 0" hidden>
 <p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong><span class="msg--warn" data-hub-due hidden> &middot; <label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> due</label></span><span data-hub-owner hidden title="The Windows account this hub runs under"> &middot; <span data-hub-account></span></span></p>
 </div>
 <script>
@@ -275,7 +282,20 @@ function Format-RepoHubBanner {
   var timer = box.querySelector("[data-hub-timer]"), due = box.querySelector("[data-hub-due]");
   var done = box.querySelector("[data-hub-done]"), count = box.querySelector("[data-hub-count]");
   var owner = box.querySelector("[data-hub-owner]"), account = box.querySelector("[data-hub-account]");
-  var asked = 0, hour = Math.floor(Date.now() / HOUR);
+  var asked = 0, hour = Math.floor(Date.now() / HOUR), first = true, want = false, anim = null;
+  var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function slide(open) {
+    if (open === want) { return; }
+    want = open;
+    if (anim) { anim.cancel(); anim = null; box.style.overflow = ""; }
+    box.hidden = false;
+    if (first || still || !box.animate) { box.hidden = !open; return; }
+    var cs = getComputedStyle(box), full = { height: box.offsetHeight + "px", paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, opacity: 1 };
+    var shut = { height: "0px", paddingTop: "0px", paddingBottom: "0px", opacity: 0 };
+    box.style.overflow = "hidden";
+    anim = box.animate(open ? [shut, full] : [full, shut], { duration: 400, easing: open ? "ease-out" : "ease-in" });
+    anim.onfinish = function () { anim = null; box.style.overflow = ""; box.hidden = !open; };
+  }
   function tone() {
     try {
       var C = window.AudioContext || window.webkitAudioContext, a = new C(), o = a.createOscillator(), g = a.createGain();
@@ -286,8 +306,9 @@ function Format-RepoHubBanner {
   function show(s) {
     if (!s || typeof s.owed !== "number") { return; }
     if (typeof s.account === "string" && s.account) { account.textContent = s.account; owner.hidden = false; }
-    due.hidden = s.owed < 1;
-    count.textContent = String((s.per || 10) * s.owed);
+    if (s.owed > 0) { due.hidden = false; count.textContent = String((s.per || 10) * s.owed); }
+    slide(s.owed > 0);
+    first = false;
     if (s.announce) { tone(); }
   }
   function ask(method, path) {
@@ -298,7 +319,7 @@ function Format-RepoHubBanner {
   }
   done.addEventListener("change", function () {
     if (!done.checked) { return; }
-    done.checked = false; due.hidden = true; asked = Date.now();
+    done.checked = false; asked = Date.now(); slide(false);
     ask("POST", API + "/clear");
   });
   function step() {
