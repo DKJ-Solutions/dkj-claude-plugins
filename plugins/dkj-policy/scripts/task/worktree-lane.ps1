@@ -85,6 +85,13 @@
     state nothing reports rather than merely risking it. A lane still hands its branch back to the
     primary to ship it; nothing in this script changed.
 
+    AND SINCE #2087 A LANE MAY SHIP ITSELF WHERE A CI RUNNER FOLDS. ship-pr's step 0 reads whether
+    another worktree holds main before anything is pushed; with fold-on-merge.yml present it merges and
+    leaves the fold to that runner, and without one it refuses there, at the cheap moment. The fatal
+    quoted above is therefore no longer reachable after a merge, in either kind of repo. The hand-back is
+    the route for a repo without the runner, and the declined fold-via-the-holder stays declined: the CI
+    arm folds nowhere local, which is safer than folding in another session's tree (#3557).
+
     WHAT THIS SCRIPT DOES NOT DO:
       - It opens no PR, merges nothing and folds nothing. A lane is a place to work, and shipping
         stays exactly where it was.
