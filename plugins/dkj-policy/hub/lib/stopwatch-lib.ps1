@@ -68,6 +68,8 @@
 #>
 
 $script:StopwatchLabelMax = 80
+# Every Stopwatch and Logbook page sits under the hub's Clock page (the owner, October 27, 2026), so its trail reads Home > Clock > ...
+$script:StopwatchClockCrumb = @{ Label = 'Clock'; Href = '/clock' }
 
 # The step log's reader (#3338), for a ship's steps: dkj-policy's own copy, beside hub/ in the plugin. Guarded: a
 # tree that copies this file alone keeps one ship phase.
@@ -1150,7 +1152,7 @@ function Format-StopwatchPageHtml {
         'Built by its <code>hub/lib/stopwatch-lib.ps1</code>.' }
     # Bare, with no lead (the owner, October 24, 2026): the overview's h1 names it, the Logbook's breadcrumb does, and the footer says
     # how a run starts.
-    return Format-GeneralPageHtml -Title $PageTitle -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare `
+    return Format-GeneralPageHtml -Title $PageTitle -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare -ParentCrumbs @($script:StopwatchClockCrumb) `
         -SiteName $RepoName -HubHref $HubHref -FooterNote $note
 }
 
@@ -1199,7 +1201,7 @@ function Format-StopwatchLabelPageHtml {
     $shell = Format-StopwatchPageShell
     $note = 'Every run whose prompt began with <code>stopwatch: ' + (& $e $Set.Title) + '</code>, labels compared case-insensitively, each against the run of this label before it. ' +
         'Kept on this machine in <code>' + (& $e $StorePath) + '</code>' + $(if ($Shared) { ' and shared with the other machines through <code>refs/stopwatch/&lt;machine&gt;</code> on origin' } else { ', not shared with other machines' }) + '. Built by the dkj-policy plugin''s <code>hub/lib/stopwatch-lib.ps1</code>.'
-    return Format-GeneralPageHtml -Title $title -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare -ParentCrumbs @(@{ Label = 'Stopwatch'; Href = '/stopwatch' }) `
+    return Format-GeneralPageHtml -Title $title -Style $shell.Style -Body ($body.ToString() + $shell.Script) -Lead '' -Bare -ParentCrumbs @($script:StopwatchClockCrumb, @{ Label = 'Stopwatch'; Href = '/stopwatch' }) `
         -SiteName $RepoName -HubHref $HubHref -FooterNote $note
 }
 
@@ -1230,7 +1232,7 @@ function Format-StopwatchRunPageHtml {
         [string]$HubHref = '/hub',
         [switch]$Shared
     )
-    $crumbs = @(@{ Label = $ParentLabel; Href = $Route })
+    $crumbs = @($script:StopwatchClockCrumb, @{ Label = $ParentLabel; Href = $Route })
     $label = if ($LabelCrumb) { Get-StopwatchShortTitle $Group.Label } else { [string]$Group.Label }
     if ($LabelCrumb -and $Group.LabelSlug) { $crumbs += @{ Label = $label; Href = $Route + '/' + $Group.LabelSlug } }
     $e = { param($v) ConvertTo-GeneralPageText $v }

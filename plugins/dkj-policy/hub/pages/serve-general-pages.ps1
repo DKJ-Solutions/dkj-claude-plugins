@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Serve the plugin's REPOSITORY (#3245) and the GENERAL pages (#3119) on http://localhost:<Port>/ -- the hub on
-    '/', then /artifacts, /issues, /release-notes, /sessionstart, /test-gate, /stopwatch, /logbook and /plugins --
+    '/', then /artifacts, /issues, /release-notes, /sessionstart, /test-gate, /clock, /stopwatch, /logbook and /plugins --
     from the repo this server was started in. Not /brandbook: no hub has served the brand book since #3475, and the
     source repo retired the app itself under #3493.
 
@@ -499,7 +499,10 @@ try {
                 continue
             }
             $html = $null
-            if ($path -match '^/test-gate(?:/([a-z0-9-]{1,40})(?:/([A-Za-z0-9._-]{1,120}))?)?/?$') {
+            if ($gp = Format-HubGroupPageHtml -Href $path -RepoName (Get-RepoIdentity).Name) {
+                # A group page (Get-HubGroups): /clock, holding the Stopwatch and the Logbook (the owner, October 27, 2026).
+                $html = $gp
+            } elseif ($path -match '^/test-gate(?:/([a-z0-9-]{1,40})(?:/([A-Za-z0-9._-]{1,120}))?)?/?$') {
                 # The overview, a list's page, or one suite's (the owner, October 27, 2026); a path none names is a 404.
                 $tgPath = (@($Matches[1], $Matches[2]) | Where-Object { $_ }) -join '/'
                 $id = Get-RepoIdentity

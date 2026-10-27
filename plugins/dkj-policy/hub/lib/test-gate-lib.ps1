@@ -192,7 +192,9 @@ function Format-TestGatePageHtml {
         '.tg-tips > ul { margin: 0; padding-left: var(--spacing-5); }' + "`n" +
         '@media (max-width: 1000px) { .tg-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tg-list { grid-template-columns: 1fr; } }'
     $footer = 'Read from the repo''s <code>scripts/tests/suite-durations.json</code> on every request, grouped by its <code>scripts/tests/suite-groups.json</code> where it keeps one. Built by the dkj-policy plugin''s <code>hub/lib/test-gate-lib.ps1</code>.'
-    $crumbs = @(@{ Label = 'Test gate'; Href = '/test-gate' })
+    # Under the hub's Clock page, beside the Stopwatch and the Logbook (the owner, October 27, 2026), on every level.
+    $clock = @(@{ Label = 'Clock'; Href = '/clock' })
+    $crumbs = @($clock) + @(@{ Label = 'Test gate'; Href = '/test-gate' })
     $page = {
         # The source note closes the overview and the measurement's page only: a page further down spends its height on its own content.
         param([string]$Title, [string]$Body, [string]$Lead = '', [object[]]$Parents = $crumbs, [string]$Footer = '', [string]$Aside = '')
@@ -387,7 +389,7 @@ function Format-TestGatePageHtml {
         $(if ($Model.Date) { & $e $Model.Date } else { '--' }) + $dot + @($Model.Runs).Count + ' CI runs' +
         $(if (@($Model.Missing).Count -and -not $unmeasured) { $dot + @($Model.Missing).Count + ' not recorded' } else { '' }) + '</p></section>')
     [void]$body.AppendLine('</div>')
-    return & $page 'Test gate' $body.ToString() '' @() $footer
+    return & $page 'Test gate' $body.ToString() '' $clock $footer
 }
 
 function Read-TestGateModel {

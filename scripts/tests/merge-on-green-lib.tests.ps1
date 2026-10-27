@@ -819,6 +819,38 @@ Assert-True ($shipRaw -match '(?s)if \(-not \$clearance\.Clearable\) \{\s*Write-
     'ship-pr.ps1 prints the second-terminal advice only where the clearance was withheld'
 
 Write-Host ''
+Write-Host 'Get-ShipClearanceForecast -- will the run become clearable, said before the gates? (issue #3554)' -ForegroundColor Cyan
+
+$fcArgs = @{ Files = @('scripts/lib/merge-on-green-lib.ps1', 'dkj-policy/x.md'); SweepRunnerPresent = $true }
+$fcOk = Get-ShipClearanceForecast @fcArgs
+Assert-True $fcOk.Clearable 'a sweep runner and no seam file in the diff -- forecast clearable'
+Assert-True ($fcOk.Line -like "*'Session can be cleared' says when*") 'and the line points at the later verdict rather than clearing now'
+Assert-True ($fcOk.CloseOut -like 'Nothing waits on you.*Leave this window open until*') 'and the close-out opens with what the owner may do'
+foreach ($f in @($fcOk, (Get-ShipClearanceForecast -Files @('scripts/repo-config.ps1') -SweepRunnerPresent $true))) {
+    Assert-True ($f.CloseOut -notmatch "(?i)I'm waiting|waiting for") 'and no close-out form says anything is being waited for'
+}
+
+$fcCases = @(
+    @{ Over = @{ Files = @('scripts/repo-config.ps1') }; Expect = "*repo-owned seam*"; Label = 'the diff touches a repo-owned seam (#3553)' }
+    @{ Over = @{ NoMerge = $true };                      Expect = '*-NoMerge*';        Label = '-NoMerge' }
+    @{ Over = @{ SweepRunnerPresent = $false };          Expect = '*no .github/workflows/merge-on-green.yml*'; Label = 'no sweep runner' }
+    @{ Over = @{ FilesRead = $false };                   Expect = '*could not be read*'; Label = 'the diff could not be read -- fail closed' }
+)
+foreach ($c in $fcCases) {
+    $a = $fcArgs.Clone()
+    foreach ($k in $c.Over.Keys) { $a[$k] = $c.Over[$k] }
+    $v = Get-ShipClearanceForecast @a
+    Assert-True (-not $v.Clearable) "$($c.Label) -- forecast NOT clearable"
+    Assert-True ($v.Line -like '*stays needed to the END*' -and $v.Line -like $c.Expect) "$($c.Label) -- and the line names why"
+    Assert-True ($v.CloseOut -like '*second one.' -and $v.CloseOut -like $c.Expect) "$($c.Label) -- and the close-out carries the reason"
+}
+
+# WIRED BEFORE THE GATES: the forecast is printed ahead of step 1, which runs open-pr's gate.
+$fcAt = $shipRaw.IndexOf('Get-ShipClearanceForecast -NoMerge')
+$step1At = $shipRaw.IndexOf('# --- Step 1: open the PR')
+Assert-True ($fcAt -gt 0 -and $step1At -gt $fcAt) 'ship-pr.ps1 prints the forecast before step 1 runs the gates'
+
+Write-Host ''
 Write-Host 'The lib, the script and the runner are ASCII' -ForegroundColor Cyan
 
 $rawLib = Get-Content -LiteralPath $LibPath -Raw

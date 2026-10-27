@@ -88,6 +88,17 @@ $down = Format-ProductHomeHtml
 Assert-True ($down -match '<section class="card"><p class="msg" role="status">The hub is not running' -and $down -notmatch 'aria-label="Hub"' -and $down -match 'href="/connectors"') 'with no hub known one card says it is not running, and the product''s own pages stay linked'
 Assert-True ((Format-ProductHomeHtml -HubUrl 'http://evil.example:4890') -match 'hub is not running' -and (Format-ProductHomeHtml -HubUrl 'javascript:alert(1)') -notmatch 'javascript:') 'a hub url that is not plain loopback is no hub at all'
 Assert-True (@(@($pages) + @(Get-GeneralPages) | Where-Object { -not (Get-HubIconSvg -Name $_.Icon) }).Count -eq 0) 'every page a hub or the product links names an icon the hub has'
+Assert-True (@(Get-HubGroups | Where-Object { -not (Get-HubIconSvg -Name $_.Icon) }).Count -eq 0) 'and every group page a hub card links names one too'
+
+Write-Host '-- the Clock group page (the owner, October 27, 2026)' -ForegroundColor Cyan
+Assert-Equal '/test-gate,/stopwatch,/logbook' ((Get-GeneralPages | Where-Object { $_.Group -eq '/clock' } | ForEach-Object { $_.Href }) -join ',') 'Test gate, Stopwatch and Logbook belong to the Clock group, in that order'
+$clockCards = @(Format-HubPageCardsHtml -Pages @(Get-GeneralPages))
+Assert-True ($clockCards.Count -eq 6 -and @($clockCards | Where-Object { $_ -notmatch '^<section class="card card--link">' }).Count -eq 0 -and @($clockCards | Where-Object { ([regex]::Matches($_, '<a ')).Count -ne 1 }).Count -eq 0) 'the hub draws six cards for the eight pages, each a .card--link holding exactly one link'
+Assert-True ($clockCards[4] -match 'href="/clock"' -and $clockCards[4] -match 'menu-item__label">Clock<' -and -not ($clockCards -match 'href="/(test-gate|stopwatch|logbook)"')) 'the Clock card takes the Test gate''s place and links /clock; no member has a hub card of its own'
+$clockPage = Format-HubGroupPageHtml -Href '/clock' -RepoName 'dkj-claude-plugins'
+Assert-True ($clockPage -match '<div class="grid__head"><h1>Clock</h1></div>' -and ([regex]::Matches($clockPage, '<section class="card card--link">')).Count -eq 3 -and $clockPage.IndexOf('href="/test-gate"') -lt $clockPage.IndexOf('href="/stopwatch"') -and $clockPage.IndexOf('href="/stopwatch"') -lt $clockPage.IndexOf('href="/logbook"')) 'the /clock page is an h1 and one card link each for Test gate, Stopwatch and Logbook, in that order'
+Assert-True ($clockPage -match 'aria-current="page">Clock</span>' -and $clockPage -match '<li><a href="/hub">Home</a></li>') 'its trail reads Home > Clock'
+Assert-True ($null -eq (Format-HubGroupPageHtml -Href '/nope') -and $null -eq (Format-HubGroupPageHtml -Href '/Clock')) 'a path no group has is no group page'
 Assert-True ((Get-HubIconSvg -Name '') -eq '' -and (Get-HubIconSvg -Name 'nope') -eq '' -and (Format-HubCardLinkHtml -Href '/x' -Label 'X') -notmatch 'menu-item__icon') 'a card that names no icon, or one the hub lacks, draws none'
 $houseCss = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style\house-style.css'))
 Assert-True ($houseCss -match '\.card--link \{ position: relative; \}' -and $houseCss -match '\.card--link a::after \{ content: ""; position: absolute; inset: 0; \}') 'the house style stretches a .card--link''s one link over the card'
@@ -129,6 +140,7 @@ Assert-True ($tg -match '\.tg-cards \{ display: grid; grid-template-columns: rep
 Assert-True ($tg -match 'class="footer-note">Read from the repo') 'the overview closes on where it reads from'
 $none = Format-TestGatePageHtml -Model (ConvertFrom-SuiteDurations -Durations $null -SuiteFiles @('a.tests.ps1')) -ReadError 'the file is not there'
 Assert-True ($none -match 'No test gate has been measured in this repo yet' -and $none -notmatch 'could not be read' -and $none -match 'No suite durations are recorded in this repo') 'a repo with no suite-durations.json gets the empty state, not a warning (#3470)'
+Assert-True ($tg -match '<li><a href="/hub">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/clock">Clock</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">Test gate</span></li>') 'and its trail reads Home > Clock > Test gate (the owner, October 27, 2026)'
 $bad = Format-TestGatePageHtml -Model $empty -ReadError 'it is not valid JSON'
 Assert-True ($bad -match 'msg msg--warn" role="alert">scripts/tests/suite-durations.json could not be read: it is not valid JSON') 'an unreadable file is a warning'
 Assert-True ($bad -match 'No suite durations are recorded\.') 'and the cards say it is empty rather than vanishing'
@@ -566,20 +578,45 @@ $empty = ConvertTo-SpecialistRow -Id '02-09' -Plugin 'x' -Form subagent -Text "-
 Assert-Equal 'Ann|0' ($empty.Name + '|' + $empty.ListingBytes) 'an empty frontmatter block is cut cleanly, with no listing'
 Assert-Equal '07-77' (ConvertTo-SpecialistRow -Id '07-77' -Plugin 'x' -Form subagent -Text 'no shape').Name 'a file of no known shape is named by its id'
 
-Write-Host '-- the Specialists page' -ForegroundColor Cyan
+Write-Host '-- the Specialists overview: one card per plugin, each linking its own page (#3550)' -ForegroundColor Cyan
 $evil = ConvertTo-SpecialistRow -Id '06-99' -Plugin 'dkj-subagents-ecomm' -Form subagent -Text "---`ndescription: <b>x</b>`n---`nYou are **Eve <i>**, the Bad <b>. Body`n" -ManualBytes 99999
 $sp = Format-SpecialistsPageHtml -Rows @($sa, $pa, $evil) -CharsPerToken 3.12
 Assert-True ($sp -match '<h1>Specialists</h1>' -and $sp -match '<span aria-current="page">Specialists</span>') 'the page is named Specialists, in the h1 and the trail'
 Assert-True ($sp -notmatch 'href="/plugins') 'its trail is Home > Specialists: the product has no Plugins page, so the page sits under the product home (#3540)'
-Assert-True ($sp -match 'Specialists</div><div class="v num">3<' -and $sp -match 'Enabled here</div><div class="v num">2<') 'the tiles count the specialists and those enabled here'
-Assert-True ($sp.IndexOf('<strong>Eve') -lt $sp.IndexOf('<strong>Paula') -and $sp.IndexOf('<strong>Paula') -lt $sp.IndexOf('<strong>Chris')) 'largest full read first'
-Assert-True ($sp.Contains('Eve &lt;i&gt;') -and -not $sp.Contains('Eve <i>')) 'a name is escaped'
-Assert-True ($sp.Contains('ecomm <span class="note">(off here)</span>')) 'a plugin not enabled here says so'
-Assert-True ($sp.Contains('always-on</span>')) 'the orchestrator carries the always-on badge'
-Assert-True ($sp.Contains('~' + (Format-DevNumber ([Math]::Round(1000 / 3.12))) + '<')) 'tokens are the bytes at the given factor'
+Assert-True (-not $sp.Contains('class="tiles"') -and -not $sp.Contains('class="lead"') -and -not $sp.Contains('grid__head"><h2>Plugins')) 'the overview opens on its cards: no tiles, no lead and no heading over the grid (the owner, #3550)'
+Assert-True (-not $sp.Contains('id="when"')) 'and the column explanation is left to the plugin pages, where the table is'
+Assert-True ($sp.Contains('<section class="card card--link sp-card" id="plugin-alpha">') -and $sp.Contains('href="/specialists/alpha"') -and $sp.Contains('href="/specialists/ecomm"')) 'each plugin is a link card to its own page'
+Assert-Equal 2 ([regex]::Matches($sp, '<h2 class="sp-card-title">')).Count 'one card per plugin, its label an h2'
+Assert-True ($sp.IndexOf('id="plugin-alpha"') -lt $sp.IndexOf('id="plugin-ecomm"')) 'the core team''s card comes first, even where an add-on''s specialist reads larger'
+Assert-True ($sp.Contains('<h2 class="sp-card-title">alpha</h2><span class="menu-item__sub">core team &middot; enabled here &middot; 2 specialists &middot; listing ~')) 'a card says what the plugin is, whether it is on here and how many specialists it ships'
+Assert-True ($sp.Contains('full read ~' + (Format-DevNumber ([Math]::Round(($sa.TotalBytes + $pa.TotalBytes) / 3.12))) + '</span>')) 'and sums its own full read'
+Assert-True ($sp.Contains('card--link sp-card sp-card--off" id="plugin-ecomm"') -and $sp.Contains('add-on team &middot; off here &middot; 1 specialist &middot;')) 'a plugin not enabled here keeps its card, muted and marked off'
+Assert-True (-not $sp.Contains('<strong>Paula') -and -not $sp.Contains('<table')) 'the specialists themselves are on the plugin''s page, not the overview'
+$offOnly = ConvertTo-SpecialistRow -Id '07-01' -Plugin 'dkj-subagents-aaa' -Form subagent -Text 'x'
+$onAddOn = ConvertTo-SpecialistRow -Id '07-02' -Plugin 'dkj-subagents-zzz' -Form subagent -Text 'x' -Enabled $true
+$order = @(Get-SpecialistPlugins -Rows @($evil, $offOnly, $onAddOn, $sa) | ForEach-Object { $_.Short }) -join ','
+Assert-Equal 'alpha,zzz,aaa,ecomm' $order 'the core team, then add-on teams enabled here, then the off ones by name'
 Assert-True ($sp.Contains('3.12 characters per token')) 'the footer names the factor, so the estimate is labelled as one'
-Assert-True ((Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3.12).Contains('No specialist was found')) 'none found says so instead of an empty table'
+Assert-True ((Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3.12).Contains('No specialist was found')) 'none found says so instead of an empty grid'
 Assert-True ((Format-SpecialistsPageHtml -Rows @() -CharsPerToken 3.12 -ReadError 'x.md').Contains('msg--warn')) 'a failed read is a warning on the page'
+
+Write-Host '-- a plugin''s own Specialists page (#3550)' -ForegroundColor Cyan
+$al = Format-SpecialistsPageHtml -Rows @($sa, $pa, $evil) -CharsPerToken 3.12 -Plugin 'alpha'
+Assert-True ($al -match '<h1>alpha</h1>' -and $al.Contains('<a href="/specialists">Specialists</a>') -and $al.Contains('<span aria-current="page">alpha</span>')) 'its trail is Home > Specialists > the plugin'
+Assert-True ($al.Contains('<strong>Paula') -and $al.Contains('<strong>Chris') -and -not $al.Contains('<strong>Eve')) 'it lists its own specialists and nobody else''s'
+Assert-True ($al.IndexOf('<strong>Paula') -lt $al.IndexOf('<strong>Chris')) 'largest full read first'
+Assert-True ($al -match 'Specialists</div><div class="v num">2<' -and $al -match 'Here</div><div class="v num">Enabled<') 'its tiles are the plugin''s own'
+Assert-True ($al.Contains('<code>dkj-subagents-alpha</code>') -and $al.Contains('core team')) 'it names the plugin in full'
+Assert-True ($al.Contains('always-on</span>')) 'the orchestrator carries the always-on badge'
+Assert-True ($al.Contains('~' + (Format-DevNumber ([Math]::Round(1000 / 3.12))) + '<')) 'tokens are the bytes at the given factor'
+Assert-True (-not $al.Contains('Not enabled in')) 'an enabled plugin carries no off notice'
+Assert-True ($al.Contains('id="when"') -and $al.IndexOf('</table>') -lt $al.IndexOf('id="when"')) 'the column explanation sits under the table it explains'
+$ec = Format-SpecialistsPageHtml -Rows @($sa, $pa, $evil) -CharsPerToken 3.12 -Plugin 'ecomm'
+Assert-True ($ec.Contains('Eve &lt;i&gt;') -and -not $ec.Contains('Eve <i>')) 'a name is escaped'
+Assert-True ($ec.Contains('Not enabled in') -and $ec -match 'Here</div><div class="v num">Off<' -and $ec.Contains('Listing, if enabled')) 'an off plugin''s page says what being off means here'
+Assert-True ($ec.Contains('style="width: 100%"')) 'the bar is drawn against the largest on the plugin''s own page'
+Assert-True ($null -eq (Format-SpecialistsPageHtml -Rows @($sa) -CharsPerToken 3.12 -Plugin 'nope')) 'a plugin the tree does not ship is $null, which the server answers with a 404'
+Assert-True ($null -eq (Format-SpecialistsPageHtml -Rows @($sa) -CharsPerToken 3.12 -Plugin 'ALPHA')) 'and the name is matched as written'
 Write-Host '-- the DKJ repos on GitHub (#3231), a section of /connectors/dkj since #3549: what it shows' -ForegroundColor Cyan
 $gql = '{"data":{"organization":{"repositories":{"nodes":[' +
     '{"name":"dkj-lifehub","nameWithOwner":"DKJ-Solutions/dkj-lifehub","url":"https://github.com/DKJ-Solutions/dkj-lifehub","description":"<b>life</b>","visibility":"PRIVATE","isArchived":false,"pushedAt":"2026-10-20T10:00:00Z","issues":{"totalCount":3},"pullRequests":{"totalCount":0}},' +
