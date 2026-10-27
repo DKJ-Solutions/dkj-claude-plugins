@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**2 / 4 minor entries** <!-- pending-tally -->
+**3 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3580-release-notes-empty-state · 20261027-145208Z
+
+A repo that has adopted the workflow but never cut a release now gets an empty-state release-notes page
+in its hub ("No release has been cut yet. The release notes appear here with the first cut.") instead of
+a build error telling it to create files that would not help. `build-release-notes-page.ps1` answers that
+state -- no history, or a history whose table has no release row -- with exit 3 and writes nothing.
+Closes #3580.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer before its first release no longer sees a hub link that reads as a defect to repair.
+
+**Score:** 2
+
+#### Pull Request
+
+The release-notes page shows an empty state, not a build error, before a repo's first release
+
+Plugins: dkj-policy
+
+[PR #3587](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3587)
+
+---
 
 ### DEPLOY: fix/3581-first-release-bump · 20261027-141622Z
 
