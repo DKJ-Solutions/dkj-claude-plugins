@@ -291,8 +291,13 @@
   .note-cell > :first-child { margin-top: 0; }
   .note-cell > :last-child { margin-bottom: 0; }
   .note-cell p, .note-cell ul, .note-cell ol { max-width: none; }
-  /* The bold sentence a point opens with is its title, so it gets a line of its own. */
-  .note-cell > p:first-child > strong:first-child { display: block; margin-bottom: .35rem; line-height: 1.4; }
+  /* EVERY CARD HAS AN H2 (owner, October 27, 2026): the bold sentence a point opens with is lifted into
+     one by gridNoteSections(). Sized as a card title, not as the section heading above the grid, and
+     without that heading's rule and air. */
+  article .note-cell h2 {
+    font-size: 1rem; line-height: 1.4; font-weight: 640;
+    margin: 0 0 .4rem; padding: 0; border: 0;
+  }
 
   footer.colophon {
     margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line);
@@ -524,6 +529,23 @@
   // h2s; it qualifies only when it holds nothing but paragraphs and lists and adds up to two points or
   // more -- a section with a table, code or a sub-heading has a shape of its own and is left alone, and a
   // single point gains nothing from a grid. Each paragraph is a point, and so is each item of a list.
+  // A card whose first paragraph OPENS with a bold sentence gets that sentence as its h2, and the rest
+  // of the paragraph stays below it; a paragraph that was only the sentence goes. A card that does not
+  // open that way keeps its text as it is -- a title is lifted, never invented.
+  function liftCellTitle(cell) {
+    var p = cell.firstChild;
+    if (!p || p.tagName !== 'P') { return; }
+    var lead = p.firstChild;
+    if (!lead || lead.tagName !== 'STRONG') { return; }
+    var h = document.createElement('h2');
+    while (lead.firstChild) { h.appendChild(lead.firstChild); }
+    p.removeChild(lead);
+    var next = p.firstChild;
+    if (next && next.nodeType === 3) { next.nodeValue = next.nodeValue.replace(/^\s+/, ''); }
+    cell.insertBefore(h, p);
+    if (!/\S/.test(p.textContent)) { cell.removeChild(p); }
+  }
+
   function gridNoteSections(article) {
     var kids = Array.prototype.slice.call(article.children);
     var runs = [];
@@ -555,6 +577,7 @@
         cell.className = 'note-cell';
         // renderList wraps an item's text in <p>, so a bullet's cell starts with one as a paragraph's does.
         parts.forEach(function (x) { cell.appendChild(x); });
+        liftCellTitle(cell);
         grid.appendChild(cell);
       });
       nodes.forEach(function (n) { if (n.parentNode === article) { article.removeChild(n); } });

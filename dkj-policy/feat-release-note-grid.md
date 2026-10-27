@@ -54,7 +54,7 @@ A visible result: the owner judges http://localhost:4890/release-notes/v5.34.0 b
 
 ### DEPLOY: feat/release-note-grid
 
-A release's own page now lays each note section out as a grid of cards, at most three across: every bold-led paragraph or bullet is a card, so a nine-point release reads as one screen instead of a long column. A section with a table, code or a sub-heading, or with a single point, is left as it was.
+A release's own page now lays each note section out as a grid of cards, at most three across: every paragraph or bullet is a card, its bold opening sentence lifted into the card's own h2, so a nine-point release reads as one screen instead of a long column. A section with a table, code or a sub-heading, or with a single point, is left as it was.
 
 **Score:** 3
 
