@@ -39,19 +39,39 @@
 
 ### PLAN
 
+Option A of [#3588](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3588), the owner's
+decision of October 27, 2026: a copy that fails the installed pin is judged again against the skill page
+as it reads at the tag it names.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-HouseStyleTagPin` in `house-style-rules.ps1`: fetches the page at the tag (5s timeout), and takes it only when it pins that same tag
+- [x] The session check and a hand-run gate (no `-SkillPath`) use it, and only after a `pin` finding
+- [x] The skill page: the fetch rule checks against the page at the tag before stopping, and the claim that an installed page is coherent is corrected
 
 ### TEST
 
+- [x] `check-house-style.tests.ps1`: unit asserts on the tag pin, plus a fixture whose copy matches only the tag's table, offline through `DKJ_HOUSE_STYLE_TAG_PAGE` (90 passed)
+- [x] Live: the page fetched at `v5.34.0` pins `265a61cd...`, the checksum the issue measured on the consumer's copy
+
 ### DEPLOY: fix/3588-house-style-tag-fallback
 
-**Score:**
+The house-style session check no longer flags a consumer's copy that is exactly the released file. An
+install tracks `main`, so between a house-style merge and the next cut the installed skill page named
+the old tag beside the new checksums, and the check told a correct repo to replace its copy with itself.
+A copy that fails the installed page is now judged again against the page as it reads at that tag. The
+page is fetched only in that case, so a clean session makes no network call. A hand run of
+`check-house-style.ps1` from an install does the same, and the skill tells a session that fetches the
+files to check that page before it stops.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions repo's session no longer opens with a house-style warning it cannot clear in the days
+between a house-style change and the release that carries it.
+
+**Score:** 2
 
 #### Pull Request
 

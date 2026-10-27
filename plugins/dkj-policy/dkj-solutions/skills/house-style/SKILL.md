@@ -39,8 +39,10 @@ The full rules (every token, the twelve themes, the reserved class names, what w
 [`assets/house-style/README.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/assets/house-style/README.md) in `dkj-policy`. It ships in the same
 release as this page, so it describes the files that tag serves.
 
-**Check each fetched file's sha256 against the table before you use it, and if it does not match, stop
-and report it to the owner.** Never inline a mismatched file, and never take a substitute from `main`. The checksums live
+**Check each fetched file's sha256 against the table before you use it. If it does not match, check it
+once more against the table on this page as it reads at the tag above** (the same URL with
+`plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md` as its path, #3588). **Only if that does not
+match either, stop and report it to the owner.** Never inline a mismatched file, and never take a substitute from `main`. The checksums live
 on this page rather than beside the files because a checksum stored next to the file guards nothing
 against a change to that file.
 
@@ -215,5 +217,8 @@ previous tag beside the new checksums, and a fetch from it would mismatch. **So 
 from `main`, reads the table from this page as it stands at the tag the page names**
 ([#3148](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3148)). That page is coherent by
 construction: the cut writes its own tag into it, and the tagged tree holds the very files those checksums
-were taken from. A session reads this
-page from the installed release, where it holds the same way.
+were taken from. **An installed copy of this page is NOT coherent that way**: an install tracks `main`, so
+in the same window it carries the new checksums beside the old tag
+([#3588](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3588)). So the session check, and a
+session following the rule above, check a copy that fails against the page at its tag: the check fetches
+it only then, so a clean session never touches the network.
