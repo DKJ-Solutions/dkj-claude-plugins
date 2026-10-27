@@ -2,7 +2,83 @@
 
 ## [Unreleased]
 
-**5 / 8 minor entries** <!-- pending-tally -->
+**8 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3597-watcher-crosscheck-disconnect · 20261027-161128Z
+
+The dev-preview watcher no longer trusts a single connect-state read before it stops a server. On a
+machine with several accounts and fast user switching, that read came back inverted: the active console
+session read as disconnected, and a disconnected one as connected. So after a switch to another account
+and back, the watcher could stop the hub, or any server the dev-preview hook starts, in the session that
+was using it. A disconnect now counts only when two other sources agree: the session is not the active
+console session, and the Windows session list shows it as disconnected too. Any disagreement is read as
+uncertain, and an uncertain read never stops a server.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+On a machine shared between accounts, switching to another account and back no longer takes down the
+hub that was open before the switch.
+
+**Score:** 2
+
+#### Pull Request
+
+dev-preview watcher acts on a disconnect only when the session list agrees
+
+Plugins: dkj-policy
+
+[PR #3601](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3601)
+
+---
+
+### DEPLOY: feat/release-note-grid · 20261027-160007Z
+
+A release's own page now lays each note section out as a grid of cards, at most three across: every paragraph or bullet is a card, its bold opening sentence lifted into the card's own h3 under the section's h2, which stays above the grid as the house style requires, so a nine-point release reads as one screen instead of a long column. A section with a table, code or a sub-heading, or with a single point, is left as it was. On the hub the page now reads house colour tokens only: the template's own colour uses are rewritten to house tokens as it is served, in place of a layer that pointed its palette at them; the template itself keeps its palette for the Worker and BWJ-Development consumers.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The hub's release notes page of every consumer shows each release's points side by side, at most three across, instead of one long column.
+
+**Score:** 2
+
+#### Pull Request
+
+Release note pages lay the note out in a grid of three columns
+
+Plugins: dkj-policy
+
+[PR #3600](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3600)
+
+---
+
+### DEPLOY: fix/3595-hub-watch-disconnected-start · 20261027-153929Z
+
+The hub and the product the SessionStart hook starts no longer stop about two minutes later on a machine where
+Claude Code runs in a disconnected Windows session, as it does under a second account while another account
+holds the console. The session watcher from v5.34.0 now counts a disconnect only after it has seen the session
+connected, so it still stops a server whose session is left behind later.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+Every repo's hub stays up on a machine that switches Windows accounts, instead of going dark minutes after each session start.
+
+**Score:** 4
+
+#### Pull Request
+
+A server started in an already disconnected session is not watched, so the hub no longer exits minutes after it starts
+
+Plugins: dkj-policy
+
+[PR #3599](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3599)
+
+---
 
 ### DEPLOY: fix/3588-house-style-tag-fallback · 20261027-152421Z
 

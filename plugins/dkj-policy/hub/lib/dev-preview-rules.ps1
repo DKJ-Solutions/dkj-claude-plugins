@@ -682,16 +682,25 @@ function Get-DevPreviewWatchStep {
         once the session has been disconnected for -GraceSeconds without a break: a brief Remote Desktop drop
         or a quick switch back keeps it. Any other state, an unreadable one included, resets the clock, so
         an uncertain read never stops a server.
+
+        A DISCONNECT COUNTS ONLY AFTER THE SESSION WAS SEEN CONNECTED (#3595), so the result carries -Armed
+        too: $false until a read of WTSActive (0) or WTSConnected (1). A session that already reads
+        disconnected when its server starts is in use while disconnected -- the hook that started the server
+        ran there -- and that is how Claude Code runs under another account on a machine that switches
+        accounts: measured October 27, 2026, the hook's session 42 read WTSDisconnected while the console was
+        another account's session 43, and the hub stopped about two minutes after every start.
     #>
     param(
         [int]$State,
         [AllowNull()]$Since,
         [Parameter(Mandatory = $true)][datetime]$Now,
-        [int]$GraceSeconds = $script:DevPreviewWatchGraceSeconds
+        [int]$GraceSeconds = $script:DevPreviewWatchGraceSeconds,
+        [bool]$Armed = $false
     )
-    if ($State -ne 4) { return @{ Stop = $false; Since = $null } }
+    if ($State -eq 0 -or $State -eq 1) { $Armed = $true }
+    if ($State -ne 4 -or -not $Armed) { return @{ Stop = $false; Since = $null; Armed = $Armed } }
     $from = if ($null -ne $Since) { [datetime]$Since } else { $Now }
-    return @{ Stop = (($Now - $from).TotalSeconds -ge $GraceSeconds); Since = $from }
+    return @{ Stop = (($Now - $from).TotalSeconds -ge $GraceSeconds); Since = $from; Armed = $Armed }
 }
 
 function Get-DevPreviewWatchArgs {
