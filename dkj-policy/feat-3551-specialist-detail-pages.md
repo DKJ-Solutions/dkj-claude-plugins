@@ -59,16 +59,18 @@ parked for the owner's look.
 ### TEST
 
 - [x] `dev-pages.tests.ps1`: cards, roster order, links, slug rule, paths, trail, tiles, facts, escaping,
-  the off-plugin notice and both 404 cases (393 passed)
+  the off-plugin notice and both 404 cases, then the four-column grid and the page without tiles, lead or
+  heading (394 passed)
 - [x] Probed on the running product server: `/specialists/alpha` shows 19 cards, and
   `/specialists/alpha/tessa` names its three files
-- [ ] The owner's look
+- [x] The owner's look: Dave asked for four columns and no tiles, lead or heading over the cards, then
+  "open de PR" (October 27, 2026)
 
 ### DEPLOY: feat/3551-specialist-detail-pages
 
 The product's **Specialists** pages go one level deeper
 ([#3551](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3551)). A plugin's page now opens on
-one card per specialist, and each card, like each name in the table below the cards, leads to that
+one card per specialist, four to a row and with nothing above them, and each card, like each name in the table below the cards, leads to that
 specialist's own page at `/specialists/<plugin>/<name>`. That page shows the specialist's context cost
 per part, what it is and when it loads, where its definition, manual and lens live, its listing, and its
 definition.
