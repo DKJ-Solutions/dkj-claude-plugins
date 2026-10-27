@@ -324,7 +324,7 @@ function Get-GeneralPages {
         @{ Href = '/release-notes'; Label = 'Release notes'; Sub = 'What each released version of the plugins changed'; Icon = 'release-notes' },
         @{ Href = '/sessionstart';  Label = 'SessionStart';  Sub = 'The always-on path every session loads before its first turn'; Icon = 'sessionstart' },
         # Every repo's since #3470 (the owner, October 25, 2026): the source repo's own pages until then.
-        @{ Href = '/test-gate';     Label = 'Test gate';     Sub = 'What each test suite costs on CI'; Icon = 'test-gate' },
+        @{ Href = '/test-gate';     Label = 'Test gate';     Sub = 'What each test suite costs on CI'; Icon = 'test-gate'; Group = '/clock' },
         @{ Href = '/stopwatch';     Label = 'Stopwatch';     Sub = 'How long an assignment takes, timed from a stopwatch: prompt to back on the trunk, with the transcript phases'; Icon = 'stopwatch'; Group = '/clock' },
         @{ Href = '/logbook';       Label = 'Logbook';       Sub = 'Every assignment of a clean session, timed by itself: first prompt to back on the trunk, with the transcript phases'; Icon = 'logbook'; Group = '/clock' },
         # #3482: plugin-versions' verdict per enabled plugin, so a problem with one is visible from the hub.
@@ -336,10 +336,10 @@ function Get-HubGroups {
     <#
         The group pages, each the one card on the hub for the general pages whose Group is its Href, and a page of
         its own holding a card per member (Format-HubGroupPageHtml). A hub card is always ONE link, so a group is a
-        page, never a card with several rows: Clock holds Stopwatch and Logbook (the owner, October 27, 2026).
+        page, never a card with several rows: Clock holds Test gate, Stopwatch and Logbook (the owner, October 27, 2026).
     #>
     @(
-        @{ Href = '/clock'; Label = 'Clock'; Sub = 'How long the work takes: the Stopwatch and the Logbook'; Icon = 'clock' }
+        @{ Href = '/clock'; Label = 'Clock'; Sub = 'How long the work takes: the Test gate, the Stopwatch and the Logbook'; Icon = 'clock' }
     )
 }
 

@@ -1,7 +1,7 @@
 # The hub — the dev-preview hook and the general pages server
 
 **Every repo that runs `dkj-policy` gets a hub at session start**, served by the plugin, with the
-General pages linked from it: Artifacts, Issues, Release notes, SessionStart, Test gate, Stopwatch, Logbook (the last two
+General pages linked from it: Artifacts, Issues, Release notes, SessionStart, Test gate, Stopwatch, Logbook (the last three
 behind the Clock card and its `/clock` page since October 27, 2026)
 (Test gate and those two since [#3470](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3470)) and Plugins
 (since [#3482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3482)). That covers

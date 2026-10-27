@@ -742,8 +742,8 @@ brand book app is retired ([#3493](https://github.com/DKJ-Solutions/dkj-claude-p
 
 **A card is ALWAYS one link, never two or more** (owner, October 27, 2026). Pages that belong together
 are grouped on a **group page** of their own, and the hub carries one card linking that page. **Clock**
-(`/clock`) is the first: its card stands where the Stopwatch's stood, and the page is an `h1` with one card
-link each for Stopwatch and Logbook, whose trails read Home > Clock > the page. A page joins a group by the
+(`/clock`) is the first: its card stands where the Test gate's stood, and the page is an `h1` with one card
+link each for Test gate, Stopwatch and Logbook, whose trails read Home > Clock > the page. A page joins a group by the
 `Group` key in `Get-GeneralPages`; the group itself is a row of `Get-HubGroups`, and
 `Format-HubGroupPageHtml` draws its page.
 
