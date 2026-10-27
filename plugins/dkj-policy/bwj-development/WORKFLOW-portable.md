@@ -553,14 +553,18 @@ same day brought back **the closed message** (#2818), and the next day **the reo
     act**, still without reopening, because no code changes. That act is not closed out with a
     `-LiveSince` go-live block on the reopened issue either: there is no reopened issue, and the answer
     to the requester goes by the same terminal route.
-- A card stays where `report-issue` put it (`Filed`) unless a person moves it.
+- A card stays where `report-issue` put it (`Filed`) unless a person moves it, apart from the two moves in
+  step 6: into `InReview` at a completed close with a block (#3248), and into `InDevelopment` at a
+  reopen (#3562).
 - A priority is set in Asana and the `asana-prio-label` workflow puts it on the issue as `prio-N` (step 5).
 
 **The task is never completed by this plugin, and no code path can do it** (Dave, September 1, 2026).
 Closing a GitHub issue is a statement by whoever built the thing; resolving the ticket is a statement by
 whoever asked for it, and only that person can make it -- after they have tested it. An automation that
 ticks the box takes the one decision the ticket exists to record and replaces it with a guess, and it
-does so silently, so nobody can tell an accepted change from an unverified one afterwards.
+does so silently, so nobody can tell an accepted change from an unverified one afterwards. **The one
+completion write is the reverse**: a reopen marks a completed task incomplete (#3562, step 6), because
+the work it accepted is being redone, and that write can only ever set `completed` to false.
 
 **Which task an issue belongs to is answered by three matchers, tried in order** -- 'tier' is the reach
 label above and means nothing here. They are read by the backlog page, the go-live block's duplicate
@@ -924,23 +928,29 @@ issue chooses which task is read, which is acceptable because the store repos ar
 `ASANA_PAT` only. It mirrors the team's call, made in Asana, and makes none. The source repo's own
 tracker still ranks its issues on the same four labels, typed by whoever files.
 
-### 6. (Retired October 5, 2026; one move back October 21, 2026) The board's sections are moved automatically only into InReview
+### 6. (Retired October 5, 2026; two moves back October 21 and 27, 2026) The board's sections are moved automatically only into InReview and InDevelopment
 
 The board's numbered sections are still the stages a colleague reads, from *a colleague put this on your
 name* to *tested and good*, and `Get-AsanaStageMap` still names what each number means. **But no workflow
 sweeps a card between them any more** (Dave, October 5, 2026): the stage sweep, the three GitHub Project
 statuses that drove it, the `ReadyToTest` promotion on feedback and the terminal-stage guard are retired
-with the mirror, and `Get-GithubStatusMap` is no longer read. **The tooling writes two sections, and
+with the mirror, and `Get-GithubStatusMap` is no longer read. **The tooling writes three sections, and
 each on one event only.** `report-issue` creates the card in `Filed` and reads the stage map to find it.
 **A close as completed that carries this round's go-live, research, measurement or already-fixed block
 moves the card into `InReview`** (#3248, Maikel, October 21, 2026), after the closed message has posted,
 because that message tells the requester the task is now in review. It is never made on a `-ByHand` close,
 a close without a block, a not-planned close or a reopen, and it never takes a card out of `Completed`.
 Where the task is on several boards, or its board has no single section with the `InReview` code, it is
-skipped and the message still posts. Every other move is a person dragging the card.
+skipped and the message still posts. **A reopen moves the card into `InDevelopment`, and marks the task
+incomplete where it is completed** (#3562, Dave, October 27, 2026), after the reopened message has
+posted, because that message tells the requester the task is back in development. Unlike the review move
+it does take a card out of `Completed`: a reopen is exactly the case where the done card is wrong. Where
+the task is on several boards, or its board has no single section with the `InDevelopment` code, the move
+is skipped, and the message and the untick still go out. Every other move is a person dragging the card.
 
 The two ends were always the submitter's -- their untriaged inbox at one end and `Completed` at the other
--- and that is unchanged: **this plugin never ticks a task off** (step 4).
+-- and that is unchanged: **this plugin never ticks a task off** (step 4). The reopen's untick only ever
+sets `completed` to false.
 
 #### Setting `awaiting-info-client` is still writing the question -- one act, and the issue stays open
 

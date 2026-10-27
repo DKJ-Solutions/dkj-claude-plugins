@@ -1530,16 +1530,19 @@ $cmReq = New-AsanaCommentRequest -Gid '123' -Html '<body>x</body>'
 Assert-Equal 'https://app.asana.com/api/1.0/tasks/123/stories' $cmReq.Uri 'the one write is a story on the task'
 Assert-True ($cmReq.Body -match '"html_text"') 'posted as html_text'
 
-# WHAT IT NEVER DOES: no write but the comment and the one InReview move (#3248), no completion, no label,
-# no other event.
+# WHAT IT NEVER DOES: no write but the comment, a move (#3248, #3562) and an untick (#3562), no completion,
+# no label, no other event.
 $cmSrc = [System.IO.File]::ReadAllText($cmTemplate)
 Assert-True ($cmSrc -notmatch "completed\s*=\s*\`$true|addProject|removeProject|gh issue edit|gh label") 'the template carries no completion, board change or label write'
 Assert-Equal 1 ([regex]::Matches($cmSrc, '/sections/[^"]*addTask')).Count 'and the one section write is the addTask New-AsanaMoveRequest builds'
-# THE STRUCTURAL HALF (code review): two HTTP write sites, each sending the request its pure builder made.
-Assert-Equal 2 ([regex]::Matches($cmSrc, '(?m)^\s*Invoke-RestMethod\b')).Count 'the template makes exactly two HTTP writes: the comment and the move'
-Assert-True ($cmSrc -match '\$request\s*=\s*New-AsanaCommentRequest' -and $cmSrc -match 'Invoke-RestMethod -Method \$request\.Method -Uri \$request\.Uri') 'the first sends the one request New-AsanaCommentRequest builds'
-Assert-True ($cmSrc -match '\$move\s*=\s*New-AsanaMoveRequest' -and $cmSrc -match 'Invoke-RestMethod -Method \$move\.Method -Uri \$move\.Uri') 'and the second the one New-AsanaMoveRequest builds'
-Assert-True ($cmSrc.IndexOf('Invoke-RestMethod -Method $request.Method') -lt $cmSrc.IndexOf('Invoke-RestMethod -Method $move.Method')) 'the move comes after the message, so a skipped or refused move never costs the message'
+Assert-Equal 1 ([regex]::Matches($cmSrc, 'completed\s*=\s*\$(true|false)')).Count 'and the one completed write is the false New-AsanaUncompleteRequest builds (#3562)'
+# THE STRUCTURAL HALF (code review): ONE HTTP write site, and everything it sends a pure builder made.
+Assert-Equal 1 ([regex]::Matches($cmSrc, '(?m)^\s*Invoke-RestMethod\b')).Count 'the template has exactly one HTTP write site, inside Invoke-AsanaWrite'
+Assert-True ($cmSrc -match 'Invoke-RestMethod -Method \$Request\.Method -Uri \$Request\.Uri') 'and it sends the request it was handed'
+$cmCalls = @([regex]::Matches($cmSrc, 'Invoke-AsanaWrite -Request (\S+)') | ForEach-Object { $_.Groups[1].Value })
+Assert-Equal '$request|(New-AsanaMoveRequest|(New-AsanaUncompleteRequest|$move' ($cmCalls -join '|') 'every request handed to it is the comment, a move or an untick, each from its pure builder'
+Assert-True ($cmSrc -match '\$request\s*=\s*New-AsanaCommentRequest' -and $cmSrc -match '\$move\s*=\s*New-AsanaMoveRequest') 'the comment and the review move are the requests their builders made'
+Assert-True ($cmSrc.IndexOf('Invoke-AsanaWrite -Request $request') -lt $cmSrc.IndexOf('Invoke-AsanaWrite -Request (New-AsanaMoveRequest') -and $cmSrc.IndexOf('Invoke-AsanaWrite -Request $request') -lt $cmSrc.IndexOf('Invoke-AsanaWrite -Request $move')) 'every card write comes after the message, so a skipped or refused one never costs the message'
 
 # THE ONE CARD MOVE (#3248): into the board's InReview section, on a completed close with a block, never out
 # of Completed, and skipped wherever the board does not answer one way.
@@ -1566,6 +1569,32 @@ Assert-Equal '{"data":{"task":"123"}}' $cmMove.Body 'naming the task alone'
 Assert-Throws { New-AsanaMoveRequest -Gid '123' -SectionGid '3/../x' } 'a non-numeric section GID never reaches a request URL'
 Assert-Throws { New-AsanaMoveRequest -Gid '1 2' -SectionGid '303' } 'nor a non-numeric task GID'
 Assert-True ($cmSrc -match '(?s)# THE CARD FOLLOWS THE MESSAGE INTO REVIEW.*?if \(\$sections\) \{') 'the move is made only where this round''s block was carried'
+
+# THE REOPEN'S CARD WRITES (#3562): into the board's InDevelopment section, out of Completed too, and the
+# task unticked where it is completed; the two are judged apart.
+$cmDone = @([pscustomobject]@{ Project = '77'; SectionName = '4. Done' })
+$cmRe = Select-ReopenCardWrites -Memberships $cmDone -Sections $cmSecs -InDevelopmentCode '2' -Completed $true
+Assert-True ($cmRe.SectionGid -eq '302' -and $cmRe.Untick) 'a reopened card in Done, ticked off, moves to the InDevelopment section and is unticked'
+$cmRe = Select-ReopenCardWrites -Memberships @([pscustomobject]@{ Project = '77'; SectionName = '3. Waiting for review' }) -Sections $cmSecs -InDevelopmentCode '2' -Completed $false
+Assert-True ($cmRe.SectionGid -eq '302' -and -not $cmRe.Untick -and $cmRe.UntickWhy -eq 'it is not completed') 'a card in review moves back, and a task that is not completed is left so'
+Assert-Equal '' (Select-ReopenCardWrites -Memberships $cmMem -Sections $cmSecs -InDevelopmentCode '2').SectionGid 'a card already in InDevelopment is not moved again'
+Assert-Equal '302' (Select-ReopenCardWrites -Memberships @([pscustomobject]@{ Project = '77'; SectionName = 'Done' }) -Sections $cmSecs -InDevelopmentCode '2').SectionGid 'a card in a section without a code still moves: a reopen has no done card to protect'
+$cmRe = Select-ReopenCardWrites -Memberships ($cmDone + @([pscustomobject]@{ Project = '88'; SectionName = '1. Todo' })) -Sections $cmSecs -InDevelopmentCode '2' -Completed $true
+Assert-True ($cmRe.SectionGid -eq '' -and $cmRe.MoveWhy -eq 'the task is on 2 boards, not one' -and $cmRe.Untick) 'a task on several boards is not moved, and is still unticked'
+$cmRe = Select-ReopenCardWrites -Memberships $cmDone -Sections $cmSecs -InDevelopmentCode '' -Completed $true
+Assert-True ($cmRe.SectionGid -eq '' -and $cmRe.MoveWhy -match 'no InDevelopment stage' -and $cmRe.Untick) 'no InDevelopment code: no move, and the untick stays'
+Assert-Equal '' (Select-ReopenCardWrites -Memberships $cmDone -Sections ($cmSecs + @([pscustomobject]@{ Gid = '306'; Name = '2. Doing' })) -InDevelopmentCode '2').SectionGid 'two sections with the InDevelopment code is a guess, so none'
+Assert-Equal '' (Select-ReopenCardWrites -Memberships $cmDone -Sections $cmSecs -InDevelopmentCode '9').SectionGid 'a board without that code, no move'
+Assert-Equal '4' (Get-RepoStageCode -ConfigText "function Get-AsanaStageMap { @{`nInDevelopment = 4`nCompleted = 7`n} }" -Stage 'InDevelopment') 'the InDevelopment code is read from the same map, as text'
+$cmGetDone = { param($Uri) if ($Uri -like '*/tasks/*') { @{ data = @{ completed = $true; memberships = @(@{ project = @{ gid = '77' }; section = @{ name = '4. Done' } }) } } } else { @{ data = @(@{ gid = '302'; name = '2. In Progress' }, @{ gid = '304'; name = '4. Done' }) } } }
+$cmRe = Resolve-ReopenCardWrites -Gid '123' -InDevelopmentCode '2' -Get $cmGetDone
+Assert-True ($cmRe.SectionGid -eq '302' -and $cmRe.Untick) 'resolved through the task''s board, the section it sits in and its completed state'
+Assert-True ((Resolve-ReopenCardWrites -Gid '123' -InDevelopmentCode '' -Get $cmGetDone).Untick) 'the board is read for the untick even where the stage map states no InDevelopment code'
+$cmRe = Resolve-ReopenCardWrites -Gid '123' -InDevelopmentCode '2' -Get $cmGetFail
+Assert-True ($cmRe.SectionGid -eq '' -and -not $cmRe.Untick -and $cmRe.UntickWhy -eq 'the task could not be read') 'a failed read skips both writes and never throws'
+$cmUn = New-AsanaUncompleteRequest -Gid '123'
+Assert-True ($cmUn.Method -eq 'PUT' -and $cmUn.Uri -eq 'https://app.asana.com/api/1.0/tasks/123' -and $cmUn.Body -eq '{"data":{"completed":false}}') 'the untick is a PUT on the task that sets completed to false, and nothing else'
+Assert-Throws { New-AsanaUncompleteRequest -Gid '123/stories' } 'a non-numeric GID never reaches the untick URL'
 
 # THE SECURITY REVIEW'S REPAIRS (#2818).
 Assert-True (Test-TrustedCommentAuthor -Association 'MEMBER') 'a member''s comment may supply the block'
@@ -1756,18 +1785,23 @@ function Invoke-RestMethod {
     # The two board reads a research close makes for its done section (#3017).
     if ($Method -eq 'GET') {
         $script:stAsanaReads += ,$Uri
-        if ($Uri -like '*/tasks/*') { return @{ data = @{ memberships = @(@{ project = @{ gid = '55' }; section = @{ name = $script:stCardSection } }) } } }
-        return @{ data = @(@{ gid = '501'; name = '1. Todo' }, @{ gid = '503'; name = '3. Waiting for review' }, @{ gid = '504'; name = '4. Done' }) }
+        if ($Uri -like '*/tasks/*') { return @{ data = @{ completed = $script:stTaskCompleted; memberships = @(@{ project = @{ gid = '55' }; section = @{ name = $script:stCardSection } }) } } }
+        return @{ data = @(@{ gid = '501'; name = '1. Todo' }, @{ gid = '502'; name = '2. In Progress' }, @{ gid = '503'; name = '3. Waiting for review' }, @{ gid = '504'; name = '4. Done' }) }
     }
-    # The one card move (#3248), kept apart from the message so neither overwrites the other.
+    # The card moves (#3248, #3562), kept apart from the message so neither overwrites the other.
     if ($Uri -like '*/addTask') {
         $script:stMoves += ,$Uri
         if ($script:stMoveFail) { throw 'HTTP 403' }
         return
     }
+    # The reopen's untick (#3562), kept apart the same way, with its body.
+    if ($Method -eq 'PUT') {
+        $script:stUnticks += ,"$Uri $([System.Text.Encoding]::UTF8.GetString($Body))"
+        return
+    }
     $script:stPosted = [System.Text.Encoding]::UTF8.GetString($Body)
 }
-$script:stCardSection = '2. In Progress'; $script:stMoves = @(); $script:stMoveFail = $false
+$script:stCardSection = '2. In Progress'; $script:stMoves = @(); $script:stMoveFail = $false; $script:stTaskCompleted = $false; $script:stUnticks = @()
 $stConfig = Join-Path ([System.IO.Path]::GetTempPath()) "st-repo-config-$([Guid]::NewGuid().ToString('N')).ps1"
 [System.IO.File]::WriteAllText($stConfig, "function Get-AsanaStageMap {`n    return @{ Completed = '4' }`n}`n")
 $script:RepoConfigPath = $stConfig
@@ -1851,7 +1885,22 @@ $script:IssueLabels = '["awaiting-info-client"]'; $script:stMoves = @()
 Assert-Equal 0 @($script:stMoves).Count 'a not-planned close moves nothing'
 $script:Event = 'reopened'; $script:stMoves = @()
 & { Invoke-Main } 6>&1 | Out-Null
-Assert-Equal 0 @($script:stMoves).Count 'nor does a reopen'
+Assert-Equal 0 @($script:stMoves).Count 'nor does a reopen whose stage map states no InDevelopment code'
+
+# THE REOPEN'S CARD WRITES, END TO END (#3562): a stage map that states InDevelopment, against the stubbed board.
+[System.IO.File]::WriteAllText($stMoveConfig, "function Get-AsanaStageMap {`n    return @{ InDevelopment = '2'; InReview = '3'; Completed = '4' }`n}`n")
+$script:stCardSection = '4. Done'; $script:stTaskCompleted = $true; $script:stMoves = @(); $script:stUnticks = @(); $script:stPosted = ''
+$stLog = (& { Invoke-Main } 6>&1 | Out-String)
+Assert-True ($script:stPosted.Contains('back in development') -and @($script:stMoves) -join '|' -eq 'https://app.asana.com/api/1.0/sections/502/addTask') 'a reopen posts its message and moves the done card into InDevelopment'
+Assert-Equal 'https://app.asana.com/api/1.0/tasks/1234 {"data":{"completed":false}}' (@($script:stUnticks) -join '|') 'and marks the completed task incomplete, with completed false and nothing else'
+Assert-True ($stLog -match 'moved to the InDevelopment section \(found by code 2\)' -and $stLog -match 'marked incomplete \(the task was completed\)' -and $stLog -notmatch 'In Progress') 'the log says both, without printing the board''s text'
+$script:stCardSection = '3. Waiting for review'; $script:stTaskCompleted = $false; $script:stMoves = @(); $script:stUnticks = @()
+$stLog = (& { Invoke-Main } 6>&1 | Out-String)
+Assert-True (@($script:stMoves).Count -eq 1 -and @($script:stUnticks).Count -eq 0 -and $stLog -match 'NOT marked incomplete: it is not completed') 'a task that is not completed is moved back and not unticked'
+$script:stCardSection = '4. Done'; $script:stTaskCompleted = $true; $script:stMoveFail = $true; $script:stMoves = @(); $script:stUnticks = @()
+$stLog = (& { Invoke-Main } 6>&1 | Out-String)
+Assert-True ($stLog -match 'NOT moved: Asana refused the move \(HTTP' -and @($script:stUnticks).Count -eq 1) 'a refused move is logged, never thrown, and the untick still goes out'
+$script:stMoveFail = $false; $script:stCardSection = '2. In Progress'; $script:stTaskCompleted = $false
 $script:StateReason = 'completed'; $script:Event = 'closed'; $script:IssueLabels = ''
 $script:RepoConfigPath = $stConfig
 Remove-Item -LiteralPath $stMoveConfig -Force

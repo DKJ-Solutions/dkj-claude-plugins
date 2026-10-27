@@ -39,19 +39,44 @@
 
 ### PLAN
 
+The reopen-side mirror of #3248, as #3562 asks: after the reopened message, move the card into the
+section `Get-AsanaStageMap` gives `InDevelopment` (the documented key for "somebody is building it") and
+untick a completed task. The move skips where the stage does not resolve on exactly one board; the untick
+is judged apart, so a skipped move never costs it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `asana-closed-message.ps1`: `Read-AsanaTaskBoard` (shared by both moves, now reads `completed`),
+  `Select-ReopenCardWrites` / `Resolve-ReopenCardWrites`, `New-AsanaUncompleteRequest`, and one write site
+  (`Invoke-AsanaWrite`) for the comment, both moves and the untick
+- [x] `bwj-development.tests.ps1`: the structural asserts hold one write site and one `completed = $false`;
+  unit and end-to-end asserts for the reopen's writes
+- [x] Docs: `WORKFLOW-portable.md` steps 4 and 6, the README, `report-issue`, `adopt-bwj-development`, the
+  workflow yml's header
 
 ### TEST
 
+- [x] `bwj-development.tests.ps1` standalone: 933 asserts passed; the full gate runs in `ship-pr`
+
 ### DEPLOY: feat/3562-asana-reopen-card-back
 
-**Score:**
+When a GitHub issue linked to an Asana task is reopened, `asana-closed-message` now moves the card into
+the board's `InDevelopment` section and marks the task incomplete if it was completed, after posting the
+reopened message ([#3562](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3562)). Unlike the
+review move (#3248) it does take a card out of `Completed`. Where the task is on several boards, or its
+board has no single section with the `InDevelopment` code, the move is skipped and the message and the
+untick still go out. The untick only ever sets `completed` to false. A store takes it by re-copying
+`.github/scripts/asana-closed-message.ps1`, and the move needs `InDevelopment` in its
+`Get-AsanaStageMap`; without it, only the untick happens.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A reopened ticket's Asana card now goes back to In Progress and is unticked on its own, so the board
+agrees with the "back in development" message instead of waiting for someone to drag it.
+
+**Score:** 3
 
 #### Pull Request
 
