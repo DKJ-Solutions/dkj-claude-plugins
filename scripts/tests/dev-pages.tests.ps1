@@ -306,7 +306,7 @@ $snap = @'
     { "id": "x", "influence": "direct", "done": true, "tokens": 50, "title": "Old one", "text": "t" },
     { "id": "y", "influence": "setting", "done": false, "tokens": 900, "title": "Open one", "text": "t", "caveat": "careful" } ] },
   "none": { "items": [ { "title": "Harness", "text": "fixed" } ] },
-  "advice": { "heading": "Do this", "steps": [ { "title": "1", "text": "first" } ], "dont": { "label": "Do not", "text": "that" } },
+  "advice": { "heading": "Do this", "lede": "the verdict", "steps": [ { "title": "1", "text": "first" } ], "dont": { "label": "Do not", "text": "that" } },
   "footer": "method", "previous": { "noneTokens": 200, "totalTokens": 1000 },
   "source": { "artifact": "https://claude.ai/artifact/abc", "title": "Session-start context", "copied": "2026-10-18" } }
 '@ | ConvertFrom-Json
@@ -319,6 +319,9 @@ $page = { param($slug) Format-SessionStartPageHtml -Model $ssModel -Snapshot $sn
 $lm = & $page 'last-measurement'
 Assert-True ($lm -match 'About <strong>47k</strong> in <code>CLAUDE.md</code> &lt;b&gt;') 'the lede renders bold and code, and escapes the rest'
 Assert-True ($lm -match 'Direct \(tokens\)</div><div class="v num">~600 \(60%\)') 'the influence tiles sum the layers'
+Assert-True ($lm.IndexOf('Direct (tokens)') -lt $lm.IndexOf('About <strong>47k')) 'the lede follows the tiles it sums up, never opens the page (#3591)'
+$adv = & $page 'advice'
+Assert-True ($adv.IndexOf('first') -lt $adv.IndexOf('the verdict')) 'the advice''s lede follows its steps (#3591)'
 $ly = & $page 'layers'
 Assert-True ($ly.IndexOf('>Docs') -lt $ly.IndexOf('>Stubs') -and $ly.IndexOf('>Stubs') -lt $ly.IndexOf('>Tools')) 'the layers are grouped direct, setting, none'
 Assert-True ($ly -match '<td class="num">-100</td>') 'a layer that shrank shows by how much'

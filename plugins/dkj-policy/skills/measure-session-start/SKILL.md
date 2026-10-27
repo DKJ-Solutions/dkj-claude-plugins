@@ -166,13 +166,16 @@ unchanged**: the next run reads `repo` to decide whether this page is its histor
 | `pageTitle` | `Sessiestart-context · <repo>`, the lookup name, from `collect.json` |
 | `locale` | e.g. `nl-NL`; number formatting follows it |
 | `labels` | the static label overrides |
-| `header` | `eyebrow`, `title`, `lede` — the lede says what moved since last time and why |
+| `header` | `eyebrow`, `title`, `lede` — the lede says what moved since last time and why, and is drawn below the tiles, never under the `h1` (#3591) |
 | `items[]` | `id`, `name`, `sub`, `influence`, `tokens`, `measured`, `source` |
 | `actions[]` (or `actions.items[]` with an `actions.lede`) | `id`, `influence`, `done`, `save`, `saveSub`, `tokens`, `title`, `text`, `how`, `caveat` |
 | `documents` | `budgetBytes`, `charsPerToken`, optional `heading`/`lede`, `items[]` of `id`, `name`, `sub`, `bytes` |
 | `none` | optional `heading`/`lede`, `items[]` of `title`, `text` — the layers nobody here can change |
 | `advice` | `eyebrow`, `heading`, `lede`, `steps[]` of `title`, `text`, and `dont` of `label`, `text` |
 | `footer` | the method, the margin on the estimates, and the findings from step 1 |
+
+**Every `lede` is a finding, not an explainer**: the page draws it after the block it sums up, and not at
+all when it is absent, because a page carries no intro under a heading (#3585, #3591).
 
 Text may carry `**bold**` and `` `code` `` and nothing else: the page escapes the rest.
 **The render adds `previousBytes`, `previousTokens`, `documents.previousTotalBytes`, `documents.removed`

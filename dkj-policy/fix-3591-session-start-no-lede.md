@@ -39,19 +39,44 @@
 
 ### PLAN
 
+#3585 made the rule: no intro paragraph under a page heading. Two renderers outside the hub shell still
+drew one (#3591). The call #3591 left open, made here and up for the owner's look: **a lede that carries
+the measurement's own finding is content, so it stays, but after the block it sums up; a lede that only
+explains the page is an intro, so it goes.**
+
+#### For the owner's look
+
+- Hub, `/sessionstart/last-measurement`: the summary paragraph now sits under the four tiles instead of
+  above them. `/sessionstart/advice`: the verdict follows the steps.
+- The Artifact template (`measure-session-start`): no paragraph under the `h1` any more; the header's
+  finding follows the tiles, each section's data-supplied lede follows its block, and the three built-in
+  explainers (actions, documents, no-influence) are gone. An empty lede draws nothing.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `general-pages-lib.ps1`: `header.lede` after the tiles, `advice.lede` after the steps
+- [x] `session-start-template.html`: ledes after their blocks, hidden when absent, explainer defaults removed
+- [x] `measure-session-start/SKILL.md`: the data table says where a lede is drawn
+- [x] `dev-pages.tests.ps1`: asserts the order of both hub ledes
 
 ### TEST
 
+- [ ] The owner looks at both pages; the gates run at `ship-pr`
+
 ### DEPLOY: fix/3591-session-start-no-lede
 
-**Score:**
+The session-start pages now open on their content too: the measurement's summary follows the figures it
+sums up, the advice's verdict follows its steps, and the explainer lines under the Artifact's section
+headings are gone, the same rule #3585 set for every other hub page
+([#3591](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3591)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Nothing beyond the entry above.
+
+**Score:** N/A
 
 #### Pull Request
 
