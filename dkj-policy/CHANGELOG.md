@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**9 / 13 minor entries** <!-- pending-tally -->
+**10 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3602-second-issue-branch-refused · 20261027-171136Z
+
+`new-branch` now refuses to cut a new branch for an issue when `origin` already carries another branch
+for the same issue number (`<prefix>/<n>-*`). Two sweeps had parked two independent fixes for one
+issue: the second sweep's claim refused, but its command chained `new-branch` after it with `;` and
+cut the claim's output to its last line, so the refusal was never read. A resume of the existing branch
+still works, and the run names that branch. The `sweep-issues` skill now says to run the claim on its
+own and read its whole verdict before cutting a branch.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A sweep, or two machines working one backlog, can no longer leave you two competing fixes for one issue
+to compare by hand.
+
+**Score:** 2
+
+#### Pull Request
+
+new-branch refuses a second branch for an issue that already has one on origin
+
+Plugins: dkj-policy
+
+[PR #3604](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3604)
+
+---
 
 ### DEPLOY: fix/3596-banner-hub-offline · 20261027-170022Z
 
