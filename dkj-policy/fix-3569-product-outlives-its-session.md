@@ -91,5 +91,3 @@ command instead of a bare pid.
 
 dev-preview: a server the hook starts no longer outlives its session
 
-Plugins: dkj-policy
-
