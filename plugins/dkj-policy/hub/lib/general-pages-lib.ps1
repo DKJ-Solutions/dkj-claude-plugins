@@ -428,13 +428,26 @@ function Format-HubCardLinkHtml {
         .card.card--link holding the page's one .menu-item row, so a click anywhere on the card follows it. -Href,
         -Label and -Sub (optional, one line) are escaped here; -Icon (optional) is a key of $script:HubIcons, drawn
         before the label. The hubs set these cards three to a row, in a .grid-3 with no heading above them.
+        It is the ONE card link (#3566): an overview that needs more says so through the slots below, never with markup
+        of its own. -SubHtml is the description as the caller's own markup, in place of -Sub. -ValueHtml is the card's
+        headline figure (a count, a time), a line of its own under the description; -BadgeHtml a status mark in the
+        icon's place. Those three are inline HTML the caller has already escaped. -Heading 2 makes the label an h2, for
+        an overview whose cards are its sections; -Id and -Class (extra classes, such as a tone) go on the card.
     #>
     param([Parameter(Mandatory = $true)][string]$Href, [Parameter(Mandatory = $true)][string]$Label, [AllowEmptyString()][string]$Sub = '',
-        [AllowEmptyString()][string]$Icon = '')
+        [AllowEmptyString()][string]$Icon = '', [AllowEmptyString()][string]$SubHtml = '', [AllowEmptyString()][string]$ValueHtml = '',
+        [AllowEmptyString()][string]$BadgeHtml = '', [ValidateSet(0, 2)][int]$Heading = 0, [AllowEmptyString()][string]$Id = '',
+        [AllowEmptyString()][string]$Class = '')
     $e = { param($v) ConvertTo-GeneralPageText $v }
-    $s = if ($Sub) { '<span class="menu-item__sub">' + (& $e $Sub) + '</span>' } else { '' }
-    return '<section class="card card--link"><nav class="menu-list" aria-label="' + (& $e $Label) + '"><a class="menu-item" href="' + (& $e $Href) +
-        '">' + (Get-HubIconSvg -Name $Icon) + '<span class="menu-item__label">' + (& $e $Label) + $s + '</span>' + $script:RepoHubChevron + '</a></nav></section>'
+    $subText = if ($SubHtml) { $SubHtml } elseif ($Sub) { & $e $Sub } else { '' }
+    $s = if ($subText) { '<span class="menu-item__sub">' + $subText + '</span>' } else { '' }
+    $v = if ($ValueHtml) { '<span class="menu-item__value">' + $ValueHtml + '</span>' } else { '' }
+    # A heading may not sit in a <span>, so a card with one holds its label in a <div>.
+    $labelHtml = if ($Heading) { '<div class="menu-item__label"><h2 class="menu-item__title">' + (& $e $Label) + '</h2>' + $s + $v + '</div>' }
+             else { '<span class="menu-item__label">' + (& $e $Label) + $s + $v + '</span>' }
+    $mark = if ($BadgeHtml) { $BadgeHtml } else { Get-HubIconSvg -Name $Icon }
+    return '<section class="card card--link' + $(if ($Class) { ' ' + (& $e $Class) } else { '' }) + '"' + $(if ($Id) { ' id="' + (& $e $Id) + '"' } else { '' }) +
+        '><nav class="menu-list" aria-label="' + (& $e $Label) + '"><a class="menu-item" href="' + (& $e $Href) + '">' + $mark + $labelHtml + $script:RepoHubChevron + '</a></nav></section>'
 }
 
 function Format-HubPageCardsHtml {
@@ -1224,16 +1237,12 @@ function Get-SessionStartSections {
     return @(@($documents) + @(Get-SessionStartSnapshotSections -Snapshot $Snapshot))
 }
 
-# The page layer of the SessionStart pages (names the house file does not define, ss-): a card's two lines under its
-# h2, in the Stopwatch label card's sizes, and the h1 in the overview's grid head.
+# The page layer of the SessionStart pages (names the house file does not define, ss-): the h1 in the overview's grid
+# head, and a card's description held to two lines. The card itself is the house one (Format-HubCardLinkHtml, #3566).
 $script:SessionStartStyle = $script:DevBarStyle + "`n" +
     '.ss-cards > .grid__head > h1 { margin: 0; }' + "`n" +
-    '.ss-card > h2 a { color: inherit; text-decoration: none; }' + "`n" +
-    '.ss-card > p { margin: 0; }' + "`n" +
-    '.ss-card > p + p { margin-top: var(--spacing-1); }' + "`n" +
     # Two lines at most on a card; the section's page shows the line whole.
-    '.ss-sub { font-size: var(--text-sm); font-weight: 400; color: var(--muted); display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }' + "`n" +
-    '.ss-value { font-size: var(--text-base); font-weight: 300; color: var(--fg-1); }'
+    '.ss-card .menu-item__sub { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }'
 
 function Format-SessionStartPageHtml {
     <#
@@ -1293,8 +1302,8 @@ function Format-SessionStartPageHtml {
     [void]$body.AppendLine('<div class="grid-3 ss-cards">')
     [void]$body.AppendLine('<div class="grid__head"><h1>SessionStart</h1></div>')
     foreach ($s in $sections) {
-        [void]$body.AppendLine('<section class="card card--link ss-card" id="' + $s.Slug + '"><h2><a href="/sessionstart/' + $s.Slug + '">' + (& $e $s.Title) + '</a></h2>' +
-            '<p class="ss-sub">' + $s.Sub + '</p><p class="ss-value num">' + $s.Value + '</p></section>')
+        [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/sessionstart/' + $s.Slug) -Label $s.Title -SubHtml $s.Sub -ValueHtml ('<span class="num">' + $s.Value + '</span>') `
+            -Heading 2 -Id $s.Slug -Class 'ss-card'))
     }
     [void]$body.AppendLine('</div>')
     return Format-GeneralPageHtml -Title 'SessionStart' -Style $script:SessionStartStyle -Body $body.ToString() -Lead '' -Bare -SiteName $RepoName -FooterNote $footer

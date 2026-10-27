@@ -215,8 +215,7 @@ function Format-PluginsPageHtml {
             $sub = (& $e $r.Status.Label) + ': ' + $(if ($r.Status.Level -ne 'ok') { & $e (Get-PluginProblemText $r) }
                    elseif ($r.InstVersion) { (& $e $r.InstVersion) + $(if ($r.InstScope) { ', ' + (& $e $r.InstScope) + ' scope' } else { '' }) }
                    else { & $e $r.InstText })
-            [void]$body.AppendLine('<section class="card card--link"><h3 class="card__title">' + (Format-PluginBadgeHtml $r.Status.Level) +
-                '<a href="/plugins/' + (& $e $r.Name) + '">' + (& $e $r.Name) + '</a></h3><p class="card__sub">' + $sub + '</p></section>')
+            [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/plugins/' + $r.Name) -Label $r.Name -SubHtml $sub -BadgeHtml (Format-PluginBadgeHtml $r.Status.Level)))
         }
         [void]$body.AppendLine('</div>')
     }

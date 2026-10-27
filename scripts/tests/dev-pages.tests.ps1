@@ -134,8 +134,8 @@ $tg = Format-TestGatePageHtml -Model $m
 Assert-True ($tg -match '<h1>Test gate</h1>') 'the overview is named Test gate'
 Assert-True ($tg -match '<li><a href="/hub">Home</a></li>' -and (Format-TestGatePageHtml -Model $m -HubHref '/') -match '<li><a href="/">Home</a></li>') 'its Home crumb is the general server''s /hub, or the hub the caller names'
 Assert-True ($tg -match '<span aria-current="page">Test gate</span>' -and $tg -notmatch 'href="/test-gate">Test gate</a>') 'the overview is the trail''s last crumb, not a link to itself'
-Assert-True ($tg -match 'href="/test-gate/suites">All suites</a>' -and $tg -notmatch '<table') 'without groups it drills into one list, All suites, and holds no table itself'
-Assert-True ($tg -match 'href="/test-gate/measured">Where it was measured</a></h2><p class="num">2026-10-07 . 2 CI runs . 1 not recorded</p>') 'the measurement is a card of its own, with its date, its run count and the suites not recorded'
+Assert-True ($tg -match 'href="/test-gate/suites"><div class="menu-item__label"><h2 class="menu-item__title">All suites</h2>' -and $tg -notmatch '<table') 'without groups it drills into one list, All suites, and holds no table itself'
+Assert-True ($tg -match 'id="recorded"><nav class="menu-list" aria-label="Where it was measured"><a class="menu-item" href="/test-gate/measured"><div class="menu-item__label"><h2 class="menu-item__title">Where it was measured</h2><span class="menu-item__value"><span class="num">2026-10-07 . 2 CI runs . 1 not recorded</span>') 'the measurement is a card of its own, with its date, its run count and the suites not recorded'
 Assert-True ($tg -notmatch 'Not recorded yet, so the gate charges' -and $tg -notmatch 'class="tiles"') 'the overview has no tiles (the owner, October 27, 2026), and names the unrecorded suites one level down'
 Assert-True ($tg -match '\.tg-cards \{ display: grid; grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);') 'its cards stand at most four to a row (the owner, October 27, 2026)'
 Assert-True ($tg -match 'class="footer-note">Read from the repo') 'the overview closes on where it reads from'
@@ -189,9 +189,9 @@ Assert-Equal 'away.tests.ps1' ($gm.Unknown -join ',') 'a grouped name not on dis
 Assert-Equal 0 (@($m.Groups).Count + @($m.Ungrouped).Count) 'with no groups there are no groups, and nothing is called ungrouped'
 Assert-Equal 'one,two,ungrouped' ((Get-TestGateLists -Model $gm | ForEach-Object { $_.Key }) -join ',') 'the lists are the groups in order, then the suites no group holds'
 $gp = Format-TestGatePageHtml -Model $gm
-Assert-True ($gp -match 'id="group-one"><h2><a href="/test-gate/one">Step &lt;one&gt;</a></h2><p class="num">2 suites . 10.0s . 22.2%</p>' -and $gp -notmatch 'Step <one>') 'each group is a card linking its own page, with its count, its sum and its share, escaped'
+Assert-True ($gp -match 'id="group-one"><nav class="menu-list" aria-label="Step &lt;one&gt;"><a class="menu-item" href="/test-gate/one"><div class="menu-item__label"><h2 class="menu-item__title">Step &lt;one&gt;</h2><span class="menu-item__value"><span class="num">2 suites . 10.0s . 22.2%</span>' -and $gp -notmatch 'Step <one>') 'each group is a card linking its own page, with its count, its sum and its share, escaped'
 Assert-True ($gp.IndexOf('id="group-one"') -lt $gp.IndexOf('id="group-two"') -and $gp.IndexOf('id="group-two"') -lt $gp.IndexOf('id="group-ungrouped"')) 'the cards keep the file''s order, the ungrouped last'
-Assert-True ($gp -match 'role="alert">In no group of scripts/tests/suite-groups.json: <code>gone.tests.ps1</code>' -and $gp -match 'href="/test-gate/ungrouped">Not grouped</a>') 'an ungrouped suite is a warning, and still has a list'
+Assert-True ($gp -match 'role="alert">In no group of scripts/tests/suite-groups.json: <code>gone.tests.ps1</code>' -and $gp -match 'href="/test-gate/ungrouped"><div class="menu-item__label"><h2 class="menu-item__title">Not grouped</h2>') 'an ungrouped suite is a warning, and still has a list'
 Assert-True ($gp -match 'Grouped but no longer on disk: <code>away.tests.ps1</code>') 'a grouped name not on disk is named'
 $g1 = Format-TestGatePageHtml -Model $gm -Path 'one'
 Assert-True ($g1 -match '<span aria-current="page">Step &lt;one&gt;</span>' -and $g1 -match '<p class="tg-guards">Guards the first step\.</p>') 'a group''s page is named by its title and says what it guards'
@@ -220,7 +220,7 @@ $selection = @{ Base = 'origin/main'; Changed = @('brandbook/src/<x>.css'); Prov
                 Selected = @('scripts/tests/a.tests.ps1', 'scripts/tests/b.tests.ps1'); Why = @{ 'scripts/tests/a.tests.ps1' = 'it reaches <lib>'; 'scripts/tests/b.tests.ps1' = 'its walk scope covers it' }
                 CiText = 'only stylesheets change' }
 $selCard = Format-TestGatePageHtml -Model $sm -Selection $selection
-Assert-True ($selCard -match 'id="selection"><h2><a href="/test-gate/selection">This checkout''s change</a></h2><p class="num">2 of 165 suites</p>') 'the change is a card on the overview, with what it selects'
+Assert-True ($selCard -match 'id="selection"><nav class="menu-list" aria-label="This checkout&#39;s change"><a class="menu-item" href="/test-gate/selection"><div class="menu-item__label"><h2 class="menu-item__title">This checkout&#39;s change</h2><span class="menu-item__value"><span class="num">2 of 165 suites</span>') 'the change is a card on the overview, with what it selects'
 $sel = Format-TestGatePageHtml -Model $sm -Selection $selection -Path 'selection'
 Assert-True ($sel -match '<dt>Locally</dt><dd>2 of 165 suites</dd>' -and $sel -match '<dt>On CI</dt><dd>only stylesheets change</dd>') 'its page says what runs locally and on CI'
 Assert-True ($sel -match 'brandbook/src/&lt;x&gt;.css' -and $sel -match 'it reaches &lt;lib&gt;' -and $sel -notmatch '<lib>') 'the changed paths and the reasons are escaped'
@@ -270,8 +270,8 @@ $ssModel = @{
 $ss = Format-SessionStartPageHtml -Model $ssModel
 $ssDocs = Format-SessionStartPageHtml -Model $ssModel -Section 'documents'
 Assert-True ($ss -match '<h1>SessionStart</h1>') 'the overview is named SessionStart'
-Assert-True ($ss -match '<section class="card card--link ss-card" id="documents"><h2><a href="/sessionstart/documents">Always-on documents</a></h2>') 'each section is a card on the overview, linking its own page (the Stopwatch''s shape)'
-Assert-True ($ss -match 'class="ss-value num">1,000 B of 4,000 B</p>') 'and the documents'' card carries the path against the budget'
+Assert-True ($ss -match '<section class="card card--link ss-card" id="documents"><nav class="menu-list" aria-label="Always-on documents"><a class="menu-item" href="/sessionstart/documents"><div class="menu-item__label"><h2 class="menu-item__title">Always-on documents</h2>') 'each section is a card on the overview, linking its own page (the Stopwatch''s shape)'
+Assert-True ($ss -match 'class="menu-item__value"><span class="num">1,000 B of 4,000 B</span>') 'and the documents'' card carries the path against the budget'
 Assert-True ($ss -notmatch '<table') 'the overview holds cards, not the tables'
 Assert-True ($ssDocs -match '<h1>Always-on documents</h1>' -and $ssDocs -match '<a href="/sessionstart">SessionStart</a>') 'a section''s page is named after it, with a crumb back to the overview'
 Assert-True ($ssDocs -match 'Headroom \(B\)</div><div class="v num">3,000') 'inside the budget: the headroom'
@@ -287,7 +287,7 @@ Assert-True ($over -match 'msg msg--warn" role="alert">The always-on path is ove
 Assert-True ((Format-SessionStartPageHtml -Model $ssModel) -match 'role="alert">The always-on path is over its limit') 'which the overview carries too'
 $failed = Format-SessionStartPageHtml -Model $null -ReadError 'boom <x>'
 Assert-True ($failed -match 'could not be measured: boom &lt;x&gt;') 'a failed measurement is a warning, escaped'
-Assert-True ($failed -match 'class="ss-value num">Not measured</p>') 'and its card says it was not measured'
+Assert-True ($failed -match 'class="menu-item__value"><span class="num">Not measured</span>') 'and its card says it was not measured'
 Assert-True ((Format-SessionStartPageHtml -Model $null -ReadError 'boom' -Section 'documents') -match 'No always-on document was measured') 'and its page says the table is empty'
 
 Write-Host '-- the SessionStart snapshot' -ForegroundColor Cyan
@@ -310,8 +310,8 @@ $snap = @'
 $sp = Format-SessionStartPageHtml -Model $ssModel -Snapshot $snap
 $ids = @([regex]::Matches($sp, 'ss-card" id="([a-z-]+)"') | ForEach-Object { $_.Groups[1].Value })
 Assert-Equal 'documents,last-measurement,layers,actions,no-influence,advice,method' ($ids -join ',') 'the snapshot''s sections follow the live card, one card each'
-Assert-True ($sp -match 'Efficiency score 30 / 100 \(was 20\)</p>') 'the score card is the no-influence share, against the previous one'
-Assert-True ($sp -match '1 open, 1 done</p>' -and $sp -match '>Do this</a></h2>') 'the actions'' card counts them, and the advice card takes its heading'
+Assert-True ($sp -match 'Efficiency score 30 / 100 \(was 20\)</span>') 'the score card is the no-influence share, against the previous one'
+Assert-True ($sp -match '1 open, 1 done</span>' -and $sp -match '>Do this</h2>') 'the actions'' card counts them, and the advice card takes its heading'
 $page = { param($slug) Format-SessionStartPageHtml -Model $ssModel -Snapshot $snap -Section $slug }
 $lm = & $page 'last-measurement'
 Assert-True ($lm -match 'About <strong>47k</strong> in <code>CLAUDE.md</code> &lt;b&gt;') 'the lede renders bold and code, and escapes the rest'
@@ -592,9 +592,9 @@ Assert-True ($sp -notmatch 'href="/plugins') 'its trail is Home > Specialists: t
 Assert-True (-not $sp.Contains('class="tiles"') -and -not $sp.Contains('class="lead"') -and -not $sp.Contains('grid__head"><h2>Plugins')) 'the overview opens on its cards: no tiles, no lead and no heading over the grid (the owner, #3550)'
 Assert-True (-not $sp.Contains('id="when"')) 'and the column explanation is left to the plugin pages, where the table is'
 Assert-True ($sp.Contains('<section class="card card--link sp-card" id="plugin-alpha">') -and $sp.Contains('href="/specialists/alpha"') -and $sp.Contains('href="/specialists/ecomm"')) 'each plugin is a link card to its own page'
-Assert-Equal 2 ([regex]::Matches($sp, '<h2 class="sp-card-title">')).Count 'one card per plugin, its label an h2'
+Assert-Equal 2 ([regex]::Matches($sp, '<h2 class="menu-item__title">')).Count 'one card per plugin, its label an h2'
 Assert-True ($sp.IndexOf('id="plugin-alpha"') -lt $sp.IndexOf('id="plugin-ecomm"')) 'the core team''s card comes first, even where an add-on''s specialist reads larger'
-Assert-True ($sp.Contains('<h2 class="sp-card-title">alpha</h2><span class="menu-item__sub">core team &middot; enabled here &middot; 2 specialists &middot; listing ~')) 'a card says what the plugin is, whether it is on here and how many specialists it ships'
+Assert-True ($sp.Contains('<h2 class="menu-item__title">alpha</h2><span class="menu-item__sub">core team &middot; enabled here &middot; 2 specialists &middot; listing ~')) 'a card says what the plugin is, whether it is on here and how many specialists it ships'
 Assert-True ($sp.Contains('full read ~' + (Format-DevNumber ([Math]::Round(($sa.TotalBytes + $pa.TotalBytes) / 3.12))) + '</span>')) 'and sums its own full read'
 Assert-True ($sp.Contains('card--link sp-card sp-card--off" id="plugin-ecomm"') -and $sp.Contains('add-on team &middot; off here &middot; 1 specialist &middot;')) 'a plugin not enabled here keeps its card, muted and marked off'
 Assert-True (-not $sp.Contains('<strong>Paula') -and -not $sp.Contains('<table')) 'the specialists themselves are on the plugin''s page, not the overview'
@@ -627,7 +627,7 @@ Assert-True ($al.Contains('<div class="sp-grid" id="cards">') -and $al.IndexOf('
 Assert-True ($al.Contains('.sp-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));')) 'the specialist cards sit four to a row, in a grid of their own (the house .grid-3 is not restyled)'
 Assert-True ($al.Contains('<section class="card card--link sp-card" id="specialist-paula">') -and $al.Contains('<a class="menu-item" href="/specialists/alpha/chris">')) 'each card is the link to that specialist''s page'
 Assert-True ($al.IndexOf('id="specialist-chris"') -lt $al.IndexOf('id="specialist-paula"')) 'the cards are in roster order, 01-01 before 02-09, where the table is by size'
-Assert-True ($al.Contains('<h2 class="sp-card-title">Paula ' + $compass + '</h2><span class="menu-item__sub">#09 &middot; Project Planner &middot; subagent &middot; full read ~')) 'a card names the specialist, its number, title, form and full read'
+Assert-True ($al.Contains('<h2 class="menu-item__title">Paula ' + $compass + '</h2><span class="menu-item__sub">#09 &middot; Project Planner &middot; subagent &middot; full read ~')) 'a card names the specialist, its number, title, form and full read'
 
 Write-Host '-- a specialist''s own page (#3551)' -ForegroundColor Cyan
 Assert-Equal 'paula|eve|07-77' ($sa.Slug + '|' + $evil.Slug + '|' + (ConvertTo-SpecialistRow -Id '07-77' -Plugin 'x' -Form subagent -Text 'no shape').Slug) 'the route segment is the name lowercased, or the id where the name is not a plain word'
@@ -697,7 +697,7 @@ Assert-Equal 'ok,ok,ok,error,error,warn,warn,warn' ((@('match', 'ver-match', 'un
 Assert-Equal 'error' (Get-PluginRowStatus -Code 'match' -InstallPathMissing $true).Level 'an install folder gone from disk is an error whatever the version says'
 $pp = Format-PluginsPageHtml -Model $pv -RepoName 'r'
 Assert-True ($pp -match '<span aria-current="page">Plugins</span>' -and $pp -match '<h1>Plugins</h1>') 'the overview opens with the breadcrumb bar and its own h1'
-Assert-Equal 4 ([regex]::Matches($pp, '<section class="card card--link"><h3 class="card__title"><span class="badge badge--sm badge--(good|warn|bad)" aria-hidden="true">(&#10003;|!|&#10007;)</span><a href="/plugins/[a-z-]+">[a-z-]+</a></h3><p class="card__sub">(Up to date|Behind|Install folder missing|Clone behind): ')).Count 'a card per plugin: its state as a decorative mark in the round badge, its name the one link, and the state in words on the sub line (the owner, October 25, 2026)'
+Assert-Equal 4 ([regex]::Matches($pp, '<section class="card card--link"><nav class="menu-list" aria-label="[a-z-]+"><a class="menu-item" href="/plugins/[a-z-]+"><span class="badge badge--sm badge--(good|warn|bad)" aria-hidden="true">(&#10003;|!|&#10007;)</span><span class="menu-item__label">[a-z-]+<span class="menu-item__sub">(Up to date|Behind|Install folder missing|Clone behind): ')).Count 'a card per plugin: its state as a decorative mark in the round badge, its name the one link, and the state in words on the sub line (the owner, October 25, 2026)'
 Assert-True ($pp -notmatch 'class="tiles"' -and $pp -notmatch '<table' -and $pp -notmatch 'id="problems"' -and -not $pp.Contains('claude plugin update')) 'the overview stays compact: no tiles, no table, no problems block, no command -- those are on the plugin''s page'
 Assert-True ($pp.IndexOf('/plugins/alpha"') -lt $pp.IndexOf('/plugins/beta"') -and $pp.IndexOf('/plugins/beta"') -lt $pp.IndexOf('/plugins/gamma"') -and $pp.IndexOf('/plugins/gamma"') -lt $pp.IndexOf('/plugins/zeta"')) 'errors first, then warnings, then the rest, each by name'
 Assert-True ($pp.Contains('no longer on disk') -and $pp.Contains('Up to date: 1.0.0, project scope')) 'a card says what is wrong or which version is installed'
@@ -758,16 +758,11 @@ Assert-True ((@($realSplit.Sections) | Where-Object { $_.Cards -lt 1 }).Count -e
 $realPages = @(@(Format-HouseStyleSpecimensPageHtml -Body $specimens) + @(@($realSplit.Sections) | ForEach-Object { Format-HouseStyleSpecimensPageHtml -Body $specimens -Section $_.Slug }))
 Assert-True ((@($realPages) | Where-Object { $_ -match 'sections in one column' }).Count -eq 0) 'the real house-style overview and every section page keep within the long-page rule'
 Write-Host '-- one card link, never a hand-written one (#3563, #3566)' -ForegroundColor Cyan
-# Every `card card--link` in the hub's and the repo's page code, per file. Format-HubCardLinkHtml is the one card; the
-# other entries are the variants written before this guard, each to move onto it under #3566, which shrinks this list.
+# Every `card card--link` in the hub's and the repo's page code, per file. Format-HubCardLinkHtml is the one card, and the
+# variants written before this guard have all moved onto it (#3566), so it is the list's only entry.
 # A NEW site fails here: call Format-HubCardLinkHtml instead of writing the card's markup by hand.
 $cardSites = @{
-    'plugins/dkj-policy/hub/lib/general-pages-lib.ps1' = 2   # Format-HubCardLinkHtml, and SessionStart's ss-card (#3566)
-    'plugins/dkj-policy/hub/lib/plugins-page-lib.ps1'  = 1   # the Plugins overview's badge card (#3566)
-    'plugins/dkj-policy/hub/lib/stopwatch-lib.ps1'     = 2   # the Stopwatch's sw-cards (#3566)
-    'plugins/dkj-policy/hub/lib/test-gate-lib.ps1'     = 3   # the Test gate overview's tg-cards (#3561, before this guard; #3566)
-    'scripts/lib/connector-dashboard-lib.ps1'          = 1   # the standard markup, hand-copied (#3566)
-    'scripts/lib/dev-pages-lib.ps1'                    = 1   # the Specialists' sp-card (#3566)
+    'plugins/dkj-policy/hub/lib/general-pages-lib.ps1' = 1   # Format-HubCardLinkHtml
 }
 $cardFiles = @(Get-ChildItem -Path (Join-Path $RepoRoot 'plugins\dkj-policy\hub'), (Join-Path $RepoRoot 'scripts\lib') -Filter '*.ps1' -Recurse -File)
 $cardFound = @{}
@@ -776,9 +771,9 @@ foreach ($f in $cardFiles) {
     if ($n) { $cardFound[$f.FullName.Substring($RepoRoot.Length + 1).Replace('\', '/')] = $n }
 }
 $cardOver = @($cardFound.Keys | Where-Object { $cardFound[$_] -gt [int]$cardSites[$_] } | ForEach-Object { $_ + ' (' + $cardFound[$_] + ')' })
-Assert-True ($cardOver.Count -eq 0) ('no card link is written by hand outside Format-HubCardLinkHtml and the variants #3566 moves onto it' + $(if ($cardOver.Count) { ': ' + ($cardOver -join ', ') } else { '' }))
+Assert-True ($cardOver.Count -eq 0) ('no card link is written by hand outside Format-HubCardLinkHtml (#3566)' + $(if ($cardOver.Count) { ': ' + ($cardOver -join ', ') } else { '' }))
 $cardStale = @($cardSites.Keys | Where-Object { [int]$cardFound[$_] -lt $cardSites[$_] })
-Assert-True ($cardStale.Count -eq 0) ('and a variant that has moved is taken off the list, so it cannot quietly come back' + $(if ($cardStale.Count) { ': ' + ($cardStale -join ', ') } else { '' }))
+Assert-True ($cardStale.Count -eq 0) ('and the list names no site that no longer writes one' + $(if ($cardStale.Count) { ': ' + ($cardStale -join ', ') } else { '' }))
 Write-Host '-- a long page becomes cards with a page each (#3563)' -ForegroundColor Cyan
 $secs = { param($n) (1..$n | ForEach-Object { "<div class=`"grid-2`"><div class=`"grid__head`"><h2>S$_</h2></div></div>" }) -join "`n" }
 Assert-Equal 4 (Get-PageSectionCount -Body (& $secs 4)) 'a section is a grid__head opening on an h2'

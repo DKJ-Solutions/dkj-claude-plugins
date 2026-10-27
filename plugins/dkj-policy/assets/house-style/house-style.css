@@ -720,6 +720,12 @@ a.menu-item:hover { background: var(--paper-3); }
 .card--link a::after { content: ""; position: absolute; inset: 0; }
 .card--link:hover { background: var(--paper-3); }
 .card--link a.menu-item:hover { background: none; }
+/* The card's slots (#3566), so an overview never needs a card of its own: a headline figure on a line under the
+   description (<span class="menu-item__value">), a status .badge in the icon's place, and the label as a heading
+   (<div class="menu-item__label"><h2 class="menu-item__title">) where the cards are a page's sections. */
+.menu-item__value { display: block; margin-top: var(--spacing-1); font-size: var(--text-base); font-weight: 300; color: var(--fg-1); }
+.menu-item__title { margin: 0; }
+.menu-item > .badge { flex: none; }
 
 /* ---- Screen readers only --------------------------------------------------------- */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
