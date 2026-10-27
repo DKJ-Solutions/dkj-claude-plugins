@@ -27,7 +27,8 @@ the CHECKOUTS, not the issues: a second issue in the same checkout means two bra
 and nothing on the tracker can tell those apart. A second checkout -- another clone, or a
 [worktree-lane](../worktree-lane/SKILL.md) -- is a second tag, on the same machine or another. A
 visible park (step 5) is an issue handed over like any other: the branch waits on `origin`, and the
-sweep goes on.
+sweep goes on. **A second sweep on the same machine runs in a lane**, and four steps read differently
+there: [lane mode](#a-second-sweep-beside-a-running-one----lane-mode) below.
 
 ## Why the assignee cannot be the claim
 
@@ -304,6 +305,47 @@ them in one pass; a decided issue comes back here as `free`. What it skipped as 
 it shipped, each branch it parked for the owner's eye with the `git checkout <branch>` line that shows
 it, the number and label of each it parked as waiting, and the number of each it held out, with a clause
 for why.
+
+## A second sweep beside a running one -- lane mode
+
+**One checkout is single-occupancy for every local gate**, which is several minutes per issue, so a
+second sweep on the same machine halves the wall-clock on a backlog that the gates prove
+([#3557](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3557)). It needs a working copy
+of its own: a git worktree beside the primary checkout. Open it once, from the primary, detached at the
+trunk:
+
+```powershell
+git fetch origin --prune
+git worktree add --detach "..\<repo>-lanes\sweep-2" origin/main
+```
+
+Then start Claude Code **in that directory** and run this skill there. Its path differs, so its claim tag
+differs too (#2836): the two sweeps read each other's claims as `held` and never take the same issue.
+`worktree-lane.ps1` is not the opener here, because it creates a branch, and a sweep's branches come one
+per issue from the loop.
+
+**Four steps read differently inside the lane. Everything else on this page holds as written:**
+
+- **Step 0.** No `git checkout main` and no `git pull`. The primary holds `main`, and git will not give
+  one branch to two worktrees. Run `git fetch origin --prune` and `git checkout --detach origin/main`.
+- **Step 3.** Before `new-branch`, the same two lines again, so every branch is cut from a fresh
+  `origin/main`. `new-branch` reads a detached HEAD as a base and not as a stack, so it cuts there
+  without a warning.
+- **Step 5.** `ship-pr` runs from the lane, unchanged. A lane never returns to `main` before the CI wait
+  (`Get-TrunkReturnDecision`). After the merge the fold goes one of two ways. If the primary is standing
+  on `main`, `ship-pr` merges and leaves the fold to the repo's CI fold runner (#2087). If `main` is
+  free, it folds in the lane and then releases `main` again (step 5b). **A repo without a CI fold runner**
+  is refused at `ship-pr`'s step 0 while the primary holds `main`, before anything is pushed. That
+  refusal is the cue to leave lane mode in that repo. It never leaves a half-state behind. A visible park
+  works as written, because step 7 detaches the lane and that releases the branch, so the owner can check
+  it out in the primary.
+- **Step 7.** `prune-merged`, then the two lines from step 0 in place of `git checkout main`.
+
+**When the loop ends, the lane stays where it is**: detached, clean, holding no branch, and ready for
+the next second sweep. Removing it is a single command from the primary,
+`git worktree remove "..\<repo>-lanes\sweep-2"`. `tidy-machine` does not report it, because its
+stale-lane check looks for a finished *branch* and this lane has none. Removing it from inside the lane
+fails on Windows, because the session's own working directory holds the tree open.
 
 ## Giving an issue back
 

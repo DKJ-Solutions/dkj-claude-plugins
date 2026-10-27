@@ -46,6 +46,14 @@ That refusal lands **after** the merge has already happened, which is exactly th
 and every gate stays green until a release trips over it."* Probed and confirmed on
 git 2.54.0.windows.1 rather than reasoned about.
 
+**That was the state on August 23, 2026, and `ship-pr` has since closed it from two sides.** Its step 0
+now reads whether another worktree holds `main` *before* anything is pushed (#1069). Where a CI runner
+folds after a push to `main` (`fold-on-merge.yml`, which `adopt-dkj-policy`'s CI floor places), it merges
+and leaves the fold to that runner (#2087). Where none does, it refuses at that same cheap moment. So a
+ship from a lane no longer reaches the half-state in either kind of repo. In a repo with that runner it
+simply ships, which is what lets a second `sweep-issues` run in a lane
+([#3557](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3557)).
+
 ## So the lanes run the other way around
 
 > **The worktree is where you BUILD. The primary checkout is where you SHIP.**
@@ -74,6 +82,8 @@ that backgrounds a ship is standing on the trunk, which is the state its owner r
   the length of the wait and `ship-pr`'s step 0 refuses on exactly that. **This is the good direction.**
   That pair collided before too -- the lane took `main` at its step 5 and the primary's step 5 then failed,
   *after* its merge had landed. The collision has moved to the one place stopping is free.
+  **And where a CI fold runner exists, the refusal gives way**: the lane merges and the runner folds
+  (#2087), so the two ships run side by side.
 
 ## Opening a lane
 
@@ -177,6 +187,11 @@ worktree holds `main` instead of `git checkout main` -- would remove those two c
 in wall-clock, and it changes the single line that produces the state nothing reports. Declined on that
 trade, deliberately, not overlooked.
 
+**The hand-back is now the route for a repo without a CI fold runner, not the only route.** Where
+`fold-on-merge.yml` is present, `ship-pr` run from the lane itself merges and lets CI fold whenever the
+primary holds `main` (#2087). That makes the declined change redundant rather than overdue: it would fold
+inside another session's working copy, while the CI arm folds nowhere local at all (#3557).
+
 ### `git worktree remove` is not atomic, and the script does not pretend otherwise
 
 Measured on the `Permission denied` case: git had already emptied the tree **and deregistered the
@@ -234,8 +249,9 @@ script's requirement: `scripts/lib/branch-info.ps1` in the consumer's repo root 
 
 ## Important
 
-- **Ship from the primary, always.** That is not a style preference; it is the git constraint this whole
-  skill exists to work with.
+- **Ship from the primary, unless the repo has a CI fold runner.** Without one, git's
+  one-branch-per-worktree rule leaves the primary as the only tree that can fold, and `ship-pr`'s step 0
+  refuses a lane ship while the primary holds `main`. With one, a lane may ship itself (#2087, #3557).
 - This script is maintained in the source repo; do not modify it locally in the consumer. A change lands
   first in the source (`scripts/task/worktree-lane.ps1`) and then travels via a release to the plugin
   mirror -- guarded by the shared-scripts drift lint.
