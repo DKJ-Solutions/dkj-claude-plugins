@@ -1489,7 +1489,7 @@ function Get-DeclinedAdoptions {
 # --- The dev-preview seam (dkj-policy since #3198, #2967; this repo's answer since #2976) ---------------
 
 function Get-DevPreview {
-    <# This repo's PRODUCT: the connector dashboard server, home of Connectors, Specialists and DKJ repos.
+    <# This repo's PRODUCT: the connector dashboard server, home of Connectors and Specialists.
        The dkj-policy dev-preview hook starts it (or reuses it) at session start beside the plugin's hub,
        and hands out both links. Every repo has a product port (Maikel, October 26, 2026, #3540), so this
        repo no longer opts out with OwnHub: the hub is the plugin's, as in every consumer (#3245), and the

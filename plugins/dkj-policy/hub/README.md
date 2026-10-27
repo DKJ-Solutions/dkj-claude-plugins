@@ -333,9 +333,9 @@ record the runs (`hooks/stopwatch-hook.ps1`, `hooks/logbook-hook.ps1`), and the 
 
 ## In the source repo
 
-This repo's hub is this plugin's, as in every other repo: since #3540 its `Get-DevPreview` states no`nOwnHub`, because every repo has a product port. Its product is the **connector dashboard** (every repo
+This repo's hub is this plugin's, as in every other repo: since #3540 its `Get-DevPreview` states no `OwnHub`, because every repo has a product port. Its product is the **connector dashboard** (every repo
 registered under `connectors/` and what `check-connectors.ps1` reports for it), the specialists and their
-context cost, and the DKJ repos, served on `127.0.0.1` by `scripts/dashboard/serve-connector-dashboard.ps1`,
+context cost, and, on the DKJ group's connector page, every DKJ repo on GitHub, served on `127.0.0.1` by `scripts/dashboard/serve-connector-dashboard.ps1`,
 with the house style from this tree and a first card back to the hub. `scripts/lib/dev-pages-lib.ps1` reads
 `lib/general-pages-lib.ps1` from this tree for the page shell. The General pages, the Test gate among them,
 are the hub's alone: the suite selection this checkout's change makes, which the old own hub added to its Test

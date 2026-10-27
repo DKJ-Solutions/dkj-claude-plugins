@@ -39,19 +39,46 @@
 
 ### PLAN
 
+#### What each page held, and what the merged page keeps
+
+- `/connectors/dkj`: the registered DKJ connectors only -- the Connected repos table and the Issues card
+  with each repo's check signals. Kept whole.
+- `/dkj-repos`: every DKJ-Solutions repo on GitHub, registered or not, with its open issues and PRs, its
+  checkout beside this repo and the session command to copy. Kept whole, as a section between Connected
+  repos and Issues, headed by an h2 like its neighbours; its repo cards' titles drop to h3.
+- `/dkj-repos` answers a 303 to `/connectors/dkj`, so an old link lands on the merged page; the product
+  home page loses its DKJ repos card, and the `repo-session` skill names the new address.
+- The page's one refresh link re-reads both sources: `/refresh` already cleared both caches.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-DkjReposSectionHtml` (was `Format-DkjReposPageHtml`) returns the section, its style and a
+  footer clause; `Format-ConnectorDashboardHtml` takes them as `-Section*` on a group's page only
+- [x] the server reads GitHub only for `/connectors/dkj`, and redirects `/dkj-repos`
+- [x] `Get-ProductPages` drops the card; the docs that named the page follow (`repo-session` skill,
+  hub README, the server's and libs' headers)
+- [x] tests: `dev-pages.tests.ps1` (the section, and the merged page's order) and
+  `connector-dashboard.tests.ps1` (the home page's cards, the live redirect)
 
 ### TEST
 
+- [ ] the owner has looked at `/connectors/dkj` on the product port
+
 ### DEPLOY: feat/3549-merge-dkj-repos-into-connectors
 
-**Score:**
+The DKJ repos have one page instead of two with the same title
+([#3549](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3549)): the DKJ group's connector page,
+`/connectors/dkj`, now also shows every DKJ-Solutions repo on GitHub with its checkout here and a session to
+open there, between its Connected repos table and its Issues card. The product home page drops its DKJ repos
+card, and `/dkj-repos` redirects to the merged page.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: this repo's own product pages; nothing a consumer runs changes.
+
+**Score:** N/A
 
 #### Pull Request
 

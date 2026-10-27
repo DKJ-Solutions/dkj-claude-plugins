@@ -3,9 +3,10 @@
     Serve this repo's PRODUCT on http://localhost:<Port>/ (#3540): the home page on '/', and this repo's own
     pages, which it links: /connectors, every repo registered under connectors/ with its plugins, its local
     checkout and what check-connectors.ps1 reports for it on this machine (#2976), one card per owner group
-    with each group a page of its own at /connectors/dkj, /bwj and /other; /specialists, every specialist the
-    dkj-subagents plugins ship and the context each one costs, read from this tree; and /dkj-repos, every
-    DKJ-Solutions repo on GitHub with its checkout here and a session to open there (#3231). The rules of
+    with each group a page of its own at /connectors/dkj, /bwj and /other -- the DKJ one also holding every
+    DKJ-Solutions repo on GitHub with its checkout here and a session to open there (#3231; its own page at
+    /dkj-repos until #3549, which now redirects there); and /specialists, every specialist the dkj-subagents
+    plugins ship and the context each one costs, read from this tree. The rules of
     each page are in scripts/lib/dev-pages-lib.ps1. The server takes no POST but the banner's.
 
     EVERY REPO HAS A PRODUCT PORT (Maikel, October 26, 2026, #3540). This server was this repo's own hub
@@ -311,7 +312,7 @@ try {
             if ($path -eq '/refresh') {
                 # At most one re-run per -MinRefreshSeconds, however often /refresh is asked for. ?page= names
                 # where to go back to, from a fixed list, so the redirect never leaves this server.
-                $page = if ([string]$target -cmatch '[?&]page=(connectors(?:/(?:dkj|bwj|other))?|dkj-repos)(&|$)') { $Matches[1] } else { '' }
+                $page = if ([string]$target -cmatch '[?&]page=(connectors(?:/(?:dkj|bwj|other))?)(&|$)') { $Matches[1] } else { '' }
                 if ($cache -and ((Get-Date) - $cache.At).TotalSeconds -ge $MinRefreshSeconds) { $cache = $null }
                 if ($dkjCache -and ((Get-Date) - $dkjCache.At).TotalSeconds -ge $MinRefreshSeconds) { $dkjCache = $null }
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = "/$page" } -Method $method
@@ -327,16 +328,22 @@ try {
                 # The overview with one card per owner group, or one group's own page (owner, October 26, 2026).
                 $group = [string]$Matches[1]
                 if ($null -eq $cache -or ((Get-Date) - $cache.At).TotalSeconds -ge $CacheSeconds) { $cache = Get-DashboardModel }
-                $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta -Group $group
+                # The DKJ group's page also holds every DKJ-Solutions repo on GitHub (#3549), read only for that page.
+                $section = @{ Html = ''; Style = ''; FooterNote = '' }
+                if ($group -eq 'dkj') {
+                    if ($null -eq $dkjCache -or ((Get-Date) - $dkjCache.At).TotalSeconds -ge $CacheSeconds) { $dkjCache = Get-DkjReposModel }
+                    $section = Format-DkjReposSectionHtml -Query $dkjCache.Query -Checkouts $dkjCache.Checkouts -Meta $dkjCache.Meta
+                    # A failed read of GitHub is shown once and not kept, so the next request asks again (Victor, #3231).
+                    if ($dkjCache.Query.Error) { $dkjCache = $null }
+                }
+                $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta -Group $group `
+                    -SectionHtml $section.Html -SectionStyle $section.Style -SectionFooterNote $section.FooterNote
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
             if ($path -eq '/dkj-repos') {
-                if ($null -eq $dkjCache -or ((Get-Date) - $dkjCache.At).TotalSeconds -ge $CacheSeconds) { $dkjCache = Get-DkjReposModel }
-                $html = Format-DkjReposPageHtml -Query $dkjCache.Query -Checkouts $dkjCache.Checkouts -Meta $dkjCache.Meta
-                # A failed read of GitHub is shown once and not kept, so the next request asks again (Victor, #3231).
-                if ($dkjCache.Query.Error) { $dkjCache = $null }
-                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                # Its own page until #3549, now a section of the DKJ group's: an old link or bookmark lands there.
+                Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/connectors/dkj' } -Method $method
                 continue
             }
             if ($path -eq '/specialists') {
