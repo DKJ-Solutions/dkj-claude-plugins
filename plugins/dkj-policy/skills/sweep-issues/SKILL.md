@@ -100,6 +100,14 @@ their blockers had merged. When all of them have landed, unpark the issue with t
 prints, and it is free for this same sweep. A parking comment that names no number or branch is read as
 before, and its reason says so.
 
+**The two external waits can also read as `stale-park`**
+([#3572](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3572)), each by what clears it.
+`awaiting-pull-external` clears once every `owner/repo#n` its clause names has landed *and* that repo has
+published a release since. `awaiting-release-external` clears once the `owner/repo` its clause names has
+published a release after the parking comment was written. What is left after either is this repo's own
+work, so the issue is free. **No other parking label is read**: each waits on a person, or on something no
+tracker records, and `awaiting-release` already surfaces at this repo's own cut.
+
 **Choosing and claiming are two steps on purpose.** Between them you still have to ask whether the
 issue is this repo's work at all. A tracker carrying an issue means the work is TRACKED here, not that
 it is OURS: where the issue mirrors a ticket from somewhere else, read who that ticket is assigned to
@@ -121,7 +129,10 @@ gh issue comment <n> --body "Parked by a sweep: waiting on <what>."
 ```
 
 For `awaiting-pull`, `<what>` names the blocker as `#<n>` or a branch, before any explanation (`waiting
-on #123's pull request -- ...`): that clause is what `stale-park` reads.
+on #123's pull request -- ...`): that clause is what `stale-park` reads. For `awaiting-pull-external` it
+names `owner/repo#n` in full, and for `awaiting-release-external` it names `owner/repo` (`waiting on
+owner/repo's next release -- ...`). The clause ends at the first sentence end, `;`, `:`, ` -- `,
+opening parenthesis or line break, so a list inside parentheses is not read.
 
 Where an installed extension closes an act-only issue instead of parking it (`bwj-development` does,
 #3062), that extension's close applies in place of `awaiting-action-dev`, under that extension's own

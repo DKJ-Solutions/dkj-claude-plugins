@@ -316,7 +316,11 @@ by the one-label rule above, and moves to `awaiting-pull` once that root wait cl
   `awaiting-pull` would come off two steps too early, and the owner read it as "a PR exists" when none
   did yet. `awaiting-action-external` and `awaiting-release`
   name a third party's date and this repo's own cut. **The label comes off once the upstream work is
-  available here**: merged, released and picked up. Name the blocking issue (`owner/repo#n`) in the body.
+  available here**: merged, released and picked up. Name the blocking issue (`owner/repo#n`) in the body,
+  and in the parking comment's `waiting on` clause: `claim-issue -Candidates` reads that clause and
+  reports `stale-park` once every name in it has merged and its repo has published a release since
+  ([#3572](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3572)). Picking it up is this
+  repo's own work from there.
   Plain `awaiting-pull` keeps its meaning: same repo, off at the merge. Both pickup routes skip it, and
   `claim-issue <n>` warns on it. It is a new label, so no former name is matched for it.
 
@@ -362,9 +366,11 @@ run. It is a new label, so no former name is matched for it.
   `awaiting-action-external` means. And its pull request had already merged, so `awaiting-pull-external`
   did not fit either. **The issue names that repo and that release** (`owner/repo` and the version, or
   "its next release"), and the label comes off once the release is out and the step has run. Both pickup
-  routes skip it, and `claim-issue <n>` warns on it. **Nothing lists it on its own**: the other repo's
-  cut reads only its own tracker, so the label keeps the issue out of the pickup routes and no more. It is
-  a new label, so no former name is matched for it.
+  routes skip it, and `claim-issue <n>` warns on it. **The other repo's cut does not list it**, because it
+  reads only its own tracker. Instead, `claim-issue -Candidates` reads the `owner/repo` in the parking
+  comment's `waiting on` clause and reports `stale-park` once that repo has published a release after the
+  comment ([#3572](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3572)). It is a new label,
+  so no former name is matched for it.
 
 **Exactly one label is the exception, and it is the only one this workflow prescribes: the reach label.**
 An issue that will land above tier 0 carries it, and `minor` is its default name. It is prescribed where

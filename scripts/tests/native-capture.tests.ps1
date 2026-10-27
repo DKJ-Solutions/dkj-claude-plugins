@@ -2019,7 +2019,10 @@ foreach ($af in $auditFiles) {
 # 99 -> 100 (#3406): update-plugins.ps1's $o (`git ls-remote origin HEAD` in the marketplace clone), at the shared
 # network bound, read only after a marketplace refresh failed. It asks Test-NativeExitMeasured, and anything but a
 # measured 0 is "cannot establish", so the refresh stays FAILED -- the conservative verdict step 1 already gives.
-Assert-Equal 100 $boundedTotal 'the parser still counts 100 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
+# 100 -> 101 (#3572): claim-issue.ps1's stale-park release read (`gh api repos/<owner/repo>/releases/latest`), at
+# the shared network bound, for the two external waits. It asks Test-NativeExitMeasured, and anything but a
+# measured 0 -- a repo that never published a release answers 404 -- is unread, so the issue stays skipped.
+Assert-Equal 101 $boundedTotal 'the parser still counts 101 bounded Invoke-NativeCapture sites outside scripts/tests/ -- a new one is not a failure, but it has to be audited and this number moved deliberately'
 Assert-Equal 0 $unguarded.Count `
     ('every bounded capture judged with a NEGATIVE exit-code test either asks Test-NativeExitMeasured/Get-NativeExitLabel about THAT capture or is exempt with a reason (#2081)' +
      $(if ($unguarded.Count) { ' -- unguarded: ' + ($unguarded -join ' | ') } else { '' }))
