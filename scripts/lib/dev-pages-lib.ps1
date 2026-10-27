@@ -338,6 +338,13 @@ function Format-SpecialistsPageHtml {
         return Format-SpecialistPageHtml -Row $one -Pick $pick -CharsPerToken $CharsPerToken -ReadError $ReadError
     }
     $max = if ($rows.Count) { [double]$rows[0].TotalBytes } else { 0 }
+    # Both levels' cards in one form: the hub card with an id, an h2 label and an off variant, which
+    # Format-HubCardLinkHtml does not take. Every argument arrives escaped.
+    $card = { param($id, $href, $aria, $label, $sub, $off)
+        '<section class="card card--link sp-card' + $(if ($off) { ' sp-card--off' } else { '' }) + '" id="' + $id + '">' +
+            '<nav class="menu-list" aria-label="' + $aria + '"><a class="menu-item" href="' + $href + '">' +
+            '<div class="menu-item__label"><h2 class="sp-card-title">' + $label + '</h2><span class="menu-item__sub">' + $sub + '</span></div>' +
+            $script:RepoHubChevron + '</a></nav></section>' }
 
     $body = New-Object System.Text.StringBuilder
     # Both levels open on their cards: no tiles, no heading over the grid and no lead (the owner, #3550; on a
@@ -354,10 +361,7 @@ function Format-SpecialistsPageHtml {
             $sub = @($p.Kind, $(if ($p.Enabled) { 'enabled here' } else { 'off here' }),
                 ([string]$p.Rows.Count + ' specialist' + $(if ($p.Rows.Count -ne 1) { 's' } else { '' })),
                 ('listing ' + (& $tok $p.ListingBytes)), ('full read ' + (& $tok $p.TotalBytes))) -join ' &middot; '
-            [void]$body.AppendLine('<section class="card card--link sp-card' + $(if ($p.Enabled) { '' } else { ' sp-card--off' }) + '" id="plugin-' + (& $e $p.Short) + '">' +
-                '<nav class="menu-list" aria-label="' + (& $e $p.Short) + '"><a class="menu-item" href="/specialists/' + (& $e $p.Short) + '">' +
-                '<div class="menu-item__label"><h2 class="sp-card-title">' + (& $e $p.Short) + '</h2><span class="menu-item__sub">' + $sub + '</span></div>' +
-                $script:RepoHubChevron + '</a></nav></section>')
+            [void]$body.AppendLine((& $card ('plugin-' + (& $e $p.Short)) ('/specialists/' + (& $e $p.Short)) (& $e $p.Short) (& $e $p.Short) $sub (-not $p.Enabled)))
         }
         if (-not $plugins.Count) {
             [void]$body.AppendLine('<section class="card grid__full"><p class="note">No specialist was found.</p></section>')
@@ -368,16 +372,13 @@ function Format-SpecialistsPageHtml {
             [void]$body.AppendLine('<p class="msg" role="status">Not enabled in this repo''s <code>.claude/settings.json</code>: no session here carries its listing, and its specialists have no lens here.</p>')
         }
         # One card per specialist, in roster order, each the link to its own page (#3551), four to a row (the
-        # owner, October 27, 2026): .grid-3 keeps its head and spacing rules, .sp-grid-4 only sets the columns.
-        [void]$body.AppendLine('<div class="grid-3 sp-grid-4" id="cards">')
+        # owner, October 27, 2026), in a grid of its own: the house .grid-3 is never restyled here.
+        [void]$body.AppendLine('<div class="sp-grid" id="cards">')
         foreach ($r in @($rows | Sort-Object @{ Expression = { $_.Id } })) {
             $label = (& $e $r.Name) + $(if ($r.Emoji) { ' ' + (& $e $r.Emoji) } else { '' })
             $sub = @(('#' + (& $e $r.Number)), $(if ($r.Title) { & $e $r.Title }), (& $e $r.Form), ('full read ' + (& $tok $r.TotalBytes))) |
                 Where-Object { $_ }
-            [void]$body.AppendLine('<section class="card card--link sp-card" id="specialist-' + (& $e $r.Slug) + '">' +
-                '<nav class="menu-list" aria-label="' + (& $e $r.Name) + '"><a class="menu-item" href="/specialists/' + (& $e $pick.Short) + '/' + (& $e $r.Slug) + '">' +
-                '<div class="menu-item__label"><h2 class="sp-card-title">' + $label + '</h2><span class="menu-item__sub">' + ($sub -join ' &middot; ') + '</span></div>' +
-                $script:RepoHubChevron + '</a></nav></section>')
+            [void]$body.AppendLine((& $card ('specialist-' + (& $e $r.Slug)) ('/specialists/' + (& $e $pick.Short) + '/' + (& $e $r.Slug)) (& $e $r.Name) $label ($sub -join ' &middot; ') $false))
         }
         [void]$body.AppendLine('</div>')
         [void]$body.AppendLine('<div class="grid-2" id="specialists">')
@@ -420,14 +421,15 @@ function Format-SpecialistsPageHtml {
     }
     $factor = $CharsPerToken.ToString('0.00', $inv)
     # The card title sits flush in its card (as /connectors' do); an off plugin's card is muted, never hidden.
-    # The specialist grid steps down 4 -> 3 -> 2 -> 1; its own breakpoints, since this rule sits after the house
-    # stylesheet's and would otherwise outrank its steps.
+    # The specialist grid is its own, four to a row and stepping down 4 -> 3 -> 2 -> 1, in .grid-3's gap and
+    # breakpoints (as the DKJ repos' .dr-grid is).
     $style = $script:DevBarStyle + "`n" + '.sp-card-title { margin: 0; }' + "`n" + '.sp-card--off { opacity: 0.7; }' + "`n" +
         (@(
-            '.grid-3.sp-grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }',
-            '@media (max-width: 1200px) { .grid-3.sp-grid-4 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }',
-            '@media (max-width: 1000px) { .grid-3.sp-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }',
-            '@media (max-width: 760px) { .grid-3.sp-grid-4 { grid-template-columns: 1fr; } }'
+            '.sp-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--spacing-4); }',
+            '@media (max-width: 1200px) { .sp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }',
+            '@media (max-width: 1000px) { .sp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }',
+            '@media (max-width: 760px) { .sp-grid { grid-template-columns: 1fr; } }',
+            '.sp-grid > .card { margin-top: 0; }'
         ) -join "`n")
     $footer = 'Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Bytes are measured (hover a cell); tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.'
     if ($pick) {
