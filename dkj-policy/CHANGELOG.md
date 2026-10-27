@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**3 / 8 minor entries** <!-- pending-tally -->
+**3 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3549-merge-dkj-repos-into-connectors · 20261027-083154Z
+
+The DKJ repos have one page instead of two with the same title
+([#3549](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3549)): the DKJ group's connector page,
+`/connectors/dkj`, now also shows every DKJ-Solutions repo on GitHub with its checkout here and a session to
+open there, between its Connected repos table and its Issues card. The product home page drops its DKJ repos
+card, and `/dkj-repos` redirects to the merged page.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: this repo's own product pages; nothing a consumer runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Merge the DKJ repos card into the /connectors/dkj page
+
+Plugins: dkj-policy
+
+[PR #3553](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3553)
+
+---
 
 ### DEPLOY: fix/3547-freshness-restart-after-update · 20261026-223340Z
 
