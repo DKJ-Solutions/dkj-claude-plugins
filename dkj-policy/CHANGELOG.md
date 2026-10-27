@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**5 / 11 minor entries** <!-- pending-tally -->
+**5 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3550-specialists-page-plugin-cards · 20261027-091242Z
+
+The product's Specialists page shows one card per specialist plugin
+([#3550](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3550)), the core team first, each with
+its specialist count, its total context cost and whether it is enabled here. Each card links to that
+plugin's own page, `/specialists/<plugin>`, with its specialists and what each one costs. A plugin that is
+not enabled here still gets a card, muted, and its page says no session here carries its listing.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: this repo's own product pages; nothing a consumer runs changes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Specialists page: one card per specialist plugin
+
+[PR #3559](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3559)
+
+---
 
 ### DEPLOY: fix/3554-clearance-forecast-before-gates · 20261027-090056Z
 
