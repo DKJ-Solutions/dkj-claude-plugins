@@ -62,7 +62,8 @@
 
 ### TEST
 
-- [ ] the owner has looked at `/connectors/dkj` on the product port
+- [x] the owner has looked at `/connectors/dkj` on the product port: "gezien en akkoord" (Maikel,
+  October 27, 2026)
 
 ### DEPLOY: feat/3549-merge-dkj-repos-into-connectors
 
