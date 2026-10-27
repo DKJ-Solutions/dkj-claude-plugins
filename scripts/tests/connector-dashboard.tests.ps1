@@ -338,7 +338,9 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             Assert-Equal 405 (Get-Status 'POST' '/' "localhost:$port") 'a POST is refused'
             Assert-Equal 405 (Get-Status 'POST' '/stopwatch/start?label=x' "localhost:$port" "Sec-Fetch-Site: same-origin`r`n") 'the Stopwatch takes no POST any more (#3323)'
             # THE GENERAL PAGES ARE THE PLUGIN HUB'S (#3540): this server is the product, so it neither builds nor relays them.
-            foreach ($general in '/stopwatch', '/logbook', '/test-gate', '/plugins', '/repository', '/artifacts', '/issues', '/sessionstart', '/release-notes', '/about') {
+            # /plugins is not among them: the product has a Plugins page of its own, what the marketplace ships, where
+            # the hub's is what this checkout enables (the owner, October 27, 2026).
+            foreach ($general in '/stopwatch', '/logbook', '/test-gate', '/repository', '/artifacts', '/issues', '/sessionstart', '/release-notes', '/about') {
                 Assert-Equal 404 (Get-Status 'GET' $general "localhost:$port") "$general is no page of the product: it is the plugin hub's"
             }
             Assert-Equal 404 (Get-Status 'GET' '/../connectors/x.json' "localhost:$port") 'a path outside the routes is not found'
@@ -407,6 +409,12 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         Copy-Item $Server (Join-Path $src 'scripts\dashboard\')
         Set-Content -LiteralPath (Join-Path $src 'connectors\noup.json') -Encoding ASCII -Value '{ "repo": "Org/noup", "visibility": "private", "localCheckout": "../noup", "plugins": [] }'
         Set-Content -LiteralPath (Join-Path $src 'connectors\far.json') -Encoding ASCII -Value ('{ "repo": "Org/far", "visibility": "public", "localCheckout": "../../../' + (Split-Path -Leaf $outside) + '", "plugins": [] }')
+        # One marketplace plugin with a manifest, a skill and a hook, and one whose source escapes plugins/ (the Plugins page).
+        New-Item -ItemType Directory -Force -Path (Join-Path $src '.claude-plugin'), (Join-Path $src 'plugins\p-one\.claude-plugin'), (Join-Path $src 'plugins\p-one\skills\s1'), (Join-Path $src 'plugins\p-one\hooks') | Out-Null
+        Set-Content -LiteralPath (Join-Path $src '.claude-plugin\marketplace.json') -Encoding ASCII -Value '{ "plugins": [ { "name": "p-one", "source": "./plugins/p-one", "description": "The first <b>one</b>." }, { "name": "p-bad", "source": "./plugins/../..", "description": "Escapes." } ] }'
+        Set-Content -LiteralPath (Join-Path $src 'plugins\p-one\.claude-plugin\plugin.json') -Encoding ASCII -Value '{ "name": "p-one", "version": "9.8.7", "description": "Full text." }'
+        Set-Content -LiteralPath (Join-Path $src 'plugins\p-one\skills\s1\SKILL.md') -Encoding ASCII -Value 'x'
+        Set-Content -LiteralPath (Join-Path $src 'plugins\p-one\hooks\hooks.json') -Encoding ASCII -Value '{ "hooks": { "SessionStart": [ { "hooks": [ { "type": "command", "command": "a" }, { "type": "command", "command": "b" } ] } ] } }'
         & git -C $noup init -q 2>$null
         & git -C $noup -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m 'local only' 2>$null
         & git -C $outside init -q 2>$null
@@ -442,7 +450,17 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $srcState = Get-RepoHubStatePath -Root $src
             # The product's home page on '/' and the pages under it (#3540).
             $home3 = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($home3 -match 'HTTP/1.1 200' -and $home3 -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span>' -and $home3 -match 'href="/connectors"' -and $home3 -match 'href="/specialists"' -and $home3 -notmatch 'href="/dkj-repos"') '/ serves the product''s home page, linking Connectors and Specialists'
+            Assert-True ($home3 -match 'HTTP/1.1 200' -and $home3 -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span>' -and $home3 -match 'href="/connectors"' -and $home3 -match 'href="/specialists"' -and $home3 -match 'href="/plugins"' -and $home3 -notmatch 'href="/dkj-repos"') '/ serves the product''s home page, linking Connectors, Specialists and Plugins'
+            $r = if ($up) { Get-Raw 'GET' '/plugins' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Plugins</h1>' -and $r -match 'href="/plugins/p-one"' -and $r -match 'v9\.8\.7') '/plugins lists each marketplace plugin as a card linking its own page, with its version'
+            Assert-True ($r -match 'id="plugin-p-bad"' -and $r -match 'msg--warn[^\n]*p-bad \(its source\)') 'and a plugin whose source leaves plugins/ keeps its card, with nothing read from it and the reason named'
+            $r = if ($up) { Get-Raw 'GET' '/plugins/p-one' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>p-one</h1>' -and $r -match '1 skill &middot; 2 hooks' -and $r -match 'class="lead">The first &lt;b&gt;one&lt;/b&gt;\.' -and $r -match '<p>Full text\.</p>') '/plugins/<name> is its own page: what it holds, its line as the lead and its full description'
+            $r = if ($up) { Get-Raw 'GET' '/plugins/nope' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($r -match 'HTTP/1.1 404') 'a plugin the marketplace does not list is not found'
+            $r = if ($up) { Get-Raw 'GET' '/plugins/p-one/x' "localhost:$port3" '' $port3 } else { '' }
+            $r2 = if ($up) { Get-Raw 'GET' '/plugins/dkj-subagents' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($r -match 'HTTP/1.1 404' -and $r2 -match 'HTTP/1.1 404') 'nor is a level under a plugin that is no group, or the teams'' page of a marketplace with no teams'
             $r = if ($up) { Get-Raw 'GET' '/dkj-repos' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($r -match 'HTTP/1.1 303' -and $r -match 'Location: /connectors/dkj\r') 'the old /dkj-repos sends an old link to /connectors/dkj, which holds the repos on GitHub since #3549'
             Assert-True ($home3 -match 'The hub is not running' -and $home3 -notmatch 'href="http://localhost' -and $home3 -notmatch 'href="/brandbook' -and $home3 -notmatch 'href="/test-gate"') 'with no state file it says the hub is not running, and links no general page of its own'
@@ -614,8 +632,8 @@ $rsRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('repo-session-' + [guid]:
 $rsHub = Join-Path $rsRoot 'org\hub'
 New-Item -ItemType Directory -Force -Path (Join-Path $rsHub 'connectors'), (Join-Path $rsHub 'scripts\lib'), (Join-Path $rsRoot 'org\dkj-lifehub') | Out-Null
 # repo-session.ps1 loads the hub's page lib, which loads the connector lib and the plugin libs beside it
-# (dev-preview-rules.ps1 for the Product card's url rule, #3468; test-gate-lib.ps1, the Test gate's page, #3470).
-foreach ($lib in 'scripts\lib\connector-dashboard-lib.ps1', 'scripts\lib\dev-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\general-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\dev-preview-rules.ps1', 'plugins\dkj-policy\hub\lib\test-gate-lib.ps1') {
+# (dev-preview-rules.ps1 for the Product card's url rule, #3468; test-gate-lib.ps1, the Test gate's page, #3470; plugins-page-lib.ps1, whose description paragraphs the product's Plugins pages use).
+foreach ($lib in 'scripts\lib\connector-dashboard-lib.ps1', 'scripts\lib\dev-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\general-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\dev-preview-rules.ps1', 'plugins\dkj-policy\hub\lib\test-gate-lib.ps1', 'plugins\dkj-policy\hub\lib\plugins-page-lib.ps1') {
     $to = Join-Path $rsHub (Split-Path -Parent $lib)
     New-Item -ItemType Directory -Force -Path $to | Out-Null
     Copy-Item -LiteralPath (Join-Path $RepoRoot $lib) -Destination $to
