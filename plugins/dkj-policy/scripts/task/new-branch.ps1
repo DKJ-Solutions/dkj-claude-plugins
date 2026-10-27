@@ -684,6 +684,41 @@ if ($ghRepoName -and $mergedNameHosted) {
     }
 }
 
+# --- DOES THE ISSUE ALREADY HAVE A BRANCH ON ORIGIN UNDER ANOTHER NAME? (issue #3602) --------------
+#
+# MEASURED October 27, 2026: two sweeps on two machines parked two independent fixes for #3596, two and a
+# half minutes apart. The second sweep's claim REFUSED -- 'held' by the first machine's tag -- but it ran
+# `claim-issue.ps1 3596 -Tag 2>&1 | Select-Object -Last 1; ...; new-branch.ps1 ...`: the last line of the
+# refusal is the issue URL, and `;` ran this script whatever the claim said. So the refusal existed and
+# nothing between it and the push read it. This is the step that cannot be chained past, because it is
+# the one that makes the branch.
+#
+# ONLY ON A FRESH CUT OF A NUMBERED NAME. A resume is the same branch by definition, and a name without
+# '<prefix>/<n>-' names no issue to compare. ls-remote rather than the refs Get-TrunkGap just fetched,
+# because that fetch does not prune: a merged and deleted sibling would still read as live on disk.
+#
+# A REFUSAL, because the sibling is somebody's unlanded work on the same issue -- read it, resume it with
+# its own name, or delete it if it is spent. A remote that cannot be listed is said and passed, as the
+# claim's own unmarked-branch check passes it.
+$siblingIssue = Get-BranchNameIssue -Branch $Name
+if (-not $resuming -and $siblingIssue -gt 0) {
+    $siblingHeads = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $repoRoot, 'ls-remote', '--heads', 'origin') -Utf8 -DiscardStderr `
+                                         -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+    if (-not $siblingHeads -or -not (Test-NativeExitMeasured -Capture $siblingHeads) -or $siblingHeads.ExitCode -ne 0 -or $siblingHeads.ShortRead) {
+        Write-Host "Issue #$siblingIssue not checked for another branch on origin: origin's branches could not be listed." -ForegroundColor DarkGray
+    } else {
+        . (Join-Path $PSScriptRoot '..\lib\claim-issue-lib.ps1')
+        $siblings = @(Get-IssueBranchNames -Text (@($siblingHeads.Output) -join "`n") -Issue $siblingIssue | Where-Object { $_ -ne $Name })
+        if ($siblings.Count -gt 0) {
+            Write-Host "Refused: issue #$siblingIssue already has a branch on origin -- $(Format-ForConsole -Text ($siblings -join ', '))." -ForegroundColor Red
+            Write-Host '  Two branches for one issue are two fixes the owner has to compare and one of them deleted.' -ForegroundColor DarkGray
+            Write-Host "  Read that branch first. To carry it on, run this again with -Name $(Format-ForConsole -Text $siblings[0]); if it is spent," -ForegroundColor DarkGray
+            Write-Host '  delete it on origin first. Nothing was created: no branch, no document, nothing on origin.' -ForegroundColor DarkGray
+            exit 1
+        }
+    }
+}
+
 # --- AND IS THE BRANCH YOU ARE RESUMING BEHIND ITS OWN REMOTE HEAD? (issue #1439) ------------------
 #
 # THE DUPLICATE SIGNAL NOTHING READ. Two sessions built feat/plugin-policy-precedence in full -- both
