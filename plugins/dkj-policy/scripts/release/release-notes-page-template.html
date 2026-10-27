@@ -238,7 +238,8 @@
   article h1 { font-size: 1.35rem; letter-spacing: -.015em; margin: 0 0 .5rem; line-height: 1.25; }
   /* NO RULE ABOVE A SECTION'S H2 (owner, October 27, 2026), and no padding either, which only held the rule
      off the heading: the grid of cards under it already marks where a section starts. */
-  /* THE HOUSE TYPE SCALE WHERE THERE IS ONE (owner, October 27, 2026): --text-h2 and --text-h3 come from the
+  /* THE HOUSE TYPE SCALE WHERE THERE IS ONE (owner, October 27, 2026): --text-h2, --text-h3 and, for a
+     paragraph below, --text-base come from the
      house stylesheet the hub puts around this page. The page is self-contained, so where nothing defines them
      (a Worker-served page) the fallback is the size it always had. */
   article h2 { font-size: var(--text-h2, 1.1rem); margin: 1.75rem 0 .5rem; }
@@ -247,7 +248,7 @@
     font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
     color: var(--accent); margin: 1.5rem 0 .5rem;
   }
-  article p { margin: .8rem 0; max-width: 66ch; }
+  article p { margin: .8rem 0; max-width: 66ch; font-size: var(--text-base, 1rem); }
   article ul, article ol { padding-left: 1.35rem; margin: .8rem 0; max-width: 66ch; }
   article li { margin: .3rem 0; }
   article li > p { margin: .3rem 0; }
