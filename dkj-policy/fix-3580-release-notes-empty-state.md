@@ -54,6 +54,9 @@ missing note root and an empty table, and the general hub served that throw as a
 - [x] `release-notes-page.tests.ps1`: the issue's three pre-release shapes exit 3; a history with a
   release and no note root still refuses
 - [x] `dev-pages.tests.ps1`: the empty-state page, and the server's reading of exit 3
+- [x] `dev-preview-sessionstart.tests.ps1`: the live server answers `/release-notes` with the empty state
+  (200) and a release's own page with a 404 naming why; the #3189 assert that pinned the old build error
+  is updated
 
 ### DEPLOY: fix/3580-release-notes-empty-state
 
