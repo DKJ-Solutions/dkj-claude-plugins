@@ -10,15 +10,18 @@
     elevation. This watcher runs in the same session as the server it watches. Every -PollSeconds it reads
     its own session's connect state (WTSQuerySessionInformation, WTSConnectState); once that has read
     WTSDisconnected for -GraceSeconds without a break, it stops the server's whole tree (taskkill /T /F) and
-    exits. It exits as soon as the server does, so a server stopped by hand leaves nothing behind. The rules
-    are Get-DevPreviewWatchStep in hub/lib/dev-preview-rules.ps1.
+    exits. A disconnect counts only after the session was seen connected (#3595): one that reads
+    disconnected from the start is in use while disconnected, since the hook ran there. It exits as soon as
+    the server does, so a server stopped by hand leaves nothing behind. The rules are
+    Get-DevPreviewWatchStep in hub/lib/dev-preview-rules.ps1.
 
       -ProcessId     the cmd.exe the hook launched (the root of the server's tree)
       -StartTicks    that process's start time as FILETIME UTC: a pid reused by another process is not
                      the server, and is never stopped
       -GraceSeconds  how long the session must stay disconnected (default 60)
       -PollSeconds   how often it looks (default 15)
-      -ForceState    the TEST override: the connect state to read instead of the session's own
+      -ForceState    the TEST override: the connect states to read instead of the session's own, one per
+                     poll and the last one repeated, space-separated (e.g. '0 4')
 
     Exits 0 in every case: nobody reads its exit code. Pure ASCII (repo convention for .ps1).
 #>
@@ -28,7 +31,7 @@ param(
     [long]$StartTicks = 0,
     [int]$GraceSeconds = -1,
     [int]$PollSeconds = -1,
-    [int]$ForceState = -2
+    [string]$ForceState = ''
 )
 $ErrorActionPreference = 'Stop'
 try {
@@ -40,7 +43,8 @@ try {
     $target = [Diagnostics.Process]::GetProcessById($ProcessId)
     if ($StartTicks -and $target.StartTime.ToFileTimeUtc() -ne $StartTicks) { exit 0 }
 
-    if ($ForceState -eq -2) {
+    $forced = @($ForceState -split '\s+' | Where-Object { $_ } | ForEach-Object { [int]$_ })
+    if (-not $forced.Count) {
         Add-Type -Namespace DkjDevPreview -Name Wts -MemberDefinition @'
 [DllImport("wtsapi32.dll", SetLastError = true)]
 static extern bool WTSQuerySessionInformation(IntPtr server, int sessionId, int infoClass, out IntPtr buffer, out int bytes);
@@ -57,9 +61,13 @@ public static int ConnectState() {
     }
 
     $since = $null
+    $armed = $false
+    $poll = 0
     while (-not $target.HasExited) {
-        $state = if ($ForceState -ne -2) { $ForceState } else { try { [DkjDevPreview.Wts]::ConnectState() } catch { -1 } }
-        $step = Get-DevPreviewWatchStep -State $state -Since $since -Now (Get-Date) -GraceSeconds $GraceSeconds
+        $state = if ($forced.Count) { $forced[[Math]::Min($poll, $forced.Count - 1)] } else { try { [DkjDevPreview.Wts]::ConnectState() } catch { -1 } }
+        $poll++
+        $step = Get-DevPreviewWatchStep -State $state -Since $since -Now (Get-Date) -GraceSeconds $GraceSeconds -Armed $armed
+        $armed = $step.Armed
         if ($step.Stop) {
             # Read again just before the kill: a server gone since the last look leaves its pid free for reuse.
             if ($target.HasExited) { break }
