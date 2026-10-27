@@ -97,6 +97,20 @@ function Format-DevDuration {
     return ($h / 24).ToString('0.0', $inv) + ' d'
 }
 
+# The most sections one page may hold before it becomes cards with a page each (the house style README, #3563).
+# SessionStart's seven were too many (#3543); the Issues page's three and the Artifacts page's two are not.
+$script:LongPageSectionLimit = 4
+
+function Get-PageSectionCount {
+    <#
+        How many sections -Body holds: the .grid__head blocks opening on an h2, the house's section heading. Cards,
+        rows and a grid__head holding the page's own h1 do not count, so a long list inside one section is not a
+        long page.
+    #>
+    param([AllowEmptyString()][string]$Body = '')
+    return [regex]::Matches($Body, 'class="grid__head">\s*<h2[\s>]').Count
+}
+
 function Format-GeneralPageHtml {
     <#
         The whole page around -Body. -Title is the page's own name: the last crumb, the h1 and the
@@ -180,6 +194,13 @@ function Format-GeneralPageHtml {
         if ($Lead) { [void]$sb.AppendLine('<p class="lead">' + $Lead + '</p>') }
         [void]$sb.AppendLine('</div>')
         if ($HeadAside) { [void]$sb.AppendLine($HeadAside); [void]$sb.AppendLine('</header>') }
+    }
+    # A LONG PAGE BECOMES CARDS WITH A PAGE EACH (#3563): the rule was applied page by page and written down nowhere,
+    # so a page that breaks it now says so itself, at its top, rather than waiting for the owner to spot it.
+    $sections = Get-PageSectionCount -Body $Body
+    if ($sections -gt $script:LongPageSectionLimit) {
+        [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">This page holds ' + $sections + ' sections in one column. A page with more than ' +
+            $script:LongPageSectionLimit + ' becomes an overview of cards, each opening a page of its own: the house style''s page rule (#3563).</p>')
     }
     [void]$sb.Append($Body)
     if ($FooterNote) { [void]$sb.AppendLine('<p class="footer-note">' + $FooterNote + '</p>') }

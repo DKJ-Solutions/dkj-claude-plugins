@@ -38,6 +38,10 @@
       /plugins, /plugins/<name>   a card per enabled plugin, and each one's own page: plugin-versions.ps1 -Json, the repo's
                       own copy first, then this plugin's, run in a CHILD process bounded at 30 s (Read-PluginsPageModel,
                       hub/lib/plugins-page-lib.ps1, #3482). A script that fails or is missing is a warning on the page.
+      /plugins/dkj-solutions/house-style[/<section>]
+                      the house style's specimens (assets/house-style/specimens.html, read per request): a card per
+                      section, and each section's own page (Split-HouseStyleSpecimens, #3563); a slug no section has
+                      is a 404.
       /stopwatch, /stopwatch/<label>[/<run>], /logbook, /logbook/<slug>
                       this repo's timing stores on this machine (%LOCALAPPDATA%\dkj-claude-plugins\repos\<repo>\),
                       which the plugin's UserPromptSubmit and Stop hooks write, and the session transcripts under
@@ -522,7 +526,12 @@ try {
                         # The specimens beside the stylesheet this server already serves (#3493), read per request.
                         $specError = ''; $spec = ''
                         try { $spec = [System.IO.File]::ReadAllText((Join-Path $styleDir 'specimens.html'), $utf8) } catch { $specError = $_.Exception.Message }
-                        $html = Format-HouseStyleSpecimensPageHtml -Body $spec -ReadError $specError -RepoName (Get-RepoIdentity).Name
+                        # The overview, or one section's own page (#3563); a slug no section has is a 404.
+                        $html = Format-HouseStyleSpecimensPageHtml -Body $spec -ReadError $specError -RepoName (Get-RepoIdentity).Name -Section $plReq.Section
+                        if ($null -eq $html) {
+                            Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('No house-style section of that name.')) -Method $method
+                            continue
+                        }
                     } else {
                         $html = Format-PluginPageHtml -Row $plRow -Model $pl.Model -RepoName (Get-RepoIdentity).Name
                     }

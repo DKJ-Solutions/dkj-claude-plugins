@@ -238,7 +238,8 @@ section **number** that stage is (leave it unset and the default is `3`), then r
 sections and take the one whose name starts with that number. The words after the number are the
 team's and tell you nothing, so match on the **number** only.
 `WORKFLOW-portable.md` step 6 says what remains of the stage model: the tooling writes `Filed` here and
-`InReview` on a completed close with a block (#3248), and a person moves a card through the others. **If the project has no numbered sections,
+`InReview` on a completed close with a block (#3248) and `InDevelopment` on a reopen (#3562), and a person
+moves a card through the others. **If the project has no numbered sections,
 place nothing and say so** -- that board is not a pipeline.
 
 **Then post the `created:` comment on the task you just created**, in the fixed form below (write 2 of
@@ -355,11 +356,12 @@ failed mirror. **Do not resolve anything, and do not promise that anything else 
 Closing the GitHub issue as completed posts one comment on the task: the `asana-closed-message`
 workflow's closed message, carrying the go-live block (the `golive-block` skill) the shipping session
 left on the issue (#2818; a block from before the issue's last reopen is withheld, #2968), and then moves
-the card into `InReview` (#3248); reopening it posts the reopened message (#2854). That is all it does.
+the card into `InReview` (#3248); reopening it posts the reopened message (#2854), then moves the card
+into `InDevelopment` and marks a completed task incomplete (#3562). That is all it does.
 The rest of the retired `asana-mirror` CI (the stage sweep, every other move) did not come back, so the
-card stays in `Filed` unless a person moves it, apart from that one move at a completed close with a
-block, and the task stays open until the colleague who filed it ticks it off. Nothing in this chain
-completes a task, and nothing puts a card in `Completed` either.
+card stays in `Filed` unless a person moves it, apart from those two moves, and the task stays open until
+the colleague who filed it ticks it off. Nothing in this chain completes a task, and nothing puts a card
+in `Completed` either.
 
 **Say which section the card is in**, alongside the two URLs. It is the half a colleague can see
 without a GitHub account, and it is the one part of this run somebody may need to correct.

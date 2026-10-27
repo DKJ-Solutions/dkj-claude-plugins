@@ -2,7 +2,90 @@
 
 ## [Unreleased]
 
-**8 / 15 minor entries** <!-- pending-tally -->
+**10 / 18 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/allow-tree-hub-server · 20261027-102329Z
+
+A session in this repo can now serve the tree's own hub on a spare port without a permission refusal, so a
+merged hub change can be looked at before the release that carries it to `:4892`. The allow rules name the
+one server script and nothing wider.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a permission in this repo's own settings and a note in the source-repo section; no consumer takes
+either.
+
+**Score:** N/A
+
+#### Pull Request
+
+Allow a session to serve the tree's own hub without a permission refusal
+
+Plugins: dkj-policy
+
+[PR #3571](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3571)
+
+---
+
+### DEPLOY: feat/3563-long-pages-become-cards · 20261027-101351Z
+
+The hub rule "a page with more than four sections becomes an overview of cards, each opening a page of its
+own" is now written down in the house-style README and the `house-style` skill. The hub's page shell checks
+it on every page it renders and puts a warning at the top of any page that breaks it. The House style page
+under `/plugins/dkj-solutions/house-style` follows the rule itself: it shows 11 cards instead of 85 KB of
+specimens in one column, and each section has its own page.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo running the hub gets the House style page as cards, with one page per section. A hub page that
+grows past four sections now says so on the page itself, so the shape is caught as it happens instead of
+being spotted later.
+
+**Score:** 3
+
+#### Pull Request
+
+Hub pages: a long page becomes cards with a page each, written down and guarded
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3567](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3567)
+
+---
+
+### DEPLOY: feat/3562-asana-reopen-card-back · 20261027-100117Z
+
+When a GitHub issue linked to an Asana task is reopened, `asana-closed-message` now moves the card into
+the board's `InDevelopment` section and marks the task incomplete if it was completed, after posting the
+reopened message ([#3562](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3562)). Unlike the
+review move (#3248) it does take a card out of `Completed`. Where the task is on several boards, or its
+board has no single section with the `InDevelopment` code, the move is skipped and the message and the
+untick still go out. The untick only ever sets `completed` to false. A store takes it by re-copying
+`.github/scripts/asana-closed-message.ps1`, and the move needs `InDevelopment` in its
+`Get-AsanaStageMap`; without it, only the untick happens.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A reopened ticket's Asana card now goes back to In Progress and is unticked on its own, so the board
+agrees with the "back in development" message instead of waiting for someone to drag it.
+
+**Score:** 3
+
+#### Pull Request
+
+asana-closed-message: on a reopen, move the card to InDevelopment and mark it incomplete
+
+Plugins: bwj-development
+
+[PR #3568](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3568)
+
+---
 
 ### DEPLOY: feat/test-gate-drilldown · 20261027-094730Z
 
