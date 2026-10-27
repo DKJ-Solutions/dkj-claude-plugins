@@ -344,6 +344,9 @@ function New-Fixture {
     Copy-Item -LiteralPath $IssueStateLibSrc -Destination (Join-Path $dir 'scripts\lib\issue-state-lib.ps1')         -Force
     Copy-Item -LiteralPath $RemoteAheadLibSrc -Destination (Join-Path $dir 'scripts\lib\remote-ahead-lib.ps1')       -Force
     Copy-Item -LiteralPath $RefPrintLibSrc    -Destination (Join-Path $dir 'scripts\lib\ref-print-lib.ps1')          -Force
+    # claim-issue-lib.ps1 (#3602): a fresh cut of a numbered name reads origin's branches for a sibling
+    # through Get-IssueBranchNames, the convention the claim's own branch checks use.
+    Copy-Item -LiteralPath (Join-Path $RepoRoot 'scripts\lib\claim-issue-lib.ps1') -Destination (Join-Path $dir 'scripts\lib\claim-issue-lib.ps1') -Force
 
     $prevEap = $ErrorActionPreference
     try {

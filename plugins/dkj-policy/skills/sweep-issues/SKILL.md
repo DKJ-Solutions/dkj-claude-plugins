@@ -163,6 +163,14 @@ wrote it: same account is not same session. Measured October 24, 2026
 after step 1, and the other session's branch merged first. Read the branch, and resume your own work
 with `-TakeOver` below.
 
+**Run the claim on its own and read its whole verdict before step 3.** Never chain it into `new-branch`
+with `;`, and never cut its output with `Select-Object -Last 1`: the last line of a refusal is the issue
+URL, so a cut refusal reads like a claim. Measured October 27, 2026
+([#3602](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3602)): a sweep's claim on #3596
+refused as `held`, the chained `new-branch` ran anyway, and the owner got two parked fixes for one
+issue. `new-branch` now refuses a second `<prefix>/<n>-*` branch when origin already carries one, but
+that only catches a branch already pushed, not a claim still in flight.
+
 **A refusal is final here -- with one deliberate exception.** `held` means another machine is mid-flight
 and its branch is somewhere this session cannot see. The exception is your OWN issue on another of your
 machines, whose branch IS on origin -- the state a machine you cannot reach leaves behind

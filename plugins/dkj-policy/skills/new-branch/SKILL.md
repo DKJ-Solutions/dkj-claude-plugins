@@ -243,6 +243,24 @@ Refused: 'docs/stopwatch-css-comment' is used up -- PR #3334 for it is already m
   hosted `origin`. A repo with neither, or a fixture with a local-path remote, asks nothing, and a `gh`
   that cannot answer is said in one dim line and passed -- `open-pr` asks again before anything opens.
 
+## A second branch for an issue that already has one is refused (issue #3602)
+
+**Measured October 27, 2026:** two sweeps on two machines parked two independent fixes for #3596, two
+and a half minutes apart. The second sweep's claim did refuse, but its command line was
+`claim-issue.ps1 3596 -Tag 2>&1 | Select-Object -Last 1; ...; new-branch.ps1 ...`, so the refusal
+was cut down to its URL line and `new-branch` ran anyway.
+
+So a **fresh cut** of a numbered name (`<prefix>/<n>-<short-name>`) lists `origin`'s branches with
+`git ls-remote` and **refuses** when another `<prefix>/<n>-*` branch is there. Nothing is created, and
+the run names that branch: read it, resume it with its own `-Name`, or delete it on `origin` if it is
+spent.
+
+- **A resume is never refused**, because it is that same branch.
+- **`ls-remote` rather than the refs on disk**: the fetch before it does not prune, so a merged and
+  deleted sibling would still read as live there.
+- **A remote that cannot be listed is said in one dim line and passed**, as the claim's own
+  unmarked-branch check passes it.
+
 ## Resuming a branch that exists only on `origin` (issue #1139)
 
 **A parked branch IS this workflow's cross-device handoff**, which is what makes this more than an

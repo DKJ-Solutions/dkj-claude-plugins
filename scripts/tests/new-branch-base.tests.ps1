@@ -184,6 +184,27 @@ try {
     $branchesT4 = ((& git -C $fixBoth branch --list 'feat/cut-from-stale-stack-v1') -join '').Trim()
     Assert-True (-not [bool]$branchesT4) 'behind and stacked: and nothing was created -- the refusal is still before the checkout'
 
+    # --- (t5) THE ISSUE ALREADY HAS A BRANCH ON ORIGIN: REFUSED (#3602) -----------------------------
+    # Two sweeps parked two fixes for #3596: the second's claim refused, and a `;` ran this script anyway.
+    # A sibling under the same number refuses a fresh cut; a different number, and a resume, do not.
+    Write-Host "new-branch.ps1 -- a second branch for one issue is REFUSED (#3602)" -ForegroundColor Cyan
+    $fixSib = New-Fixture -Label 't5'
+    $bareSib = New-BareOrigin -Dir $fixSib -Label 't5'
+    Publish-FixtureTrunk -Dir $fixSib
+    Add-OriginBranch -Bare $bareSib -Label 't5' -Branch 'fix/3596-airsquats-hub-offline' -MarkerFile 'first.txt'
+
+    $rSib = Invoke-NewBranch -Dir $fixSib -Name 'fix/3596-banner-hub-offline' -Title 'Second fix'
+    Assert-ExitCode 1 $rSib 'sibling on origin: new-branch exit 1'
+    Assert-True (Test-Phrase -Text $rSib.Out -Phrase 'issue #3596 already has a branch on origin') 'sibling on origin: says why'
+    Assert-True (Test-Phrase -Text $rSib.Out -Phrase 'fix/3596-airsquats-hub-offline') 'sibling on origin: and names the branch'
+    Assert-True (-not (Test-BranchOnRemote -Bare $bareSib -Ref 'refs/heads/fix/3596-banner-hub-offline')) 'sibling on origin: nothing was pushed'
+
+    $rOther = Invoke-NewBranch -Dir $fixSib -Name 'fix/35960-another-issue' -Title 'Another issue'
+    Assert-ExitCode 0 $rOther 'a number that merely starts the same: not a sibling, exit 0'
+
+    $rResume = Invoke-NewBranch -Dir $fixSib -Name 'fix/3596-airsquats-hub-offline' -Title 'Resume'
+    Assert-ExitCode 0 $rResume 'the sibling itself: a resume, exit 0'
+
     # --- (u) NO REMOTE-TRACKING TRUNK: not asked, not claimed (#1046) -------------------------------
     # THE OFFLINE GUARANTEE, and the reason the local question gates the network one. A repo with an
     # origin it has never fetched from -- every other fixture in this file -- has nothing to compare
