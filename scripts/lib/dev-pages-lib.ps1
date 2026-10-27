@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    This repo's PRODUCT (#3540): the home page on '/' and its own pages -- Connectors and Specialists.
+    This repo's PRODUCT (#3540): the home page on '/' and its own pages -- Connectors, Specialists and Plugins.
     The hub is the dkj-policy plugin's, as in every other repo (#3245): this repo states its dev server as
     its product and no longer opts out with OwnHub, so the general pages -- Repository, Artifacts, Issues,
     Release notes, SessionStart, Test gate, Stopwatch, Logbook and Plugins -- are the plugin hub's, and the
@@ -39,10 +39,12 @@
 # The plugin's lib: this repo is its source, so it reads it from its own tree -- dkj-policy's page shell and
 # card (#3198).
 . (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\general-pages-lib.ps1')
+# And the hub's Plugins page lib, for ConvertTo-PluginDescriptionHtml: a plugin's description as paragraphs.
+. (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\plugins-page-lib.ps1')
 
 function Format-DevPageHtml {
     <#
-        The whole page around -Body, for this repo's own pages (Connectors, Specialists): the
+        The whole page around -Body, for this repo's own pages (Connectors, Specialists, Plugins): the
         plugin's page shell with this repo's site header, tagged 'product' (#3540), its title and theme key,
         and the Home crumb on '/', the product's home page.
     #>
@@ -70,6 +72,7 @@ function Get-ProductPages {
     @(
         @{ Href = '/connectors';  Label = 'Connectors';  Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine'; Icon = 'connectors' }
         @{ Href = '/specialists'; Label = 'Specialists'; Sub = 'Every specialist the plugins ship, and how much context each one costs'; Icon = 'specialists' }
+        @{ Href = '/plugins';     Label = 'Plugins';     Sub = 'Every plugin this marketplace ships, its version and what it holds'; Icon = 'plugins' }
     )
 }
 
@@ -102,7 +105,7 @@ function Format-ProductHomeHtml {
     # hub first, so the way back is where the eye starts, then this repo's own pages.
     [void]$sb.AppendLine('<div class="grid-3">')
     if ($HubUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z') {
-        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href $HubUrl -Label 'Hub' -Sub 'The dkj-policy hub: Repository, Issues, Release notes, the Test gate and every other general page' -Icon 'repository'))
+        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href $HubUrl -Label 'Hub' -Sub 'The dkj-policy hub: GitHub, Issues, Release notes, the Test gate and every other general page' -Icon 'repository'))
     } else {
         [void]$sb.AppendLine('<section class="card"><p class="msg" role="status">The hub is not running. The dkj-policy dev-preview hook starts it at the next session start.</p></section>')
     }
@@ -429,6 +432,119 @@ function Format-SpecialistsPageHtml {
             -ParentCrumbs @(@{ Label = 'Specialists'; Href = '/specialists' }) -Lead ''
     }
     return Format-DevPageHtml -Title 'Specialists' -Style $style -Body $body.ToString() -FooterNote $footer -Lead ''
+}
+
+function Get-MarketplacePluginKind {
+    <#
+        What kind of plugin -Name is, from its name and its -Source path in marketplace.json: a team (the core
+        team or an add-on team), the workflow, or an add-on to that workflow -- the split the marketplace's own
+        description draws.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Name, [AllowEmptyString()][string]$Source = '')
+    if ($Name -eq 'dkj-subagents-alpha') { return 'core team' }
+    if ($Name -like 'dkj-subagents-*') { return 'add-on team' }
+    if ($Name -eq 'dkj-policy') { return 'workflow' }
+    if ($Source -like './plugins/dkj-policy/*') { return 'add-on to dkj-policy' }
+    return 'plugin'
+}
+
+function Format-MarketplacePluginsPageHtml {
+    <#
+        The Plugins pages: every plugin this marketplace ships. -Plugins is the server's model, in
+        marketplace.json's order, each @{ Name; Kind; Source; Version; Enabled; Summary; Description; Subagents;
+        Personas; Skills; Hooks }: Summary is the marketplace's own line, Description the plugin.json's. Where the
+        hub's Plugins page shows what THIS checkout enables, these show what the repo OFFERS, enabled here or not.
+
+        THE LEVELS (the owner, October 27, 2026: the cards were crammed, so the detail goes a level deeper, as on
+        the Specialists pages; and the four specialist teams share one card). Without -Plugin or -Group it is
+        /plugins: one link card per plugin saying what it is, its version and whether it is on here -- except the
+        teams (dkj-subagents-*), which stand as ONE card, 'dkj-subagents', in the place of the first of them. With
+        -Group 'dkj-subagents' alone it is that card's page, one link card per team. With -Plugin it is one
+        plugin's page -- /plugins/<name>, or /plugins/dkj-subagents/<name> for a team, so a team is reachable only
+        under its group: the marketplace's line as the lead, a facts card and the full description as paragraphs
+        (the hub's ConvertTo-PluginDescriptionHtml). A -Group or -Plugin that names nothing, or a plugin under the
+        wrong level, returns $null, so the server answers 404 rather than an empty page.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Plugins,
+        [AllowEmptyString()][string]$ReadError = '',
+        [AllowEmptyString()][string]$Group = '',
+        [AllowEmptyString()][string]$Plugin = ''
+    )
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $all = @($Plugins | Where-Object { $_ })
+    $teamGroup = 'dkj-subagents'
+    $isTeam = { param($p) [string]$p.Name -like ($teamGroup + '-*') }
+    $teams = @($all | Where-Object { & $isTeam $_ })
+    if ($Group -and $Group -cne $teamGroup) { return $null }
+    $state = { param($p) @((& $e $p.Kind), $(if ($p.Version) { 'v' + (& $e $p.Version) }), $(if ($p.Enabled) { 'enabled here' } else { 'off here' })) | Where-Object { $_ } }
+    $card = { param($p, $href) Format-HubCardLinkHtml -Href $href -Label $p.Name -SubHtml ((& $state $p) -join ' &middot; ') -Heading 2 `
+        -Id ('plugin-' + $p.Name) -Class ('pl-card' + $(if ($p.Enabled) { '' } else { ' pl-card--off' })) }
+    $body = New-Object System.Text.StringBuilder
+    if ($ReadError) {
+        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The plugins could not all be read: ' + (& $e $ReadError) + '.</p>')
+    }
+    $footer = 'Read from this checkout''s <code>.claude-plugin/marketplace.json</code> and each plugin''s <code>.claude-plugin/plugin.json</code> on every request, so it is the tree, not the installed release; enabled or off is <code>.claude/settings.json</code>. What this checkout loads, and any problem with it, is on the hub''s own Plugins page.'
+    # An off plugin's card is muted, never hidden, as on the Specialists pages.
+    $style = '.pl-card--off { opacity: 0.7; }'
+
+    if (-not $Plugin -and -not $Group) {
+        [void]$body.AppendLine('<div class="grid-3" id="plugins">')
+        $teamsDone = $false
+        foreach ($p in $all) {
+            if (& $isTeam $p) {
+                if ($teamsDone) { continue }
+                $teamsDone = $true
+                $on = @($teams | Where-Object { $_.Enabled }).Count
+                $sub = [string]$teams.Count + ' specialist team' + $(if ($teams.Count -ne 1) { 's' } else { '' }) + ' &middot; ' + $on + ' enabled here'
+                [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/plugins/' + $teamGroup) -Label $teamGroup -SubHtml $sub -Heading 2 `
+                    -Id ('group-' + $teamGroup) -Class ('pl-card' + $(if ($on) { '' } else { ' pl-card--off' }))))
+                continue
+            }
+            [void]$body.AppendLine((& $card $p ('/plugins/' + $p.Name)))
+        }
+        if (-not $all.Count) {
+            [void]$body.AppendLine('<section class="card grid__full"><p class="note">No plugin was found.</p></section>')
+        }
+        [void]$body.AppendLine('</div>')
+        return Format-DevPageHtml -Title 'Plugins' -Style $style -Body $body.ToString() -FooterNote $footer -Lead ''
+    }
+
+    if (-not $Plugin) {
+        # The teams' own page: one card per team, in the marketplace's order.
+        if (-not $teams.Count) { return $null }
+        [void]$body.AppendLine('<div class="grid-3" id="teams">')
+        foreach ($p in $teams) { [void]$body.AppendLine((& $card $p ('/plugins/' + $teamGroup + '/' + $p.Name))) }
+        [void]$body.AppendLine('</div>')
+        return Format-DevPageHtml -Title $teamGroup -Style $style -Body $body.ToString() -FooterNote $footer `
+            -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }) -Lead ''
+    }
+
+    $p = @($all | Where-Object { $_.Name -ceq $Plugin })[0]
+    if (-not $p -or [bool]$Group -ne [bool](& $isTeam $p)) { return $null }
+    $crumbs = @(@{ Label = 'Plugins'; Href = '/plugins' })
+    if ($Group) { $crumbs += @{ Label = $teamGroup; Href = '/plugins/' + $teamGroup } }
+    # '' rather than no output for a zero: in 5.1 a call that writes nothing empties the whole @(a, b, ...) it stands in.
+    $count = { param($n, $word) if ([int]$n -gt 0) { [string]$n + ' ' + $word + $(if ([int]$n -ne 1) { 's' } else { '' }) } else { '' } }
+    $holds = @((& $count $p.Subagents 'subagent'), (& $count $p.Personas 'persona'), (& $count $p.Skills 'skill'), (& $count $p.Hooks 'hook')) | Where-Object { $_ }
+    # The lead is the marketplace's line up to its first sentence: some run to paragraphs, which the description card holds.
+    $lead = if ([string]$p.Summary -cmatch '^(.+?[.!?])\s+[A-Z]') { $Matches[1] } else { [string]$p.Summary }
+    if (-not $p.Enabled) {
+        [void]$body.AppendLine('<p class="msg" role="status">Not enabled in this repo''s <code>.claude/settings.json</code>: no session here loads it.</p>')
+    }
+    [void]$body.AppendLine('<div class="grid-2" id="about">')
+    [void]$body.AppendLine('<section class="card grid__full"><div class="card__head"><h2>What it is</h2></div><dl class="facts">')
+    [void]$body.AppendLine('<div><dt>Kind</dt><dd>' + (& $e $p.Kind) + '</dd></div>')
+    [void]$body.AppendLine('<div><dt>Version</dt><dd>' + $(if ($p.Version) { 'v' + (& $e $p.Version) } else { '<span class="note">none stated</span>' }) + '</dd></div>')
+    [void]$body.AppendLine('<div><dt>Here</dt><dd>' + $(if ($p.Enabled) { 'enabled' } else { 'off' }) + '</dd></div>')
+    [void]$body.AppendLine('<div><dt>Holds</dt><dd>' + $(if ($holds) { $holds -join ' &middot; ' } else { '<span class="note">nothing counted</span>' }) + '</dd></div>')
+    [void]$body.AppendLine('<div><dt>Source</dt><dd><code>' + (& $e $p.Source) + '</code></dd></div>')
+    [void]$body.AppendLine('</dl></section>')
+    [void]$body.AppendLine('<section class="card grid__full"><div class="card__head"><h2>Description</h2><p class="card__sub">From its <code>.claude-plugin/plugin.json</code></p></div>' +
+        $(if ($p.Description) { ConvertTo-PluginDescriptionHtml -Text $p.Description } else { '<p class="note">None.</p>' }) + '</section>')
+    [void]$body.AppendLine('</div>')
+    return Format-DevPageHtml -Title $p.Name -Style $style -Body $body.ToString() -FooterNote $footer -Lead (& $e $lead) `
+        -ParentCrumbs $crumbs
 }
 
 function Find-DkjCheckouts {
