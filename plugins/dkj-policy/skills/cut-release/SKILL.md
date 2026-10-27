@@ -51,11 +51,10 @@ for itself is whether Block 2 runs before or after Block 1; the checklist does n
 ### Block 1 — cutting (always)
 
 **0a. Note the time before you start, and note it again when the last asset has landed.** One line, no
-tooling — but it has to be *before*, because a baseline cannot be captured afterwards. Put the end-to-end
-duration in the release document's organisational section (*What it is worth*), beside whatever else that
-release cost — **where the repo's `Get-ReleaseNoteSections` keeps that section**. Where it has switched it
-off, the document has nowhere for the figure, and the answer is the one a patch already has: the closing
-report.
+tooling — but it has to be *before*, because a baseline cannot be captured afterwards. **The release
+document has no place for the figure**: its organisational section (*What it is worth*) is gone in every
+repo since [#3584](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3584). So the two answers
+below, once written for a patch alone, now hold for every release.
 
 **THE END POINT IS THE LAST ASSET, NOT THE PUBLISH** (inbound #988, August 27, 2026). This step used to
 say *"note it again when the Release is published"*, and step 5 publishes the Release and *then* uploads
@@ -68,7 +67,8 @@ release commit and the last asset landed **5s after the publish**. Small — and
 small there, on one attachment, and nothing said whether it counted.
 
 **AND ON A RELEASE TYPE THAT WRITES NO DOCUMENT, THE REQUIREMENT IS CONDITIONAL — say so rather than
-leaving the figure nowhere to go** (same report). Step 4 states that **a patch writes no document at
+leaving the figure nowhere to go** (same report). Read this paragraph as the history of that answer: since
+#3584 no release type has the section, so what it says of a patch now holds for all of them. Step 4 states that **a patch writes no document at
 all**, and `Get-ReleaseConsumerBumps` is what decides which bumps get one. Its shipped fallback is
 `@()` — *the tier switched off* — so **in a repo that has never answered that seam, no release type has
 an organisational section for this number to land in**, and in a repo that answered it the way this
@@ -91,10 +91,10 @@ nothing comparing the two.
 Two honest answers, and NOT a third:
 
 - **your repo has somewhere durable that a release's cost belongs** — then name that place in your own
-  release-answers page and write it there, exactly as you would the document's organisational section.
+  release-answers page and write it there, as the document's retired organisational section once held it.
   This page does not name the file for you: where it goes is a fact about your tree, and a location
   invented here would be wrong in most repos;
-- **your repo has nowhere** — then this step is genuinely conditional for a patch and you are not
+- **your repo has nowhere** — then this step is genuinely conditional and you are not
   holding an instruction with no target. Measure it anyway if it is interesting; nothing requires you to
   file it.
 
@@ -350,7 +350,8 @@ a release for a missing timestamp would be ceremony rather than a guard.
    git push --atomic origin main vX.Y.Z
    ```
 
-2. **ONE hand-written document, with a named section per reader** (Dave, August 10, 2026). Where the repo
+2. **ONE hand-written document, for the reader the repo publishes to** (Dave, August 10, 2026; one section
+   since #3584, October 27, 2026). Where the repo
    names this bump in `Get-ReleaseConsumerBumps`, `cut-release.ps1` has already drafted the note under
    `Get-ReleaseNoteRoot` — `<note root>/<dir>/<X.Y.Z>.md`, which is `releases/notes/` unless the repo
    repointed it (the source repo uses `releases/audience/`). There is nothing to invoke — the follow-up is
@@ -359,8 +360,6 @@ a release for a missing timestamp would be ceremony rather than a guard.
    | section | who it is for | how it arrives |
    |---|---|---|
    | the audience section — *What changed*, at either tier | whoever this repo publishes to | **pre-filled** — the entries at this repo's own audience tier, still in the words their authors wrote for a diff reviewer. Rewrite them against the seven tests below. Absent where no entry reached that tier. |
-   | *What it is worth* | the organisation | **empty** — it cannot be generated. Think in time, risk and reduced dependence on a developer. |
-   | *What was still open at this release* | the organisation | **empty**. Past tense on purpose: a published document does not move with reality, so a present-tense line goes stale in hours rather than months. |
 
    **The audience section can be drafted as SOLVED TASKS instead of ranked entries** (#2586), where the
    repo answers `Get-ReleaseNoteTaskLink` in `scripts/repo-config.ps1` — a hashtable naming the marker and
@@ -379,8 +378,8 @@ a release for a missing timestamp would be ceremony rather than a guard.
    `cut-release.ps1` drafts: the title line, the `Date` / `Type` / `For whom` labels, and the section
    headings and their order. A repo that needs any of it to read differently answers
    `Get-ReleaseNoteWording` in `scripts/repo-config.ps1`, which is merged over the defaults one key at a
-   time. That is the only route. A repo's own content is the audience sentence, the items, the two
-   organisation sections, and the page styling (`Get-ReleasePageTheme`). **A lens, a seam comment or a
+   time. That is the only route. A repo's own content is the audience sentence, the items, and the page
+   styling (`Get-ReleasePageTheme`). **A lens, a seam comment or a
    hand edit that restates or translates the form is drift**, and it is removed rather than followed.
    Measured October 5, 2026: two BWJ stores took their form from two such local statements, and their
    latest notes differed in language, header labels and section shape. **Step 4's gate run holds the
@@ -392,11 +391,13 @@ a release for a missing timestamp would be ceremony rather than a guard.
    that is not English, the drafted labels and headings are translated through `Get-ReleaseNoteWording`,
    once, so every later draft arrives in that language. They are never retyped in each note.
 
-   **Which of the three the draft carries is the repo's answer, not a fixed three** (inbound #2564).
-   `Get-ReleaseNoteSections` names them — `Audience`, `Value`, `Open` — and a section left out is left out
-   whole, heading and hint; absent, it means all three. So work through the rows **the draft actually
-   has**, and do not add back a section the repo has switched off. An unknown name, or an answer naming
-   none, stops the cut before anything is written.
+   **The two organisational sections are gone in every repo, and nothing brings them back** (Dave,
+   [#3584](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3584), October 27, 2026: *"ik wil
+   dit gewoon nooit meer zien nergens"*). *What it is worth* and *What was still open at this release*
+   were opt-out through `Get-ReleaseNoteSections` (#2564), whose absent answer still meant all three, so
+   every repo that never learned the seam kept getting them. The seam is retired and no longer read, and
+   step 4's form check refuses either heading written back by hand. Published notes keep the sections they
+   were written with.
 
    **A patch writes no document at all**, and the release is announced by the generated body alone. **A
    minor or major always writes one**, even where nothing reached the audience tier — then it carries the
@@ -550,8 +551,8 @@ a release for a missing timestamp would be ceremony rather than a guard.
    **With `-NoteTreeOnly` the run also checks the note's form** (#2812). After the gates pass it runs
    `check-release-note-form.ps1`, which compares the **newest** note under `Get-ReleaseNoteRoot` with
    what the cut drafts for this repo: the title line, the header labels, and the section headings in order.
-   The expected form comes from the cut's own draft function, built from the same `Get-ReleaseNoteWording`,
-   `Get-ReleaseNoteSections` and audience tier, so the two cannot disagree. A missing audience heading is
+   The expected form comes from the cut's own draft function, built from the same `Get-ReleaseNoteWording`
+   and audience tier, so the two cannot disagree. A missing audience heading is
    fine, because the draft leaves it out too, but an added or renamed one is not. Only the newest note is
    judged. Published notes are records and keep the form they were written with, and the newest is the one
    being finished here and the one the next writer copies. To check another note, pass
