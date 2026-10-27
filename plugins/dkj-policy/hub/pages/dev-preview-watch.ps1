@@ -10,7 +10,11 @@
     elevation. This watcher runs in the same session as the server it watches. Every -PollSeconds it reads
     its own session's connect state (WTSQuerySessionInformation, WTSConnectState); once that has read
     WTSDisconnected for -GraceSeconds without a break, it stops the server's whole tree (taskkill /T /F) and
-    exits. It exits as soon as the server does, so a server stopped by hand leaves nothing behind. The rules
+    exits. A WTSDisconnected read counts only where two other sources agree with it (#3597): the session is
+    not the active console session (WTSGetActiveConsoleSessionId), and WTSEnumerateSessions lists it as
+    disconnected too. Measured on a machine with fast user switching, the single read gave 4 for the active
+    console session; a contradiction reads as uncertain (-1), which never stops a server. It exits as soon as
+    the server does, so a server stopped by hand leaves nothing behind. The rules
     are Get-DevPreviewWatchStep in hub/lib/dev-preview-rules.ps1.
 
       -ProcessId     the cmd.exe the hook launched (the root of the server's tree)
@@ -42,16 +46,40 @@ try {
 
     if ($ForceState -eq -2) {
         Add-Type -Namespace DkjDevPreview -Name Wts -MemberDefinition @'
-[DllImport("wtsapi32.dll", SetLastError = true)]
+[DllImport("wtsapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
 static extern bool WTSQuerySessionInformation(IntPtr server, int sessionId, int infoClass, out IntPtr buffer, out int bytes);
+[DllImport("wtsapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+static extern bool WTSEnumerateSessions(IntPtr server, int reserved, int version, out IntPtr sessions, out int count);
 [DllImport("wtsapi32.dll")]
 static extern void WTSFreeMemory(IntPtr memory);
+[DllImport("kernel32.dll")]
+static extern int WTSGetActiveConsoleSessionId();
+[StructLayout(LayoutKind.Sequential)]
+struct SessionInfo { public int SessionId; public IntPtr WinStationName; public int State; }
+static int Listed(int session) {
+    IntPtr list; int count;
+    if (!WTSEnumerateSessions(IntPtr.Zero, 0, 1, out list, out count)) { return -1; }
+    try {
+        int size = Marshal.SizeOf(typeof(SessionInfo));
+        for (int i = 0; i < count; i++) {
+            SessionInfo s = (SessionInfo)Marshal.PtrToStructure(new IntPtr(list.ToInt64() + (long)i * size), typeof(SessionInfo));
+            if (s.SessionId == session) { return s.State; }
+        }
+        return -1;
+    } finally { WTSFreeMemory(list); }
+}
 public static int ConnectState() {
-    IntPtr buffer; int bytes;
-    // WTS_CURRENT_SERVER_HANDLE, WTS_CURRENT_SESSION, WTSConnectState
-    if (!WTSQuerySessionInformation(IntPtr.Zero, -1, 8, out buffer, out bytes)) { return -1; }
-    try { return bytes >= 4 ? System.Runtime.InteropServices.Marshal.ReadInt32(buffer) : -1; }
+    int own = System.Diagnostics.Process.GetCurrentProcess().SessionId;
+    IntPtr buffer; int bytes; int state;
+    // WTS_CURRENT_SERVER_HANDLE, this process's own session, WTSConnectState
+    if (!WTSQuerySessionInformation(IntPtr.Zero, own, 8, out buffer, out bytes)) { return -1; }
+    try { state = bytes >= 4 ? Marshal.ReadInt32(buffer) : -1; }
     finally { WTSFreeMemory(buffer); }
+    if (state != 4) { return state; }
+    // A disconnect is acted on only when two other sources agree (#3597): the active console session is
+    // never disconnected, and the session list must read WTSDisconnected too. A contradiction is uncertain.
+    if (WTSGetActiveConsoleSessionId() == own) { return -1; }
+    return Listed(own) == 4 ? 4 : -1;
 }
 '@
     }

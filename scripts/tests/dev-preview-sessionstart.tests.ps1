@@ -620,6 +620,16 @@ try {
         # an active one leaves it, and the watcher leaves with the server; a pid whose start time is not the
         # server's is never stopped.
         $Watch = Join-Path $RepoRoot 'plugins\dkj-policy\hub\pages\dev-preview-watch.ps1'
+        # -ForceState skips the P/Invoke, so it is compiled and called here: a disconnect read is cross-checked
+        # against the console session and the session list (#3597), and a broken definition would only ever
+        # surface as a silent -1 inside the watcher's catch.
+        $wtsDef = [regex]::Match([System.IO.File]::ReadAllText($Watch), "(?s)-MemberDefinition @'\r?\n(.*?)\r?\n'@").Groups[1].Value
+        Assert-True ($wtsDef -match 'WTSGetActiveConsoleSessionId\(\) == own\) \{ return -1; \}' -and $wtsDef -match 'return Listed\(own\) == 4 \? 4 : -1;') 'the watcher acts on a disconnect only when the console session and the session list agree (#3597)'
+        $wtsNs = 'WatchProbe' + [guid]::NewGuid().ToString('n')
+        Add-Type -Namespace $wtsNs -Name Wts -MemberDefinition $wtsDef
+        $wtsState = ("$wtsNs.Wts" -as [type])::ConnectState()
+        $ownListed = ("$wtsNs.Wts" -as [type]).GetMethod('Listed', [Reflection.BindingFlags]'NonPublic,Static').Invoke($null, @([Diagnostics.Process]::GetCurrentProcess().SessionId))
+        Assert-True ($wtsState -ge -1 -and $wtsState -le 9 -and $ownListed -ge 0) 'its P/Invoke compiles, reads a connect state, and finds this process''s own session in the list'
         $newTarget = { Start-Process -FilePath 'cmd.exe' -ArgumentList '/d /c ping -n 30 127.0.0.1 > nul' -WindowStyle Hidden -PassThru }
         $tgt = & $newTarget
         $w = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -PassThru -ArgumentList ((Get-DevPreviewWatchArgs -Watcher $Watch -ProcessId $tgt.Id -StartTicks $tgt.StartTime.ToFileTimeUtc()) + ' -ForceState 4 -GraceSeconds 0 -PollSeconds 1')

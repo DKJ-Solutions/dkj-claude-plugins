@@ -39,19 +39,38 @@
 
 ### PLAN
 
+[#3597](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3597): on a machine with fast user
+switching, the watcher's single `WTSConnectState` read gave 4 for the active console session, so it
+stopped the hub about a minute after start. Not reproducible on the sweeping machine, where every read
+agrees with `qwinsta` (ANSI and Unicode entry points alike), so the repair is the issue's own: a
+cross-check before acting, whatever made the read wrong.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `dev-preview-watch.ps1`: a disconnect read counts only when the session is not the active console session and `WTSEnumerateSessions` lists it as disconnected too; a contradiction is `-1`, which never stops a server. The query names the process's own session id and binds the Unicode entry point
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: the cross-check is pinned, and the P/Invoke is compiled and called, since `-ForceState` skips it (398 passed)
+- [x] Live on this machine: `ConnectState` 0 for the active console session; the list reads services 4, own 0, an unknown id -1
+
 ### DEPLOY: fix/3597-watcher-crosscheck-disconnect
 
-**Score:**
+The dev-preview watcher no longer stops a hub in a session somebody is using. On a machine with several
+accounts and fast user switching, its one connect-state read reported the active console session as
+disconnected, so the hub, and every server the dev-preview hook starts, went down about a minute after
+it started. A disconnect now counts only when two other sources agree: the session is not the active
+console session, and the Windows session list shows it as disconnected too. Any disagreement is read as
+uncertain, and an uncertain read never stops a server.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+On a machine shared between accounts, the hub stays up in the session that is using it, instead of
+dropping to `ERR_CONNECTION_REFUSED` a minute after every start.
+
+**Score:** 3
 
 #### Pull Request
 
