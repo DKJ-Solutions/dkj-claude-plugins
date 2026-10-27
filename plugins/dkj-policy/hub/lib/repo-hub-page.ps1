@@ -107,7 +107,7 @@ function Format-PluginRepoHubHtml {
     }
     [void]$sb.AppendLine((Format-HubCardLinkHtml -Href '/repository' -Label 'Repository' -Sub 'This repo''s facts and its open issues' -Icon 'repository'))
     if ($general) {
-        foreach ($p in @(Get-GeneralPages | Where-Object { $_.Href -ne '/issues' })) { [void]$sb.AppendLine((Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon)) }
+        foreach ($card in @(Format-HubPageCardsHtml -Pages @(Get-GeneralPages | Where-Object { $_.Href -ne '/issues' }))) { [void]$sb.AppendLine($card) }
     } else {
         [void]$sb.AppendLine('<section class="card grid__full"><p class="msg" role="status">The general pages server is not running. It starts at the next session start, and its pages are linked here from then on.</p></section>')
     }

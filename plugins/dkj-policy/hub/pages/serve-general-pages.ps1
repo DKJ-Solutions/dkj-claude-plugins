@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     Serve the plugin's REPOSITORY (#3245) and the GENERAL pages (#3119) on http://localhost:<Port>/ -- the hub on
-    '/', then /artifacts, /issues, /release-notes, /sessionstart, /test-gate, /stopwatch, /logbook and /plugins --
+    '/', then /artifacts, /issues, /release-notes, /sessionstart, /test-gate, /clock, /stopwatch, /logbook and /plugins --
     from the repo this server was started in. Not /brandbook: no hub has served the brand book since #3475, and the
     source repo retired the app itself under #3493.
 
@@ -498,7 +498,10 @@ try {
                 continue
             }
             $html = $null
-            if ($path -eq '/test-gate') {
+            if ($gp = Format-HubGroupPageHtml -Href $path -RepoName (Get-RepoIdentity).Name) {
+                # A group page (Get-HubGroups): /clock, holding the Stopwatch and the Logbook (the owner, October 27, 2026).
+                $html = $gp
+            } elseif ($path -eq '/test-gate') {
                 $id = Get-RepoIdentity
                 $tg = Read-TestGateModel -RepoRoot $root
                 $html = Format-TestGatePageHtml -Model $tg.Model -ReadError $tg.Error -GroupsError $tg.GroupsError -RepoName $id.Name -RepoSlug $id.Slug

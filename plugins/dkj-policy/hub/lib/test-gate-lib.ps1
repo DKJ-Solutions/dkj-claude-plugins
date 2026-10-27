@@ -311,7 +311,8 @@ function Format-TestGatePageHtml {
     [void]$body.AppendLine('</div>')
     # The house's .row-total sets the weight; the rule above it, heavier than a row's own, is this page's.
     $style = $script:DevBarStyle + "`n" + '.dp-total td { border-top: 2px solid var(--paper-4); }'
-    return Format-GeneralPageHtml -Title 'Test gate' -Style $style -Body $body.ToString() -SiteName $RepoName -HubHref $HubHref `
+    # Under the hub's Clock page, beside the Stopwatch and the Logbook (the owner, October 27, 2026).
+    return Format-GeneralPageHtml -Title 'Test gate' -Style $style -Body $body.ToString() -SiteName $RepoName -HubHref $HubHref -ParentCrumbs @(@{ Label = 'Clock'; Href = '/clock' }) `
         -Lead 'What each test suite costs on CI, grouped by the workflow step it guards. A group says what breaks when its suites go red, not when they run. Measured on CI runners, never on a workstation: a local reading does not convert.' `
         -FooterNote 'Read from the repo''s <code>scripts/tests/suite-durations.json</code>, on every request, grouped by its <code>scripts/tests/suite-groups.json</code> where it keeps one. Built by the dkj-policy plugin''s <code>hub/lib/test-gate-lib.ps1</code>.'
 }
