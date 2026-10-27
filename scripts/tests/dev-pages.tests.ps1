@@ -673,12 +673,39 @@ Assert-True ($zc -match 'class="grid-3"' -and $zc -match 'href="/plugins/zeta/x"
 $dsRow = (Find-PluginsPageRow -Model $pv -Name 'zeta').Clone(); $dsRow.Name = 'dkj-solutions'
 $ds = Format-PluginPageHtml -Row $dsRow -Model $pv -RepoName 'r'
 Assert-True ($ds -match '<section class="card card--link"><nav class="menu-list" aria-label="House style"><a class="menu-item" href="/plugins/dkj-solutions/house-style"><svg class="menu-item__icon"') 'the dkj-solutions page links its house style as a card, with its icon'
-$hs = Format-HouseStyleSpecimensPageHtml -Body '<section class="card" id="specimen-x"></section>' -RepoName 'r'
-Assert-True ($hs -match '<a href="/plugins">Plugins</a>' -and $hs -match '<a href="/plugins/dkj-solutions">dkj-solutions</a>' -and $hs -match '<span aria-current="page">House style</span>' -and $hs -match 'id="specimen-x"' -and $hs -match 'href="/house-style.css"') 'the specimens page sits under Plugins and dkj-solutions, on the house stylesheet the server serves'
-$hsErr = Format-HouseStyleSpecimensPageHtml -Body '<p>never</p>' -ReadError 'gone <now>'
-Assert-True ($hsErr -notmatch '<p>never</p>' -and $hsErr -match 'could not be read: gone &lt;now&gt;') 'a read error replaces the specimens, escaped'
+$hsFix = "<style>.spec-x {}</style>`n<div class=`"spec-page`">`n`n<div class=`"grid-2`">`n  <div class=`"grid__head`"><h2 id=`"hs-alpha`">Alpha &amp; one</h2><p class=`"card__sub`">The <code>first</code> line</p></div>`n  <section class=`"card`" id=`"specimen-a1`"></section>`n  <section class=`"card grid__full`" id=`"specimen-a2`"></section>`n</div>`n`n" +
+    "<div class=`"grid-3`">`n  <div class=`"grid__head`"><h2 id=`"hs-beta`">Beta</h2><p class=`"card__sub`">Second</p></div>`n  <section class=`"card`" id=`"specimen-b1`"></section>`n</div>`n`n</div>`n<dialog id=`"hs-modal`"></dialog>`n<script>/* s */</script>`n"
+$hsSplit = Split-HouseStyleSpecimens -Body $hsFix
+Assert-Equal 'alpha,beta' ((@($hsSplit.Sections) | ForEach-Object { $_.Slug }) -join ',') 'the specimens are cut at each column-0 grid opening on a grid__head h2, its slug the id without hs-'
+Assert-True ($hsSplit.Sections[0].Cards -eq 2 -and $hsSplit.Sections[1].Cards -eq 1 -and $hsSplit.Sections[1].Grid -eq 'grid-3' -and $hsSplit.Head -match 'spec-x' -and $hsSplit.Tail -match '^<dialog' -and $hsSplit.Tail -match '<script>') 'each section counts its cards and keeps its grid; the style block before the page and the dialogs and script after it are kept apart'
+$hs = Format-HouseStyleSpecimensPageHtml -Body $hsFix -RepoName 'r'
+Assert-True ($hs -match '<a href="/plugins">Plugins</a>' -and $hs -match '<a href="/plugins/dkj-solutions">dkj-solutions</a>' -and $hs -match '<span aria-current="page">House style</span>' -and $hs -match 'href="/house-style.css"') 'the specimens overview sits under Plugins and dkj-solutions, on the house stylesheet the server serves'
+Assert-True ($hs -match '<section class="card card--link" id="hs-alpha"><h3 class="card__title"><a href="/plugins/dkj-solutions/house-style/alpha">Alpha &amp; one</a></h3><p class="card__sub">The <code>first</code> line</p><p class="num">2 specimens</p></section>' -and $hs -match '<p class="num">1 specimen</p>') 'the overview is a card per section, linking its own page, with the section''s line and how many specimens it holds (#3563)'
+Assert-True ($hs -notmatch 'id="specimen-a1"' -and $hs -notmatch '<dialog' -and $hs -notmatch 'spec-x') 'and none of the specimens themselves'
+$hsA = Format-HouseStyleSpecimensPageHtml -Body $hsFix -RepoName 'r' -Section 'alpha'
+Assert-True ($hsA -match '<a href="/plugins/dkj-solutions/house-style">House style</a>' -and $hsA -match '<span aria-current="page">Alpha &amp; one</span>' -and $hsA -match '<h1>Alpha &amp; one</h1>' -and $hsA -match '<p class="lead">The <code>first</code> line</p>') 'a section''s page sits one crumb below the overview, its h1 the section''s name and its lead the section''s line'
+Assert-True ($hsA -match 'id="specimen-a1"' -and $hsA -match 'id="specimen-a2"' -and $hsA -notmatch 'id="specimen-b1"' -and $hsA -notmatch 'id="hs-alpha"' -and $hsA -match '<div class="grid-2">' -and $hsA -match 'spec-x' -and $hsA -match '<dialog id="hs-modal">') 'and holds that section alone, without its own grid__head, with the specimens'' style, dialogs and script'
+Assert-True ($null -eq (Format-HouseStyleSpecimensPageHtml -Body $hsFix -Section 'gamma')) 'a section the specimens do not have is no page (the server''s 404)'
+$hsSec = Resolve-PluginsPageRequest -Path '/plugins/dkj-solutions/house-style/tokens'
+Assert-True ($hsSec.Page -eq 'house-style' -and $hsSec.Section -eq 'tokens' -and $hsReq.Section -eq '' -and $null -eq (Resolve-PluginsPageRequest -Path '/plugins/dkj-solutions/house-style/A') -and $null -eq (Resolve-PluginsPageRequest -Path '/plugins/dkj-solutions/house-style/a/b')) 'a section is one slug below the house style, and nothing else is'
+Assert-True ((Format-HouseStyleSpecimensPageHtml -Body '<p>no sections</p>') -match 'no section was found') 'specimens with no section say so, rather than drawing an empty grid'
+$hsErr = Format-HouseStyleSpecimensPageHtml -Body $hsFix -ReadError 'gone <now>'
+Assert-True ($hsErr -notmatch 'card--link' -and $hsErr -match 'could not be read: gone &lt;now&gt;') 'a read error replaces the specimens, escaped'
 $specimens = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style\specimens.html'))
 Assert-True ($specimens -notmatch '(?i)<(html|head|body)[ >]' -and $specimens -notmatch '(?i)<link ' -and $specimens -notmatch '(?i)<script[^>]+src=') 'the specimens ship beside the stylesheet as a body fragment: the shell, the stylesheet and the theme script are the server''s'
+$realSplit = Split-HouseStyleSpecimens -Body $specimens
+Assert-Equal ([regex]::Matches($specimens, 'class="grid__head"><h2').Count) @($realSplit.Sections).Count 'the real specimens split into every section they head, none lost to the cut (#3563)'
+Assert-True ((@($realSplit.Sections) | Where-Object { $_.Cards -lt 1 }).Count -eq 0 -and $realSplit.Tail -match '^<dialog' -and $realSplit.Head -match '<style>') 'every real section holds specimens, and the style and dialogs land on each section''s page'
+$realPages = @(@(Format-HouseStyleSpecimensPageHtml -Body $specimens) + @(@($realSplit.Sections) | ForEach-Object { Format-HouseStyleSpecimensPageHtml -Body $specimens -Section $_.Slug }))
+Assert-True ((@($realPages) | Where-Object { $_ -match 'sections in one column' }).Count -eq 0) 'the real house-style overview and every section page keep within the long-page rule'
+Write-Host '-- a long page becomes cards with a page each (#3563)' -ForegroundColor Cyan
+$secs = { param($n) (1..$n | ForEach-Object { "<div class=`"grid-2`"><div class=`"grid__head`"><h2>S$_</h2></div></div>" }) -join "`n" }
+Assert-Equal 4 (Get-PageSectionCount -Body (& $secs 4)) 'a section is a grid__head opening on an h2'
+Assert-Equal 0 (Get-PageSectionCount -Body '<div class="grid__head"><h1>Page</h1></div><section class="card"><h2>A card</h2></section><h2>loose</h2>') 'a grid__head holding the page''s h1, a card''s h2 and a loose h2 are no sections'
+Assert-True ((Format-GeneralPageHtml -Title 't' -Lead '' -Body (& $secs 4)) -notmatch 'sections in one column') 'four sections is within the rule'
+$long = Format-GeneralPageHtml -Title 't' -Lead '' -Body (& $secs 5)
+Assert-True ($long -match '<p class="msg msg--warn" role="alert">This page holds 5 sections in one column\. A page with more than 4 becomes an overview of cards, each opening a page of its own: the house style''s page rule \(#3563\)\.</p>') 'five puts a warning on the page itself, naming the count and the rule'
+Assert-True ($long.IndexOf('This page holds 5') -lt $long.IndexOf('<h2>S1</h2>')) 'above the first section, where it cannot be scrolled past'
 Assert-True ($one.Contains('<p class="badge-row"><span class="badge badge--sm badge--bad" aria-hidden="true">&#10007;</span>Behind</p>') -and $one -notmatch 'aria-hidden="true">Behind') 'the plugin page shows its state as the house badge row: the mark, then the word'
 Assert-Equal '<p>Intro. Two chapters.</p><h3>The house style</h3><p>tokens &lt;b&gt;.</p><h3>The tracker labels</h3><p>feature. Requires X.</p>' (ConvertTo-PluginDescriptionHtml 'Intro. Two chapters. THE HOUSE STYLE: tokens <b>. THE TRACKER LABELS: feature. Requires X.') 'a description is split into escaped paragraphs at each capitals lead-in, the lead-in an h3 in sentence case'
 Assert-Equal '<p>One sentence. CHECK-HOUSE-STYLE gate holds.</p>' (ConvertTo-PluginDescriptionHtml 'One sentence. CHECK-HOUSE-STYLE gate holds.') 'capitals without a colon start no paragraph'

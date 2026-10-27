@@ -39,19 +39,57 @@
 
 ### PLAN
 
+#3563: the hub rule "a long page becomes an overview of cards, with a page each" had been applied page by
+page (Stopwatch, SessionStart #3543, Specialists #3551) but was never written down or checked, so the
+house-style page grew to 11 sections in one column without anyone noticing. This branch writes the rule
+down once, puts it in the skill a session loads before visual work, makes the hub's page shell warn on any
+page that breaks it, and reshapes the house-style page.
+
+The threshold is **more than four** `.grid__head` sections with an `h2`. SessionStart's seven were too
+many; the Issues page's three and the Artifacts page's two are not. `/test-gate` (15 sections) breaks the
+rule as well. It is filed as #3565, and the warning stays on that page until that issue is done.
+
+This is a visible result, so the branch stops for the owner's look before it merges.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Split-HouseStyleSpecimens` cuts `specimens.html` into its sections. The house-style overview is one
+  card per section showing its specimen count, and `/plugins/dkj-solutions/house-style/<section>` is that
+  section alone, with a 404 for an unknown slug. `specimens.html` remains the single source and loses its
+  jump list.
+- [x] `Get-PageSectionCount` + `$script:LongPageSectionLimit` (4): `Format-GeneralPageHtml` puts a
+  `msg--warn` on every page holding more than four sections, above the first one.
+- [x] The rule is written in the house-style README (*Every page: a long page becomes cards, with a page
+  each*) and in the `house-style` skill's density rules and hand-over check.
+- [x] Filed #3565 for `/test-gate`.
+- [ ] The owner's look at `/plugins/dkj-solutions/house-style` and a section page.
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: 395 passed, 0 failed. It covers the split (fixture and the real
+  `specimens.html`, with no section lost), the overview cards, the section page (crumbs, h1, lead, own cards
+  only, style, dialogs and script kept), the 404, the routes, the section count and the warning at 4 and 5,
+  and that the real house-style pages carry no warning.
+- [x] A hub run from the working tree on port 4899: the overview is 8.5 KB (it was 85 KB) with no warning,
+  `/tokens` returns 200, `/nope` returns 404, and `/test-gate` shows the warning.
+
 ### DEPLOY: feat/3563-long-pages-become-cards
 
-**Score:**
+The hub rule "a page with more than four sections becomes an overview of cards, each opening a page of its
+own" is now written down in the house-style README and the `house-style` skill. The hub's page shell checks
+it on every page it renders and puts a warning at the top of any page that breaks it. The House style page
+under `/plugins/dkj-solutions/house-style` follows the rule itself: it shows 11 cards instead of 85 KB of
+specimens in one column, and each section has its own page.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Every repo running the hub gets the House style page as cards, with one page per section. A hub page that
+grows past four sections now says so on the page itself, so the shape is caught as it happens instead of
+being spotted later.
+
+**Score:** 3
 
 #### Pull Request
 

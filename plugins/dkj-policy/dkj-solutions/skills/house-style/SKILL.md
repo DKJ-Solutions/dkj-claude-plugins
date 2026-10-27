@@ -106,12 +106,18 @@ dashboard and Artifact is designed to that screen first:
 - **Nothing the brief did not ask for.** No eyebrow above a heading, no sub line or lead under it, no
   intro paragraph that repeats the heading, no hero, no extra row of meta. `.eyebrow`, `.sub`, `.lead`
   and `.card__sub` exist for the brief that asks for one; that they exist is not an invitation.
+- **A long page becomes cards, with a page each** (the owners, October 26 and 27, 2026, #3563). Once a
+  page holds more than four sections (`.grid__head` blocks with an `h2`), it becomes an overview with
+  one card per section, carrying that section's headline figure, and each card opens `<page>/<section>`.
+  Count the sections **while you build or grow a page**, not after it has grown. The house-style README's
+  "a long page becomes cards" section has the shape, and the plugin hub's page shell puts a warning on
+  any page that breaks it.
 - **One row where one row does.** Label and value on one line (`.facts--row`), a card's action beside
   its heading rather than on a row of its own, filters in one bar. A second row has to carry something
   the first could not.
-- **Check it before handing it over**: at 1400 x 600, does it fit without scrolling, and is every
-  element there because the brief needs it? An element that fails the second question goes, however
-  good it looks.
+- **Check it before handing it over**: at 1400 x 600, does it fit without scrolling, does it hold four
+  sections or fewer, and is every element there because the brief needs it? An element that fails the
+  last question goes, however good it looks.
 
 ## The gate: `check-house-style`
 

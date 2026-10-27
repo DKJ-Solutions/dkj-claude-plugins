@@ -38,7 +38,8 @@ so a stylesheet added later is gated without an edit.
 **A house-style change is judged by eye on the House style page**, `specimens.html` in this folder: every
 token, the twelve themes and every component with its variants and states, drawn from the stylesheet beside it.
 It ships with the plugin, and every hub that enables `dkj-solutions` shows it under Plugins, on
-`/plugins/dkj-solutions/house-style` (#3493); in the source repo that page reads the working tree, so a change
+`/plugins/dkj-solutions/house-style` (#3493), as one card per section with a page each
+(`/plugins/dkj-solutions/house-style/<section>`, #3563); in the source repo that page reads the working tree, so a change
 shows there before the release that ships it. It replaces the brand book app's showcase, which is retired. `house-style-css` is the gate
 that checks the stylesheet's syntax and tokens; the page is the look.
 
@@ -639,6 +640,29 @@ its own.
 without the bar does not break, but it does not follow the house style until it has one. An app with its
 own sticky element at `top: 0` (a sidebar, a toolbar) moves it to `top: var(--tap)` when it adds the bar,
 or the bar covers it.
+
+### Every page: a long page becomes cards, with a page each
+
+**A page never grows into one long column of sections** (owners, October 26 and 27, 2026,
+[#3563](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3563)). Once a page holds **more than
+four sections**, each a `.grid__head` with its own `h2`, it becomes an **overview**: one card per section,
+and each card opens **a page of its own** at `<page>/<section>`. Finding one part of a page should never mean
+scrolling past the rest. This was decided one page at a time (the Stopwatch, SessionStart in #3543, the
+house style's own specimens in #3563, the Specialists in #3551) and is written down here once, so a new or
+growing page gets this shape without anyone having to point it out.
+
+- **The overview card** names its section and carries **one headline**: the figure or line that tells you
+  whether the page is worth opening, such as SessionStart's path against its budget or the number of
+  specimens in a house-style section. Use `.grid-3` and one `.card.card--link` per section, its
+  `.card__title` the link.
+- **The section's page** is that section alone, under one more crumb, so the trail reads Home >
+  ... > the overview > the section. Its `h1` is the section's name and its lead is the section's line. Its
+  own `.grid__head` goes, because the `h1` already says it.
+- **A list is not sections.** A logbook, a release list or an issue list may run long inside **one**
+  section. The rule counts `.grid__head` blocks, not cards or rows.
+- **Where it holds itself:** the plugin hub's page shell (`Format-GeneralPageHtml`) counts the sections of
+  every page it renders, and above four it puts a warning at the top of that page naming the count and
+  this rule. A page that breaks the rule says so on its own, instead of waiting to be spotted.
 
 ### The site header, above the bar
 

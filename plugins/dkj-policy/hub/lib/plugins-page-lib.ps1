@@ -118,13 +118,17 @@ function Resolve-PluginsPageRequest {
         Which Plugins page -Path asks for: @{ Name = ''; Page = '' } for the overview on /plugins, @{ Name = '<plugin>';
         Page = '' } for one plugin's page on /plugins/<plugin>, @{ Name = 'dkj-solutions'; Page = 'house-style' } for
         the house style's specimens under the plugin that ships them (#3493), or $null for a path that is none of
-        these. The name is held to a plugin slug, so nothing else reaches a lookup; whether a plugin of that name is
-        enabled is the page's question (a 404 when not).
+        these. Section is '' on the specimens' overview and the section's slug on /plugins/dkj-solutions/house-style/
+        <section>, one page per section (#3563); whether a section of that slug exists is the page's question. The name
+        is held to a plugin slug, so nothing else reaches a lookup; whether a plugin of that name is enabled is the
+        page's question (a 404 when not).
     #>
     param([AllowEmptyString()][string]$Path = '')
-    if ($Path -eq '/plugins' -or $Path -eq '/plugins/') { return @{ Name = ''; Page = '' } }
-    if ($Path -cmatch '^/plugins/([a-z0-9][a-z0-9-]{0,63})/?$') { return @{ Name = $Matches[1]; Page = '' } }
-    if ($Path -cmatch '^/plugins/dkj-solutions/house-style/?$') { return @{ Name = 'dkj-solutions'; Page = 'house-style' } }
+    if ($Path -eq '/plugins' -or $Path -eq '/plugins/') { return @{ Name = ''; Page = ''; Section = '' } }
+    if ($Path -cmatch '^/plugins/([a-z0-9][a-z0-9-]{0,63})/?$') { return @{ Name = $Matches[1]; Page = ''; Section = '' } }
+    if ($Path -cmatch '^/plugins/dkj-solutions/house-style(?:/([a-z][a-z-]{0,39}))?/?$') {
+        return @{ Name = 'dkj-solutions'; Page = 'house-style'; Section = [string]$Matches[1] }
+    }
     return $null
 }
 
@@ -285,23 +289,81 @@ function Format-PluginPageHtml {
         -FooterNote 'Read on every request by <code>plugin-versions.ps1 -Json</code>, the plugin-versions skill''s own script.'
 }
 
+function Split-HouseStyleSpecimens {
+    <#
+        assets/house-style/specimens.html cut along its sections (#3563), so each can be a page of its own. A section is
+        a column-0 <div class="grid-N"> opening on a grid__head with <h2 id="hs-<slug>">, up to the next column-0
+        </div>. Returns @{ Head; Sections; Tail }: Head is what precedes <div class="spec-page"> (the specimens' own
+        style block and icon sprite), Tail is from the first <dialog> on (the modal specimens and the script), and each
+        section is @{ Slug; Title; Sub; Grid; Inner; Cards }, Title as text, Sub the file's own markup and Cards the number of
+        cards in it. One file stays the single source: the split is read, never written.
+    #>
+    param([AllowEmptyString()][string]$Body = '')
+    $pageAt = $Body.IndexOf('<div class="spec-page">')
+    $head = if ($pageAt -gt 0) { $Body.Substring(0, $pageAt) } else { '' }
+    $tailAt = $Body.IndexOf('<dialog')
+    $tail = if ($tailAt -ge 0) { $Body.Substring($tailAt) } else { '' }
+    $sections = @()
+    $rx = '(?ms)^<div class="(grid-\d)">\r?\n\s*<div class="grid__head"><h2 id="hs-([a-z][a-z-]*)">([^<]+)</h2><p class="card__sub">(.*?)</p></div>\r?\n(.*?)^</div>\r?$'
+    foreach ($m in [regex]::Matches($Body, $rx)) {
+        # The title is the file's markup, decoded to text here because every page escapes it again (the h1, the crumb).
+        $sections += @{ Grid = $m.Groups[1].Value; Slug = $m.Groups[2].Value; Title = [System.Net.WebUtility]::HtmlDecode($m.Groups[3].Value); Sub = $m.Groups[4].Value
+            Inner = $m.Groups[5].Value; Cards = [regex]::Matches($m.Groups[5].Value, '<section class="card[ "]').Count }
+    }
+    return @{ Head = $head; Sections = $sections; Tail = $tail }
+}
+
 function Format-HouseStyleSpecimensPageHtml {
     <#
-        The house style's specimens on /plugins/dkj-solutions/house-style (#3493): every token, theme and component
+        The house style's specimens under /plugins/dkj-solutions/house-style (#3493): every token, theme and component
         of the stylesheet, under the Plugins and dkj-solutions crumbs, because the house style is that plugin's rule
         (its files sit in dkj-policy since #3531) and not any one repo's page. -Body is assets/house-style/specimens.html
         from the same payload as house-style.css (Get-HouseStyleDir), a body fragment trusted as the plugin's own
         markup; -ReadError is why it could not be read, shown, escaped, in its place.
+
+        A LONG PAGE BECOMES CARDS WITH A PAGE EACH (#3563): with no -Section the page is an overview, one card per
+        section of the specimens naming how many specimens it holds, and each card opens
+        /plugins/dkj-solutions/house-style/<section>, that section alone. A -Section no section has returns $null,
+        which the server answers with a 404.
     #>
     param(
         [AllowEmptyString()][string]$Body = '',
         [AllowEmptyString()][string]$ReadError = '',
         [AllowEmptyString()][string]$RepoName = '',
+        [AllowEmptyString()][string]$Section = '',
         [string]$HubHref = '/hub'
     )
-    $content = if ($ReadError) { '<section class="card"><p class="msg msg--warn" role="status">The specimens could not be read: ' + (ConvertTo-GeneralPageText $ReadError) + '</p></section>' } else { $Body }
-    return Format-GeneralPageHtml -Title 'House style' -Body $content -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
-        -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }, @{ Label = 'dkj-solutions'; Href = '/plugins/dkj-solutions' }) `
+    $e = { param($v) ConvertTo-GeneralPageText $v }
+    $base = '/plugins/dkj-solutions/house-style'
+    $crumbs = @(@{ Label = 'Plugins'; Href = '/plugins' }, @{ Label = 'dkj-solutions'; Href = '/plugins/dkj-solutions' })
+    $footer = 'The stylesheet and these specimens are <code>assets/house-style/</code> in the dkj-policy plugin this hub runs from.'
+    $split = if ($ReadError) { @{ Head = ''; Sections = @(); Tail = '' } } else { Split-HouseStyleSpecimens -Body $Body }
+
+    if ($Section) {
+        $s = @($split.Sections | Where-Object { $_.Slug -ceq $Section }) | Select-Object -First 1
+        if (-not $s) { return $null }
+        # The section's own cards, without its grid__head: the page's h1 and lead already carry its name and line.
+        $content = $split.Head + '<div class="spec-page">' + "`n" + '<div class="' + $s.Grid + '">' + "`n" + $s.Inner + '</div>' + "`n" + '</div>' + "`n" + $split.Tail
+        return Format-GeneralPageHtml -Title $s.Title -Body $content -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
+            -ParentCrumbs ($crumbs + @(@{ Label = 'House style'; Href = $base })) -Lead $s.Sub -FooterNote $footer
+    }
+
+    $out = New-Object System.Text.StringBuilder
+    if ($ReadError) {
+        [void]$out.AppendLine('<section class="card"><p class="msg msg--warn" role="status">The specimens could not be read: ' + (& $e $ReadError) + '</p></section>')
+    } elseif (-not @($split.Sections).Count) {
+        [void]$out.AppendLine('<section class="card"><p class="msg msg--warn" role="status">The specimens were read, but no section was found in them.</p></section>')
+    } else {
+        [void]$out.AppendLine('<div class="grid-3">')
+        foreach ($s in $split.Sections) {
+            $count = if ($s.Cards -eq 1) { '1 specimen' } else { [string]$s.Cards + ' specimens' }
+            [void]$out.AppendLine('<section class="card card--link" id="hs-' + $s.Slug + '"><h3 class="card__title"><a href="' + $base + '/' + $s.Slug + '">' + (& $e $s.Title) + '</a></h3>' +
+                '<p class="card__sub">' + $s.Sub + '</p><p class="num">' + $count + '</p></section>')
+        }
+        [void]$out.AppendLine('</div>')
+    }
+    return Format-GeneralPageHtml -Title 'House style' -Body $out.ToString() -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
+        -ParentCrumbs $crumbs `
         -Lead 'Every token, the twelve themes and every component of the DKJ-Solutions house style, with their variants and states.' `
-        -FooterNote 'The stylesheet and these specimens are <code>assets/house-style/</code> in the dkj-policy plugin this hub runs from.'
+        -FooterNote $footer
 }
