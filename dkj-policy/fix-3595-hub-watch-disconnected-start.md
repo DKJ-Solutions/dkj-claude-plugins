@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#3595 (Maikel, October 27, 2026): the hub on 4891 exited about two minutes after the SessionStart hook started
+it, leaving no error. The issue inferred a shell teardown. Measured instead: the session the hook runs in
+(session 42, this account) reads `WTSDisconnected` while Claude Code works in it, because the console is another
+account's session (43). The #3569 watcher, new in v5.34.0, read that as "disconnected" and stopped the server's
+tree after its 60-second grace -- which fits the timeline, and the 4896 hub that stayed up all day was started at
+11:03, before v5.34.0. The repair: a disconnect counts only after the session was seen connected, so a session
+disconnected from the start is not watched, while #3569's case -- a session that disconnects later -- is.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `dev-preview-rules.ps1`: `Get-DevPreviewWatchStep` carries `-Armed`, set by a WTSActive or WTSConnected read; a disconnected read before that starts no clock
+- [x] `dev-preview-watch.ps1`: carries the armed state between polls; `-ForceState` takes a sequence of states so the live test can drive the transition
+- [x] `hub/README.md`: the watcher paragraph states the rule
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: 401 passed, 0 failed -- the unit rules for the unarmed watch, and live: `0 4` stops the tree, `4` from the start keeps the server and the watcher leaves with it
+
 ### DEPLOY: fix/3595-hub-watch-disconnected-start
 
-**Score:**
+The hub and the product the SessionStart hook starts no longer stop about two minutes later on a machine where
+Claude Code runs in a disconnected Windows session, as it does under a second account while another account
+holds the console. The session watcher from v5.34.0 now counts a disconnect only after it has seen the session
+connected, so it still stops a server whose session is left behind later.
+
+**Score:** 4
 
 #### What makes this deploy extra special
 
-**Score:**
+Every repo's hub stays up on a machine that switches Windows accounts, instead of going dark minutes after each session start.
+
+**Score:** 4
 
 #### Pull Request
 

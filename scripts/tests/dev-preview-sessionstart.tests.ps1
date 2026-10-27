@@ -204,17 +204,24 @@ Assert-True (-not (Test-DevPreviewSessionWatchable -SessionId 0)) 'session 0 alw
 Assert-True (Test-DevPreviewSessionWatchable -SessionId 43) 'an interactive session gets a watcher'
 $t0 = Get-Date '2026-10-27T09:00:00'
 $s = Get-DevPreviewWatchStep -State 0 -Since $null -Now $t0 -GraceSeconds 60
-Assert-True (-not $s.Stop -and $null -eq $s.Since) 'an active session keeps the server and starts no clock'
-$s = Get-DevPreviewWatchStep -State 4 -Since $null -Now $t0 -GraceSeconds 60
-Assert-True (-not $s.Stop -and $s.Since -eq $t0) 'a first disconnected read starts the clock and keeps the server'
-$s = Get-DevPreviewWatchStep -State 4 -Since $t0 -Now $t0.AddSeconds(59) -GraceSeconds 60
+Assert-True (-not $s.Stop -and $null -eq $s.Since -and $s.Armed) 'an active session keeps the server, starts no clock, and arms the watch'
+$s = Get-DevPreviewWatchStep -State 4 -Since $null -Now $t0 -GraceSeconds 60 -Armed $true
+Assert-True (-not $s.Stop -and $s.Since -eq $t0) 'a first disconnected read after a connected one starts the clock and keeps the server'
+$s = Get-DevPreviewWatchStep -State 4 -Since $t0 -Now $t0.AddSeconds(59) -GraceSeconds 60 -Armed $true
 Assert-True (-not $s.Stop) 'disconnected for less than the grace: kept'
-$s = Get-DevPreviewWatchStep -State 4 -Since $t0 -Now $t0.AddSeconds(60) -GraceSeconds 60
+$s = Get-DevPreviewWatchStep -State 4 -Since $t0 -Now $t0.AddSeconds(60) -GraceSeconds 60 -Armed $true
 Assert-True $s.Stop 'disconnected for the whole grace: stopped'
-$s = Get-DevPreviewWatchStep -State 0 -Since $t0 -Now $t0.AddSeconds(90) -GraceSeconds 60
+$s = Get-DevPreviewWatchStep -State 0 -Since $t0 -Now $t0.AddSeconds(90) -GraceSeconds 60 -Armed $true
 Assert-True (-not $s.Stop -and $null -eq $s.Since) 'a reconnect resets the clock'
-$s = Get-DevPreviewWatchStep -State -1 -Since $t0 -Now $t0.AddSeconds(90) -GraceSeconds 60
+$s = Get-DevPreviewWatchStep -State -1 -Since $t0 -Now $t0.AddSeconds(90) -GraceSeconds 60 -Armed $true
 Assert-True (-not $s.Stop -and $null -eq $s.Since) 'an unreadable state never stops a server, and resets the clock'
+# #3595: a session that reads disconnected from the start is in use while disconnected -- the hook ran there.
+$s = Get-DevPreviewWatchStep -State 4 -Since $null -Now $t0.AddSeconds(600) -GraceSeconds 60
+Assert-True (-not $s.Stop -and $null -eq $s.Since -and -not $s.Armed) 'disconnected before any connected read: no clock, never stopped (#3595)'
+$s = Get-DevPreviewWatchStep -State -1 -Since $null -Now $t0 -GraceSeconds 60
+Assert-True (-not $s.Armed) 'an unreadable state does not arm the watch either'
+$s = Get-DevPreviewWatchStep -State 1 -Since $null -Now $t0 -GraceSeconds 60
+Assert-True $s.Armed 'WTSConnected arms it as WTSActive does'
 Assert-Equal '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\p\w.ps1" -ProcessId 12 -StartTicks 34' (Get-DevPreviewWatchArgs -Watcher 'C:\p\w.ps1' -ProcessId 12 -StartTicks 34) 'the watcher is started for the server''s pid and start time'
 
 # #3404: the settle after a started product's first answer -- the port decides, never the launcher.
@@ -616,13 +623,14 @@ $started = @()
 $blocker = $null
 try {
     if ($isWindows) {
-        # THE WATCHER, live (#3569): a session held disconnected for the grace stops the server's whole tree;
-        # an active one leaves it, and the watcher leaves with the server; a pid whose start time is not the
-        # server's is never stopped.
+        # THE WATCHER, live (#3569): a session that disconnects after a connected read stops the server's whole
+        # tree once the grace has passed; an active one leaves it, and the watcher leaves with the server; one
+        # disconnected from the start leaves it too (#3595); a pid whose start time is not the server's is never
+        # stopped.
         $Watch = Join-Path $RepoRoot 'plugins\dkj-policy\hub\pages\dev-preview-watch.ps1'
         $newTarget = { Start-Process -FilePath 'cmd.exe' -ArgumentList '/d /c ping -n 30 127.0.0.1 > nul' -WindowStyle Hidden -PassThru }
         $tgt = & $newTarget
-        $w = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -PassThru -ArgumentList ((Get-DevPreviewWatchArgs -Watcher $Watch -ProcessId $tgt.Id -StartTicks $tgt.StartTime.ToFileTimeUtc()) + ' -ForceState 4 -GraceSeconds 0 -PollSeconds 1')
+        $w = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -PassThru -ArgumentList ((Get-DevPreviewWatchArgs -Watcher $Watch -ProcessId $tgt.Id -StartTicks $tgt.StartTime.ToFileTimeUtc()) + ' -ForceState "0 4" -GraceSeconds 0 -PollSeconds 1')
         $stopped = $tgt.WaitForExit(15000)
         $kids = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $($tgt.Id)" -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq 'PING.EXE' })
         Assert-True ($stopped -and -not $kids.Count) 'a session disconnected for the grace: the watcher stops the server and its tree'
@@ -632,6 +640,11 @@ try {
         Assert-True (-not $tgt.WaitForExit(4000)) 'an active session: the server keeps running'
         & taskkill.exe /T /F /PID $tgt.Id 2>&1 | Out-Null
         Assert-True $w.WaitForExit(15000) 'and the watcher leaves with the server'
+        $tgt = & $newTarget
+        $w = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -PassThru -ArgumentList ((Get-DevPreviewWatchArgs -Watcher $Watch -ProcessId $tgt.Id -StartTicks $tgt.StartTime.ToFileTimeUtc()) + ' -ForceState 4 -GraceSeconds 0 -PollSeconds 1')
+        Assert-True (-not $tgt.WaitForExit(4000)) 'a session disconnected from the start: the server keeps running (#3595)'
+        & taskkill.exe /T /F /PID $tgt.Id 2>&1 | Out-Null
+        Assert-True $w.WaitForExit(15000) 'and the watcher leaves with it'
         $tgt = & $newTarget
         $w = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -PassThru -ArgumentList ((Get-DevPreviewWatchArgs -Watcher $Watch -ProcessId $tgt.Id -StartTicks 1) + ' -ForceState 4 -GraceSeconds 0 -PollSeconds 1')
         Assert-True ($w.WaitForExit(15000) -and -not $tgt.HasExited) 'a pid whose start time is not the server''s is never stopped'
