@@ -1761,11 +1761,16 @@ function Build-ReleaseNoteDraft {
         one editing pass, one publish. The consumer section is what 'what is different now' used to be, so
         that heading is gone rather than moved -- it was the duplicated half.
 
-        THE CONSUMER SECTION IS PRE-FILLED AND THE ORGANISATIONAL ONE CANNOT BE. The tier-2 entries are a
-        selection the entry authors already made, rendered exactly as the consumer document rendered them
-        (bare titles, ranked on tier 2, significance and branch administration stripped). What the work is
-        worth cannot be derived from a changelog, so those headings arrive empty, with the guidance in an
-        HTML comment the writer deletes.
+        THE CONSUMER SECTION IS PRE-FILLED. The tier-2 entries are a selection the entry authors already
+        made, rendered exactly as the consumer document rendered them (bare titles, ranked on tier 2,
+        significance and branch administration stripped).
+
+        AND IT IS THE ONLY SECTION (Dave, #3584, October 27, 2026: "ik wil dit gewoon nooit meer zien
+        nergens"). The two organisational sections that followed it -- 'What it is worth' and 'What was
+        still open at this release' -- are gone from the draft in every repo. #2564 had made them opt-out
+        through a Get-ReleaseNoteSections seam whose absent answer still meant all three, so every repo
+        that never learned the seam existed kept getting them; the seam is retired with them, and a repo
+        that still answers it is no longer read.
 
         NO AUDIENCE SECTION WHERE NO ENTRY REACHED THAT TIER, and that is the tier-1-only minor in a tier-2
         repo: the version moves for everyone and nobody outside is handed a section about work they cannot
@@ -1797,14 +1802,6 @@ function Build-ReleaseNoteDraft {
         be suppressed for having nothing left in it -- a retraction is exactly the kind of gap a silently
         empty section would hide.
 
-        $Sections IS WHICH OF THE THREE THE REPO'S READERS GET AT ALL (inbound #2564), already resolved by
-        Resolve-ReleaseNoteSections. The Wording seam could RENAME any of the three sections but never
-        omit one, so a consumer whose readers only ask "what changed" deleted the organisation's two headings and their hints
-        by hand at every cut -- measured in two consumers on the same day. A section left out is left out
-        whole: its heading and its hint, and the audience section's switch-off also takes the withheld
-        note with it, because that note explains a gap in a list this document no longer carries.
-        The default is all three, so every existing caller is byte-identical.
-
         $TaskItems IS THE AUDIENCE SECTION'S BODY IN TASK FORM (#2586), already selected and rendered by
         the caller (Format-ReleaseTaskItems). When it is not $null it replaces the ranked entries, and
         $Entries is not rendered at all: the readers of a task-form note ask which of their tasks are
@@ -1822,7 +1819,6 @@ function Build-ReleaseNoteDraft {
         [string]$LinkPrefix = '../../../',
         [int]$AudienceTier = 2,
         [string]$WithheldNote = '',
-        [string[]]$Sections = @('Audience', 'Value', 'Open'),
         # UNTYPED ON PURPOSE: a [string] parameter turns $null into '', and '' here means "task form, no
         # items" -- every caller that passes nothing would lose its entries.
         $TaskItems = $null
@@ -1834,67 +1830,35 @@ function Build-ReleaseNoteDraft {
         AudienceLabel     = 'For whom'
         # 'WHAT CHANGED' AT BOTH TIERS, and the tier-2 default used to be 'For consumers' (Dave,
         # August 21, 2026, reading the built release-notes page). A heading that names the reader tells
-        # that reader nothing they do not already know -- they are the one holding the document -- while
-        # the section BELOW it does carry a reader in its name, because that one is deliberately the half
-        # the consumer's section may not contain. So the pair now reads 'what changed' then 'what it is
-        # worth, to the organisation', and only the heading that separates two readers names one.
+        # that reader nothing they do not already know -- they are the one holding the document.
         #
         # THIS DOES NOT REVERT #747, it completes it: that finding was that 'For consumers' names the
         # WRONG reader at tier 1, which is why the key became tier-dependent. Both tiers answering the
-        # same thing is what lets it stop being tier-dependent at all -- the branch below keeps the two
-        # keys that genuinely differ.
+        # same thing is what lets it stop being tier-dependent at all -- the branch below keeps the keys
+        # that genuinely differ.
         SectionAudience   = 'What changed'
-        SectionOpen       = 'What was still open at this release'
-        HintOpen          = @(
-            'What was deliberately left, and with whom the next step sits. "Nothing" is also an answer',
-            '-- leave the heading standing with that one line.',
-            'Write it as a SNAPSHOT of this release, not as a claim about the present: a document that is',
-            'published does not move with reality, so a line here goes stale in hours rather than months.'
-        ) -join "`n     "
     }
-    # THREE DEFAULTS FOLLOW THE AUDIENCE TIER, because at tier 1 the tier-2 wording is not merely unhelpful
-    # but false -- and #747's second finding is exactly that. 'consumers of this product, and colleagues in
-    # the organisation -- one section each' promises two readers and one section each in a document that
-    # renders one reader and two sections, and the same function guarantees the promise cannot be kept. A
-    # repo should not have to override a string to stop shipping a sentence its generator knows is untrue.
-    #
-    # SectionValue's hint moves for the same reason. At tier 2 it earns its keep by naming who the section
-    # is NOT for, since the section above it belongs to somebody else; at tier 1 both sections are for the
-    # same reader, so that sentence would deny the audience its own document. What survives the move is the
-    # part that is true at either tier: this is the half a changelog cannot produce.
+    # TWO DEFAULTS FOLLOW THE AUDIENCE TIER, because the other tier's wording would name the wrong reader
+    # -- #747's second finding. A repo should not have to override a string to stop shipping a sentence
+    # its generator knows is untrue, which is also why the tier-2 line no longer promises colleagues a
+    # section of their own: that section went with #3584.
     if ($AudienceTier -eq 2) {
-        $w.Audience        = 'consumers of this product, and colleagues in the organisation -- one section each'
+        $w.Audience        = 'consumers of this product'
         $w.HintAudience    = @(
             'DRAFT. These are the tier-2 entries, still in the words their authors wrote for someone',
             'reviewing a diff. Rewrite them for someone deciding whether to update: what they can now do,',
             'in the second person, most urgent first, and say plainly whether they must act. The seven',
             'tests are in the cut-release skill. Delete this comment when you are done.'
         ) -join "`n     "
-        $w.HintValue       = @(
-            'FOR THE ORGANISATION, not for the consumer -- this is the section the consumer half is not',
-            'allowed to contain. The only part that cannot be generated. Think in time, risk and reduced',
-            'dependence on a developer. For example: "changing an amount took five edits in code and can',
-            'now be done by the team itself".'
-        ) -join "`n     "
     } else {
-        $w.Audience        = 'colleagues in the organisation -- what changed, and what it is worth'
+        $w.Audience        = 'colleagues in the organisation'
         $w.HintAudience    = @(
             "DRAFT. These are the tier-$AudienceTier entries, still in the words their authors wrote for",
             'someone reviewing a diff. Rewrite them for the reader who authorises the work: what is now',
             'possible, most consequential first, and say plainly whether anything is expected of them.',
             'Delete this comment when you are done.'
         ) -join "`n     "
-        # 'the changes above' would be a dangling reference in the one state where the section above is
-        # suppressed -- rare at tier 1, since a bump that writes this document needs a tier-1 entry, but
-        # reachable by hand and by a repo that names 'patch' in Get-ReleaseConsumerBumps. Phrased against
-        # the release rather than against a neighbouring section, so it is true either way.
-        $w.HintValue       = @(
-            'WHAT THIS RELEASE BOUGHT, which a list of changes cannot say -- the only part of this document',
-            'that cannot be generated. Think in time, risk and reduced dependence on a developer. For',
-            'example: "changing an amount took five edits in code and can now be done by the team itself".'
-        ) -join "`n     "
     }
-    $w.SectionValue = 'What it is worth'
     $w.HintTasks    = @(
         'DRAFT. One item per solved task: an audience entry that is live, changed the storefront, and',
         'closed an issue linked to a task. The title is the GitHub issue''s. Rewrite it the way the',
@@ -1951,7 +1915,7 @@ function Build-ReleaseNoteDraft {
     # but a retraction would otherwise fall through the "no audience section where no entry reached that
     # tier" rule above and say nothing at all about the withholding -- the exact silence the rule was
     # written to avoid, aimed at the one case it had not been asked about yet.
-    if (($Sections -contains 'Audience') -and ($hasContent -or $WithheldNote)) {
+    if ($hasContent -or $WithheldNote) {
         $out.Add("## $($w.SectionAudience)")
         $out.Add('')
         if ($hasContent) {
@@ -1986,54 +1950,10 @@ function Build-ReleaseNoteDraft {
         }
     }
 
-    if ($Sections -contains 'Value') {
-        $out.Add("## $($w.SectionValue)")
-        $out.Add('')
-        $out.Add("<!-- $($w.HintValue) -->")
-        $out.Add('')
-    }
-    if ($Sections -contains 'Open') {
-        $out.Add("## $($w.SectionOpen)")
-        $out.Add('')
-        $out.Add("<!-- $($w.HintOpen) -->")
-        $out.Add('')
-    }
-
-    # The last section used to end the document without a trailing blank line; trimming the blanks the
-    # blocks above leave behind keeps that shape whichever section happens to come last.
+    # The document ends without a trailing blank line; trimming the blanks the blocks above leave behind
+    # keeps that shape whether or not the audience section was written.
     while ($out.Count -gt 0 -and $out[$out.Count - 1] -eq '') { $out.RemoveAt($out.Count - 1) }
     return (($out -join "`n") + "`n")
-}
-
-function Resolve-ReleaseNoteSections {
-    <#
-        Validates a Get-ReleaseNoteSections answer and returns it in document order (inbound #2564).
-
-        THE THREE NAMES ARE THE WORDING KEYS WITHOUT THEIR 'Section' PREFIX -- Audience, Value, Open -- so a
-        consumer who already renames a heading through Get-ReleaseNoteWording reads the same word here.
-        Matched case-insensitively and returned in the canonical spelling and order: the document's order
-        is fixed, and an answer that listed them backwards must not be read as a request to reorder.
-
-        REFUSED RATHER THAN IGNORED: an unknown name, and an answer that names nothing. A misspelt name
-        silently dropped would remove a section the repo meant to keep, and nobody would see it until a
-        published document was missing it. An empty answer is refused because a draft with no section is
-        a header and nothing else -- the repo that wants no hand-written document at all already has that
-        answer, an empty Get-ReleaseConsumerBumps, and this is the wrong place to give it.
-
-        $null (the seam is not defined) means all three: absent is UNCHANGED, as for every seam here.
-    #>
-    param($Answer)
-    $all = @('Audience', 'Value', 'Open')
-    if ($null -eq $Answer) { return $all }
-    $given = @($Answer | ForEach-Object { "$_".Trim() } | Where-Object { $_ })
-    if ($given.Count -eq 0) {
-        throw "Get-ReleaseNoteSections names no section. Name at least one of: $($all -join ', ') -- or, for no hand-written document at all, answer Get-ReleaseConsumerBumps with @()."
-    }
-    $unknown = @($given | Where-Object { $all -notcontains $_ })
-    if ($unknown.Count -gt 0) {
-        throw "Get-ReleaseNoteSections names an unknown section: $($unknown -join ', '). The sections are: $($all -join ', ')."
-    }
-    return @($all | Where-Object { $given -contains $_ })
 }
 
 function Get-ReleaseNoteFormShape {
@@ -2090,7 +2010,7 @@ function Compare-ReleaseNoteForm {
         repo (#2812). One string per difference; an empty array means the form matches.
 
         THE EXPECTED FORM IS DRAWN BY THE GENERATOR ITSELF, not restated here. Build-ReleaseNoteDraft is
-        called with the same Wording, Sections and AudienceTier the cut passes, and its output is read
+        called with the same Wording and AudienceTier the cut passes, and its output is read
         with the same Get-ReleaseNoteFormShape as the note. A second list of default headings in this
         function would be the exact drift the check exists to find, one layer down. The draft is asked in
         task form with a placeholder item, so the audience section is present without needing a real
@@ -2101,17 +2021,16 @@ function Compare-ReleaseNoteForm {
         added: the skill page states the form as "the section headings and their order", and a section a
         writer adds by hand is a form the next writer copies.
 
-        WHAT IT DOES NOT JUDGE: the audience sentence, the items, the organisation sections' text, and the
-        title paragraph -- all content, and the repo's own.
+        WHAT IT DOES NOT JUDGE: the audience sentence, the items and the title paragraph -- all content,
+        and the repo's own.
     #>
     param(
         [AllowEmptyString()][string]$Text = '',
         [hashtable]$Wording = @{},
-        [string[]]$Sections = @('Audience', 'Value', 'Open'),
         [int]$AudienceTier = 2
     )
     $draft = Build-ReleaseNoteDraft -Version '0.0.0' -Date '1970-01-01' -Type 'Minor' -Wording $Wording `
-        -AudienceTier $AudienceTier -Sections $Sections -TaskItems '- placeholder'
+        -AudienceTier $AudienceTier -TaskItems '- placeholder'
     $want = Get-ReleaseNoteFormShape -Text $draft
     $have = Get-ReleaseNoteFormShape -Text $Text
     $findings = New-Object System.Collections.Generic.List[string]
@@ -2128,7 +2047,7 @@ function Compare-ReleaseNoteForm {
 
     $wantAll = @($want.Headings)
     $matched = (($have.Headings -join "`n") -ceq ($wantAll -join "`n"))
-    if (-not $matched -and ($Sections -contains 'Audience') -and $wantAll.Count -gt 0) {
+    if (-not $matched -and $wantAll.Count -gt 0) {
         $withoutAudience = @($wantAll | Select-Object -Skip 1)
         $matched = (($have.Headings -join "`n") -ceq ($withoutAudience -join "`n"))
     }

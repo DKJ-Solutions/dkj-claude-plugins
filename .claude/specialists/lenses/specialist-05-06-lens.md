@@ -329,10 +329,12 @@ And beside them, in the same folder since August 27, 2026:
   one regex that three readers share — including the row inserter and the new-major guardrail — and only new
   rows are touched, so the existing 72 keep pointing where they always did.
 - **`dkj-policy/releases/audience/<X>.x/<X.Y.Z>.md`** — **the one hand-written document, since August 10, 2026**, drafted
-  by the cut for every bump `Get-ReleaseConsumerBumps` names. Three sections: *For consumers* (pre-filled
-  with the tier-2 entries, and absent where none reached tier 2), *What it is worth* and *What was still open
-  at this release* (both empty — neither can be generated). Rendall's pass is a rewrite of the first and an
-  authoring job on the other two. **A patch gets none of it**: the generated Release body announces it.
+  by the cut for every bump `Get-ReleaseConsumerBumps` names. One section, *What changed* (pre-filled with
+  the tier-2 entries, and absent where none reached tier 2), and Rendall's pass is a rewrite of it. Until
+  [#3584](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3584) (October 27, 2026) two empty
+  organisational sections followed it, *What it is worth* and *What was still open at this release*; Dave
+  wanted them nowhere, so the draft no longer writes them. **A patch gets none of it**: the generated
+  Release body announces it.
   - **It was `releases/notes/` until August 12, 2026**, and the root is stated in `Get-ReleaseNoteRoot` —
     never hardcoded, which is a rule with a measured instance behind it: lint check 25 named the old root as
     a literal, so on the day of the rename it would have found no live tree, checked the archive alone, and
@@ -373,7 +375,8 @@ And beside them, in the same folder since August 27, 2026:
   release (v3.2.0) and no longer does; Dave does not want it anywhere. A PDF, if ever needed, comes from
   rendering the markdown with a tool built for it.
 - **`dkj-policy/releases/audience/<X>.x/<X.Y.Z>.md`, the *What it is worth* and *What was still open* sections** — *what
-  the two-document era's `releases/internal/` document became.* **That directory no longer exists either**,
+  the two-document era's `releases/internal/` document became, until #3584 retired both sections from the
+  draft; the notes up to v5.34.0 carry them as written.* **That directory no longer exists either**,
   merged in the same movement (Dave, August 12, 2026). `new-internal-note.ps1` still ships and still works for
   a repo running the two-document flow, and nothing in this repo's chain calls it — **its `releases/internal/`
   path is that consumer's archive and must not be repointed at `audience/`.** Read the paragraph below as

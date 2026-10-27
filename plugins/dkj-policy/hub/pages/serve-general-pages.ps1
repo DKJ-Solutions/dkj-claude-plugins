@@ -294,9 +294,11 @@ function Update-ReleaseNotesPage {
     <#
         Builds the release-notes page where Get-ReleaseNotesPageNeed says it is absent or stale (#3189), with
         dkj-policy's own build-release-notes-page.ps1 in a CHILD process, bounded at 60 s: it dot-sources the
-        repo's scripts/repo-config.ps1, whose functions must not land in this server's scope. Returns '' when
-        the page on disk is current or was just built, else why it could not be built. A failed build is kept
-        for 30 s, so a page that cannot build does not re-run it on every request; an older page stays served.
+        repo's scripts/repo-config.ps1, whose functions must not land in this server's scope. Returns
+        @{ Error; NoRelease }: Error is '' when the page on disk is current or was just built, else why it could
+        not be built; NoRelease is true where the builder answered that the repo has never cut a release (its
+        exit 3, #3580), which is an empty state rather than an error. A failed build is kept for 30 s, so a
+        page that cannot build does not re-run it on every request; an older page stays served.
     #>
     $releasesDir = Split-Path -Parent (Split-Path -Parent $releaseNotesFile)
     $pageDir = Split-Path -Parent $releaseNotesFile
@@ -308,10 +310,10 @@ function Update-ReleaseNotesPage {
             Where-Object { -not $_.FullName.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase) } |
             ForEach-Object { $_.LastWriteTimeUtc } | Sort-Object -Descending | Select-Object -First 1
     }
-    if (-not (Get-ReleaseNotesPageNeed -PageTime $pageTime -NewestInputTime $newest)) { return '' }
-    if ($script:rnFailure -and ((Get-Date) - $script:rnFailure.At).TotalSeconds -lt 30) { return $script:rnFailure.Error }
+    if (-not (Get-ReleaseNotesPageNeed -PageTime $pageTime -NewestInputTime $newest)) { return @{ Error = ''; NoRelease = $false } }
+    if ($script:rnFailure -and ((Get-Date) - $script:rnFailure.At).TotalSeconds -lt 30) { return $script:rnFailure.Result }
 
-    $err = ''
+    $err = ''; $noRelease = $false
     $builder = Resolve-DkjPolicyScript -RelativePath 'scripts\release\build-release-notes-page.ps1'
     if (-not $builder) {
         $err = 'build-release-notes-page.ps1 was not found in the repo or in the dkj-policy plugin'
@@ -320,14 +322,16 @@ function Update-ReleaseNotesPage {
             $run = Invoke-BoundedProcess -FilePath (Join-Path $PSHOME 'powershell.exe') -TimeoutSeconds 60 -WorkingDirectory $root -Arguments @(
                 '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $builder, '-RootOverride', $root, '-OutFile', $releaseNotesFile)
             if ($run.TimedOut) { $err = 'the build did not finish within 60 s' }
+            elseif ($run.ExitCode -eq 3) { $noRelease = $true }
             elseif ($run.ExitCode -ne 0) {
                 $last = @("$($run.Error)`n$($run.Output)" -split "`r?`n" | Where-Object { $_.Trim() }) | Select-Object -First 1
                 $err = "the build exited $($run.ExitCode)" + $(if ($last) { ': ' + ($last.Trim() -replace '\s+', ' ') } else { '' })
             }
         } catch { $err = (([string]$_.Exception.Message) -replace '\s+', ' ') }
     }
-    $script:rnFailure = if ($err) { @{ Error = $err; At = Get-Date } } else { $null }
-    return $err
+    $result = @{ Error = $err; NoRelease = $noRelease }
+    $script:rnFailure = if ($err -or $noRelease) { @{ Result = $result; At = Get-Date } } else { $null }
+    return $result
 }
 
 function Get-SessionStartModel {
@@ -559,9 +563,16 @@ try {
                 }
             } elseif ($rn = Resolve-ReleaseNotesRequest -Path $path -IndexFile $releaseNotesFile) {
                 # The index, or one release's own page beside it (owner, October 25, 2026).
-                $buildError = Update-ReleaseNotesPage
+                $build = Update-ReleaseNotesPage
                 if (-not (Test-Path -LiteralPath $releaseNotesFile -PathType Leaf)) {
-                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("Not built yet: this repo has no dkj-policy/releases/page/release-notes.html, and this server could not build it ($buildError).")) -Method $method
+                    if ($build.NoRelease -and -not $rn.Version) {
+                        # Before the first cut the index is an empty state, not a build error (#3580).
+                        $html = Format-ReleaseNotesEmptyPageHtml -RepoName (Get-RepoIdentity).Name
+                        Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                        continue
+                    }
+                    $why = if ($build.NoRelease) { 'no release has been cut yet' } else { $build.Error }
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes("Not built yet: this repo has no dkj-policy/releases/page/release-notes.html, and this server could not build it ($why).")) -Method $method
                     continue
                 }
                 if (-not (Test-Path -LiteralPath $rn.File -PathType Leaf)) {

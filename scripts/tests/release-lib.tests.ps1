@@ -1063,13 +1063,16 @@ $draft = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '202
     -Title 'A release title sentence'
 Assert-Match $draft '(?m)^# Release notes v4\.3\.0 ' 'the header names the version'
 Assert-Match $draft '\*\*Date:\*\* 2026-08-11' 'and carries the date'
-Assert-Match $draft '(?m)^\*\*For whom:\*\* .*consumers.*colleagues' 'the audience line names BOTH readers, since the document has two'
+Assert-Match $draft '(?m)^\*\*For whom:\*\* consumers of this product$' 'the audience line names the one reader the document has'
+Assert-NoMatch $draft 'colleagues' 'and promises colleagues no section, since there is none for them (#3584)'
 Assert-Match $draft '(?m)^A release title sentence$' 'the title line is included'
 Assert-Match $draft '(?m)^## What changed$' 'the audience section is present when an entry reached tier 2'
 Assert-NoMatch $draft '(?m)^## For ' 'and it does not name its own reader -- the section below is the one that names a reader'
 Assert-Match $draft '(?m)^### A change with a readable name$' 'its entries sit one level DEEPER than before -- they are under a section now, not under the H1'
-Assert-Match $draft '(?m)^## What it is worth$' "the organisation's value section is present"
-Assert-Match $draft '(?m)^## What was still open at this release$' 'and its open section'
+# THE TWO ORGANISATIONAL SECTIONS ARE GONE IN EVERY REPO (#3584) -- not opt-out, nowhere.
+Assert-NoMatch $draft '(?m)^## What it is worth$' 'no value section'
+Assert-NoMatch $draft '(?m)^## What was still open' 'and no open section'
+Assert-NoMatch $draft 'FOR THE ORGANISATION|SNAPSHOT of this release' 'and neither of their hints'
 # THE BRANCH ADMINISTRATION THE DOSSIER FIXTURE EXISTS FOR. Asserted here since issue #1370, where the
 # retired Build-ConsumerNotes carried these -- and the draft is now the ONE document that travels outward,
 # passing the identical switch set (-BareTitles -RankByTier -StripSignificance -StripAdminSections). So
@@ -1154,18 +1157,16 @@ Assert-NoMatch $draft '\*\*Score:\*\* 4' 'and neither does the self-assigned sco
 # stating out loud that its scope is the tier-2 repo and the tier-1 case is asserted separately below.
 $draftNoTier2 = Build-ReleaseNoteDraft -Entries @() -Version '4.3.0' -Date '2026-08-11' -Type 'Minor'
 Assert-NoMatch $draftNoTier2 '(?m)^## What changed$' 'a TIER-2 repo gets no audience section where no entry reached tier 2'
-Assert-Match $draftNoTier2 '(?m)^## What it is worth$' 'while the organisation still gets its sections -- the document is still written'
-Assert-Match $draftNoTier2 '(?m)^## What was still open at this release$' 'both of them'
+Assert-Match $draftNoTier2 '(?m)^# Release notes v4\.3\.0 ' 'while the document is still written, header and all'
 # The guidance is an HTML comment, so the writer deletes it rather than working around it -- and the fold's
 # comment stripper is not involved here, this document is not an entry.
 Assert-Match $draft '<!-- DRAFT\.' 'the consumer guidance is an HTML comment'
-Assert-Match $draft '<!-- FOR THE ORGANISATION' 'and so is the value-section guidance, which names who it is NOT for'
 # WORDING MERGES OVER THE DEFAULTS, one key at a time: a repo renaming one heading must not have to
 # restate the other five. Same contract the note script's seam already had.
 $draftW = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' `
     -Wording @{ SectionConsumers = 'Voor klanten' }
 Assert-Match $draftW '(?m)^## Voor klanten$' 'an overridden heading is used'
-Assert-Match $draftW '(?m)^## What it is worth$' 'and the headings that were not overridden keep their defaults'
+Assert-Match $draftW '(?m)^\*\*For whom:\*\* consumers of this product$' 'and the keys that were not overridden keep their defaults'
 Assert-Match (Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -Wording @{ SectionConsumers = '' }) `
     '(?m)^## What changed$' 'an override that is present but EMPTY is ignored, like every other wording seam here'
 # THE DEFAULT IS 2, so every assert above passes an -AudienceTier nobody wrote. Pinned, because the
@@ -1181,22 +1182,18 @@ $draft1 = Build-ReleaseNoteDraft -Entries @($dossier1) -Version '4.3.0' -Date '2
 Assert-Match   $draft1 '(?m)^## What changed$' 'the audience section is present -- the SAME heading tier 2 gets, since neither names a reader'
 Assert-NoMatch $draft1 '(?m)^## For consumers$' 'and the retired consumer heading does not come back at either tier'
 Assert-Match   $draft1 '(?m)^### A change with a readable name$' 'it is PRE-FILLED from the tier-1 entry -- the half #747 thought impossible'
-Assert-Match   $draft1 '(?m)^## What it is worth$' 'the section a changelog cannot produce still arrives'
-Assert-Match   $draft1 '(?m)^## What was still open at this release$' 'and so does the open section'
+Assert-NoMatch $draft1 '(?m)^## What it is worth$|(?m)^## What was still open' 'and no organisational section at tier 1 either (#3584)'
 Assert-NoMatch $draft1 '\*\*Score:\*\* 4' 'the self-assigned score is stripped here too'
 Assert-NoMatch $draft1 '(?m)^#### Branch ID' 'and so is the branch administration'
 # #747's SECOND finding: at tier 1 the default audience line was false on both halves -- it promised a
 # reader the repo does not publish to, and one section each in a document rendering two for one reader.
+# Since #3584 the line is the reader alone, at either tier.
 Assert-NoMatch $draft1 'consumers of this product' 'the audience line no longer promises an audience the repo does not have'
-Assert-Match   $draft1 '(?m)^\*\*For whom:\*\* colleagues in the organisation' 'it names the reader it does have'
-# And the value hint stops asserting it is 'not for the consumer', which at tier 1 would deny the
-# audience the very document they are reading.
-Assert-NoMatch $draft1 'not for the consumer' "the value hint drops a distinction that does not exist at tier 1"
-Assert-Match   $draft1 '<!-- WHAT THIS RELEASE BOUGHT' 'and keeps the part that is true at either tier'
+Assert-Match   $draft1 '(?m)^\*\*For whom:\*\* colleagues in the organisation$' 'it names the reader it does have, and nothing more'
 # The empty gate is unchanged at tier 1 -- an empty heading is still worse than none.
 $draft1None = Build-ReleaseNoteDraft -Entries @() -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -AudienceTier 1
 Assert-NoMatch $draft1None '(?m)^## What changed$' 'no audience section at tier 1 either, where no entry reached that tier'
-Assert-Match   $draft1None '(?m)^## What it is worth$' 'while the document is still written'
+Assert-Match   $draft1None '(?m)^# Release notes v4\.3\.0 ' 'while the document is still written'
 # RECOGNISE BOTH, WRITE ONE. SectionConsumers/HintConsumers are the retired key names, and this wording
 # comes from a consumer-owned seam -- a repo that named the section under the old key receives the rename
 # through a plugin update rather than by choosing to, so dropping it would silently revert their heading.
@@ -1292,37 +1289,15 @@ Assert-NoMatch $draftAllWithheld '(?m)^<!-- DRAFT\. These are the tier' 'but not
 Assert-Equal $draft (Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -Title 'A release title sentence') `
     'omitting -WithheldNote reproduces the very first draft in this file, unchanged'
 
-Write-Host "Build-ReleaseNoteDraft -Sections (inbound #2564 -- a repo omits what its readers do not ask for)" -ForegroundColor Cyan
-# ALL THREE IS THE DEFAULT, BYTE FOR BYTE: every caller that never heard of the switch keeps its document.
-Assert-Equal $draft (Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' `
-    -Title 'A release title sentence' -Sections @('Audience', 'Value', 'Open')) 'naming all three reproduces the default draft exactly'
-# THE MEASURED CONSUMER ANSWER: what changed, and nothing else.
-$draftOnly = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -Sections @('Audience')
-Assert-Match $draftOnly '(?m)^## What changed$' 'Audience alone keeps the what-changed section'
-Assert-NoMatch $draftOnly '(?m)^## What it is worth$' 'and drops the value heading'
-Assert-NoMatch $draftOnly 'FOR THE ORGANISATION' 'together with its hint -- a section left out is left out whole'
-Assert-NoMatch $draftOnly '(?m)^## What was still open at this release$' 'and drops the open heading'
-Assert-NoMatch $draftOnly 'SNAPSHOT of this release' 'together with its hint'
-Assert-Equal $true ($draftOnly.EndsWith("`n") -and -not $draftOnly.EndsWith("`n`n")) 'the document still ends on exactly one newline, whichever section comes last'
-# THE OTHER TWO SWITCH INDEPENDENTLY, and a renamed heading survives the omission of its neighbour.
-$draftNoOpen = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' `
-    -Sections @('Audience', 'Value') -Wording @{ SectionValue = 'Wat het oplevert' }
-Assert-Match $draftNoOpen '(?m)^## Wat het oplevert$' 'Value kept, under the name the wording seam gave it'
-Assert-NoMatch $draftNoOpen '(?m)^## What was still open' 'while Open is dropped'
-$draftNoAudience = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -Sections @('Value')
-Assert-NoMatch $draftNoAudience '(?m)^## What changed$' 'Audience can be left out too, even with entries to rank'
-Assert-Match $draftNoAudience '(?m)^## What it is worth$' 'leaving the value section standing'
-
-Write-Host "Resolve-ReleaseNoteSections (the seam's answer, validated before the cut writes anything)" -ForegroundColor Cyan
-Assert-Equal 'Audience|Value|Open' ((Resolve-ReleaseNoteSections -Answer $null) -join '|') 'an absent seam means all three'
-Assert-Equal 'Audience|Open' ((Resolve-ReleaseNoteSections -Answer @('open', 'AUDIENCE')) -join '|') `
-    'matched case-insensitively and returned in canonical spelling and document order'
-Assert-Equal 'Audience' ((Resolve-ReleaseNoteSections -Answer 'Audience') -join '|') 'a bare string is one section'
-$threw = $null; try { Resolve-ReleaseNoteSections -Answer @('Audience', 'Worth') | Out-Null } catch { $threw = $_.Exception.Message }
-Assert-Match "$threw" 'unknown section: Worth' 'a misspelt name is refused by name, never silently dropped'
-$threw = $null; try { Resolve-ReleaseNoteSections -Answer @() | Out-Null } catch { $threw = $_.Exception.Message }
-Assert-Match "$threw" 'names no section' 'an empty answer is refused'
-Assert-Match "$threw" 'Get-ReleaseConsumerBumps' 'and points at the seam that does switch the whole document off'
+Write-Host "Build-ReleaseNoteDraft and the retired sections seam (#3584)" -ForegroundColor Cyan
+Assert-Equal $false (Test-FunctionDefined 'Resolve-ReleaseNoteSections') 'Resolve-ReleaseNoteSections is retired with the sections it chose between'
+Assert-NoParameter -Command 'Build-ReleaseNoteDraft' -Names @('Sections')
+Assert-NoParameter -Command 'Compare-ReleaseNoteForm' -Names @('Sections')
+# A wording override for a retired section is not an error, it is simply not read.
+$draftOldKeys = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' `
+    -Wording @{ SectionValue = 'Wat het oplevert'; SectionOpen = 'Wat nog openstond' }
+Assert-NoMatch $draftOldKeys 'Wat het oplevert|Wat nog openstond' 'a renamed retired section does not bring its heading back'
+Assert-Equal $true ($draftOldKeys.EndsWith("`n") -and -not $draftOldKeys.EndsWith("`n`n")) 'the document still ends on exactly one newline'
 
 Write-Host "Build-GitHubReleaseBody (generated, every release, every tier)" -ForegroundColor Cyan
 # THE POINT OF GENERATING IT is that the Release page stops depending on which hand-written tier
@@ -1486,7 +1461,7 @@ Assert-NoMatch $draftTasks 'still in the words their authors wrote' 'the entries
 # tier-1-only-minor case the entries form already suppresses on.
 $draftTasksEmpty = Build-ReleaseNoteDraft -Entries @($dossier) -Version '4.3.0' -Date '2026-08-11' -Type 'Minor' -TaskItems ''
 Assert-NoMatch $draftTasksEmpty '(?m)^## What changed$' 'an empty task-form body with no withheld note suppresses the whole section'
-Assert-Match $draftTasksEmpty '(?m)^## What it is worth$' 'while the rest of the document is still written'
+Assert-Match $draftTasksEmpty '(?m)^# Release notes v4\.3\.0 ' 'while the rest of the document is still written'
 
 # '' WITH A -WithheldNote STILL HOLDS THE SECTION OPEN -- the same rule the entries form already has,
 # read here in task form: a note explaining a gap must not itself disappear into the gap.

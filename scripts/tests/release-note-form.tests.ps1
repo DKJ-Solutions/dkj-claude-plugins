@@ -36,10 +36,10 @@ function Assert-True {
 }
 
 function New-Draft {
-    param([hashtable]$Wording = @{}, [string[]]$Sections = @('Audience', 'Value', 'Open'), [int]$Tier = 2, [switch]$NoAudienceItems)
+    param([hashtable]$Wording = @{}, [int]$Tier = 2, [switch]$NoAudienceItems)
     $items = if ($NoAudienceItems) { $null } else { "### Something shipped`n`nIt works now." }
     Build-ReleaseNoteDraft -Version '2.3.0' -Date '2026-10-05' -Type 'Minor' -Title 'A release' `
-        -Wording $Wording -Sections $Sections -AudienceTier $Tier -TaskItems $items
+        -Wording $Wording -AudienceTier $Tier -TaskItems $items
 }
 
 function Invoke-Check {
@@ -68,16 +68,15 @@ try {
     Write-Host "`n== 1. a note in the drafted form has no findings ==" -ForegroundColor Cyan
     Assert-True (@(Compare-ReleaseNoteForm -Text (New-Draft)).Count -eq 0) 'the default draft matches its own form'
     Assert-True (@(Compare-ReleaseNoteForm -Text (New-Draft -NoAudienceItems)).Count -eq 0) 'a draft with no audience section matches too -- the draft itself leaves that heading out'
-    $nl = @{ Title = 'Releasenotities'; AudienceLabel = 'Voor wie'; SectionAudience = 'Wat er veranderde'; SectionValue = 'Wat het waard is'; SectionOpen = 'Wat nog openstond' }
+    $nl = @{ Title = 'Releasenotities'; AudienceLabel = 'Voor wie'; SectionAudience = 'Wat er veranderde' }
     Assert-True (@(Compare-ReleaseNoteForm -Text (New-Draft -Wording $nl) -Wording $nl).Count -eq 0) 'a translated draft matches when the same Wording is passed'
-    Assert-True (@(Compare-ReleaseNoteForm -Text (New-Draft -Sections @('Audience')) -Sections @('Audience')).Count -eq 0) 'a one-section repo matches its own one-section draft'
     Assert-True (@(Compare-ReleaseNoteForm -Text (New-Draft -Tier 1) -AudienceTier 1).Count -eq 0) 'a tier-1 draft matches at tier 1'
 
     Write-Host "`n== 2. each kind of drift is found ==" -ForegroundColor Cyan
     $base = New-Draft
     $added = $base.TrimEnd() + "`n`n## What this release cost to make`n`nA lot.`n"
     Assert-True (@(Compare-ReleaseNoteForm -Text $added).Count -eq 1) 'an added section heading is found'
-    $renamed = $base -replace '## What it is worth', '## Value'
+    $renamed = $base -replace '## What changed', '## Changes'
     Assert-True ((Compare-ReleaseNoteForm -Text $renamed) -match "section headings") 'a renamed section heading is found'
     $label = $base -replace '\*\*For whom:\*\*', '**Voor wie:**'
     Assert-True ((Compare-ReleaseNoteForm -Text $label) -match 'header labels') 'a translated header label is found'
@@ -87,10 +86,9 @@ try {
     Assert-True ((Compare-ReleaseNoteForm -Text $noTitle) -match '^no title line') 'a missing title line is found'
     $nlNote = New-Draft -Wording $nl
     Assert-True (@(Compare-ReleaseNoteForm -Text $nlNote).Count -eq 3) 'a translated note with no Wording seam is found three times: title, labels, headings'
-    $swapped = $base -replace '## What it is worth', '## TMP' -replace '## What was still open at this release', '## What it is worth' -replace '## TMP', '## What was still open at this release'
-    Assert-True ((Compare-ReleaseNoteForm -Text $swapped) -match 'section headings') 'two headings in the wrong order are found'
-    $noValue = $base -replace '(?m)^## What it is worth\r?\n', ''
-    Assert-True ((Compare-ReleaseNoteForm -Text $noValue) -match 'section headings') 'a missing non-audience heading is found -- only the audience heading may be absent'
+    # THE TWO RETIRED ORGANISATIONAL SECTIONS (#3584), written back by hand, are drift like any other.
+    $withOrg = $base.TrimEnd() + "`n`n## What it is worth`n`nTime.`n`n## What was still open at this release`n`nNothing.`n"
+    Assert-True ((Compare-ReleaseNoteForm -Text $withOrg) -match 'section headings') 'the retired organisational sections, added back by hand, are found'
 
     Write-Host "`n== 3. headings written ABOUT the form are not the form ==" -ForegroundColor Cyan
     $quoted = $base.TrimEnd() + "`n`nThe old shape:`n`n``````markdown`n## For consumers`n``````" + "`n`n<!-- ## Not a heading`n## Nor this -->`n"
@@ -113,14 +111,18 @@ try {
     Assert-True ($r.Text -match 'Get-ReleaseNoteWording') 'and the failure names the one seam that may change the form'
 
     Write-Host "`n== 5. the repo's own seams set the expected form ==" -ForegroundColor Cyan
-    $t2 = New-Tree -Label 'seam' -Config "function Get-ReleaseNoteWording { @{ SectionValue = 'Value' } }`n"
+    $t2 = New-Tree -Label 'seam' -Config "function Get-ReleaseNoteWording { @{ SectionAudience = 'Changes' } }`n"
     Set-Note -Dir $t2 -Version '1.0.0' -Text $renamed
     Assert-True ((Invoke-Check -Root $t2).Exit -eq 0) 'a note renamed through Get-ReleaseNoteWording passes'
     Set-Note -Dir $t2 -Version '1.1.0' -Text $base
     Assert-True ((Invoke-Check -Root $t2).Exit -eq 1) 'and the plugin default fails there, because that repo drafts a different heading'
-    $t3 = New-Tree -Label 'sections' -Config "function Get-ReleaseNoteSections { @('Audience') }`n"
-    Set-Note -Dir $t3 -Version '1.0.0' -Text $base
-    Assert-True ((Invoke-Check -Root $t3).Exit -eq 1) 'a three-section note fails in a repo that answers Get-ReleaseNoteSections with Audience only'
+    # Get-ReleaseNoteSections IS RETIRED (#3584): a repo still answering all three is not read, so a note
+    # carrying the organisational sections fails there too, and the plain draft passes.
+    $t3 = New-Tree -Label 'sections' -Config "function Get-ReleaseNoteSections { @('Audience', 'Value', 'Open') }`n"
+    Set-Note -Dir $t3 -Version '1.0.0' -Text $withOrg
+    Assert-True ((Invoke-Check -Root $t3).Exit -eq 1) 'a three-section note fails even where the retired seam still answers all three'
+    Set-Note -Dir $t3 -Version '1.1.0' -Text $base
+    Assert-True ((Invoke-Check -Root $t3).Exit -eq 0) 'and the one-section draft passes there'
 
     Write-Host "`n== 6. nothing to judge is a pass ==" -ForegroundColor Cyan
     $t4 = New-Tree -Label 'empty'

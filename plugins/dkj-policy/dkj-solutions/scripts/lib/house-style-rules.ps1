@@ -136,6 +136,36 @@ function Get-HouseStylePin {
     return @{ Tag = $tag; Hashes = $hashes }
 }
 
+function Get-HouseStyleTagPin {
+    <#
+        The pin as the skill page reads AT the tag $Pin names, or $null when that page cannot be read, carries
+        no complete table, or names another tag (#3588). An install tracks main, so between a merge that
+        changes a house file and the cut, the installed page names the previous tag beside the new checksums,
+        and a consumer's copy of the released file fails it. The reusable gate already reads the page at the
+        tag (#3148); a local check cannot, since the marketplace clone carries no tags, so it fetches the page.
+        Callers ask only when a copy has failed the installed pin, so a clean session never touches the network.
+        $TagPageText stands in for the fetch (tests), and so does the file DKJ_HOUSE_STYLE_TAG_PAGE names, which
+        reaches the gate and the hook as child processes; a name with no file behind it reads as an unreadable page.
+    #>
+    param([Parameter(Mandatory)][hashtable]$Pin, [string]$TagPageText, [int]$TimeoutSec = 5)
+
+    if ($Pin.Tag -notmatch '^v\d+\.\d+\.\d+$') { return $null }
+    if (-not $PSBoundParameters.ContainsKey('TagPageText') -and $env:DKJ_HOUSE_STYLE_TAG_PAGE) {
+        if (-not (Test-Path -LiteralPath $env:DKJ_HOUSE_STYLE_TAG_PAGE -PathType Leaf)) { return $null }
+        $TagPageText = [System.IO.File]::ReadAllText($env:DKJ_HOUSE_STYLE_TAG_PAGE, [System.Text.Encoding]::UTF8)
+    } elseif (-not $PSBoundParameters.ContainsKey('TagPageText')) {
+        $url = "https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/$($Pin.Tag)/plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md"
+        try {
+            [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+            $TagPageText = [string](Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop).Content
+        } catch { return $null }
+    }
+    if (-not $TagPageText) { return $null }
+    $tagPin = Get-HouseStylePin -SkillText $TagPageText
+    if (-not $tagPin -or $tagPin.Tag -ne $Pin.Tag) { return $null }
+    return $tagPin
+}
+
 function Get-HouseStyleSha256 {
     <#
         The sha256 of a file's bytes, and -- where they differ -- of the same bytes with CRLF turned

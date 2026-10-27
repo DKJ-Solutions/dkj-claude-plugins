@@ -441,16 +441,15 @@ try {
         # The finding itself: a section that says what changed, at all.
         Assert-Match '(?m)^## What changed$'  $n4 'tier 1: the draft HAS a section saying what changed -- the whole of #747'
         # NO HEADING NAMES ITS OWN READER, at either tier (Dave, August 21, 2026). 'For consumers' told the
-        # consumer something they already knew; the section BELOW still names a reader, because that one is
-        # deliberately the half the audience section may not contain.
+        # consumer something they already knew.
         Assert-NotMatch '(?m)^## For ' $n4 'tier 1: and no section heading names its own reader'
         # PRE-FILLED, not merely asked for. #747 proposed an empty heading on the reasoning that a tier-1
         # repo has no generatable source; it has the same source a tier-2 repo has, and this is the assert
         # that would fail if the fix were narrowed back to a bare heading.
         Assert-Match 'A fixture change' $n4 'tier 1: the section is PRE-FILLED from the tier-1 entry, not left empty'
-        # The two sections that genuinely cannot be generated still arrive, still empty.
-        Assert-Match '(?m)^## What it is worth$'                 $n4 "tier 1: 'what it is worth' still arrives"
-        Assert-Match '(?m)^## What was still open at this release$' $n4 'tier 1: and so does the open section'
+        # The two organisational sections are gone in every repo (#3584).
+        Assert-NotMatch '(?m)^## What it is worth$' $n4 "tier 1: no 'what it is worth' section"
+        Assert-NotMatch '(?m)^## What was still open' $n4 'tier 1: and no open section'
         # #747's second finding: the audience line promised two readers with one section each, in a
         # document that renders one reader and two sections.
         Assert-NotMatch 'consumers of this product' $n4 'tier 1: the audience line no longer promises a reader this repo does not publish to'

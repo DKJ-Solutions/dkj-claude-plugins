@@ -18,6 +18,11 @@
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/check-house-style.tests.ps1 in the
     source repo.
 
+    A COPY THAT FAILS THE INSTALLED PIN IS CHECKED AGAIN AT THE TAG (#3588). An install tracks main, so
+    between a house-file merge and the cut the installed page names the previous tag beside the new
+    checksums. Only then does this hook fetch the page at that tag (Get-HouseStyleTagPin, a short timeout)
+    and judge every copy against it; a clean session never touches the network.
+
 .PARAMETER RepoRootOverride
     (For tests) The repo root instead of CLAUDE_PROJECT_DIR or the working directory.
 #>
@@ -63,6 +68,10 @@ $allow = Read-HouseStyleAllowlist -RepoRoot $root
 if (-not $allow.Ok) { Write-Output "${name}: [WARN] scripts/repo-config.ps1: $(ConvertTo-SessionSafe $allow.Problem) -- the check did not run."; exit 0 }
 
 $result = Invoke-HouseStyleCheck -RepoRoot $root -Pin $pin -Allow $allow.Entries
+if (@($result.Findings | Where-Object { $_.Check -eq 'pin' }).Count) {
+    $tagPin = Get-HouseStyleTagPin -Pin $pin
+    if ($tagPin) { $result = Invoke-HouseStyleCheck -RepoRoot $root -Pin $tagPin -Allow $allow.Entries }
+}
 $findings = @($result.Findings)
 $onlyMissing = ($findings.Count -eq 1 -and $findings[0].Check -eq 'missing' -and -not @($result.Copies).Count)
 

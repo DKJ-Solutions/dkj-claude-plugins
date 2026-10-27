@@ -2,7 +2,113 @@
 
 ## [Unreleased]
 
-**2 / 4 minor entries** <!-- pending-tally -->
+**5 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3588-house-style-tag-fallback · 20261027-152421Z
+
+The house-style session check no longer flags a consumer's copy that is exactly the released file. An
+install tracks `main`, so between a house-style merge and the next cut the installed skill page named
+the old tag beside the new checksums, and the check told a correct repo to replace its copy with itself.
+A copy that fails the installed page is now judged again against the page as it reads at that tag. The
+page is fetched only in that case, so a clean session makes no network call. A hand run of
+`check-house-style.ps1` from an install does the same, and the skill tells a session that fetches the
+files to check that page before it stops.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions repo's session no longer opens with a house-style warning it cannot clear in the days
+between a house-style change and the release that carries it.
+
+**Score:** 2
+
+#### Pull Request
+
+house-style check falls back to the skill page at its tag
+
+Plugins: dkj-solutions
+
+[PR #3594](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3594)
+
+---
+
+### DEPLOY: feat/3584-audience-note-only · 20261027-151359Z
+
+The audience release note that `cut-release` drafts now has one section, *What changed*, in every repo. The two
+organisational sections, *What it is worth* and *What was still open at this release*, are gone, and so is the
+`Get-ReleaseNoteSections` seam that could only switch them off; a repo that still defines it changes nothing. The
+`For whom` line names only the reader the note has, and the release-notes form check refuses either heading
+written back by hand.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo's next release note arrives without the two sections nobody filled in, with nothing to configure.
+
+**Score:** 3
+
+#### Pull Request
+
+The audience release note drops 'What it is worth' and 'What was still open' everywhere
+
+Plugins: dkj-policy
+
+[PR #3592](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3592)
+
+---
+
+### DEPLOY: fix/3590-internal-note-sections · 20261027-150206Z
+
+The internal release note that `new-internal-note.ps1` drafts (the two-document flow) no longer carries
+'What it is worth' or 'What was still open at this release': the note is its entry bullets under one
+heading, as the audience note became with #3584. A consumer still on that flow writes neither section
+again ([#3590](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3590)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing beyond the entry above: it removes two drafted headings from a retired flow's skeleton.
+
+**Score:** N/A
+
+#### Pull Request
+
+Internal note no longer drafts 'What it is worth' and 'What was still open'
+
+Plugins: dkj-policy
+
+[PR #3593](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3593)
+
+---
+
+### DEPLOY: fix/3580-release-notes-empty-state · 20261027-145208Z
+
+A repo that has adopted the workflow but never cut a release now gets an empty-state release-notes page
+in its hub ("No release has been cut yet. The release notes appear here with the first cut.") instead of
+a build error telling it to create files that would not help. `build-release-notes-page.ps1` answers that
+state -- no history, or a history whose table has no release row -- with exit 3 and writes nothing.
+Closes #3580.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer before its first release no longer sees a hub link that reads as a defect to repair.
+
+**Score:** 2
+
+#### Pull Request
+
+The release-notes page shows an empty state, not a build error, before a repo's first release
+
+Plugins: dkj-policy
+
+[PR #3587](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3587)
+
+---
 
 ### DEPLOY: fix/3581-first-release-bump · 20261027-141622Z
 
