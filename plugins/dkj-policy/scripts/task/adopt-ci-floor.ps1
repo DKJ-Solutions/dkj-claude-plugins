@@ -1440,7 +1440,7 @@ $closeParkedRunner = @(
     '              if ($LASTEXITCODE -ne 0) { exit 1 }',
     '            }',
     '          }',
-    '          $comment = ''Closed as not planned automatically: a recurrence label parks this issue until its next instance, and the label keeps it findable while closed. A new instance is a comment on this issue: a record (awaiting-recurrences) stays closed, and an issue awaiting its first recurrence is reopened and loses the label.''',
+    '          $comment = ''Closed as not planned automatically: a recurrence label parks this issue until its next instance, and the label keeps it findable while closed. A new instance is a comment on this issue: a record (awaiting-recurrences) stays closed, and an issue waiting on its first recurrence is opened again and loses the label.''',
     '          gh issue close $n --reason ''not planned'' --comment $comment',
     '          exit $LASTEXITCODE'
 )
