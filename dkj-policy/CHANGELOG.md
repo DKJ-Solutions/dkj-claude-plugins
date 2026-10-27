@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**6 / 13 minor entries** <!-- pending-tally -->
+**7 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3557-sweep-lane-mode · 20261027-093501Z
+
+`sweep-issues` now has a **lane mode** for a second sweep on the same machine
+([#3557](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3557)). Open a detached worktree
+beside the primary, start Claude Code there, and run the skill. Steps 0, 3 and 7 detach at `origin/main`
+instead of checking out the trunk, and `ship-pr` runs from the lane unchanged: it merges and leaves the
+fold to the CI fold runner (#2087). The `worktree-lane` page and script header no longer say a lane must
+always hand back to ship, because that holds only in a repo without that runner.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+You can now run a second issue sweep beside a running one on the same machine, which roughly halves the
+time a backlog takes when the gates prove it.
+
+**Score:** 3
+
+#### Pull Request
+
+sweep-issues gets a lane mode: a second sweep in a worktree lane ships through the CI-fold arm
+
+Plugins: dkj-policy
+
+[PR #3564](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3564)
+
+---
 
 ### DEPLOY: feat/hub-clock-card · 20261027-092452Z
 
