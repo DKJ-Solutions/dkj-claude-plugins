@@ -112,6 +112,13 @@ its product and the hub is this plugin's.
    `Command` on the first free port, then waits until each server it started listens: **a dead link is worse
    than none.** Both waits run in one loop, so the common case costs the longer of the two, not their sum.
    The hub's own deadline is 12 seconds; the product's is `WaitSeconds`.
+   **A server it starts does not outlive its session**
+   ([#3569](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3569)): a disconnected Windows session
+   keeps its processes, so a product started there held its port for every later session, including another
+   account's, which cannot stop it without elevation. So each server gets a watcher in the same session,
+   [`pages/dev-preview-watch.ps1`](pages/dev-preview-watch.ps1). Once that session has stayed disconnected for
+   a minute, the watcher stops the server's whole tree, and it exits with the server either way. Session 0 gets
+   none, because it always reads as disconnected.
 4. It writes the state file, and prints **one line**, which hands out both links:
 
 | The repo | The line |
@@ -119,7 +126,8 @@ its product and the hub is this plugin's.
 | states no `Get-DevPreview` (or one that answers nothing) | `Hub: http://localhost:4890/ (started) -- this repo states no Get-DevPreview yet; route localhost:4890 to simpleBrowser.open in .vscode/settings.json to open it in VS Code` |
 | states a server | `Hub: http://localhost:4890/ -- product: http://localhost:4321/dkj-recipes/ (started)`; `(already running)` where it is reused |
 | states a server that cannot start | `Hub: http://localhost:4890/ -- product not started: port 3000 taken by other processes: 3000 by dkj-lifehub (pid 19544)` |
-| and the holder's command line cannot be read | `... 3000 by pid 22588 (another logon session -- its command line cannot be read)`, the session clause only where the holder runs in another Windows logon session (#3401) |
+| and the holder's command line cannot be read | `... 3000 by pid 22588 (its command line cannot be read)` |
+| and the holder runs in another Windows logon session | `... 3000 by pid 22588 (another logon session, 29 -- its command line cannot be read; stop it in that session, or from an elevated shell: Stop-Process -Id 22588)` (#3401, #3569) |
 | states a server that binds and then quits | `... -- product: the server on port 3001 stopped right after it started listening -- see <log>`: a started server reads as `(started)` only once it is still listening two seconds after its first answer (#3404) |
 | `Requires` a `node_modules` older than the `package-lock.json` beside it | the product's clause ends `; 'node_modules' is older than its package-lock.json -- run npm install` where a package the lock pins is installed at another version, or not at all, according to npm's own `node_modules/.package-lock.json`. A lock that was only rewritten is not named (#3419), and the server is still started (#3404) |
 | states `OwnHub = $true` | `Hub: http://localhost:4870/ (started)`, as before #3245 |
@@ -220,7 +228,7 @@ in every repo that enables `dkj-solutions`.
 | `/test-gate` | `scripts/tests/suite-durations.json`, grouped by `scripts/tests/suite-groups.json` where the repo keeps one, and each suite's own `.SYNOPSIS` (#3470) | The page says no test gate has been measured in this repo yet |
 | `/stopwatch`, `/stopwatch/<label>[/<run>]` | This repo's Stopwatch store on this machine, and the session transcripts for a run's phases (#3470; see the timing pages below) | An empty overview |
 | `/logbook`, `/logbook/<slug>` | This repo's Logbook store on this machine, and the session transcripts (#3470; see the timing pages below) | An empty overview |
-| `/api/airsquats` | The banner's state as JSON; `POST /api/airsquats/clear` ticks its box off, the one `POST` the server takes, served same-origin only (#3438). Below | A state that cannot be read is a 503, and the banner keeps its countdown and shows no box |
+| `/api/airsquats` | The banner's state as JSON; `POST /api/airsquats/clear` ticks its box off, the one `POST` the server takes, served same-origin only (#3438). Below | A state that cannot be read is a 503, and the banner stays hidden |
 
 **Two things to know about what these pages read and who can read them.** `/sessionstart` and
 `/release-notes` run a child process that first dot-sources the repo's own `scripts/repo-config.ps1`, and
@@ -276,6 +284,10 @@ the hub and the 303 to an opted-out repo's hub are served, a same-site fetch or 
 ([#3438](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3438), Dave, October 25, 2026). Until
 then the banner kept its count in the browser's `localStorage`. That is one count per origin, and every repo
 hub has its own port, so two repo hubs on one machine already disagreed.
+
+**And it shows only while something is due** (Dave, October 27, 2026): hidden until an hour is owed, it
+slides down when the hour turns on an open page and back up once the box is ticked. A page opened with squats
+already owed shows it at once, and `prefers-reduced-motion` drops the slide.
 
 - **The page asks its own server**: `GET /api/airsquats` every 15 seconds and at the turn of the hour, and a
   `POST` to `/api/airsquats/clear` when the box is ticked. It counts the minutes down by itself.
@@ -343,3 +355,8 @@ are the hub's alone: the suite selection this checkout's change makes, which the
 gate, went with it. That server uses a
 `TcpListener` rather than an `HttpListener`: under the latter the socket belongs to `http.sys` (PID 4), and
 the hook could never recognise the server as this checkout's.
+
+**The hub on `:4892` is the installed release, so a merged hub change shows there only after the next
+release.** To see this tree's hub first, serve it on a free port from the repo root:
+`./plugins/dkj-policy/hub/pages/serve-general-pages.ps1 -Port 4910`, backgrounded -- not a port from 4890 up, where the other checkouts' hubs sit. `.claude/settings.json`
+allows exactly that command, so a session runs it without a permission refusal.

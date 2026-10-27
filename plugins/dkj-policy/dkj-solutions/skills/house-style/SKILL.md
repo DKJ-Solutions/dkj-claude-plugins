@@ -93,9 +93,11 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
 
 ## Density: one screen, the full width, nothing unasked
 
-**The owner works on a 1400 x 600 viewport, does not like to scroll, and wants the width used** (the
-owner, October 26, 2026). A layout that is correct, on-brand and tall still fails here. So every page,
-dashboard and Artifact is designed to that screen first:
+**The owner works on a screen of about 1300 x 900, does not like to scroll, and wants the width used**
+(the owner, October 26, 2026; the size since October 27, when it replaced 1400 x 600). The size is a
+guideline, not a measure: what counts is the browser window on that screen, about 1280 x 800 once the
+browser's own bars are off it. A layout that is correct, on-brand and tall still fails here. So every
+page, dashboard and Artifact is designed to that screen first:
 
 - **The first view holds the content.** Vertical scroll is a defect to design away, not a given. Where
   the content cannot fit, cut ornament first, then go wider, and only then accept a scroll.
@@ -109,9 +111,17 @@ dashboard and Artifact is designed to that screen first:
 - **One row where one row does.** Label and value on one line (`.facts--row`), a card's action beside
   its heading rather than on a row of its own, filters in one bar. A second row has to carry something
   the first could not.
-- **Check it before handing it over**: at 1400 x 600, does it fit without scrolling, and is every
-  element there because the brief needs it? An element that fails the second question goes, however
-  good it looks.
+- **Drill down rather than scroll.** Where a page holds more than one screen, split it: an overview of
+  cards, each linking its own page one level down, with the breadcrumbs as the way back. Go as many
+  levels deep as the content needs; every level fits one screen. **More than four sections**
+  (`.grid__head` blocks with an `h2`) is a long page too, whatever the window (#3563). Each overview card is
+  the house's one card link (`Format-HubCardLinkHtml`, the README's "The card"), never a variant written by
+  hand, carrying the section's headline figure as its one line.
+- **Check it before handing it over**: in a window of about 1300 x 900, does it fit without scrolling,
+  does it hold four sections or fewer, and is every element there because the brief needs it? An
+  element that fails the last question goes, however good it looks. A hub page answers the first question itself: `dkj-policy`'s page shell carries
+  a fit alarm, a warning at the bottom right the moment the page runs past the window it is read in, and
+  a warning at the top of any page holding more than four sections.
 
 ## The gate: `check-house-style`
 

@@ -97,6 +97,20 @@ function Format-DevDuration {
     return ($h / 24).ToString('0.0', $inv) + ' d'
 }
 
+# The most sections one page may hold before it becomes cards with a page each (the house style README, #3563).
+# SessionStart's seven were too many (#3543); the Issues page's three and the Artifacts page's two are not.
+$script:LongPageSectionLimit = 4
+
+function Get-PageSectionCount {
+    <#
+        How many sections -Body holds: the .grid__head blocks opening on an h2, the house's section heading. Cards,
+        rows and a grid__head holding the page's own h1 do not count, so a long list inside one section is not a
+        long page.
+    #>
+    param([AllowEmptyString()][string]$Body = '')
+    return [regex]::Matches($Body, 'class="grid__head">\s*<h2[\s>]').Count
+}
+
 function Format-GeneralPageHtml {
     <#
         The whole page around -Body. -Title is the page's own name: the last crumb, the h1 and the
@@ -181,13 +195,57 @@ function Format-GeneralPageHtml {
         [void]$sb.AppendLine('</div>')
         if ($HeadAside) { [void]$sb.AppendLine($HeadAside); [void]$sb.AppendLine('</header>') }
     }
+    # A LONG PAGE BECOMES CARDS WITH A PAGE EACH (#3563): the rule was applied page by page and written down nowhere,
+    # so a page that breaks it now says so itself, at its top, rather than waiting for the owner to spot it.
+    $sections = Get-PageSectionCount -Body $Body
+    if ($sections -gt $script:LongPageSectionLimit) {
+        [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">This page holds ' + $sections + ' sections in one column. A page with more than ' +
+            $script:LongPageSectionLimit + ' becomes an overview of cards, each opening a page of its own: the house style''s page rule (#3563).</p>')
+    }
     [void]$sb.Append($Body)
     if ($FooterNote) { [void]$sb.AppendLine('<p class="footer-note">' + $FooterNote + '</p>') }
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
+    [void]$sb.AppendLine((Format-FitAlarmHtml))
     [void]$sb.AppendLine('</body>')
     [void]$sb.AppendLine('</html>')
     return $sb.ToString()
+}
+
+function Format-FitAlarmHtml {
+    <#
+        THE FIT ALARM (the owner, October 27, 2026): every hub page is designed to one screen of about 1300 x 900, a
+        guideline rather than a measure, and a page that runs past the window it is read in says so at once, instead
+        of waiting for somebody to notice the scroll. So it judges the window, not a fixed box: the document taller or
+        wider than the viewport is the alarm, a warning pinned to the bottom right that names how far past it runs.
+
+        It stays quiet below 1000 px of width, where the page has stepped down to its narrow layout and a scroll is
+        the expected shape, and re-judges on resize and whenever the page's own size changes (the banner filling in).
+        House classes only (.msg, .msg--warn) and an inline position, since the hub restyles nothing.
+    #>
+    return @'
+<p class="msg msg--warn" id="fit-alarm" role="alert" hidden style="position: fixed; right: 16px; bottom: 16px; margin: 0; z-index: 50; box-shadow: var(--shadow-pop)"></p>
+<script>
+(function () {
+  var alarm = document.getElementById("fit-alarm");
+  if (!alarm) { return; }
+  function judge() {
+    var d = document.documentElement;
+    var tall = d.scrollHeight - window.innerHeight, wide = d.scrollWidth - d.clientWidth;
+    if (window.innerWidth < 1000 || (tall <= 1 && wide <= 1)) { alarm.hidden = true; return; }
+    var past = [];
+    if (tall > 1) { past.push(tall + " px too tall"); }
+    if (wide > 1) { past.push(wide + " px too wide"); }
+    alarm.textContent = "Does not fit one screen: " + past.join(", ");
+    alarm.hidden = false;
+  }
+  window.addEventListener("load", judge);
+  window.addEventListener("resize", judge);
+  if (window.ResizeObserver) { new ResizeObserver(judge).observe(document.body); }
+  judge();
+})();
+</script>
+'@
 }
 
 function Format-RepoHubBanner {
@@ -218,8 +276,15 @@ function Format-RepoHubBanner {
         gist every machine shares. The rules are in airsquats-lib.ps1. The countdown is the page's own and needs
         nothing. An hour still counts only where a hub saw it begin, so a night with every hub closed adds nothing,
         and the server says when to play the tone: once per machine, within two minutes of the hour. A page on a
-        server without the API (a request that fails) keeps the countdown and shows no box. A browser may hold the
-        tone back until the page has had a click, which is its rule, not this page's.
+        server without the API (a request that fails) shows no banner at all. A browser may hold the tone back
+        until the page has had a click, which is its rule, not this page's.
+
+        ONLY WHILE SOMETHING IS DUE (Dave, October 27, 2026): the strip is hidden until the server reports an hour
+        owed. When that happens while the page is open -- the hour turns -- it slides down; ticking the box slides
+        it back up. A page that opens with squats already owed shows it at once, without the slide, so moving
+        between hub pages does not replay it, and prefers-reduced-motion drops the slide altogether. The motion
+        is the Web Animations API on the element itself, because the hub restyles nothing and a page carries no
+        <style> of its own.
 
         THE ROW ENDS ON THE ACCOUNT THE HUB RUNS UNDER (#3476): the server's "account", filled in by textContent
         once the first answer arrives. On a machine with several Windows accounts logged on, localhost ports
@@ -227,7 +292,7 @@ function Format-RepoHubBanner {
         shows. A server that names no account leaves the row as it was.
     #>
     return @'
-<div class="notice" id="hub-banner" role="region" aria-label="Airsquats" style="margin: 0; border: 0; border-radius: 0">
+<div class="notice" id="hub-banner" role="region" aria-label="Airsquats" style="margin: 0; border: 0; border-radius: 0" hidden>
 <p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong><span class="msg--warn" data-hub-due hidden> &middot; <label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> due</label></span><span data-hub-owner hidden title="The Windows account this hub runs under"> &middot; <span data-hub-account></span></span></p>
 </div>
 <script>
@@ -238,7 +303,20 @@ function Format-RepoHubBanner {
   var timer = box.querySelector("[data-hub-timer]"), due = box.querySelector("[data-hub-due]");
   var done = box.querySelector("[data-hub-done]"), count = box.querySelector("[data-hub-count]");
   var owner = box.querySelector("[data-hub-owner]"), account = box.querySelector("[data-hub-account]");
-  var asked = 0, hour = Math.floor(Date.now() / HOUR);
+  var asked = 0, hour = Math.floor(Date.now() / HOUR), first = true, want = false, anim = null;
+  var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function slide(open) {
+    if (open === want) { return; }
+    want = open;
+    if (anim) { anim.cancel(); anim = null; box.style.overflow = ""; }
+    box.hidden = false;
+    if (first || still || !box.animate) { box.hidden = !open; return; }
+    var cs = getComputedStyle(box), full = { height: box.offsetHeight + "px", paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, opacity: 1 };
+    var shut = { height: "0px", paddingTop: "0px", paddingBottom: "0px", opacity: 0 };
+    box.style.overflow = "hidden";
+    anim = box.animate(open ? [shut, full] : [full, shut], { duration: 400, easing: open ? "ease-out" : "ease-in" });
+    anim.onfinish = function () { anim = null; box.style.overflow = ""; box.hidden = !open; };
+  }
   function tone() {
     try {
       var C = window.AudioContext || window.webkitAudioContext, a = new C(), o = a.createOscillator(), g = a.createGain();
@@ -249,8 +327,9 @@ function Format-RepoHubBanner {
   function show(s) {
     if (!s || typeof s.owed !== "number") { return; }
     if (typeof s.account === "string" && s.account) { account.textContent = s.account; owner.hidden = false; }
-    due.hidden = s.owed < 1;
-    count.textContent = String((s.per || 10) * s.owed);
+    if (s.owed > 0) { due.hidden = false; count.textContent = String((s.per || 10) * s.owed); }
+    slide(s.owed > 0);
+    first = false;
     if (s.announce) { tone(); }
   }
   function ask(method, path) {
@@ -261,7 +340,7 @@ function Format-RepoHubBanner {
   }
   done.addEventListener("change", function () {
     if (!done.checked) { return; }
-    done.checked = false; due.hidden = true; asked = Date.now();
+    done.checked = false; asked = Date.now(); slide(false);
     ask("POST", API + "/clear");
   });
   function step() {
@@ -1314,8 +1393,9 @@ function Format-ReleaseNotesDevPage {
     $bar = (Format-RepoHubBanner) + $bar
     $settings = '<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>'
 
-    # Back to front, so each index still points where it was read.
-    $out = $Html.Substring(0, $bodyEnd) + $settings + "`n" + $Html.Substring($bodyEnd)
+    # Back to front, so each index still points where it was read. The fit alarm closes the body, as in
+    # Format-GeneralPageHtml (#3558).
+    $out = $Html.Substring(0, $bodyEnd) + $settings + "`n" + (Format-FitAlarmHtml) + $Html.Substring($bodyEnd)
     $out = $bodyRx.Replace($out, { param($m) $m.Value + "`n" + $bar }, 1)
     $styleEnd = $out.IndexOf('</style>') + '</style>'.Length
     $out = $out.Substring(0, $styleEnd) + "`n" + $head + $out.Substring($styleEnd)

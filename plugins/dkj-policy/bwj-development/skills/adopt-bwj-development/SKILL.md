@@ -113,7 +113,8 @@ planned that keeps the `awaiting-info-client` label on, it posts the header and 
 any other `awaiting-*` label, the header and a neutral on-hold line (#3494); on any other not-planned
 close, or a duplicate, it posts nothing. When an issue is reopened, it posts the
 header and the reopened line (#2854). A completed close that carries a block also moves the card into the
-section `Get-AsanaStageMap` gives `InReview` (#3248). It makes no other move and never completes a task. A store that
+section `Get-AsanaStageMap` gives `InReview` (#3248), and a reopen moves it into the `InDevelopment` section
+and marks a completed task incomplete (#3562). It makes no other move and never completes a task. A store that
 already holds the two `asana-closed-message` files from an earlier version gets the stop-and-diff above:
 the difference is the reopen trigger (#2854) or the on-hold message and its labels hand-off (#2902), and
 taking it is the maintainer's call. Each pair goes together (workflow and script of the same name): a new
@@ -140,9 +141,10 @@ function Get-AsanaProjectGid   { '<the Asana project a mirrored task lands in>' 
 
 # Which numbered section of that board each stage of the cycle IS. Optional -- omit it and the
 # built-in map is used, which is right only if your board is numbered the same way. report-issue reads
-# it for the Filed section a new card lands in; asana-closed-message reads the Completed and InReview
-# codes as text (#3017, #3248). The one move is into InReview on a completed close with a block; the
-# other stages are the board's sections that a person moves cards through.
+# it for the Filed section a new card lands in; asana-closed-message reads the Completed, InReview and
+# InDevelopment codes as text (#3017, #3248, #3562). It moves a card into InReview on a completed close
+# with a block, and into InDevelopment on a reopen; the other stages are the board's sections that a
+# person moves cards through.
 function Get-AsanaStageMap {
     return @{
         Requests       = 1   # the submitter's inbox
@@ -512,8 +514,9 @@ naming `feature` on a tracker without it stops every `feat/` PR.
 
 `report-issue` creates a new card in the board's `Filed` section, and finds it by the **number its
 section's name starts with**, taking the *meaning* of each number from `Get-AsanaStageMap`. Afterwards
-only a completed close with a block moves a card, into `InReview` (#3248), and `asana-closed-message`
-reads `Completed` beside it, so the map matters for the `Filed`, `InReview` and `Completed` numbers. **This step comes before
+only a completed close with a block moves a card, into `InReview` (#3248), and a reopen, into
+`InDevelopment` (#3562), and `asana-closed-message` reads `Completed` beside them, so the map matters for
+the `Filed`, `InDevelopment`, `InReview` and `Completed` numbers. **This step comes before
 step 2's proposal can be written** -- read the sections of the project and report them:
 
 ```text

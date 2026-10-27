@@ -65,7 +65,10 @@
       "PowerShell(./scripts/:*)",
       "PowerShell(./scripts/release/cut-release.ps1*)",
       "PowerShell(./scripts/release/publish-to-business.ps1*)",
-      "PowerShell(./scripts/release/ship-pr.ps1*)"
+      "PowerShell(./scripts/release/ship-pr.ps1*)",
+      "Bash(powershell -NoProfile -ExecutionPolicy Bypass -File plugins/dkj-policy/hub/pages/serve-general-pages.ps1:*)",
+      "PowerShell(powershell -NoProfile -ExecutionPolicy Bypass -File ./plugins/dkj-policy/hub/pages/serve-general-pages.ps1:*)",
+      "PowerShell(./plugins/dkj-policy/hub/pages/serve-general-pages.ps1:*)"
     ]
   },
   "statusLine": {

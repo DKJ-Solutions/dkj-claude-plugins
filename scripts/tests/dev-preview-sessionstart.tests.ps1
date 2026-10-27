@@ -195,9 +195,27 @@ $procsSession = @{
     22500 = @{ CommandLine = ''; ParentId = 1; SessionId = 29 }
     22600 = @{ CommandLine = ''; ParentId = 1; SessionId = 28 }
 }
-Assert-Equal '3000 by pid 22588 (another logon session -- its command line cannot be read)' (Format-DevPreviewPortHolders -Ports @(3000) -Listeners @((& $L 3000 22588)) -Processes $procsSession -SessionId 28) 'a holder in another logon session says so (#3401)'
+Assert-Equal '3000 by pid 22588 (another logon session, 29 -- its command line cannot be read; stop it in that session, or from an elevated shell: Stop-Process -Id 22588)' (Format-DevPreviewPortHolders -Ports @(3000) -Listeners @((& $L 3000 22588)) -Processes $procsSession -SessionId 28) 'a holder in another logon session says so (#3401), and names its remedy (#3569)'
 Assert-Equal '3000 by pid 22600 (its command line cannot be read)' (Format-DevPreviewPortHolders -Ports @(3000) -Listeners @((& $L 3000 22600)) -Processes $procsSession -SessionId 28) 'an unreadable holder in our own session names no other session'
 Assert-True ((Format-DevPreviewPortHolders -Ports @(3000) -Listeners @((& $L 3000 22588)) -Processes $procsSession) -match '^3000 by pid 22588 \(') 'the session defaults to the hook''s own, without a -SessionId'
+
+# #3569: a started server does not outlive its session -- the watcher's rules.
+Assert-True (-not (Test-DevPreviewSessionWatchable -SessionId 0)) 'session 0 always reads disconnected: no watcher there'
+Assert-True (Test-DevPreviewSessionWatchable -SessionId 43) 'an interactive session gets a watcher'
+$t0 = Get-Date '2026-10-27T09:00:00'
+$s = Get-DevPreviewWatchStep -State 0 -Since $null -Now $t0 -GraceSeconds 60
+Assert-True (-not $s.Stop -and $null -eq $s.Since) 'an active session keeps the server and starts no clock'
+$s = Get-DevPreviewWatchStep -State 4 -Since $null -Now $t0 -GraceSeconds 60
+Assert-True (-not $s.Stop -and $s.Since -eq $t0) 'a first disconnected read starts the clock and keeps the server'
+$s = Get-DevPreviewWatchStep -State 4 -Since $t0 -Now $t0.AddSeconds(59) -GraceSeconds 60
+Assert-True (-not $s.Stop) 'disconnected for less than the grace: kept'
+$s = Get-DevPreviewWatchStep -State 4 -Since $t0 -Now $t0.AddSeconds(60) -GraceSeconds 60
+Assert-True $s.Stop 'disconnected for the whole grace: stopped'
+$s = Get-DevPreviewWatchStep -State 0 -Since $t0 -Now $t0.AddSeconds(90) -GraceSeconds 60
+Assert-True (-not $s.Stop -and $null -eq $s.Since) 'a reconnect resets the clock'
+$s = Get-DevPreviewWatchStep -State -1 -Since $t0 -Now $t0.AddSeconds(90) -GraceSeconds 60
+Assert-True (-not $s.Stop -and $null -eq $s.Since) 'an unreadable state never stops a server, and resets the clock'
+Assert-Equal '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\p\w.ps1" -ProcessId 12 -StartTicks 34' (Get-DevPreviewWatchArgs -Watcher 'C:\p\w.ps1' -ProcessId 12 -StartTicks 34) 'the watcher is started for the server''s pid and start time'
 
 # #3404: the settle after a started product's first answer -- the port decides, never the launcher.
 Assert-Equal 'pending' (Get-DevPreviewSettleOutcome -State 'ours' -Due $false) 'still ours before the settle ends: keep holding'
@@ -327,6 +345,7 @@ Assert-True ($html -match '<main class="page-column">') 'and takes the home page
 Assert-True ($html -match '(?s)<body>\s*<div class="notice" id="hub-banner".*?</script>\s*<header class="site-header">.*?</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><span aria-current="page">Home</span></li>') 'the banner opens <body>, the site header under it and the breadcrumb bar under that, its trail the one crumb Home (#3090, #3270)'
 Assert-True ($html.Contains((Format-RepoHubBanner)) -and $html.IndexOf('id="hub-banner"') -lt $html.IndexOf('class="site-header"')) 'the plugin hub carries the same airsquats banner, above the site header (#3250; owner, October 24, 2026)'
 Assert-True (([regex]::Matches($html, '<header')).Count -eq 1) 'and its one <header> is the site header: no intro, so none the house style would lay out as a flex row'
+Assert-True ($html.Contains((Format-FitAlarmHtml)) -and $html.IndexOf('id="fit-alarm"') -lt $html.LastIndexOf('</body>')) 'the hub home page carries the fit alarm before </body>, as every page below it does (#3558)'
 Assert-True ($html -match '<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">') 'with no stored theme it falls back to lilac, and it shares the general pages'' theme key: one origin now'
 Set-GeneralPagesThemeDefault 'teal'
 Assert-True ((Format-PluginRepoHubHtml -RepoName 'r' -PagesUrl 'http://localhost:4890') -match '<html lang="en" data-theme-default="teal" ') 'a repo''s DefaultTheme replaces lilac on the hub (#3390)'
@@ -596,6 +615,27 @@ $started = @()
 $blocker = $null
 try {
     if ($isWindows) {
+        # THE WATCHER, live (#3569): a session held disconnected for the grace stops the server's whole tree;
+        # an active one leaves it, and the watcher leaves with the server; a pid whose start time is not the
+        # server's is never stopped.
+        $Watch = Join-Path $RepoRoot 'plugins\dkj-policy\hub\pages\dev-preview-watch.ps1'
+        $newTarget = { Start-Process -FilePath 'cmd.exe' -ArgumentList '/d /c ping -n 30 127.0.0.1 > nul' -WindowStyle Hidden -PassThru }
+        $tgt = & $newTarget
+        $w = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -PassThru -ArgumentList ((Get-DevPreviewWatchArgs -Watcher $Watch -ProcessId $tgt.Id -StartTicks $tgt.StartTime.ToFileTimeUtc()) + ' -ForceState 4 -GraceSeconds 0 -PollSeconds 1')
+        $stopped = $tgt.WaitForExit(15000)
+        $kids = @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $($tgt.Id)" -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq 'PING.EXE' })
+        Assert-True ($stopped -and -not $kids.Count) 'a session disconnected for the grace: the watcher stops the server and its tree'
+        Assert-True $w.WaitForExit(15000) 'and then exits itself'
+        $tgt = & $newTarget
+        $w = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -PassThru -ArgumentList ((Get-DevPreviewWatchArgs -Watcher $Watch -ProcessId $tgt.Id -StartTicks $tgt.StartTime.ToFileTimeUtc()) + ' -ForceState 0 -GraceSeconds 0 -PollSeconds 1')
+        Assert-True (-not $tgt.WaitForExit(4000)) 'an active session: the server keeps running'
+        & taskkill.exe /T /F /PID $tgt.Id 2>&1 | Out-Null
+        Assert-True $w.WaitForExit(15000) 'and the watcher leaves with the server'
+        $tgt = & $newTarget
+        $w = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -PassThru -ArgumentList ((Get-DevPreviewWatchArgs -Watcher $Watch -ProcessId $tgt.Id -StartTicks 1) + ' -ForceState 4 -GraceSeconds 0 -PollSeconds 1')
+        Assert-True ($w.WaitForExit(15000) -and -not $tgt.HasExited) 'a pid whose start time is not the server''s is never stopped'
+        & taskkill.exe /T /F /PID $tgt.Id 2>&1 | Out-Null
+
         # NO SEAM (#3245): the hub is the general pages server, and the line hands out its link.
         $noConfig = New-Repo 'no-config' $null
         # A DKJ-Solutions repo, on purpose: even there the servers carry no Brandbook and no card for it, since
@@ -611,6 +651,12 @@ try {
         # A dead link is worse than none: by the time the line is out, the hub listens.
         $genOwners = Get-Owners $genPort
         Assert-Equal 1 $genOwners.Count 'the hub listens the moment its link is handed out: exactly one server, on the port it was given'
+        # #3569: the server the hook started has a watcher beside it, in an interactive session.
+        if ([Diagnostics.Process]::GetCurrentProcess().SessionId -gt 0) {
+            $hubCmd = (Get-CimInstance Win32_Process -Filter "ProcessId = $($genOwners[0])" -ErrorAction SilentlyContinue).ParentProcessId
+            $watchers = @(Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" -ErrorAction SilentlyContinue | Where-Object { $_.CommandLine -match "dev-preview-watch\.ps1`" -ProcessId $hubCmd " })
+            Assert-Equal 1 $watchers.Count 'the hub the hook started has a watcher, for its own launcher (#3569)'
+        }
         $started += $genOwners
         try {
             $page = Invoke-WebRequest -UseBasicParsing -Uri "http://localhost:$genPort/" -TimeoutSec 15

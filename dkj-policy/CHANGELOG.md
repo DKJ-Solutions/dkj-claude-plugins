@@ -2,7 +2,221 @@
 
 ## [Unreleased]
 
-**7 / 14 minor entries** <!-- pending-tally -->
+**13 / 22 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3569-product-outlives-its-session · 20261027-112722Z
+
+A server the dev-preview hook starts no longer holds its port after its Windows session is left behind. A
+watcher runs beside it in the same session and stops the server's whole tree once that session has been
+disconnected for a minute. It exits with the server either way, and session 0 gets none. A holder that is
+still in another logon session is named with that session's number and the one elevated command that frees
+the port.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+On a machine where people switch Windows accounts, or leave a session disconnected instead of signing out,
+the next session no longer starts without its product. The port is free about a minute after the switch. A
+session that is started sooner, or a holder from before this release, gets the exact `Stop-Process`
+command instead of a bare pid.
+
+**Score:** 3
+
+#### Pull Request
+
+dev-preview: a server the hook starts no longer outlives its session
+
+Plugins: dkj-policy
+
+[PR #3574](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3574)
+
+---
+
+### DEPLOY: feat/3572-stale-park-external-waits · 20261027-110905Z
+
+A sweep now also notices when an issue parked on another repo has stopped waiting. `claim-issue -Candidates`
+reports an `awaiting-pull-external` issue as `stale-park` once its upstream pull request has merged and
+that repo has published a release since. It does the same for an `awaiting-release-external` issue once
+the repo it names has published a release after the park. It prints the two lines that unpark the issue,
+so the issue is free for the same sweep. Before this, only `awaiting-pull` was ever read again.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a sweep in a consumer reads two more parked labels again; nothing changes for the person who takes
+the next version unless they run sweeps on issues waiting on another repo.
+
+**Score:** N/A
+
+#### Pull Request
+
+stale-park reads the two external waits
+
+Plugins: dkj-policy
+
+[PR #3575](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3575)
+
+---
+
+### DEPLOY: feat/hub-banner-slide · 20261027-105833Z
+
+The hub banner no longer sits on every page all hour: it is hidden until airsquats are due, slides down when the hour turns, and slides back up once the box is ticked.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The hub banner now appears only when airsquats are due, sliding in at the hour and out once ticked off, instead of a permanent countdown strip on every hub page.
+
+**Score:** 2
+
+#### Pull Request
+
+Show the hub banner only while airsquats are due, sliding it down at the hour and back up once ticked off
+
+Plugins: dkj-policy
+
+[PR #3570](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3570)
+
+---
+
+### DEPLOY: feat/3558-fit-alarm-other-shells · 20261027-104848Z
+
+The fit alarm, which warns at the bottom right when a hub page runs past the window it is read in, now
+also appears on the release-notes pages and the hub's own home page, as well as on every other general
+page ([#3558](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3558)). This repo's product
+server's home and Connectors pages carry it too.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The hub home page and the release notes now warn you, like every other hub page, when they do not fit
+one screen.
+
+**Score:** 2
+
+#### Pull Request
+
+Fit alarm on the release-notes pages and the product server's pages
+
+Plugins: dkj-policy
+
+[PR #3573](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3573)
+
+---
+
+### DEPLOY: feat/allow-tree-hub-server · 20261027-102329Z
+
+A session in this repo can now serve the tree's own hub on a spare port without a permission refusal, so a
+merged hub change can be looked at before the release that carries it to `:4892`. The allow rules name the
+one server script and nothing wider.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a permission in this repo's own settings and a note in the source-repo section; no consumer takes
+either.
+
+**Score:** N/A
+
+#### Pull Request
+
+Allow a session to serve the tree's own hub without a permission refusal
+
+Plugins: dkj-policy
+
+[PR #3571](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3571)
+
+---
+
+### DEPLOY: feat/3563-long-pages-become-cards · 20261027-101351Z
+
+The hub rule "a page with more than four sections becomes an overview of cards, each opening a page of its
+own" is now written down in the house-style README and the `house-style` skill. The hub's page shell checks
+it on every page it renders and puts a warning at the top of any page that breaks it. The House style page
+under `/plugins/dkj-solutions/house-style` follows the rule itself: it shows 11 cards instead of 85 KB of
+specimens in one column, and each section has its own page.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo running the hub gets the House style page as cards, with one page per section. A hub page that
+grows past four sections now says so on the page itself, so the shape is caught as it happens instead of
+being spotted later.
+
+**Score:** 3
+
+#### Pull Request
+
+Hub pages: a long page becomes cards with a page each, written down and guarded
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3567](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3567)
+
+---
+
+### DEPLOY: feat/3562-asana-reopen-card-back · 20261027-100117Z
+
+When a GitHub issue linked to an Asana task is reopened, `asana-closed-message` now moves the card into
+the board's `InDevelopment` section and marks the task incomplete if it was completed, after posting the
+reopened message ([#3562](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3562)). Unlike the
+review move (#3248) it does take a card out of `Completed`. Where the task is on several boards, or its
+board has no single section with the `InDevelopment` code, the move is skipped and the message and the
+untick still go out. The untick only ever sets `completed` to false. A store takes it by re-copying
+`.github/scripts/asana-closed-message.ps1`, and the move needs `InDevelopment` in its
+`Get-AsanaStageMap`; without it, only the untick happens.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A reopened ticket's Asana card now goes back to In Progress and is unticked on its own, so the board
+agrees with the "back in development" message instead of waiting for someone to drag it.
+
+**Score:** 3
+
+#### Pull Request
+
+asana-closed-message: on a reopen, move the card to InDevelopment and mark it incomplete
+
+Plugins: bwj-development
+
+[PR #3568](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3568)
+
+---
+
+### DEPLOY: feat/test-gate-drilldown · 20261027-094730Z
+
+In this repo the Test gate stops being one long scroll: an overview of cards drills down through the
+breadcrumbs into a page per group and per suite, each fitting a screen of about 1300 x 900, and every hub
+page now warns at its bottom right the moment it runs past the window.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo's hub gets the same: the Test gate drills down from an overview (`/test-gate`) to a group
+(`/test-gate/<group>`) and a suite (`/test-gate/<group>/<suite>`), and every hub page carries the fit
+alarm. The house style's density rule now names a screen of about 1300 x 900, a guideline, instead of
+1400 x 600.
+
+**Score:** 3
+
+#### Pull Request
+
+Test gate: one screen per level, drill down by breadcrumbs, and a hub-wide overflow signal
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3561](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3561)
+
+---
 
 ### DEPLOY: docs/3557-sweep-lane-mode · 20261027-093501Z
 

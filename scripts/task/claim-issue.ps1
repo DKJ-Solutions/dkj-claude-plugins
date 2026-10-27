@@ -127,7 +127,8 @@
 
 .PARAMETER Candidates
     List which open issues a sweep may pick up -- free, this tag's already, held by another tag, or
-    skipped with the reason, or 'stale-park' for an awaiting-pull issue whose blocker has landed (#3136).
+    skipped with the reason, or 'stale-park' for an awaiting-pull issue whose blocker has landed (#3136),
+    or for an awaiting-pull-external / awaiting-release-external issue whose upstream release is out (#3572).
     Takes no issue number and WRITES NOTHING: choosing is a separate step from
     claiming, because between the two a session may still find the issue is not this repo's work.
 
@@ -601,9 +602,14 @@ if ($Candidates) {
     # issue parked on work that has since landed stayed 'skipped' by every sweep until a person noticed.
     # This reads what the parking comment names and asks the tracker whether each has landed: a number
     # closed (a pull request merged, not merely closed), a branch with a merged pull request. All landed
-    # reads 'stale-park'. Only 'awaiting-pull' is read: '-external' waits for a release, not a merge.
-    # Still nothing is written -- the sweep lifts the label, in the step the skill names.
-    $parkedPull = @($sweepList | Where-Object { $_.Verdict -eq 'skipped' -and $_.Reason -match "^label 'awaiting-pull'" })
+    # reads 'stale-park'. Still nothing is written -- the sweep lifts the label, in the step the skill names.
+    # THE TWO EXTERNAL WAITS ARE READ THE SAME WAY (#3572), each by what clears it. 'awaiting-pull-external'
+    # clears when every `owner/repo#n` it names has landed AND that repo has published a release since:
+    # the upstream merge alone does not bring the work here. 'awaiting-release-external' clears when the
+    # `owner/repo` it names has published a release since the parking comment. What is left after either
+    # is this repo's own work -- taking the new copy, or telling the requester -- so the issue is free.
+    # The other parking labels wait on a person or on something no tracker records, and are not read.
+    $parkedPull = @($sweepList | Where-Object { $_.Verdict -eq 'skipped' -and $_.Reason -match "^label 'awaiting-(pull|pull-external|release-external)'" })
     if ($parkedPull.Count -gt 0) {
         $issuesByNumber = @{}
         # Assigned before the loop: Windows PowerShell's ConvertFrom-Json emits a JSON array as ONE object,
@@ -613,6 +619,10 @@ if ($Candidates) {
             foreach ($i in $parsedIssues) { if ($i) { $issuesByNumber[[int]$i.number] = $i } }
         } catch { }
         $landedCache = @{}
+        # Kind 'issue' takes a bare number (this repo) or `owner/repo#n`, and answers the time it landed
+        # (merged_at, else closed_at, else $true) for a landed one, $false for one that has not, $null for an unread
+        # one. Kind 'release' takes `owner/repo` and answers its newest release's published_at, or $null.
+        # Kind 'branch' answers $true, $false or $null, as it always has.
         $isLanded = {
             param([string]$Kind, [string]$Ref)
             $key = "$Kind`:$Ref"
@@ -620,12 +630,25 @@ if ($Candidates) {
             $answer = $null
             if ($Kind -eq 'issue') {
                 $slug = if ($repoName) { $repoName } else { '{owner}/{repo}' }
+                $num = $Ref
+                if ($Ref -match '^(?<s>[^#]+)#(?<n>\d+)$') { $slug = $Matches['s']; $num = $Matches['n'] }
                 $q = Invoke-NativeCapture -FilePath 'gh' -Utf8 -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds `
-                    -Arguments @('api', "repos/$slug/issues/$Ref", '--jq', '[.state,(.pull_request|type),.pull_request.merged_at]|@tsv')
+                    -Arguments @('api', "repos/$slug/issues/$num", '--jq', '[.state,(.pull_request|type),.pull_request.merged_at,.closed_at]|@tsv')
                 if ($q -and (Test-NativeExitMeasured -Capture $q) -and $q.ExitCode -eq 0) {
-                    # state, then 'object' for a pull request ('null' for an issue), then merged_at (empty unless merged)
+                    # state, then 'object' for a pull request ('null' for an issue), then merged_at (empty
+                    # unless merged), then closed_at
                     $parts = ((@($q.Output) -join '').TrimEnd("`r`n")) -split "`t"
-                    $answer = ($parts[0] -eq 'closed' -and ($parts[1] -ne 'object' -or ($parts.Count -gt 2 -and $parts[2])))
+                    $hasLanded = ($parts[0] -eq 'closed' -and ($parts[1] -ne 'object' -or ($parts.Count -gt 2 -and $parts[2])))
+                    $answer = if (-not $hasLanded) { $false } elseif ($parts.Count -gt 2 -and $parts[2]) { $parts[2] } elseif ($parts.Count -gt 3 -and $parts[3]) { $parts[3] } else { $true }
+                }
+            } elseif ($Kind -eq 'release') {
+                # releases/latest skips drafts and pre-releases, and a repo that has never published one
+                # answers 404 -- unread, so the issue stays skipped.
+                $q = Invoke-NativeCapture -FilePath 'gh' -Utf8 -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds `
+                    -Arguments @('api', "repos/$Ref/releases/latest", '--jq', '[.tag_name,.published_at]|@tsv')
+                if ($q -and (Test-NativeExitMeasured -Capture $q) -and $q.ExitCode -eq 0) {
+                    $parts = ((@($q.Output) -join '').TrimEnd("`r`n")) -split "`t"
+                    if ($parts.Count -gt 1 -and $parts[1]) { $answer = @{ Tag = $parts[0]; Published = $parts[1] } }
                 }
             } else {
                 $q = Invoke-NativeCapture -FilePath 'gh' -Utf8 -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds `
@@ -641,12 +664,49 @@ if ($Candidates) {
             $issueObj = $issuesByNumber[[int]$c.Number]
             $comments = if ($issueObj -and $issueObj.PSObject.Properties['comments']) { @($issueObj.comments) } else { @() }
             $refs = Get-ParkingWaitReferences -Comments $comments
+            $label = ([regex]::Match($c.Reason, "^label '([^']+)'")).Groups[1].Value
+            if ($label -eq 'awaiting-pull-external') {
+                if ($refs.External.Count -eq 0) {
+                    $c.Reason = "$($c.Reason); its parking comment names no owner/repo#<n>, so whether the wait has cleared is not read"
+                    continue
+                }
+                # Landed upstream, then a release of that repo published after the landing. The release is
+                # asked about only once the blocker has landed. A local #<n> or branch named beside it is
+                # read by neither half here, so it keeps the issue skipped rather than clearing unread.
+                $pending = @($refs.External | Where-Object {
+                    $at = & $isLanded 'issue' $_
+                    if ($at -isnot [string]) { return $true }
+                    $rel = & $isLanded 'release' ($_ -replace '#\d+$', '')
+                    -not ($rel -and (Test-PublishedSince -Published $rel.Published -Since $at))
+                })
+                if ($pending.Count -eq 0 -and $refs.Issues.Count -eq 0 -and $refs.Branches.Count -eq 0) {
+                    $c.Verdict = 'stale-park'
+                    $c.Reason = "label 'awaiting-pull-external', but what it waits on has merged and been released upstream: $($refs.External -join ', ')"
+                }
+                continue
+            }
+            if ($label -eq 'awaiting-release-external') {
+                if ($refs.Repos.Count -eq 0 -or -not $refs.Since) {
+                    $c.Reason = "$($c.Reason); its parking comment names no owner/repo, so whether the wait has cleared is not read"
+                    continue
+                }
+                $released = @($refs.Repos | ForEach-Object {
+                    $rel = & $isLanded 'release' $_
+                    if ($rel -and (Test-PublishedSince -Published $rel.Published -Since $refs.Since)) { "$_ $($rel.Tag)" }
+                })
+                if ($released.Count -eq $refs.Repos.Count) {
+                    $c.Verdict = 'stale-park'
+                    $c.Reason = "label 'awaiting-release-external', but a release has been published since the park: $($released -join ', ')"
+                }
+                continue
+            }
             $named = @(@($refs.Issues | ForEach-Object { @{ Kind = 'issue'; Ref = "$_"; Show = "#$_" } }) + @($refs.Branches | ForEach-Object { @{ Kind = 'branch'; Ref = $_; Show = $_ } }))
             if ($named.Count -eq 0) {
                 $c.Reason = "$($c.Reason); its parking comment names no #<n> or branch, so whether the wait has cleared is not read"
                 continue
             }
-            $pending = @($named | Where-Object { (& $isLanded $_.Kind $_.Ref) -ne $true } | ForEach-Object { $_.Show })
+            # An issue read answers its landing time rather than $true, so anything but $false/$null is landed.
+            $pending = @($named | Where-Object { $a = & $isLanded $_.Kind $_.Ref; $null -eq $a -or $a -eq $false } | ForEach-Object { $_.Show })
             if ($pending.Count -eq 0) {
                 $c.Verdict = 'stale-park'
                 $c.Reason = "label 'awaiting-pull', but what it waits on has landed: $(@($named | ForEach-Object { $_.Show }) -join ', ')"
@@ -691,9 +751,11 @@ if ($Candidates) {
     $stale = @($sweepList | Where-Object { $_.Verdict -eq 'stale-park' })
     foreach ($s in $stale) {
         # NAMED, NOT LIFTED: this mode writes nothing, so the unpark is the sweep's own step (#3136).
+        $sLabel = ([regex]::Match($s.Reason, "^label '([^']+)'")).Groups[1].Value
+        $sWhat = if ($sLabel -eq 'awaiting-pull') { 'has landed' } else { 'has been released' }
         Write-Host "     #$($s.Number) waits on nothing any more -- unpark it, and it is free:" -ForegroundColor Yellow
-        Write-Host "       gh issue edit $($s.Number) --remove-label awaiting-pull" -ForegroundColor Yellow
-        Write-Host "       gh issue comment $($s.Number) --body `"Unparked: what it waited on has landed.`"" -ForegroundColor Yellow
+        Write-Host "       gh issue edit $($s.Number) --remove-label $sLabel" -ForegroundColor Yellow
+        Write-Host "       gh issue comment $($s.Number) --body `"Unparked: what it waited on $sWhat.`"" -ForegroundColor Yellow
     }
     if ($free.Count -gt 0) {
         # THE LOWEST NUMBER, NAMED RATHER THAN TAKEN. Oldest first is the only order six machines agree

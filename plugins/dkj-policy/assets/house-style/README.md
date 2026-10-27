@@ -38,7 +38,8 @@ so a stylesheet added later is gated without an edit.
 **A house-style change is judged by eye on the House style page**, `specimens.html` in this folder: every
 token, the twelve themes and every component with its variants and states, drawn from the stylesheet beside it.
 It ships with the plugin, and every hub that enables `dkj-solutions` shows it under Plugins, on
-`/plugins/dkj-solutions/house-style` (#3493); in the source repo that page reads the working tree, so a change
+`/plugins/dkj-solutions/house-style` (#3493), as one card per section with a page each
+(`/plugins/dkj-solutions/house-style/<section>`, #3563); in the source repo that page reads the working tree, so a change
 shows there before the release that ships it. It replaces the brand book app's showcase, which is retired. `house-style-css` is the gate
 that checks the stylesheet's syntax and tokens; the page is the look.
 
@@ -58,8 +59,8 @@ that checks the stylesheet's syntax and tokens; the page is the look.
    (`--paper-2`, `--muted`) so its contents follow a tint, as the info and accent dialogs do;
    the token is never changed for the page. Everything inside such a subtree inherits the re-declared value,
    so a tinted dialog nested inside an info dialog would tint from `--cat-1`; do not nest them.
-4. **Design to one screen of 1400 x 600, at the full width, with nothing the brief did not ask for**
-   (the owner, October 26, 2026): no scroll where cutting ornament or going wider avoids it, blocks side
+4. **Design to one screen of about 1300 x 900, at the full width, with nothing the brief did not ask for**
+   (the owner, October 26, 2026; about 1300 x 900, a guideline, since October 27, when it replaced 1400 x 600): no scroll where cutting ornament or going wider avoids it, blocks side
    by side rather than stacked, and no eyebrow, sub line, lead or extra row unless the brief asks for
    one. The full rule is in the `house-style` skill, under "Density".
 
@@ -78,7 +79,7 @@ that checks the stylesheet's syntax and tokens; the page is the look.
 | Text | `--fg-1` … `--fg-4` | what sits **on** the paper: four colours near black on light (near white on dark), in **very small** steps, so `fg-4` is still very dark, only a little less so than `fg-1` (owner, #3235). `fg-1` is **all text**, every paragraph and everything else: labels, table heads, legends, quiet icons, the text on a tinted surface, and the ground of an inverted surface; `fg-2` is `h2` and `.meta` on a span; `fg-3` is `h3`; `fg-4` has no role yet (the breadcrumb's current page took it until the bar turned `--primary`, #3235). On a fill the text switches to the paper ([Fills](#fills-the-text-switches-with-the-ground)) |
 | Elevation | `--shadow-pop` | tooltips |
 | Spacing | `--spacing-0-5` … `--spacing-96` | the spacing scale, same in both modes: `--spacing-N` is N × 4px, a half step (`-0-5`, `-1-5`, …) adds 2px. Every gap, margin and padding uses one, and a repo layer spaces its own components from the same scale |
-| Type | `--text-h1` … `--text-h3`, `--text-lg`, `--text-base`, `--text-sm`, `--text-xs`, `--font-serif` | the type scale, same in both modes: 32/18/14 for the headings (`h3` at 14px, the body size, and no `h4` or `h5` since October 25, 2026, the owner: [below](#the-heading-cut-of-october-25-2026)) (`h2` 18px since October 25, 2026, the owner; it went from 32 at weight 600 to 24 at 700 on October 24, and keeps the 700), and `.lead` is `--text-base` since the same day (it was `--text-lg`), 18/14/12/11 for running text. `h1`–`h3` each take the token of their own level, body text is `--text-base`. No heading is larger than 32px (owner's decision, October 22, 2026: as much content as possible on a 900px-high screen, since October 26 a 1400 x 600 one), so `h1` stands apart by its size and colour (by its capitals too until October 24, 2026); it was 48px from October 20, when `--text-h0` was retired. The hero figure is set at `--text-h1`. There is no `h6` either: the 24px `h3` was retired the same day, because it stood too close to `h2`, and every level below moved up one ([below](#the-heading-shift-of-october-20-2026)). The one exception is a section label (`GroupHeading`): it stays a heading for the document outline, but every level renders at `--text-base`, uppercase and muted (owner's decision, October 15, 2026). `--font-serif` was the face of `h1` and `h2` until October 24, 2026, when the owner moved both to the sans; it stays for a title that keeps that face |
+| Type | `--text-h1` … `--text-h3`, `--text-lg`, `--text-base`, `--text-sm`, `--text-xs`, `--font-serif` | the type scale, same in both modes: 32/18/14 for the headings (`h3` at 14px, the body size, and no `h4` or `h5` since October 25, 2026, the owner: [below](#the-heading-cut-of-october-25-2026)) (`h2` 18px since October 25, 2026, the owner; it went from 32 at weight 600 to 24 at 700 on October 24, and keeps the 700), and `.lead` is `--text-base` since the same day (it was `--text-lg`), 18/14/12/11 for running text. `h1`–`h3` each take the token of their own level, body text is `--text-base`. No heading is larger than 32px (owner's decision, October 22, 2026: as much content as possible on a 900px-high screen, since October 27 one of about 1300 x 900), so `h1` stands apart by its size and colour (by its capitals too until October 24, 2026); it was 48px from October 20, when `--text-h0` was retired. The hero figure is set at `--text-h1`. There is no `h6` either: the 24px `h3` was retired the same day, because it stood too close to `h2`, and every level below moved up one ([below](#the-heading-shift-of-october-20-2026)). The one exception is a section label (`GroupHeading`): it stays a heading for the document outline, but every level renders at `--text-base`, uppercase and muted (owner's decision, October 15, 2026). `--font-serif` was the face of `h1` and `h2` until October 24, 2026, when the owner moved both to the sans; it stays for a title that keeps that face |
 | App shell | `--control-h`, `--tap`, `--topbar-h`, `--column-narrow` | sizes for a mobile-first app, same in both modes: 38px for a value field and the button beside it, 44px as the smallest touch target, 56px for the top bar, 512px for the narrow app column |
 
 `--gain` was removed (October 14, 2026). A gain in a chart is `--positive-3` (owner's decision, October 15, 2026, #131); before that it was `--cat-1`.
@@ -251,7 +252,7 @@ small text → 12, a mini-card value 20 → 18, the info button's mark 10 → 11
 Two departures from the library followed on October 20, 2026: its `h0` was retired with `h1` taking the 48px,
 and its 24px `h3` was retired with every level below it moving up one.
 **No heading is larger than 32px** (owner's decision, October 22, 2026): every pixel of a 900px-high screen goes to content,
-so `h1` came down from 48px to `h2`'s 32px, and the hero figure with it. The target screen is now 1400 x 600 (the owner, October 26, 2026; rule 4 under [How to use it](#how-to-use-it)), which makes the reason stronger.
+so `h1` came down from 48px to `h2`'s 32px, and the hero figure with it. The target screen is now about 1300 x 900 (the owner, October 27, 2026, after 1400 x 600 from October 26; rule 4 under [How to use it](#how-to-use-it)), which makes the reason stronger.
 **The `h1` is in the body sans and its own case, at weight 700** (owner's decision, October 24, 2026). From
 October 21, 2026 ([#3247](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3247)) it was set in
 capitals, and before that day in `--font-serif`; both went, so it stands apart from the `h2` by its size and
@@ -640,6 +641,30 @@ without the bar does not break, but it does not follow the house style until it 
 own sticky element at `top: 0` (a sidebar, a toolbar) moves it to `top: var(--tap)` when it adds the bar,
 or the bar covers it.
 
+### Every page: a long page becomes cards, with a page each
+
+**A page never grows into one long column of sections** (owners, October 26 and 27, 2026,
+[#3563](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3563)). Once a page holds **more than
+four sections**, each a `.grid__head` with its own `h2`, it becomes an **overview**: one card per section,
+and each card opens **a page of its own** at `<page>/<section>`. Finding one part of a page should never mean
+scrolling past the rest. This was decided one page at a time (the Stopwatch, SessionStart in #3543, the
+house style's own specimens in #3563, the Specialists in #3551) and is written down here once, so a new or
+growing page gets this shape without anyone having to point it out.
+
+- **The overview card is THE card**: the hub's one card link ([The card](#the-hub), a `.card.card--link`
+  holding one `.menu-item` row, written by `Format-HubCardLinkHtml`), three to a row in a `.grid-3`. Its
+  label is the section's name, and its one-line description is the section's **headline**: the figure
+  that tells you whether the page is worth opening, such as the number of specimens in a house-style
+  section. No hand-written variant: no `h2` or `h3` link inside the card, and no extra rows.
+- **The section's page** is that section alone, under one more crumb, so the trail reads Home >
+  ... > the overview > the section. Its `h1` is the section's name and its lead is the section's line. Its
+  own `.grid__head` goes, because the `h1` already says it.
+- **A list is not sections.** A logbook, a release list or an issue list may run long inside **one**
+  section. The rule counts `.grid__head` blocks, not cards or rows.
+- **Where it holds itself:** the plugin hub's page shell (`Format-GeneralPageHtml`) counts the sections of
+  every page it renders, and above four it puts a warning at the top of that page naming the count and
+  this rule. A page that breaks the rule says so on its own, instead of waiting to be spotted.
+
 ### The site header, above the bar
 
 **An app may open with a site header, and the breadcrumb bar then stands right under it** (owner, October
@@ -719,7 +744,9 @@ A repo with no in-flight lists leaves block 3 out; this source repo's hub and th
 repos. **An open issue is not listed twice**: where the **Issues** card is on the page, an in-flight issues
 list is that page's job, and the page links it rather than repeating it.
 
-**The card.** Each card is a `.card.card--link` holding one house `.menu-item` row as an `<a>` (label,
+**The card.** It is the one card link on **every** page, not only on the home page: an overview of
+sections, a group page and a plugin's own page all use it ([#3563](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3563)).
+Each card is a `.card.card--link` holding one house `.menu-item` row as an `<a>` (label,
 optional one-line description beneath it, a chevron at the end) inside a `<nav class="menu-list">`: its link
 stretches over the whole card, so a click anywhere on the card follows it, and the whole card tints on hover
 ([#3298](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3298)). A `.tile` is a figure that does

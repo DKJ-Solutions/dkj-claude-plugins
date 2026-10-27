@@ -112,6 +112,8 @@ function Format-ProductHomeHtml {
     [void]$sb.AppendLine('<p class="footer-note">Each page names its own source. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>' + $at + '.</p>')
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
+    # The fit alarm, as the plugin's page shell closes every hub page (#3558).
+    [void]$sb.AppendLine((Format-FitAlarmHtml))
     [void]$sb.AppendLine('</body>')
     [void]$sb.AppendLine('</html>')
     return $sb.ToString()

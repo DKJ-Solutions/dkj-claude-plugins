@@ -12,9 +12,12 @@
     current shape (#2818); a day later he brought back the reopened message beside it (#2854), because
     without it a requester can go on testing a result that is being reworked. The prio-label sync came
     back separately, as its own workflow, asana-prio-label (#2945). One card move came back too, the
-    narrowest one (#3248, Maikel, October 21, 2026): see THE ONE CARD MOVE below. Everything else stays
-    retired, and nothing in this file can complete a task or write a label: the two writes it knows how
-    to build are a comment (New-AsanaCommentRequest) and that one move (New-AsanaMoveRequest).
+    narrowest one (#3248, Maikel, October 21, 2026): see THE ONE CARD MOVE below; and its reopen-side
+    mirror (#3562, Dave, October 27, 2026): see THE REOPEN'S CARD WRITES below. Everything else stays
+    retired, and nothing in this file can complete a task or write a label: the three writes it knows how
+    to build are a comment (New-AsanaCommentRequest), a move (New-AsanaMoveRequest) and an untick
+    (New-AsanaUncompleteRequest), which only ever sets completed to false, and all three are sent by
+    one function (Invoke-AsanaWrite).
 
     THE ONE CARD MOVE (#3248). A close as completed that carries this round's block -- a go-live,
     research, measurement or already-fixed block -- moves the task into the section whose code the
@@ -25,6 +28,16 @@
     pulled backwards; and silently skipped, with the message kept, wherever the task is on several boards
     or its board has no single section with that code (Select-ReviewMoveSection). It is no sweep and no
     stage mirror: nothing else in the retired asana-mirror came back with it.
+
+    THE REOPEN'S CARD WRITES (#3562). A reopen that posts the reopened message then moves the task into
+    the section whose code Get-AsanaStageMap gives InDevelopment ('2. In Progress' on the BWJ build
+    board), and marks it incomplete where it is completed, because the message says 'this Asana task is
+    now back in development' and the card used to stay in review or done until somebody dragged and
+    unticked it by hand (phone-factory#3, measured twice). Unlike the review move this one DOES come out
+    of Completed: a reopen is exactly the case where the done card is wrong. The move is skipped, with the
+    message and the untick kept, wherever the task is on several boards or its board has no single
+    section with that code (Select-ReopenCardWrites). The untick is the one exception to 'the plugin
+    never ticks a task off', and only in the direction of completed: false -- never true.
 
     THE FILE KEEPS ITS 'closed-message' NAME ON PURPOSE. A store holds it at a fixed path, and adopt
     copies by path: a renamed template would land beside the old one rather than replace it, and both
@@ -114,7 +127,8 @@
         there is nothing to test, and a rejection is said by a person rather than by this line (#2765).
       - A REOPEN with a linked task, whatever the earlier close reason: one comment, the header and the
         reopened line in the requester's fixed form (#2656) -- 'is reopened: this Asana task is now back in
-        development.' No block is read; a reopen carries nothing to test.
+        development.' No block is read; a reopen carries nothing to test. After it, the card moves to
+        InDevelopment and a completed task is marked incomplete (#3562, above).
       - An issue with no linked task, or one linking several different tasks: nothing, and the log
         says which.
 
@@ -153,12 +167,14 @@
     move (#3248) stays on that same model too: it can only put the marker's task into a section of that
     task's own board, so whoever could point the marker elsewhere could already comment there. A reopen
     (#2854) is one more trigger on that same model, not a new one: an issue's author can reopen it, but
-    what a reopen posts is fixed text, with nothing from the issue in it.
+    what a reopen posts is fixed text, with nothing from the issue in it. Its card writes (#3562) stay on
+    the model too: a move within the task's own board, and an untick, which can only ever put a task back
+    in progress, never finish one.
 
     THE REPO'S STAGE MAP IS READ AS TEXT, NEVER RUN (#3017). scripts/repo-config.ps1 is the repo's own
     seam file, and dot-sourcing it in a job that holds ASANA_PAT would run whatever it, and everything
-    it dot-sources in turn, does. The values needed are the Completed and InReview codes inside
-    Get-AsanaStageMap, and Get-RepoStageCode reads each with a pattern.
+    it dot-sources in turn, does. The values needed are the Completed, InReview and InDevelopment codes
+    inside Get-AsanaStageMap, and Get-RepoStageCode reads each with a pattern.
 
     IT PRINTS NOTHING ANOTHER PERSON WROTE. The only foreign text this run could meet is a task name, a
     comment body, a board's section name or an Asana API error message, and none of them is printed: a
@@ -174,7 +190,8 @@
     There is no project, workspace or Projects token: a comment addresses its task by GID alone. The
     ASANA_PAT also makes the two reads a research close needs for its done section (#3017): the task's
     board memberships, then that board's sections -- and the same two the one move needs (#3248), with
-    the section the task sits in. Nothing else is read from Asana.
+    the section the task sits in, and the reopen's writes (#3562), with whether the task is completed
+    (Read-AsanaTaskBoard). Nothing else is read from Asana.
 
     The script runs its main flow only when invoked directly; dot-sourcing it loads the pure helpers and
     does nothing else, which is how the suite exercises them.
@@ -1283,13 +1300,44 @@ function Select-ReviewMoveSection {
     return [pscustomobject]@{ SectionGid = [string]$hits[0].Gid; Why = "found by code $InReviewCode" }
 }
 
+function Read-AsanaTaskBoard {
+    <#
+        The task's board as both card writes judge it (#3248, #3562): its memberships (Project,
+        SectionName), whether it is Completed, and -- where it is on exactly one board -- that board's
+        sections (Gid, Name). Ok is $false, with Why, wherever a read failed; it never throws. -Get is the
+        read, injectable as in Resolve-DoneSectionName.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Gid,
+        [string]$Pat = '',
+        [scriptblock]$Get = $null
+    )
+    $fail = { param($why) [pscustomobject]@{ Ok = $false; Why = $why; Memberships = @(); Sections = @(); Completed = $false } }
+    if ($Gid -notmatch '\A[0-9]+\z') { return (& $fail 'the task GID is not numeric') }
+    if (-not $Get) { $Get = { param($Uri) Invoke-RestMethod -Method GET -Uri $Uri -Headers @{ Authorization = "Bearer $Pat" } } }
+    try {
+        $task = & $Get "$script:AsanaApiBase/tasks/$($Gid)?opt_fields=completed,memberships.project.gid,memberships.section.name"
+    } catch { return (& $fail 'the task could not be read') }
+    $memberships = @(@($task.data.memberships) | Where-Object { ([string]$_.project.gid) -match '\A[0-9]+\z' } |
+        ForEach-Object { [pscustomobject]@{ Project = [string]$_.project.gid; SectionName = [string]$_.section.name } })
+    $boards = @($memberships | ForEach-Object { $_.Project } | Select-Object -Unique)
+    $sections = @()
+    if ($boards.Count -eq 1) {
+        try {
+            $read = & $Get "$script:AsanaApiBase/projects/$($boards[0])/sections?opt_fields=name"
+        } catch { return (& $fail "the sections of board $($boards[0]) could not be read") }
+        $sections = @(@($read.data) | ForEach-Object { [pscustomobject]@{ Gid = [string]$_.gid; Name = [string]$_.name } })
+    }
+    return [pscustomobject]@{ Ok = $true; Why = ''; Memberships = $memberships; Sections = $sections; Completed = ($task.data.completed -eq $true) }
+}
+
 function Resolve-ReviewMoveSection {
     <#
         The section a completed close moves its task into (#3248): the task's board memberships with the
-        section it sits in, then that board's sections, judged by Select-ReviewMoveSection. Every read
-        failure is a skipped move, never a throw: the message has gone out already, and a card left where
-        it was is the cost a person repairs by dragging it. -Get is the read, injectable as in
-        Resolve-DoneSectionName.
+        section it sits in, then that board's sections (Read-AsanaTaskBoard), judged by
+        Select-ReviewMoveSection. Every read failure is a skipped move, never a throw: the message has gone
+        out already, and a card left where it was is the cost a person repairs by dragging it. -Get is the
+        read, injectable as in Resolve-DoneSectionName.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Gid,
@@ -1299,22 +1347,59 @@ function Resolve-ReviewMoveSection {
         [scriptblock]$Get = $null
     )
     if (-not $InReviewCode) { return (Select-ReviewMoveSection -InReviewCode '') }
-    if ($Gid -notmatch '\A[0-9]+\z') { return [pscustomobject]@{ SectionGid = ''; Why = 'the task GID is not numeric' } }
-    if (-not $Get) { $Get = { param($Uri) Invoke-RestMethod -Method GET -Uri $Uri -Headers @{ Authorization = "Bearer $Pat" } } }
-    try {
-        $task = & $Get "$script:AsanaApiBase/tasks/$($Gid)?opt_fields=memberships.project.gid,memberships.section.name"
-    } catch { return [pscustomobject]@{ SectionGid = ''; Why = 'the task could not be read' } }
-    $memberships = @(@($task.data.memberships) | Where-Object { ([string]$_.project.gid) -match '\A[0-9]+\z' } |
-        ForEach-Object { [pscustomobject]@{ Project = [string]$_.project.gid; SectionName = [string]$_.section.name } })
-    $boards = @($memberships | ForEach-Object { $_.Project } | Select-Object -Unique)
-    $sections = @()
-    if ($boards.Count -eq 1) {
-        try {
-            $read = & $Get "$script:AsanaApiBase/projects/$($boards[0])/sections?opt_fields=name"
-        } catch { return [pscustomobject]@{ SectionGid = ''; Why = "the sections of board $($boards[0]) could not be read" } }
-        $sections = @(@($read.data) | ForEach-Object { [pscustomobject]@{ Gid = [string]$_.gid; Name = [string]$_.name } })
-    }
-    return (Select-ReviewMoveSection -Memberships $memberships -Sections $sections -InReviewCode $InReviewCode -CompletedCode $CompletedCode)
+    $board = Read-AsanaTaskBoard -Gid $Gid -Pat $Pat -Get $Get
+    if (-not $board.Ok) { return [pscustomobject]@{ SectionGid = ''; Why = $board.Why } }
+    return (Select-ReviewMoveSection -Memberships $board.Memberships -Sections $board.Sections -InReviewCode $InReviewCode -CompletedCode $CompletedCode)
+}
+
+function Select-ReopenCardWrites {
+    <#
+        Pure: what a reopen does to its card (#3562) -- the section it moves into (SectionGid, or '' with
+        MoveWhy), and whether it is marked incomplete (Untick, with UntickWhy). The two are judged apart, so
+        a move that cannot be made never costs the untick:
+
+          - the move needs an InDevelopment code in the repo's stage map, the task on exactly ONE board,
+            and exactly one section of that board with that code; a card already there is not moved.
+            It DOES come out of Completed, unlike the review move: a reopened task is in development
+            again, whatever its card says;
+          - the untick is made where the task is completed, and only ever sets completed to false.
+
+        The Why phrases never carry a section's or a task's text.
+    #>
+    param(
+        [AllowEmptyCollection()][object[]]$Memberships = @(),
+        [AllowEmptyCollection()][object[]]$Sections = @(),
+        [AllowEmptyString()][string]$InDevelopmentCode = '',
+        [bool]$Completed = $false
+    )
+    $untickWhy = if ($Completed) { 'the task was completed' } else { 'it is not completed' }
+    $result = { param($gid, $why) [pscustomobject]@{ SectionGid = $gid; MoveWhy = $why; Untick = $Completed; UntickWhy = $untickWhy } }
+    if (-not $InDevelopmentCode) { return (& $result '' 'the repo states no InDevelopment stage in Get-AsanaStageMap') }
+    $boards = @(@($Memberships) | ForEach-Object { [string]$_.Project } | Where-Object { $_ } | Select-Object -Unique)
+    if ($boards.Count -ne 1) { return (& $result '' "the task is on $($boards.Count) boards, not one") }
+    $current = Get-SectionCode -Name ([string](@($Memberships)[0].SectionName))
+    if ($current -and $current -ieq $InDevelopmentCode) { return (& $result '' "the card is already in the InDevelopment section (code $InDevelopmentCode)") }
+    $hits = @(@($Sections) | Where-Object { (Get-SectionCode -Name ([string]$_.Name)) -ieq $InDevelopmentCode -and ([string]$_.Gid) -match '\A[0-9]+\z' })
+    if ($hits.Count -ne 1) { return (& $result '' "no single section with code $InDevelopmentCode on the task's board") }
+    return (& $result ([string]$hits[0].Gid) "found by code $InDevelopmentCode")
+}
+
+function Resolve-ReopenCardWrites {
+    <#
+        What a reopen does to its card (#3562): the task's board and completed state (Read-AsanaTaskBoard),
+        judged by Select-ReopenCardWrites. The board is read even without an InDevelopment code, because the
+        untick needs the completed state. A failed read skips both writes, never throws: the message has
+        gone out already. -Get as in Resolve-DoneSectionName.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Gid,
+        [AllowEmptyString()][string]$InDevelopmentCode = '',
+        [string]$Pat = '',
+        [scriptblock]$Get = $null
+    )
+    $board = Read-AsanaTaskBoard -Gid $Gid -Pat $Pat -Get $Get
+    if (-not $board.Ok) { return [pscustomobject]@{ SectionGid = ''; MoveWhy = $board.Why; Untick = $false; UntickWhy = $board.Why } }
+    return (Select-ReopenCardWrites -Memberships $board.Memberships -Sections $board.Sections -InDevelopmentCode $InDevelopmentCode -Completed $board.Completed)
 }
 
 function New-AsanaMoveRequest {
@@ -1333,6 +1418,45 @@ function New-AsanaMoveRequest {
         Method = 'POST'
         Uri    = "$script:AsanaApiBase/sections/$SectionGid/addTask"
         Body   = (ConvertTo-Json @{ data = @{ task = $Gid } } -Compress -Depth 5)
+    }
+}
+
+function New-AsanaUncompleteRequest {
+    <#
+        Pure: the PUT that marks a task incomplete (#3562) -- the third write this script can build. It
+        takes no value: completed is always false, so nothing in this file can tick a task off. A
+        non-numeric GID is refused before it can reach a URL.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Gid)
+    if ($Gid -notmatch '\A[0-9]+\z') { throw "Refusing to build a request for a non-numeric task GID: '$Gid'." }
+    [pscustomobject]@{
+        Method = 'PUT'
+        Uri    = "$script:AsanaApiBase/tasks/$Gid"
+        Body   = (ConvertTo-Json @{ data = @{ completed = $false } } -Compress -Depth 5)
+    }
+}
+
+function Invoke-AsanaWrite {
+    <#
+        Send one request a pure builder made -- the ONLY HTTP write site in this file -- and answer Ok and
+        Status ('HTTP <code>', or 'HTTP status unknown'). It never throws: whether a refusal ends the run is
+        the caller's call, and only the message's does. UTF-8 BYTES, not the string: Windows PowerShell 5.1
+        encodes a string body as ISO-8859-1, which would turn the header's em dash into '?'. pwsh sends
+        UTF-8 either way.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]$Request,
+        [Parameter(Mandatory = $true)][string]$Pat
+    )
+    $headers = @{ Authorization = "Bearer $Pat"; 'Content-Type' = 'application/json; charset=utf-8' }
+    try {
+        Invoke-RestMethod -Method $Request.Method -Uri $Request.Uri -Headers $headers `
+            -Body ([System.Text.Encoding]::UTF8.GetBytes([string]$Request.Body)) | Out-Null
+        return [pscustomobject]@{ Ok = $true; Status = '' }
+    } catch {
+        $status = $null
+        if ($_.Exception.PSObject.Properties['Response'] -and $_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
+        return [pscustomobject]@{ Ok = $false; Status = "HTTP $(if ($status) { $status } else { 'status unknown' })" }
     }
 }
 
@@ -1437,19 +1561,26 @@ function Invoke-Main {
         $html = New-ClosedMessageHtml -IssueRef $IssueRef -BlockSections $sections -Research:$research -AfterRelease:$afterRelease -Measure:$measure -AlreadyFixed:$alreadyFixed -DoneSection $done
     }
     $request = New-AsanaCommentRequest -Gid $decision.Gid -Html $html
-    # UTF-8 BYTES, not the string: Windows PowerShell 5.1 encodes a string body as ISO-8859-1, which
-    # would turn the header's em dash into '?'. pwsh sends UTF-8 either way.
-    $headers = @{ Authorization = "Bearer $AsanaPat"; 'Content-Type' = 'application/json; charset=utf-8' }
-    try {
-        Invoke-RestMethod -Method $request.Method -Uri $request.Uri -Headers $headers `
-            -Body ([System.Text.Encoding]::UTF8.GetBytes([string]$request.Body)) | Out-Null
-    } catch {
-        $status = $null
-        if ($_.Exception.PSObject.Properties['Response'] -and $_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
-        throw "Asana refused the $Event message for task $($decision.Gid) (HTTP $(if ($status) { $status } else { 'status unknown' }))."
-    }
+    $sent = Invoke-AsanaWrite -Request $request -Pat $AsanaPat
+    if (-not $sent.Ok) { throw "Asana refused the $Event message for task $($decision.Gid) ($($sent.Status))." }
     if ($decision.Kind -eq 'reopened') {
-        Write-Host "Asana task $($decision.Gid) told: $IssueRef is reopened and back in development ($($decision.Why)). The card was NOT moved."
+        Write-Host "Asana task $($decision.Gid) told: $IssueRef is reopened and back in development ($($decision.Why))."
+
+        # THE CARD FOLLOWS THE MESSAGE BACK INTO DEVELOPMENT (#3562, Dave, October 27, 2026): the line says
+        # 'this Asana task is now back in development', and the card stayed in review or done, ticked off,
+        # until somebody dragged and unticked it (phone-factory#3). Only after the message went out, and a
+        # skipped or refused write is logged while the run still exits 0, as the review move's is.
+        $back = Resolve-ReopenCardWrites -Gid $decision.Gid -InDevelopmentCode (Get-RepoStageCode -ConfigText (Read-RepoConfigText) -Stage 'InDevelopment') -Pat $AsanaPat
+        if ($back.SectionGid) {
+            $moved = Invoke-AsanaWrite -Request (New-AsanaMoveRequest -Gid $decision.Gid -SectionGid $back.SectionGid) -Pat $AsanaPat
+            if ($moved.Ok) { Write-Host "The card was moved to the InDevelopment section ($($back.MoveWhy))." }
+            else { Write-Host "The card was NOT moved: Asana refused the move ($($moved.Status))." }
+        } else { Write-Host "The card was NOT moved: $($back.MoveWhy)." }
+        if ($back.Untick) {
+            $unticked = Invoke-AsanaWrite -Request (New-AsanaUncompleteRequest -Gid $decision.Gid) -Pat $AsanaPat
+            if ($unticked.Ok) { Write-Host "The task was marked incomplete ($($back.UntickWhy))." }
+            else { Write-Host "The task was NOT marked incomplete: Asana refused it ($($unticked.Status))." }
+        } else { Write-Host "The task was NOT marked incomplete: $($back.UntickWhy)." }
         return
     }
     if ($decision.Kind -eq 'on-hold') {
@@ -1464,7 +1595,8 @@ function Invoke-Main {
     # task is now in review', and the card stayed wherever a person last left it. One move, on this one
     # event -- a completed close that carried this round's block -- and only after the message went out,
     # so a skipped or refused move never costs the requester the message. A close without a block, a
-    # by-hand close (returned above), a not-planned close and a reopen never move the card.
+    # by-hand close (returned above) and a not-planned close never move the card, and a reopen moves it
+    # into development instead (#3562, above).
     # A REFUSED MOVE IS LOGGED, AND THE RUN STILL EXITS 0: the message is the requester's, and it has gone
     # out; a card left where it was is repaired by a person dragging it.
     if ($sections) {
@@ -1475,15 +1607,9 @@ function Invoke-Main {
             return
         }
         $move = New-AsanaMoveRequest -Gid $decision.Gid -SectionGid $target.SectionGid
-        try {
-            Invoke-RestMethod -Method $move.Method -Uri $move.Uri -Headers $headers `
-                -Body ([System.Text.Encoding]::UTF8.GetBytes([string]$move.Body)) | Out-Null
-            Write-Host "The card was moved to the InReview section ($($target.Why))."
-        } catch {
-            $status = $null
-            if ($_.Exception.PSObject.Properties['Response'] -and $_.Exception.Response) { $status = [int]$_.Exception.Response.StatusCode }
-            Write-Host "The card was NOT moved: Asana refused the move (HTTP $(if ($status) { $status } else { 'status unknown' }))."
-        }
+        $moved = Invoke-AsanaWrite -Request $move -Pat $AsanaPat
+        if ($moved.Ok) { Write-Host "The card was moved to the InReview section ($($target.Why))." }
+        else { Write-Host "The card was NOT moved: Asana refused the move ($($moved.Status))." }
     }
 }
 
