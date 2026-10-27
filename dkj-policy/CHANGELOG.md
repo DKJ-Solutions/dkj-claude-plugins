@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**1 / 3 minor entries** <!-- pending-tally -->
+**2 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3581-first-release-bump · 20261027-141622Z
+
+A first release in a repo with no plugins and no tag no longer gets two answers that cannot both be followed:
+`cut-release` accepts `-Bump` and counts it from 0.0.0, so the tier gate's "What the pending work does earn:
+-Bump minor" runs as written and cuts v0.1.0.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo cutting its first release follows the refusal's own advice instead of guessing the `-Version` it implies.
+
+**Score:** 2
+
+#### Pull Request
+
+cut-release accepts -Bump on a first release, so the tier gate's advice runs
+
+Plugins: dkj-policy
+
+[PR #3589](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3589)
+
+---
 
 ### DEPLOY: feat/plugins-product-card · 20261027-140810Z
 
