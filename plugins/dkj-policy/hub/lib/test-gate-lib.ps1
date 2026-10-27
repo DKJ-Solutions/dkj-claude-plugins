@@ -175,7 +175,7 @@ function Format-TestGatePageHtml {
         return '<section class="card tg-tips"><h3>Points to note</h3><ul>' + (($items | ForEach-Object { '<li>' + (& $e $_) + '</li>' }) -join '') + '</ul></section>'
     }
     $style = $script:DevBarStyle + "`n" +
-        '.tg-cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--spacing-4); }' + "`n" +
+        '.tg-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--spacing-4); }' + "`n" +
         # A list's page: its tables side by side (--tg-cols of them) at their own width, and its totals and notes in the
         # column beside them, which takes whatever width the tables leave, so long notes stay short in height.
         '.tg-list { display: grid; grid-template-columns: repeat(var(--tg-cols, 1), max-content) minmax(260px, 1fr); gap: var(--spacing-4); align-items: start; }' + "`n" +
