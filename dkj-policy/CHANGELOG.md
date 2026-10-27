@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**10 / 18 minor entries** <!-- pending-tally -->
+**11 / 19 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3558-fit-alarm-other-shells · 20261027-104848Z
+
+The fit alarm, which warns at the bottom right when a hub page runs past the window it is read in, now
+also appears on the release-notes pages and the hub's own home page, as well as on every other general
+page ([#3558](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3558)). This repo's product
+server's home and Connectors pages carry it too.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The hub home page and the release notes now warn you, like every other hub page, when they do not fit
+one screen.
+
+**Score:** 2
+
+#### Pull Request
+
+Fit alarm on the release-notes pages and the product server's pages
+
+Plugins: dkj-policy
+
+[PR #3573](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3573)
+
+---
 
 ### DEPLOY: feat/allow-tree-hub-server · 20261027-102329Z
 
