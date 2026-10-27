@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**5 / 12 minor entries** <!-- pending-tally -->
+**6 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/hub-clock-card · 20261027-092452Z
+
+The hub's home page links Test gate, Stopwatch and Logbook through one card, Clock, in the place the Test
+gate's card held; it opens `/clock`, a page with a card for each, and their trails read Home > Clock > the page. A page
+joins a group by a `Group` key in `Get-GeneralPages`, and a hub card stays one link.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo's hub home page shows one Clock card instead of the Test gate, Stopwatch and Logbook cards; all three are a click further, on `/clock`.
+
+**Score:** 2
+
+#### Pull Request
+
+Group Test gate, Stopwatch and Logbook under one Clock card on the hub home page
+
+Plugins: dkj-policy
+
+[PR #3560](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3560)
+
+---
 
 ### DEPLOY: feat/3550-specialists-page-plugin-cards · 20261027-091242Z
 
