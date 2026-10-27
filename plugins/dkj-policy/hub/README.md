@@ -61,11 +61,11 @@ link on that hub, not the hub itself.
 [`assets/house-style/README.md`](../assets/house-style/README.md), section
 "The hub": one page on `/`, under the site header (#3289, which ended #3270's separate About this repo
 page; an old link to `/about` is sent to `/`), and since #3383 a grid of card links with a separate
-**Repository** page. The blocks and their order are fixed. The general banner stands above the site header,
+**GitHub** page (called Repository until it took the GitHub name and logo). The blocks and their order are fixed. The general banner stands above the site header,
 which names the repo, and under the breadcrumb bar the home page carries one `.grid-3` of card links, with no heading above them:
 
 - the **product**, where the repo states a server: its link, or a card saying it is not running;
-- **Repository**, the page on `/repository` holding the facts (the GitHub repo where the `origin` remote is
+- **GitHub**, with the GitHub logo, the page on `/repository` holding the facts (the GitHub repo where the `origin` remote is
   on github.com, the folder, the dev preview, where it is stated and who serves the hub) and a card for
   **Issues** and, on GitHub, for the pull requests and the CI runs;
 - the **General** pages but Issues, by bare path.
@@ -222,7 +222,7 @@ in every repo that enables `dkj-solutions`.
 | Page | Reads, from the repo it was started in | When it is absent |
 |---|---|---|
 | `/`, `/index.html`, `/hub` | The state file below, on every request: the home page of this plugin's hub; `/about` answers 303 to `/` (#3289). Under `OwnHub` a 303 to the repo's own hub instead | Under `OwnHub` with no hub known, a short 404 text |
-| `/repository` | The state file and the `origin` remote: the hub's Repository page, its facts and a card for Issues and, where the remote is on github.com, its pull requests and CI runs (#3383) | Always answers; with no github.com remote the facts carry no GitHub row and the page no GitHub cards |
+| `/repository` | The state file and the `origin` remote: the hub's GitHub page, its facts and a card for Issues and, where the remote is on github.com, its pull requests and CI runs (#3383) | Always answers; with no github.com remote the facts carry no GitHub row and the page no GitHub cards |
 | `/artifacts` | `scripts/dashboard/artifacts.json`, on every request | The page says the file is not there |
 | `/issues` | `gh issue list`, three calls (the open issues, and those opened and closed in the last 28 days), for `--repo <owner/name>` taken from the `origin` remote when it is on github.com, else for the repo `gh` finds in the working directory; kept for five minutes | A `gh` that fails or is missing is a warning on the page |
 | `/release-notes` | `dkj-policy/releases/page/release-notes.html`, dressed in the house style on the way out. Built first where it is absent or older than a file under `dkj-policy/releases`, by `build-release-notes-page.ps1` in a child process (bounded at 60 s), the repo's own copy else this plugin's: the page is a gitignored snapshot that nothing else builds (#3189) | A plain 404 text naming why it could not be built; where a rebuild fails, the older page is served |

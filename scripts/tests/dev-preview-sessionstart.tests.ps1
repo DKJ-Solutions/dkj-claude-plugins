@@ -364,6 +364,7 @@ Assert-True ($grid -and $grid -notmatch '<h2' -and ([regex]::Matches($grid, '<se
 Assert-True ($grid -match 'href="/clock"' -and $grid -notmatch 'href="/(test-gate|stopwatch|logbook)"') 'Test gate, Stopwatch and Logbook are reached through the Clock card, never a card of their own on the hub (the owner, October 27, 2026)'
 Assert-True ($grid.IndexOf('href="/sessionstart"') -lt $grid.IndexOf('Clock') -and $grid.IndexOf('Clock') -lt $grid.IndexOf('href="/plugins"')) 'the Clock card takes the Test gate''s place, between SessionStart and Plugins'
 Assert-True ($grid -match 'href="/repository"' -and $grid -match 'href="/release-notes"' -and $grid -notmatch 'href="/issues"' -and $grid -notmatch 'localhost:4890/') 'by bare path, Issues left to the Repository page: the hub and its pages are one origin (#3245)'
+Assert-True ($grid -match '(?s)href="/repository".*?M9 19c-5 1\.5-5-2\.5-7-3.*?<span class="menu-item__label">GitHub<' -and $grid -notmatch '>Repository<') 'the /repository card is called GitHub and carries the GitHub logo'
 Assert-True ($html -notmatch '<h2>General pages</h2>' -and $html -notmatch '<h2>Facts</h2>' -and $html -notmatch '<dl class="facts') 'no General pages section and no facts on the home page'
 Assert-True ($html.IndexOf('class="grid-3"') -lt $html.IndexOf('<h2>Set up a product</h2>')) 'the setup cards stand under the grid'
 Assert-True ($html -match '<p class="footer-note">[^<]*<code>hub/pages/serve-general-pages.ps1</code>' -and $html.IndexOf('class="footer-note"') -gt $html.IndexOf('<h2>Set up a product</h2>')) 'the footer names the serving script, last'
@@ -386,7 +387,7 @@ Assert-True ((Format-PluginRepoHubHtml -RepoName 'r' -PagesUrl '') -match 'The g
 
 # The Repository page (#3383): the facts and Issues the home page no longer holds.
 $repo = Format-PluginRepoRepositoryHtml -RepoName 'DKJ-Solutions/dkj-recipes' -Folder 'recipes-checkout' -Slug 'DKJ-Solutions/dkj-recipes' -Mode 'product' -ProductUrl 'http://localhost:4321/dkj-recipes/' -PagesUrl 'http://localhost:4890'
-Assert-True ($repo -match '<span aria-current="page">Repository</span>' -and $repo -match '<title>DKJ-Solutions/dkj-recipes -- Repository</title>') 'the Repository page is a hub page of its own, its crumb and title Repository'
+Assert-True ($repo -match '<span aria-current="page">GitHub</span>' -and $repo -match '<title>DKJ-Solutions/dkj-recipes -- GitHub</title>') 'the GitHub page is a hub page of its own, its crumb and title GitHub'
 Assert-True ($repo -match '<dl class="facts facts--row">' -and $repo -match '<dt>Folder</dt><dd>recipes-checkout</dd>' -and $repo -match '<dt>Dev preview</dt><dd>http://localhost:4321/dkj-recipes/</dd>' -and $repo -match '<dt>Toolbox served by</dt><dd>the dkj-policy plugin, on a port from 4890 to 4899</dd>') 'its facts are a row: the folder, the product and who serves the hub'
 Assert-True ($repo -match '<dd><a href="https://github.com/DKJ-Solutions/dkj-recipes">DKJ-Solutions/dkj-recipes</a></dd>' -and $repo -match 'href="https://github.com/DKJ-Solutions/dkj-recipes/pulls"' -and $repo -match 'href="https://github.com/DKJ-Solutions/dkj-recipes/actions"') 'a GitHub slug is a fact and two cards, its pull requests and its CI runs'
 Assert-True ($repo -match '<div class="grid-3">\s*<section class="card card--link"><nav class="menu-list" aria-label="Issues"><a class="menu-item" href="/issues">') 'and Issues is its first card, by bare path'
@@ -406,7 +407,7 @@ $once = 'a&amp;amp;b&lt;i&gt;&quot;&#39;q'
 Assert-True ($html -match ('site-header__name">' + [regex]::Escape($once) + ' <span') -and $html -match ('<title>' + [regex]::Escape($once) + ' -- Tools</title>')) 'and escaped exactly once, in the site header and the title alike'
 Assert-True ($html -notmatch '<i>"') 'with nothing of it raw on the page'
 $repo = Format-PluginRepoRepositoryHtml -RepoName ('a&amp;b<i>"' + "'q") -Folder '"><b>f</b>'
-Assert-True ($repo -match '<dd>&quot;&gt;&lt;b&gt;f&lt;/b&gt;</dd>' -and $repo -notmatch '<b>f</b>' -and $repo -notmatch '<i>"' -and $repo -match ('<title>' + [regex]::Escape($once) + ' -- Repository</title>')) 'and on the Repository page, the folder and the name both escaped once'
+Assert-True ($repo -match '<dd>&quot;&gt;&lt;b&gt;f&lt;/b&gt;</dd>' -and $repo -notmatch '<b>f</b>' -and $repo -notmatch '<i>"' -and $repo -match ('<title>' + [regex]::Escape($once) + ' -- GitHub</title>')) 'and on the Repository page, the folder and the name both escaped once'
 $html = Format-PluginRepoHubHtml -RepoName ('n' * 120)
 Assert-True ($html -match ('site-header__name">n{80} <span')) 'and cut at 80 characters'
 Assert-True ((Format-PluginRepoHubHtml -RepoName "a`nb") -match 'site-header__name">a b <span') 'with control characters made spaces'

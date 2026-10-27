@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**0 / 1 patch entry** <!-- pending-tally -->
+**1 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/github-hub-card · 20261027-135157Z
+
+The hub's Repository card and page are now called **GitHub**, and the card carries the GitHub logo instead of the
+branch drawing. The page still lives on `/repository`, so every existing link keeps working.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo running dkj-policy shows its hub card as GitHub, with the GitHub logo, from the next release on.
+
+**Score:** 2
+
+#### Pull Request
+
+The hub's Repository card and page are called GitHub, with a GitHub logo
+
+Plugins: dkj-policy
+
+[PR #3583](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3583)
+
+---
 
 ### DEPLOY: feat/3566-one-hub-card-component · 20261027-130047Z
 
