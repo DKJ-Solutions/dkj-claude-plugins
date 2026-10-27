@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**8 / 12 minor entries** <!-- pending-tally -->
+**9 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3596-banner-hub-offline · 20261027-170022Z
+
+The airsquats banner on every hub page now says "hub offline, this hour is not counted" when its server stops
+answering for about 30 seconds, instead of ticking towards an hour that will never be recorded. It clears itself
+as soon as the server answers again.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Whoever relies on the reminder learns at once that it has stopped working, instead of finding a lost hour afterwards.
+
+**Score:** 3
+
+#### Pull Request
+
+The airsquats banner says so when its hub server stops answering
+
+Plugins: dkj-policy
+
+[PR #3603](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3603)
+
+---
 
 ### DEPLOY: docs/3585-no-lede-under-headings · 20261027-164004Z
 
