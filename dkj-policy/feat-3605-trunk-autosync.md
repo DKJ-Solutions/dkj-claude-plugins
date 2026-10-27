@@ -85,5 +85,3 @@ machine. Work in progress is never moved.
 #### Pull Request
 
 Fast-forward a clean trunk automatically, at session start and across every checkout
-
-Plugins: dkj-policy
