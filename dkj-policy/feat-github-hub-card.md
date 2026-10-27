@@ -47,6 +47,7 @@ The route stays `/repository`, so no link breaks.
 - [x] `general-pages-lib.ps1`: the `repository` icon replaced by a `github` icon, the GitHub mark as a line drawing (Feather's `github`, MIT)
 - [x] `repo-hub-page.ps1`: the card's label and the page's title read GitHub
 - [x] `hub/README.md`: the page is named GitHub
+- [x] The `repository` icon kept for the product port's Hub card (`dev-pages-lib.ps1`), whose subtitle now names GitHub
 
 ### TEST
 
