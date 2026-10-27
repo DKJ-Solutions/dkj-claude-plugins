@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**11 / 19 minor entries** <!-- pending-tally -->
+**12 / 20 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/hub-banner-slide · 20261027-105833Z
+
+The hub banner no longer sits on every page all hour: it is hidden until airsquats are due, slides down when the hour turns, and slides back up once the box is ticked.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The hub banner now appears only when airsquats are due, sliding in at the hour and out once ticked off, instead of a permanent countdown strip on every hub page.
+
+**Score:** 2
+
+#### Pull Request
+
+Show the hub banner only while airsquats are due, sliding it down at the hour and back up once ticked off
+
+Plugins: dkj-policy
+
+[PR #3570](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3570)
+
+---
 
 ### DEPLOY: feat/3558-fit-alarm-other-shells · 20261027-104848Z
 
