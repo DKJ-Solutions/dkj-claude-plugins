@@ -63,6 +63,13 @@ that checks the stylesheet's syntax and tokens; the page is the look.
    (the owner, October 26, 2026; about 1300 x 900, a guideline, since October 27, when it replaced 1400 x 600): no scroll where cutting ornament or going wider avoids it, blocks side
    by side rather than stacked, and no eyebrow, sub line, lead or extra row unless the brief asks for
    one. The full rule is in the `house-style` skill, under "Density".
+5. **A page opens on its `h1` and goes straight to its content: no intro paragraph under it** (Dave, for
+   every DKJ-Solutions product, October 27, 2026,
+   [#3585](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3585)): *"ik moet zuinig zijn met de
+   hoogte van het scherm"* (I have to be economical with screen height). No `.lead`, no `.lede` of the
+   repo's own, and no plain `<p>` that explains the page. A sentence saying what the page is for goes in its
+   `<meta name="description">`, not on screen. Real content is not an intro: an empty state that says a list
+   is empty stays.
 
 ## What it holds
 
@@ -659,7 +666,7 @@ growing page gets this shape without anyone having to point it out.
   needs more (a figure on its own line, a badge, its label as a heading) takes it from the card's slots
   ([The card](#the-hub)).
 - **The section's page** is that section alone, under one more crumb, so the trail reads Home >
-  ... > the overview > the section. Its `h1` is the section's name and its lead is the section's line. Its
+  ... > the overview > the section. Its `h1` is the section's name and the section's line is its `<meta name="description">`, never a lead under the `h1` (#3585). Its
   own `.grid__head` goes, because the `h1` already says it.
 - **A list is not sections.** A logbook, a release list or an issue list may run long inside **one**
   section. The rule counts `.grid__head` blocks, not cards or rows.
@@ -736,7 +743,7 @@ the open issues and the pull requests moved to the **Repository** page on `/repo
 
 | # | Block | House class | Fixed, or the repo's own |
 |---|---|---|---|
-| 0 | The intro: `h1` **Repository** and a lead, under the breadcrumb bar, as on every page below the hub | `h1`, `.lead` | fixed title; the lead is the repo's own |
+| 0 | The intro: `h1` **Repository** alone, under the breadcrumb bar, as on every page below the hub; what the page is for goes in its `<meta name="description">`, not under the `h1` (#3585) | `h1` | fixed title; the description is the repo's own |
 | 1 | **The facts**, as one row on the page rather than in a card: label over value | `.facts.facts--row` (a `<dl>`) | the facts are the repo's own |
 | 2 | **Its pages**, a card each: **Issues** first, then the repo's pages on GitHub (its pull requests, its CI runs) where it has a GitHub remote | one `.grid-3` of `.card.card--link` | Issues fixed; the GitHub cards the repo's own |
 | 3 | Where a repo keeps in-flight lists: one stat tile per list, the loading or warning line, and **In flight**, one data card per list under one `h2` | `.tiles` / `.tile`; `.msg` with `role="status"` / `.msg.msg--warn` with `role="alert"`; a `.grid-2` with a `.grid__head`, then one `.card.grid__full` per list around `.table-wrap` / `.table` | the repo's own lists. A count not read yet shows `--` |
