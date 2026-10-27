@@ -39,19 +39,42 @@
 
 ### PLAN
 
+#3557, decided by the owner 2026-10-27. Option 1 ("teach ship-pr to fold through the worktree holding
+main") was verified on pickup and found to exist already in a safer form: #2087's CI-fold arm. Revised
+with the owner: build the lane mode on that arm, with no new fold path.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `sweep-issues`: a lane-mode section (open a detached lane, four steps that read differently, what
+  happens without a CI fold runner, the lane at loop end), plus a pointer from the intro
+- [x] `worktree-lane` skill page and script header (mirror synced): the stale "ship from the primary,
+  always" and the post-merge fatal corrected against #1069 and #2087
 
 ### TEST
 
+- [x] Verified rather than assumed: `Get-CiFoldRecoveryVerdict` returns `Recovered: True` here;
+  `Get-TrunkReturnDecision` keeps a lane off `main` at step 2b; `new-branch` treats a detached HEAD as a
+  base, not a stack; `tidy-machine`'s stale-lane check needs a finished branch (so the page does not
+  claim it removes a detached lane)
+- [x] Gates: run by `ship-pr`
+
 ### DEPLOY: docs/3557-sweep-lane-mode
 
-**Score:**
+`sweep-issues` now has a **lane mode** for a second sweep on the same machine
+([#3557](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3557)). Open a detached worktree
+beside the primary, start Claude Code there, and run the skill. Steps 0, 3 and 7 detach at `origin/main`
+instead of checking out the trunk, and `ship-pr` runs from the lane unchanged: it merges and leaves the
+fold to the CI fold runner (#2087). The `worktree-lane` page and script header no longer say a lane must
+always hand back to ship, because that holds only in a repo without that runner.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+You can now run a second issue sweep beside a running one on the same machine, which roughly halves the
+time a backlog takes when the gates prove it.
+
+**Score:** 3
 
 #### Pull Request
 
