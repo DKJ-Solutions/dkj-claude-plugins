@@ -236,7 +236,9 @@
 
   /* ---------- the note itself ---------- */
   article h1 { font-size: 1.35rem; letter-spacing: -.015em; margin: 0 0 .5rem; line-height: 1.25; }
-  article h2 { font-size: 1.1rem; margin: 1.75rem 0 .5rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+  /* NO RULE ABOVE A SECTION'S H2 (owner, October 27, 2026), and no padding either, which only held the rule
+     off the heading: the grid of cards under it already marks where a section starts. */
+  article h2 { font-size: 1.1rem; margin: 1.75rem 0 .5rem; }
   article h3 { font-size: 1rem; margin: 1.5rem 0 .35rem; }
   article h4 {
     font-size: .7rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
