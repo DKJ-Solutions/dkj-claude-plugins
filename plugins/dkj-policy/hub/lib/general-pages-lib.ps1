@@ -1309,6 +1309,17 @@ function Format-SessionStartPageHtml {
     return Format-GeneralPageHtml -Title 'SessionStart' -Style $script:SessionStartStyle -Body $body.ToString() -Lead '' -Bare -SiteName $RepoName -FooterNote $footer
 }
 
+function Format-ReleaseNotesEmptyPageHtml {
+    <#
+        Pure: the release-notes index of a repo that has never cut a release (#3580). The builder answers that
+        state with exit 3 rather than a page, because before the first cut there is nothing to build from and
+        nothing the repo could add to change that -- so the hub says so as an empty state, not as an error.
+    #>
+    param([AllowEmptyString()][string]$RepoName = '')
+    $body = '<p class="msg" role="status">No release has been cut yet. The release notes appear here with the first cut.</p>'
+    return Format-GeneralPageHtml -Title 'Release notes' -Lead '' -Body $body -SiteName $RepoName
+}
+
 function Format-ReleaseNotesDevPage {
     <#
         The built release-notes page (#3108), as a dev server serves it: the house stylesheet and theme

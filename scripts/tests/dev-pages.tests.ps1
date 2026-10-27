@@ -468,6 +468,11 @@ $rnNamed = Format-ReleaseNotesDevPage -Html $tpl -RepoName 'Org/repo'
 Assert-True ($rnNamed -match 'class="site-header"' -and $rnNamed -notmatch 'class="eyebrow"' -and $rnNamed -match '<header class="masthead">\s*@@PAGE_BACK@@\s*@@PAGE_MASTHEAD@@\s*<h1>@@PAGE_HEADING@@</h1>') 'under a site header the masthead opens with its h1, with no eyebrow (#3423)'
 Assert-True ($rn -match '<span class="eyebrow">@@PAGE_TITLE@@</span>' -and $tpl -match '<span class="eyebrow">@@PAGE_TITLE@@</span>') 'and with no site header the eyebrow stays, as it does in the template the Worker serves'
 
+$rnEmpty = Format-ReleaseNotesEmptyPageHtml -RepoName 'Org/repo'
+Assert-True ($rnEmpty -match '<h1>Release notes</h1>' -and $rnEmpty -match 'role="status">No release has been cut yet' -and $rnEmpty -notmatch 'role="alert">No release') 'before the first cut the index is an empty state, not a warning (#3580)'
+$srv = [System.IO.File]::ReadAllText((Join-Path $repoRoot 'plugins\dkj-policy\hub\pages\serve-general-pages.ps1'))
+Assert-True ($srv -match '\$run\.ExitCode -eq 3\) \{ \$noRelease = \$true \}' -and $srv -match 'Format-ReleaseNotesEmptyPageHtml') 'the server reads the builder''s exit 3 as that empty state (#3580)'
+
 Write-Host '-- a release''s own page, as the dev server serves it (owner, October 25, 2026)' -ForegroundColor Cyan
 $relPage = $tpl.Replace('@@PAGE_BACK@@', '<a class="back" href="/release-notes">&larr; All releases</a>').Replace('@@PAGE_HEADING@@', 'Version 2.39')
 $rel = Format-ReleaseNotesDevPage -Html $relPage -Release

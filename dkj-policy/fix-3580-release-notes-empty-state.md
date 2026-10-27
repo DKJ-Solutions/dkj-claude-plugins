@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Inbound #3580 verified against the tree: `build-release-notes-page.ps1` threw on a missing history, a
+missing note root and an empty table, and the general hub served that throw as a 404 "Not built yet".
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Builder: a history with no version-shaped row is "no release yet" -- exit 3 with a plain line, no
+  page; the now-unreachable history-missing throw removed; plugin mirror synced
+- [x] Hub: `Update-ReleaseNotesPage` returns `@{ Error; NoRelease }`, and the index is served as an empty
+  state (`Format-ReleaseNotesEmptyPageHtml`) where the builder answered exit 3
 
 ### TEST
 
+- [x] `release-notes-page.tests.ps1`: the issue's three pre-release shapes exit 3; a history with a
+  release and no note root still refuses
+- [x] `dev-pages.tests.ps1`: the empty-state page, and the server's reading of exit 3
+
 ### DEPLOY: fix/3580-release-notes-empty-state
 
-**Score:**
+A repo that has adopted the workflow but never cut a release now gets an empty-state release-notes page
+in its hub ("No release has been cut yet. The release notes appear here with the first cut.") instead of
+a build error telling it to create files that would not help. `build-release-notes-page.ps1` answers that
+state -- no history, or a history whose table has no release row -- with exit 3 and writes nothing.
+Closes #3580.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer before its first release no longer sees a hub link that reads as a defect to repair.
+
+**Score:** 2
 
 #### Pull Request
 
