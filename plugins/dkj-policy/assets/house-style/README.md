@@ -651,10 +651,11 @@ scrolling past the rest. This was decided one page at a time (the Stopwatch, Ses
 house style's own specimens in #3563, the Specialists in #3551) and is written down here once, so a new or
 growing page gets this shape without anyone having to point it out.
 
-- **The overview card** names its section and carries **one headline**: the figure or line that tells you
-  whether the page is worth opening, such as SessionStart's path against its budget or the number of
-  specimens in a house-style section. Use `.grid-3` and one `.card.card--link` per section, its
-  `.card__title` the link.
+- **The overview card is THE card**: the hub's one card link ([The card](#the-hub), a `.card.card--link`
+  holding one `.menu-item` row, written by `Format-HubCardLinkHtml`), three to a row in a `.grid-3`. Its
+  label is the section's name, and its one-line description is the section's **headline**: the figure
+  that tells you whether the page is worth opening, such as the number of specimens in a house-style
+  section. No hand-written variant: no `h2` or `h3` link inside the card, and no extra rows.
 - **The section's page** is that section alone, under one more crumb, so the trail reads Home >
   ... > the overview > the section. Its `h1` is the section's name and its lead is the section's line. Its
   own `.grid__head` goes, because the `h1` already says it.
@@ -743,7 +744,9 @@ A repo with no in-flight lists leaves block 3 out; this source repo's hub and th
 repos. **An open issue is not listed twice**: where the **Issues** card is on the page, an in-flight issues
 list is that page's job, and the page links it rather than repeating it.
 
-**The card.** Each card is a `.card.card--link` holding one house `.menu-item` row as an `<a>` (label,
+**The card.** It is the one card link on **every** page, not only on the home page: an overview of
+sections, a group page and a plugin's own page all use it ([#3563](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3563)).
+Each card is a `.card.card--link` holding one house `.menu-item` row as an `<a>` (label,
 optional one-line description beneath it, a chevron at the end) inside a `<nav class="menu-list">`: its link
 stretches over the whole card, so a click anywhere on the card follows it, and the whole card tints on hover
 ([#3298](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3298)). A `.tile` is a figure that does

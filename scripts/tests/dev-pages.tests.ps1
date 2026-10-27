@@ -680,7 +680,8 @@ Assert-Equal 'alpha,beta' ((@($hsSplit.Sections) | ForEach-Object { $_.Slug }) -
 Assert-True ($hsSplit.Sections[0].Cards -eq 2 -and $hsSplit.Sections[1].Cards -eq 1 -and $hsSplit.Sections[1].Grid -eq 'grid-3' -and $hsSplit.Head -match 'spec-x' -and $hsSplit.Tail -match '^<dialog' -and $hsSplit.Tail -match '<script>') 'each section counts its cards and keeps its grid; the style block before the page and the dialogs and script after it are kept apart'
 $hs = Format-HouseStyleSpecimensPageHtml -Body $hsFix -RepoName 'r'
 Assert-True ($hs -match '<a href="/plugins">Plugins</a>' -and $hs -match '<a href="/plugins/dkj-solutions">dkj-solutions</a>' -and $hs -match '<span aria-current="page">House style</span>' -and $hs -match 'href="/house-style.css"') 'the specimens overview sits under Plugins and dkj-solutions, on the house stylesheet the server serves'
-Assert-True ($hs -match '<section class="card card--link" id="hs-alpha"><h3 class="card__title"><a href="/plugins/dkj-solutions/house-style/alpha">Alpha &amp; one</a></h3><p class="card__sub">The <code>first</code> line</p><p class="num">2 specimens</p></section>' -and $hs -match '<p class="num">1 specimen</p>') 'the overview is a card per section, linking its own page, with the section''s line and how many specimens it holds (#3563)'
+Assert-True ($hs.Contains((Format-HubCardLinkHtml -Href '/plugins/dkj-solutions/house-style/alpha' -Label 'Alpha & one' -Sub '2 specimens')) -and $hs -match 'menu-item__sub">1 specimen<') 'the overview is the house''s one card per section (Format-HubCardLinkHtml), linking its own page, its one line how many specimens it holds (#3563)'
+Assert-True ($hs -notmatch '<h3' -and $hs -notmatch 'card__title') 'and no hand-written card: no heading link inside a card'
 Assert-True ($hs -notmatch 'id="specimen-a1"' -and $hs -notmatch '<dialog' -and $hs -notmatch 'spec-x') 'and none of the specimens themselves'
 $hsA = Format-HouseStyleSpecimensPageHtml -Body $hsFix -RepoName 'r' -Section 'alpha'
 Assert-True ($hsA -match '<a href="/plugins/dkj-solutions/house-style">House style</a>' -and $hsA -match '<span aria-current="page">Alpha &amp; one</span>' -and $hsA -match '<h1>Alpha &amp; one</h1>' -and $hsA -match '<p class="lead">The <code>first</code> line</p>') 'a section''s page sits one crumb below the overview, its h1 the section''s name and its lead the section''s line'
@@ -698,6 +699,27 @@ Assert-Equal ([regex]::Matches($specimens, 'class="grid__head"><h2').Count) @($r
 Assert-True ((@($realSplit.Sections) | Where-Object { $_.Cards -lt 1 }).Count -eq 0 -and $realSplit.Tail -match '^<dialog' -and $realSplit.Head -match '<style>') 'every real section holds specimens, and the style and dialogs land on each section''s page'
 $realPages = @(@(Format-HouseStyleSpecimensPageHtml -Body $specimens) + @(@($realSplit.Sections) | ForEach-Object { Format-HouseStyleSpecimensPageHtml -Body $specimens -Section $_.Slug }))
 Assert-True ((@($realPages) | Where-Object { $_ -match 'sections in one column' }).Count -eq 0) 'the real house-style overview and every section page keep within the long-page rule'
+Write-Host '-- one card link, never a hand-written one (#3563, #3566)' -ForegroundColor Cyan
+# Every `card card--link` in the hub's and the repo's page code, per file. Format-HubCardLinkHtml is the one card; the
+# other entries are the variants written before this guard, each to move onto it under #3566, which shrinks this list.
+# A NEW site fails here: call Format-HubCardLinkHtml instead of writing the card's markup by hand.
+$cardSites = @{
+    'plugins/dkj-policy/hub/lib/general-pages-lib.ps1' = 2   # Format-HubCardLinkHtml, and SessionStart's ss-card (#3566)
+    'plugins/dkj-policy/hub/lib/plugins-page-lib.ps1'  = 1   # the Plugins overview's badge card (#3566)
+    'plugins/dkj-policy/hub/lib/stopwatch-lib.ps1'     = 2   # the Stopwatch's sw-cards (#3566)
+    'scripts/lib/connector-dashboard-lib.ps1'          = 1   # the standard markup, hand-copied (#3566)
+    'scripts/lib/dev-pages-lib.ps1'                    = 1   # the Specialists' sp-card (#3566)
+}
+$cardFiles = @(Get-ChildItem -Path (Join-Path $RepoRoot 'plugins\dkj-policy\hub'), (Join-Path $RepoRoot 'scripts\lib') -Filter '*.ps1' -Recurse -File)
+$cardFound = @{}
+foreach ($f in $cardFiles) {
+    $n = [regex]::Matches([System.IO.File]::ReadAllText($f.FullName), 'card card--link').Count
+    if ($n) { $cardFound[$f.FullName.Substring($RepoRoot.Length + 1).Replace('\', '/')] = $n }
+}
+$cardOver = @($cardFound.Keys | Where-Object { $cardFound[$_] -gt [int]$cardSites[$_] } | ForEach-Object { $_ + ' (' + $cardFound[$_] + ')' })
+Assert-True ($cardOver.Count -eq 0) ('no card link is written by hand outside Format-HubCardLinkHtml and the variants #3566 moves onto it' + $(if ($cardOver.Count) { ': ' + ($cardOver -join ', ') } else { '' }))
+$cardStale = @($cardSites.Keys | Where-Object { [int]$cardFound[$_] -lt $cardSites[$_] })
+Assert-True ($cardStale.Count -eq 0) ('and a variant that has moved is taken off the list, so it cannot quietly come back' + $(if ($cardStale.Count) { ': ' + ($cardStale -join ', ') } else { '' }))
 Write-Host '-- a long page becomes cards with a page each (#3563)' -ForegroundColor Cyan
 $secs = { param($n) (1..$n | ForEach-Object { "<div class=`"grid-2`"><div class=`"grid__head`"><h2>S$_</h2></div></div>" }) -join "`n" }
 Assert-Equal 4 (Get-PageSectionCount -Body (& $secs 4)) 'a section is a grid__head opening on an h2'

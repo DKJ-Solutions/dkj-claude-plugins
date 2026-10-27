@@ -62,11 +62,16 @@ This is a visible result, so the branch stops for the owner's look before it mer
 - [x] The rule is written in the house-style README (*Every page: a long page becomes cards, with a page
   each*) and in the `house-style` skill's density rules and hand-over check.
 - [x] Filed #3565 for `/test-gate`.
+- [x] The owner's first look (October 27, 2026): the overview cards were a hand-written variant (an `h3`
+  link, which brought in an underline) instead of the house's one card. They now use
+  `Format-HubCardLinkHtml`. The README's "The card" now says it is the card link on every page, and
+  `dev-pages.tests.ps1` fails on any `card card--link` written outside it. The five older variants are on
+  an allow-list that #3566 shrinks to empty.
 - [ ] The owner's look at `/plugins/dkj-solutions/house-style` and a section page.
 
 ### TEST
 
-- [x] `dev-pages.tests.ps1`: 395 passed, 0 failed. It covers the split (fixture and the real
+- [x] `dev-pages.tests.ps1`: 398 passed, 0 failed (395 before the card fix). It covers the split (fixture and the real
   `specimens.html`, with no section lost), the overview cards, the section page (crumbs, h1, lead, own cards
   only, style, dialogs and script kept), the 404, the routes, the section count and the warning at 4 and 5,
   and that the real house-style pages carry no warning.

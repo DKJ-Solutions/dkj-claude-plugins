@@ -356,9 +356,9 @@ function Format-HouseStyleSpecimensPageHtml {
     } else {
         [void]$out.AppendLine('<div class="grid-3">')
         foreach ($s in $split.Sections) {
+            # The house's one card (Format-HubCardLinkHtml, the README's "The card"), never a hand-written variant.
             $count = if ($s.Cards -eq 1) { '1 specimen' } else { [string]$s.Cards + ' specimens' }
-            [void]$out.AppendLine('<section class="card card--link" id="hs-' + $s.Slug + '"><h3 class="card__title"><a href="' + $base + '/' + $s.Slug + '">' + (& $e $s.Title) + '</a></h3>' +
-                '<p class="card__sub">' + $s.Sub + '</p><p class="num">' + $count + '</p></section>')
+            [void]$out.AppendLine((Format-HubCardLinkHtml -Href ($base + '/' + $s.Slug) -Label $s.Title -Sub $count))
         }
         [void]$out.AppendLine('</div>')
     }

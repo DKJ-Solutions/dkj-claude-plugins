@@ -109,6 +109,8 @@ dashboard and Artifact is designed to that screen first:
 - **A long page becomes cards, with a page each** (the owners, October 26 and 27, 2026, #3563). Once a
   page holds more than four sections (`.grid__head` blocks with an `h2`), it becomes an overview with
   one card per section, carrying that section's headline figure, and each card opens `<page>/<section>`.
+  That card is the house's one card link (`Format-HubCardLinkHtml`, the README's "The card"), never a
+  variant written by hand.
   Count the sections **while you build or grow a page**, not after it has grown. The house-style README's
   "a long page becomes cards" section has the shape, and the plugin hub's page shell puts a warning on
   any page that breaks it.
