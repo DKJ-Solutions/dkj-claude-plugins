@@ -39,19 +39,43 @@
 
 ### PLAN
 
+#3554: `ship-pr` prints its clearance verdict only after the local gate, so a session that backgrounds it
+closes with "I'm waiting". Verified against the code: the verdict is computed in the wait block, after
+step 1. **One half of the issue's proposal does not hold**: at launch the session is never clearable,
+because the local gate runs in this process and the PR does not exist until it passes. What IS known
+from the diff is whether the run will BECOME clearable (no -NoMerge, a sweep runner, no seam-file
+refusal), so the early line is a forecast, and both close-out forms say to leave the window open, for
+how long, and that nothing waits on the owner.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-ShipClearanceForecast` in `merge-on-green-lib.ps1`, built on the picker's own `Get-MergeOnGreenExecutedPathHit`, fail-closed on an unreadable diff.
+- [x] `ship-pr.ps1` step 0d prints the forecast and the close-out to relay before step 1's gates.
+- [x] Both mirrors under `plugins/dkj-policy/scripts/` copied byte-identical.
+- [x] Chris's persona: a backgrounded run relays the forecast's close-out, never "I'm waiting".
 
 ### TEST
 
+- [x] `merge-on-green-lib.tests.ps1`: the clearable forecast, the four held cases (seam, -NoMerge, no runner, unreadable diff), no close-out form saying it waits, and the forecast wired before step 1 -- 269 pass, 0 fail.
+
 ### DEPLOY: fix/3554-clearance-forecast-before-gates
 
-**Score:**
+`ship-pr` now prints a **clearance forecast** before its gates
+([#3554](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3554)): whether this run will become
+clearable once its PR is armed, or stays needed until the merge and the fold have run, for example because
+the diff touches a repo-owned seam the merge-on-green sweep will not ship. It also prints the close-out a
+session should relay when it backgrounds the run. That close-out opens with "Nothing waits on you" and
+says how long to leave the window open. The later "Session can be cleared" verdict is unchanged.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+When you hand `ship-pr` to the background, the session can now tell you straight away whether you will
+be able to close it once the PR is open, or must keep the window open until the merge, and it no longer
+says it is "waiting".
+
+**Score:** 3
 
 #### Pull Request
 

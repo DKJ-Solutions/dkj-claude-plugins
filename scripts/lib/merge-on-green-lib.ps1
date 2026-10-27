@@ -814,3 +814,67 @@ function Get-ShipClearanceVerdict {
         Line      = "Session can be cleared: PR #$Pr is armed and this checkout is back on the trunk -- if this run is killed, the merge-on-green sweep merges and folds it (#3442)."
     }
 }
+
+function Get-ShipClearanceForecast {
+    <#
+    .SYNOPSIS
+        Before the gates: will this run become clearable once its PR is armed, or does the merge and the
+        fold stay owed to this process until the end? -- the line, and the close-out to relay, issue #3554.
+
+    .DESCRIPTION
+        THE VERDICT ARRIVED AFTER THE CLOSE-OUT. Get-ShipClearanceVerdict prints in the wait block, after
+        the local gate (473s on PR #3553). A session that backgrounds ship-pr ends its turn at launch, so
+        it had no verdict to relay and closed with "I'm waiting for the notification", which the owner
+        read as a wait on them. And on #3553 it also hid that the merge ran ONLY from that process,
+        because the diff touched a repo-owned seam.
+
+        THE PERMANENT HALVES ARE KNOWN FROM THE DIFF. -NoMerge, a sweep runner in the repo, and the
+        sweep's executed-path refusal (#2436, which reads paths and not results) do not change between
+        launch and the wait. Armed and back-on-the-trunk are only known later, and are only ever lost
+        to a failure that the run reports itself, so the forecast leaves them to the later verdict.
+
+        A FORECAST, NOT A CLEARANCE. The gate runs in this process and the PR does not exist until it
+        passes, so at launch the session is never clearable yet: closing it then kills the gate and
+        opens nothing. So both forms tell the owner to leave this window open and carry on elsewhere, and
+        they differ in how long: until the "Session can be cleared" line, or until the merge and the
+        fold have run. Neither form says anything is waiting on the owner (Maikel, on #3554).
+
+    .PARAMETER Files
+        The paths the branch changes against the trunk, as `git diff --name-only` lists them.
+
+    .OUTPUTS
+        [pscustomobject] @{ Clearable = [bool]; Line = [string]; CloseOut = [string] }
+    #>
+    param(
+        [AllowEmptyCollection()][string[]]$Files = @(),
+        [bool]$NoMerge = $false,
+        [bool]$SweepRunnerPresent = $false,
+        [bool]$FilesRead = $true
+    )
+
+    $refusal = ''
+    if (-not $NoMerge -and $SweepRunnerPresent) {
+        $record = if ($FilesRead) {
+            [pscustomobject]@{ files = @($Files | ForEach-Object { [pscustomobject]@{ path = $_ } }); changedFiles = @($Files).Count }
+        } else { $null }
+        $refusal = Get-MergeOnGreenExecutedPathHit -Record $record
+    }
+    $hold = if ($NoMerge) { 'this run is -NoMerge, so nothing is armed' }
+        elseif (-not $SweepRunnerPresent) { 'this repo has no .github/workflows/merge-on-green.yml, so nothing finishes an armed PR if this run dies' }
+        elseif ($refusal) { "the merge-on-green sweep will not finish this PR: $refusal" }
+        else { '' }
+
+    $nothing = 'Nothing waits on you.'
+    if ($hold) {
+        return [pscustomobject]@{
+            Clearable = $false
+            Line      = "Clearance forecast: this run stays needed to the END -- $hold, so the merge and the fold run from this process (#3554)."
+            CloseOut  = "$nothing Leave this window open until ship-pr finishes (what is left of this ship runs from it, because $hold) and carry on in a second one."
+        }
+    }
+    return [pscustomobject]@{
+        Clearable = $true
+        Line      = "Clearance forecast: this run becomes clearable once its PR is open and armed -- the line 'Session can be cleared' says when; until then the local gate runs in this process (#3554)."
+        CloseOut  = "$nothing Leave this window open until ship-pr prints 'Session can be cleared' (after its local gate); from then merge-on-green finishes the PR, and you can carry on in a second window meanwhile."
+    }
+}

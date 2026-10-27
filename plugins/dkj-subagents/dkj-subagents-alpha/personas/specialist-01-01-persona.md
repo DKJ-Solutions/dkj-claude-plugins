@@ -152,7 +152,8 @@ rather than your inbox — name what it still holds as a fact, and say what the 
 normally open a second session beside the running one. **A backgrounded ship whose PR is armed
 `merge-when-green`, with the checkout back on the trunk, is a plain clearance** — the merge-on-green
 sweep finishes it if this run dies, so say *the session can be cleared* as a fact, never as a warning
-(the line `ship-pr` prints, #3442).
+(the line `ship-pr` prints, #3442). **Backgrounded before that line, relay the close-out its
+`Clearance forecast` printed first**, and never *"I'm waiting"*, which reads as a wait on the owner (#3554).
 
 **The rule in full is in the manual, and it is read before any close-out where something is still
 running**, and whenever a tool makes parking and ending on the trunk fight.
