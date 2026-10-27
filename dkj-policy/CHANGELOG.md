@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**12 / 20 minor entries** <!-- pending-tally -->
+**12 / 21 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3572-stale-park-external-waits · 20261027-110905Z
+
+A sweep now also notices when an issue parked on another repo has stopped waiting. `claim-issue -Candidates`
+reports an `awaiting-pull-external` issue as `stale-park` once its upstream pull request has merged and
+that repo has published a release since. It does the same for an `awaiting-release-external` issue once
+the repo it names has published a release after the park. It prints the two lines that unpark the issue,
+so the issue is free for the same sweep. Before this, only `awaiting-pull` was ever read again.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a sweep in a consumer reads two more parked labels again; nothing changes for the person who takes
+the next version unless they run sweeps on issues waiting on another repo.
+
+**Score:** N/A
+
+#### Pull Request
+
+stale-park reads the two external waits
+
+Plugins: dkj-policy
+
+[PR #3575](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3575)
+
+---
 
 ### DEPLOY: feat/hub-banner-slide · 20261027-105833Z
 
