@@ -1372,8 +1372,9 @@ function Format-ReleaseNotesDevPage {
     $bar = (Format-RepoHubBanner) + $bar
     $settings = '<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>'
 
-    # Back to front, so each index still points where it was read.
-    $out = $Html.Substring(0, $bodyEnd) + $settings + "`n" + $Html.Substring($bodyEnd)
+    # Back to front, so each index still points where it was read. The fit alarm closes the body, as in
+    # Format-GeneralPageHtml (#3558).
+    $out = $Html.Substring(0, $bodyEnd) + $settings + "`n" + (Format-FitAlarmHtml) + $Html.Substring($bodyEnd)
     $out = $bodyRx.Replace($out, { param($m) $m.Value + "`n" + $bar }, 1)
     $styleEnd = $out.IndexOf('</style>') + '</style>'.Length
     $out = $out.Substring(0, $styleEnd) + "`n" + $head + $out.Substring($styleEnd)
