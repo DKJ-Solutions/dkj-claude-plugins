@@ -112,6 +112,13 @@ its product and the hub is this plugin's.
    `Command` on the first free port, then waits until each server it started listens: **a dead link is worse
    than none.** Both waits run in one loop, so the common case costs the longer of the two, not their sum.
    The hub's own deadline is 12 seconds; the product's is `WaitSeconds`.
+   **A server it starts does not outlive its session**
+   ([#3569](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3569)): a disconnected Windows session
+   keeps its processes, so a product started there held its port for every later session, including another
+   account's, which cannot stop it without elevation. So each server gets a watcher in the same session,
+   [`pages/dev-preview-watch.ps1`](pages/dev-preview-watch.ps1). Once that session has stayed disconnected for
+   a minute, the watcher stops the server's whole tree, and it exits with the server either way. Session 0 gets
+   none, because it always reads as disconnected.
 4. It writes the state file, and prints **one line**, which hands out both links:
 
 | The repo | The line |
@@ -119,7 +126,8 @@ its product and the hub is this plugin's.
 | states no `Get-DevPreview` (or one that answers nothing) | `Hub: http://localhost:4890/ (started) -- this repo states no Get-DevPreview yet; route localhost:4890 to simpleBrowser.open in .vscode/settings.json to open it in VS Code` |
 | states a server | `Hub: http://localhost:4890/ -- product: http://localhost:4321/dkj-recipes/ (started)`; `(already running)` where it is reused |
 | states a server that cannot start | `Hub: http://localhost:4890/ -- product not started: port 3000 taken by other processes: 3000 by dkj-lifehub (pid 19544)` |
-| and the holder's command line cannot be read | `... 3000 by pid 22588 (another logon session -- its command line cannot be read)`, the session clause only where the holder runs in another Windows logon session (#3401) |
+| and the holder's command line cannot be read | `... 3000 by pid 22588 (its command line cannot be read)` |
+| and the holder runs in another Windows logon session | `... 3000 by pid 22588 (another logon session, 29 -- its command line cannot be read; free it from an elevated shell: logoff 29, or Stop-Process -Id 22588)` (#3401, #3569) |
 | states a server that binds and then quits | `... -- product: the server on port 3001 stopped right after it started listening -- see <log>`: a started server reads as `(started)` only once it is still listening two seconds after its first answer (#3404) |
 | `Requires` a `node_modules` older than the `package-lock.json` beside it | the product's clause ends `; 'node_modules' is older than its package-lock.json -- run npm install` where a package the lock pins is installed at another version, or not at all, according to npm's own `node_modules/.package-lock.json`. A lock that was only rewritten is not named (#3419), and the server is still started (#3404) |
 | states `OwnHub = $true` | `Hub: http://localhost:4870/ (started)`, as before #3245 |

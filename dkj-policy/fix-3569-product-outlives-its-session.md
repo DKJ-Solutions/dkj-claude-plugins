@@ -39,19 +39,57 @@
 
 ### PLAN
 
+Inbound #3569: a product the dev-preview hook started in one Windows logon session kept its port after that
+session was disconnected, so every later session on the machine started without it. Measured cross-account,
+where the later session cannot stop it without elevation.
+
+Of the three directions the report weighs, this branch takes the first: the server's lifetime is tied to its
+session. Holding the port in the first place is the defect, and a fallback port (the third) needs an OAuth
+redirect registered per repo. The second direction is taken only partly: the holder's entry now names the
+session and the elevated commands that free the port, for holders started before this fix. A machine-wide
+claim record was left out, because the watcher removes the case it would report on.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Test-DevPreviewSessionWatchable`, `Get-DevPreviewWatchStep` and `Get-DevPreviewWatchArgs` in
+  `hub/lib/dev-preview-rules.ps1`: no watcher in session 0, a stop only after a full minute disconnected, and
+  an unreadable state never stops anything.
+- [x] `hub/pages/dev-preview-watch.ps1`: reads its own session's connect state (WTSQuerySessionInformation),
+  stops the server's tree with `taskkill /T /F`, exits with the server, and refuses a pid whose start time is
+  not the server's.
+- [x] The hook starts a watcher beside the hub and the product it starts.
+- [x] `Format-DevPreviewPortHolders`: a holder in another logon session names that session and the remedy.
+- [x] `hub/README.md`: the watcher, and the new line shape.
 
 ### TEST
 
+- [x] `scripts/tests/dev-preview-sessionstart.tests.ps1`: the rules (session 0, the grace, a reconnect, an
+  unreadable state), the watcher live (stops the tree when disconnected, keeps it when active, leaves with the
+  server, never stops a reused pid), and a watcher beside the hub the hook starts. 393 passed, 0 failed.
+- [x] The real WTS read compiles and reads this session as active (state 0, session 42).
+
 ### DEPLOY: fix/3569-product-outlives-its-session
 
-**Score:**
+A server the dev-preview hook starts no longer holds its port after its Windows session is left behind. A
+watcher runs beside it in the same session and stops the server's whole tree once that session has been
+disconnected for a minute. It exits with the server either way, and session 0 gets none. A holder that is
+still in another logon session is named with that session's number and the elevated commands that free the
+port.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+On a machine where people switch Windows accounts, or leave a session disconnected instead of signing out,
+the next session no longer starts without its product. The port is free about a minute after the switch. A
+session that is started sooner, or a holder from before this release, gets the exact `logoff` or
+`Stop-Process` command instead of a bare pid.
+
+**Score:** 3
 
 #### Pull Request
+
+dev-preview: a server the hook starts no longer outlives its session
+
+Plugins: dkj-policy
 
