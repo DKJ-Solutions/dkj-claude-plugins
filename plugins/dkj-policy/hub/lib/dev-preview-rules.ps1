@@ -586,6 +586,12 @@ function Format-DevPreviewPortHolders {
         product, started from the other session. Where the listener's command line is empty, the entry says
         so, and names the other logon session where the table's SessionId differs from -SessionId (the
         hook's own, by default). A pid absent from the table is a process that is gone, and stays bare.
+
+        AND THE OTHER SESSION'S HOLDER CARRIES ITS REMEDY (INBOUND #3569): measured cross-account, where this
+        session cannot stop it at all, so the entry names the session and the one targeted command that frees
+        the port. Never 'logoff': this line reaches the model's context, and a logoff ends another account's
+        whole session with its unsaved work. A server this hook starts now stops itself once its session stays disconnected (the
+        watcher, hub/pages/dev-preview-watch.ps1), so this is for the holders started before that.
     #>
     param(
         [Parameter(Mandatory = $true)][int[]]$Ports,
@@ -602,7 +608,8 @@ function Format-DevPreviewPortHolders {
         $p = $Processes[$procId]
         if ($p -and -not ([string]$p.CommandLine).Trim()) {
             if ($null -ne $p.SessionId -and [int]$p.SessionId -ne $SessionId) {
-                "$port by pid $procId (another logon session -- its command line cannot be read)"
+                $sid = [int]$p.SessionId
+                "$port by pid $procId (another logon session, $sid -- its command line cannot be read; stop it in that session, or from an elevated shell: Stop-Process -Id $procId)"
             } else {
                 "$port by pid $procId (its command line cannot be read)"
             }
@@ -651,6 +658,54 @@ function Get-DevPreviewStartLine {
     )
     $cmd = $Command.Replace('{port}', [string]$Port)
     return ('/d /s /c "cd /d "{0}" && {1} > "{2}" 2>&1"' -f $Root, $cmd, $LogPath)
+}
+
+$script:DevPreviewWatchGraceSeconds = 60
+$script:DevPreviewWatchPollSeconds = 15
+
+function Test-DevPreviewSessionWatchable {
+    <#
+        True when a server started from logon session -SessionId gets a watcher (INBOUND #3569). Session 0 is
+        the services session, which reads as disconnected for as long as the machine runs, so a server
+        started there (an ssh shell, a scheduled task) would be stopped by the watcher one grace after it
+        started.
+    #>
+    param([int]$SessionId)
+    return $SessionId -gt 0
+}
+
+function Get-DevPreviewWatchStep {
+    <#
+        One poll of the watcher (INBOUND #3569): from the logon session's connect state -State (the
+        WTS_CONNECTSTATE_CLASS value; 4 is WTSDisconnected, -1 an unreadable state) and since when it has been
+        disconnected (-Since, $null when it was not), returns @{ Stop; Since }. The server is stopped only
+        once the session has been disconnected for -GraceSeconds without a break: a brief Remote Desktop drop
+        or a quick switch back keeps it. Any other state, an unreadable one included, resets the clock, so
+        an uncertain read never stops a server.
+    #>
+    param(
+        [int]$State,
+        [AllowNull()]$Since,
+        [Parameter(Mandatory = $true)][datetime]$Now,
+        [int]$GraceSeconds = $script:DevPreviewWatchGraceSeconds
+    )
+    if ($State -ne 4) { return @{ Stop = $false; Since = $null } }
+    $from = if ($null -ne $Since) { [datetime]$Since } else { $Now }
+    return @{ Stop = (($Now - $from).TotalSeconds -ge $GraceSeconds); Since = $from }
+}
+
+function Get-DevPreviewWatchArgs {
+    <#
+        The argument list for powershell.exe that starts the watcher for the started server -ProcessId (the
+        cmd.exe the hook launched): the server's whole tree is what it stops. -StartTicks is that process's
+        start time as FILETIME UTC, so a pid reused before the watcher reads it is never taken for the server.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][string]$Watcher,
+        [Parameter(Mandatory = $true)][int]$ProcessId,
+        [long]$StartTicks = 0
+    )
+    return ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -ProcessId {1} -StartTicks {2}' -f $Watcher, $ProcessId, $StartTicks)
 }
 
 function Format-DevPreviewPorts {
