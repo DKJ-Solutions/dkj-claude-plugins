@@ -58,6 +58,9 @@ simply ships, which is what lets a second `sweep-issues` run in a lane
 
 > **The worktree is where you BUILD. The primary checkout is where you SHIP.**
 
+That is the default, and in a repo without a CI fold runner it is the rule. Where one exists, a lane may
+ship itself (see the paragraph above on #2087).
+
 One shipping lane, N building lanes. Branch A ships in the primary -- `git checkout main` is legal
 there, because no other worktree holds `main` -- while you build branch B in its own lane. Nothing
 collides, and no shipping script is touched.

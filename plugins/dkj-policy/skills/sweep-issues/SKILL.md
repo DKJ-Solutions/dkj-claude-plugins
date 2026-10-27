@@ -334,7 +334,7 @@ per issue from the loop.
 - **Step 5.** `ship-pr` runs from the lane, unchanged. A lane never returns to `main` before the CI wait
   (`Get-TrunkReturnDecision`). After the merge the fold goes one of two ways. If the primary is standing
   on `main`, `ship-pr` merges and leaves the fold to the repo's CI fold runner (#2087). If `main` is
-  free, it folds in the lane and then releases `main` again (step 5b). **A repo without a CI fold runner**
+  free, it folds in the lane and then releases `main` again (`ship-pr`'s step 5b). **A repo without a CI fold runner**
   is refused at `ship-pr`'s step 0 while the primary holds `main`, before anything is pushed. That
   refusal is the cue to leave lane mode in that repo. It never leaves a half-state behind. A visible park
   works as written, because step 7 detaches the lane and that releases the branch, so the owner can check
