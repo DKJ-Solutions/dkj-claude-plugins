@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**7 / 14 minor entries** <!-- pending-tally -->
+**8 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/test-gate-drilldown · 20261027-094730Z
+
+In this repo the Test gate stops being one long scroll: an overview of cards drills down through the
+breadcrumbs into a page per group and per suite, each fitting a screen of about 1300 x 900, and every hub
+page now warns at its bottom right the moment it runs past the window.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo's hub gets the same: the Test gate drills down from an overview (`/test-gate`) to a group
+(`/test-gate/<group>`) and a suite (`/test-gate/<group>/<suite>`), and every hub page carries the fit
+alarm. The house style's density rule now names a screen of about 1300 x 900, a guideline, instead of
+1400 x 600.
+
+**Score:** 3
+
+#### Pull Request
+
+Test gate: one screen per level, drill down by breadcrumbs, and a hub-wide overflow signal
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3561](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3561)
+
+---
 
 ### DEPLOY: docs/3557-sweep-lane-mode · 20261027-093501Z
 
