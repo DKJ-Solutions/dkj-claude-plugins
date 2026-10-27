@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**10 / 14 minor entries** <!-- pending-tally -->
+**10 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3591-session-start-no-lede · 20261027-172526Z
+
+The session-start pages now open on their content too: the measurement's summary follows the figures it
+sums up, the advice's verdict follows its steps, and the explainer lines under the Artifact's section
+headings are gone, the same rule #3585 set for every other hub page
+([#3591](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3591)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nothing beyond the entry above.
+
+**Score:** N/A
+
+#### Pull Request
+
+Session-start page and template: no lede under a heading
+
+Plugins: dkj-policy
+
+[PR #3606](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3606)
+
+---
 
 ### DEPLOY: fix/3602-second-issue-branch-refused · 20261027-171136Z
 
