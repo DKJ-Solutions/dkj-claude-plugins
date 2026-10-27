@@ -458,6 +458,9 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>p-one</h1>' -and $r -match '1 skill &middot; 2 hooks' -and $r -match 'class="lead">The first &lt;b&gt;one&lt;/b&gt;\.' -and $r -match '<p>Full text\.</p>') '/plugins/<name> is its own page: what it holds, its line as the lead and its full description'
             $r = if ($up) { Get-Raw 'GET' '/plugins/nope' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($r -match 'HTTP/1.1 404') 'a plugin the marketplace does not list is not found'
+            $r = if ($up) { Get-Raw 'GET' '/plugins/p-one/x' "localhost:$port3" '' $port3 } else { '' }
+            $r2 = if ($up) { Get-Raw 'GET' '/plugins/dkj-subagents' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($r -match 'HTTP/1.1 404' -and $r2 -match 'HTTP/1.1 404') 'nor is a level under a plugin that is no group, or the teams'' page of a marketplace with no teams'
             $r = if ($up) { Get-Raw 'GET' '/dkj-repos' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($r -match 'HTTP/1.1 303' -and $r -match 'Location: /connectors/dkj\r') 'the old /dkj-repos sends an old link to /connectors/dkj, which holds the repos on GitHub since #3549'
             Assert-True ($home3 -match 'The hub is not running' -and $home3 -notmatch 'href="http://localhost' -and $home3 -notmatch 'href="/brandbook' -and $home3 -notmatch 'href="/test-gate"') 'with no state file it says the hub is not running, and links no general page of its own'

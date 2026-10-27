@@ -47,6 +47,7 @@ this repo offers. A visible result, so the branch waits for the owner's look bef
 - [x] `scripts/lib/dev-pages-lib.ps1`: a third product page in `Get-ProductPages`, `Get-MarketplacePluginKind` and `Format-PluginsPageHtml`
 - [x] `scripts/dashboard/serve-connector-dashboard.ps1`: `Get-PluginsModel` and the `/plugins` route
 - [x] The overview's cards made lean link cards, the detail on `/plugins/<name>` (the owner: the cards were crammed); the page function renamed `Format-MarketplacePluginsPageHtml`, since the hub's lib has a `Format-PluginsPageHtml` of its own
+- [x] The four specialist teams share one card, `dkj-subagents`, whose page `/plugins/dkj-subagents` lists them; a team's own page is `/plugins/dkj-subagents/<name>` (the owner)
 
 ### TEST
 
@@ -57,8 +58,9 @@ this repo offers. A visible result, so the branch waits for the owner's look bef
 ### DEPLOY: feat/plugins-product-card
 
 The product's home page gains a third card, Plugins, and `/plugins` lists every plugin
-`.claude-plugin/marketplace.json` ships, one link card each saying its kind, version and whether this repo enables it, and
-`/plugins/<name>` gives each plugin its own page: what it holds (subagents, personas, skills, hook
+`.claude-plugin/marketplace.json` ships, one link card each saying its kind, version and whether this repo enables it -- the specialist
+teams sharing one card, `dkj-subagents`, with a page of their own -- and
+each plugin has its own page under it: what it holds (subagents, personas, skills, hook
 commands), its source path, and its full description in paragraphs. It is the tree, read on every request. The
 hub's own Plugins page stays what this checkout enables.
 

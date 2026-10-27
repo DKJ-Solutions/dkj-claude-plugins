@@ -455,20 +455,31 @@ function Format-MarketplacePluginsPageHtml {
         Personas; Skills; Hooks }: Summary is the marketplace's own line, Description the plugin.json's. Where the
         hub's Plugins page shows what THIS checkout enables, these show what the repo OFFERS, enabled here or not.
 
-        TWO LEVELS (the owner, October 27, 2026: the cards were crammed, so the detail goes a level deeper, as on
-        the Specialists pages). Without -Plugin it is /plugins: one link card per plugin saying what it is, its
-        version and whether it is on here. With -Plugin it is /plugins/<name>: the marketplace's line as the lead,
-        a facts card and the full description as paragraphs (the hub's ConvertTo-PluginDescriptionHtml). A -Plugin
-        the model does not name returns $null, so the server answers 404 rather than an empty page.
+        THE LEVELS (the owner, October 27, 2026: the cards were crammed, so the detail goes a level deeper, as on
+        the Specialists pages; and the four specialist teams share one card). Without -Plugin or -Group it is
+        /plugins: one link card per plugin saying what it is, its version and whether it is on here -- except the
+        teams (dkj-subagents-*), which stand as ONE card, 'dkj-subagents', in the place of the first of them. With
+        -Group 'dkj-subagents' alone it is that card's page, one link card per team. With -Plugin it is one
+        plugin's page -- /plugins/<name>, or /plugins/dkj-subagents/<name> for a team, so a team is reachable only
+        under its group: the marketplace's line as the lead, a facts card and the full description as paragraphs
+        (the hub's ConvertTo-PluginDescriptionHtml). A -Group or -Plugin that names nothing, or a plugin under the
+        wrong level, returns $null, so the server answers 404 rather than an empty page.
     #>
     param(
         [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Plugins,
         [AllowEmptyString()][string]$ReadError = '',
+        [AllowEmptyString()][string]$Group = '',
         [AllowEmptyString()][string]$Plugin = ''
     )
     $e = { param($v) ConvertTo-DashboardText $v }
     $all = @($Plugins | Where-Object { $_ })
+    $teamGroup = 'dkj-subagents'
+    $isTeam = { param($p) [string]$p.Name -like ($teamGroup + '-*') }
+    $teams = @($all | Where-Object { & $isTeam $_ })
+    if ($Group -and $Group -cne $teamGroup) { return $null }
     $state = { param($p) @((& $e $p.Kind), $(if ($p.Version) { 'v' + (& $e $p.Version) }), $(if ($p.Enabled) { 'enabled here' } else { 'off here' })) | Where-Object { $_ } }
+    $card = { param($p, $href) Format-HubCardLinkHtml -Href $href -Label $p.Name -SubHtml ((& $state $p) -join ' &middot; ') -Heading 2 `
+        -Id ('plugin-' + $p.Name) -Class ('pl-card' + $(if ($p.Enabled) { '' } else { ' pl-card--off' })) }
     $body = New-Object System.Text.StringBuilder
     if ($ReadError) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The plugins could not all be read: ' + (& $e $ReadError) + '.</p>')
@@ -477,11 +488,20 @@ function Format-MarketplacePluginsPageHtml {
     # An off plugin's card is muted, never hidden, as on the Specialists pages.
     $style = '.pl-card--off { opacity: 0.7; }'
 
-    if (-not $Plugin) {
+    if (-not $Plugin -and -not $Group) {
         [void]$body.AppendLine('<div class="grid-3" id="plugins">')
+        $teamsDone = $false
         foreach ($p in $all) {
-            [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/plugins/' + $p.Name) -Label $p.Name -SubHtml ((& $state $p) -join ' &middot; ') -Heading 2 `
-                -Id ('plugin-' + $p.Name) -Class ('pl-card' + $(if ($p.Enabled) { '' } else { ' pl-card--off' }))))
+            if (& $isTeam $p) {
+                if ($teamsDone) { continue }
+                $teamsDone = $true
+                $on = @($teams | Where-Object { $_.Enabled }).Count
+                $sub = [string]$teams.Count + ' specialist team' + $(if ($teams.Count -ne 1) { 's' } else { '' }) + ' &middot; ' + $on + ' enabled here'
+                [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/plugins/' + $teamGroup) -Label $teamGroup -SubHtml $sub -Heading 2 `
+                    -Id ('group-' + $teamGroup) -Class ('pl-card' + $(if ($on) { '' } else { ' pl-card--off' }))))
+                continue
+            }
+            [void]$body.AppendLine((& $card $p ('/plugins/' + $p.Name)))
         }
         if (-not $all.Count) {
             [void]$body.AppendLine('<section class="card grid__full"><p class="note">No plugin was found.</p></section>')
@@ -490,8 +510,20 @@ function Format-MarketplacePluginsPageHtml {
         return Format-DevPageHtml -Title 'Plugins' -Style $style -Body $body.ToString() -FooterNote $footer -Lead ''
     }
 
+    if (-not $Plugin) {
+        # The teams' own page: one card per team, in the marketplace's order.
+        if (-not $teams.Count) { return $null }
+        [void]$body.AppendLine('<div class="grid-3" id="teams">')
+        foreach ($p in $teams) { [void]$body.AppendLine((& $card $p ('/plugins/' + $teamGroup + '/' + $p.Name))) }
+        [void]$body.AppendLine('</div>')
+        return Format-DevPageHtml -Title $teamGroup -Style $style -Body $body.ToString() -FooterNote $footer `
+            -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }) -Lead ''
+    }
+
     $p = @($all | Where-Object { $_.Name -ceq $Plugin })[0]
-    if (-not $p) { return $null }
+    if (-not $p -or [bool]$Group -ne [bool](& $isTeam $p)) { return $null }
+    $crumbs = @(@{ Label = 'Plugins'; Href = '/plugins' })
+    if ($Group) { $crumbs += @{ Label = $teamGroup; Href = '/plugins/' + $teamGroup } }
     # '' rather than no output for a zero: in 5.1 a call that writes nothing empties the whole @(a, b, ...) it stands in.
     $count = { param($n, $word) if ([int]$n -gt 0) { [string]$n + ' ' + $word + $(if ([int]$n -ne 1) { 's' } else { '' }) } else { '' } }
     $holds = @((& $count $p.Subagents 'subagent'), (& $count $p.Personas 'persona'), (& $count $p.Skills 'skill'), (& $count $p.Hooks 'hook')) | Where-Object { $_ }
@@ -512,7 +544,7 @@ function Format-MarketplacePluginsPageHtml {
         $(if ($p.Description) { ConvertTo-PluginDescriptionHtml -Text $p.Description } else { '<p class="note">None.</p>' }) + '</section>')
     [void]$body.AppendLine('</div>')
     return Format-DevPageHtml -Title $p.Name -Style $style -Body $body.ToString() -FooterNote $footer -Lead (& $e $lead) `
-        -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' })
+        -ParentCrumbs $crumbs
 }
 
 function Find-DkjCheckouts {
