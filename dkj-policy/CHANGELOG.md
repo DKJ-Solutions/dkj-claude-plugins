@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**3 / 6 minor entries** <!-- pending-tally -->
+**4 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3584-audience-note-only · 20261027-151359Z
+
+The audience release note that `cut-release` drafts now has one section, *What changed*, in every repo. The two
+organisational sections, *What it is worth* and *What was still open at this release*, are gone, and so is the
+`Get-ReleaseNoteSections` seam that could only switch them off; a repo that still defines it changes nothing. The
+`For whom` line names only the reader the note has, and the release-notes form check refuses either heading
+written back by hand.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Every repo's next release note arrives without the two sections nobody filled in, with nothing to configure.
+
+**Score:** 3
+
+#### Pull Request
+
+The audience release note drops 'What it is worth' and 'What was still open' everywhere
+
+Plugins: dkj-policy
+
+[PR #3592](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3592)
+
+---
 
 ### DEPLOY: fix/3590-internal-note-sections · 20261027-150206Z
 
