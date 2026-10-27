@@ -314,7 +314,9 @@ function Get-GeneralPages {
     <#
         The general pages, in the order the hub lists them: each a route on the general server (Href,
         relative), its Label the page's own name as its breadcrumb reads it, one line on what it shows, and the
-        key of its card's icon ($script:HubIcons).
+        key of its card's icon ($script:HubIcons). A Group names the hub card the page shares with the others of
+        that Group (Format-HubCardGroupHtml) instead of a card of its own: Clock holds Stopwatch and Logbook (the
+        owner, October 27, 2026).
     #>
     @(
         @{ Href = '/artifacts';     Label = 'Artifacts';     Sub = 'Every claude.ai Artifact published from a session in this repo'; Icon = 'artifacts' },
@@ -323,8 +325,8 @@ function Get-GeneralPages {
         @{ Href = '/sessionstart';  Label = 'SessionStart';  Sub = 'The always-on path every session loads before its first turn'; Icon = 'sessionstart' },
         # Every repo's since #3470 (the owner, October 25, 2026): the source repo's own pages until then.
         @{ Href = '/test-gate';     Label = 'Test gate';     Sub = 'What each test suite costs on CI'; Icon = 'test-gate' },
-        @{ Href = '/stopwatch';     Label = 'Stopwatch';     Sub = 'How long an assignment takes, timed from a stopwatch: prompt to back on the trunk, with the transcript phases'; Icon = 'stopwatch' },
-        @{ Href = '/logbook';       Label = 'Logbook';       Sub = 'Every assignment of a clean session, timed by itself: first prompt to back on the trunk, with the transcript phases'; Icon = 'logbook' },
+        @{ Href = '/stopwatch';     Label = 'Stopwatch';     Sub = 'How long an assignment takes, timed from a stopwatch: prompt to back on the trunk, with the transcript phases'; Icon = 'stopwatch'; Group = 'Clock' },
+        @{ Href = '/logbook';       Label = 'Logbook';       Sub = 'Every assignment of a clean session, timed by itself: first prompt to back on the trunk, with the transcript phases'; Icon = 'logbook'; Group = 'Clock' },
         # #3482: plugin-versions' verdict per enabled plugin, so a problem with one is visible from the hub.
         @{ Href = '/plugins';       Label = 'Plugins';       Sub = 'Every plugin this repo enables, and any problem with one on this machine'; Icon = 'plugins' }
     )
@@ -343,6 +345,38 @@ function Format-HubCardLinkHtml {
     $s = if ($Sub) { '<span class="menu-item__sub">' + (& $e $Sub) + '</span>' } else { '' }
     return '<section class="card card--link"><nav class="menu-list" aria-label="' + (& $e $Label) + '"><a class="menu-item" href="' + (& $e $Href) +
         '">' + (Get-HubIconSvg -Name $Icon) + '<span class="menu-item__label">' + (& $e $Label) + $s + '</span>' + $script:RepoHubChevron + '</a></nav></section>'
+}
+
+function Format-HubCardGroupHtml {
+    <#
+        Several pages as ONE hub card, titled -Title (the owner, October 27, 2026: Clock, holding Stopwatch and
+        Logbook): a plain .card, since it holds more than one link, with an h3 title and one .menu-item row per
+        page of -Pages (each @{ Href; Label; Sub; Icon }, as Get-GeneralPages gives them), drawn as
+        Format-HubCardLinkHtml draws its one.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Title, [Parameter(Mandatory = $true)][object[]]$Pages)
+    $e = { param($v) ConvertTo-GeneralPageText $v }
+    $rows = foreach ($p in $Pages) {
+        $s = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
+        '<a class="menu-item" href="' + (& $e $p.Href) + '">' + (Get-HubIconSvg -Name $p.Icon) + '<span class="menu-item__label">' + (& $e $p.Label) + $s + '</span>' + $script:RepoHubChevron + '</a>'
+    }
+    return '<section class="card"><div class="card__head"><h3 class="card__title">' + (& $e $Title) + '</h3></div><nav class="menu-list" aria-label="' + (& $e $Title) + '">' +
+        ($rows -join '') + '</nav></section>'
+}
+
+function Format-HubPageCardsHtml {
+    <#
+        -Pages (Get-GeneralPages' shape) as hub cards, one line each, in their order: a page with no Group as its
+        own card, and each Group as one card (Format-HubCardGroupHtml) in the place of its first page.
+    #>
+    param([AllowEmptyCollection()][object[]]$Pages = @())
+    $done = @{}
+    foreach ($p in $Pages) {
+        if (-not $p.Group) { Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon; continue }
+        if ($done.ContainsKey($p.Group)) { continue }
+        $done[$p.Group] = $true
+        Format-HubCardGroupHtml -Title $p.Group -Pages @($Pages | Where-Object { $_.Group -eq $p.Group })
+    }
 }
 
 function ConvertTo-SiteHeaderName {
