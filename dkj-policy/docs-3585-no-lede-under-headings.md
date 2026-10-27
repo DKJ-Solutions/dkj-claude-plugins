@@ -69,6 +69,8 @@ DKJ-Solutions app: no intro or explainer paragraph under a page heading, because
 
 #### What makes this deploy extra special
 
+Nothing beyond the entry above: one line per page moves from the screen into the page's metadata.
+
 **Score:** N/A
 
 #### Pull Request
