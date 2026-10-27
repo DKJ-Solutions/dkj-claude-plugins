@@ -453,6 +453,12 @@ Set-GeneralPagesThemeDefault 'teal'
 Assert-True ((Format-ReleaseNotesDevPage -Html $tpl) -match 'data-theme-default="teal"' -and (Format-GeneralPageHtml -Title 't' -Lead '' -Body '') -match 'data-theme-default="teal"') 'a repo''s DefaultTheme reaches the release notes and every general page (#3390)'
 Set-GeneralPagesThemeDefault 'x"y'
 Assert-True ((Format-GeneralPageHtml -Title 't' -Lead '' -Body '') -match 'data-theme-default="x&quot;y"') 'and is escaped there, whatever was handed in'
+Set-GeneralPagesThemeDefault 'blue/sky'
+$pairRn = Format-ReleaseNotesDevPage -Html $tpl
+$pairGp = Format-GeneralPageHtml -Title 't' -Lead '' -Body ''
+Assert-True ($pairRn -match '<html lang="en" data-theme-light="blue" data-theme-dark="sky" data-width-default="full"' -and $pairGp -match '<html lang="en" data-theme-light="blue" data-theme-dark="sky" data-width-default="full"' -and $pairGp -notmatch 'data-theme-default=') 'a light/dark pair reaches the release notes and every general page as data-theme-light/dark (#3608)'
+Set-GeneralPagesThemeDefault 'a"/b<'
+Assert-True ((Format-GeneralPageHtml -Title 't' -Lead '' -Body '') -match 'data-theme-light="a&quot;" data-theme-dark="b&lt;"') 'and both halves are escaped'
 Set-GeneralPagesThemeDefault ''
 Assert-True ((Format-ReleaseNotesDevPage -Html $tpl -ThemeKey 'k"x' -HubHref '/') -match 'data-theme-key="k&quot;x"' -and (Format-ReleaseNotesDevPage -Html $tpl -HubHref '/') -match '<li><a href="/">Home</a></li>') 'a caller may name the theme key and the hub crumb''s target, both escaped'
 $tplStyleEnd = $rn.IndexOf('</style>')

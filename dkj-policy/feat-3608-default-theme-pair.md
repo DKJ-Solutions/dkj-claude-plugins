@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Inbound #3608, verified against the tree: `ConvertTo-DevPreviewConfig` validated `DefaultTheme` as one id, the
+state file believed one id, and all three `<html>` renderers wrote `data-theme-default` only. `house-theme.js`
+already resolves `data-theme-light`/`data-theme-dark` by OS mode when no `data-theme-default` is set, so the
+pair needs no change to the house style. Carry it as a `light/dark` string end to end.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `dev-preview-rules.ps1`: `DefaultTheme` accepts `@{ Light; Dark }` (both halves, each a theme id, nothing else), carried as `light/dark`; `Test-DevPreviewThemeValue` lets the state file believe a pair
+- [x] `general-pages-lib.ps1`: `Format-GeneralPagesThemeAttributes` writes `data-theme-default` for one id, `data-theme-light`/`data-theme-dark` for a pair; the hub, the general pages and the release notes use it
+- [x] `hub/README.md` and the `Get-DevPreview` comment document the pair
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1` and `dev-pages.tests.ps1`: the pair is carried, refused when incomplete or extended, read back from the state file, rendered on all three page kinds without `data-theme-default`, and escaped; a single id renders exactly as before
+
 ### DEPLOY: feat/3608-default-theme-pair
 
-**Score:**
+The hub's `DefaultTheme` gains a second form beside the single theme id; the single form renders byte-identically.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions repo whose product opens in a light/dark theme pair can now state the same pair for the plugin's
+hub and general pages, `DefaultTheme = @{ Light = 'blue'; Dark = 'sky' }` in `Get-DevPreview`, so on a dark OS the
+hub no longer opens in the light theme while the product opens in the dark one. See the
+[hub README](../plugins/dkj-policy/hub/README.md).
+
+**Score:** 3
 
 #### Pull Request
 
