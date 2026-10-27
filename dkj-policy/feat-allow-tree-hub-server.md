@@ -39,19 +39,35 @@
 
 ### PLAN
 
+The hub on :4892 runs from the installed plugin release, so a merged hub change (the Clock card, #3560)
+is invisible there until the next cut. Serving the tree's own hub on a spare port shows it, but auto mode
+refused the command as a security weakening. The owner asked for it never to be refused again.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `.claude/settings.json`: allow exactly `serve-general-pages.ps1` from the tree, in the Bash form
+  that matches the existing `scripts/` rules and in two PowerShell forms
+- [x] `plugins/dkj-policy/hub/README.md`: say how to preview the tree's hub in the source repo
 
 ### TEST
 
+- [x] `.claude/settings.json` still parses as JSON
+- [x] the lint and test gate via open-pr
+
 ### DEPLOY: feat/allow-tree-hub-server
 
-**Score:**
+A session in this repo can now serve the tree's own hub on a spare port without a permission refusal, so a
+merged hub change can be looked at before the release that carries it to `:4892`. The allow rules name the
+one server script and nothing wider.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a permission in this repo's own settings and a note in the source-repo section; no consumer takes
+either.
+
+**Score:** N/A
 
 #### Pull Request
 
