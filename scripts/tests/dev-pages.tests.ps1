@@ -88,6 +88,17 @@ $down = Format-ProductHomeHtml
 Assert-True ($down -match '<section class="card"><p class="msg" role="status">The hub is not running' -and $down -notmatch 'aria-label="Hub"' -and $down -match 'href="/connectors"') 'with no hub known one card says it is not running, and the product''s own pages stay linked'
 Assert-True ((Format-ProductHomeHtml -HubUrl 'http://evil.example:4890') -match 'hub is not running' -and (Format-ProductHomeHtml -HubUrl 'javascript:alert(1)') -notmatch 'javascript:') 'a hub url that is not plain loopback is no hub at all'
 Assert-True (@(@($pages) + @(Get-GeneralPages) | Where-Object { -not (Get-HubIconSvg -Name $_.Icon) }).Count -eq 0) 'every page a hub or the product links names an icon the hub has'
+Assert-True (@(Get-HubGroups | Where-Object { -not (Get-HubIconSvg -Name $_.Icon) }).Count -eq 0) 'and every group page a hub card links names one too'
+
+Write-Host '-- the Clock group page (the owner, October 27, 2026)' -ForegroundColor Cyan
+Assert-Equal '/stopwatch,/logbook' ((Get-GeneralPages | Where-Object { $_.Group -eq '/clock' } | ForEach-Object { $_.Href }) -join ',') 'Stopwatch and Logbook belong to the Clock group, in that order'
+$clockCards = @(Format-HubPageCardsHtml -Pages @(Get-GeneralPages))
+Assert-True ($clockCards.Count -eq 7 -and @($clockCards | Where-Object { $_ -notmatch '^<section class="card card--link">' }).Count -eq 0 -and @($clockCards | Where-Object { ([regex]::Matches($_, '<a ')).Count -ne 1 }).Count -eq 0) 'the hub draws seven cards for the eight pages, each a .card--link holding exactly one link'
+Assert-True ($clockCards[5] -match 'href="/clock"' -and $clockCards[5] -match 'menu-item__label">Clock<' -and -not ($clockCards -match 'href="/(stopwatch|logbook)"')) 'the Clock card takes the Stopwatch''s place and links /clock; neither member has a hub card of its own'
+$clockPage = Format-HubGroupPageHtml -Href '/clock' -RepoName 'dkj-claude-plugins'
+Assert-True ($clockPage -match '<div class="grid__head"><h1>Clock</h1></div>' -and ([regex]::Matches($clockPage, '<section class="card card--link">')).Count -eq 2 -and $clockPage.IndexOf('href="/stopwatch"') -lt $clockPage.IndexOf('href="/logbook"')) 'the /clock page is an h1 and one card link each for Stopwatch and Logbook, in that order'
+Assert-True ($clockPage -match 'aria-current="page">Clock</span>' -and $clockPage -match '<li><a href="/hub">Home</a></li>') 'its trail reads Home > Clock'
+Assert-True ($null -eq (Format-HubGroupPageHtml -Href '/nope') -and $null -eq (Format-HubGroupPageHtml -Href '/Clock')) 'a path no group has is no group page'
 Assert-True ((Get-HubIconSvg -Name '') -eq '' -and (Get-HubIconSvg -Name 'nope') -eq '' -and (Format-HubCardLinkHtml -Href '/x' -Label 'X') -notmatch 'menu-item__icon') 'a card that names no icon, or one the hub lacks, draws none'
 $houseCss = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style\house-style.css'))
 Assert-True ($houseCss -match '\.card--link \{ position: relative; \}' -and $houseCss -match '\.card--link a::after \{ content: ""; position: absolute; inset: 0; \}') 'the house style stretches a .card--link''s one link over the card'

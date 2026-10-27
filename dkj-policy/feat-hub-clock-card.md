@@ -40,31 +40,32 @@
 ### PLAN
 
 The owner asked (October 27, 2026) for a new card on the hub home page, named Clock, holding Stopwatch and
-Logbook; of two shapes offered, they chose one card with two rows over a card linking a /clock page.
+Logbook. A first build put both as two rows in one card; the owner rejected it -- a hub card is always ONE link -- so Clock is a card linking a /clock page that holds the two.
 
 ### CREATE
 
-- [x] `Get-GeneralPages`: a `Group = 'Clock'` key on Stopwatch and Logbook
-- [x] `Format-HubCardGroupHtml` and `Format-HubPageCardsHtml` in `general-pages-lib.ps1`; the plugin hub draws its General cards through the latter
-- [x] The house-style README's hub section names the grouped card
+- [x] `Get-GeneralPages`: a `Group = '/clock'` key on Stopwatch and Logbook; `Get-HubGroups` names the Clock group
+- [x] `Format-HubPageCardsHtml` draws a group as one card link; `Format-HubGroupPageHtml` draws `/clock`, routed in `serve-general-pages.ps1`
+- [x] The Stopwatch and Logbook pages' trails read Home > Clock > ...
+- [x] The house-style README states that a card is always one link, and names the group page
 
 ### TEST
 
-- [x] `dev-preview-sessionstart.tests.ps1`: six card links plus one Clock card with two rows, in Stopwatch's place
-- [x] `dev-pages` and `connector-dashboard` suites green
+- [x] `dev-preview-sessionstart` and `dev-pages`: seven one-link cards, Clock in Stopwatch's place, and the /clock page
+- [x] `stopwatch`, `logbook` and `connector-dashboard` suites green
 - [ ] The owner has looked at the hub home page (visible result)
 
 ### DEPLOY: feat/hub-clock-card
 
-The hub's home page groups Stopwatch and Logbook under one card, Clock, with a row for each, in the place
-the Stopwatch's card held. A page joins a grouped card by a `Group` key in `Get-GeneralPages`, and
-`Format-HubCardGroupHtml` draws it.
+The hub's home page links Stopwatch and Logbook through one card, Clock, in the place the Stopwatch's card
+held; it opens `/clock`, a page with a card for each, and their trails read Home > Clock > the page. A page
+joins a group by a `Group` key in `Get-GeneralPages`, and a hub card stays one link.
 
 **Score:** 2
 
 #### What makes this deploy extra special
 
-Every repo's hub home page shows one Clock card holding Stopwatch and Logbook, instead of two cards.
+Every repo's hub home page shows one Clock card instead of the Stopwatch and Logbook cards; both are a click further, on `/clock`.
 
 **Score:** 2
 

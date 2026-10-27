@@ -294,6 +294,7 @@ $script:HubIcons = @{
     'test-gate'     = '<path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>'
     'stopwatch'     = '<circle cx="12" cy="14" r="7"/><path d="M12 14v-4M10 3h4M12 3v4"/>'
     'logbook'       = '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>'
+    'clock'         = '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
     'plugins'       = '<path d="M9 3v4M15 3v4M7 7h10v4a5 5 0 0 1-10 0z"/><path d="M12 16v5"/>'
     # The source repo's own hub pages (#3493), drawn as the product port's root page drew them.
     'house-style'   = '<path d="M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.6 0-1-.8-1.4-.8-2.4s.8-1.5 1.8-1.5H17a4 4 0 0 0 4-4c0-4.7-4-8.5-9-8.5z"/><circle cx="7.5" cy="11" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="11" r="1"/>'
@@ -314,9 +315,8 @@ function Get-GeneralPages {
     <#
         The general pages, in the order the hub lists them: each a route on the general server (Href,
         relative), its Label the page's own name as its breadcrumb reads it, one line on what it shows, and the
-        key of its card's icon ($script:HubIcons). A Group names the hub card the page shares with the others of
-        that Group (Format-HubCardGroupHtml) instead of a card of its own: Clock holds Stopwatch and Logbook (the
-        owner, October 27, 2026).
+        key of its card's icon ($script:HubIcons). A Group is the Href of the group page (Get-HubGroups) the page
+        is linked from instead of the hub: the hub shows that group as one card in the place of its first page.
     #>
     @(
         @{ Href = '/artifacts';     Label = 'Artifacts';     Sub = 'Every claude.ai Artifact published from a session in this repo'; Icon = 'artifacts' },
@@ -325,10 +325,21 @@ function Get-GeneralPages {
         @{ Href = '/sessionstart';  Label = 'SessionStart';  Sub = 'The always-on path every session loads before its first turn'; Icon = 'sessionstart' },
         # Every repo's since #3470 (the owner, October 25, 2026): the source repo's own pages until then.
         @{ Href = '/test-gate';     Label = 'Test gate';     Sub = 'What each test suite costs on CI'; Icon = 'test-gate' },
-        @{ Href = '/stopwatch';     Label = 'Stopwatch';     Sub = 'How long an assignment takes, timed from a stopwatch: prompt to back on the trunk, with the transcript phases'; Icon = 'stopwatch'; Group = 'Clock' },
-        @{ Href = '/logbook';       Label = 'Logbook';       Sub = 'Every assignment of a clean session, timed by itself: first prompt to back on the trunk, with the transcript phases'; Icon = 'logbook'; Group = 'Clock' },
+        @{ Href = '/stopwatch';     Label = 'Stopwatch';     Sub = 'How long an assignment takes, timed from a stopwatch: prompt to back on the trunk, with the transcript phases'; Icon = 'stopwatch'; Group = '/clock' },
+        @{ Href = '/logbook';       Label = 'Logbook';       Sub = 'Every assignment of a clean session, timed by itself: first prompt to back on the trunk, with the transcript phases'; Icon = 'logbook'; Group = '/clock' },
         # #3482: plugin-versions' verdict per enabled plugin, so a problem with one is visible from the hub.
         @{ Href = '/plugins';       Label = 'Plugins';       Sub = 'Every plugin this repo enables, and any problem with one on this machine'; Icon = 'plugins' }
+    )
+}
+
+function Get-HubGroups {
+    <#
+        The group pages, each the one card on the hub for the general pages whose Group is its Href, and a page of
+        its own holding a card per member (Format-HubGroupPageHtml). A hub card is always ONE link, so a group is a
+        page, never a card with several rows: Clock holds Stopwatch and Logbook (the owner, October 27, 2026).
+    #>
+    @(
+        @{ Href = '/clock'; Label = 'Clock'; Sub = 'How long the work takes: the Stopwatch and the Logbook'; Icon = 'clock' }
     )
 }
 
@@ -347,27 +358,10 @@ function Format-HubCardLinkHtml {
         '">' + (Get-HubIconSvg -Name $Icon) + '<span class="menu-item__label">' + (& $e $Label) + $s + '</span>' + $script:RepoHubChevron + '</a></nav></section>'
 }
 
-function Format-HubCardGroupHtml {
-    <#
-        Several pages as ONE hub card, titled -Title (the owner, October 27, 2026: Clock, holding Stopwatch and
-        Logbook): a plain .card, since it holds more than one link, with an h3 title and one .menu-item row per
-        page of -Pages (each @{ Href; Label; Sub; Icon }, as Get-GeneralPages gives them), drawn as
-        Format-HubCardLinkHtml draws its one.
-    #>
-    param([Parameter(Mandatory = $true)][string]$Title, [Parameter(Mandatory = $true)][object[]]$Pages)
-    $e = { param($v) ConvertTo-GeneralPageText $v }
-    $rows = foreach ($p in $Pages) {
-        $s = if ($p.Sub) { '<span class="menu-item__sub">' + (& $e $p.Sub) + '</span>' } else { '' }
-        '<a class="menu-item" href="' + (& $e $p.Href) + '">' + (Get-HubIconSvg -Name $p.Icon) + '<span class="menu-item__label">' + (& $e $p.Label) + $s + '</span>' + $script:RepoHubChevron + '</a>'
-    }
-    return '<section class="card"><div class="card__head"><h3 class="card__title">' + (& $e $Title) + '</h3></div><nav class="menu-list" aria-label="' + (& $e $Title) + '">' +
-        ($rows -join '') + '</nav></section>'
-}
-
 function Format-HubPageCardsHtml {
     <#
         -Pages (Get-GeneralPages' shape) as hub cards, one line each, in their order: a page with no Group as its
-        own card, and each Group as one card (Format-HubCardGroupHtml) in the place of its first page.
+        own card, and each Group's card (Get-HubGroups) in the place of its first page.
     #>
     param([AllowEmptyCollection()][object[]]$Pages = @())
     $done = @{}
@@ -375,8 +369,28 @@ function Format-HubPageCardsHtml {
         if (-not $p.Group) { Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon; continue }
         if ($done.ContainsKey($p.Group)) { continue }
         $done[$p.Group] = $true
-        Format-HubCardGroupHtml -Title $p.Group -Pages @($Pages | Where-Object { $_.Group -eq $p.Group })
+        $g = @(Get-HubGroups | Where-Object { $_.Href -eq $p.Group })[0]
+        Format-HubCardLinkHtml -Href $g.Href -Label $g.Label -Sub $g.Sub -Icon $g.Icon
     }
+}
+
+function Format-HubGroupPageHtml {
+    <#
+        The group page on -Href (Get-HubGroups), bare like the SessionStart overview: an h1 with a card per member
+        page, three to a row, each one link. $null for an Href no group has.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Href, [AllowEmptyString()][string]$RepoName = '', [string]$HubHref = '/hub')
+    $g = @(Get-HubGroups | Where-Object { $_.Href -ceq $Href })[0]
+    if (-not $g) { return $null }
+    $body = New-Object System.Text.StringBuilder
+    [void]$body.AppendLine('<div class="grid-3">')
+    [void]$body.AppendLine('<div class="grid__head"><h1>' + (ConvertTo-GeneralPageText $g.Label) + '</h1></div>')
+    foreach ($p in @(Get-GeneralPages | Where-Object { $_.Group -eq $g.Href })) {
+        [void]$body.AppendLine((Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon))
+    }
+    [void]$body.AppendLine('</div>')
+    return Format-GeneralPageHtml -Title $g.Label -Body $body.ToString() -Lead '' -Bare -SiteName $RepoName -HubHref $HubHref `
+        -FooterNote 'Built by the dkj-policy plugin''s <code>hub/lib/general-pages-lib.ps1</code>.'
 }
 
 function ConvertTo-SiteHeaderName {
