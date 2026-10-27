@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Maikel, October 27, 2026: rename Hub to Toolbox, and on the toolbox's port rename Home to Tools. Only
+what is seen changes; the code, the `/hub` route and the `OwnHub` key keep the word hub, because a
+consumer's `Get-DevPreview` states `OwnHub` and renaming it would break that repo.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] The session-start line opens with `Toolbox:` (`$script:DevPreviewLabel`)
+- [x] The site header tags the repo's name `toolbox`, and the first crumb on every toolbox page reads Tools (`-HomeLabel`, default `Tools`)
+- [x] The product keeps Home for its own pages (`-HomeLabel 'Home'`) and links the toolbox on a Toolbox card
+- [x] The toolbox's own prose (Repository facts, setup cards, footers, banner title) says toolbox
+- [x] The hub README and the house-style README say what the screen calls it
 
 ### TEST
 
+- [x] dev-pages, dev-preview-sessionstart and connector-dashboard green locally; one layer assert re-anchored past the new Tools crumb
+- [ ] The owner looks at the toolbox and the product in the browser (visible result)
+
 ### DEPLOY: feat/hub-to-toolbox
 
-**Score:**
+The hub is called Toolbox on screen: the session-start line opens with `Toolbox:`, the site header
+tags the repo's name `toolbox`, and the first crumb on every toolbox page reads Tools instead of Home.
+A product's own pages keep Home. The code, the `/hub` route and the `OwnHub` key are unchanged.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every user of the plugin sees the hub under its new name, Toolbox, with Tools as its first crumb;
+nothing has to be done to take it.
+
+**Score:** 2
 
 #### Pull Request
 

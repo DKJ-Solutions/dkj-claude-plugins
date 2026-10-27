@@ -445,9 +445,9 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Assert-True ($home3 -match 'HTTP/1.1 200' -and $home3 -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span>' -and $home3 -match 'href="/connectors"' -and $home3 -match 'href="/specialists"' -and $home3 -notmatch 'href="/dkj-repos"') '/ serves the product''s home page, linking Connectors and Specialists'
             $r = if ($up) { Get-Raw 'GET' '/dkj-repos' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($r -match 'HTTP/1.1 303' -and $r -match 'Location: /connectors/dkj\r') 'the old /dkj-repos sends an old link to /connectors/dkj, which holds the repos on GitHub since #3549'
-            Assert-True ($home3 -match 'The hub is not running' -and $home3 -notmatch 'href="http://localhost' -and $home3 -notmatch 'href="/brandbook' -and $home3 -notmatch 'href="/test-gate"') 'with no state file it says the hub is not running, and links no general page of its own'
+            Assert-True ($home3 -match 'The toolbox is not running' -and $home3 -notmatch 'href="http://localhost' -and $home3 -notmatch 'href="/brandbook' -and $home3 -notmatch 'href="/test-gate"') 'with no state file it says the hub is not running, and links no general page of its own'
             $r = if ($up) { Get-Raw 'GET' '/hub' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($r -match 'HTTP/1.1 404' -and $r -match 'hub is not running') 'and /hub is a 404 text, never a redirect to a port nobody answers on'
+            Assert-True ($r -match 'HTTP/1.1 404' -and $r -match 'toolbox is not running') 'and /hub is a 404 text, never a redirect to a port nobody answers on'
             # A state file naming a port nobody answers on is no hub.
             Write-RepoHubState -Root $src -Hub "http://localhost:$genPort3/" -Pages "http://localhost:$genPort3" -Product "http://localhost:$port3/" -Mode 'product'
             $r = if ($up) { Get-Raw 'GET' '/hub' "localhost:$port3" '' $port3 } else { '' }
@@ -460,7 +460,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
                 Assert-True (Wait-ServerUp $genPort3) 'the fixture''s plugin hub listens'
                 Assert-True ((Get-Raw 'GET' '/brandbook' "localhost:$genPort3" '' $genPort3) -match 'HTTP/1.1 404') 'the plugin hub serves no Brandbook (#3475)'
                 $homeUp = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-                Assert-True ($homeUp -match ('<a class="menu-item" href="http://localhost:' + $genPort3 + '">') -and $homeUp -notmatch 'hub is not running') 'the home page''s first card links the plugin hub, once it answers as this checkout''s'
+                Assert-True ($homeUp -match ('<a class="menu-item" href="http://localhost:' + $genPort3 + '">') -and $homeUp -notmatch 'toolbox is not running') 'the home page''s first card links the plugin hub, once it answers as this checkout''s'
                 $r = if ($up) { Get-Raw 'GET' '/hub' "localhost:$port3" '' $port3 } else { '' }
                 Assert-True ($r -match 'HTTP/1.1 303' -and $r -match ('Location: http://localhost:' + $genPort3 + '\r')) 'and /hub sends the visitor there'
                 $hubHome = Get-Raw 'GET' '/' "localhost:$genPort3" '' $genPort3
@@ -479,7 +479,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
                 $gen3.WaitForExit(5000) | Out-Null
             }
             $homeDown = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($homeDown -match 'HTTP/1.1 200' -and $homeDown -match 'The hub is not running') 'and the Hub card is back to not running once nothing answers there'
+            Assert-True ($homeDown -match 'HTTP/1.1 200' -and $homeDown -match 'The toolbox is not running') 'and the Toolbox card is back to not running once nothing answers there'
             Remove-Item -LiteralPath $srcState -Force -ErrorAction SilentlyContinue
             Assert-True ($overviewPage -match 'HTTP/1.1 200' -and $overviewPage -match '<h1>Connectors</h1>' -and $overviewPage -match '<a href="/">Home</a>' -and $overviewPage -match 'href="/connectors/other"') '/connectors serves the overview as a page under the product''s home, linking each group''s page'
             Assert-True ($page -match '<h1>Other repos</h1>' -and $page -match '<a href="/connectors">Connectors</a>') '/connectors/other serves that group''s page under the overview'

@@ -335,7 +335,7 @@ function Format-HouseStyleSpecimensPageHtml {
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $base = '/plugins/dkj-solutions/house-style'
     $crumbs = @(@{ Label = 'Plugins'; Href = '/plugins' }, @{ Label = 'dkj-solutions'; Href = '/plugins/dkj-solutions' })
-    $footer = 'The stylesheet and these specimens are <code>assets/house-style/</code> in the dkj-policy plugin this hub runs from.'
+    $footer = 'The stylesheet and these specimens are <code>assets/house-style/</code> in the dkj-policy plugin this toolbox runs from.'
     $split = if ($ReadError) { @{ Head = ''; Sections = @(); Tail = '' } } else { Split-HouseStyleSpecimens -Body $Body }
 
     if ($Section) {

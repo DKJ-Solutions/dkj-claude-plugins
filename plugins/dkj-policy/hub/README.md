@@ -1,5 +1,7 @@
 # The hub — the dev-preview hook and the general pages server
 
+**On screen it is called Toolbox** (the owner, October 27, 2026): the session-start line, the site header's tag, a product's card, and the first crumb, which reads **Tools**. The code, the `/hub` route, the `OwnHub` key and this page keep the word *hub* for the mechanism.
+
 **Every repo that runs `dkj-policy` gets a hub at session start**, served by the plugin, with the
 General pages linked from it: Artifacts, Issues, Release notes, SessionStart, Test gate, Stopwatch, Logbook (the last three
 behind the Clock card and its `/clock` page since October 27, 2026)
@@ -72,7 +74,7 @@ Under the grid, only where the repo states no `Get-DevPreview` at all, two **set
 and which port to route to VS Code's Simple Browser. A footer names the serving script.
 
 Both pages are built per request from the state file below, and the repo's name, its `origin` slug and the
-product url, the only values from outside, are HTML-escaped. The line the hook prints opens with `Hub:`, and a repo cannot
+product url, the only values from outside, are HTML-escaped. The line the hook prints opens with `Toolbox:` (`Hub:` until the owner renamed the hub Toolbox, October 27, 2026), and a repo cannot
 choose another word. A `Name` a repo still states in `Get-DevPreview` is ignored, so delete it at your next
 edit. "dev-preview" names the mechanism, which is why the hook's lines about its own setup (skipped) still
 open with it.
@@ -123,15 +125,15 @@ its product and the hub is this plugin's.
 
 | The repo | The line |
 |---|---|
-| states no `Get-DevPreview` (or one that answers nothing) | `Hub: http://localhost:4890/ (started) -- this repo states no Get-DevPreview yet; route localhost:4890 to simpleBrowser.open in .vscode/settings.json to open it in VS Code` |
-| states a server | `Hub: http://localhost:4890/ -- product: http://localhost:4321/dkj-recipes/ (started)`; `(already running)` where it is reused |
-| states a server that cannot start | `Hub: http://localhost:4890/ -- product not started: port 3000 taken by other processes: 3000 by dkj-lifehub (pid 19544)` |
+| states no `Get-DevPreview` (or one that answers nothing) | `Toolbox: http://localhost:4890/ (started) -- this repo states no Get-DevPreview yet; route localhost:4890 to simpleBrowser.open in .vscode/settings.json to open it in VS Code` |
+| states a server | `Toolbox: http://localhost:4890/ -- product: http://localhost:4321/dkj-recipes/ (started)`; `(already running)` where it is reused |
+| states a server that cannot start | `Toolbox: http://localhost:4890/ -- product not started: port 3000 taken by other processes: 3000 by dkj-lifehub (pid 19544)` |
 | and the holder's command line cannot be read | `... 3000 by pid 22588 (its command line cannot be read)` |
 | and the holder runs in another Windows logon session | `... 3000 by pid 22588 (another logon session, 29 -- its command line cannot be read; stop it in that session, or from an elevated shell: Stop-Process -Id 22588)` (#3401, #3569) |
 | states a server that binds and then quits | `... -- product: the server on port 3001 stopped right after it started listening -- see <log>`: a started server reads as `(started)` only once it is still listening two seconds after its first answer (#3404) |
 | `Requires` a `node_modules` older than the `package-lock.json` beside it | the product's clause ends `; 'node_modules' is older than its package-lock.json -- run npm install` where a package the lock pins is installed at another version, or not at all, according to npm's own `node_modules/.package-lock.json`. A lock that was only rewritten is not named (#3419), and the server is still started (#3404) |
-| states `OwnHub = $true` | `Hub: http://localhost:4870/ (started)`, as before #3245 |
-| states `OwnHub = $true` and a `Product` | `Hub: http://localhost:4870/ (started) -- product: http://localhost:5173/app/ (started)` |
+| states `OwnHub = $true` | `Toolbox: http://localhost:4870/ (started)`, as before #3245 |
+| states `OwnHub = $true` and a `Product` | `Toolbox: http://localhost:4870/ (started) -- product: http://localhost:5173/app/ (started)` |
 | and the hub cannot start | `Hub: not started -- <why>`, then the product's clause where there is one |
 
 The route hint appears only where the repo states no server and does not route the hub's port; with the

@@ -369,7 +369,7 @@ try {
                 if ($hubUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z') {
                     Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $hubUrl } -Method $method
                 } else {
-                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('The dkj-policy hub is not running for this repo: the dev-preview hook starts it at the next session start.')) -Method $method
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('The dkj-policy toolbox is not running for this repo: the dev-preview hook starts it at the next session start.')) -Method $method
                 }
                 continue
             }

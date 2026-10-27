@@ -81,7 +81,7 @@ function Format-PluginRepoHubHtml {
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    [void]$sb.AppendLine('<title>' + $n + ' -- Home</title>')
+    [void]$sb.AppendLine('<title>' + $n + ' -- Tools</title>')
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The repo layer: one name the house file does not define (.ph-code), for the code samples.
@@ -93,7 +93,7 @@ function Format-PluginRepoHubHtml {
     $lead = if ($Mode -eq 'product') { 'The way in to what this repo offers: its product, its pages and its facts.' }
             else { 'The way in to this repo. It states no dev server of its own yet, so there is no product to link.' }
     # The site header on the home page too (October 22, 2026): it names the repo, so the page has no intro of its own.
-    [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName $n -Lead $lead -Brand (ConvertTo-SiteHeaderName -RepoName (ConvertTo-PluginRepoHubName $RepoName)) -BrandTag 'hub'))
+    [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName $n -Lead $lead -Brand (ConvertTo-SiteHeaderName -RepoName (ConvertTo-PluginRepoHubName $RepoName)) -BrandTag 'toolbox'))
 
     # Every page a card of its own, three to a row, with no heading above them (#3383): the product first, then
     # the Repository page, and the General pages but Issues (the Repository page's).
@@ -121,7 +121,7 @@ function Format-PluginRepoHubHtml {
         [void]$sb.AppendLine('<section class="card grid__full">')
         [void]$sb.AppendLine('<div class="card__head"><h3 class="card__title">Add a dev server of your own</h3><p class="card__sub">From the next session on, it is the product on this page</p></div>')
         [void]$sb.AppendLine('<div>')
-        [void]$sb.AppendLine('<p>State <code>Get-DevPreview</code> in this repo''s <code>scripts/repo-config.ps1</code>. The hook then starts that server, or reuses the one already running, and hands out its link beside this hub''s.</p>')
+        [void]$sb.AppendLine('<p>State <code>Get-DevPreview</code> in this repo''s <code>scripts/repo-config.ps1</code>. The hook then starts that server, or reuses the one already running, and hands out its link beside this toolbox''s.</p>')
         [void]$sb.AppendLine('<pre class="ph-code"><code>function Get-DevPreview {')
         [void]$sb.AppendLine('    @{')
         [void]$sb.AppendLine('        Command = ''npm run dev -- --host 127.0.0.1 --port {port} --strictPort''')
@@ -134,11 +134,11 @@ function Format-PluginRepoHubHtml {
         [void]$sb.AppendLine('<section class="card grid__full">')
         [void]$sb.AppendLine('<div class="card__head"><h3 class="card__title">Open it in VS Code</h3><p class="card__sub">In the Simple Browser rather than the system browser</p></div>')
         [void]$sb.AppendLine('<div>')
-        [void]$sb.AppendLine('<p>Route the hub''s port in this repo''s <code>.vscode/settings.json</code>:</p>')
+        [void]$sb.AppendLine('<p>Route the toolbox''s port in this repo''s <code>.vscode/settings.json</code>:</p>')
         [void]$sb.AppendLine('<pre class="ph-code"><code>"workbench.externalUriOpeners": {')
         [void]$sb.AppendLine('    "localhost:4890": "simpleBrowser.open"')
         [void]$sb.AppendLine('}</code></pre>')
-        [void]$sb.AppendLine('<p class="muted">The hub takes the first free port from 4890 to 4899, so a repo opened beside others may get a later one; the session-start line names the port it got.</p>')
+        [void]$sb.AppendLine('<p class="muted">The toolbox takes the first free port from 4890 to 4899, so a repo opened beside others may get a later one; the session-start line names the port it got.</p>')
         [void]$sb.AppendLine('</div>')
         [void]$sb.AppendLine('</section>')
         [void]$sb.AppendLine('</div>')
@@ -183,7 +183,7 @@ function Format-PluginRepoRepositoryHtml {
     [void]$sb.AppendLine('<div><dt>Folder</dt><dd>' + $f + '</dd></div>')
     [void]$sb.AppendLine('<div><dt>Dev preview</dt><dd>' + $devPreview + '</dd></div>')
     [void]$sb.AppendLine('<div><dt>Stated in</dt><dd>scripts/repo-config.ps1</dd></div>')
-    [void]$sb.AppendLine('<div><dt>Hub served by</dt><dd>the dkj-policy plugin, on a port from 4890 to 4899</dd></div>')
+    [void]$sb.AppendLine('<div><dt>Toolbox served by</dt><dd>the dkj-policy plugin, on a port from 4890 to 4899</dd></div>')
     [void]$sb.AppendLine('</dl>')
     [void]$sb.AppendLine('<div class="grid-3">')
     if ($PagesUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z') {
@@ -197,6 +197,6 @@ function Format-PluginRepoRepositoryHtml {
     }
     [void]$sb.AppendLine('</div>')
     return Format-GeneralPageHtml -Title 'Repository' -SiteName $name -Body $sb.ToString() `
-        -Lead 'The repo this hub serves: its facts, its open issues and its pull requests.' `
+        -Lead 'The repo this toolbox serves: its facts, its open issues and its pull requests.' `
         -FooterNote 'The facts are what the hub knows about this folder; Issues is read with <code>gh</code>.'
 }

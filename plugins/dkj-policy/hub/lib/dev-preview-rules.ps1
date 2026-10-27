@@ -27,7 +27,7 @@
             }
         }
 
-    THE LINE HAS ONE WORD IN EVERY REPO, 'Hub' (INBOUND #3064, October 16, 2026): the line the hook prints
+    THE LINE HAS ONE WORD IN EVERY REPO, 'Toolbox' (INBOUND #3064, October 16, 2026; 'Hub' until the owner renamed it, October 27, 2026): the line the hook prints
     opens with it. It read 'Repo dashboard' until dkj-brandbook v0.3.0 (#3097), 'Repo hub' until #3285 and
     'Repository' until #3291 gave that name to the GitHub repo's own page (/repository) and called the port
     hub. A repo once chose its own
@@ -70,8 +70,8 @@
 $script:DevPreviewMaxAncestors = 4
 # How long a started product must keep listening after its first answer before it reads as started (#3404).
 $script:DevPreviewSettleSeconds = 2
-# The word the session-start line opens with, in every repo (#3064): 'Hub', since the page called Repository is /repository on it.
-$script:DevPreviewLabel = 'Hub'
+# The word the session-start line opens with, in every repo (#3064): 'Toolbox' (it was 'Hub' until the owner renamed it, October 27, 2026), since the page called Repository is /repository on it.
+$script:DevPreviewLabel = 'Toolbox'
 # The general pages server, which is the Repository (#3119, #3245). Fixed, so a .vscode route can name them; ten,
 # so ten checkouts open side by side each get their own. Clear of the ranges the repos measured in #2967 and
 # #2976 use (3000, 4870-4879, 5173-5180, 8765).

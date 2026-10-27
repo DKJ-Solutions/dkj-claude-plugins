@@ -613,7 +613,7 @@ its own.
   (44px) high and one line: a trail longer than the screen scrolls sideways inside the bar instead of
   wrapping, so the height never changes. Whatever else sticks to the top sits under it, at `top: var(--tap)`;
   the house style already does that for the floating settings button and for in-page anchors.
-- **The trail:** it always starts at **Home**, linking to `/` (it read **Repo hub** until #3270). Each further crumb is one level
+- **The trail:** it always starts at **Tools** on the toolbox, linking to `/` (it read **Repo hub** until #3270 and **Home** until the owner renamed it, October 27, 2026; a product keeps **Home** for its own pages). Each further crumb is one level
   down: the product (under its own name), then a page inside it. The last crumb is the current page,
   unlinked, with `aria-current="page"`. The bar stands on the theme's colour, `--primary` (owner, #3235, October 21, 2026), so
   the trail is in the paper steps, which all read on it: the chevron `--paper-3`, the ancestor links `--paper-2` (with
@@ -658,7 +658,7 @@ growing page gets this shape without anyone having to point it out.
   section. No hand-written variant: no `h2` or `h3` link inside the card, and no extra rows. A card that
   needs more (a figure on its own line, a badge, its label as a heading) takes it from the card's slots
   ([The card](#the-hub)).
-- **The section's page** is that section alone, under one more crumb, so the trail reads Home >
+- **The section's page** is that section alone, under one more crumb, so the trail reads Tools >
   ... > the overview > the section. Its `h1` is the section's name and its lead is the section's line. Its
   own `.grid__head` goes, because the `h1` already says it.
 - **A list is not sections.** A logbook, a release list or an issue list may run long inside **one**
@@ -671,7 +671,7 @@ growing page gets this shape without anyone having to point it out.
 
 **An app may open with a site header, and the breadcrumb bar then stands right under it** (owner, October
 22, 2026). **Every hub page carries it**: the dkj-policy plugin's hub server draws it on the home page and
-every general page of every repo, with the repo's name and `hub` after it. A repo's own product may add it; an app without one keeps the bar as described above.
+every general page of every repo, with the repo's name and `toolbox` after it. A repo's own product may add it; an app without one keeps the bar as described above.
 
 - **The header:** `header.site-header` > `.container`, at most `--spacing-18` (72px) high, on `--primary`
   over the full width. On the left the app's mark and name, `a.site-header__brand` linking home (`/`); on
@@ -701,6 +701,8 @@ bar's own colours change only right under one.
 
 It is called a hub, not a dashboard (owner's call, October 17, 2026, [#199](https://github.com/DKJ-Solutions/dkj-brandbook/issues/199)): its job is to get you to the page you want quickly, while a dashboard is a page that shows how something stands, and the pages below it can be dashboards.
 
+**On screen it is called Toolbox** (the owner, October 27, 2026): the session-start line opens with `Toolbox:`, the site header tags the repo's name `toolbox`, its first crumb reads **Tools**, and a product links it on a **Toolbox** card. The code, its routes (`/hub`), the `OwnHub` key and these pages still say *hub*, which names the mechanism.
+
 **Every DKJ-Solutions repo's hub has this one form, and only its content differs** (owner's
 decision, October 16, 2026, [#139](https://github.com/DKJ-Solutions/dkj-brandbook/issues/139)). Where a repo
 states no dev server, or has not opted out of it (`OwnHub` in `Get-DevPreview`), the hub is the dkj-policy
@@ -726,13 +728,13 @@ the open issues and the pull requests moved to the **Repository** page on `/repo
 | # | Block | House class (the stylesheet-only form) | Fixed, or the repo's own |
 |---|---|---|---|
 | 0 | The general banner, the first thing on the page, above the site header, with no margin, border or radius (owner, October 24, 2026): a countdown to the next full hour, and once an hour has passed a tone and a **10 airsquats** checkbox that shows the total owed ([#3250](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3250)), the same on every machine ([#3438](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3438)) | a `.notice` holding one `.msg` line, written by `Format-RepoHubBanner` in `dkj-policy`'s `hub/lib/general-pages-lib.ps1` | fixed: a hub a repo builds itself carries it only if it calls that function |
-| 1 | The site header: the mark and the repo's name with `hub` after it, linking home, and the settings button on the far right ([above](#the-site-header-above-the-bar)). It names the repo, so there is **no intro**: no `h1`, no lead, no eyebrow | `.site-header`, `DKJTheme.settings(el)` mounted in its `#settings` | fixed; the name is the repo's own |
-| 2 | The breadcrumb bar under it: the one crumb **Home** ([above](#every-page-the-breadcrumb-bar)) | `.breadcrumbs-bar` / `.breadcrumbs` | fixed |
+| 1 | The site header: the mark and the repo's name with `toolbox` after it, linking home, and the settings button on the far right ([above](#the-site-header-above-the-bar)). It names the repo, so there is **no intro**: no `h1`, no lead, no eyebrow | `.site-header`, `DKJTheme.settings(el)` mounted in its `#settings` | fixed; the name is the repo's own |
+| 2 | The breadcrumb bar under it: the one crumb **Tools** ([above](#every-page-the-breadcrumb-bar)) | `.breadcrumbs-bar` / `.breadcrumbs` | fixed |
 | 3 | **The pages**, every one a card of its own, in this order: the repo's products, its own pages with **Repository** among them, and the general pages but Issues, those of a group behind its one card (below) | one `.grid-3`, **no** `.grid__head`, holding one `.card.card--link` per page or group | fixed form; the products and the repo's own pages are the repo's own |
 | 4 | Only where the plugin's hub serves a repo that states no product: the two **Set up a product** cards, under their own `h2` | a `.grid-2` with a `.grid__head`, then one `.card.grid__full` per step | the plugin's own text |
 | 5 | A footer note naming where the data comes from | `.footer-note` | the repo's own source |
 
-**The Repository page, on `/repository`, under the same site header, its trail Home > Repository:**
+**The Repository page, on `/repository`, under the same site header, its trail Tools > Repository:**
 
 | # | Block | House class | Fixed, or the repo's own |
 |---|---|---|---|
@@ -784,7 +786,7 @@ brand book app is retired ([#3493](https://github.com/DKJ-Solutions/dkj-claude-p
 **A card is ALWAYS one link, never two or more** (owner, October 27, 2026). Pages that belong together
 are grouped on a **group page** of their own, and the hub carries one card linking that page. **Clock**
 (`/clock`) is the first: its card stands where the Test gate's stood, and the page is an `h1` with one card
-link each for Test gate, Stopwatch and Logbook, whose trails read Home > Clock > the page. A page joins a group by the
+link each for Test gate, Stopwatch and Logbook, whose trails read Tools > Clock > the page. A page joins a group by the
 `Group` key in `Get-GeneralPages`; the group itself is a row of `Get-HubGroups`, and
 `Format-HubGroupPageHtml` draws its page.
 

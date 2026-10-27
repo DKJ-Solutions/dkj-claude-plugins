@@ -145,11 +145,12 @@ function Format-GeneralPageHtml {
         [AllowEmptyString()][string]$BrandTag = '',
         [switch]$Bare,
         [AllowEmptyCollection()][object[]]$ParentCrumbs = @(),
-        [AllowEmptyString()][string]$HeadAside = ''
+        [AllowEmptyString()][string]$HeadAside = '',
+        [string]$HomeLabel = 'Tools'
     )
     # EVERY NAMED PAGE CARRIES THE SITE HEADER (owner, October 22, 2026): a caller that names its site and passes no
     # -Brand gets the repo's short name in it, with 'hub' after it, since these are the hub's pages.
-    if (-not $Brand -and $SiteName) { $Brand = ConvertTo-SiteHeaderName -RepoName $SiteName; if (-not $BrandTag) { $BrandTag = 'hub' } }
+    if (-not $Brand -and $SiteName) { $Brand = ConvertTo-SiteHeaderName -RepoName $SiteName; if (-not $BrandTag) { $BrandTag = 'toolbox' } }
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $site = if ($SiteName) { (& $e $SiteName) + ' -- ' } else { '' }
     $sb = New-Object System.Text.StringBuilder
@@ -178,7 +179,7 @@ function Format-GeneralPageHtml {
     [void]$sb.AppendLine((Format-RepoHubBanner))
     if ($Brand) { [void]$sb.Append((Format-SiteHeaderHtml -Name $Brand -Href $HubHref -Tag $BrandTag)) }
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
-    [void]$sb.AppendLine('<li><a href="' + (& $e $HubHref) + '">Home</a></li>')
+    [void]$sb.AppendLine('<li><a href="' + (& $e $HubHref) + '">' + (& $e $HomeLabel) + '</a></li>')
     $sep = '<span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span>'
     foreach ($c in @($ParentCrumbs)) { if ($c) { [void]$sb.AppendLine('<li>' + $sep + '<a href="' + (& $e $c.Href) + '">' + (& $e $c.Label) + '</a></li>') } }
     [void]$sb.AppendLine('<li>' + $sep + '<span aria-current="page">' + (& $e $Title) + '</span></li>')
@@ -293,7 +294,7 @@ function Format-RepoHubBanner {
     #>
     return @'
 <div class="notice" id="hub-banner" role="region" aria-label="Airsquats" style="margin: 0; border: 0; border-radius: 0" hidden>
-<p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong><span class="msg--warn" data-hub-due hidden> &middot; <label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> due</label></span><span data-hub-owner hidden title="The Windows account this hub runs under"> &middot; <span data-hub-account></span></span></p>
+<p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong><span class="msg--warn" data-hub-due hidden> &middot; <label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> due</label></span><span data-hub-owner hidden title="The Windows account this toolbox runs under"> &middot; <span data-hub-account></span></span></p>
 </div>
 <script>
 (function () {
@@ -519,14 +520,14 @@ function Format-RepoHomeHeadHtml {
         sections. The caller writes the <head> and '<body>' before it and the sections and </main> after it.
     #>
     param([Parameter(Mandatory = $true)][string]$RepoName, [Parameter(Mandatory = $true)][string]$Lead, [AllowEmptyString()][string]$Brand = '',
-        [AllowEmptyString()][string]$BrandTag = '')
+        [AllowEmptyString()][string]$BrandTag = '', [string]$HomeLabel = 'Tools')
     $sb = New-Object System.Text.StringBuilder
     # The general banner first, above the site header, as on every hub page (owner, October 24, 2026).
     [void]$sb.AppendLine((Format-RepoHubBanner))
     # -Brand: the house site header above the bar, as Format-GeneralPageHtml draws it, holding the settings button.
     if ($Brand) { [void]$sb.Append((Format-SiteHeaderHtml -Name $Brand -Href '/' -Tag $BrandTag)) }
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
-    [void]$sb.AppendLine('<li><span aria-current="page">Home</span></li>')
+    [void]$sb.AppendLine('<li><span aria-current="page">' + (ConvertTo-GeneralPageText $HomeLabel) + '</span></li>')
     [void]$sb.AppendLine('</ol></nav></div></div>')
     if (-not $Brand) { [void]$sb.AppendLine('<div id="settings" class="theme-settings--floating"></div>') }
     [void]$sb.AppendLine('<main class="page-column">')
@@ -1384,13 +1385,13 @@ function Format-ReleaseNotesDevPage {
     }
     $bar = @(
         '<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>'
-        ('<li><a href="' + (& $e $HubHref) + '">Home</a></li>')
+        ('<li><a href="' + (& $e $HubHref) + '">Tools</a></li>')
         $crumbs
         '</ol></nav></div></div>'
     ) -join "`n"
     if ($Release) { $Html = ([regex]'<a class="back" href="[^"]*">[^<]*</a>\s*').Replace($Html, '', 1) }
     # The site header above the bar, holding the settings button, when the repo is named; else the button floats.
-    $bar = if ($RepoName) { (Format-SiteHeaderHtml -Name (ConvertTo-SiteHeaderName -RepoName $RepoName) -Href $HubHref -Tag 'hub') + $bar }
+    $bar = if ($RepoName) { (Format-SiteHeaderHtml -Name (ConvertTo-SiteHeaderName -RepoName $RepoName) -Href $HubHref -Tag 'toolbox') + $bar }
             else { $bar + "`n" + '<div id="settings" class="theme-settings--floating"></div>' }
     # Under that header the masthead opens with its h1 (#3423): the house page pattern has no eyebrow under a
     # site header, which already names the site. Only here -- the Worker's page has no header, and there the
