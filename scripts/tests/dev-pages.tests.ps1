@@ -128,27 +128,53 @@ $empty = ConvertFrom-SuiteDurations -Durations $null -SuiteFiles @('a.tests.ps1'
 Assert-Equal 0 @($empty.Suites).Count 'no file: no suites'
 Assert-Equal 'a.tests.ps1' ($empty.Missing -join ',') 'and every suite on disk is missing'
 
-Write-Host '-- the test-gate page' -ForegroundColor Cyan
+Write-Host '-- the test-gate overview' -ForegroundColor Cyan
 $tg = Format-TestGatePageHtml -Model $m
-Assert-True ($tg -match '<h1>Test gate</h1>') 'the page is named Test gate'
-Assert-True ($tg.IndexOf('b.tests.ps1') -lt $tg.IndexOf('>a.tests.ps1<')) 'the table lists the slowest first'
-Assert-True ($tg -match 'width: 100%"></span></span></td><td>66.7%</td>') 'the slowest suite''s bar is full, and its share is of the sum'
-Assert-True ($tg -match 'width: 33.33%"></span></span></td><td>22.2%</td>') 'another suite''s bar is drawn against the slowest'
-Assert-True ($tg -match 'gone.tests.ps1</code> <span class="badge badge--sm badge--neutral">no longer on disk') 'a stale suite is marked'
-Assert-True ($tg -match 'class="msg" role="status">Not recorded yet.*new.tests.ps1') 'the missing suites are named'
-Assert-True ((Format-TestGatePageHtml -Model $m -RepoSlug 'DKJ-Solutions/dkj-claude-plugins') -match 'href="https://github.com/DKJ-Solutions/dkj-claude-plugins/actions/runs/111"') 'each run links to its CI run, in the repo the origin remote names'
-Assert-True ($tg -notmatch 'actions/runs/' -and $tg -match '<dt>CI runs</dt><dd>111, 222</dd>' -and (Format-TestGatePageHtml -Model $m -RepoSlug 'x" onclick="y') -notmatch 'actions/runs/') 'without an owner/name it names each run by its number and links nowhere (#3470)'
-$none = Format-TestGatePageHtml -Model (ConvertFrom-SuiteDurations -Durations $null -SuiteFiles @('a.tests.ps1')) -ReadError 'the file is not there'
-Assert-True ($none -match 'No test gate has been measured in this repo yet' -and $none -notmatch 'could not be read' -and $none -notmatch 'Not recorded yet, so the gate charges') 'a repo with no suite-durations.json gets the empty state, not a warning (#3470)'
+Assert-True ($tg -match '<h1>Test gate</h1>') 'the overview is named Test gate'
 Assert-True ($tg -match '<li><a href="/hub">Home</a></li>' -and (Format-TestGatePageHtml -Model $m -HubHref '/') -match '<li><a href="/">Home</a></li>') 'its Home crumb is the general server''s /hub, or the hub the caller names'
+Assert-True ($tg -match '<span aria-current="page">Test gate</span>' -and $tg -notmatch 'href="/test-gate">Test gate</a>') 'the overview is the trail''s last crumb, not a link to itself'
+Assert-True ($tg -match 'href="/test-gate/suites">All suites</a>' -and $tg -notmatch '<table') 'without groups it drills into one list, All suites, and holds no table itself'
+Assert-True ($tg -match 'href="/test-gate/measured">Where it was measured</a></h2><p class="num">2026-10-07 . 2 CI runs . 1 not recorded</p>') 'the measurement is a card of its own, with its date, its run count and the suites not recorded'
+Assert-True ($tg -notmatch 'Not recorded yet, so the gate charges' -and $tg -notmatch 'class="tiles"') 'the overview has no tiles (the owner, October 27, 2026), and names the unrecorded suites one level down'
+Assert-True ($tg -match '\.tg-cards \{ display: grid; grid-template-columns: repeat\(4, minmax\(0, 1fr\)\);') 'its cards stand at most four to a row (the owner, October 27, 2026)'
+Assert-True ($tg -match 'class="footer-note">Read from the repo') 'the overview closes on where it reads from'
+$none = Format-TestGatePageHtml -Model (ConvertFrom-SuiteDurations -Durations $null -SuiteFiles @('a.tests.ps1')) -ReadError 'the file is not there'
+Assert-True ($none -match 'No test gate has been measured in this repo yet' -and $none -notmatch 'could not be read' -and $none -match 'No suite durations are recorded in this repo') 'a repo with no suite-durations.json gets the empty state, not a warning (#3470)'
 Assert-True ($tg -match '<li><a href="/hub">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/clock">Clock</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">Test gate</span></li>') 'and its trail reads Home > Clock > Test gate (the owner, October 27, 2026)'
 $bad = Format-TestGatePageHtml -Model $empty -ReadError 'it is not valid JSON'
 Assert-True ($bad -match 'msg msg--warn" role="alert">scripts/tests/suite-durations.json could not be read: it is not valid JSON') 'an unreadable file is a warning'
-Assert-True ($bad -match 'No suite durations are recorded') 'and the table says it is empty rather than vanishing'
+Assert-True ($bad -match 'No suite durations are recorded\.') 'and the cards say it is empty rather than vanishing'
+Assert-True ($null -eq (Format-TestGatePageHtml -Model $m -Path 'nope') -and $null -eq (Format-TestGatePageHtml -Model $m -Path 'suites/nope.tests.ps1') -and $null -eq (Format-TestGatePageHtml -Model $m -Path 'suites/a.tests.ps1/x')) 'a path no page has is $null, which the server answers with a 404'
+
+Write-Host '-- a list''s page and a suite''s' -ForegroundColor Cyan
+$all = Format-TestGatePageHtml -Model $m -Path 'suites'
+Assert-True ($all -match '<a href="/test-gate">Test gate</a>' -and $all -match '<span aria-current="page">All suites</span>') 'a list''s page sits under Test gate in the trail'
+Assert-True ($all.IndexOf('<code>b</code>') -lt $all.IndexOf('<code>a</code>')) 'it lists the slowest first'
+Assert-True ($all -match 'href="/test-gate/suites/a.tests.ps1" title="a.tests.ps1"><code>a</code></a>') 'each suite links to its own page, its name without the .tests.ps1 every suite shares'
+Assert-True ($all -match '<code>b</code></a></td><td class="num">30.0</td><td class="dp-left"><span class="dp-bar" aria-hidden="true"><span style="width: 100%">' -and $all -match '<code>a</code></a></td><td class="num">10.0</td><td class="dp-left"><span class="dp-bar" aria-hidden="true"><span style="width: 33.33%">') 'each bar is drawn against the slowest suite'
+Assert-True ($all -match '<code>gone</code></a> <span class="badge badge--sm badge--neutral">no longer on disk') 'a stale suite is marked'
+Assert-True ($all -match '<code>new</code></a> <span class="badge badge--sm badge--neutral">not recorded yet</span></td><td class="num">--</td>') 'an unrecorded suite closes the list, marked'
+Assert-True ($all -match '<header>' -and $all -match '<dt>Suites</dt><dd class="num">4</dd>' -and $all -match '<dt>Sum, one after another</dt><dd class="num">45.0s</dd>') 'its totals stand at the right of its h1'
+Assert-True ($all -notmatch 'class="footer-note"') 'and it spends no height on the source note'
+$rows = 1..25 | ForEach-Object { 'r{0:00}.tests.ps1' -f $_ }
+$bigJson = ('{ "seconds": { ' + (($rows | ForEach-Object { '"' + $_ + '": 1' }) -join ', ') + ' } }') | ConvertFrom-Json
+$big = Format-TestGatePageHtml -Model (ConvertFrom-SuiteDurations -Durations $bigJson -SuiteFiles $rows) -Path 'suites'
+Assert-True ([regex]::Matches($big, '<table').Count -eq 3 -and $big -match 'style="--tg-cols: 3"') 'a list of more than twelve suites spreads over tables side by side, at most twelve rows each'
+$one = Format-TestGatePageHtml -Model $m -Path 'suites/a.tests.ps1'
+Assert-True ($one -match '<h1>a.tests.ps1</h1>' -and $one -match '<a href="/test-gate">Test gate</a>' -and $one -match '<a href="/test-gate/suites">All suites</a>') 'a suite''s page sits under its list in the trail, named whole'
+Assert-True ($one -match '<dt>Seconds on CI</dt><dd class="num">10.0s</dd>' -and $one -match '<dt>Share of the sum</dt><dd class="num">22.2%</dd>' -and $one -match '<dt>Rank</dt><dd class="num">2 of 3, slowest first</dd>') 'it says what the suite costs and where it ranks'
+Assert-True ((Format-TestGatePageHtml -Model $m -Path 'suites/new.tests.ps1') -match 'not recorded yet') 'an unrecorded suite has a page too, saying so'
 $hostile = ConvertFrom-SuiteDurations -Durations ('{ "seconds": { "<x>.tests.ps1": 1 }, "recordedFrom": { "runs": ["1\" onclick=\"x"] } }' | ConvertFrom-Json)
-$hp = Format-TestGatePageHtml -Model $hostile
-Assert-True ($hp -match '&lt;x&gt;.tests.ps1' -and $hp -notmatch '<x>') 'a suite name is escaped'
-Assert-True ($hp -notmatch 'onclick') 'a run id that is not a number is not linked'
+$hp = Format-TestGatePageHtml -Model $hostile -Path 'suites'
+Assert-True ($hp -match '&lt;x&gt;' -and $hp -notmatch '<x>') 'a suite name is escaped'
+
+Write-Host '-- where it was measured' -ForegroundColor Cyan
+$ms = Format-TestGatePageHtml -Model $m -Path 'measured'
+Assert-True ((Format-TestGatePageHtml -Model $m -Path 'measured' -RepoSlug 'DKJ-Solutions/dkj-claude-plugins') -match 'href="https://github.com/DKJ-Solutions/dkj-claude-plugins/actions/runs/111"') 'each run links to its CI run, in the repo the origin remote names'
+Assert-True ($ms -notmatch 'actions/runs/' -and $ms -match '<dt>CI runs</dt><dd>111, 222</dd>' -and (Format-TestGatePageHtml -Model $m -Path 'measured' -RepoSlug 'x" onclick="y') -notmatch 'actions/runs/') 'without an owner/name it names each run by its number and links nowhere (#3470)'
+Assert-True ($ms -match '<dt>Not recorded yet</dt><dd><code>new.tests.ps1</code></dd>') 'the unrecorded suites are named here'
+Assert-True ($ms -match 'one after another' -and $ms -match 'never on a workstation') 'and the notes say how to read the numbers'
+Assert-True ((Format-TestGatePageHtml -Model $hostile -Path 'measured') -notmatch 'onclick') 'a run id that is not a number is not linked'
 
 Write-Host '-- the test-gate groups' -ForegroundColor Cyan
 $groupsJson = '[ { "key": "one", "title": "Step <one>", "guards": "the first step", "tips": ["Mind <this>", "And that"], "split": "this <and> that.", "suites": ["a.tests.ps1", "new.tests.ps1", "away.tests.ps1"] }, { "key": "two", "title": "Step two", "guards": "the second", "suites": ["b.tests.ps1"] } ]' | ConvertFrom-Json
@@ -160,29 +186,23 @@ Assert-Equal 'new.tests.ps1' ($gm.Groups[0].Unmeasured -join ',') 'a grouped sui
 Assert-Equal 'gone.tests.ps1' ($gm.Ungrouped -join ',') 'a suite no group holds is ungrouped'
 Assert-Equal 'away.tests.ps1' ($gm.Unknown -join ',') 'a grouped name not on disk is unknown'
 Assert-Equal 0 (@($m.Groups).Count + @($m.Ungrouped).Count) 'with no groups there are no groups, and nothing is called ungrouped'
+Assert-Equal 'one,two,ungrouped' ((Get-TestGateLists -Model $gm | ForEach-Object { $_.Key }) -join ',') 'the lists are the groups in order, then the suites no group holds'
 $gp = Format-TestGatePageHtml -Model $gm
-Assert-True ($gp -match '<h2>Groups</h2>' -and $gp -match 'What each group of suites guards') 'the page opens with the groups, and says what each guards'
-Assert-True ($gp -match 'href="#group-one">Step &lt;one&gt;</a>' -and $gp -notmatch 'Step <one>') 'each group links to its own section, its title escaped'
-Assert-True ($gp.IndexOf('id="group-one"') -lt $gp.IndexOf('id="group-two"') -and $gp -match '<h2>Step two</h2><p class="card__sub">Guards the second</p>') 'each group has its own section, in order, with what it guards'
-Assert-True ($gp.IndexOf('>a.tests.ps1<') -gt $gp.IndexOf('id="group-one"') -and $gp.IndexOf('>a.tests.ps1<') -lt $gp.IndexOf('id="group-two"')) 'a suite is listed in its own group'
-Assert-True ($gp -match 'href="#group-one">.*?</span></td><td class="num">2</td>' -and $gp -match 'new.tests.ps1</code> <span class="badge badge--sm badge--neutral">not recorded yet</span></td><td class="num">--</td>') 'a group counts and lists its unmeasured suites too, marked as not recorded yet'
-Assert-True ($gp -match 'role="alert">In no group of scripts/tests/suite-groups.json: <code>gone.tests.ps1</code>' -and $gp -match '<h2>Not grouped</h2>') 'an ungrouped suite is a warning, and still listed'
+Assert-True ($gp -match 'id="group-one"><h2><a href="/test-gate/one">Step &lt;one&gt;</a></h2><p class="num">2 suites . 10.0s . 22.2%</p>' -and $gp -notmatch 'Step <one>') 'each group is a card linking its own page, with its count, its sum and its share, escaped'
+Assert-True ($gp.IndexOf('id="group-one"') -lt $gp.IndexOf('id="group-two"') -and $gp.IndexOf('id="group-two"') -lt $gp.IndexOf('id="group-ungrouped"')) 'the cards keep the file''s order, the ungrouped last'
+Assert-True ($gp -match 'role="alert">In no group of scripts/tests/suite-groups.json: <code>gone.tests.ps1</code>' -and $gp -match 'href="/test-gate/ungrouped">Not grouped</a>') 'an ungrouped suite is a warning, and still has a list'
 Assert-True ($gp -match 'Grouped but no longer on disk: <code>away.tests.ps1</code>') 'a grouped name not on disk is named'
-Assert-True ($gp -notmatch 'id="suites"') 'and the ungrouped single table is gone'
-Assert-True ($gp -match '<tfoot><tr class="row-total dp-total"><td class="dp-left">Total <span class="note">all groups, run one after another; CI runs them in parallel</span></td><td class="num">3</td><td class="num">40.0s</td><td class="dp-left"></td><td>88.9%</td></tr></tfoot>') 'the groups table closes on the sum of every group, its count, and its share of the whole'
-Assert-True ($gp -match '>Total <span class="note">2 suites, run one after another; CI runs them in parallel</span></td><td class="num">10.0s</td><td class="dp-left"></td><td>22.2%</td></tr></tfoot>') 'each group''s table closes on its own sum, counting its unmeasured suites'
-Assert-True ($gp -match '\.dp-total td \{ border-top: 2px solid var\(--paper-4\); \}') 'the total row stands under a heavier rule than the rows above it'
-Assert-Equal ([regex]::Matches($gp, '<table').Count) ([regex]::Matches($gp, '<tfoot>').Count) 'every table on the page has a total'
-# A section's notes close it, below its card: what sits between a section's id and the next section's.
-$sectionOf = { param($Id) $i = $gp.IndexOf('id="' + $Id + '"'); $n = $gp.IndexOf('<div class="grid-2"', $i + 1); if ($n -lt 0) { $n = $gp.Length }; $gp.Substring($i, $n - $i) }
-$one = & $sectionOf 'group-one'
-Assert-True ($one -match '</section>\r?\n<div class="grid__full dp-tips"><h3>Points to note</h3><ul><li>Mind &lt;this&gt;</li><li>And that</li><li>Could be split into this &lt;and&gt; that.</li></ul></div>\r?\n</div>') 'a group''s notes close its section, below the card and outside the table, escaped, its split advice last'
-Assert-True ((& $sectionOf 'groups') -match '<li>Candidates to split, largest first: Step &lt;one&gt; \(2 suites, 22%\)\. Each one&#39;s own notes say how\.') 'the overview names the split candidates with their measured size, and only those the file gives a split for'
-Assert-True ($one.IndexOf('</table>') -lt $one.IndexOf('Points to note')) 'so they come after its table'
-Assert-True ((& $sectionOf 'group-two') -notmatch '<h3>') 'a group with no tips has no notes'
-Assert-True (@('groups', 'ungrouped', 'recorded' | Where-Object { (& $sectionOf $_) -notmatch '</section>\r?\n<div class="grid__full dp-tips"><h3>Points to note</h3>' }).Count -eq 0) 'the groups, not-grouped and measured sections close on their own notes'
+$g1 = Format-TestGatePageHtml -Model $gm -Path 'one'
+Assert-True ($g1 -match '<span aria-current="page">Step &lt;one&gt;</span>' -and $g1 -match '<p class="tg-guards">Guards the first step\.</p>') 'a group''s page is named by its title and says what it guards'
+Assert-True ($g1 -match '<h3>Points to note</h3><ul><li>Mind &lt;this&gt;</li><li>And that</li><li>Could be split into this &lt;and&gt; that.</li></ul>') 'its notes are escaped, its split advice last'
+Assert-True ($g1.IndexOf('</table>') -lt $g1.IndexOf('Points to note')) 'and they come after its table'
+Assert-True ($g1 -match 'href="/test-gate/one/a.tests.ps1"' -and $g1 -match 'href="/test-gate/one/new.tests.ps1"' -and $g1 -notmatch 'b\.tests\.ps1') 'it lists its own suites, recorded and not, and no other group''s'
+Assert-True ((Format-TestGatePageHtml -Model $gm -Path 'two') -notmatch '<h3>') 'a group with no tips has no notes'
+Assert-True ($null -eq (Format-TestGatePageHtml -Model $gm -Path 'one/b.tests.ps1')) 'a suite is found only under its own group'
+Assert-True ((Format-TestGatePageHtml -Model $gm -Path 'ungrouped/gone.tests.ps1') -match '<dt>Listed under</dt><dd><a class="dp-link" href="/test-gate/ungrouped">Not grouped</a>') 'an ungrouped suite''s page says where it is listed'
+Assert-True ((Format-TestGatePageHtml -Model $gm -Path 'measured') -match '<li>Candidates to split, largest first: Step &lt;one&gt; \(2 suites, 22%\)\. Each one&#39;s own notes say how\.') 'the measurement''s page names the split candidates with their measured size, and only those the file gives a split for'
 $gf = Format-TestGatePageHtml -Model $m -GroupsError 'the file is not there'
-Assert-True ($gf -match 'suite-groups.json could not be read: the file is not there, so the suites are listed ungrouped' -and $gf -match 'id="suites"') 'without the groups file the page falls back to one table, and says why'
+Assert-True ($gf -match 'suite-groups.json could not be read: the file is not there, so the suites are listed ungrouped' -and $gf -match 'href="/test-gate/suites"') 'without the groups file the page falls back to one list, and says why'
 
 Write-Host '-- what a suite protects, and why this change selects it (#3309, lever 3)' -ForegroundColor Cyan
 $header = "<#`r`n.SYNOPSIS`r`n    Tests for x-lib.ps1 -- the thing`r`n    it pins.`r`n`r`n.DESCRIPTION`r`n    Long.`r`n#>`r`nexit 0"
@@ -191,24 +211,33 @@ Assert-Equal 'Short.' (Get-SuiteSynopsis -Text "<#`n.SYNOPSIS`n    Short.`n#>") 
 Assert-Equal '' (Get-SuiteSynopsis -Text "exit 0") 'a file with no synopsis has none'
 Assert-Equal 20 (Get-SuiteSynopsis -Text ("<#`n.SYNOPSIS`n" + ('w ' * 40) + "`n`n#>") -Max 20).Length 'and a long one is capped'
 $sm = ConvertFrom-SuiteDurations -Durations $json -SuiteFiles @('a.tests.ps1', 'b.tests.ps1') -Synopses @{ 'a.tests.ps1' = 'Pins <the> fold' }
+Assert-True ((Format-TestGatePageHtml -Model $sm -Path 'suites/a.tests.ps1') -match '<p class="lead">Pins &lt;the&gt; fold</p>') 'a suite''s page opens on what it protects, escaped'
+Assert-True ((Format-TestGatePageHtml -Model $sm -Path 'suites') -notmatch 'Pins') 'and the list leaves it to that page'
 $sp = Format-TestGatePageHtml -Model $sm
-Assert-True ($sp -match '<code>a.tests.ps1</code><br><span class="note">Pins &lt;the&gt; fold</span>') 'each suite says what it protects under its name, escaped'
-Assert-True ($sp -notmatch 'id="selection"') 'without a selection the page has no change section'
+Assert-True ($sp -notmatch 'id="selection"' -and $null -eq (Format-TestGatePageHtml -Model $sm -Path 'selection')) 'without a selection there is no change card and no change page'
 $selection = @{ Base = 'origin/main'; Changed = @('brandbook/src/<x>.css'); Proven = $true; Reason = ''; PoolCount = 165
                 Selected = @('scripts/tests/a.tests.ps1', 'scripts/tests/b.tests.ps1'); Why = @{ 'scripts/tests/a.tests.ps1' = 'it reaches <lib>'; 'scripts/tests/b.tests.ps1' = 'its walk scope covers it' }
                 CiText = 'only stylesheets change' }
-$sel = Format-TestGatePageHtml -Model $sm -Selection $selection
-Assert-True ($sel.IndexOf('id="selection"') -ge 0 -and $sel.IndexOf('id="selection"') -lt $sel.IndexOf('id="suites"')) 'the change section comes before the suite tables'
-Assert-True ($sel -match '<dt>Locally</dt><dd>2 of 165 suites</dd>' -and $sel -match '<dt>On CI</dt><dd>only stylesheets change</dd>') 'it says what runs locally and on CI'
+$selCard = Format-TestGatePageHtml -Model $sm -Selection $selection
+Assert-True ($selCard -match 'id="selection"><h2><a href="/test-gate/selection">This checkout''s change</a></h2><p class="num">2 of 165 suites</p>') 'the change is a card on the overview, with what it selects'
+$sel = Format-TestGatePageHtml -Model $sm -Selection $selection -Path 'selection'
+Assert-True ($sel -match '<dt>Locally</dt><dd>2 of 165 suites</dd>' -and $sel -match '<dt>On CI</dt><dd>only stylesheets change</dd>') 'its page says what runs locally and on CI'
 Assert-True ($sel -match 'brandbook/src/&lt;x&gt;.css' -and $sel -match 'it reaches &lt;lib&gt;' -and $sel -notmatch '<lib>') 'the changed paths and the reasons are escaped'
-Assert-True ($sel.IndexOf('>b.tests.ps1<') -lt $sel.IndexOf('>a.tests.ps1<', $sel.IndexOf('id="selection"'))) 'the selected suites are listed slowest first'
-$none = Format-TestGatePageHtml -Model $sm -Selection @{ Base = 'origin/main'; Changed = @(); Proven = $false; Reason = 'Nothing differs from origin/main, so nothing is selected'; Selected = @(); Why = @{}; PoolCount = 0; CiText = '' }
-Assert-True ($none -match 'id="selection"' -and $none -match 'Nothing differs from origin/main, so nothing is selected\.') 'a clean checkout says there is nothing to select'
-$whole = Format-TestGatePageHtml -Model $sm -Selection @{ Base = 'origin/main'; Changed = @('scripts/lib/gate-lib.ps1'); Proven = $false; Reason = 'the change touches the selection'; Selected = @(); Why = @{}; PoolCount = 165; CiText = '' }
+Assert-True ($sel.IndexOf('>b.tests.ps1<') -lt $sel.IndexOf('>a.tests.ps1<') -and $sel -match 'href="/test-gate/suites/a.tests.ps1"') 'the selected suites are listed slowest first, each linking its own page'
+$none = Format-TestGatePageHtml -Model $sm -Path 'selection' -Selection @{ Base = 'origin/main'; Changed = @(); Proven = $false; Reason = 'Nothing differs from origin/main, so nothing is selected'; Selected = @(); Why = @{}; PoolCount = 0; CiText = '' }
+Assert-True ($none -match 'Nothing differs from origin/main, so nothing is selected\.') 'a clean checkout says there is nothing to select'
+$whole = Format-TestGatePageHtml -Model $sm -Path 'selection' -Selection @{ Base = 'origin/main'; Changed = @('scripts/lib/gate-lib.ps1'); Proven = $false; Reason = 'the change touches the selection'; Selected = @(); Why = @{}; PoolCount = 165; CiText = '' }
 Assert-True ($whole -match '<dt>Locally</dt><dd>every suite -- the change touches the selection</dd>' -and $whole -notmatch 'Why it runs') 'an unproven selection says every suite runs, and why, with no table'
-$all = Format-TestGatePageHtml -Model $sm -Selection @{ Base = 'origin/main'; Changed = @('x.ps1'); Proven = $true; Reason = ''; Selected = @('scripts/tests/a.tests.ps1', 'scripts/tests/b.tests.ps1'); Why = @{}; PoolCount = 2; CiText = '' }
-Assert-True ($all -match '<dt>Locally</dt><dd>every suite -- the change can affect all 2</dd>') 'a selection of the whole pool says every suite, not "2 of 2" (Victor)'
-Assert-True ($sel -match 'The suites the affected-suite selection picks for it, against origin/main') 'and the section claims the selection, not the whole gate, which may skip the suites first (Victor)'
+$allSel = Format-TestGatePageHtml -Model $sm -Path 'selection' -Selection @{ Base = 'origin/main'; Changed = @('x.ps1'); Proven = $true; Reason = ''; Selected = @('scripts/tests/a.tests.ps1', 'scripts/tests/b.tests.ps1'); Why = @{}; PoolCount = 2; CiText = '' }
+Assert-True ($allSel -match '<dt>Locally</dt><dd>every suite -- the change can affect all 2</dd>') 'a selection of the whole pool says every suite, not "2 of 2" (Victor)'
+Assert-True ($sel -match 'The suites the affected-suite selection picks for it, against origin/main') 'and the page claims the selection, not the whole gate, which may skip the suites first (Victor)'
+
+Write-Host '-- the fit alarm (the owner, October 27, 2026)' -ForegroundColor Cyan
+$fit = Format-FitAlarmHtml
+Assert-True ($tg -match 'id="fit-alarm"' -and $all -match 'id="fit-alarm"') 'every page the shell draws carries the fit alarm'
+Assert-True ($fit -match 'id="fit-alarm" role="alert" hidden' -and $fit -match 'd\.scrollHeight - window\.innerHeight' -and $fit -match 'd\.scrollWidth - d\.clientWidth') 'it starts hidden and judges the document against the window it is read in, both ways'
+Assert-True ($fit -match 'window\.innerWidth < 1000' -and $fit -match 'ResizeObserver' -and $fit -match 'addEventListener\("resize"') 'it stays quiet in the narrow layout, and judges again on every resize'
+Assert-True ($fit -match 'alarm\.textContent = ' -and $fit -notmatch 'innerHTML|fetch\(|XMLHttpRequest') 'it writes text only, and asks nothing of any server'
 
 Write-Host '-- suite-groups.json against the tree' -ForegroundColor Cyan
 # The file is a reading aid and nothing selects suites by it, so the only way it goes wrong is by going
@@ -244,7 +273,7 @@ Assert-True ($ssDocs -match 'Headroom \(B\)</div><div class="v num">3,000') 'ins
 Assert-True ($ssDocs.IndexOf('~/persona.md') -lt $ssDocs.IndexOf('<code>CLAUDE.md</code></td>')) 'the documents are listed largest first'
 Assert-True ($ssDocs -match '~/persona.md</code></td><td class="num">900</td>.*?<td>90.0%</td><td class="dp-left">from the baseline') 'a carried document says so'
 Assert-True ($ssDocs -match 'role="status">Not counted.*lost.md') 'an unmeasured document is named, not counted as zero'
-Assert-True ($ss.Replace((Format-RepoHubBanner), '') -notmatch 'msg--warn' -and $ssDocs.Replace((Format-RepoHubBanner), '') -notmatch 'msg--warn') 'no warning inside the budget (the general banner''s own hidden line aside, #3297)'
+Assert-True ($ss.Replace((Format-RepoHubBanner), '').Replace((Format-FitAlarmHtml), '') -notmatch 'msg--warn' -and $ssDocs.Replace((Format-RepoHubBanner), '').Replace((Format-FitAlarmHtml), '') -notmatch 'msg--warn') 'no warning inside the budget (the general banner''s own hidden line and the hidden fit alarm aside, #3297)'
 Assert-True ($null -eq (Format-SessionStartPageHtml -Model $ssModel -Section 'nope')) 'a slug no section has is no page, which the server answers with a 404'
 $ssModel.Total = 5000; $ssModel.Ok = $false; $ssModel.State = 'over-growing'
 $over = Format-SessionStartPageHtml -Model $ssModel -Section 'documents'
@@ -645,7 +674,7 @@ Assert-True ($pp.IndexOf('/plugins/alpha"') -lt $pp.IndexOf('/plugins/beta"') -a
 Assert-True ($pp.Contains('no longer on disk') -and $pp.Contains('Up to date: 1.0.0, project scope')) 'a card says what is wrong or which version is installed'
 Assert-True ($pp.Contains('the clone is &lt;b&gt;ahead&lt;/b&gt;') -and $pp -notmatch '<b>ahead') 'every value from the script is escaped'
 $ppOk = Format-PluginsPageHtml -Model (ConvertFrom-PluginVersionsJson -Text '{"Consulted":"c","Plugins":[{"Id":"a@m","Name":"a","Marketplace":"m","Code":"match"}],"Clones":[]}')
-Assert-True ($ppOk.Substring($ppOk.IndexOf('<main')) -notmatch '<p class="msg' -and $ppOk -notmatch 'class="lead"' -and $ppOk -match 'card--link') 'the overview is its cards alone: no status line and no lead (the owner, October 25, 2026)'
+Assert-True ($ppOk.Replace((Format-FitAlarmHtml), '').Substring($ppOk.IndexOf('<main')) -notmatch '<p class="msg' -and $ppOk -notmatch 'class="lead"' -and $ppOk -match 'card--link') 'the overview is its cards alone: no status line and no lead (the owner, October 25, 2026)'
 Assert-True ((Format-PluginsPageHtml -Model (ConvertFrom-PluginVersionsJson -Text '{"Consulted":"c","Plugins":[],"Clones":[]}')) -match 'No plugin is enabled') 'no enabled plugin says so'
 $ppErr = Format-PluginsPageHtml -Model (ConvertFrom-PluginVersionsJson -Text '') -ReadError 'it <broke>'
 Assert-True ($ppErr -match 'msg--warn' -and $ppErr.Contains('it &lt;broke&gt;') -and $ppErr -notmatch 'card--link') 'a failed read is an escaped warning, with no cards'
