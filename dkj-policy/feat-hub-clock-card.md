@@ -39,19 +39,34 @@
 
 ### PLAN
 
+The owner asked (October 27, 2026) for a new card on the hub home page, named Clock, holding Stopwatch and
+Logbook; of two shapes offered, they chose one card with two rows over a card linking a /clock page.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-GeneralPages`: a `Group = 'Clock'` key on Stopwatch and Logbook
+- [x] `Format-HubCardGroupHtml` and `Format-HubPageCardsHtml` in `general-pages-lib.ps1`; the plugin hub draws its General cards through the latter
+- [x] The house-style README's hub section names the grouped card
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: six card links plus one Clock card with two rows, in Stopwatch's place
+- [x] `dev-pages` and `connector-dashboard` suites green
+- [ ] The owner has looked at the hub home page (visible result)
+
 ### DEPLOY: feat/hub-clock-card
 
-**Score:**
+The hub's home page groups Stopwatch and Logbook under one card, Clock, with a row for each, in the place
+the Stopwatch's card held. A page joins a grouped card by a `Group` key in `Get-GeneralPages`, and
+`Format-HubCardGroupHtml` draws it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every repo's hub home page shows one Clock card holding Stopwatch and Logbook, instead of two cards.
+
+**Score:** 2
 
 #### Pull Request
 
