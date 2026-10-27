@@ -45,6 +45,14 @@ stopped the hub about a minute after start. Not reproducible on the sweeping mac
 agrees with `qwinsta` (ANSI and Unicode entry points alike), so the repair is the issue's own: a
 cross-check before acting, whatever made the read wrong.
 
+#### Beside #3595
+
+[#3595](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3595) merged meanwhile: the watcher
+arms only after a connected read, which already spares a session that reads 4 from the start. The issue's
+table shows the read *inverted*, though (a disconnected session read 0), so a switch away arms the watcher
+and the switch back, read as 4, would still stop the server in use. The cross-check closes that path; both
+rules stand.
+
 ### CREATE
 
 - [x] `dev-preview-watch.ps1`: a disconnect read counts only when the session is not the active console session and `WTSEnumerateSessions` lists it as disconnected too; a contradiction is `-1`, which never stops a server. The query names the process's own session id and binds the Unicode entry point
@@ -56,21 +64,22 @@ cross-check before acting, whatever made the read wrong.
 
 ### DEPLOY: fix/3597-watcher-crosscheck-disconnect
 
-The dev-preview watcher no longer stops a hub in a session somebody is using. On a machine with several
-accounts and fast user switching, its one connect-state read reported the active console session as
-disconnected, so the hub, and every server the dev-preview hook starts, went down about a minute after
-it started. A disconnect now counts only when two other sources agree: the session is not the active
+The dev-preview watcher no longer trusts a single connect-state read before it stops a server. On a
+machine with several accounts and fast user switching, that read came back inverted: the active console
+session read as disconnected, and a disconnected one as connected. So after a switch to another account
+and back, the watcher could stop the hub, or any server the dev-preview hook starts, in the session that
+was using it. A disconnect now counts only when two other sources agree: the session is not the active
 console session, and the Windows session list shows it as disconnected too. Any disagreement is read as
 uncertain, and an uncertain read never stops a server.
 
-**Score:** 3
+**Score:** 2
 
 #### What makes this deploy extra special
 
-On a machine shared between accounts, the hub stays up in the session that is using it, instead of
-dropping to `ERR_CONNECTION_REFUSED` a minute after every start.
+On a machine shared between accounts, switching to another account and back no longer takes down the
+hub that was open before the switch.
 
-**Score:** 3
+**Score:** 2
 
 #### Pull Request
 

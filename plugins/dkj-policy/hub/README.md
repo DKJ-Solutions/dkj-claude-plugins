@@ -118,7 +118,11 @@ its product and the hub is this plugin's.
    account's, which cannot stop it without elevation. So each server gets a watcher in the same session,
    [`pages/dev-preview-watch.ps1`](pages/dev-preview-watch.ps1). Once that session has stayed disconnected for
    a minute, the watcher stops the server's whole tree, and it exits with the server either way. Session 0 gets
-   none, because it always reads as disconnected.
+   none, because it always reads as disconnected. **A disconnect counts only after the session was seen
+   connected** ([#3595](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3595)): a session that
+   reads disconnected from the start is in use while disconnected, because the hook ran there. Claude Code
+   under a second account on a machine that switches accounts runs exactly so, and its hub used to stop about
+   two minutes after every start.
 4. It writes the state file, and prints **one line**, which hands out both links:
 
 | The repo | The line |
