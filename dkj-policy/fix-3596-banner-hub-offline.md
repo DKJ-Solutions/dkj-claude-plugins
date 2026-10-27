@@ -39,21 +39,37 @@
 
 ### PLAN
 
+#3596 (Maikel, October 27, 2026): with its hub server gone (#3595), the airsquats banner said nothing -- `ask()`
+swallowed the failed fetch while the page's own countdown kept ticking, and the 16:00 hour was lost for good,
+because an hour counts only where a server sees it begin. Verified in `Format-RepoHubBanner`
+(`general-pages-lib.ps1`): `.then(show, function () { })`. The repair: after two polls in a row whose request fails
+outright (about 30 seconds), the strip opens on "hub offline, this hour is not counted"; the first answer clears it.
+A server that answers with an error (no API) is not offline and still shows no banner.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `general-pages-lib.ps1`: a `data-hub-offline` mark in the banner row; `down()` and `up()` count failed polls and open or clear it; a cleared "due" box is hidden again, so an offline strip shows no stale count
+- [x] The docstring states the rule
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` (462), `connector-dashboard.tests.ps1` (218), `stopwatch.tests.ps1` (243): green, with two new asserts on the offline mark and the due box; the script passes `node --check`
+- [ ] The owner has looked at the banner with the hub server stopped
+
 ### DEPLOY: fix/3596-banner-hub-offline
 
-**Score:**
+The airsquats banner on every hub page now says "hub offline, this hour is not counted" when its server stops
+answering for about 30 seconds, instead of ticking towards an hour that will never be recorded. It clears itself
+as soon as the server answers again.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Whoever relies on the reminder learns at once that it has stopped working, instead of finding a lost hour afterwards.
+
+**Score:** 3
 
 #### Pull Request
 
 The airsquats banner says so when its hub server stops answering
-

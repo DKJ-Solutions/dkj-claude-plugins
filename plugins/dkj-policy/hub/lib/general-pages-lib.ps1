@@ -276,7 +276,7 @@ function Format-RepoHubBanner {
         gist every machine shares. The rules are in airsquats-lib.ps1. The countdown is the page's own and needs
         nothing. An hour still counts only where a hub saw it begin, so a night with every hub closed adds nothing,
         and the server says when to play the tone: once per machine, within two minutes of the hour. A page on a
-        server without the API (a request that fails) shows no banner at all. A browser may hold the tone back
+        server without the API (a request answered with an error) shows no banner at all. A browser may hold the tone back
         until the page has had a click, which is its rule, not this page's.
 
         ONLY WHILE SOMETHING IS DUE (Dave, October 27, 2026): the strip is hidden until the server reports an hour
@@ -290,10 +290,16 @@ function Format-RepoHubBanner {
         once the first answer arrives. On a machine with several Windows accounts logged on, localhost ports
         are shared between them, so the hub a browser opens may be another account's, and this is where that
         shows. A server that names no account leaves the row as it was.
+
+        AND IT SAYS SO WHEN ITS SERVER STOPS ANSWERING (#3596): after two polls in a row whose request fails
+        outright -- about 30 seconds -- the strip opens on 'hub offline, this hour is not counted', because an hour
+        counts only where a server sees it begin and one missed that way cannot be recovered. The countdown is the
+        page's own and would otherwise keep ticking towards nothing. The first answer clears it. A server that
+        answers without the API is not offline, so it still shows no banner.
     #>
     return @'
 <div class="notice" id="hub-banner" role="region" aria-label="Airsquats" style="margin: 0; border: 0; border-radius: 0" hidden>
-<p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong><span class="msg--warn" data-hub-due hidden> &middot; <label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> due</label></span><span data-hub-owner hidden title="The Windows account this hub runs under"> &middot; <span data-hub-account></span></span></p>
+<p class="msg">Next airsquats in <strong class="num" data-hub-timer>--:--</strong><span class="msg--warn" data-hub-due hidden> &middot; <label><input type="checkbox" data-hub-done> <span data-hub-count>10</span> due</label></span><span class="msg--warn" data-hub-offline hidden> &middot; hub offline, this hour is not counted</span><span data-hub-owner hidden title="The Windows account this hub runs under"> &middot; <span data-hub-account></span></span></p>
 </div>
 <script>
 (function () {
@@ -303,6 +309,7 @@ function Format-RepoHubBanner {
   var timer = box.querySelector("[data-hub-timer]"), due = box.querySelector("[data-hub-due]");
   var done = box.querySelector("[data-hub-done]"), count = box.querySelector("[data-hub-count]");
   var owner = box.querySelector("[data-hub-owner]"), account = box.querySelector("[data-hub-account]");
+  var offline = box.querySelector("[data-hub-offline]"), fails = 0, OFFLINE = 2;
   var asked = 0, hour = Math.floor(Date.now() / HOUR), first = true, want = false, anim = null;
   var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   function slide(open) {
@@ -327,15 +334,29 @@ function Format-RepoHubBanner {
   function show(s) {
     if (!s || typeof s.owed !== "number") { return; }
     if (typeof s.account === "string" && s.account) { account.textContent = s.account; owner.hidden = false; }
-    if (s.owed > 0) { due.hidden = false; count.textContent = String((s.per || 10) * s.owed); }
+    due.hidden = !(s.owed > 0);
+    if (s.owed > 0) { count.textContent = String((s.per || 10) * s.owed); }
     slide(s.owed > 0);
     first = false;
     if (s.announce) { tone(); }
   }
+  function down() {
+    fails++;
+    if (fails < OFFLINE) { return; }
+    offline.hidden = false;
+    slide(true);
+    first = false;
+  }
+  function up() {
+    fails = 0;
+    if (offline.hidden) { return; }
+    offline.hidden = true;
+    slide(!due.hidden);
+  }
   function ask(method, path) {
     if (!window.fetch) { return; }
     fetch(path, { method: method, cache: "no-store", credentials: "same-origin" })
-      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (r) { up(); return r.ok ? r.json() : null; }, function () { down(); return null; })
       .then(show, function () { });
   }
   done.addEventListener("change", function () {
