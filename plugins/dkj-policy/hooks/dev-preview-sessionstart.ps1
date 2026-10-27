@@ -194,6 +194,20 @@ function Get-DevPreviewProcesses {
     return $processes
 }
 
+# A STARTED SERVER DOES NOT OUTLIVE ITS SESSION (INBOUND #3569): a disconnected session keeps its processes, so a
+# server started there held its port for every later session -- measured cross-account, where the later session
+# cannot stop it. A watcher in this same session stops the server's tree once the session stays disconnected.
+# Never in session 0, which always reads as disconnected. Whatever goes wrong here costs the watcher, never the start.
+function Start-DevPreviewWatch($Proc) {
+    try {
+        if (-not $Proc -or $Proc.HasExited -or -not (Test-DevPreviewSessionWatchable -SessionId $Proc.SessionId)) { return }
+        $watcher = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\hub\pages\dev-preview-watch.ps1'))
+        if (-not (Test-Path -LiteralPath $watcher -PathType Leaf)) { return }
+        Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden `
+            -ArgumentList (Get-DevPreviewWatchArgs -Watcher $watcher -ProcessId $Proc.Id -StartTicks $Proc.StartTime.ToFileTimeUtc()) | Out-Null
+    } catch { }
+}
+
 $script:openInVsCode = $false
 function Open-DevPreviewInVsCode([string]$Url) {
     if (-not $script:openInVsCode -or $env:TERM_PROGRAM -ne 'vscode') { return '' }
@@ -247,6 +261,7 @@ function Start-DevPreviewHub($Listeners, $Processes) {
             $log = Get-DevPreviewLogPath -Root $root -Name 'dev-preview-general'
             $r.Proc = Start-Process -FilePath 'cmd.exe' -WorkingDirectory $root -WindowStyle Hidden -PassThru `
                 -ArgumentList (Get-DevPreviewStartLine -Root $root -Command $command -Port ([int]$pick.Port) -LogPath $log)
+            Start-DevPreviewWatch $r.Proc
         }
         $r.Action = $pick.Action
         $r.Port = [int]$pick.Port
@@ -304,6 +319,7 @@ function Start-DevPreviewProduct($Listeners, $Processes, $Cfg, [string]$LogName 
     $r.Port = [int]$pick.Port
     $r.Proc = Start-Process -FilePath 'cmd.exe' -WorkingDirectory $root -WindowStyle Hidden -PassThru `
         -ArgumentList (Get-DevPreviewStartLine -Root $root -Command $Cfg.Command -Port $r.Port -LogPath $r.Log)
+    Start-DevPreviewWatch $r.Proc
     $r.Action = 'start'
     $r.Url = Get-DevPreviewUrl -Port $r.Port -Path $Cfg.Path
     return $r
