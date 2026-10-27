@@ -543,9 +543,25 @@ $sp = Format-SpecialistsPageHtml -Rows @($sa, $pa, $evil) -CharsPerToken 3.12
 Assert-True ($sp -match '<h1>Specialists</h1>' -and $sp -match '<span aria-current="page">Specialists</span>') 'the page is named Specialists, in the h1 and the trail'
 Assert-True ($sp -notmatch 'href="/plugins') 'its trail is Home > Specialists: the product has no Plugins page, so the page sits under the product home (#3540)'
 Assert-True ($sp -match 'Specialists</div><div class="v num">3<' -and $sp -match 'Enabled here</div><div class="v num">2<') 'the tiles count the specialists and those enabled here'
-Assert-True ($sp.IndexOf('<strong>Eve') -lt $sp.IndexOf('<strong>Paula') -and $sp.IndexOf('<strong>Paula') -lt $sp.IndexOf('<strong>Chris')) 'largest full read first'
+Assert-True ($sp.IndexOf('<strong>Paula') -lt $sp.IndexOf('<strong>Chris')) 'largest full read first, within a plugin''s card'
+Assert-True ($sp.Contains('style="width: 100%"')) 'the bar is drawn against the largest on the whole page, not per card'
 Assert-True ($sp.Contains('Eve &lt;i&gt;') -and -not $sp.Contains('Eve <i>')) 'a name is escaped'
-Assert-True ($sp.Contains('ecomm <span class="note">(off here)</span>')) 'a plugin not enabled here says so'
+Write-Host '-- the Specialists page: one card per plugin (#3550)' -ForegroundColor Cyan
+Assert-True ($sp.Contains('id="plugin-alpha"') -and $sp.Contains('id="plugin-ecomm"')) 'each specialist plugin gets a card of its own'
+Assert-True ($sp -match 'Plugins</div><div class="v num">2<') 'and the tiles count the plugins'
+Assert-True ($sp.IndexOf('id="plugin-alpha"') -lt $sp.IndexOf('id="plugin-ecomm"')) 'the core team''s card comes first, even where an add-on''s specialist reads larger'
+Assert-True ($sp.IndexOf('id="plugin-alpha"') -lt $sp.IndexOf('<strong>Paula') -and $sp.IndexOf('<strong>Paula') -lt $sp.IndexOf('id="plugin-ecomm"') -and $sp.IndexOf('id="plugin-ecomm"') -lt $sp.IndexOf('<strong>Eve')) 'a specialist sits in its own plugin''s card'
+Assert-True ($sp.Contains('core team &middot; <code>dkj-subagents-alpha</code>') -and $sp.Contains('add-on team &middot; <code>dkj-subagents-ecomm</code>')) 'a card names its plugin in full and whether it is the core team'
+Assert-True ($sp.Contains('2 specialists &middot;') -and $sp.Contains('1 specialist &middot;')) 'a card counts its own specialists'
+Assert-True ($sp.Contains('full read ~' + (Format-DevNumber ([Math]::Round(($sa.TotalBytes + $pa.TotalBytes) / 3.12))) + ' in all')) 'and sums its own full read'
+Assert-True ($sp.Contains('sp-state--on">Enabled here') -and $sp.Contains('sp-plugin--off" id="plugin-ecomm"') -and $sp.Contains('<span class="sp-state">Off here')) 'a plugin enabled here says so, and one that is not still gets a card, marked off'
+Assert-True ($sp.Contains('carried by no session here') -and $sp.Contains('so it has no lens here')) 'an off card says what being off means here'
+$offOnly = ConvertTo-SpecialistRow -Id '07-01' -Plugin 'dkj-subagents-aaa' -Form subagent -Text 'x'
+$sp2 = Format-SpecialistsPageHtml -Rows @($evil, $offOnly, $sa) -CharsPerToken 3.12
+Assert-True ($sp2.IndexOf('id="plugin-alpha"') -lt $sp2.IndexOf('id="plugin-aaa"') -and $sp2.IndexOf('id="plugin-aaa"') -lt $sp2.IndexOf('id="plugin-ecomm"')) 'off add-on teams follow by name'
+$onAddOn = ConvertTo-SpecialistRow -Id '07-02' -Plugin 'dkj-subagents-zzz' -Form subagent -Text 'x' -Enabled $true
+$sp3 = Format-SpecialistsPageHtml -Rows @($evil, $onAddOn, $sa) -CharsPerToken 3.12
+Assert-True ($sp3.IndexOf('id="plugin-zzz"') -lt $sp3.IndexOf('id="plugin-ecomm"')) 'an add-on team enabled here comes before one that is off'
 Assert-True ($sp.Contains('always-on</span>')) 'the orchestrator carries the always-on badge'
 Assert-True ($sp.Contains('~' + (Format-DevNumber ([Math]::Round(1000 / 3.12))) + '<')) 'tokens are the bytes at the given factor'
 Assert-True ($sp.Contains('3.12 characters per token')) 'the footer names the factor, so the estimate is labelled as one'

@@ -39,19 +39,40 @@
 
 ### PLAN
 
+#### Settled while doing it (#3550)
+
+- **What a card shows:** the plugin's short name, whether it is the core team or an add-on team, its full
+  plugin id, its state here (Enabled here / Off here), its specialist count, its summed listing and full
+  read, and its own specialists in the table the page already had, minus the Plugin column.
+- **Plugins not enabled here get a card too**, muted rather than hidden, saying what being off means here:
+  no session carries its listing, and it has no lens. The page lists every specialist the plugins ship.
+- **Order:** the core team first, then add-on teams enabled here, then the off ones, by name. Within a
+  card, largest full read first; the bar stays against the largest on the whole page.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-SpecialistsPageHtml` in `scripts/lib/dev-pages-lib.ps1`: one card per plugin, a Plugins tile.
 
 ### TEST
 
+- [x] `scripts/tests/dev-pages.tests.ps1`: the Specialists page block asserts the cards, their order, their
+  facts and the off state (363 passed, 0 failed, run alone before the park).
+- [ ] The owner's look at `http://localhost:4870/specialists` on this branch.
+
 ### DEPLOY: feat/3550-specialists-page-plugin-cards
 
-**Score:**
+The product's Specialists page shows one card per specialist plugin
+([#3550](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3550)): the core team first, then each
+add-on team, each card with its specialists, its total context cost and whether it is enabled here. A plugin
+that is not enabled here still gets a card, muted, saying no session here carries its listing.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: this repo's own product pages; nothing a consumer runs changes.
+
+**Score:** N/A
 
 #### Pull Request
 

@@ -194,7 +194,8 @@ function Format-SpecialistsPageHtml {
     <#
         The Specialists page. -Rows is ConvertTo-SpecialistRow's shape; -CharsPerToken the calibrated
         factor (measure-context-lib's Get-CalibratedCharsPerToken). The bytes are measured, the tokens an
-        estimate at that factor, and the page says which is which.
+        estimate at that factor, and the page says which is which. The specialists sit in one card per
+        plugin (#3550): the core team first, then the add-on teams enabled here, then those that are off.
     #>
     param(
         [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Rows,
@@ -214,29 +215,48 @@ function Format-SpecialistsPageHtml {
     $body = New-Object System.Text.StringBuilder
     [void]$body.Append((Format-DevTiles @(
         @{ L = 'Specialists'; V = $rows.Count },
+        @{ L = 'Plugins'; V = @($rows | ForEach-Object { $_.Plugin } | Select-Object -Unique).Count },
         @{ L = 'Enabled here'; V = $enabled.Count },
         @{ L = 'Listing, every session here'; V = (& $tok $listingHere) },
         @{ L = 'Largest full read'; V = $(if ($rows.Count) { $rows[0].Name + ' ' + (& $tok $rows[0].TotalBytes) } else { '--' }) })))
     if ($ReadError) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The specialists could not all be read: ' + (& $e $ReadError) + '.</p>')
     }
+    # One card per specialist plugin (#3550), so which plugin a specialist arrives with reads at a glance: the
+    # core team first, then the add-on teams enabled here, then those that are not -- each still a card, because
+    # the page lists every specialist the plugins ship, and an off card says what being off means here.
+    $plugins = @($rows | ForEach-Object { $_.Plugin } | Select-Object -Unique | Sort-Object @(
+        @{ Expression = { $_ -ne 'dkj-subagents-alpha' } },
+        @{ Expression = { $p = $_; -not @($rows | Where-Object { $_.Plugin -eq $p -and $_.Enabled }).Count } },
+        @{ Expression = { $_ } }))
     [void]$body.AppendLine('<div class="grid-2" id="specialists">')
-    [void]$body.AppendLine('<div class="grid__head"><h2>Context per specialist</h2><p class="card__sub">Estimated tokens, largest full read first. The bar is the full read against the largest one</p></div>')
-    [void]$body.AppendLine('<section class="card grid__full">')
-    if ($rows.Count) {
-        [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Specialist</th><th class="dp-left">Plugin</th><th>Listing</th><th>Definition</th><th>Manual</th><th>Lens</th><th>Full read</th><th class="dp-left">Against the largest</th></tr></thead><tbody>')
-        foreach ($r in $rows) {
+    [void]$body.AppendLine('<div class="grid__head"><h2>Context per plugin</h2><p class="card__sub">One card per specialist plugin. Estimated tokens, largest full read first; the bar is the full read against the largest one on the page</p></div>')
+    foreach ($pl in $plugins) {
+        $mine = @($rows | Where-Object { $_.Plugin -eq $pl })
+        $on = [bool]@($mine | Where-Object { $_.Enabled }).Count
+        $listing = [int64]0; $full = [int64]0
+        foreach ($r in $mine) { $listing += [int64]$r.ListingBytes; $full += [int64]$r.TotalBytes }
+        $short = $pl -replace '^dkj-subagents-', ''
+        $kind = if ($pl -eq 'dkj-subagents-alpha') { 'core team' } else { 'add-on team' }
+        $state = if ($on) { '<span class="sp-state sp-state--on">Enabled here</span>' } else { '<span class="sp-state">Off here</span>' }
+        $facts = @(
+            ([string]$mine.Count + ' specialist' + $(if ($mine.Count -ne 1) { 's' } else { '' })),
+            ('listing ' + (& $tok $listing) + $(if ($on) { ' every session here' } else { ', carried by no session here' })),
+            ('full read ' + (& $tok $full) + ' in all'))
+        [void]$body.AppendLine('<section class="card grid__full sp-plugin' + $(if ($on) { '' } else { ' sp-plugin--off' }) + '" id="plugin-' + (& $e $short) + '">')
+        [void]$body.AppendLine('<div class="sp-head"><h3>' + (& $e $short) + ' <span class="note">' + $kind + ' &middot; <code>' + (& $e $pl) + '</code></span></h3>' + $state + '</div>')
+        [void]$body.AppendLine('<p class="card__sub">' + ($facts -join ' &middot; ') + $(if ($on) { '' } else { '. Not enabled in <code>.claude/settings.json</code>, so it has no lens here' }) + '</p>')
+        [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Specialist</th><th>Listing</th><th>Definition</th><th>Manual</th><th>Lens</th><th>Full read</th><th class="dp-left">Against the largest</th></tr></thead><tbody>')
+        foreach ($r in $mine) {
             # Muted text, not .badge: the house badge is an 18px circle for one character, and a word in it
             # spills over the text beside it.
-            $badges = '<span class="note">&middot; ' + (& $e $r.Form) + $(if ($r.AlwaysOn) { ' &middot; always-on' } else { '' }) + '</span>'
-            $plugin = (& $e ($r.Plugin -replace '^dkj-subagents-', '')) + $(if ($r.Enabled) { '' } else { ' <span class="note">(off here)</span>' })
+            $badges = ' <span class="note">&middot; ' + (& $e $r.Form) + $(if ($r.AlwaysOn) { ' &middot; always-on' } else { '' }) + '</span>'
             $w = $(if ($max -gt 0) { [Math]::Min(100.0, 100.0 * [double]$r.TotalBytes / $max) } else { 0.0 }).ToString('0.##', $inv)
             $label = (& $e $r.Name) + $(if ($r.Emoji) { ' ' + (& $e $r.Emoji) } else { '' })
-            # One line per specialist: the title follows the name inline and the badges sit with the plugin,
-            # where a block-level title and badge row gave every specialist three lines.
+            # One line per specialist: the title and the badges follow the name inline, where a block-level
+            # title and badge row gave every specialist three lines.
             [void]$body.AppendLine('<tr><td class="dp-left"><strong>' + $label + '</strong> <span class="note">#' + (& $e $r.Number) +
-                $(if ($r.Title) { ' &middot; ' + (& $e $r.Title) } else { '' }) + '</span></td>' +
-                '<td class="dp-left">' + $plugin + ' ' + $badges + '</td>' +
+                $(if ($r.Title) { ' &middot; ' + (& $e $r.Title) } else { '' }) + '</span>' + $badges + '</td>' +
                 '<td class="num" title="' + (Format-DevNumber $r.ListingBytes) + ' B">' + (& $tok $r.ListingBytes) + '</td>' +
                 '<td class="num" title="' + (Format-DevNumber $r.DefinitionBytes) + ' B">' + (& $tok $r.DefinitionBytes) + '</td>' +
                 '<td class="num" title="' + (Format-DevNumber $r.ManualBytes) + ' B">' + (& $tok $r.ManualBytes) + '</td>' +
@@ -245,10 +265,11 @@ function Format-SpecialistsPageHtml {
                 '<td class="dp-left"><span class="dp-bar" aria-hidden="true"><span style="width: ' + $w + '%"></span></span></td></tr>')
         }
         [void]$body.AppendLine('</tbody></table></div>')
-    } else {
-        [void]$body.AppendLine('<p class="note">No specialist was found.</p>')
+        [void]$body.AppendLine('</section>')
     }
-    [void]$body.AppendLine('</section>')
+    if (-not $rows.Count) {
+        [void]$body.AppendLine('<section class="card grid__full"><p class="note">No specialist was found.</p></section>')
+    }
     [void]$body.AppendLine('</div>')
     [void]$body.AppendLine('<div class="grid-2" id="when">')
     [void]$body.AppendLine('<div class="grid__head"><h2>When each part loads</h2></div>')
@@ -263,7 +284,16 @@ function Format-SpecialistsPageHtml {
     [void]$body.AppendLine('</section>')
     [void]$body.AppendLine('</div>')
     $factor = $CharsPerToken.ToString('0.00', $inv)
-    return Format-DevPageHtml -Title 'Specialists' -Style $script:DevBarStyle -Body $body.ToString() `
+    # A plugin card's head: its name on the left and its state on the right; an off card is muted, never hidden.
+    $style = $script:DevBarStyle + "`n" + (@(
+        '.sp-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--spacing-3); }',
+        '.sp-head > h3 { margin: 0; }',
+        '.sp-plugin > .card__sub { margin: var(--spacing-1) 0 var(--spacing-3); }',
+        '.sp-state { font-size: var(--text-sm); color: var(--muted); white-space: nowrap; }',
+        '.sp-state--on { color: var(--primary); font-weight: 600; }',
+        '.sp-plugin--off .table { opacity: 0.75; }'
+    ) -join "`n")
+    return Format-DevPageHtml -Title 'Specialists' -Style $style -Body $body.ToString() `
         -Lead 'Every specialist the dkj-subagents plugins ship, and how much context each one brings along: what every session pays for it, what it costs when it is called, and what its manual and lens add.' `
         -FooterNote ('Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Bytes are measured (hover a cell); tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.')
 }
