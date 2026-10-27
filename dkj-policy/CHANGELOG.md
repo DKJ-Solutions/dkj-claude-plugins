@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**4 / 10 minor entries** <!-- pending-tally -->
+**5 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3554-clearance-forecast-before-gates · 20261027-090056Z
+
+`ship-pr` now prints a **clearance forecast** before its gates
+([#3554](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3554)): whether this run will become
+clearable once its PR is armed, or stays needed until the merge and the fold have run, for example because
+the diff touches a repo-owned seam the merge-on-green sweep will not ship. It also prints the close-out a
+session should relay when it backgrounds the run. That close-out opens with "Nothing waits on you" and
+says how long to leave the window open. The later "Session can be cleared" verdict is unchanged.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+When you hand `ship-pr` to the background, the session can now tell you straight away whether you will
+be able to close it once the PR is open, or must keep the window open until the merge, and it no longer
+says it is "waiting".
+
+**Score:** 3
+
+#### Pull Request
+
+ship-pr says before its gates whether this run will become clearable, with the close-out to relay
+
+Plugins: dkj-policy, dkj-subagents-alpha
+
+[PR #3556](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3556)
+
+---
 
 ### DEPLOY: docs/3552-sweep-continues-past-visible-park · 20261027-084148Z
 
