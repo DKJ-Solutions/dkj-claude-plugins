@@ -39,19 +39,37 @@
 
 ### PLAN
 
+#3585 (Dave, every DKJ-Solutions product): no intro paragraph under a page heading; what a page is for goes
+in its `<meta name="description">`. The rule alone would contradict the README's own Repository pattern
+(an `h1` and a lead) and the hub's page shell, which draws `-Lead` under every `h1`, so all three change
+together. That makes it a visible result: parked for the owner's look, no PR until then.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] House-style README: rule 5 under "How to use it", the Repository page's row 0, and the section page's line
+- [x] `house-style` skill, "Density": the bullet that banned only a REPEATING intro now bans any intro
+- [x] `patterns/repo-repository.html`: the lead moves into `<meta name="description">`
+- [x] `general-pages-lib.ps1`: `Format-GeneralPageHtml` writes `-Lead` as the description, tags stripped,
+      never as `<p class="lead">`; `Format-RepoHomeHeadHtml` draws no lead
+- [x] Tests: the six asserts that pinned an on-screen lead now pin the description, plus three new ones
 
 ### TEST
 
+- [x] Gates left to `ship-pr` once the owner has looked (the sweep's step 4: a visible park runs none)
+
 ### DEPLOY: docs/3585-no-lede-under-headings
 
-**Score:**
+A hub page now opens on its `h1` and goes straight to its content: the one-line lead that stood under
+every heading (a plugin's page, a section's page, a suite's page, Repository) is gone from the screen and
+is the page's `<meta name="description">` instead. The house-style rules say the same for every
+DKJ-Solutions app: no intro or explainer paragraph under a page heading, because screen height is scarce
+([#3585](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3585)).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+**Score:** N/A
 
 #### Pull Request
 

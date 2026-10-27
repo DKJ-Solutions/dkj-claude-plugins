@@ -455,7 +455,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Plugins</h1>' -and $r -match 'href="/plugins/p-one"' -and $r -match 'v9\.8\.7') '/plugins lists each marketplace plugin as a card linking its own page, with its version'
             Assert-True ($r -match 'id="plugin-p-bad"' -and $r -match 'msg--warn[^\n]*p-bad \(its source\)') 'and a plugin whose source leaves plugins/ keeps its card, with nothing read from it and the reason named'
             $r = if ($up) { Get-Raw 'GET' '/plugins/p-one' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>p-one</h1>' -and $r -match '1 skill &middot; 2 hooks' -and $r -match 'class="lead">The first &lt;b&gt;one&lt;/b&gt;\.' -and $r -match '<p>Full text\.</p>') '/plugins/<name> is its own page: what it holds, its line as the lead and its full description'
+            Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>p-one</h1>' -and $r -match '1 skill &middot; 2 hooks' -and $r -match 'name="description" content="The first &lt;b&gt;one&lt;/b&gt;\.' -and $r -match '<p>Full text\.</p>') '/plugins/<name> is its own page: what it holds, its line as the description and its full description'
             $r = if ($up) { Get-Raw 'GET' '/plugins/nope' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($r -match 'HTTP/1.1 404') 'a plugin the marketplace does not list is not found'
             $r = if ($up) { Get-Raw 'GET' '/plugins/p-one/x' "localhost:$port3" '' $port3 } else { '' }
