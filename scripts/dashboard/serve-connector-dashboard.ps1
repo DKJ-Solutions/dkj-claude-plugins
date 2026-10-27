@@ -228,7 +228,10 @@ function Get-SpecialistsModel {
                     $rows += ConvertTo-SpecialistRow -Id $id -Plugin $plugin.Name -Form $form -Enabled ([bool]$enabled[$plugin.Name]) `
                         -Text ([System.IO.File]::ReadAllText($file.FullName, $utf8)) `
                         -ManualBytes (& $size (Join-Path $plugin.FullName "manuals\specialist-$id-manual.md")) `
-                        -LensBytes (& $size (Join-Path $lensDir "specialist-$id-lens.md"))
+                        -LensBytes (& $size (Join-Path $lensDir "specialist-$id-lens.md")) `
+                        -DefinitionPath "plugins/dkj-subagents/$($plugin.Name)/$($form)s/$($file.Name)" `
+                        -ManualPath "plugins/dkj-subagents/$($plugin.Name)/manuals/specialist-$id-manual.md" `
+                        -LensPath ".claude/specialists/lenses/specialist-$id-lens.md"
                 } catch { $errs += "$($plugin.Name)/$($file.Name)" }
             }
         }
@@ -346,13 +349,14 @@ try {
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/connectors/dkj' } -Method $method
                 continue
             }
-            if ($path -cmatch '^/specialists(?:/([a-z0-9-]+))?\z') {
-                # The overview with one card per specialist plugin, or one plugin's own page (#3550); a plugin the
-                # tree does not ship is a 404, never an empty page.
+            if ($path -cmatch '^/specialists(?:/([a-z0-9-]+)(?:/([a-z0-9-]+))?)?\z') {
+                # The overview with one card per specialist plugin, one plugin's own page (#3550), or one specialist's
+                # (#3551); a plugin or specialist the tree does not ship is a 404, never an empty page.
+                $spPlugin = [string]$Matches[1]; $spOne = [string]$Matches[2]
                 $sp = Get-SpecialistsModel
-                $html = Format-SpecialistsPageHtml -Rows $sp.Rows -ReadError $sp.Error -CharsPerToken $sp.CharsPerToken -Plugin ([string]$Matches[1])
+                $html = Format-SpecialistsPageHtml -Rows $sp.Rows -ReadError $sp.Error -CharsPerToken $sp.CharsPerToken -Plugin $spPlugin -Specialist $spOne
                 if ($null -eq $html) {
-                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found: no specialist plugin of that name.')) -Method $method
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found: no specialist plugin or specialist of that name.')) -Method $method
                 } else {
                     Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 }

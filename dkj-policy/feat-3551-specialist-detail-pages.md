@@ -39,19 +39,44 @@
 
 ### PLAN
 
+#3551, on #3550's plugin pages. Maikel's decision on the thread settles the URL scheme: nested pages,
+Specialists > plugin > specialist, so `/specialists/<plugin>/<name>`. A visible result, so the branch is
+parked for the owner's look.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `ConvertTo-SpecialistRow` carries the detail page's parts: a slug (the name lowercased, else the id),
+  the listing and definition text, and the three file paths (a path only where the file exists)
+- [x] A plugin's page opens on one card per specialist, in roster order, above its table; the table's
+  names link to the same pages
+- [x] `Format-SpecialistPageHtml`: the specialist's own page, with the trail, its tiles, what it is and when
+  it loads, its files, its listing, and its definition folded
+- [x] The server routes `/specialists/<plugin>/<specialist>`, with a 404 for one the plugin does not ship
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: cards, roster order, links, slug rule, paths, trail, tiles, facts, escaping,
+  the off-plugin notice and both 404 cases (393 passed)
+- [x] Probed on the running product server: `/specialists/alpha` shows 19 cards, and
+  `/specialists/alpha/tessa` names its three files
+- [ ] The owner's look
+
 ### DEPLOY: feat/3551-specialist-detail-pages
 
-**Score:**
+The product's **Specialists** pages go one level deeper
+([#3551](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3551)). A plugin's page now opens on
+one card per specialist, and each card, like each name in the table below the cards, leads to that
+specialist's own page at `/specialists/<plugin>/<name>`. That page shows the specialist's context cost
+per part, what it is and when it loads, where its definition, manual and lens live, its listing, and its
+definition.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the product's dev-server pages exist only in this repo's checkout. No plugin ships them.
+
+**Score:** N/A
 
 #### Pull Request
 
