@@ -106,6 +106,22 @@ try {
     $payload = Get-HookPayloadRaw
     if ($payload) { [Environment]::SetEnvironmentVariable('DKJ_HOOK_PAYLOAD', $payload, 'Process') }
 
+    # PREP STEPS FIRST, ONE AFTER ANOTHER, BEFORE THE POOL OPENS (issue #3605). A prep step changes the
+    # state the checks read -- trunk-sync-sessionprep fast-forwards the trunk the unfolded-entry check
+    # reads -- so running it beside them would let a check measure a tree that moves under it. Same
+    # discovery, same capture, same deadline; only the order differs.
+    . $hookLib
+    $deadline = [DateTime]::UtcNow.AddSeconds($DeadlineSeconds)
+    foreach ($prep in @(Get-ChildItem -LiteralPath $HooksDir -Filter '*-sessionprep.ps1' -File | Sort-Object Name)) {
+        try {
+            $prepLines = @((Invoke-CheckScript -Path $prep.FullName).Output)
+            $prepText = (@($prepLines | Where-Object { $_ -ne $null -and "$_".Trim() }) -join "`n").Trim()
+            if ($prepText) { $context.Add($prepText) }
+        } catch {
+            $context.Add("$($prep.BaseName) skipped due to an error: " + (Format-DispatchSafeText $_.Exception.Message))
+        }
+    }
+
     $checks = @(Get-ChildItem -LiteralPath $HooksDir -Filter '*-sessioncheck.ps1' -File | Sort-Object Name)
 
     $pool = [runspacefactory]::CreateRunspacePool(1, [Math]::Max(1, $checks.Count))
@@ -122,8 +138,8 @@ try {
         [pscustomobject]@{ Name = $c.BaseName; PS = $ps; Handle = $ps.BeginInvoke() }
     }
 
-    # One deadline for the whole batch, not one per check: they run at the same time.
-    $deadline = [DateTime]::UtcNow.AddSeconds($DeadlineSeconds)
+    # One deadline for the whole batch, not one per check: they run at the same time. It was set before
+    # the prep steps, so their time is spent from the same budget.
     foreach ($r in $runs) {
         $left = [int][Math]::Max(0, ($deadline - [DateTime]::UtcNow).TotalMilliseconds)
         if (-not $r.Handle.AsyncWaitHandle.WaitOne($left)) {

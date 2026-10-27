@@ -199,6 +199,27 @@ function Get-SharedScriptPairs {
             MeasureArgs = @('-DryRun')
         },
         @{
+            # #3605's command half: fast-forward a clean trunk, here or in every checkout the install
+            # administration names. The move itself is trunk-sync-lib's, shared with the SessionStart
+            # prep hook, so the safety conditions have one definition.
+            Name   = 'sync-trunk'
+            Source = 'scripts\task\sync-trunk.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = 'sync-trunk'
+            # Fixtures: a scratch repo root and a scratch ~/.claude home. A consumer never types either.
+            SkillParamsExempt = @('RootOverride', 'UserHomeOverride')
+            # -DryRun fetches and measures and moves nothing.
+            MeasureArgs = @('-DryRun')
+        },
+        @{
+            # The one definition of "fast-forward only where it cannot touch anybody's work" (#3605):
+            # sync-trunk.ps1 and the trunk-sync-sessionprep hook both call Invoke-TrunkFastForward.
+            Name    = 'trunk-sync-lib'
+            Source  = 'scripts\lib\trunk-sync-lib.ps1'
+            Plugin  = 'dkj-policy'
+            LibOnly = $true
+        },
+        @{
             # THE POLICY-DRIFT REPORT. The corollary in CONTRIBUTING-portable.md's "A third rank sits
             # above both" -- a consumer document may point at a shared law or answer a seam it names,
             # never restate it -- had two narrow deliveries (check-retired-doc-name, a filename;

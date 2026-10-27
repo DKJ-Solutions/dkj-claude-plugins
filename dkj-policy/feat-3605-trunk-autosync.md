@@ -58,7 +58,9 @@ shared definition (`Invoke-TrunkFastForward`, `scripts/lib/trunk-sync-lib.ps1`):
 
 - [x] `scripts/tests/trunk-sync.tests.ps1`: every outcome and every safety condition against real fixture repos, plus the dispatcher ordering
 - [x] `sessioncheck-dispatch`, `shared-scripts` and `source-repo-guard` suites green; `check-plugin-integrity` 0 errors
-- [ ] code review (Victor) and security review (Sebastian) findings handled
+- [x] code review (Victor): every git call bounded so the prep step cannot stall a session start; docstring no longer claims a `Get-TrunkBranchName` fallback; why `Get-TrunkGap` was not reused is written down
+- [x] security review (Sebastian): every printed value stripped; the `-AllCheckouts` sweep runs git with the checkout's own hooks and fsmonitor off
+- [x] copy edit (Edith): wording on merges, skips and exit codes
 
 ### DEPLOY: feat/3605-trunk-autosync
 
@@ -66,9 +68,10 @@ A checkout's trunk now follows origin by itself. At every session start, a check
 its trunk and merely behind is fast-forwarded before the session checks run. It is silent when there is
 nothing to report, and `DKJ_TRUNK_AUTOSYNC=0` turns it off. The new
 [`sync-trunk`](../plugins/dkj-policy/skills/sync-trunk/SKILL.md) command does the same on request, and
-with `-AllCheckouts` it covers every checkout on the machine. Nothing is ever stashed, rebased or merged.
-A checkout off its trunk, with an uncommitted change or with local commits origin lacks is skipped, and
-the reason is given.
+with `-AllCheckouts` it covers every checkout on the machine. Nothing is ever stashed or rebased, and no
+merge commit is ever created. A checkout off its trunk, with an uncommitted change or with local commits
+origin lacks is left alone: the command says why, and the session-start step stays silent unless the
+trunk is behind.
 
 **Score:** 3
 
