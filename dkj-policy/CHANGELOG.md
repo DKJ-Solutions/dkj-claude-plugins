@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**7 / 10 minor entries** <!-- pending-tally -->
+**8 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3597-watcher-crosscheck-disconnect · 20261027-161128Z
+
+The dev-preview watcher no longer trusts a single connect-state read before it stops a server. On a
+machine with several accounts and fast user switching, that read came back inverted: the active console
+session read as disconnected, and a disconnected one as connected. So after a switch to another account
+and back, the watcher could stop the hub, or any server the dev-preview hook starts, in the session that
+was using it. A disconnect now counts only when two other sources agree: the session is not the active
+console session, and the Windows session list shows it as disconnected too. Any disagreement is read as
+uncertain, and an uncertain read never stops a server.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+On a machine shared between accounts, switching to another account and back no longer takes down the
+hub that was open before the switch.
+
+**Score:** 2
+
+#### Pull Request
+
+dev-preview watcher acts on a disconnect only when the session list agrees
+
+Plugins: dkj-policy
+
+[PR #3601](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3601)
+
+---
 
 ### DEPLOY: feat/release-note-grid · 20261027-160007Z
 
