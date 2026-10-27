@@ -1322,6 +1322,32 @@ function Format-ReleaseNotesEmptyPageHtml {
     return Format-GeneralPageHtml -Title 'Release notes' -Lead '' -Body $body -SiteName $RepoName
 }
 
+$script:ReleaseNotesHouseColors = [ordered]@{
+    'bg' = 'paper-1'; 'panel' = 'paper-2'; 'ink' = 'fg-1'; 'ink-soft' = 'fg-2'; 'ink-faint' = 'muted'
+    'line' = 'paper-3'; 'accent' = 'primary'; 'accent-soft' = 'paper-2'; 'code-bg' = 'paper-1'
+}
+
+function ConvertTo-ReleaseNotesHouseColors {
+    <#
+        Pure: the template's own <style> with every colour it reads from its own palette read from a house
+        token instead -- 'background: var(--code-bg)' becomes 'background: var(--paper-1)'. ONLY HOUSE COLOUR
+        TOKENS ON THE HUB (owner, October 27, 2026): until then a layer here pointed the template's tokens at
+        house ones, so the served page still read var(--code-bg) and reached the house through it. Only uses
+        (var(--x)) are rewritten, never the palette's own definitions, which nothing reads any more on this
+        copy; and only in the first <style>, the template's, so its script and its notes are left alone. The
+        template on disk keeps its palette, because a Worker and a BWJ-Development repo serve it without the
+        house style.
+    #>
+    param([Parameter(Mandatory = $true)][AllowEmptyString()][string]$Html)
+    $end = $Html.IndexOf('</style>')
+    if ($end -lt 0) { return $Html }
+    $names = ($script:ReleaseNotesHouseColors.Keys | Sort-Object -Property Length -Descending) -join '|'
+    $css = ([regex]('var\(--(' + $names + ')\)')).Replace($Html.Substring(0, $end), {
+        param($m) 'var(--' + $script:ReleaseNotesHouseColors[$m.Groups[1].Value] + ')'
+    })
+    return $css + $Html.Substring($end)
+}
+
 function Format-ReleaseNotesDevPage {
     <#
         The built release-notes page (#3108), as a dev server serves it: the house stylesheet and theme
@@ -1335,10 +1361,10 @@ function Format-ReleaseNotesDevPage {
         who reads it. So the page is dressed here, on the way out, and the file on disk stays the template's.
 
         THE ORDER IS THE MECHANISM. The house file goes in AFTER the template's own <style>, so the house
-        body (surface, ink, font) wins on equal specificity; then a layer that points the template's own
-        tokens at house tokens, so its panel, lines and accent follow whichever theme is picked. Those token
-        names are the template's, none of them a house name, so nothing in the house file is redefined.
-        The same layer gives the template's column, masthead, sheet and colophon the Stopwatch page's
+        body (surface, ink, font) wins on equal specificity. Every colour the template's own rules read is
+        rewritten to a house token first (ConvertTo-ReleaseNotesHouseColors), so its panel, lines and accent
+        follow whichever theme is picked and the served page reads house colour tokens only; nothing in the
+        house file is redefined. Then a layer gives the template's column, masthead, sheet and colophon the Stopwatch page's
         measures (owner, October 25, 2026): the page column's width, padding and gap, the house h1, a
         .card's border and radius, and a .footer-note's ink. Its width rules keep winning on specificity.
 
@@ -1368,9 +1394,6 @@ function Format-ReleaseNotesDevPage {
         '<link rel="stylesheet" href="/house-style.css">'
         '<script src="/house-theme.js"></script>'
         '<style>'
-        '/* The template''s tokens, read from the house ones (#3108). */'
-        ':root { --bg: var(--paper-1); --panel: var(--paper-2); --ink: var(--fg-1); --ink-soft: var(--fg-2); --ink-faint: var(--muted);'
-        '  --line: var(--paper-3); --accent: var(--primary); --accent-soft: var(--paper-2); --code-bg: var(--paper-1); }'
         '/* The template''s layout, read as the Stopwatch page''s: main.page-column, a house h1, a .card, a .footer-note. */'
         '.wrap { max-width: 1080px; display: grid; gap: var(--spacing-5); align-content: start; padding: var(--spacing-4) var(--spacing-4) var(--spacing-12); }'
         'header.masthead { padding: 0; }'
@@ -1409,6 +1432,7 @@ function Format-ReleaseNotesDevPage {
     # site header, which already names the site. Only here -- the Worker's page has no header, and there the
     # eyebrow is the one line naming whose releases these are.
     if ($RepoName) { $Html = ([regex]'<span class="eyebrow">[^<]*</span>\s*').Replace($Html, '', 1) }
+    $Html = ConvertTo-ReleaseNotesHouseColors -Html $Html
     $bodyEnd = $Html.LastIndexOf('</body>')
     # The general banner above the site header, as on every other hub page (#3297; owner, October 24, 2026). It
     # stands outside the template's layout, so that is left alone.

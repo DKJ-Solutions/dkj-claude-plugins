@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**6 / 9 minor entries** <!-- pending-tally -->
+**7 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/release-note-grid · 20261027-160007Z
+
+A release's own page now lays each note section out as a grid of cards, at most three across: every paragraph or bullet is a card, its bold opening sentence lifted into the card's own h3 under the section's h2, which stays above the grid as the house style requires, so a nine-point release reads as one screen instead of a long column. A section with a table, code or a sub-heading, or with a single point, is left as it was. On the hub the page now reads house colour tokens only: the template's own colour uses are rewritten to house tokens as it is served, in place of a layer that pointed its palette at them; the template itself keeps its palette for the Worker and BWJ-Development consumers.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+The hub's release notes page of every consumer shows each release's points side by side, at most three across, instead of one long column.
+
+**Score:** 2
+
+#### Pull Request
+
+Release note pages lay the note out in a grid of three columns
+
+Plugins: dkj-policy
+
+[PR #3600](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3600)
+
+---
 
 ### DEPLOY: fix/3595-hub-watch-disconnected-start · 20261027-153929Z
 
