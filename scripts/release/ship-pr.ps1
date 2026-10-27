@@ -989,6 +989,18 @@ If one is real work, push it through its own branch instead -- it does not belon
     }
 }
 
+# --- Step 0d: the clearance FORECAST, before the gates (issue #3554) ------------------------------
+# The clearance verdict prints in the wait block, after the local gate, so a session that backgrounds this
+# run ended its turn with no verdict to relay and closed with "I'm waiting". The permanent halves of that
+# verdict are known from the diff now, so they are printed first, with the close-out sentence to relay.
+# A forecast only: armed and back-on-the-trunk are still answered by Get-ShipClearanceVerdict below.
+$forecastDiff = Invoke-NativeCapture -FilePath 'git' -DiscardStderr -Arguments @('diff', '--name-only', 'origin/main...HEAD')
+$forecast = Get-ShipClearanceForecast -NoMerge ([bool]$NoMerge) -FilesRead ($forecastDiff.ExitCode -eq 0) `
+    -Files @($forecastDiff.Output | Where-Object { $_ -and $_.Trim() }) `
+    -SweepRunnerPresent (Test-Path -LiteralPath (Join-Path $repoRoot '.github\workflows\merge-on-green.yml'))
+Write-Host "ship-pr: $($forecast.Line)" -ForegroundColor $(if ($forecast.Clearable) { 'Green' } else { 'Yellow' })
+Write-Host "  Close-out to relay if you background this run: $($forecast.CloseOut)" -ForegroundColor DarkGray
+
 # --- Step 1: open the PR (open-pr.ps1 runs the lint + test gate, pushes, opens) ------------------
 # -Title is forwarded ONLY when one was given (#506): passing an empty string would make open-pr warn
 # about an ignored title on every ordinary run, which is how a warning stops being read.
