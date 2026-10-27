@@ -268,6 +268,32 @@
   article th, article td { border: 1px solid var(--line); padding: .4rem .6rem; text-align: left; vertical-align: top; }
   article th { background: var(--code-bg); font-weight: 620; }
 
+  /* ---------- a section's points, as a grid ----------
+     THREE COLUMNS AT MOST (owner, October 27, 2026). A note section is a run of independent points -- a
+     paragraph led by a bold sentence, or a bullet -- so they are laid out as cells side by side rather
+     than as one long column. The same max() trick as the index cards: a column is never narrower than
+     14rem and never narrower than a third of the row, so a wide page stops at three and a phone gets one.
+     gridNoteSections() below decides which sections qualify; this only says how a qualifying one looks. */
+  .note-grid {
+    --cell-gap: 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(max(14rem, (100% - 2 * var(--cell-gap)) / 3), 1fr));
+    gap: var(--cell-gap);
+    margin: .9rem 0 0;
+  }
+  .note-cell {
+    padding: .85rem 1rem;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: .6rem;
+    min-width: 0;
+  }
+  .note-cell > :first-child { margin-top: 0; }
+  .note-cell > :last-child { margin-bottom: 0; }
+  .note-cell p, .note-cell ul, .note-cell ol { max-width: none; }
+  /* The bold sentence a point opens with is its title, so it gets a line of its own. */
+  .note-cell > p:first-child > strong:first-child { display: block; margin-bottom: .35rem; line-height: 1.4; }
+
   footer.colophon {
     margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line);
     color: var(--ink-faint); font-size: .82rem;
@@ -493,12 +519,52 @@
   var bodies = {};
   DATA.releases.forEach(function (r) { bodies[r.version] = r.body; });
 
+  // A SECTION OF POINTS BECOMES A GRID (owner, October 27, 2026). Done on the rendered DOM rather than
+  // inside renderMd, so the renderer stays a plain markdown renderer. A section is everything between two
+  // h2s; it qualifies only when it holds nothing but paragraphs and lists and adds up to two points or
+  // more -- a section with a table, code or a sub-heading has a shape of its own and is left alone, and a
+  // single point gains nothing from a grid. Each paragraph is a point, and so is each item of a list.
+  function gridNoteSections(article) {
+    var kids = Array.prototype.slice.call(article.children);
+    var runs = [];
+    var run = null;
+    kids.forEach(function (k) {
+      if (/^H[12]$/.test(k.tagName)) { run = []; runs.push(run); return; }
+      if (run) { run.push(k); }
+    });
+    runs.forEach(function (nodes) {
+      if (!nodes.length) { return; }
+      var plain = nodes.every(function (n) { return /^(P|UL|OL)$/.test(n.tagName); });
+      if (!plain) { return; }
+      var points = [];
+      nodes.forEach(function (n) {
+        if (n.tagName === 'P') { points.push([n]); return; }
+        Array.prototype.slice.call(n.children).forEach(function (li) {
+          points.push(Array.prototype.slice.call(li.childNodes));
+        });
+      });
+      if (points.length < 2) { return; }
+      var grid = document.createElement('div');
+      grid.className = 'note-grid';
+      points.forEach(function (parts) {
+        var cell = document.createElement('div');
+        cell.className = 'note-cell';
+        // renderList wraps an item's text in <p>, so a bullet's cell starts with one as a paragraph's does.
+        parts.forEach(function (x) { cell.appendChild(x); });
+        grid.appendChild(cell);
+      });
+      nodes[0].parentNode.insertBefore(grid, nodes[0]);
+      nodes.forEach(function (n) { if (n.parentNode) { n.parentNode.removeChild(n); } });
+    });
+  }
+
   // A release's page carries exactly one note, so it is rendered at once.
   Array.prototype.slice.call(document.querySelectorAll('article[data-version]')).forEach(function (el) {
     var md = bodies[el.getAttribute('data-version')];
     // A page with no body in its data is a build-time inconsistency rather than a reader's problem: say
     // so in place instead of leaving an empty panel that looks like a rendering failure.
     el.innerHTML = md ? renderMd(md) : '<p>This release has no note in the repository.</p>';
+    if (md) { gridNoteSections(el); }
   });
 
   // AN OLD LINK FORWARDS TO THE RELEASE'S OWN PAGE. Before every release had a page, a link to one was

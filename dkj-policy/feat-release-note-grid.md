@@ -39,19 +39,30 @@
 
 ### PLAN
 
+#### Owner's look
+
+A visible result: the owner judges http://localhost:4890/release-notes/v5.34.0 before the PR opens.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Template: a note section of two or more points renders as a grid of at most three columns, in both copies of the template
 
 ### TEST
 
+- [x] release-notes-page.tests.ps1 green; the renderer run against the v5.34.0 note gives 9 + 4 cells and leaves the one-bullet section alone
+- [ ] The owner has looked at the page
+
 ### DEPLOY: feat/release-note-grid
 
-**Score:**
+A release's own page now lays each note section out as a grid of cards, at most three across: every bold-led paragraph or bullet is a card, so a nine-point release reads as one screen instead of a long column. A section with a table, code or a sub-heading, or with a single point, is left as it was.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The hub's release notes page of every consumer shows each release's points side by side, at most three across, instead of one long column.
+
+**Score:** 2
 
 #### Pull Request
 
