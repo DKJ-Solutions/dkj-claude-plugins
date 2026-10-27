@@ -6,8 +6,8 @@ description: >-
   the checkout even where two of them share one machine and one GitHub account, and a two-session race is settled on
   the tracker's own timestamps: earliest marker wins, and only the losers let go. Use it when issues
   have piled up and you want them worked through rather than picked at one by one. It claims, builds,
-  runs the gates and STOPS where a result has to be judged by eye -- it never opens a pull request on
-  work nobody has looked at, and it never pushes anything live.
+  runs the gates and PARKS a result that has to be judged by eye, then goes on to the next issue -- it
+  never opens a pull request on work nobody has looked at, and it never pushes anything live.
 disable-model-invocation: true
 ---
 
@@ -25,8 +25,9 @@ resolves into the plugin cache, which holds the last released mirror.
 **One sweep per checkout, one issue at a time.** Claim, build, gates, hand over, next. The parallelism is
 the CHECKOUTS, not the issues: a second issue in the same checkout means two branches in one working copy,
 and nothing on the tracker can tell those apart. A second checkout -- another clone, or a
-[worktree-lane](../worktree-lane/SKILL.md) -- is a second tag, on the same machine or another. And a
-visible park (step 5) ends the sweep in its checkout, because the owner judges that working copy.
+[worktree-lane](../worktree-lane/SKILL.md) -- is a second tag, on the same machine or another. A
+visible park (step 5) is an issue handed over like any other: the branch waits on `origin`, and the
+sweep goes on.
 
 ## Why the assignee cannot be the claim
 
@@ -212,7 +213,7 @@ change and its entry go in **one** commit.
 
 Either way the gates' outcome is a number, not a feeling, and it is `ship-pr` that records it.
 
-### 5. Where the sweep STOPS
+### 5. Ship it, or park it for the owner's eye
 
 **Does the change produce something that has to be judged by eye?** A frontend, styling, rendered
 output, an artifact, anything a visitor of a storefront can see or do. If yes -- or if you have to
@@ -222,23 +223,24 @@ ARGUE that it renders, which is itself the doubt -- then:
   that repo's own pages prescribe, and **open no pull request**;
 - park the branch on `origin`, and set `awaiting-review-dev` on the issue (`awaiting-review-client` when
   the client must look) together with a one-line comment on what to look at (#2977), so the next
-  sweep reads it as `skipped`; **the sweep ends here, on that branch** -- straight to the
-  close-out below, with no step 7.
+  sweep reads it as `skipped`;
+- then **on to step 7, like any other issue** -- the sweep goes on with the next `free` one.
 
 A pull request is the question *may this go to the trunk*, and that question is not open while nobody
 has looked. The branch survives on `origin` with its own document, and step 6 picks it up whenever the
 answer comes.
 
-**The checkout stays where it is because the owner judges the working copy.** The constitution says so
-in as many words -- *"the checkout stays on that branch until the owner has looked"* -- and a preview
-served from this checkout is served from that branch. Step 7's `git checkout main` would take away the
-very thing waiting to be judged, and a second issue built in the same checkout would replace it. So a
-visible park ends the sweep in this checkout, even with `free` issues left: those are named in the
-close-out, and the next sweep -- here once the owner has looked, or in another checkout now -- takes
-them. Decided by Dave, October 6, 2026
-([#2833](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2833)), over two alternatives
-that kept the sweep going in a worktree lane: one first needs `ship-pr` verified to work from a lane,
-the other needs the owner to be told a lane's path before they can judge.
+**The checkout moves on because the sweep is meant to walk the whole backlog in one go.** Maikel,
+October 27, 2026 ([#3552](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3552)): *"If it
+waits on a visible result every time, it is no longer a sweep."* Measured the same day: a backlog of two
+`free` issues, both visible results, took two sweeps, one issue each. So the sweep is the constitution's
+one carve-out from *"the checkout stays on that branch until the owner has looked"*. The owner looks
+later, by checking the parked branch out (`git checkout <branch>`), and a preview the repo serves from
+the checkout follows that branch (this repo's product server restarts on a HEAD change; a Shopify
+consumer's `push-preview` already gives each branch its own). Outside a sweep, a visible park still
+keeps the checkout on its branch. This replaces the end-at-the-park rule Dave set on October 6, 2026
+([#2833](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2833)), whose reason was that
+sentence of the constitution.
 
 **If the gates prove it** -- scripts, tests, docs, config -- the movement runs through without an
 intermediate question: open, merge, fold.
@@ -285,9 +287,9 @@ Back to step 1, in the same turn.
 
 **The loop stops when step 1 has nothing left for this session**: every issue `-Candidates` prints as
 `free` has been shipped, given back, parked on the tracker with its `awaiting-*` label because it
-waits, or judged and held out (with `-SkipIssue` and a reason) for something that is not a wait.
-**Or when step 5 parks a visible result**, which ends it at once, on that branch. Nothing else ends it,
-and one shipped issue in particular does not.
+waits, parked for the owner's eye at step 5, or judged and held out (with `-SkipIssue` and a reason)
+for something that is not a wait. Nothing else ends it, and neither one shipped issue nor one visible
+park does.
 
 **The close-out `ship-pr` prints is one issue's receipt, not the sweep's**
 ([#2562](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2562)). Its last lines read
@@ -299,9 +301,9 @@ one issue, took that template as its own close-out, and left four `free` issues 
 them in one pass; a decided issue comes back here as `free`. What it skipped as `awaiting-decision-client` is nobody's half here: it waits on the client or requester, and neither skill walks it. **Nor does either walk `awaiting-review-dev` or `awaiting-review-client`** (#2977): those wait on a look at a result, not on a choice, and the look is the owner's or the client's to give.
 
 **The sweep closes out once, after the loop**, in the ordinary receipt shape: the PR number of each issue
-it shipped, the branch it parked for the owner's eye (checked out, where it stays), the number and
-label of each it parked as waiting, the number of each it held out, with a clause for why, and -- where
-a visible park ended it early -- the numbers still `free`.
+it shipped, each branch it parked for the owner's eye with the `git checkout <branch>` line that shows
+it, the number and label of each it parked as waiting, and the number of each it held out, with a clause
+for why.
 
 ## Giving an issue back
 

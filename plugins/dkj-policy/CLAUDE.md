@@ -33,7 +33,9 @@ These rules take precedence over any convenience.
   eye (a frontend, styling, rendered output, an artifact), the branch stops and reports instead of
   merging, **and the checkout stays on that branch until the owner has looked**. The owner judges the
   working copy, so switching to the trunk removes the very thing waiting to be judged. No automated gate
-  can prove that something *looks* right.
+  can prove that something *looks* right. **A sweep is the one carve-out from the checkout half**: it
+  parks the branch on `origin` with its review label and moves on to the next issue, and the owner checks
+  each parked branch out to look later (Maikel, #3552). The merge half holds there too.
 - **A release or version bump** (raising a plugin or package `version`, creating a tag) is done only
   on explicit request. **The closing steps of a cut that was asked for are covered by that request**,
   up to and including publishing the release document. The bump and the tag are the irreversible act,
