@@ -59,6 +59,7 @@ the window should say so at once.
 - [x] `hub/pages/serve-general-pages.ps1`: the `/test-gate/...` routes, a 404 for an unknown one
 - [x] `hub/lib/general-pages-lib.ps1`: `Format-FitAlarmHtml`, drawn by the page shell on every page
 - [x] The density rule in the `house-style` skill and `assets/house-style/README.md`
+- [x] The owner, on a first look: no tiles above the overview's cards; the unrecorded count moves onto the measurement's card
 
 ### TEST
 

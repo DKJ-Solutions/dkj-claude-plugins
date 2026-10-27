@@ -349,7 +349,8 @@ function Format-TestGatePageHtml {
         return & $page $list.Title $body.ToString() '' $crumbs '' $facts
     }
 
-    # THE OVERVIEW: the totals, then one card per list, the change's and the measurement's.
+    # THE OVERVIEW: one card per list, the change's and the measurement's, and no tiles above them (the owner,
+    # October 27, 2026): each card carries its own sum and share, and the measurement's counts the unrecorded suites.
     if ($unmeasured) {
         [void]$body.AppendLine('<p class="msg" role="status">No test gate has been measured in this repo yet. This page fills in once the repo records its suites'' CI durations in <code>scripts/tests/suite-durations.json</code>, which the dkj-policy plugin''s <code>record-suite-durations</code> skill writes from CI runs.</p>')
     } elseif ($ReadError) {
@@ -366,11 +367,6 @@ function Format-TestGatePageHtml {
         [void]$body.AppendLine('<p class="msg" role="status">Grouped but no longer on disk: ' +
             ((@($Model.Unknown) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ', ') + '.</p>')
     }
-    [void]$body.Append((Format-DevTiles @(
-        @{ L = 'Suites recorded'; V = $suites.Count },
-        @{ L = 'Sum of all suites'; V = (Format-DevSeconds $(if ($suites.Count) { $Model.Total } else { $null })) },
-        @{ L = 'Slowest suite'; V = (Format-DevSeconds $(if ($slowest) { $slowest.Seconds } else { $null })) },
-        @{ L = 'Not recorded'; V = @($Model.Missing).Count })))
     [void]$body.AppendLine('<div class="tg-cards" id="groups">')
     if (-not $lists.Count) {
         [void]$body.AppendLine('<section class="card"><p class="note">No suite durations are recorded' + $(if ($unmeasured) { ' in this repo' } else { '' }) + '.</p></section>')
@@ -388,7 +384,8 @@ function Format-TestGatePageHtml {
         [void]$body.AppendLine('<section class="card card--link tg-card" id="selection"><h2><a href="/test-gate/selection">This checkout''s change</a></h2><p class="num">' + $picked + '</p></section>')
     }
     [void]$body.AppendLine('<section class="card card--link tg-card" id="recorded"><h2><a href="/test-gate/measured">Where it was measured</a></h2><p class="num">' +
-        $(if ($Model.Date) { & $e $Model.Date } else { '--' }) + $dot + @($Model.Runs).Count + ' CI runs</p></section>')
+        $(if ($Model.Date) { & $e $Model.Date } else { '--' }) + $dot + @($Model.Runs).Count + ' CI runs' +
+        $(if (@($Model.Missing).Count -and -not $unmeasured) { $dot + @($Model.Missing).Count + ' not recorded' } else { '' }) + '</p></section>')
     [void]$body.AppendLine('</div>')
     return & $page 'Test gate' $body.ToString() '' @() $footer
 }
