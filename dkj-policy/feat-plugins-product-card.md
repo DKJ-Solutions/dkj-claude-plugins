@@ -53,7 +53,7 @@ this repo offers. A visible result, so the branch waits for the owner's look bef
 
 - [x] `dev-pages`, `connector-dashboard`, `logbook`, `stopwatch` and `stopwatch-sync` suites green (every suite loading `dev-pages-lib`), both Plugins levels covered
 - [x] `check-house-style.ps1` green
-- [ ] The owner has looked at http://localhost:4870/plugins and a plugin's own page
+- [x] The owner has looked at http://localhost:4870/plugins and a plugin's own page, and said to open the PR
 
 ### DEPLOY: feat/plugins-product-card
 
