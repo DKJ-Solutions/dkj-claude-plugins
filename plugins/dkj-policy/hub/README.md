@@ -346,5 +346,5 @@ the hook could never recognise the server as this checkout's.
 
 **The hub on `:4892` is the installed release, so a merged hub change shows there only after the next
 release.** To see this tree's hub first, serve it on a free port from the repo root:
-`./plugins/dkj-policy/hub/pages/serve-general-pages.ps1 -Port 4893`, backgrounded. `.claude/settings.json`
+`./plugins/dkj-policy/hub/pages/serve-general-pages.ps1 -Port 4910`, backgrounded -- not a port from 4890 up, where the other checkouts' hubs sit. `.claude/settings.json`
 allows exactly that command, so a session runs it without a permission refusal.
