@@ -39,19 +39,41 @@
 
 ### PLAN
 
+#3552 (Maikel, October 27, 2026): a sweep ends at the first visible park, so a backlog of visible
+results takes one sweep per issue. Settled here, as the sensible defaults the issue left open:
+
+- the constitution carves out the **sweep** only; a single assignment that parks a visible result still
+  keeps the checkout on its branch (Chris's manual already names "a sweep's next issue" as the exception,
+  #2558, so it needs no edit);
+- the sweep's close-out prints one `git checkout <branch>` line per parked branch.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Constitution (`plugins/dkj-policy/CLAUDE.md`): the sweep carve-out from the checkout half of the visible-result rule.
+- [x] `sweep-issues` SKILL.md: the description, the one-sweep-per-checkout paragraph, step 5 (park, then step 7), "When the sweep ends" and the close-out shape.
+- [x] Chris's persona: the parked-branch clause names the sweep exception.
 
 ### TEST
 
+- [x] No test pins the replaced wording (grep over `scripts/tests` for the old phrases: none); the gates run in `ship-pr`.
+
 ### DEPLOY: docs/3552-sweep-continues-past-visible-park
 
-**Score:**
+A sweep no longer ends at the first result that has to be judged by eye. It parks that branch on
+`origin` with `awaiting-review-dev` and a comment on what to look at, returns to the trunk and carries on
+with the next issue; the close-out lists every parked branch with the `git checkout` line that shows it
+([#3552](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3552)). The constitution now names
+the sweep as the one carve-out from "the checkout stays on that branch until the owner has looked"; a
+single assignment still stays on its branch, and no visible result is merged unseen.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A sweep over a backlog of visible results now handles all of them in one run, where it used to stop
+after the first one. You look at each parked branch afterwards by checking it out.
+
+**Score:** 3
 
 #### Pull Request
 

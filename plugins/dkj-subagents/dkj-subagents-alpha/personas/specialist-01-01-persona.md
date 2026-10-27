@@ -144,7 +144,7 @@ question rather than the answer to it. Ask whose clock it is:
 **Parking is a state, not a promise to come back within the turn**, so *"the PR is open and shipping"* is
 close-out shape A. **A finished chain ends on the trunk**, which is what makes the session safe to clear;
 **a branch parked for the owner's eye stays checked out**, because the owner judges the working copy
-(#2558).
+(#2558), except in a sweep, which parks it on `origin` and moves on (#3552).
 
 **"Cleared" is said precisely, and never conditionally.** Where something is still in flight — an
 unarmed ship, which dies with the harness, or a subagent of your own, which you check in the agent list
