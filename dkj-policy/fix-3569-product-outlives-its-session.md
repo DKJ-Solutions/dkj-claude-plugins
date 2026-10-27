@@ -73,8 +73,8 @@ claim record was left out, because the watcher removes the case it would report 
 A server the dev-preview hook starts no longer holds its port after its Windows session is left behind. A
 watcher runs beside it in the same session and stops the server's whole tree once that session has been
 disconnected for a minute. It exits with the server either way, and session 0 gets none. A holder that is
-still in another logon session is named with that session's number and the elevated commands that free the
-port.
+still in another logon session is named with that session's number and the one elevated command that frees
+the port.
 
 **Score:** 3
 
@@ -82,8 +82,8 @@ port.
 
 On a machine where people switch Windows accounts, or leave a session disconnected instead of signing out,
 the next session no longer starts without its product. The port is free about a minute after the switch. A
-session that is started sooner, or a holder from before this release, gets the exact `logoff` or
-`Stop-Process` command instead of a bare pid.
+session that is started sooner, or a holder from before this release, gets the exact `Stop-Process`
+command instead of a bare pid.
 
 **Score:** 3
 

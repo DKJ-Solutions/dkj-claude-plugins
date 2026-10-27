@@ -195,7 +195,7 @@ $procsSession = @{
     22500 = @{ CommandLine = ''; ParentId = 1; SessionId = 29 }
     22600 = @{ CommandLine = ''; ParentId = 1; SessionId = 28 }
 }
-Assert-Equal '3000 by pid 22588 (another logon session, 29 -- its command line cannot be read; free it from an elevated shell: logoff 29, or Stop-Process -Id 22588)' (Format-DevPreviewPortHolders -Ports @(3000) -Listeners @((& $L 3000 22588)) -Processes $procsSession -SessionId 28) 'a holder in another logon session says so (#3401), and names its remedy (#3569)'
+Assert-Equal '3000 by pid 22588 (another logon session, 29 -- its command line cannot be read; stop it in that session, or from an elevated shell: Stop-Process -Id 22588)' (Format-DevPreviewPortHolders -Ports @(3000) -Listeners @((& $L 3000 22588)) -Processes $procsSession -SessionId 28) 'a holder in another logon session says so (#3401), and names its remedy (#3569)'
 Assert-Equal '3000 by pid 22600 (its command line cannot be read)' (Format-DevPreviewPortHolders -Ports @(3000) -Listeners @((& $L 3000 22600)) -Processes $procsSession -SessionId 28) 'an unreadable holder in our own session names no other session'
 Assert-True ((Format-DevPreviewPortHolders -Ports @(3000) -Listeners @((& $L 3000 22588)) -Processes $procsSession) -match '^3000 by pid 22588 \(') 'the session defaults to the hook''s own, without a -SessionId'
 

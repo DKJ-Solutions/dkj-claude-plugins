@@ -61,6 +61,8 @@ public static int ConnectState() {
         $state = if ($ForceState -ne -2) { $ForceState } else { try { [DkjDevPreview.Wts]::ConnectState() } catch { -1 } }
         $step = Get-DevPreviewWatchStep -State $state -Since $since -Now (Get-Date) -GraceSeconds $GraceSeconds
         if ($step.Stop) {
+            # Read again just before the kill: a server gone since the last look leaves its pid free for reuse.
+            if ($target.HasExited) { break }
             & taskkill.exe /T /F /PID $ProcessId 2>&1 | Out-Null
             break
         }

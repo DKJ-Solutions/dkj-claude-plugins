@@ -127,7 +127,7 @@ its product and the hub is this plugin's.
 | states a server | `Hub: http://localhost:4890/ -- product: http://localhost:4321/dkj-recipes/ (started)`; `(already running)` where it is reused |
 | states a server that cannot start | `Hub: http://localhost:4890/ -- product not started: port 3000 taken by other processes: 3000 by dkj-lifehub (pid 19544)` |
 | and the holder's command line cannot be read | `... 3000 by pid 22588 (its command line cannot be read)` |
-| and the holder runs in another Windows logon session | `... 3000 by pid 22588 (another logon session, 29 -- its command line cannot be read; free it from an elevated shell: logoff 29, or Stop-Process -Id 22588)` (#3401, #3569) |
+| and the holder runs in another Windows logon session | `... 3000 by pid 22588 (another logon session, 29 -- its command line cannot be read; stop it in that session, or from an elevated shell: Stop-Process -Id 22588)` (#3401, #3569) |
 | states a server that binds and then quits | `... -- product: the server on port 3001 stopped right after it started listening -- see <log>`: a started server reads as `(started)` only once it is still listening two seconds after its first answer (#3404) |
 | `Requires` a `node_modules` older than the `package-lock.json` beside it | the product's clause ends `; 'node_modules' is older than its package-lock.json -- run npm install` where a package the lock pins is installed at another version, or not at all, according to npm's own `node_modules/.package-lock.json`. A lock that was only rewritten is not named (#3419), and the server is still started (#3404) |
 | states `OwnHub = $true` | `Hub: http://localhost:4870/ (started)`, as before #3245 |

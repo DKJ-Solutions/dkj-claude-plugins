@@ -588,8 +588,9 @@ function Format-DevPreviewPortHolders {
         hook's own, by default). A pid absent from the table is a process that is gone, and stays bare.
 
         AND THE OTHER SESSION'S HOLDER CARRIES ITS REMEDY (INBOUND #3569): measured cross-account, where this
-        session cannot stop it at all, so the entry names the session and the two elevated commands that
-        free the port. A server this hook starts now stops itself once its session stays disconnected (the
+        session cannot stop it at all, so the entry names the session and the one targeted command that frees
+        the port. Never 'logoff': this line reaches the model's context, and a logoff ends another account's
+        whole session with its unsaved work. A server this hook starts now stops itself once its session stays disconnected (the
         watcher, hub/pages/dev-preview-watch.ps1), so this is for the holders started before that.
     #>
     param(
@@ -608,7 +609,7 @@ function Format-DevPreviewPortHolders {
         if ($p -and -not ([string]$p.CommandLine).Trim()) {
             if ($null -ne $p.SessionId -and [int]$p.SessionId -ne $SessionId) {
                 $sid = [int]$p.SessionId
-                "$port by pid $procId (another logon session, $sid -- its command line cannot be read; free it from an elevated shell: logoff $sid, or Stop-Process -Id $procId)"
+                "$port by pid $procId (another logon session, $sid -- its command line cannot be read; stop it in that session, or from an elevated shell: Stop-Process -Id $procId)"
             } else {
                 "$port by pid $procId (its command line cannot be read)"
             }
