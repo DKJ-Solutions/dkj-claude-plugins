@@ -112,7 +112,7 @@ so the requester stops testing. Closing it as not planned with an `awaiting-*` l
 on-hold line (#2902, #3494), so a parked ticket never reads as finished. The `Prio-Score` to prio-label sync came back too (Dave, October 12, 2026,
 [#2945](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2945)), as the separate `asana-prio-label`
 workflow adopt copies beside it. The rest of the asana-mirror CI automation is **retired**: the moving of
-the card through the board's numbered sections, the daily reconciliation sweep and the backstop comment. One move came back (#3248): a completed close that carries a block moves the card into `InReview`, after its message. Every other move is a person's. Also still running is the gate on the create-task call, `hooks/guard-asana-mirror.ps1`, which
+the card through the board's numbered sections, the daily reconciliation sweep and the backstop comment. Two moves came back: a completed close that carries a block moves the card into `InReview` (#3248), and a reopen moves it into `InDevelopment` and marks a completed task incomplete (#3562), each after its message. Every other move is a person's. Also still running is the gate on the create-task call, `hooks/guard-asana-mirror.ps1`, which
 was never part of that CI. Its pickup-side counterpart, `hooks/asana-link-pickupcheck.ps1`, warns the
 session after `claim-issue` or `new-branch` picks up an issue that names Asana but links no task (#2919),
 asks about one that neither links nor mentions Asana, and names a task linked from two open issues (#2928).
@@ -339,9 +339,10 @@ skill needs to know which workspace and project a mirrored task lands in:
 - `Get-AsanaProjectGid` -- the project a mirrored task is created in, and it has exactly one correct
   value: **the board the team reads**, because a task created anywhere else is on no board a colleague
   looks at.
-- `Get-AsanaStageMap` -- which numbered section of the board each stage is. **Still read, for one
-  thing:** `report-issue` uses it to find the `Filed` section a new card lands in. The other stages are
-  only the board's sections a person moves cards through; nothing moves them automatically any more.
+- `Get-AsanaStageMap` -- which numbered section of the board each stage is. **Still read:**
+  `report-issue` uses it to find the `Filed` section a new card lands in, and `asana-closed-message`
+  reads `Completed`, `InReview` (#3248) and `InDevelopment` (#3562) for its closing ask and its two card
+  moves. The other stages are only the board's sections a person moves cards through.
   **Optional**: leave it out and the built-in map is used, which is right only if your board happens to
   be numbered the same way.
 - **Retired with the CI mirror (Dave, October 5, 2026):** `Get-GithubStatusMap` (with its
