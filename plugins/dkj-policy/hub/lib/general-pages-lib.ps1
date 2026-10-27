@@ -364,6 +364,8 @@ $script:RepoHubChevron = '<svg class="menu-item__chevron" viewBox="0 0 24 24" wi
 $script:HubIcons = @{
     'product'       = '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>'
     'repository'    = '<circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 8v8M18 10v1a5 5 0 0 1-5 5H8"/>'
+    # The GitHub mark as a line drawing (Feather's 'github', MIT), for the GitHub page's card.
+    'github'        = '<path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>'
     'issues'        = '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="1.5"/>'
     'pull-request'  = '<circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><path d="M6 8v8M18 16V9a3 3 0 0 0-3-3h-4M13 4l-2 2 2 2"/>'
     'actions'       = '<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>'

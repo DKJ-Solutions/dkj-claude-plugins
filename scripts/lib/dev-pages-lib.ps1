@@ -105,7 +105,7 @@ function Format-ProductHomeHtml {
     # hub first, so the way back is where the eye starts, then this repo's own pages.
     [void]$sb.AppendLine('<div class="grid-3">')
     if ($HubUrl -cmatch '^http://localhost:[0-9]{4,5}/?\z') {
-        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href $HubUrl -Label 'Hub' -Sub 'The dkj-policy hub: Repository, Issues, Release notes, the Test gate and every other general page' -Icon 'repository'))
+        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href $HubUrl -Label 'Hub' -Sub 'The dkj-policy hub: GitHub, Issues, Release notes, the Test gate and every other general page' -Icon 'repository'))
     } else {
         [void]$sb.AppendLine('<section class="card"><p class="msg" role="status">The hub is not running. The dkj-policy dev-preview hook starts it at the next session start.</p></section>')
     }

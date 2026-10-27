@@ -105,7 +105,7 @@ function Format-PluginRepoHubHtml {
             [void]$sb.AppendLine('<section class="card"><p class="msg" role="status">This repo''s own server is not running. The session-start line says why, and it is started again at the next session start.</p></section>')
         }
     }
-    [void]$sb.AppendLine((Format-HubCardLinkHtml -Href '/repository' -Label 'Repository' -Sub 'This repo''s facts and its open issues' -Icon 'repository'))
+    [void]$sb.AppendLine((Format-HubCardLinkHtml -Href '/repository' -Label 'GitHub' -Sub 'This repo''s facts and its open issues' -Icon 'github'))
     if ($general) {
         foreach ($card in @(Format-HubPageCardsHtml -Pages @(Get-GeneralPages | Where-Object { $_.Href -ne '/issues' }))) { [void]$sb.AppendLine($card) }
     } else {
@@ -156,7 +156,7 @@ function Format-PluginRepoHubHtml {
 
 function Format-PluginRepoRepositoryHtml {
     <#
-        The Repository page on '/repository' (#3383): everything about the repo itself. Its facts as a .facts--row
+        The GitHub page on '/repository' (#3383; called Repository until it took the GitHub name and logo): everything about the repo itself. Its facts as a .facts--row
         (label over value, no card, since the cards on these pages are links), then its pages a card each in a
         .grid-3: Issues (this server's, by bare path) and, where -Slug is a plain GitHub owner/name, its pull
         requests and CI runs on GitHub. -RepoName, -Folder, -Mode, -ProductUrl and -PagesUrl are
@@ -196,7 +196,7 @@ function Format-PluginRepoRepositoryHtml {
         [void]$sb.AppendLine((Format-HubCardLinkHtml -Href "$gh/actions" -Label 'Actions' -Sub 'The CI runs, on GitHub' -Icon 'actions'))
     }
     [void]$sb.AppendLine('</div>')
-    return Format-GeneralPageHtml -Title 'Repository' -SiteName $name -Body $sb.ToString() `
+    return Format-GeneralPageHtml -Title 'GitHub' -SiteName $name -Body $sb.ToString() `
         -Lead 'The repo this hub serves: its facts, its open issues and its pull requests.' `
         -FooterNote 'The facts are what the hub knows about this folder; Issues is read with <code>gh</code>.'
 }
