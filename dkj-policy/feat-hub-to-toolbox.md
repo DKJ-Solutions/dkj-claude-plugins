@@ -54,7 +54,7 @@ consumer's `Get-DevPreview` states `OwnHub` and renaming it would break that rep
 ### TEST
 
 - [x] dev-pages, dev-preview-sessionstart and connector-dashboard green locally; one layer assert re-anchored past the new Tools crumb
-- [ ] The owner looks at the toolbox and the product in the browser (visible result)
+- [x] The owner looks at the toolbox and the product in the browser (visible result): Maikel approved, October 27, 2026
 
 ### DEPLOY: feat/hub-to-toolbox
 
