@@ -47,7 +47,8 @@ page that breaks it, and reshapes the house-style page.
 
 The threshold is **more than four** `.grid__head` sections with an `h2`. SessionStart's seven were too
 many; the Issues page's three and the Artifacts page's two are not. `/test-gate` (15 sections) breaks the
-rule as well. It is filed as #3565, and the warning stays on that page until that issue is done.
+rule as well. It was filed as #3565, then closed: #3561's Test gate drill-down landed on `main` while this
+branch was in flight, and after the merge the page carries no warning.
 
 This is a visible result, so the branch stops for the owner's look before it merges.
 
@@ -61,7 +62,9 @@ This is a visible result, so the branch stops for the owner's look before it mer
   `msg--warn` on every page holding more than four sections, above the first one.
 - [x] The rule is written in the house-style README (*Every page: a long page becomes cards, with a page
   each*) and in the `house-style` skill's density rules and hand-over check.
-- [x] Filed #3565 for `/test-gate`.
+- [x] Filed #3565 for `/test-gate`, then closed it as done by #3561. Merging `main` in also brought #3561's
+  three hand-written Test gate cards into the card guard's allow-list (noted on #3566), and folded this rule
+  into `main`'s new "Drill down rather than scroll" bullet in the skill.
 - [x] The owner's first look (October 27, 2026): the overview cards were a hand-written variant (an `h3`
   link, which brought in an underline) instead of the house's one card. They now use
   `Format-HubCardLinkHtml`. The README's "The card" now says it is the card link on every page, and
@@ -71,7 +74,7 @@ This is a visible result, so the branch stops for the owner's look before it mer
 
 ### TEST
 
-- [x] `dev-pages.tests.ps1`: 398 passed, 0 failed (395 before the card fix). It covers the split (fixture and the real
+- [x] `dev-pages.tests.ps1`: 415 passed, 0 failed after merging `main` (398 before it). It covers the split (fixture and the real
   `specimens.html`, with no section lost), the overview cards, the section page (crumbs, h1, lead, own cards
   only, style, dialogs and script kept), the 404, the routes, the section count and the warning at 4 and 5,
   and that the real house-style pages carry no warning.
