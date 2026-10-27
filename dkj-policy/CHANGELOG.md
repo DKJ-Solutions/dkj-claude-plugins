@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**5 / 8 minor entries** <!-- pending-tally -->
+**6 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3595-hub-watch-disconnected-start · 20261027-153929Z
+
+The hub and the product the SessionStart hook starts no longer stop about two minutes later on a machine where
+Claude Code runs in a disconnected Windows session, as it does under a second account while another account
+holds the console. The session watcher from v5.34.0 now counts a disconnect only after it has seen the session
+connected, so it still stops a server whose session is left behind later.
+
+**Score:** 4
+
+#### What makes this deploy extra special
+
+Every repo's hub stays up on a machine that switches Windows accounts, instead of going dark minutes after each session start.
+
+**Score:** 4
+
+#### Pull Request
+
+A server started in an already disconnected session is not watched, so the hub no longer exits minutes after it starts
+
+Plugins: dkj-policy
+
+[PR #3599](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3599)
+
+---
 
 ### DEPLOY: fix/3588-house-style-tag-fallback · 20261027-152421Z
 
