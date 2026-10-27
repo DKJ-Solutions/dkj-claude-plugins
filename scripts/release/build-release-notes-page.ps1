@@ -190,11 +190,22 @@ if (-not $config.Title) { $config.Title = 'Release notes' }
 $noteRoot    = Join-Path $repoRoot ($config.NoteRoot -replace '/', '\')
 $historyPath = Join-Path $repoRoot ($config.HistoryPath -replace '/', '\')
 
-if (-not (Test-Path -LiteralPath $historyPath -PathType Leaf)) {
-    throw ("The release history is missing: $($config.HistoryPath). That file is the ORDERED list of " +
-           "releases -- this page cannot be built from the note filenames alone. Get-ReleaseHistoryPath " +
-           "in scripts\repo-config.ps1 names it.")
+# A REPO THAT HAS NEVER CUT A RELEASE IS NOT A BROKEN ONE (#3580). Before the first cut there is no
+# history, or a history whose table has no row, and no note root -- the cut creates both (#786, #1150).
+# Every throw below then named a file to create that either fixes nothing or that the plugin decided a
+# consumer should not commit, and a hub showed that as a build error. So that state is its own answer:
+# exit 3, which a caller (the hub) reads as "no release yet" and shows as an empty state. A history with
+# ANY version-shaped row is past it, so a changed table shape still reaches the throw that says so.
+$noReleaseYetExitCode = 3
+$hasReleaseRow = (Test-Path -LiteralPath $historyPath -PathType Leaf) -and
+    [bool](@([System.IO.File]::ReadAllLines($historyPath, [System.Text.Encoding]::UTF8)) -match '^\|.*\b\d+\.\d+\.\d+\b')
+if (-not $hasReleaseRow) {
+    Write-Host ("No release has been cut yet: $($config.HistoryPath) lists none, so there is no page to build. " +
+                "It appears with the first cut. (If this repo has released, Get-ReleaseHistoryPath in " +
+                "scripts\repo-config.ps1 names the wrong file.)")
+    exit $noReleaseYetExitCode
 }
+
 if (-not (Test-Path -LiteralPath $noteRoot -PathType Container)) {
     throw ("The note root is missing: $($config.NoteRoot). Get-ReleaseNoteRoot in scripts\repo-config.ps1 " +
            "names it; a repo whose hand-written notes live elsewhere answers it there.")
