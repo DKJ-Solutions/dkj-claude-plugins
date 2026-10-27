@@ -41,30 +41,35 @@
 
 #### Settled while doing it (#3550)
 
-- **What a card shows:** the plugin's short name, whether it is the core team or an add-on team, its full
-  plugin id, its state here (Enabled here / Off here), its specialist count, its summed listing and full
-  read, and its own specialists in the table the page already had, minus the Plugin column.
-- **Plugins not enabled here get a card too**, muted rather than hidden, saying what being off means here:
-  no session carries its listing, and it has no lens. The page lists every specialist the plugins ship.
-- **Order:** the core team first, then add-on teams enabled here, then the off ones, by name. Within a
-  card, largest full read first; the bar stays against the largest on the whole page.
+- **Two levels** (the owner, after a first look: the cards must link to a deeper page). `/specialists` is
+  the tiles plus one link card per plugin, three to a row in the hub's card form (as `/connectors` does its
+  owner groups); `/specialists/<plugin>` is that plugin's page, with its specialists' table.
+- **What a card shows:** the plugin's short name as an h2, then core team or add-on team, enabled or off
+  here, its specialist count, its summed listing and full read.
+- **Plugins not enabled here get a card too**, muted rather than hidden; their page says what being off
+  means here: no session carries its listing, and it has no lens.
+- **Order:** the core team first, then add-on teams enabled here, then the off ones, by name.
+- **URL scheme:** `/specialists/<short>`, the plugin name without `dkj-subagents-`; an unknown one is a 404.
 
 ### CREATE
 
-- [x] `Format-SpecialistsPageHtml` in `scripts/lib/dev-pages-lib.ps1`: one card per plugin, a Plugins tile.
+- [x] `Format-SpecialistsPageHtml` in `scripts/lib/dev-pages-lib.ps1`: the overview of plugin cards and a
+  `-Plugin` detail page, with `Get-SpecialistPlugins` for the grouping and order.
+- [x] `scripts/dashboard/serve-connector-dashboard.ps1`: the `/specialists/<plugin>` route.
 
 ### TEST
 
-- [x] `scripts/tests/dev-pages.tests.ps1`: the Specialists page block asserts the cards, their order, their
-  facts and the off state (363 passed, 0 failed, run alone before the park).
+- [x] `scripts/tests/dev-pages.tests.ps1`: the overview's cards, links, order and off state, and the
+  detail page's trail, table and 404 case (368 passed, 0 failed, run alone before the park).
 - [ ] The owner's look at `http://localhost:4870/specialists` on this branch.
 
 ### DEPLOY: feat/3550-specialists-page-plugin-cards
 
 The product's Specialists page shows one card per specialist plugin
-([#3550](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3550)): the core team first, then each
-add-on team, each card with its specialists, its total context cost and whether it is enabled here. A plugin
-that is not enabled here still gets a card, muted, saying no session here carries its listing.
+([#3550](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3550)), the core team first, each with
+its specialist count, its total context cost and whether it is enabled here. Each card links to that
+plugin's own page, `/specialists/<plugin>`, with its specialists and what each one costs. A plugin that is
+not enabled here still gets a card, muted, and its page says no session here carries its listing.
 
 **Score:** 2
 

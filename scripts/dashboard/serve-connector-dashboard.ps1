@@ -346,10 +346,16 @@ try {
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/connectors/dkj' } -Method $method
                 continue
             }
-            if ($path -eq '/specialists') {
+            if ($path -cmatch '^/specialists(?:/([a-z0-9-]+))?\z') {
+                # The overview with one card per specialist plugin, or one plugin's own page (#3550); a plugin the
+                # tree does not ship is a 404, never an empty page.
                 $sp = Get-SpecialistsModel
-                $html = Format-SpecialistsPageHtml -Rows $sp.Rows -ReadError $sp.Error -CharsPerToken $sp.CharsPerToken
-                Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                $html = Format-SpecialistsPageHtml -Rows $sp.Rows -ReadError $sp.Error -CharsPerToken $sp.CharsPerToken -Plugin ([string]$Matches[1])
+                if ($null -eq $html) {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found: no specialist plugin of that name.')) -Method $method
+                } else {
+                    Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                }
                 continue
             }
             if ($path -eq '/hub') {
