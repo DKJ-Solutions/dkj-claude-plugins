@@ -53,7 +53,7 @@ Logbook. A first build put both as two rows in one card; the owner rejected it -
 
 - [x] `dev-preview-sessionstart` and `dev-pages`: six one-link cards, Clock in Test gate's place, and the /clock page
 - [x] `stopwatch`, `logbook` and `connector-dashboard` suites green
-- [ ] The owner has looked at the hub home page (visible result)
+- [x] The owner has looked at the hub home page (visible result), and asked for the PR
 
 ### DEPLOY: feat/hub-clock-card
 
