@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**14 / 23 minor entries** <!-- pending-tally -->
+**14 / 24 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3551-specialist-detail-pages · 20261027-123405Z
+
+The product's **Specialists** pages go one level deeper
+([#3551](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3551)). A plugin's page now opens on
+one card per specialist, four to a row and with nothing above them, and each card, like each name in the table below the cards, leads to that
+specialist's own page at `/specialists/<plugin>/<name>`. That page shows the specialist's context cost
+per part, what it is and when it loads, where its definition, manual and lens live, its listing, and its
+definition.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A: the product's dev-server pages exist only in this repo's checkout. No plugin ships them.
+
+**Score:** N/A
+
+#### Pull Request
+
+Specialists: a card per specialist inside its plugin's page, and a detail page per specialist
+
+[PR #3578](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3578)
+
+---
 
 ### DEPLOY: fix/3576-record-recurrence-stays-closed · 20261027-115033Z
 
