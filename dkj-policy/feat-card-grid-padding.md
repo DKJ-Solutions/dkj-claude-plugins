@@ -54,7 +54,7 @@ The owner wants the container the cards sit in (a .grid-2, a .grid-3, a repo's o
 ### TEST
 
 - [x] suites `check-house-style` (90), `dev-pages` (478) and `house-palette` (128) pass
-- [ ] the owner looks at `/connectors/dkj` (a visible result: the branch stops here for that look)
+- [x] the owner looked at `/connectors/dkj` and said "ship it" (October 28, 2026)
 
 ### DEPLOY: feat/card-grid-padding
 
