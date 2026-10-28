@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**5 / 5 minor entries** <!-- pending-tally -->
+**5 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3610-card-slot-link-guard · 20261028-134828Z
+
+`Format-HubCardLinkHtml` now refuses an `<a>` in any of its four markup slots. The card is already one link,
+and a link inside it broke the card in the browser. A caller that passes one fails with a message naming
+the slot (#3610).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+Format-HubCardLinkHtml refuses a link in its markup slots
+
+Plugins: dkj-policy
+
+[PR #3618](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3618)
+
+---
 
 ### DEPLOY: fix/3613-live-push-short-flags · 20261028-133056Z
 
