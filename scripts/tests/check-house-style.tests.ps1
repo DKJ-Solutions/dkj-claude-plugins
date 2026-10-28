@@ -248,6 +248,42 @@ try {
     $r = Invoke-Child $Gate $drift 'RepoRoot'
     Assert-Equal 2 $r.Code 'a repo-config.ps1 that throws stops the gate with 2, not the 1 of a finding'
 
+    # #3637: in the source repo the canonical copy runs ahead of the pin between cuts, and is not a copy.
+    $source = New-FixtureRepo 'source'
+    $canonDir = Join-Path $source 'plugins\dkj-policy\assets\house-style'
+    New-Item -ItemType Directory -Force -Path $canonDir, (Join-Path $source '.claude-plugin') | Out-Null
+    Copy-Item -LiteralPath (Join-Path $Vendored 'house-style.css'), (Join-Path $Vendored 'house-theme.js') -Destination $canonDir
+    Add-Content -LiteralPath (Join-Path $canonDir 'house-style.css') -Value '/* merged since the cut */'
+    Set-Content -LiteralPath (Join-Path $source '.claude-plugin\marketplace.json') -Value '{ "plugins": [ { "name": "dkj-policy" }, { "name": "dkj-solutions" } ] }' -Encoding ascii
+    Set-Content -LiteralPath (Join-Path $source 'web\app.css') -Value '.card { color: red; }' -Encoding ascii
+    Invoke-FixtureGitIn $source add -A
+    Assert-True (Test-HouseStyleSourceRepo -RepoRoot $source) 'a manifest publishing dkj-solutions is the source repo'
+    Assert-True (-not (Test-HouseStyleSourceRepo -RepoRoot $clean)) 'a repo without a manifest is not'
+    $r = Invoke-Child $Gate $source 'RepoRoot'
+    Assert-True ($r.Out -notmatch '\[pin\]') 'the source repo''s canonical copy, ahead of the pin, is no pin finding'
+    Assert-True ($r.Out -match '\[source\]   plugins/dkj-policy/assets/house-style/house-style\.css' -and $r.Out -match 'house-style\.css is this repo''s canonical copy and differs from') '...it is named as the source, and as differing from the tag'
+    Assert-True ($r.Out -notmatch 'house-theme\.js is this repo''s canonical copy') '...and a canonical file equal to the pin carries no note'
+    Assert-True ($r.Code -eq 1 -and $r.Out -match '\[redefine\] web/app\.css:1 styles the house class \.card') '...and still serves check 2 as the verified stylesheet'
+    Remove-Item -LiteralPath (Join-Path $source 'web\app.css')
+    Invoke-FixtureGitIn $source add -A
+    $r = Invoke-Child $Hook $source 'RepoRootOverride'
+    Assert-True ($r.Code -eq 0 -and $r.Out -match 'holds at .* 2 canonical file\(s\) of this source repo, not held to the pin, and 0 pinned') 'the session check holds the canonical copy to no pin either, and says so'
+    $demo = Join-Path $canonDir 'demo'
+    New-Item -ItemType Directory -Force -Path $demo | Out-Null
+    Copy-Item -LiteralPath (Join-Path $canonDir 'house-style.css') -Destination $demo
+    Invoke-FixtureGitIn $source add -A
+    $r = Invoke-Child $Gate $source 'RepoRoot'
+    Assert-True ($r.Code -eq 1 -and $r.Out -match '\[pin\] plugins/dkj-policy/assets/house-style/demo/house-style\.css') 'a copy nested under the canonical folder is a copy, not the source'
+    Remove-Item -LiteralPath $demo -Recurse -Force
+    Copy-Item -LiteralPath (Join-Path $canonDir 'house-style.css') -Destination (Join-Path $source 'web\house-style.css')
+    Invoke-FixtureGitIn $source add -A
+    $r = Invoke-Child $Gate $source 'RepoRoot'
+    Assert-True ($r.Code -eq 1 -and $r.Out -match '\[pin\] web/house-style\.css') 'a vendored copy elsewhere in the source repo is still held to the pin'
+    Set-Content -LiteralPath (Join-Path $source '.claude-plugin\marketplace.json') -Value '{ "plugins": [ { "name": "other" } ] }' -Encoding ascii
+    Assert-True (-not (Test-HouseStyleSourceRepo -RepoRoot $source)) 'a manifest publishing other plugins is a consumer'
+    Set-Content -LiteralPath (Join-Path $source '.claude-plugin\marketplace.json') -Value '{ broken' -Encoding ascii
+    Assert-True (-not (Test-HouseStyleSourceRepo -RepoRoot $source)) 'an unreadable manifest is a consumer'
+
     $none = New-FixtureRepo 'none'
     Set-Content -LiteralPath (Join-Path $none 'web\app.js') -Value 'console.log(1)' -Encoding ascii
     Invoke-FixtureGitIn $none add -A
@@ -263,6 +299,7 @@ Remove-Item Env:\DKJ_HOUSE_STYLE_TAG_PAGE -ErrorAction SilentlyContinue
 
 $r = Invoke-Child $Gate $RepoRoot 'RepoRoot'
 Assert-Equal 0 $r.Code 'this repo passes its own house-style gate'
+Assert-True (Test-HouseStyleSourceRepo -RepoRoot $RepoRoot) 'this repo is read as the house style''s source'
 
 # The reusable workflow reads the pin at the tag the page names (#3148), not at the ref it runs from.
 $wf = [System.IO.File]::ReadAllText((Join-Path $RepoRoot '.github\workflows\reusable-house-style.yml'))

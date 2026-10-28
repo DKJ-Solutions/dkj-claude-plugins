@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**4 / 9 minor entries** <!-- pending-tally -->
+**4 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3637-canonical-house-style-not-a-copy · 20261028-230422Z
+
+A session in `dkj-claude-plugins` no longer opens with a warning to replace the canonical house stylesheet
+with the last release's file, a step that would revert work merged since that cut
+([#3637](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3637)). The two files in
+`plugins/dkj-policy/assets/house-style/` are now named as the source and still read for the redefine check.
+Every other copy, in every repo, is held to the pin as before.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+the source repo's canonical house style is not held to the installed pin
+
+Plugins: dkj-solutions
+
+[PR #3640](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3640)
+
+---
 
 ### DEPLOY: feat/specialists-card-under-plugins · 20261028-223647Z
 
