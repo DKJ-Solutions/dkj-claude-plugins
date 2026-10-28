@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**2 / 4 minor entries** <!-- pending-tally -->
+**3 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3629-house-style-specimens-in-dkj-policy · 20261028-165357Z
+
+The house style's specimens page moved from `/plugins/dkj-solutions/house-style` to
+`/plugins/dkj-policy/house-style`, beside the files it documents
+([#3629](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3629)). Every repo running the toolbox now
+reaches it, BWJ-Development's included, where `dkj-solutions` is never enabled. The House style card sits on the
+`dkj-policy` plugin page, and the old address redirects to the new one.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A BWJ-Development repo's toolbox now has a House style page under Plugins > dkj-policy, showing every token,
+theme and component of the stylesheet that toolbox renders with. A bookmark to the old address still lands.
+
+**Score:** 1
+
+#### Pull Request
+
+The house style specimens page moves to dkj-policy, so every repo running the toolbox reaches it
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3631](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3631)
+
+---
 
 ### DEPLOY: feat/h1-never-framed · 20261028-164121Z
 
