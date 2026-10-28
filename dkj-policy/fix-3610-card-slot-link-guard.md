@@ -39,19 +39,33 @@
 
 ### PLAN
 
+#3610's open half: the docstring already says the four markup slots hold no `<a>`. Enforce it by
+refusing one, which the issue left open between refusing and stripping. A refusal fails the caller's suite,
+where a strip would hide the mistake.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-HubCardLinkHtml` throws when `-SubHtml`, `-ValueHtml`, `-BadgeHtml` or `-TitleBadgeHtml`
+  holds an `<a>`
+- [x] `dev-pages.tests.ps1`: each slot is refused; `<abbr>` passes
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` standalone: 480 passed, 0 failed
+
 ### DEPLOY: fix/3610-card-slot-link-guard
 
-**Score:**
+`Format-HubCardLinkHtml` now refuses an `<a>` in any of its four markup slots. The card is already one link,
+and a link inside it broke the card in the browser. A caller that passes one fails with a message naming
+the slot (#3610).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
