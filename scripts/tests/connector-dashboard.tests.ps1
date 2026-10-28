@@ -269,31 +269,40 @@ Assert-True ($html -notmatch '>Main</th>' -and $html -notmatch '>Checkout</th>' 
 $failed = Format-ConnectorDashboardHtml -Connectors @() -Meta @{ GeneratedAt = 'now'; SourceCommit = ''; Seconds = $null; CheckFailed = 'boom <b>' }
 Assert-True ($failed -match 'class="msg msg--warn" role="alert"' -and $failed -match 'boom &lt;b&gt;') 'a check that could not run is the form''s warning line, escaped'
 
-# The Specialist lenses card under the overview's group cards (Maikel, October 28, 2026).
+# The Lenses card on a DKJ repo's own page, /connectors/dkj/<name> (Maikel, October 28, 2026).
 $scaffold = "---`nid: 17`ngroup: 06`n---`n`n# 06-17 - repo lens`n`n> Created by specialists-init as an empty template.`n`n## Specific to this repo (VUL-IN)`n`n<!-- TODO: describe what this specialist does`n     in THIS repo. -->`n"
 Assert-True (-not (Test-LensFilled $scaffold)) 'a scaffold lens is not filled in: frontmatter, headings, quotes and a comment only'
 Assert-True (Test-LensFilled ($scaffold + "`nThe theme lives in theme/.`n")) 'one line of prose fills it in, its VUL-IN heading or not'
 Assert-True (-not (Test-LensFilled '') -and -not (Test-LensFilled $null)) 'an empty lens is not filled in'
 Assert-Equal '709 B' (Format-DashboardBytes 709) 'a size under 1 KB is in bytes'
 Assert-Equal '27 KB' (Format-DashboardBytes 27393) 'and above it in whole KB'
-$lm = Format-LensMapSectionHtml -Checkouts @(
-    @{ Name = 'dkj-solutions/empty'; Branch = 'main'; Lenses = @(@{ Id = '06-17'; Bytes = 709; Filled = $false; Marked = $true }) },
-    @{ Name = 'bwj-development/<shop>'; Branch = 'feat/x'; Lenses = @(
-        @{ Id = '05-05'; Bytes = 27393; Filled = $true; Marked = $false },
-        @{ Id = '05-06'; Bytes = 30000; Filled = $true; Marked = $true },
-        @{ Id = '06-17'; Bytes = 709; Filled = $false; Marked = $true }) }) -Names @{ '05-05' = 'Derek' }
-Assert-True ($lm.Html.Contains('<h2>Specialist lenses</h2><p class="card__sub">2 checkouts &#183; 4 lenses &#183; 2 filled in</p>')) 'the lenses card counts checkouts, lenses and the filled-in ones'
-Assert-True ($lm.Html.IndexOf('bwj-development/&lt;shop&gt;') -ge 0 -and $lm.Html.IndexOf('bwj-development/&lt;shop&gt;') -lt $lm.Html.IndexOf('dkj-solutions/empty')) 'a checkout''s name is escaped, and the checkout with the most filled-in bytes comes first'
-Assert-True ($lm.Html.Contains('<li><code>05-05</code><span>Derek</span><span class="cd-lens__size">27 KB</span></li>') -and $lm.Html -notmatch '<code>06-17</code>') 'a filled-in lens is a line of its own, with its specialist and size; a scaffold is not listed'
-Assert-True ($lm.Html.IndexOf('<code>05-06</code>') -lt $lm.Html.IndexOf('<code>05-05</code>') -and $lm.Html.Contains('<td>2<br><span class="meta">56 KB</span></td>')) 'inside a checkout the largest lens comes first, and the filled-in total stands under the count (big to small, October 28, 2026)'
-Assert-True ($lm.Html -match '<li><code>05-06</code><span> <span class="tag tag--warn"[^<]*>VUL-IN</span></span><span class="cd-lens__size">29 KB</span></li>') 'an id with no known name is shown bare, and a filled-in lens still marked VUL-IN is tagged'
-Assert-True ($lm.Html.Contains('<span class="note">Scaffolds only</span>') -and $lm.Html.Contains('on <code>feat/x</code>') -and -not $lm.Html.Contains('on <code>main</code>')) 'a checkout with no filled-in lens says so, and only a branch other than the trunk is named'
-Assert-True ((Format-LensMapSectionHtml -Checkouts @()).Html.Contains('No checkout on this machine holds')) 'no checkout with lenses is said, not an empty table'
-$withLens = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' } -OverviewSectionHtml $lm.Html -OverviewSectionStyle $lm.Style
-$iG = $withLens.IndexOf('id="groups"'); $iL = $withLens.IndexOf('id="lenses"')
-Assert-True ($iG -ge 0 -and $iG -lt $iL -and $iL -lt $withLens.IndexOf('class="footer-note"') -and $withLens -match '\.cd-lenses \{ table-layout: fixed;') 'the overview holds the lenses card under its group cards, with its style'
-$dkjWith = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' } -Group 'dkj' -OverviewSectionHtml $lm.Html -OverviewSectionStyle $lm.Style
-Assert-True ($dkjWith -notmatch 'id="lenses"' -and $dkjWith -notmatch '\.cd-lenses') 'and a group''s page does not'
+$card = Format-RepoLensesCardHtml -Lenses @(
+    @{ Id = '06-17'; Bytes = 709; Filled = $false; Marked = $true },
+    @{ Id = '05-05'; Bytes = 27393; Filled = $true; Marked = $false },
+    @{ Id = '05-06'; Bytes = 30000; Filled = $true; Marked = $true },
+    @{ Id = '02-09'; Bytes = 711; Filled = $false; Marked = $true }) -Names @{ '05-05' = 'Derek <i>'; '02-09' = 'Paula' }
+Assert-True ($card.Html.Contains('<div class="grid-2" id="lenses">') -and $card.Html.Contains('<h2>Lenses</h2><p class="card__sub">4 lenses &#183; 2 filled in &#183; 56 KB</p>')) 'the Lenses card is headed Lenses, counting the lenses, the filled-in ones and their size'
+Assert-True ($card.Html.IndexOf('<code>05-06</code>') -ge 0 -and $card.Html.IndexOf('<code>05-06</code>') -lt $card.Html.IndexOf('<code>05-05</code>') -and $card.Html.IndexOf('<code>05-05</code>') -lt $card.Html.IndexOf('Scaffolds only')) 'the filled-in lenses are a table, big to small, the scaffolds under it'
+Assert-True ($card.Html.Contains('<td class="cd-left">Derek &lt;i&gt;</td><td>27 KB</td>') -and $card.Html -match '<td class="cd-left"> <span class="tag tag--warn"[^>]*>VUL-IN</span></td><td>29 KB</td>') 'a lens row names its specialist, escaped, or nothing for an unknown id, and a filled-in lens still marked VUL-IN is tagged'
+Assert-True ($card.Html.Contains('Scaffolds only (2): <code>02-09</code> Paula, <code>06-17</code></p>')) 'the scaffolds are one line, by id, with their names where known'
+Assert-True ((Format-RepoLensesCardHtml -Lenses $null).Html.Contains('No checkout of this repo on this machine holds') -and (Format-RepoLensesCardHtml -Lenses $null).Html.Contains('Not read on this machine')) 'no checkout or no lens folder is said, not an empty table'
+Assert-True ((Format-RepoLensesCardHtml -Lenses @()).Html.Contains('holds no lens') -and (Format-RepoLensesCardHtml -Lenses @(@{ Id = '06-17'; Bytes = 709; Filled = $false })).Html.Contains('Every lens is still its scaffold')) 'an empty folder, and a folder of scaffolds only, each say so'
+$lensTree = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-lenses-$PID-$([guid]::NewGuid().ToString('n'))"
+try {
+    New-Item -ItemType Directory -Force -Path (Join-Path $lensTree '.claude\specialists\lenses') | Out-Null
+    Set-Content -LiteralPath (Join-Path $lensTree '.claude\specialists\lenses\specialist-05-05-lens.md') -Encoding ASCII -Value "## Specific to this repo`n`nThe theme lives in theme/."
+    Set-Content -LiteralPath (Join-Path $lensTree '.claude\specialists\lenses\specialist-06-17-lens.md') -Encoding ASCII -Value "## Specific to this repo (VUL-IN)`n`n<!-- TODO -->"
+    Set-Content -LiteralPath (Join-Path $lensTree '.claude\specialists\lenses\notes.md') -Encoding ASCII -Value 'x'
+    $read = Get-CheckoutLenses -Path $lensTree
+    Assert-True ($read.Count -eq 2 -and $read[0].Id -eq '05-05' -and $read[0].Filled -and -not $read[0].Marked -and $read[1].Id -eq '06-17' -and -not $read[1].Filled -and $read[1].Marked) 'a checkout''s lenses are read with their id, whether filled in and whether marked; another file is not a lens'
+    Get-ChildItem -LiteralPath (Join-Path $lensTree '.claude\specialists\lenses') -File | Remove-Item -Force
+    $none = Get-CheckoutLenses -Path $lensTree
+    Assert-True ($null -ne $none -and @($none).Count -eq 0) 'an empty lens folder reads as no lens, not as no folder'
+    Assert-True ($null -eq (Get-CheckoutLenses -Path (Join-Path $lensTree 'missing')) -and $null -eq (Get-CheckoutLenses -Path '')) 'no folder, or no checkout, reads as $null'
+} finally { Remove-Item -LiteralPath $lensTree -Recurse -Force -ErrorAction SilentlyContinue }
+$framed = (Format-ConnectorPageStart -PageName 'a <b>' -Trail @(@{ Href = '/connectors'; Label = 'Connectors' }, @{ Href = '/connectors/dkj'; Label = 'DKJ repos' }) -Style '.x { }') + (Format-ConnectorPageEnd -FooterHtml 'Foot <code>x</code>')
+Assert-True ($framed.Contains('<title>dkj-claude-plugins -- a &lt;b&gt;</title>') -and $framed.Contains('<h1>a &lt;b&gt;</h1>') -and $framed.Contains('<a href="/connectors/dkj">DKJ repos</a>') -and $framed.Contains('.x { }') -and $framed.Contains('<p class="footer-note">Foot <code>x</code></p>') -and $framed.TrimEnd().EndsWith('</html>')) 'the page frame escapes its name, walks its trail, carries the caller''s style and footer, and closes the page'
+Assert-True ($overview -notmatch 'id="lenses"' -and $dkj -notmatch 'id="lenses"') 'neither the overview nor a group''s page holds a Lenses card: that is a repo''s own page'
 
 Write-Host '-- group 1e: the canonical house style is the copy the skill pins' -ForegroundColor Cyan
 
@@ -444,11 +453,6 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         & git -C $noup init -q 2>$null
         & git -C $noup -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m 'local only' 2>$null
         & git -C $outside init -q 2>$null
-        # Two lenses in the no-upstream checkout, for the Specialist lenses card: one filled in, one a scaffold.
-        $lensDir3 = Join-Path $noup '.claude\specialists\lenses'
-        New-Item -ItemType Directory -Force -Path $lensDir3 | Out-Null
-        Set-Content -LiteralPath (Join-Path $lensDir3 'specialist-05-05-lens.md') -Encoding ASCII -Value "## Specific to this repo`n`nThe theme lives in theme/."
-        Set-Content -LiteralPath (Join-Path $lensDir3 'specialist-06-17-lens.md') -Encoding ASCII -Value "## Specific to this repo (VUL-IN)`n`n<!-- TODO -->"
 
         $probe = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
         $probe.Start(); $port3 = $probe.LocalEndpoint.Port; $probe.Stop()
@@ -473,8 +477,6 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $at = $page.IndexOf('id="repo-org-far"')
             $far = if ($at -ge 0) { $page.Substring($at, $page.IndexOf('</section>', $at) - $at) } else { '' }
             Assert-True ($far -and $far -notmatch 'class="meta"') 'a checkout outside the scope root is not read'
-            Assert-True ($overviewPage -match 'id="lenses"' -and $overviewPage -match '<tr><td>org/noup</td><td>2</td><td>1<br>' -and $overviewPage -match '<li><code>05-05</code><span></span><span class="cd-lens__size">') '/connectors reads every checkout''s lenses under the scope root: two in org/noup, one filled in'
-            Assert-True ($overviewPage -notmatch 'org/src</td>' -and $page -notmatch 'id="lenses"') 'a checkout without lenses has no row, and a group''s page has no lenses card'
             # THE PRODUCT (#3540): the general pages are the plugin hub's, so this server neither relays nor builds them.
             foreach ($moved in '/artifacts', '/issues', '/sessionstart', '/release-notes', '/test-gate', '/repository') {
                 $r = if ($up) { Get-Raw 'GET' $moved "localhost:$port3" '' $port3 } else { '' }

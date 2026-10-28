@@ -721,7 +721,7 @@ $sec = Format-DkjReposSectionHtml -Query $q -Checkouts $co -Meta @{ GeneratedAt 
 $page = $sec.Html
 Assert-True ($page -match '<div class="dr-grid" id="repos">\s*<div class="grid__head"><h2>On GitHub</h2><p class="card__sub">[^<]+</p></div>\s*<section class="card dr-card">' -and $page -notmatch '<h1' -and $page -notmatch 'class="tiles"' -and $page -notmatch '<table') 'the repos are cards in a grid headed by an h2, as Connected repos and Issues head theirs, with no h1, no tiles and no table (#3549)'
 Assert-True ($sec.Style -match '\.dr-grid \{' -and $sec.FooterNote -match '^On GitHub: read with one <code>gh api graphql</code> call[^<]*2026-10-20 12:00:00 in 1\.2s\.$' -and $sec.FooterNote -notmatch 'href=') 'it hands the page its style and a footer clause naming its source and time, with no refresh link of its own'
-Assert-True ($page -match '<section class="card dr-card"><h3><a href="https://github.com/DKJ-Solutions/dkj-lifehub">dkj-lifehub</a></h3>[^\n]*data-copy="Set-Location[^\n]*</section>') 'a repo card is titled with an h3 under the section''s h2, and a checkout''s session command sits in its own repo''s card'
+Assert-True ($page -match '<section class="card dr-card"><h3><a href="/connectors/dkj/dkj-lifehub">dkj-lifehub</a></h3>[^\n]*href="https://github.com/DKJ-Solutions/dkj-lifehub">GitHub</a>[^\n]*data-copy="Set-Location[^\n]*</section>') 'a repo card is titled with an h3 opening its own page (October 28, 2026), links GitHub on its facts line, and holds its checkout''s session command'
 Assert-True ($page -match '&lt;b&gt;life&lt;/b&gt;' -and $page -notmatch '<b>life</b>') 'a repo description is escaped'
 Assert-True ($page -match 'href="https://github.com/DKJ-Solutions/dkj-lifehub/issues">3</a>' -and $page -match '2 uncommitted') 'a repo row links its open issues and names its checkout state'
 Assert-True ($page -match '>unlisted</a>' -and $page -match 'unlisted&#39;; claude') 'a checkout GitHub did not list still gets its card and its session'
@@ -734,6 +734,15 @@ Assert-True ((Format-DkjReposSectionHtml -Query $evil -Checkouts @() -Meta @{ Ge
 $pageErr = (Format-DkjReposSectionHtml -Query (ConvertFrom-DkjRepoQuery -Json '') -Checkouts $co -Meta @{ GeneratedAt = 'x'; Seconds = $null }).Html
 Assert-True ($pageErr -match 'msg--warn' -and $pageErr -match '>dkj-lifehub</a>' -and $pageErr.IndexOf('<h2>On GitHub</h2>') -lt $pageErr.IndexOf('msg--warn')) 'when GitHub cannot be read the section says so under its heading and still lists the checkouts'
 Assert-True ((Format-DkjReposSectionHtml -Query $q -Checkouts @() -Meta @{ GeneratedAt = 'x' }).Html -match 'No DKJ-Solutions checkout was found') 'no checkout at all says so'
+Write-Host '-- a DKJ repo''s own page, /connectors/dkj/<name>, holding its Lenses (October 28, 2026)' -ForegroundColor Cyan
+$set = Get-DkjRepoRows -Query $q -Checkouts $co
+Assert-True ($set.Rows.Count -eq 2 -and $set.Rows[1].Name -eq 'unlisted' -and $set.ByRepo['DKJ-Solutions/dkj-lifehub'].Path -eq 'C:\x\dkj-lifehub') 'the repo rows are GitHub''s, then each checkout GitHub did not list, with each checkout by its repo'
+$lc = Format-RepoLensesCardHtml -Lenses @(@{ Id = '05-05'; Bytes = 2048; Filled = $true; Marked = $false }) -Names @{ '05-05' = 'Derek' }
+$rp = Format-DkjRepoPageHtml -Row $set.Rows[0] -Checkout $set.ByRepo['DKJ-Solutions/dkj-lifehub'] -LensesHtml $lc.Html -LensesStyle $lc.Style -Meta @{ GeneratedAt = '2026-10-28 10:00:00'; Seconds = 0.5 }
+Assert-True ($rp.Contains('<h1>dkj-lifehub</h1>') -and $rp.Contains('<a href="/connectors">Connectors</a>') -and $rp.Contains('<a href="/connectors/dkj">DKJ repos</a>') -and $rp.Contains('<span aria-current="page">dkj-lifehub</span>')) 'a repo''s page is headed by its name, under Home > Connectors > DKJ repos'
+Assert-True ($rp -match '<section class="card dr-card grid__full"><p class="dr-desc"' -and $rp -notmatch '<h3>' -and $rp -match 'data-copy="Set-Location' -and $rp -match 'execCommand\("copy"\)') 'it holds the repo''s card without a title of its own, with its session to copy'
+$iRepo = $rp.IndexOf('id="repo"'); $iLens = $rp.IndexOf('<h2>Lenses</h2>')
+Assert-True ($iRepo -ge 0 -and $iRepo -lt $iLens -and $rp -match '\.dr-grid \{' -and $rp -match '\.cd-lenses \{' -and $rp.Contains('href="/refresh?page=connectors/dkj/dkj-lifehub"')) 'and its Lenses card under it, both styled, its footer reading the page again'
 Write-Host '-- the DKJ group''s connector page holds the section (#3549)' -ForegroundColor Cyan
 $cdk = @(@{ Repo = 'DKJ-Solutions/dkj-lifehub'; Status = 'bad'; Plugins = @(); Signals = @(); Present = $false; Git = $null })
 $merged = Format-ConnectorDashboardHtml -Connectors $cdk -Meta @{ GeneratedAt = 'now' } -Group 'dkj' -SectionHtml $sec.Html -SectionStyle $sec.Style -SectionFooterNote $sec.FooterNote

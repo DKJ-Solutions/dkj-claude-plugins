@@ -308,115 +308,107 @@ function Format-DashboardBytes {
     return ([math]::Round($Bytes / 1024)).ToString([Globalization.CultureInfo]::InvariantCulture) + ' KB'
 }
 
-function Format-LensMapSectionHtml {
+function Get-CheckoutLenses {
     <#
-        The Specialist lenses card on /connectors (Maikel, October 28, 2026): every checkout on this machine
-        that holds .claude/specialists/lenses/, how many lenses it has, how many say something beyond their
-        scaffold (Test-LensFilled), and which those are, by id and specialist name. -Checkouts is a list of
-        @{ Name ('<owner folder>/<repo folder>'); Branch; Lenses (list of @{ Id; Bytes; Filled; Marked }) };
-        -Names maps an id to its specialist's name, and an id it lacks is shown bare. Big to small, twice (Maikel,
-        October 28, 2026): the checkouts by the total size of their filled-in lenses, and inside a checkout its
-        lenses one per line, largest first. Returns @{ Html; Style }, the server reading the disk so this stays a
-        pure function.
+        A DKJ repo page's Lenses (Maikel, October 28, 2026): each specialist-<id>-lens.md in -Path's
+        .claude/specialists/lenses/ with its size, whether it is filled in (Test-LensFilled) and whether it still
+        carries VUL-IN; $null where -Path is empty or holds no lens folder. A lens that cannot be read counts as a
+        scaffold. The server reads it on every request -- one folder of small files -- and hands the answer to
+        Format-RepoLensesCardHtml. THIS FUNCTION READS THE DISK, unlike the formatters beside it.
+    #>
+    param([AllowEmptyString()][string]$Path)
+    if (-not $Path) { return $null }
+    $dir = Join-Path $Path '.claude\specialists\lenses'
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) { return $null }
+    $lenses = @()
+    foreach ($f in @(Get-ChildItem -LiteralPath $dir -File -Filter 'specialist-*-lens.md' -ErrorAction SilentlyContinue | Sort-Object Name)) {
+        if ($f.Name -notmatch '^specialist-(\d\d-\d\d)-lens\.md\z') { continue }
+        $id = $Matches[1]
+        $text = ''
+        try { $text = [System.IO.File]::ReadAllText($f.FullName, [System.Text.Encoding]::UTF8) } catch { $text = '' }
+        $lenses += @{ Id = $id; Bytes = [int64]$f.Length; Filled = (Test-LensFilled $text); Marked = $text.Contains('VUL-IN') }
+    }
+    # The comma keeps an empty folder an empty list rather than $null, which would read as no folder at all.
+    return , $lenses
+}
+
+function Format-RepoLensesCardHtml {
+    <#
+        The Lenses card on a DKJ repo's own page, /connectors/dkj/<name> (Maikel, October 28, 2026): what the
+        checkout's .claude/specialists/lenses/ holds. -Lenses is a list of @{ Id; Bytes; Filled; Marked }, or
+        $null where there is no checkout here or it has no lens folder; -Names maps an id to its specialist's
+        name, and an id it lacks is shown bare. The filled-in lenses (Test-LensFilled) are a table, big to
+        small (Maikel, the same day), and a lens filled in yet still marked VUL-IN is tagged; the scaffolds
+        are one line under it. Returns @{ Html; Style }, the server reading the disk so this stays a pure
+        function.
     #>
     param(
-        [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Checkouts,
+        [AllowNull()][AllowEmptyCollection()][object[]]$Lenses,
         [hashtable]$Names = @{}
     )
     $e = { param($v) ConvertTo-DashboardText $v }
-    $all = @($Checkouts | Where-Object { $_ })
-    $filledOf = { param($c) @(@($c.Lenses) | Where-Object { $_ -and $_.Filled }) }
-    $nLenses = 0; $nFilled = 0
-    foreach ($c in $all) { $nLenses += @(@($c.Lenses) | Where-Object { $_ }).Count; $nFilled += @(& $filledOf $c).Count }
-    $summary = "$($all.Count) checkout" + $(if ($all.Count -ne 1) { 's' } else { '' }) + " &#183; $nLenses lenses &#183; $nFilled filled in"
+    $nameOf = { param($id) if ($Names.ContainsKey($id) -and $Names[$id]) { [string]$Names[$id] } else { '' } }
+    $all = @($Lenses | Where-Object { $_ })
+    $filled = @($all | Where-Object { $_.Filled } | Sort-Object @{ Expression = { [int64]$_.Bytes }; Descending = $true }, @{ Expression = { [string]$_.Id } })
+    $scaffolds = @($all | Where-Object { -not $_.Filled } | Sort-Object @{ Expression = { [string]$_.Id } })
+    # Summed by hand: Measure-Object -Property reads no hashtable key in Windows PowerShell 5.1.
+    $bytes = [int64]0; foreach ($l in $filled) { $bytes += [int64]$l.Bytes }
+    $summary = if ($null -eq $Lenses) { 'Not read on this machine' }
+               else { "$($all.Count) lens" + $(if ($all.Count -ne 1) { 'es' } else { '' }) + " &#183; $($filled.Count) filled in" + $(if ($filled.Count) { ' &#183; ' + (Format-DashboardBytes $bytes) } else { '' }) }
 
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<div class="grid-2" id="lenses">')
-    [void]$sb.AppendLine('<div class="grid__head"><h2>Specialist lenses</h2><p class="card__sub">' + $summary + '</p></div>')
+    [void]$sb.AppendLine('<div class="grid__head"><h2>Lenses</h2><p class="card__sub">' + $summary + '</p></div>')
     [void]$sb.AppendLine('<section class="card grid__full">')
     [void]$sb.AppendLine('<div>')
-    if (-not $all.Count) {
-        [void]$sb.AppendLine('<p class="note">No checkout on this machine holds <code>.claude/specialists/lenses/</code>.</p>')
+    if ($null -eq $Lenses) {
+        [void]$sb.AppendLine('<p class="note">No checkout of this repo on this machine holds <code>.claude/specialists/lenses/</code>.</p>')
+    } elseif (-not $all.Count) {
+        [void]$sb.AppendLine('<p class="note">Its <code>.claude/specialists/lenses/</code> holds no lens.</p>')
     } else {
-        [void]$sb.AppendLine('<div class="table-wrap cd-table-gap"><table class="table cd-lenses"><colgroup><col class="cd-col-co"><col class="cd-col-n"><col class="cd-col-n"><col></colgroup><thead class="cd-thead"><tr><th>Checkout</th><th>Lenses</th><th>Filled in</th><th class="cd-left">What is filled in</th></tr></thead><tbody>')
-        # Summed by hand: Measure-Object -Property reads no hashtable key in Windows PowerShell 5.1.
-        $bytesOf = { param($c) $n = [int64]0; foreach ($l in @(& $filledOf $c)) { $n += [int64]$l.Bytes }; $n }
-        $sorted = @($all | Sort-Object @{ Expression = { & $bytesOf $_ }; Descending = $true }, @{ Expression = { [string]$_.Name } })
-        foreach ($c in $sorted) {
-            $filled = @(& $filledOf $c | Sort-Object @{ Expression = { [int64]$_.Bytes }; Descending = $true }, @{ Expression = { [string]$_.Id } })
-            $branch = [string]$c.Branch
-            $on = if ($branch -and $branch -ne 'main' -and $branch -ne 'master') { '<br><span class="meta">on <code>' + (& $e $branch) + '</code></span>' } else { '' }
-            $items = if ($filled.Count) {
-                '<ul class="cd-lens-list">' + (($filled | ForEach-Object {
-                    $id = [string]$_.Id
-                    $name = if ($Names.ContainsKey($id) -and $Names[$id]) { & $e $Names[$id] } else { '' }
-                    $mark = if ($_.Marked) { ' <span class="tag tag--warn" title="Filled in, and still marked VUL-IN">VUL-IN</span>' } else { '' }
-                    '<li><code>' + (& $e $id) + '</code><span>' + $name + $mark + '</span><span class="cd-lens__size">' + (Format-DashboardBytes ([int64]$_.Bytes)) + '</span></li>'
-                }) -join '') + '</ul>'
-            } else { '<span class="note">Scaffolds only</span>' }
-            $total = if ($filled.Count) { '<br><span class="meta">' + (Format-DashboardBytes (& $bytesOf $c)) + '</span>' } else { '' }
-            [void]$sb.AppendLine('<tr><td>' + (& $e $c.Name) + $on + '</td><td>' + @(@($c.Lenses) | Where-Object { $_ }).Count + '</td><td>' + $filled.Count + $total + '</td><td class="cd-left">' + $items + '</td></tr>')
+        if ($filled.Count) {
+            [void]$sb.AppendLine('<div class="table-wrap cd-table-gap"><table class="table cd-lenses"><colgroup><col class="cd-col-id"><col><col class="cd-col-size"></colgroup><thead class="cd-thead"><tr><th class="cd-left">Lens</th><th class="cd-left">Specialist</th><th>Size</th></tr></thead><tbody>')
+            foreach ($l in $filled) {
+                $mark = if ($l.Marked) { ' <span class="tag tag--warn" title="Filled in, and still marked VUL-IN">VUL-IN</span>' } else { '' }
+                [void]$sb.AppendLine('<tr><td class="cd-left"><code>' + (& $e $l.Id) + '</code></td><td class="cd-left">' + (& $e (& $nameOf ([string]$l.Id))) + $mark + '</td><td>' + (Format-DashboardBytes ([int64]$l.Bytes)) + '</td></tr>')
+            }
+            [void]$sb.AppendLine('</tbody></table></div>')
+        } else {
+            [void]$sb.AppendLine('<p class="note">Every lens is still its scaffold.</p>')
         }
-        [void]$sb.AppendLine('</tbody></table></div>')
+        if ($filled.Count -and $scaffolds.Count) {
+            $list = ($scaffolds | ForEach-Object { $n = & $nameOf ([string]$_.Id); '<code>' + (& $e $_.Id) + '</code>' + $(if ($n) { ' ' + (& $e $n) } else { '' }) }) -join ', '
+            [void]$sb.AppendLine('<p class="meta cd-scaffolds">Scaffolds only (' + $scaffolds.Count + '): ' + $list + '</p>')
+        }
     }
     [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('</section>')
     [void]$sb.AppendLine('</div>')
 
     $style = @(
-        '.cd-lenses { table-layout: fixed; width: 100%; min-width: 760px; }',
-        '.cd-lenses td { overflow-wrap: anywhere; vertical-align: top; }',
-        '.cd-col-co { width: 26%; } .cd-col-n { width: 10%; }',
-        '.cd-lens-list { list-style: none; padding: 0; margin: 0; max-width: 420px; font-size: var(--text-sm); }',
-        '.cd-lens-list li { display: grid; grid-template-columns: 3.5rem 1fr auto; gap: var(--spacing-2); align-items: center; padding: var(--spacing-1) 0; border-top: 1px solid var(--paper-3); }',
-        '.cd-lens-list li:first-child { border-top: 0; }',
-        '.cd-lens-list code { font-size: var(--text-xs); }',
-        '.cd-lens__size { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }') -join "`r`n"
+        '.cd-lenses { table-layout: fixed; width: 100%; max-width: 640px; }',
+        '.cd-col-id { width: 6rem; } .cd-col-size { width: 6rem; }',
+        '.cd-lenses td:last-child { font-variant-numeric: tabular-nums; }',
+        '.cd-scaffolds { white-space: normal; margin-top: var(--spacing-3); }') -join "`r`n"
     return @{ Html = $sb.ToString(); Style = $style }
 }
 
-function Format-ConnectorDashboardHtml {
+function Format-ConnectorPageStart {
     <#
-        The whole page. -Connectors is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
-        (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Trunk; Subject; When }
-        or $null); Notes }. -Meta is @{ GeneratedAt; Seconds; CheckFailed }.
-        It is the Connectors page under the hub on '/' (#3097): a two-crumb trail and its own h1. The
-        facts card belongs to the hub, so this page ends on its footer note.
-
-        -Group splits it in two (owner, October 26, 2026). Empty, it is /connectors: the tiles over every repo and
-        one card per owner group (Get-DashboardOwnerGroups), each linking that group's page. A group's Key, it is
-        /connectors/<Key>: a three-crumb trail, the tiles over that group, its overview table and its repo cards.
-
-        -SectionHtml, with its -SectionStyle and -SectionFooterNote, is a block a group's page holds between its
-        Connected repos and its Issues: on /connectors/dkj, the DKJ repos on GitHub (Format-DkjReposSectionHtml,
-        #3549), which the server hands in so this lib stays free of the GitHub read. The overview ignores it.
-        -OverviewSectionHtml and its -OverviewSectionStyle are the overview's counterpart, under its group cards:
-        the Specialist lenses card (Format-LensMapSectionHtml). A group's page ignores them.
+        A connector page up to and including its h1: the head with the repo layer's style (-Style added to it),
+        the hub's banner, the site header, the trail from Home through -Trail (a list of @{ Href; Label }) to
+        -PageName, and the intro holding the h1. Format-ConnectorPageEnd closes it.
     #>
-    param(
-        [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Connectors,
-        [Parameter(Mandatory = $true)][hashtable]$Meta,
-        [ValidateSet('', 'dkj', 'bwj', 'other')][AllowEmptyString()][string]$Group = '',
-        [AllowEmptyString()][string]$SectionHtml = '',
-        [AllowEmptyString()][string]$SectionStyle = '',
-        [AllowEmptyString()][string]$SectionFooterNote = '',
-        [AllowEmptyString()][string]$OverviewSectionHtml = '',
-        [AllowEmptyString()][string]$OverviewSectionStyle = ''
-    )
-    if (-not $Group) { $SectionHtml = $OverviewSectionHtml; $SectionStyle = $OverviewSectionStyle; $SectionFooterNote = '' }
-    $groupDef = if ($Group) { @(Get-DashboardOwnerGroups | Where-Object { $_.Key -eq $Group })[0] } else { $null }
-    $pageName = if ($groupDef) { $groupDef.Title } else { 'Connectors' }
+    param([Parameter(Mandatory = $true)][string]$PageName, [AllowEmptyCollection()][object[]]$Trail = @(), [AllowEmptyString()][string]$Style = '')
     $e = { param($v) ConvertTo-DashboardText $v }
-    $everyone = @($Connectors | Where-Object { $_ })
-    $all = if ($groupDef) { @($everyone | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $Group }) } else { $everyone }
-
+    $name = & $e $PageName
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<!doctype html>')
     [void]$sb.AppendLine('<html lang="en" data-theme-default="lilac" data-width-default="full" data-theme-key="general-pages">')
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    [void]$sb.AppendLine('<title>dkj-claude-plugins -- ' + $pageName + '</title>')
+    [void]$sb.AppendLine('<title>dkj-claude-plugins -- ' + $name + '</title>')
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     # The repo layer: only names the house file does not define (.cd-*), spaced from the house scale.
@@ -442,7 +434,7 @@ function Format-ConnectorDashboardHtml {
     # Fixed layout, so the table takes these widths rather than sizing to its own content; the min-width keeps them readable, scrolling inside .table-wrap on a narrow screen.
     [void]$sb.AppendLine('.cd-overview { table-layout: fixed; width: 100%; min-width: 860px; }')
     [void]$sb.AppendLine('.cd-overview td { overflow-wrap: anywhere; }')
-    if ($SectionStyle) { [void]$sb.AppendLine($SectionStyle) }
+    if ($Style) { [void]$sb.AppendLine($Style) }
     [void]$sb.AppendLine('.cd-col-repo { width: 36%; } .cd-col-status { width: 24%; } .cd-col-vis { width: 14%; } .cd-col-num { width: 10%; } .cd-col-ver { width: 16%; }')
     [void]$sb.AppendLine('</style>')
     [void]$sb.AppendLine('</head>')
@@ -455,8 +447,8 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>')
     $sep = '<span class="breadcrumbs__sep" aria-hidden="true"><svg viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9.793 16.707a1 1 0 0 1 0-1.414L13.086 12 9.793 8.707a1 1 0 0 1 1.414-1.414l4 4a1 1 0 0 1 0 1.414l-4 4a1 1 0 0 1-1.414 0" clip-rule="evenodd"/></svg></span>'
     [void]$sb.AppendLine('<li><a href="/">Home</a></li>')
-    if ($groupDef) { [void]$sb.AppendLine('<li>' + $sep + '<a href="/connectors">Connectors</a></li>') }
-    [void]$sb.AppendLine('<li>' + $sep + '<span aria-current="page">' + $pageName + '</span></li>')
+    foreach ($t in @($Trail | Where-Object { $_ })) { [void]$sb.AppendLine('<li>' + $sep + '<a href="' + (& $e $t.Href) + '">' + (& $e $t.Label) + '</a></li>') }
+    [void]$sb.AppendLine('<li>' + $sep + '<span aria-current="page">' + $name + '</span></li>')
     [void]$sb.AppendLine('</ol></nav></div></div>')
     [void]$sb.AppendLine('<main class="page-column">')
 
@@ -464,8 +456,61 @@ function Format-ConnectorDashboardHtml {
     [void]$sb.AppendLine('<div>')
     # The h1 alone: no lead and no tiles, on the overview or a group's page (owner, October 26, 2026). The cards and
     # the group summary lines carry the counts.
-    [void]$sb.AppendLine('<h1>' + $pageName + '</h1>')
+    [void]$sb.AppendLine('<h1>' + $name + '</h1>')
     [void]$sb.AppendLine('</div>')
+    return $sb.ToString()
+}
+
+function Format-ConnectorPageEnd {
+    <# A connector page's closing lines, after Format-ConnectorPageStart: -FooterHtml (the caller's own markup) as its footer note. #>
+    param([AllowEmptyString()][string]$FooterHtml = '')
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine('<p class="footer-note">' + $FooterHtml + '</p>')
+    [void]$sb.AppendLine('</main>')
+    [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
+    # The fit alarm, as the plugin's page shell closes every hub page (#3558).
+    [void]$sb.AppendLine((Format-FitAlarmHtml))
+    [void]$sb.AppendLine('</body>')
+    [void]$sb.AppendLine('</html>')
+    return $sb.ToString()
+}
+
+function Format-ConnectorDashboardHtml {
+    <#
+        The whole page. -Connectors is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
+        (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Trunk; Subject; When }
+        or $null); Notes }. -Meta is @{ GeneratedAt; Seconds; CheckFailed }.
+        It is the Connectors page under the hub on '/' (#3097): a two-crumb trail and its own h1. The
+        facts card belongs to the hub, so this page ends on its footer note.
+
+        -Group splits it in two (owner, October 26, 2026). Empty, it is /connectors: the tiles over every repo and
+        one card per owner group (Get-DashboardOwnerGroups), each linking that group's page. A group's Key, it is
+        /connectors/<Key>: a three-crumb trail, the tiles over that group, its overview table and its repo cards.
+
+        -SectionHtml, with its -SectionStyle and -SectionFooterNote, is a block a group's page holds between its
+        Connected repos and its Issues: on /connectors/dkj, the DKJ repos on GitHub (Format-DkjReposSectionHtml,
+        #3549), which the server hands in so this lib stays free of the GitHub read. The overview ignores it.
+        The frame -- head, banner, header, trail, h1 and the closing lines -- is Format-ConnectorPageStart and
+        Format-ConnectorPageEnd, which a DKJ repo's own page shares (Format-DkjRepoPageHtml).
+    #>
+    param(
+        [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Connectors,
+        [Parameter(Mandatory = $true)][hashtable]$Meta,
+        [ValidateSet('', 'dkj', 'bwj', 'other')][AllowEmptyString()][string]$Group = '',
+        [AllowEmptyString()][string]$SectionHtml = '',
+        [AllowEmptyString()][string]$SectionStyle = '',
+        [AllowEmptyString()][string]$SectionFooterNote = ''
+    )
+    if (-not $Group) { $SectionHtml = ''; $SectionStyle = ''; $SectionFooterNote = '' }
+    $groupDef = if ($Group) { @(Get-DashboardOwnerGroups | Where-Object { $_.Key -eq $Group })[0] } else { $null }
+    $pageName = if ($groupDef) { $groupDef.Title } else { 'Connectors' }
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $everyone = @($Connectors | Where-Object { $_ })
+    $all = if ($groupDef) { @($everyone | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $Group }) } else { $everyone }
+
+    $sb = New-Object System.Text.StringBuilder
+    $trail = if ($groupDef) { @(@{ Href = '/connectors'; Label = 'Connectors' }) } else { @() }
+    [void]$sb.Append((Format-ConnectorPageStart -PageName $pageName -Trail $trail -Style $SectionStyle))
 
     # The warning that the signals could not be read.
     if ($Meta.CheckFailed) {
@@ -483,8 +528,6 @@ function Format-ConnectorDashboardHtml {
             [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/' + $g.Key) -Label $g.Label -SubHtml (Format-DashboardGroupSummary $members) -Heading 2))
         }
         [void]$sb.AppendLine('</div>')
-        # Under the cards, the overview's own section: the Specialist lenses card (Maikel, October 28, 2026).
-        if ($SectionHtml) { [void]$sb.Append($SectionHtml) }
     } else {
         # A group's page: worst first, then by name.
         $rank = @{ bad = 0; warn = 1; skip = 2; good = 3 }
@@ -575,12 +618,6 @@ function Format-ConnectorDashboardHtml {
     # Where the data comes from, with the way to read it again: the refresh comes back to this same page.
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
     $back = if ($groupDef) { 'connectors/' + $Group } else { 'connectors' }
-    [void]$sb.AppendLine('<p class="footer-note">Read from <code>check-connectors.ps1</code>, checked ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=' + $back + '">re-run the check</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.' + $(if ($SectionFooterNote) { ' ' + $SectionFooterNote } else { '' }) + '</p>')
-    [void]$sb.AppendLine('</main>')
-    [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
-    # The fit alarm, as the plugin's page shell closes every hub page (#3558).
-    [void]$sb.AppendLine((Format-FitAlarmHtml))
-    [void]$sb.AppendLine('</body>')
-    [void]$sb.AppendLine('</html>')
+    [void]$sb.Append((Format-ConnectorPageEnd -FooterHtml ('Read from <code>check-connectors.ps1</code>, checked ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=' + $back + '">re-run the check</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.' + $(if ($SectionFooterNote) { ' ' + $SectionFooterNote } else { '' }))))
     return $sb.ToString()
 }
