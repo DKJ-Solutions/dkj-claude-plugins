@@ -70,6 +70,10 @@ that checks the stylesheet's syntax and tokens; the page is the look.
    repo's own, and no plain `<p>` that explains the page. A sentence saying what the page is for goes in its
    `<meta name="description">`, not on screen. Real content is not an intro: an empty state that says a list
    is empty stays.
+6. **The `h1` is never framed** (the owner, October 28, 2026). It gets no border, outline, shadow or
+   background of its own, and the page's `h1` stands on the page itself, never inside a card, a panel or
+   any other bordered box. `house-style.css` clears all four on every `h1`. The rest is a layout rule: the
+   page heading always sits outside the boxes.
 
 ## What it holds
 

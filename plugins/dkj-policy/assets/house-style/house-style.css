@@ -203,11 +203,11 @@ body > header, main > header { display: flex; justify-content: space-between; al
 .controls { display: flex; align-items: center; gap: var(--spacing-2); flex-wrap: wrap; }
 .controls .seg, .controls .btn { height: 30px; box-sizing: border-box; }
 .controls .btn { display: inline-flex; align-items: center; padding: 0 var(--spacing-2-5); }
-/* Page column (#141): put it on <main> and its blocks stack with one --spacing-5 gap between them, the hub's
+/* Page column (#141): put it on <main> and its blocks stack with one --spacing-3 gap between them (owner, October 28, 2026; it was --spacing-5), the hub's
    rhythm. .card, .tiles, .notice and .footer-note carry a margin-top of their own, which would add to the gap, so a
    direct child of the column gives it up. .page-cta is the spacing of a primary button under the lead (a <p> that holds
    the button). */
-.page-column { display: grid; gap: var(--spacing-5); align-content: start; padding: var(--spacing-4) var(--spacing-4) var(--spacing-12); }
+.page-column { display: grid; gap: var(--spacing-3); align-content: start; padding: var(--spacing-4) var(--spacing-4) var(--spacing-12); }
 .page-column > .card, .page-column > .tiles, .page-column > .notice, .page-column > .footer-note { margin-top: 0; }
 /* An in-page anchor in the column lands with room above it, clear of the settings button (#156). */
 .page-column [id] { scroll-margin-top: 5rem; }
@@ -243,7 +243,7 @@ body > header, main > header { display: flex; justify-content: space-between; al
 .grid__head { text-align: left; }
 .grid__head > h2 { margin: 0; }
 /* In the page column a headed group takes extra room above its h2 (#3175), so the h2 sits clearly closer to its own cards
-   (the grid's --spacing-4) than to the group before it (the column's --spacing-5 plus this): the h2s group the page. */
+   (the grid's --spacing-4) than to the group before it (the column's --spacing-3 plus this): the h2s group the page. */
 .page-column > :is(.grid-2, .grid-3):has(> .grid__head):not(:first-child) { margin-top: var(--spacing-5); }
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--spacing-3); margin-top: var(--spacing-4); }
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); column-gap: var(--spacing-4); }
@@ -268,6 +268,9 @@ h2 { font-weight: 700; }   /* 700 since October 24, 2026 (owner); it was 600 */
 :where(h3) { color: var(--fg-3); }
 /* h1 is in its own case (owner, October 24, 2026; it was set in capitals from #3247). */
 h1 { font-size: var(--text-h1); margin: 0; }
+/* The h1 is never framed (owner, October 28, 2026): no border, outline, shadow or background of its own, and the
+   page's h1 stands on the page itself, never inside a card, panel or bordered box. */
+h1 { border: 0; outline: 0; box-shadow: none; background: none; }
 h2 { font-size: var(--text-h2); margin: 0 0 var(--spacing-1); }
 /* Flex so an .info-button sits on the heading's vertical centre, not on its baseline; the capitals
    sit almost exactly mid-line, so 1px corrects the rest. */
