@@ -730,13 +730,36 @@ function Get-DevPreviewWatchArgs {
         The argument list for powershell.exe that starts the watcher for the started server -ProcessId (the
         cmd.exe the hook launched): the server's whole tree is what it stops. -StartTicks is that process's
         start time as FILETIME UTC, so a pid reused before the watcher reads it is never taken for the server.
+        -OwnerId and -OwnerStartTicks (#3620) name the process whose end also ends the server; 0 adds nothing,
+        which is every real session.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Watcher,
         [Parameter(Mandatory = $true)][int]$ProcessId,
-        [long]$StartTicks = 0
+        [long]$StartTicks = 0,
+        [int]$OwnerId = 0,
+        [long]$OwnerStartTicks = 0
     )
-    return ('-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -ProcessId {1} -StartTicks {2}' -f $Watcher, $ProcessId, $StartTicks)
+    $line = '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}" -ProcessId {1} -StartTicks {2}' -f $Watcher, $ProcessId, $StartTicks
+    if ($OwnerId -gt 0) { $line += ' -OwnerId {0} -OwnerStartTicks {1}' -f $OwnerId, $OwnerStartTicks }
+    return $line
+}
+
+function Get-DevPreviewOwner {
+    <#
+        The owner a started server is tied to (#3620), from DKJ_DEV_PREVIEW_OWNER_PID: @{ Id; StartTicks }, or
+        $null where the variable is unset, not a pid, or names no running process. A TEST sets it to its own
+        pid, so a server the suite started through the hook is stopped by its watcher once the suite has gone,
+        even when a killed gate never reached the suite's own finally. Measured October 28, 2026: a killed
+        ship-pr left 26 suite-started servers and watchers holding about 2.3 GB. A real session never sets it:
+        the hub is meant to outlive the session that started it, for the next one to reuse.
+    #>
+    param([AllowEmptyString()][string]$Value = [string]$env:DKJ_DEV_PREVIEW_OWNER_PID)
+    if ($Value -notmatch '^[1-9][0-9]{0,9}$') { return $null }
+    try {
+        $p = [Diagnostics.Process]::GetProcessById([int]$Value)
+        return @{ Id = $p.Id; StartTicks = $p.StartTime.ToFileTimeUtc() }
+    } catch { return $null }
 }
 
 function Format-DevPreviewPorts {

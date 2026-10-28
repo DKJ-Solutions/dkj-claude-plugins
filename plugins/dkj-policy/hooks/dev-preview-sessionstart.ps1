@@ -203,8 +203,12 @@ function Start-DevPreviewWatch($Proc) {
         if (-not $Proc -or $Proc.HasExited -or -not (Test-DevPreviewSessionWatchable -SessionId $Proc.SessionId)) { return }
         $watcher = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\hub\pages\dev-preview-watch.ps1'))
         if (-not (Test-Path -LiteralPath $watcher -PathType Leaf)) { return }
+        # A TEST TIES THE SERVER TO ITSELF (#3620) through DKJ_DEV_PREVIEW_OWNER_PID; a real session leaves it unset.
+        $owner = Get-DevPreviewOwner
+        $ownerId = 0; $ownerTicks = 0
+        if ($owner) { $ownerId = $owner.Id; $ownerTicks = $owner.StartTicks }
         Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden `
-            -ArgumentList (Get-DevPreviewWatchArgs -Watcher $watcher -ProcessId $Proc.Id -StartTicks $Proc.StartTime.ToFileTimeUtc()) | Out-Null
+            -ArgumentList (Get-DevPreviewWatchArgs -Watcher $watcher -ProcessId $Proc.Id -StartTicks $Proc.StartTime.ToFileTimeUtc() -OwnerId $ownerId -OwnerStartTicks $ownerTicks) | Out-Null
     } catch { }
 }
 
