@@ -39,19 +39,41 @@
 
 ### PLAN
 
+#### A visible result -- this branch waits for the owner's look before it merges
+
+The page moves under `dkj-policy`'s plugin page, so the move is judged on the running hub:
+`/plugins/dkj-policy` shows the House style card, `/plugins/dkj-policy/house-style` the specimens, and
+`/plugins/dkj-solutions/house-style` redirects there.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Resolve-PluginsPageRequest` resolves `/plugins/dkj-policy/house-style[/<section>]`, and answers the old `/plugins/dkj-solutions/house-style[/<section>]` with a redirect to it
+- [x] `serve-general-pages.ps1` sends that redirect as a 301 before the enabled-plugin lookup, so the old link lands in a repo without `dkj-solutions` too
+- [x] The House style card and the specimens' crumbs move from `dkj-solutions` to `dkj-policy`
+- [x] The docs naming the route follow: `hub/README.md`, `dkj-solutions/README.md`, `assets/house-style/README.md`, Gwen's lens
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: the new route, the two redirects, an old non-page that is no redirect, the card on `dkj-policy` and none on `dkj-solutions` -- 488 passed, 0 failed
+
 ### DEPLOY: feat/3629-house-style-specimens-in-dkj-policy
 
-**Score:**
+The house style's specimens page moved from `/plugins/dkj-solutions/house-style` to
+`/plugins/dkj-policy/house-style`, beside the files it documents
+([#3629](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3629)). Every repo running the toolbox now
+reaches it, BWJ-Development's included, where `dkj-solutions` is never enabled. The House style card sits on the
+`dkj-policy` plugin page, and the old address redirects to the new one.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A BWJ-Development repo's toolbox now has a House style page under Plugins > dkj-policy, showing every token,
+theme and component of the stylesheet that toolbox renders with. A bookmark to the old address still lands.
+
+**Score:** 1
 
 #### Pull Request
+
+The house style specimens page moves to dkj-policy, so every repo running the toolbox reaches it
 

@@ -18,7 +18,7 @@ stylesheet, the theme script, the full rules and the page patterns live in this 
 the house style is made there. The page stays a pointer to them (they were in `dkj-brandbook` from
 October 13). Their House style page ships beside them (`specimens.html`: every token, the twelve themes,
 every component with its variants and states) and this repo's hub shows it from the tree under Plugins, on
-`/plugins/dkj-solutions/house-style`, so a change to them is a visible result that stops for the owner's look
+`/plugins/dkj-policy/house-style`, so a change to them is a visible result that stops for the owner's look
 there. The
 brand book app that showed them before is retired
 ([#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)); the `house-style-css` CI gate

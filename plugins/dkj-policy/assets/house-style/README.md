@@ -37,9 +37,9 @@ so a stylesheet added later is gated without an edit.
 
 **A house-style change is judged by eye on the House style page**, `specimens.html` in this folder: every
 token, the twelve themes and every component with its variants and states, drawn from the stylesheet beside it.
-It ships with the plugin, and every hub that enables `dkj-solutions` shows it under Plugins, on
-`/plugins/dkj-solutions/house-style` (#3493), as one card per section with a page each
-(`/plugins/dkj-solutions/house-style/<section>`, #3563); in the source repo that page reads the working tree, so a change
+It ships with the plugin, and every hub that runs `dkj-policy` shows it under Plugins, on
+`/plugins/dkj-policy/house-style` (#3493, #3629), as one card per section with a page each
+(`/plugins/dkj-policy/house-style/<section>`, #3563); in the source repo that page reads the working tree, so a change
 shows there before the release that ships it. It replaces the brand book app's showcase, which is retired. `house-style-css` is the gate
 that checks the stylesheet's syntax and tokens; the page is the look.
 

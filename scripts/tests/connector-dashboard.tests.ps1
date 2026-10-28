@@ -385,7 +385,7 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             # The brandbook app is retired (#3493): the product neither serves nor redirects it, and the house style's specimens are under the hub's /plugins.
             Assert-Equal 404 (Get-Status 'GET' '/brandbook' "localhost:$port") '/brandbook is not a page of the product'
             Assert-Equal 404 (Get-Status 'GET' '/brandbook/' "localhost:$port") 'and neither is /brandbook/'
-            Assert-Equal 404 (Get-Status 'GET' '/house-style' "localhost:$port") 'and no /house-style either: the house style is the dkj-solutions plugin''s, under the hub''s /plugins (#3493)'
+            Assert-Equal 404 (Get-Status 'GET' '/house-style' "localhost:$port") 'and no /house-style either: the house style is the dkj-policy plugin''s, under the hub''s /plugins (#3493, #3629)'
             # Whose server this is: the general server's own question, answered the same way.
             $who = Get-Raw 'GET' '/whoami' "localhost:$port"
             Assert-True ($who -match 'HTTP/1.1 200' -and $who.EndsWith("`r`n`r`n" + (Get-DevPreviewRootHash -Root $RepoRoot))) '/whoami answers the hash of this root, as the general server does'
