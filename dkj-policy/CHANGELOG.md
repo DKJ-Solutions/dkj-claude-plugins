@@ -2,7 +2,56 @@
 
 ## [Unreleased]
 
-**1 / 3 minor entries** <!-- pending-tally -->
+**3 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3629-house-style-specimens-in-dkj-policy · 20261028-165357Z
+
+The house style's specimens page moved from `/plugins/dkj-solutions/house-style` to
+`/plugins/dkj-policy/house-style`, beside the files it documents
+([#3629](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3629)). Every repo running the toolbox now
+reaches it, BWJ-Development's included, where `dkj-solutions` is never enabled. The House style card sits on the
+`dkj-policy` plugin page, and the old address redirects to the new one.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A BWJ-Development repo's toolbox now has a House style page under Plugins > dkj-policy, showing every token,
+theme and component of the stylesheet that toolbox renders with. A bookmark to the old address still lands.
+
+**Score:** 1
+
+#### Pull Request
+
+The house style specimens page moves to dkj-policy, so every repo running the toolbox reaches it
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3631](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3631)
+
+---
+
+### DEPLOY: feat/h1-never-framed · 20261028-164121Z
+
+A new house-style rule: the `h1` is never framed. `house-style.css` now clears any border, outline, shadow and background on every `h1`. The README (rule 6) and the `house-style` skill state the layout half too: a page's `h1` stands on the page itself, never inside a card, panel or bordered box. The hub follows it already: its group pages (`/clock` among them) and the SessionStart pages had their `h1` inside the card group's surface, and now set it above the group. Alongside it, `.page-column` stacks its blocks with a `--spacing-3` gap instead of `--spacing-5`, so every page built on it is a little tighter. A repo whose own layer gave its `h1` a frame through a plain `h1` selector loses that frame when it takes this copy. A rule on a class of the repo's own still wins, and the rule says it must not be written.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every DKJ-Solutions app takes this the next time it copies the house style. On the hub, the group pages and the SessionStart pages now show their `h1` above the cards rather than inside the group's surface. The rule exists so that no app starts framing it.
+
+**Score:** 2
+
+#### Pull Request
+
+the h1 is never framed
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3627](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3627)
+
+---
 
 ### DEPLOY: fix/3626-cut-release-stale-section-lines · 20261028-162619Z
 

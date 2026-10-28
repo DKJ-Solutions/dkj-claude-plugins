@@ -37,9 +37,9 @@ so a stylesheet added later is gated without an edit.
 
 **A house-style change is judged by eye on the House style page**, `specimens.html` in this folder: every
 token, the twelve themes and every component with its variants and states, drawn from the stylesheet beside it.
-It ships with the plugin, and every hub that enables `dkj-solutions` shows it under Plugins, on
-`/plugins/dkj-solutions/house-style` (#3493), as one card per section with a page each
-(`/plugins/dkj-solutions/house-style/<section>`, #3563); in the source repo that page reads the working tree, so a change
+It ships with the plugin, and every hub that runs `dkj-policy` shows it under Plugins, on
+`/plugins/dkj-policy/house-style` (#3493, #3629), as one card per section with a page each
+(`/plugins/dkj-policy/house-style/<section>`, #3563); in the source repo that page reads the working tree, so a change
 shows there before the release that ships it. It replaces the brand book app's showcase, which is retired. `house-style-css` is the gate
 that checks the stylesheet's syntax and tokens; the page is the look.
 
@@ -70,6 +70,10 @@ that checks the stylesheet's syntax and tokens; the page is the look.
    repo's own, and no plain `<p>` that explains the page. A sentence saying what the page is for goes in its
    `<meta name="description">`, not on screen. Real content is not an intro: an empty state that says a list
    is empty stays.
+6. **The `h1` is never framed** (the owner, October 28, 2026). It gets no border, outline, shadow or
+   background of its own, and the page's `h1` stands on the page itself, never inside a card, a panel or
+   any other bordered box. `house-style.css` clears all four on every `h1`. The rest is a layout rule: the
+   page heading always sits outside the boxes.
 
 ## What it holds
 
