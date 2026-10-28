@@ -139,8 +139,12 @@ three rules** ([#3035](https://github.com/DKJ-Solutions/dkj-claude-plugins/issue
 inside a card, [#3175](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3175)), was retired on October 24, 2026
 (Maikel): an `h2` may title a card.
 
-1. **pin**: every tracked `house-style.css` and `house-theme.js` hashes to the table above. The copies are
-   found in the tree, so no repo needs to declare where they live. A repo without a `house-style.css` fails too.
+1. **pin**: every tracked `house-style.css` and `house-theme.js` hashes to the table above, except the
+   source repo's canonical copy (next sentence). The copies are found in the tree, so no repo needs to declare
+   where they live. A repo without a `house-style.css` fails too. In this plugin's source repo the two files in
+   `plugins/dkj-policy/assets/house-style/` run ahead of the installed tag between cuts, so they are named as
+   the source and read for check 2 instead
+   ([#3637](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3637)).
 2. **redefine**: the repo's own layer defines no house token (`--x:`) and restyles no house class app-wide
    (`.card { }`, `main .card { }`). A house class inside a component of the repo's own (`.my-panel .card`) is
    composition, not a redefinition.
