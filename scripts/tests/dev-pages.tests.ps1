@@ -74,7 +74,7 @@ Assert-True ($bshell -notmatch 'class="eyebrow"' -and $bshell -notmatch 'theme-s
 
 Write-Host '-- the product: the home page on / (#3540)' -ForegroundColor Cyan
 $pages = @(Get-ProductPages)
-Assert-Equal '/connectors,/specialists,/plugins' (($pages | ForEach-Object { $_.Href }) -join ',') 'the product links its three pages: Connectors, Specialists and Plugins (the owner, October 27, 2026), the DKJ repos on GitHub a section of /connectors/dkj since #3549; the general pages are the plugin hub''s (#3540)'
+Assert-Equal '/connectors,/plugins' (($pages | ForEach-Object { $_.Href }) -join ',') 'the product links its two pages: Connectors and Plugins, Specialists a card on the Plugins page since October 28, 2026 (the owner), the DKJ repos on GitHub a section of /connectors/dkj since #3549; the general pages are the plugin hub''s (#3540)'
 Assert-Equal '/artifacts,/issues,/release-notes,/sessionstart,/test-gate,/stopwatch,/logbook,/plugins' ((Get-GeneralPages | ForEach-Object { $_.Href }) -join ',') 'the plugin lists the eight general pages, in order: Test gate, Stopwatch and Logbook every repo''s since #3470, Plugins since #3482'
 $ph = Format-ProductHomeHtml -HubUrl 'http://localhost:4890' -SourceCommit 'abc1234'
 Assert-True ($ph -match '<title>dkj-claude-plugins -- Home</title>' -and $ph -notmatch '<h1' -and $ph -notmatch 'class="lead"') 'under the site header the home page has no intro at all, and its title says Home'
@@ -82,8 +82,8 @@ Assert-True ($ph -match '(?s)<body>\s*<div class="notice" id="hub-banner".*?</sc
 Assert-True ($ph -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span>' -and $ph -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/"') 'the site header names the repo with product after it, and goes home'
 Assert-True ($ph -notmatch 'class="eyebrow"' -and ([regex]::Matches($ph, '<header')).Count -eq 1 -and $ph -notmatch 'theme-settings--floating' -and $ph -match '<div id="settings"></div></div></header>') 'no eyebrow, no <header> but the site header, which holds the settings button'
 Assert-True ($ph -match '<div class="grid-3">\r?\n<section class="card card--link"><nav class="menu-list" aria-label="Toolbox"><a class="menu-item" href="http://localhost:4890">') 'the grid opens on the Toolbox card, linking the plugin hub'
-Assert-True ($ph.IndexOf('aria-label="Toolbox"') -lt $ph.IndexOf('href="/connectors"') -and $ph.IndexOf('href="/connectors"') -lt $ph.IndexOf('href="/specialists"') -and $ph.IndexOf('href="/specialists"') -lt $ph.IndexOf('href="/plugins"') -and $ph -notmatch 'href="/dkj-repos"') 'then Connectors, Specialists and Plugins, in that order, and no DKJ repos card of its own (#3549)'
-Assert-Equal 4 ([regex]::Matches($ph, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="[^"]+"><svg class="menu-item__icon"')).Count 'four cards, each a .card--link with its icon first'
+Assert-True ($ph.IndexOf('aria-label="Toolbox"') -lt $ph.IndexOf('href="/connectors"') -and $ph.IndexOf('href="/connectors"') -lt $ph.IndexOf('href="/plugins"') -and $ph -notmatch 'href="/dkj-repos"' -and $ph -notmatch 'href="/specialists"') 'then Connectors and Plugins, in that order, and no DKJ repos (#3549) or Specialists card of its own'
+Assert-Equal 3 ([regex]::Matches($ph, '<section class="card card--link"><nav class="menu-list" aria-label="[^"]+"><a class="menu-item" href="[^"]+"><svg class="menu-item__icon"')).Count 'three cards, each a .card--link with its icon first'
 Assert-True ($ph -notmatch 'href="/(repository|test-gate|stopwatch|logbook|artifacts|issues|release-notes|sessionstart|brandbook)"') 'and no general page of its own: those are the plugin hub''s (#3540); its /plugins is its own, what the marketplace ships'
 Assert-True ($ph -match 'class="footer-note">[^\n]*serve-connector-dashboard\.ps1</code>, from <code>abc1234</code>') 'the footer names the server and the commit it loaded'
 Assert-True ((Format-ProductHomeHtml) -notmatch ', from <code>') 'and leaves the commit out when it could not be read'
@@ -610,7 +610,7 @@ Write-Host '-- the Specialists overview: one card per plugin, each linking its o
 $evil = ConvertTo-SpecialistRow -Id '06-99' -Plugin 'dkj-subagents-ecomm' -Form subagent -Text "---`ndescription: <b>x</b>`n---`nYou are **Eve <i>**, the Bad <b>. Body`n" -ManualBytes 99999
 $sp = Format-SpecialistsPageHtml -Rows @($sa, $pa, $evil) -CharsPerToken 3.12
 Assert-True ($sp -match '<h1>Specialists</h1>' -and $sp -match '<span aria-current="page">Specialists</span>') 'the page is named Specialists, in the h1 and the trail'
-Assert-True ($sp -notmatch 'href="/plugins') 'its trail is Home > Specialists: the page sits under the product home, not under Plugins (#3540)'
+Assert-True ($sp -match '<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/plugins">Plugins</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">Specialists</span></li>') 'its trail is Home > Plugins > Specialists: the page sits under Plugins, whose overview carries its card (the owner, October 28, 2026)'
 Assert-True (-not $sp.Contains('class="tiles"') -and -not $sp.Contains('class="lead"') -and -not $sp.Contains('grid__head"><h2>Plugins')) 'the overview opens on its cards: no tiles, no lead and no heading over the grid (the owner, #3550)'
 Assert-True (-not $sp.Contains('id="when"')) 'and the column explanation is left to the plugin pages, where the table is'
 Assert-True ($sp.Contains('<section class="card card--link sp-card" id="plugin-alpha">') -and $sp.Contains('href="/specialists/alpha"') -and $sp.Contains('href="/specialists/ecomm"')) 'each plugin is a link card to its own page'
@@ -636,7 +636,9 @@ $tmEcomm = @{ Name = 'dkj-subagents-ecomm'; Kind = 'add-on team'; Source = './pl
 $market = @($tmAlpha, $tmEcomm, $plOn, $plOff)
 $pp = Format-MarketplacePluginsPageHtml -Plugins $market
 Assert-True ($pp -match '<h1>Plugins</h1>' -and $pp -match '<span aria-current="page">Plugins</span>' -and $pp -match '>product</span>') 'the overview is named Plugins, in the h1 and the trail, on the product''s site header'
-Assert-Equal 3 ([regex]::Matches($pp, '<h2 class="menu-item__title">')).Count 'one card per plugin, its label an h2 -- the teams sharing one'
+Assert-Equal 4 ([regex]::Matches($pp, '<h2 class="menu-item__title">')).Count 'one card per plugin, its label an h2 -- the teams sharing one -- and the Specialists card'
+Assert-True ($pp.Contains('<section class="card card--link pl-card" id="specialists">') -and $pp.Contains('<a class="menu-item" href="/specialists">') -and $pp.IndexOf('id="group-dkj-subagents"') -lt $pp.IndexOf('id="specialists"') -and $pp.IndexOf('id="specialists"') -lt $pp.IndexOf('id="plugin-dkj-policy"')) 'the Specialists card sits right after the teams'' card, linking /specialists (the owner, October 28, 2026)'
+Assert-True (-not (Format-MarketplacePluginsPageHtml -Plugins @($plOn)).Contains('id="specialists"')) 'and with no team in the marketplace there is no Specialists card either'
 Assert-True ($pp.Contains('<section class="card card--link pl-card" id="group-dkj-subagents">') -and $pp.Contains('href="/plugins/dkj-subagents"') -and $pp.Contains('<h2 class="menu-item__title">dkj-subagents</h2><span class="menu-item__sub">2 specialist teams &middot; 1 enabled here</span>')) 'the specialist teams are one card of their own, linking their page and counting them (the owner, October 27, 2026)'
 Assert-True (-not $pp.Contains('id="plugin-dkj-subagents-alpha"') -and -not $pp.Contains('href="/plugins/dkj-subagents-')) 'and no team has a card of its own on the overview'
 Assert-True ($pp.IndexOf('id="group-dkj-subagents"') -lt $pp.IndexOf('id="plugin-dkj-policy"') -and $pp.IndexOf('id="plugin-dkj-policy"') -lt $pp.IndexOf('id="plugin-bwj-development"')) 'the teams'' card stands where the first team does, the rest in the marketplace''s order'
@@ -670,7 +672,7 @@ Assert-True ($null -eq (Format-MarketplacePluginsPageHtml -Plugins @($plOn) -Plu
 
 Write-Host '-- a plugin''s own Specialists page (#3550)' -ForegroundColor Cyan
 $al = Format-SpecialistsPageHtml -Rows @($sa, $pa, $evil) -CharsPerToken 3.12 -Plugin 'alpha'
-Assert-True ($al -match '<h1>alpha</h1>' -and $al.Contains('<a href="/specialists">Specialists</a>') -and $al.Contains('<span aria-current="page">alpha</span>')) 'its trail is Home > Specialists > the plugin'
+Assert-True ($al -match '<h1>alpha</h1>' -and $al.Contains('<a href="/plugins">Plugins</a>') -and $al.Contains('<a href="/specialists">Specialists</a>') -and $al.Contains('<span aria-current="page">alpha</span>')) 'its trail is Home > Plugins > Specialists > the plugin'
 Assert-True ($al.Contains('<strong><a href="/specialists/alpha/paula">Paula') -and $al.Contains('<strong><a href="/specialists/alpha/chris">Chris') -and -not $al.Contains('>Eve')) 'it lists its own specialists and nobody else''s, each name a link to its own page (#3551)'
 Assert-True ($al.IndexOf('/alpha/paula">Paula') -lt $al.IndexOf('/alpha/chris">Chris')) 'the table puts the largest full read first'
 Assert-True (-not $al.Contains('class="tiles"') -and -not $al.Contains('class="lead"') -and -not $al.Contains('grid__head"><h2>The specialists')) 'the plugin page opens on its cards too: no tiles, no lead and no heading over them (the owner, October 27, 2026)'
@@ -697,7 +699,7 @@ $sa2 = ConvertTo-SpecialistRow -Id '02-09' -Plugin 'dkj-subagents-alpha' -Form s
     -DefinitionPath 'plugins/dkj-subagents/dkj-subagents-alpha/subagents/specialist-02-09-subagent.md' -ManualPath 'm.md' -LensPath 'l.md'
 Assert-Equal 'm.md|' ($sa2.ManualPath + '|' + $sa2.LensPath) 'a path is kept only for a file that exists: no lens bytes, no lens path'
 $pg = Format-SpecialistsPageHtml -Rows @($sa2, $pa, $evil) -CharsPerToken 3.12 -Plugin 'alpha' -Specialist 'paula'
-Assert-True ($pg -match '<h1>Paula ' + $compass + '</h1>' -and $pg.Contains('<a href="/specialists">Specialists</a>') -and $pg.Contains('<a href="/specialists/alpha">alpha</a>')) 'its trail is Home > Specialists > the plugin > the specialist'
+Assert-True ($pg -match '<h1>Paula ' + $compass + '</h1>' -and $pg.Contains('<a href="/specialists">Specialists</a>') -and $pg.Contains('<a href="/specialists/alpha">alpha</a>') -and $pg.Contains('<a href="/plugins">Plugins</a>')) 'its trail is Home > Plugins > Specialists > the plugin > the specialist'
 Assert-True ($pg -match 'Full read</div><div class="v num">~' -and $pg -match 'Lens</div><div class="v num">--<') 'its tiles are its own parts, a missing one a dash'
 Assert-True ($pg.Contains('<dt>Number</dt><dd>#09') -and $pg.Contains('<dt>Title</dt><dd>Project Planner') -and $pg.Contains('<code>dkj-subagents-alpha</code>, the core team')) 'it says what the specialist is and which plugin ships it'
 Assert-True ($pg.Contains('<code>plugins/dkj-subagents/dkj-subagents-alpha/subagents/specialist-02-09-subagent.md</code>') -and $pg.Contains('<dt>Lens</dt><dd><span class="note">none</span>')) 'it names where each file is, and none where there is none'

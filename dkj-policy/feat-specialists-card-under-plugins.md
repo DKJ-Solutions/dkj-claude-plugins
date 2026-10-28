@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Maikel, October 28, 2026: "verplaats de Specialists card naar de Plugins card". The Specialists card
+leaves the product home page and becomes a card on the Plugins overview, beside the specialist teams;
+its route stays `/specialists`, so no link breaks. A visible result, so the branch waits for the owner's
+look before it merges.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `scripts/lib/dev-pages-lib.ps1`: Specialists out of `Get-ProductPages`, a new `Get-SpecialistsCard`
+  drawn on `/plugins` right after the `dkj-subagents` card, and Plugins as the parent crumb of every
+  Specialists page
+- [x] `scripts/tests/dev-pages.tests.ps1`: the home page's cards, the Plugins overview's card and the
+  Specialists trails asserted anew
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: 490 passed, 0 failed
+- [ ] The owner has looked at `/` and `/plugins` on the product server
+
 ### DEPLOY: feat/specialists-card-under-plugins
 
-**Score:**
+The Specialists card moved from the product home page onto the Plugins page, right after the
+`dkj-subagents` card, and every Specialists page's trail now runs Home > Plugins > Specialists. The
+`/specialists` address is unchanged.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the product's own dev pages, which no consumer takes.
+
+**Score:** N/A
 
 #### Pull Request
 

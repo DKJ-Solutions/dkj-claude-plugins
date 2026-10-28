@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    This repo's PRODUCT (#3540): the home page on '/' and its own pages -- Connectors, Specialists and Plugins.
+    This repo's PRODUCT (#3540): the home page on '/' and its own pages -- Connectors and Plugins, the Specialists pages under Plugins.
     The hub is the dkj-policy plugin's, as in every other repo (#3245): this repo states its dev server as
     its product and no longer opts out with OwnHub, so the general pages -- Repository, Artifacts, Issues,
     Release notes, SessionStart, Test gate, Stopwatch, Logbook and Plugins -- are the plugin hub's, and the
@@ -67,13 +67,22 @@ function Get-ProductPages {
     <#
         The pages the product's home page links, in the order it lists them: each a route on this server, its
         label the page's own name as its breadcrumb reads it, and one line on what it shows. The general pages
-        are the plugin hub's, which the home page links as one card (#3540).
+        are the plugin hub's, which the home page links as one card (#3540). Specialists is no longer one of
+        them: its card sits on the Plugins page, beside the specialist teams (Get-SpecialistsCard).
     #>
     @(
         @{ Href = '/connectors';  Label = 'Connectors';  Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine'; Icon = 'connectors' }
-        @{ Href = '/specialists'; Label = 'Specialists'; Sub = 'Every specialist the plugins ship, and how much context each one costs'; Icon = 'specialists' }
         @{ Href = '/plugins';     Label = 'Plugins';     Sub = 'Every plugin this marketplace ships, its version and what it holds'; Icon = 'plugins' }
     )
+}
+
+function Get-SpecialistsCard {
+    <#
+        The Specialists page's card, which the Plugins overview draws beside the dkj-subagents card (the owner,
+        October 28, 2026): the specialists are what those plugins ship, so their page is reached from there
+        and its trail runs Home > Plugins > Specialists. Its route stays /specialists, so no link breaks.
+    #>
+    @{ Href = '/specialists'; Label = 'Specialists'; Sub = 'Every specialist the plugins ship, and how much context each one costs'; Icon = 'specialists' }
 }
 
 function Format-ProductHomeHtml {
@@ -294,7 +303,7 @@ function Format-SpecialistPageHtml {
     $factor = $CharsPerToken.ToString('0.00', [Globalization.CultureInfo]::InvariantCulture)
     $footer = 'Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.'
     return Format-DevPageHtml -Title $label -Style $style -Body $body.ToString() -FooterNote $footer `
-        -ParentCrumbs @(@{ Label = 'Specialists'; Href = '/specialists' }, @{ Label = $Pick.Short; Href = '/specialists/' + $Pick.Short }) `
+        -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }, @{ Label = 'Specialists'; Href = '/specialists' }, @{ Label = $Pick.Short; Href = '/specialists/' + $Pick.Short }) `
         -Lead ((& $e $r.Title) + $(if ($r.Title) { ' &middot; ' } else { '' }) + 'a ' + (& $e $r.Form) + ' in the <code>' + (& $e $Pick.Plugin) + '</code> plugin.')
 }
 
@@ -429,9 +438,10 @@ function Format-SpecialistsPageHtml {
     $footer = 'Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Bytes are measured (hover a cell); tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.'
     if ($pick) {
         return Format-DevPageHtml -Title $pick.Short -Style $style -Body $body.ToString() -FooterNote $footer `
-            -ParentCrumbs @(@{ Label = 'Specialists'; Href = '/specialists' }) -Lead ''
+            -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }, @{ Label = 'Specialists'; Href = '/specialists' }) -Lead ''
     }
-    return Format-DevPageHtml -Title 'Specialists' -Style $style -Body $body.ToString() -FooterNote $footer -Lead ''
+    return Format-DevPageHtml -Title 'Specialists' -Style $style -Body $body.ToString() -FooterNote $footer -Lead '' `
+        -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' })
 }
 
 function Get-MarketplacePluginKind {
@@ -499,6 +509,9 @@ function Format-MarketplacePluginsPageHtml {
                 $sub = [string]$teams.Count + ' specialist team' + $(if ($teams.Count -ne 1) { 's' } else { '' }) + ' &middot; ' + $on + ' enabled here'
                 [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/plugins/' + $teamGroup) -Label $teamGroup -SubHtml $sub -Heading 2 `
                     -Id ('group-' + $teamGroup) -Class ('pl-card' + $(if ($on) { '' } else { ' pl-card--off' }))))
+                # The Specialists page's card, right beside the teams that ship them.
+                $spc = Get-SpecialistsCard
+                [void]$body.AppendLine((Format-HubCardLinkHtml -Href $spc.Href -Label $spc.Label -Sub $spc.Sub -Heading 2 -Id 'specialists' -Class 'pl-card'))
                 continue
             }
             [void]$body.AppendLine((& $card $p ('/plugins/' + $p.Name)))
