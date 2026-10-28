@@ -474,7 +474,8 @@ function Format-HubCardLinkHtml {
         icon's place, and -TitleBadgeHtml one right after the label instead (Maikel, October 28, 2026), the label then
         in a <span> of its own so a page can cut a long one off without cutting off its mark. Those four are inline
         HTML the caller has already escaped, and they hold NO <a>: the card is one link, an <a> inside an <a> is
-        invalid HTML, and the browser closes the card's link at the inner one, so the card falls apart (#3610).
+        invalid HTML, and the browser closes the card's link at the inner one, so the card falls apart (#3610). One
+        that does is refused with a throw.
         -Heading 2 makes the label an h2, for an overview whose cards are its sections; -Id and -Class (extra classes,
         such as a tone) go on the card.
     #>
@@ -482,6 +483,10 @@ function Format-HubCardLinkHtml {
         [AllowEmptyString()][string]$Icon = '', [AllowEmptyString()][string]$SubHtml = '', [AllowEmptyString()][string]$ValueHtml = '',
         [AllowEmptyString()][string]$BadgeHtml = '', [ValidateSet(0, 2)][int]$Heading = 0, [AllowEmptyString()][string]$Id = '',
         [AllowEmptyString()][string]$Class = '', [AllowEmptyString()][string]$TitleBadgeHtml = '')
+    # The docstring's NO <a>, enforced (#3610): a caller that breaks it fails its suite instead of a broken card.
+    foreach ($slot in @(@('SubHtml', $SubHtml), @('ValueHtml', $ValueHtml), @('BadgeHtml', $BadgeHtml), @('TitleBadgeHtml', $TitleBadgeHtml))) {
+        if ($slot[1] -match '<a[\s>]') { throw "Format-HubCardLinkHtml: -$($slot[0]) holds an <a>, and the card is already one link -- an <a> inside an <a> breaks the card (#3610). Pass the text without its link." }
+    }
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $subText = if ($SubHtml) { $SubHtml } elseif ($Sub) { & $e $Sub } else { '' }
     $s = if ($subText) { '<span class="menu-item__sub">' + $subText + '</span>' } else { '' }
