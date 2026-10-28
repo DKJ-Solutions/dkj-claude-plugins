@@ -659,12 +659,14 @@ function Format-DkjRepoFactsHtml {
         A DKJ repo's GitHub facts as one line of the caller's markup: its visibility, its open issues and PRs (each
         a link where there are any), the day of its last push. Shared by its card on /connectors/dkj and the Repo
         card on its own page. The links are built from owner/name, never from the answer's url field (Sebastian,
-        #3231).
+        #3231). -NoLinks writes the counts as text, for a card that is itself one link: an <a> inside an <a> is
+        invalid HTML, so the browser closes the card's link at the first count and the card falls apart (Maikel's
+        screenshot, October 28, 2026).
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$Row)
+    param([Parameter(Mandatory = $true)][hashtable]$Row, [switch]$NoLinks)
     $e = { param($v) ConvertTo-DashboardText $v }
     $url = 'https://github.com/' + (& $e $Row.Repo)
-    $count = { param($n, $path, $noun) if ($null -eq $n) { '-- ' + $noun } elseif ($n -gt 0) { '<a class="dr-link" href="' + $url + $path + '">' + $n + '</a> ' + $noun } else { '0 ' + $noun } }
+    $count = { param($n, $path, $noun) if ($null -eq $n) { '-- ' + $noun } elseif ($n -gt 0 -and -not $NoLinks) { '<a class="dr-link" href="' + $url + $path + '">' + $n + '</a> ' + $noun } else { [string]$n + ' ' + $noun } }
     $facts = @()
     if ($Row.Visibility) { $facts += (& $e $Row.Visibility) }
     $facts += (& $count $Row.Issues '/issues' 'issues')
@@ -766,7 +768,7 @@ function Format-DkjReposPageHtml {
         $reg = $byConnector[([string]$r.Repo).ToLowerInvariant()]
         $badge = if ($reg) { $b = Get-DashboardStatusBadge ([string]$reg.Status); '<span class="badge ' + $b.Class + '" title="' + $b.Word + '" aria-label="' + $b.Word + '">' + $b.Mark + '</span>' } else { '' }
         $id = 'repo-' + (([string]$r.Name) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
-        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/dkj/' + $r.Name) -Label ([string]$r.Name) -SubHtml (& $clip (Format-DkjRepoFactsHtml -Row $r)) -ValueHtml $value -BadgeHtml $badge -Heading 2 -Id $id))
+        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/dkj/' + $r.Name) -Label ([string]$r.Name) -SubHtml (& $clip (Format-DkjRepoFactsHtml -Row $r -NoLinks)) -ValueHtml $value -BadgeHtml $badge -Heading 2 -Id $id))
     }
     [void]$sb.AppendLine('</div>')
     if (-not @($set.Rows).Count) { [void]$sb.AppendLine('<p class="note">No DKJ-Solutions repo was found, on GitHub or beside this repo.</p>') }
