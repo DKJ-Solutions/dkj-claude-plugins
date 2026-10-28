@@ -64,7 +64,8 @@ or `Product` is ignored, not refused, like `Name` since #3064, and named as conf
 
 ### DEPLOY: feat/3643-retire-ownhub
 
-The hub's opt-out is retired, so the plugin's own hub code loses a mode, a second server and a redirect.
+A repo that ran its own hub through `OwnHub` now gets the plugin's Toolbox at its next session start, its
+own server becoming the product; every other repo sees no change.
 
 **Score:** 2
 
@@ -74,7 +75,7 @@ Every repo that runs `dkj-policy` now gets the plugin's Toolbox, always in the h
 opt-out. A repo that still states `OwnHub = $true` (or a `Product` beside it) in `Get-DevPreview` keeps
 working: its server becomes its product on the Toolbox, and in a DKJ-Solutions repo the session line asks
 you to delete those keys. The rule, Toolbox for all and the house style on a product only in DKJ-Solutions
-repos, is in the [hub README](../plugins/dkj-policy/hub/README.md).
+repos, is in the [hub README](../plugins/dkj-policy/hub/README.md#one-look-in-every-repo).
 
 **Score:** 2
 

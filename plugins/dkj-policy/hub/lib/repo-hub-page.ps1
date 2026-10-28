@@ -2,7 +2,7 @@
 .SYNOPSIS
     The plugin's own hub (#3245): the repo's home page, which the general pages server answers on '/',
     '/index.html' and '/hub' -- and '/about' sends there (#3289) -- and its Repository page on '/repository'
-    (#3383), in every repo that has not opted out with OwnHub. No I/O -- hub/pages/serve-general-pages.ps1
+    (#3383), in every repo (#3643 retired the OwnHub opt-out). No I/O -- hub/pages/serve-general-pages.ps1
     reads the state file and hands the values in, so every rule here is tested without a server.
 
 .DESCRIPTION
@@ -128,7 +128,7 @@ function Format-PluginRepoHubHtml {
         [void]$sb.AppendLine('        Ports   = 5173..5180')
         [void]$sb.AppendLine('    }')
         [void]$sb.AppendLine('}</code></pre>')
-        [void]$sb.AppendLine('<p class="muted">Every field, and the rules for <code>Command</code>, are in the dkj-policy plugin''s <code>hub/README.md</code>, under &quot;The dev-preview hook&quot;. A repo that serves its own hub (the home page on <code>/</code>) adds <code>OwnHub = $true</code>.</p>')
+        [void]$sb.AppendLine('<p class="muted">Every field, and the rules for <code>Command</code>, are in the dkj-policy plugin''s <code>hub/README.md</code>, under &quot;The dev-preview hook&quot;.</p>')
         [void]$sb.AppendLine('</div>')
         [void]$sb.AppendLine('</section>')
         [void]$sb.AppendLine('<section class="card grid__full">')

@@ -493,7 +493,7 @@ function Stop-OwnDevPreviewProduct {
         . $lib
         $parsed = ConvertTo-DevPreviewConfig -Raw (Get-SeamValue -Name 'Get-DevPreview' -Default $null)
         if (-not $parsed.Ok) { return @() }
-        $ports = if (-not $parsed.Config.OwnHub) { @($parsed.Config.Ports) } elseif ($parsed.Config.Product) { @($parsed.Config.Product.Ports) } else { @() }
+        $ports = @($parsed.Config.Ports)
         if (-not $ports.Count) { return @() }
         $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue | Where-Object { $ports -contains [int]$_.LocalPort } | Select-Object LocalPort, OwningProcess)
         if (-not $listeners.Count) { return @() }
