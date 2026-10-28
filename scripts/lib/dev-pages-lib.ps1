@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    This repo's PRODUCT (#3540): the home page on '/' and its own pages -- Connectors and Plugins, the Specialists pages under Plugins.
+    This repo's PRODUCT (#3540): the home page on '/' and its own pages -- Connectors and Plugins, the specialists on their teams' Plugins pages.
     The hub is the dkj-policy plugin's, as in every other repo (#3245): this repo states its dev server as
     its product and no longer opts out with OwnHub, so the general pages -- Repository, Artifacts, Issues,
     Release notes, SessionStart, Test gate, Stopwatch, Logbook and Plugins -- are the plugin hub's, and the
@@ -68,21 +68,12 @@ function Get-ProductPages {
         The pages the product's home page links, in the order it lists them: each a route on this server, its
         label the page's own name as its breadcrumb reads it, and one line on what it shows. The general pages
         are the plugin hub's, which the home page links as one card (#3540). Specialists is no longer one of
-        them: its card sits on the Plugins page, beside the specialist teams (Get-SpecialistsCard).
+        them: the specialists are the dkj-subagents teams', so they live on those teams' own Plugins pages.
     #>
     @(
         @{ Href = '/connectors';  Label = 'Connectors';  Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine'; Icon = 'connectors' }
         @{ Href = '/plugins';     Label = 'Plugins';     Sub = 'Every plugin this marketplace ships, its version and what it holds'; Icon = 'plugins' }
     )
-}
-
-function Get-SpecialistsCard {
-    <#
-        The Specialists page's card, which the Plugins overview draws beside the dkj-subagents card (the owner,
-        October 28, 2026): the specialists are what those plugins ship, so their page is reached from there
-        and its trail runs Home > Plugins > Specialists. Its route stays /specialists, so no link breaks.
-    #>
-    @{ Href = '/specialists'; Label = 'Specialists'; Sub = 'Every specialist the plugins ship, and how much context each one costs'; Icon = 'specialists' }
 }
 
 function Format-ProductHomeHtml {
@@ -145,7 +136,7 @@ function ConvertTo-SpecialistRow {
         manual and the lens are read on demand.
 
         THE DETAIL PAGE'S PARTS (#3551) ride along: Slug, the name lowercased, which is the route segment of
-        /specialists/<plugin>/<slug> (the id where the name is not a plain word); Description and Body, the
+        /plugins/dkj-subagents/<team>/<slug> (the id where the name is not a plain word); Description and Body, the
         listing and the definition as text; and -DefinitionPath, -ManualPath and -LensPath, repo-relative paths
         the page names ('' where there is no such file).
     #>
@@ -220,7 +211,7 @@ function ConvertTo-SpecialistRow {
 function Get-SpecialistPlugins {
     <#
         The specialist plugins -Rows names, each @{ Plugin; Short; Kind; Enabled; Rows; ListingBytes; TotalBytes }, in
-        the order the Specialists page lists them (#3550): the core team first, then the add-on teams enabled here,
+        the order the Specialists page listed them (#3550): the core team first, then the add-on teams enabled here,
         then those that are not, by name. Short is the plugin's name without 'dkj-subagents-', the detail page's
         route segment; Rows keeps the order it was handed.
     #>
@@ -244,8 +235,8 @@ function Get-SpecialistPlugins {
 
 function Format-SpecialistPageHtml {
     <#
-        One specialist's own page, /specialists/<plugin>/<slug> (#3551): the trail Home > Specialists > plugin >
-        name; the specialist's tiles (its four parts and the full read, in tokens); a facts card saying what it
+        One specialist's own page, /plugins/dkj-subagents/<team>/<slug> (#3551; under its team since the owner's
+        October 28, 2026): the trail Home > Plugins > dkj-subagents > team > name; the specialist's tiles (its four parts and the full read, in tokens); a facts card saying what it
         is, when it loads and where each of its files is; its listing; and its definition, folded, because it
         runs to pages. -Row is ConvertTo-SpecialistRow's shape, -Pick Get-SpecialistPlugins' entry for its plugin.
     #>
@@ -299,149 +290,126 @@ function Format-SpecialistPageHtml {
         '<details class="more"><summary>Show the definition</summary><pre class="sp-text">' + (& $e $r.Body) + '</pre></details></section>')
     [void]$body.AppendLine('</div>')
 
-    $style = $script:DevBarStyle + "`n" + '.sp-text { margin: 0; padding: var(--spacing-3); background: var(--paper-2); color: var(--fg-1); border-radius: var(--spacing-2); font-family: ui-monospace, Consolas, monospace; font-size: var(--text-sm); white-space: pre-wrap; overflow-wrap: anywhere; }'
-    $factor = $CharsPerToken.ToString('0.00', [Globalization.CultureInfo]::InvariantCulture)
-    $footer = 'Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.'
-    return Format-DevPageHtml -Title $label -Style $style -Body $body.ToString() -FooterNote $footer `
-        -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }, @{ Label = 'Specialists'; Href = '/specialists' }, @{ Label = $Pick.Short; Href = '/specialists/' + $Pick.Short }) `
+    $team = '/plugins/dkj-subagents/' + $Pick.Plugin
+    return Format-DevPageHtml -Title $label -Style (Get-SpecialistStyle) -Body $body.ToString() -FooterNote (Get-SpecialistsFooter -CharsPerToken $CharsPerToken) `
+        -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }, @{ Label = 'dkj-subagents'; Href = '/plugins/dkj-subagents' }, @{ Label = $Pick.Plugin; Href = $team }) `
         -Lead ((& $e $r.Title) + $(if ($r.Title) { ' &middot; ' } else { '' }) + 'a ' + (& $e $r.Form) + ' in the <code>' + (& $e $Pick.Plugin) + '</code> plugin.')
 }
 
-function Format-SpecialistsPageHtml {
+function Get-SpecialistStyle {
     <#
-        The Specialists pages. -Rows is ConvertTo-SpecialistRow's shape; -CharsPerToken the calibrated
-        factor (measure-context-lib's Get-CalibratedCharsPerToken). The bytes are measured, the tokens an
-        estimate at that factor, and the page says which is which.
+        The style the specialist sections and pages add to the dev bar's: an off plugin's card muted, never hidden;
+        the specialist grid its own, four to a row and stepping down 4 -> 3 -> 2 -> 1, in .grid-3's gap and
+        breakpoints (as the DKJ repos' .dr-grid is); and a definition's folded text.
+    #>
+    return $script:DevBarStyle + "`n" + (@(
+        '.sp-card--off { opacity: 0.7; }',
+        '.sp-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--spacing-4); }',
+        '@media (max-width: 1200px) { .sp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }',
+        '@media (max-width: 1000px) { .sp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }',
+        '@media (max-width: 760px) { .sp-grid { grid-template-columns: 1fr; } }',
+        '.sp-grid > .card { margin-top: 0; }',
+        '.sp-text { margin: 0; padding: var(--spacing-3); background: var(--paper-2); color: var(--fg-1); border-radius: var(--spacing-2); font-family: ui-monospace, Consolas, monospace; font-size: var(--text-sm); white-space: pre-wrap; overflow-wrap: anywhere; }'
+    ) -join "`n")
+}
 
-        TWO LEVELS (#3550, the owner: the cards must link to a deeper page). Without -Plugin it is /specialists:
-        one card per specialist plugin and nothing above them but the h1, three to a row in the hub's card
-        form, each linking its plugin's page. With -Plugin (a Short from Get-SpecialistPlugins) it is
-        /specialists/<plugin>: a three-crumb trail, the tiles over that plugin and its specialists' table. A
-        -Plugin the rows do not name returns $null, so the server answers 404 rather than an empty page.
-        A plugin not enabled here keeps its card, muted, and its page says what being off means here.
-
-        AND A THIRD LEVEL (#3551; Maikel: the pages nest as deep as the structure needs). A plugin's page opens on
-        one card per specialist, in roster order, above the table that compares them; each card links
-        /specialists/<plugin>/<slug>. With -Specialist as well it is that page: a four-crumb trail, the
-        specialist's own tiles, what it is and where its files are, its listing and its definition. A
-        -Specialist the plugin does not ship returns $null too.
+function Format-SpecialistTeamHtml {
+    <#
+        The specialists of one team, as its own page on /plugins/dkj-subagents/<team> shows them under the plugin's
+        facts (the owner, October 28, 2026: the Specialists pages and the dkj-subagents pages were two doors to the
+        same four teams, so they became one). -Pick is Get-SpecialistPlugins' entry for the team; -BaseHref the
+        team page's route, under which each specialist's own page sits. One card per specialist, in roster order,
+        four to a row (#3551); the table that compares them, estimated tokens with the bytes on hover, largest full
+        read first; and what each column means. -ReadError is a warning above them.
     #>
     param(
-        [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Rows,
+        [Parameter(Mandatory = $true)]$Pick,
         [Parameter(Mandatory = $true)][double]$CharsPerToken,
-        [AllowEmptyString()][string]$ReadError = '',
-        [AllowEmptyString()][string]$Plugin = '',
-        [AllowEmptyString()][string]$Specialist = ''
+        [Parameter(Mandatory = $true)][string]$BaseHref,
+        [AllowEmptyString()][string]$ReadError = ''
     )
     $e = { param($v) ConvertTo-DashboardText $v }
     $inv = [Globalization.CultureInfo]::InvariantCulture
     $tok = { param($b) if ($null -eq $b) { '--' } elseif ([int64]$b -eq 0) { '--' } else { '~' + (Format-DevNumber ([Math]::Round([double]$b / $CharsPerToken))) } }
-    $rows = @($Rows | Where-Object { $_ } | Sort-Object @{ Expression = { [int64]$_.TotalBytes }; Descending = $true }, @{ Expression = { $_.Id } })
-    $plugins = @(Get-SpecialistPlugins -Rows $rows)
-    $pick = $null
-    if ($Plugin) {
-        $pick = @($plugins | Where-Object { $_.Short -ceq $Plugin })[0]
-        if (-not $pick) { return $null }
-        $rows = @($pick.Rows)
-    }
-    if ($Specialist) {
-        $one = if ($pick) { @($rows | Where-Object { $_.Slug -ceq $Specialist })[0] } else { $null }
-        if (-not $one) { return $null }
-        return Format-SpecialistPageHtml -Row $one -Pick $pick -CharsPerToken $CharsPerToken -ReadError $ReadError
-    }
+    $rows = @($Pick.Rows | Where-Object { $_ } | Sort-Object @{ Expression = { [int64]$_.TotalBytes }; Descending = $true }, @{ Expression = { $_.Id } })
     $max = if ($rows.Count) { [double]$rows[0].TotalBytes } else { 0 }
     $body = New-Object System.Text.StringBuilder
-    # Both levels open on their cards: no tiles, no heading over the grid and no lead (the owner, #3550; on a
-    # plugin's page too since October 27, 2026, #3551).
     if ($ReadError) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The specialists could not all be read: ' + (& $e $ReadError) + '.</p>')
     }
+    [void]$body.AppendLine('<div class="grid__head"><h2>Specialists</h2></div>')
+    # In a grid of its own: the house .grid-3 is never restyled here.
+    [void]$body.AppendLine('<div class="sp-grid" id="cards">')
+    foreach ($r in @($rows | Sort-Object @{ Expression = { $_.Id } })) {
+        $sub = @(('#' + (& $e $r.Number)), $(if ($r.Title) { & $e $r.Title }), (& $e $r.Form), ('full read ' + (& $tok $r.TotalBytes))) |
+            Where-Object { $_ }
+        [void]$body.AppendLine((Format-HubCardLinkHtml -Href ($BaseHref + '/' + $r.Slug) -SubHtml ($sub -join ' &middot; ') -Heading 2 `
+            -Label ($r.Name + $(if ($r.Emoji) { ' ' + $r.Emoji } else { '' })) -Id ('specialist-' + $r.Slug) -Class 'sp-card'))
+    }
+    if (-not $rows.Count) {
+        [void]$body.AppendLine('<section class="card"><p class="note">No specialist was found.</p></section>')
+    }
+    [void]$body.AppendLine('</div>')
+    if (-not $rows.Count) { return $body.ToString() }
+    [void]$body.AppendLine('<div class="grid-2" id="specialists">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>Context per specialist</h2><p class="card__sub">Estimated tokens, largest full read first; the bar is the full read against the largest one</p></div>')
+    [void]$body.AppendLine('<section class="card grid__full">')
+    [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Specialist</th><th>Listing</th><th>Definition</th><th>Manual</th><th>Lens</th><th>Full read</th><th class="dp-left">Against the largest</th></tr></thead><tbody>')
+    foreach ($r in $rows) {
+        # Muted text, not .badge: the house badge is an 18px circle for one character, and a word in it
+        # spills over the text beside it.
+        $badges = ' <span class="note">&middot; ' + (& $e $r.Form) + $(if ($r.AlwaysOn) { ' &middot; always-on' } else { '' }) + '</span>'
+        $w = $(if ($max -gt 0) { [Math]::Min(100.0, 100.0 * [double]$r.TotalBytes / $max) } else { 0.0 }).ToString('0.##', $inv)
+        $label = (& $e $r.Name) + $(if ($r.Emoji) { ' ' + (& $e $r.Emoji) } else { '' })
+        # One line per specialist: the title and the badges follow the name inline.
+        [void]$body.AppendLine('<tr><td class="dp-left"><strong><a href="' + (& $e $BaseHref) + '/' + (& $e $r.Slug) + '">' + $label + '</a></strong> <span class="note">#' + (& $e $r.Number) +
+            $(if ($r.Title) { ' &middot; ' + (& $e $r.Title) } else { '' }) + '</span>' + $badges + '</td>' +
+            '<td class="num" title="' + (Format-DevNumber $r.ListingBytes) + ' B">' + (& $tok $r.ListingBytes) + '</td>' +
+            '<td class="num" title="' + (Format-DevNumber $r.DefinitionBytes) + ' B">' + (& $tok $r.DefinitionBytes) + '</td>' +
+            '<td class="num" title="' + (Format-DevNumber $r.ManualBytes) + ' B">' + (& $tok $r.ManualBytes) + '</td>' +
+            '<td class="num" title="' + (Format-DevNumber $r.LensBytes) + ' B">' + (& $tok $r.LensBytes) + '</td>' +
+            '<td class="num"><strong>' + (& $tok $r.TotalBytes) + '</strong></td>' +
+            '<td class="dp-left"><span class="dp-bar" aria-hidden="true"><span style="width: ' + $w + '%"></span></span></td></tr>')
+    }
+    [void]$body.AppendLine('</tbody></table></div>')
+    [void]$body.AppendLine('</section>')
+    [void]$body.AppendLine('</div>')
+    # What each column means, under the table it explains.
+    [void]$body.AppendLine('<div class="grid-2" id="when">')
+    [void]$body.AppendLine('<div class="grid__head"><h2>When each part loads</h2></div>')
+    [void]$body.AppendLine('<section class="card grid__full">')
+    [void]$body.AppendLine('<dl class="facts">')
+    [void]$body.AppendLine('<div><dt>Listing</dt><dd>A subagent''s description. Every session of a repo that enables its plugin carries it, whether the specialist is called or not. A persona has none.</dd></div>')
+    [void]$body.AppendLine('<div><dt>Definition</dt><dd>The file without its frontmatter: a subagent''s system prompt each time it is spawned, or a persona''s body when it is read. The orchestrator''s persona is imported on every turn.</dd></div>')
+    [void]$body.AppendLine('<div><dt>Manual</dt><dd>The portable playbook, read on demand.</dd></div>')
+    [void]$body.AppendLine('<div><dt>Lens</dt><dd>This repo''s own lens, read on demand. A plugin not enabled here has none.</dd></div>')
+    [void]$body.AppendLine('<div><dt>Full read</dt><dd>All four together: what a specialist costs when everything about it is in context.</dd></div>')
+    [void]$body.AppendLine('</dl>')
+    [void]$body.AppendLine('</section>')
+    [void]$body.AppendLine('</div>')
+    return $body.ToString()
+}
 
-    if (-not $pick) {
-        # /specialists: one card per plugin in the hub's card form, its label an h2 and its summary under it, the
-        # whole card the link (as /connectors does its owner groups). An off plugin keeps its card, muted.
-        [void]$body.AppendLine('<div class="grid-3" id="plugins">')
-        foreach ($p in $plugins) {
-            $sub = @($p.Kind, $(if ($p.Enabled) { 'enabled here' } else { 'off here' }),
-                ([string]$p.Rows.Count + ' specialist' + $(if ($p.Rows.Count -ne 1) { 's' } else { '' })),
-                ('listing ' + (& $tok $p.ListingBytes)), ('full read ' + (& $tok $p.TotalBytes))) -join ' &middot; '
-            [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/specialists/' + $p.Short) -Label $p.Short -SubHtml $sub -Heading 2 -Id ('plugin-' + $p.Short) `
-                -Class ('sp-card' + $(if ($p.Enabled) { '' } else { ' sp-card--off' }))))
-        }
-        if (-not $plugins.Count) {
-            [void]$body.AppendLine('<section class="card grid__full"><p class="note">No specialist was found.</p></section>')
-        }
-        [void]$body.AppendLine('</div>')
-    } else {
-        if (-not $pick.Enabled) {
-            [void]$body.AppendLine('<p class="msg" role="status">Not enabled in this repo''s <code>.claude/settings.json</code>: no session here carries its listing, and its specialists have no lens here.</p>')
-        }
-        # One card per specialist, in roster order, each the link to its own page (#3551), four to a row (the
-        # owner, October 27, 2026), in a grid of its own: the house .grid-3 is never restyled here.
-        [void]$body.AppendLine('<div class="sp-grid" id="cards">')
-        foreach ($r in @($rows | Sort-Object @{ Expression = { $_.Id } })) {
-            $sub = @(('#' + (& $e $r.Number)), $(if ($r.Title) { & $e $r.Title }), (& $e $r.Form), ('full read ' + (& $tok $r.TotalBytes))) |
-                Where-Object { $_ }
-            [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/specialists/' + $pick.Short + '/' + $r.Slug) -SubHtml ($sub -join ' &middot; ') -Heading 2 `
-                -Label ($r.Name + $(if ($r.Emoji) { ' ' + $r.Emoji } else { '' })) -Id ('specialist-' + $r.Slug) -Class 'sp-card'))
-        }
-        [void]$body.AppendLine('</div>')
-        [void]$body.AppendLine('<div class="grid-2" id="specialists">')
-        [void]$body.AppendLine('<div class="grid__head"><h2>Context per specialist</h2><p class="card__sub">' + (& $e $pick.Kind) + ' &middot; <code>' + (& $e $pick.Plugin) + '</code>. Estimated tokens, largest full read first; the bar is the full read against the largest one</p></div>')
-        [void]$body.AppendLine('<section class="card grid__full">')
-        [void]$body.AppendLine('<div class="table-wrap"><table class="table"><thead class="dp-thead"><tr><th class="dp-left">Specialist</th><th>Listing</th><th>Definition</th><th>Manual</th><th>Lens</th><th>Full read</th><th class="dp-left">Against the largest</th></tr></thead><tbody>')
-        foreach ($r in $rows) {
-            # Muted text, not .badge: the house badge is an 18px circle for one character, and a word in it
-            # spills over the text beside it.
-            $badges = ' <span class="note">&middot; ' + (& $e $r.Form) + $(if ($r.AlwaysOn) { ' &middot; always-on' } else { '' }) + '</span>'
-            $w = $(if ($max -gt 0) { [Math]::Min(100.0, 100.0 * [double]$r.TotalBytes / $max) } else { 0.0 }).ToString('0.##', $inv)
-            $label = (& $e $r.Name) + $(if ($r.Emoji) { ' ' + (& $e $r.Emoji) } else { '' })
-            # One line per specialist: the title and the badges follow the name inline, where a block-level
-            # title and badge row gave every specialist three lines.
-            [void]$body.AppendLine('<tr><td class="dp-left"><strong><a href="/specialists/' + (& $e $pick.Short) + '/' + (& $e $r.Slug) + '">' + $label + '</a></strong> <span class="note">#' + (& $e $r.Number) +
-                $(if ($r.Title) { ' &middot; ' + (& $e $r.Title) } else { '' }) + '</span>' + $badges + '</td>' +
-                '<td class="num" title="' + (Format-DevNumber $r.ListingBytes) + ' B">' + (& $tok $r.ListingBytes) + '</td>' +
-                '<td class="num" title="' + (Format-DevNumber $r.DefinitionBytes) + ' B">' + (& $tok $r.DefinitionBytes) + '</td>' +
-                '<td class="num" title="' + (Format-DevNumber $r.ManualBytes) + ' B">' + (& $tok $r.ManualBytes) + '</td>' +
-                '<td class="num" title="' + (Format-DevNumber $r.LensBytes) + ' B">' + (& $tok $r.LensBytes) + '</td>' +
-                '<td class="num"><strong>' + (& $tok $r.TotalBytes) + '</strong></td>' +
-                '<td class="dp-left"><span class="dp-bar" aria-hidden="true"><span style="width: ' + $w + '%"></span></span></td></tr>')
-        }
-        [void]$body.AppendLine('</tbody></table></div>')
-        [void]$body.AppendLine('</section>')
-        [void]$body.AppendLine('</div>')
-        # What each column means, under the table it explains; the overview has no table, so it has none (#3550).
-        [void]$body.AppendLine('<div class="grid-2" id="when">')
-        [void]$body.AppendLine('<div class="grid__head"><h2>When each part loads</h2></div>')
-        [void]$body.AppendLine('<section class="card grid__full">')
-        [void]$body.AppendLine('<dl class="facts">')
-        [void]$body.AppendLine('<div><dt>Listing</dt><dd>A subagent''s description. Every session of a repo that enables its plugin carries it, whether the specialist is called or not. A persona has none.</dd></div>')
-        [void]$body.AppendLine('<div><dt>Definition</dt><dd>The file without its frontmatter: a subagent''s system prompt each time it is spawned, or a persona''s body when it is read. The orchestrator''s persona is imported on every turn.</dd></div>')
-        [void]$body.AppendLine('<div><dt>Manual</dt><dd>The portable playbook, read on demand.</dd></div>')
-        [void]$body.AppendLine('<div><dt>Lens</dt><dd>This repo''s own lens, read on demand. A plugin not enabled here has none.</dd></div>')
-        [void]$body.AppendLine('<div><dt>Full read</dt><dd>All four together: what a specialist costs when everything about it is in context.</dd></div>')
-        [void]$body.AppendLine('</dl>')
-        [void]$body.AppendLine('</section>')
-        [void]$body.AppendLine('</div>')
-    }
-    $factor = $CharsPerToken.ToString('0.00', $inv)
-    # An off plugin's card is muted, never hidden. The specialist grid is its own, four to a row and stepping
-    # down 4 -> 3 -> 2 -> 1, in .grid-3's gap and breakpoints (as the DKJ repos' .dr-grid is).
-    $style = $script:DevBarStyle + "`n" + '.sp-card--off { opacity: 0.7; }' + "`n" +
-        (@(
-            '.sp-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--spacing-4); }',
-            '@media (max-width: 1200px) { .sp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }',
-            '@media (max-width: 1000px) { .sp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }',
-            '@media (max-width: 760px) { .sp-grid { grid-template-columns: 1fr; } }',
-            '.sp-grid > .card { margin-top: 0; }'
-        ) -join "`n")
-    $footer = 'Read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request, so it is the tree, not the installed release. Bytes are measured (hover a cell); tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.'
-    if ($pick) {
-        return Format-DevPageHtml -Title $pick.Short -Style $style -Body $body.ToString() -FooterNote $footer `
-            -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }, @{ Label = 'Specialists'; Href = '/specialists' }) -Lead ''
-    }
-    return Format-DevPageHtml -Title 'Specialists' -Style $style -Body $body.ToString() -FooterNote $footer -Lead '' `
-        -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' })
+function Get-SpecialistsFooter {
+    <# Where the specialists' figures come from, at -CharsPerToken: the footer of every page that shows them. #>
+    param([Parameter(Mandatory = $true)][double]$CharsPerToken)
+    $factor = $CharsPerToken.ToString('0.00', [Globalization.CultureInfo]::InvariantCulture)
+    return 'The specialists are read from this checkout''s <code>plugins/dkj-subagents/</code> and <code>.claude/specialists/lenses/</code> on every request. Bytes are measured (hover a cell); tokens are an estimate at ' + $factor + ' characters per token, the factor in <code>scripts/lib/measure-context-lib.ps1</code>.'
+}
+
+function Resolve-SpecialistsRedirect {
+    <#
+        Where an old Specialists address now lives (the owner, October 28, 2026): /specialists is the teams' page,
+        /specialists/<short> a team's page and /specialists/<short>/<slug> a specialist's, all under
+        /plugins/dkj-subagents. Anything else -- not a Specialists address -- is ''. The server answers a hit with a
+        303, so an old link or bookmark still lands; a team or specialist that does not exist is the new page's 404.
+    #>
+    param([AllowEmptyString()][string]$Path)
+    if ($Path -cnotmatch '^/specialists(?:/([a-z0-9-]+)(?:/([a-z0-9-]+))?)?/?\z') { return '' }
+    $to = '/plugins/dkj-subagents'
+    if ($Matches[1]) { $to += '/dkj-subagents-' + $Matches[1] }
+    if ($Matches[2]) { $to += '/' + $Matches[2] }
+    return $to
 }
 
 function Get-MarketplacePluginKind {
@@ -474,12 +442,23 @@ function Format-MarketplacePluginsPageHtml {
         under its group: the marketplace's line as the lead, a facts card and the full description as paragraphs
         (the hub's ConvertTo-PluginDescriptionHtml). A -Group or -Plugin that names nothing, or a plugin under the
         wrong level, returns $null, so the server answers 404 rather than an empty page.
+
+        THE SPECIALISTS LIVE ON THEIR TEAMS' PAGES (the owner, October 28, 2026: the Specialists pages and these
+        were two doors to the same four teams). -SpecialistRows is ConvertTo-SpecialistRow's shape and
+        -CharsPerToken its factor: a team's card counts its specialists and their full read, a team's page shows
+        them under its facts (Format-SpecialistTeamHtml), and -Specialist with a team is that specialist's own page,
+        /plugins/dkj-subagents/<team>/<slug> -- $null where the team does not ship it. -SpecialistReadError is a
+        warning on the pages that show them.
     #>
     param(
         [Parameter(Mandatory = $true)][AllowEmptyCollection()][object[]]$Plugins,
         [AllowEmptyString()][string]$ReadError = '',
         [AllowEmptyString()][string]$Group = '',
-        [AllowEmptyString()][string]$Plugin = ''
+        [AllowEmptyString()][string]$Plugin = '',
+        [AllowEmptyString()][string]$Specialist = '',
+        [AllowEmptyCollection()][object[]]$SpecialistRows = @(),
+        [double]$CharsPerToken = 3.0,
+        [AllowEmptyString()][string]$SpecialistReadError = ''
     )
     $e = { param($v) ConvertTo-DashboardText $v }
     $all = @($Plugins | Where-Object { $_ })
@@ -487,6 +466,9 @@ function Format-MarketplacePluginsPageHtml {
     $isTeam = { param($p) [string]$p.Name -like ($teamGroup + '-*') }
     $teams = @($all | Where-Object { & $isTeam $_ })
     if ($Group -and $Group -cne $teamGroup) { return $null }
+    $spPlugins = @(Get-SpecialistPlugins -Rows @($SpecialistRows))
+    $spOf = { param($name) @($spPlugins | Where-Object { $_.Plugin -ceq $name })[0] }
+    $tok = { param($b) if ([int64]$b -le 0) { '--' } else { '~' + (Format-DevNumber ([Math]::Round([double]$b / $CharsPerToken))) } }
     $state = { param($p) @((& $e $p.Kind), $(if ($p.Version) { 'v' + (& $e $p.Version) }), $(if ($p.Enabled) { 'enabled here' } else { 'off here' })) | Where-Object { $_ } }
     $card = { param($p, $href) Format-HubCardLinkHtml -Href $href -Label $p.Name -SubHtml ((& $state $p) -join ' &middot; ') -Heading 2 `
         -Id ('plugin-' + $p.Name) -Class ('pl-card' + $(if ($p.Enabled) { '' } else { ' pl-card--off' })) }
@@ -495,7 +477,7 @@ function Format-MarketplacePluginsPageHtml {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The plugins could not all be read: ' + (& $e $ReadError) + '.</p>')
     }
     $footer = 'Read from this checkout''s <code>.claude-plugin/marketplace.json</code> and each plugin''s <code>.claude-plugin/plugin.json</code> on every request, so it is the tree, not the installed release; enabled or off is <code>.claude/settings.json</code>. What this checkout loads, and any problem with it, is on the hub''s own Plugins page.'
-    # An off plugin's card is muted, never hidden, as on the Specialists pages.
+    # An off plugin's card is muted, never hidden.
     $style = '.pl-card--off { opacity: 0.7; }'
 
     if (-not $Plugin -and -not $Group) {
@@ -509,9 +491,6 @@ function Format-MarketplacePluginsPageHtml {
                 $sub = [string]$teams.Count + ' specialist team' + $(if ($teams.Count -ne 1) { 's' } else { '' }) + ' &middot; ' + $on + ' enabled here'
                 [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/plugins/' + $teamGroup) -Label $teamGroup -SubHtml $sub -Heading 2 `
                     -Id ('group-' + $teamGroup) -Class ('pl-card' + $(if ($on) { '' } else { ' pl-card--off' }))))
-                # The Specialists page's card, right beside the teams that ship them.
-                $spc = Get-SpecialistsCard
-                [void]$body.AppendLine((Format-HubCardLinkHtml -Href $spc.Href -Label $spc.Label -Sub $spc.Sub -Heading 2 -Id 'specialists' -Class 'pl-card'))
                 continue
             }
             [void]$body.AppendLine((& $card $p ('/plugins/' + $p.Name)))
@@ -527,7 +506,13 @@ function Format-MarketplacePluginsPageHtml {
         # The teams' own page: one card per team, in the marketplace's order.
         if (-not $teams.Count) { return $null }
         [void]$body.AppendLine('<div class="grid-3" id="teams">')
-        foreach ($p in $teams) { [void]$body.AppendLine((& $card $p ('/plugins/' + $teamGroup + '/' + $p.Name))) }
+        foreach ($p in $teams) {
+            # A team's card also counts its specialists and what reading all of them costs.
+            $sp = & $spOf $p.Name
+            $sub = @(& $state $p) + $(if ($sp) { @(([string]$sp.Rows.Count + ' specialist' + $(if ($sp.Rows.Count -ne 1) { 's' } else { '' })), ('full read ' + (& $tok $sp.TotalBytes))) } else { @() })
+            [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/plugins/' + $teamGroup + '/' + $p.Name) -Label $p.Name -SubHtml ($sub -join ' &middot; ') -Heading 2 `
+                -Id ('plugin-' + $p.Name) -Class ('pl-card' + $(if ($p.Enabled) { '' } else { ' pl-card--off' }))))
+        }
         [void]$body.AppendLine('</div>')
         return Format-DevPageHtml -Title $teamGroup -Style $style -Body $body.ToString() -FooterNote $footer `
             -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }) -Lead ''
@@ -535,6 +520,12 @@ function Format-MarketplacePluginsPageHtml {
 
     $p = @($all | Where-Object { $_.Name -ceq $Plugin })[0]
     if (-not $p -or [bool]$Group -ne [bool](& $isTeam $p)) { return $null }
+    $sp = if ($Group) { & $spOf $p.Name } else { $null }
+    if ($Specialist) {
+        $one = if ($sp) { @($sp.Rows | Where-Object { $_.Slug -ceq $Specialist })[0] } else { $null }
+        if (-not $one) { return $null }
+        return Format-SpecialistPageHtml -Row $one -Pick $sp -CharsPerToken $CharsPerToken -ReadError $SpecialistReadError
+    }
     $crumbs = @(@{ Label = 'Plugins'; Href = '/plugins' })
     if ($Group) { $crumbs += @{ Label = $teamGroup; Href = '/plugins/' + $teamGroup } }
     # '' rather than no output for a zero: in 5.1 a call that writes nothing empties the whole @(a, b, ...) it stands in.
@@ -556,6 +547,13 @@ function Format-MarketplacePluginsPageHtml {
     [void]$body.AppendLine('<section class="card grid__full"><div class="card__head"><h2>Description</h2><p class="card__sub">From its <code>.claude-plugin/plugin.json</code></p></div>' +
         $(if ($p.Description) { ConvertTo-PluginDescriptionHtml -Text $p.Description } else { '<p class="note">None.</p>' }) + '</section>')
     [void]$body.AppendLine('</div>')
+    if ($Group) {
+        # A team's page: its specialists under its facts.
+        $pick = if ($sp) { $sp } else { @{ Plugin = $p.Name; Rows = @() } }
+        [void]$body.Append((Format-SpecialistTeamHtml -Pick $pick -CharsPerToken $CharsPerToken -BaseHref ('/plugins/' + $teamGroup + '/' + $p.Name) -ReadError $SpecialistReadError))
+        $style = (Get-SpecialistStyle) + "`n" + $style
+        $footer += ' ' + (Get-SpecialistsFooter -CharsPerToken $CharsPerToken)
+    }
     return Format-DevPageHtml -Title $p.Name -Style $style -Body $body.ToString() -FooterNote $footer -Lead (& $e $lead) `
         -ParentCrumbs $crumbs
 }

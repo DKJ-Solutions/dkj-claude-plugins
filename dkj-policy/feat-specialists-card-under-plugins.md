@@ -39,29 +39,37 @@
 
 ### PLAN
 
-Maikel, October 28, 2026: "verplaats de Specialists card naar de Plugins card". The Specialists card
-leaves the product home page and becomes a card on the Plugins overview, beside the specialist teams;
-its route stays `/specialists`, so no link breaks. A visible result, so the branch waits for the owner's
-look before it merges.
+Maikel, October 28, 2026: "verplaats de Specialists card naar de Plugins card", and then: the
+Specialists and dkj-subagents are the same thing. Both opened one card per team, one to the plugin's
+facts and one to its specialists and their context cost, so they become one: a team's own page under
+`/plugins/dkj-subagents/<team>` shows its facts and then its specialists, and a specialist's page sits
+under its team. `/specialists[/<team>[/<slug>]]` answers a 303 to the same page at its new address. A
+visible result, so the branch waits for the owner's look before it merges.
 
 ### CREATE
 
-- [x] `scripts/lib/dev-pages-lib.ps1`: Specialists out of `Get-ProductPages`, a new `Get-SpecialistsCard`
-  drawn on `/plugins` right after the `dkj-subagents` card, and Plugins as the parent crumb of every
-  Specialists page
-- [x] `scripts/tests/dev-pages.tests.ps1`: the home page's cards, the Plugins overview's card and the
-  Specialists trails asserted anew
+- [x] `scripts/lib/dev-pages-lib.ps1`: Specialists out of `Get-ProductPages`;
+  `Format-SpecialistsPageHtml` replaced by `Format-SpecialistTeamHtml` (the cards, the table and the
+  column legend, drawn on a team's Plugins page); `Format-MarketplacePluginsPageHtml` takes the specialist
+  rows, counts them on each team's card and serves a specialist's page; `Resolve-SpecialistsRedirect`
+- [x] `scripts/dashboard/serve-connector-dashboard.ps1`: the `/specialists` route becomes the redirect,
+  and `/plugins` takes a third level and reads the specialists for the teams' pages only
+- [x] `scripts/tests/dev-pages.tests.ps1` and `connector-dashboard.tests.ps1`: the Specialists asserts
+  moved onto the team and specialist pages, plus the redirect
 
 ### TEST
 
-- [x] `dev-pages.tests.ps1`: 490 passed, 0 failed
+- [x] `dev-pages.tests.ps1`: 478 passed, 0 failed; `connector-dashboard.tests.ps1`: 236 passed, 0 failed
+- [x] `check-plugin-integrity.ps1`: 0 errors
 - [ ] The owner has looked at `/` and `/plugins` on the product server
 
 ### DEPLOY: feat/specialists-card-under-plugins
 
-The Specialists card moved from the product home page onto the Plugins page, right after the
-`dkj-subagents` card, and every Specialists page's trail now runs Home > Plugins > Specialists. The
-`/specialists` address is unchanged.
+The Specialists pages are merged into the specialist teams' Plugins pages: the product home page drops
+its Specialists card, a team's card on `/plugins/dkj-subagents` counts its specialists and their full
+read, a team's own page shows its facts and then its specialists with what each costs, and a
+specialist's page sits under its team. An old `/specialists` address redirects to the same page at its
+new one.
 
 **Score:** 2
 
@@ -73,5 +81,5 @@ N/A: the product's own dev pages, which no consumer takes.
 
 #### Pull Request
 
-Move the Specialists card from the product home page onto the Plugins page
+Merge the Specialists pages into the specialist teams' Plugins pages
 
