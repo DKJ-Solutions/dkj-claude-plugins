@@ -677,30 +677,44 @@ function Format-DkjRepoFactsHtml {
 
 function Format-DkjRepoCardHtml {
     <#
-        The Repo card on a DKJ repo's own page: its description, its GitHub facts (Format-DkjRepoFactsHtml) and
-        link, and -- where it is checked out here -- its branch, state and the session command to copy. The page's
-        h1 names the repo, so the card has no title of its own.
+        The Repo card on a DKJ repo's own page: ONE card for the repo and what the register's check says about it
+        (Maikel, October 28, 2026). Its description; a line with its status (the check's, or Not registered), its
+        GitHub facts (Format-DkjRepoFactsHtml), its GitHub link and its manifest; its checkout here; what the check
+        reports (Format-ConnectorRepoDetailsHtml), or that it is not registered under connectors/; and the session
+        command to copy. The page's h1 names the repo, so the card has no title of its own. -Connector is its entry in
+        the register, or $null.
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$Row, [AllowNull()]$Checkout)
+    param([Parameter(Mandatory = $true)][hashtable]$Row, [AllowNull()]$Checkout, [AllowNull()]$Connector)
     $e = { param($v) ConvertTo-DashboardText $v }
+    $b = if ($Connector) { Get-DashboardStatusBadge ([string]$Connector.Status) } else { @{ Class = 'badge--neutral'; Mark = '-'; Word = 'Not registered' } }
     $sb = New-Object System.Text.StringBuilder
-    [void]$sb.Append('<section class="card dr-card grid__full">')
-    if ($Row.Description) { [void]$sb.Append('<p class="dr-desc" title="' + (& $e $Row.Description) + '">' + (& $e $Row.Description) + '</p>') }
-    [void]$sb.Append('<p class="dr-line">' + (Format-DkjRepoFactsHtml -Row $Row) + ' &middot; <a class="dr-link" href="https://github.com/' + (& $e $Row.Repo) + '">GitHub</a></p>')
+    [void]$sb.AppendLine('<section class="card dr-card grid__full">')
+    if ($Row.Description) { [void]$sb.AppendLine('<p class="dr-desc" title="' + (& $e $Row.Description) + '">' + (& $e $Row.Description) + '</p>') }
+    $line = '<span class="cd-status"><span class="badge badge--sm ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span>' + $b.Word + '</span> &middot; ' +
+        (Format-DkjRepoFactsHtml -Row $Row) + ' &middot; <a class="dr-link" href="https://github.com/' + (& $e $Row.Repo) + '">GitHub</a>'
+    if ($Connector) { $line += ' &middot; <code>connectors/' + (& $e $Connector.File) + '</code>' }
+    [void]$sb.AppendLine('<p class="dr-line">' + $line + '</p>')
     if ($Checkout) {
         $state = if ($Checkout.Dirty) { [string]$Checkout.Dirty + ' uncommitted' } else { 'clean' }
-        $cmd = Format-RepoSessionCommand -Path ([string]$Checkout.Path)
-        [void]$sb.Append('<p class="dr-line"><code>' + (& $e $Checkout.Branch) + '</code> <span class="dr-muted">' + $state + '</span></p>')
-        [void]$sb.Append('<p class="dr-session"><button type="button" class="btn" data-copy="' + (& $e $cmd) + '">Copy</button><code title="' + (& $e $cmd) + '">' + (& $e $cmd) + '</code></p>')
+        [void]$sb.AppendLine('<p class="dr-line"><code>' + (& $e $Checkout.Branch) + '</code> <span class="dr-muted">' + $state + '</span></p>')
     } else {
-        [void]$sb.Append('<p class="dr-line dr-muted">Not checked out here</p>')
+        [void]$sb.AppendLine('<p class="dr-line dr-muted">Not checked out here</p>')
     }
-    [void]$sb.Append('</section>')
+    if ($Connector) {
+        [void]$sb.Append((Format-ConnectorRepoDetailsHtml -Connector $Connector))
+    } else {
+        [void]$sb.AppendLine('<p class="note">Not registered under <code>connectors/</code>, so <code>check-connectors.ps1</code> does not check it.</p>')
+    }
+    if ($Checkout) {
+        $cmd = Format-RepoSessionCommand -Path ([string]$Checkout.Path)
+        [void]$sb.AppendLine('<p class="dr-session"><button type="button" class="btn" data-copy="' + (& $e $cmd) + '">Copy</button><code title="' + (& $e $cmd) + '">' + (& $e $cmd) + '</code></p>')
+    }
+    [void]$sb.AppendLine('</section>')
     return $sb.ToString()
 }
 
 function Get-DkjRepoCardStyle {
-    <# The repo layer for the DKJ pages (.dr-*): the repo cards' grid and lines, the Repo card's lines and the session command. #>
+    <# The repo layer for the DKJ pages (.dr-*): the repo cards' grid and lines, the Repo card's lines, its details' rhythm and the session command. #>
     return (@(
         '.dr-link { color: var(--primary); text-underline-offset: 2px; }',
         # /connectors/dkj: four cards to a row, at most three rows of them (Maikel, October 28, 2026) -- so four
@@ -714,16 +728,12 @@ function Get-DkjRepoCardStyle {
         # row; the house style cuts it off where it still does not fit and keeps the status mark after it in its
         # place, and .dr-clip does the same for the facts and the checkout (Maikel, October 28, 2026).
         '.dr-repos h2 { font-size: var(--text-lg); }',
-        # A repo's page: its Repo and Connector groups side by side, their cards one height, one column at phone width.
-        '.dr-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-4); align-items: stretch; }',
-        '.dr-pair > .grid-2 { grid-template-rows: auto 1fr; }',
-        # The room the house style gives a headed group above its h2 in the page column, which the pair now is.
-        '.page-column > .dr-pair { margin-top: var(--spacing-5); }',
-        '@media (max-width: 760px) { .dr-pair { grid-template-columns: 1fr; } }',
         '.dr-clip { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-sm); }',
         '.dr-clip code { font-size: var(--text-xs); }',
         '.dr-card > p { margin: 0; }',
         '.dr-card > p + p { margin-top: var(--spacing-1); }',
+        # The check's details in the Repo card: a little air above them, as in the group pages' mini-card.
+        '.dr-card > .meta, .dr-card > .cd-plugins, .dr-card > .cd-signals, .dr-card > .note, .dr-card > details { margin-top: var(--spacing-2); }',
         # A card's lines in the Stopwatch card's sizes: the description one muted line ending in an ellipsis, its
         # whole text on hover, and the session command likewise, copied whole by its button.
         '.dr-desc { font-size: var(--text-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
@@ -792,10 +802,10 @@ function Format-DkjReposPageHtml {
 function Format-DkjRepoPageHtml {
     <#
         A DKJ repo's own page, /connectors/dkj/<name> (Maikel, October 28, 2026): the trail Home > Connectors > DKJ
-        repos > the repo, and three cards -- Repo (Format-DkjRepoCardHtml), Connector (what check-connectors.ps1
-        reports for it, Format-ConnectorRepoMiniCardHtml, or that it is not registered under connectors/) and Lenses
-        (Format-RepoLensesCardHtml, which the server hands in as -LensesHtml and -LensesStyle). -Connector is its
-        entry in the register or $null; -Meta is @{ GeneratedAt; Seconds } of the GitHub read.
+        repos > the repo, then two cards -- Repo (Format-DkjRepoCardHtml: the repo and what the register's check
+        says about it, in one) and Lenses (Format-RepoLensesCardHtml, which the server hands in as -LensesHtml and
+        -LensesStyle). -Connector is its entry in the register or $null; -Meta is @{ GeneratedAt; Seconds } of the
+        GitHub read.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Row,
@@ -809,25 +819,9 @@ function Format-DkjRepoPageHtml {
     $sb = New-Object System.Text.StringBuilder
     $style = (Get-DkjRepoCardStyle) + $(if ($LensesStyle) { "`n" + $LensesStyle } else { '' })
     [void]$sb.Append((Format-ConnectorPageStart -PageName ([string]$Row.Name) -Trail @(@{ Href = '/connectors'; Label = 'Connectors' }, @{ Href = '/connectors/dkj'; Label = 'DKJ repos' }) -Style $style))
-    # Repo and Connector side by side, each under its own h2 (Maikel, October 28, 2026); Lenses takes the row under them.
-    [void]$sb.AppendLine('<div class="dr-pair">')
     [void]$sb.AppendLine('<div class="grid-2" id="repo">')
     [void]$sb.AppendLine('<div class="grid__head"><h2>Repo</h2><p class="card__sub">' + (& $e $Row.Repo) + '</p></div>')
-    [void]$sb.AppendLine((Format-DkjRepoCardHtml -Row $Row -Checkout $Checkout))
-    [void]$sb.AppendLine('</div>')
-    [void]$sb.AppendLine('<div class="grid-2" id="connector">')
-    if ($Connector) {
-        $b = Get-DashboardStatusBadge ([string]$Connector.Status)
-        [void]$sb.AppendLine('<div class="grid__head"><h2>Connector</h2><p class="card__sub">' + $b.Word + '</p></div>')
-        [void]$sb.AppendLine('<section class="card grid__full">')
-        [void]$sb.Append((Format-ConnectorRepoMiniCardHtml -Connector $Connector))
-    } else {
-        [void]$sb.AppendLine('<div class="grid__head"><h2>Connector</h2><p class="card__sub">Not registered</p></div>')
-        [void]$sb.AppendLine('<section class="card grid__full">')
-        [void]$sb.AppendLine('<p class="note">Not registered under <code>connectors/</code>, so <code>check-connectors.ps1</code> does not check it.</p>')
-    }
-    [void]$sb.AppendLine('</section>')
-    [void]$sb.AppendLine('</div>')
+    [void]$sb.Append((Format-DkjRepoCardHtml -Row $Row -Checkout $Checkout -Connector $Connector))
     [void]$sb.AppendLine('</div>')
     if ($LensesHtml) { [void]$sb.Append($LensesHtml) }
     [void]$sb.AppendLine((Get-CopyButtonScript))

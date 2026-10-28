@@ -495,6 +495,22 @@ function Format-ConnectorRepoMiniCardHtml {
     $ghUrl = 'https://github.com/' + (& $e $c.Repo)
     [void]$sb.AppendLine('<p class="sub">' + $b.Word + ' &#183; ' + (& $e $c.Visibility) + ' &#183; checkout ' + $where +
         ' &#183; <a class="cd-link" href="' + $ghUrl + '">GitHub</a> &#183; <code>connectors/' + (& $e $c.File) + '</code></p>')
+    [void]$sb.Append((Format-ConnectorRepoDetailsHtml -Connector $c))
+    [void]$sb.AppendLine('</section>')
+    return $sb.ToString()
+}
+
+function Format-ConnectorRepoDetailsHtml {
+    <#
+        What the register's check says about one repo, under the line that names it: its trunk's last commit, its
+        plugins with their lens counts, the drift, the check's findings (or that every check passes), and the
+        register's notes folded. A group's mini-card (Format-ConnectorRepoMiniCardHtml) and a DKJ repo's own Repo
+        card (Format-DkjRepoCardHtml, Maikel, October 28, 2026) both hold it.
+    #>
+    param([Parameter(Mandatory = $true)][hashtable]$Connector)
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $c = $Connector
+    $sb = New-Object System.Text.StringBuilder
     if ($c.Git -and $c.Git.Subject) {
         [void]$sb.AppendLine('<p class="meta" style="white-space: normal">Last commit on ' + (& $e $c.Git.Trunk) + ' ' + (& $e $c.Git.When) + ': ' + (& $e $c.Git.Subject) + '</p>')
     }
@@ -523,7 +539,6 @@ function Format-ConnectorRepoMiniCardHtml {
     if ($c.Notes) {
         [void]$sb.AppendLine('<details class="more"><summary>Register notes</summary><div class="cd-notes">' + (& $e $c.Notes) + '</div></details>')
     }
-    [void]$sb.AppendLine('</section>')
     return $sb.ToString()
 }
 
