@@ -42,6 +42,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# NO SOURCE-REPO GUARD, for check-claude-home.ps1's reason: a SessionStart hook runs the released copy, so
+# Assert-OwnCopy would refuse it at every session start in the source repo, and nothing this reads is
+# repo-relative -- the released copy computes the identical answer.
+
 . (Join-Path $PSScriptRoot '..\lib\check-report-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\tidy-lib.ps1')
 
@@ -66,7 +70,7 @@ if ($ProcessTableJson) {
                 }
             })
     } catch {
-        Write-Host ('[INFO] the process table could not be read -- nothing judged: ' + ((([string]$_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', ''))
+        Write-Host ('[INFO] the process table could not be read -- nothing judged: ' + (Format-SafeProseToken -Value ([string]$_.Exception.Message)))
         exit 0
     }
 }

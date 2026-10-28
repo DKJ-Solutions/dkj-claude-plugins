@@ -391,6 +391,10 @@ $guardExempt = @(
     # SessionStart: unshipped-pr-sessioncheck (#2525) -- check-stranded-sweep's sibling, exempt for the
     # identical reason: the hook runs the released copy from '${CLAUDE_PLUGIN_ROOT}/scripts/lint/'.
     'scripts\lint\check-unshipped-pr.ps1',
+    # SessionStart: hub-processes-sessioncheck (#3620). check-claude-home's reason exactly: the hook runs the
+    # released copy, and the check reads the process table and the user's home, nothing repo-relative, so
+    # the released copy and this one compute the identical answer.
+    'scripts\lint\check-hub-processes.ps1',
     'scripts\task\park-cycle.ps1',             # Stop: cycle-autopark (#900)
     # statusLine: the command Claude Code runs on its own clock (#2103). THE FIRST ENTRY HERE THAT IS
     # NOT A HOOK, and it is on this list for the hooks' own reason one settings key over: nobody invokes
