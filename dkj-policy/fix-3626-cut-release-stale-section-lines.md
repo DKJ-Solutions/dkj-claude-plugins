@@ -39,19 +39,36 @@
 
 ### PLAN
 
+#3626: #3584 dropped "What it is worth" and "What was still open" from the audience release note, and #3590
+repaired the leftover in `new-internal-note.ps1`. Three strings in `cut-release.ps1` still named them, so the
+cut's own console contradicted the note it had just drafted. The `repo-config.ps1` comment above the
+audience seam (and its blueprint copy) described the same retired section.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `cut-release.ps1` (and its mirror): the Release body's pointer line, the `created:` line and the
+  still-to-write lines name only the audience section, or a header-only note
+- [x] `repo-config.ps1`: the comment on the note's sections states the one section left; the blueprint rebuilt
+  from it (`build-config-blueprint.ps1`)
 
 ### TEST
 
+- [x] Console and comment text only: no test asserted the old strings, and no behaviour changed
+
 ### DEPLOY: fix/3626-cut-release-stale-section-lines
 
-**Score:**
+`cut-release` no longer names the two audience-note sections #3584 removed
+([#3626](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3626)). The GitHub Release body now
+points at the attached notes for "whether you need to act" only. The cut's console says the drafted note
+holds the audience section, or only its header where no entry reached the audience tier.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
