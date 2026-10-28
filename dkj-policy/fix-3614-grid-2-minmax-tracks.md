@@ -52,6 +52,7 @@ no horizontal scrollbar, at desktop width and below 760px.
 ### CREATE
 
 - [x] `house-style.css`: `.grid-2` is `repeat(2, minmax(0, 1fr))`, and the 760px step is `minmax(0, 1fr)`
+- [x] The skill's pin table carries the new `house-style.css` sha256, as every house-style change does
 
 ### TEST
 
