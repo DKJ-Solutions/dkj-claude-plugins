@@ -2,7 +2,27 @@
 
 ## [Unreleased]
 
-**5 / 6 minor entries** <!-- pending-tally -->
+**5 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/repo-card-split · 20261028-135859Z
+
+A DKJ repo's own page in the hub (`/connectors/dkj/<name>`) no longer shows one wide Repo card. It shows two cards side by side, each titled with its own `h2`. **GitHub** holds visibility, open issues and PRs, the last push and the link. **This machine** holds the register check's status, the checkout, the last commit, the plugins, the checks, the drift, the manifest, the findings and the session command. The description line and the `Repo` group head are gone. Every fact now sits on one line: the last commit reads `<age> · <subject>`, cut off with an ellipsis, with the whole text on hover. A `min-width: 0` on the cards keeps the pair from widening the page into a horizontal scroll. The underlying `.grid-2` track shape is filed as #3614.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the hub is this repo's own dev server, so nobody who takes a release sees this page.
+
+**Score:** N/A
+
+#### Pull Request
+
+A DKJ repo's page splits its Repo card into a GitHub card and a This machine card
+
+[PR #3617](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3617)
+
+---
 
 ### DEPLOY: fix/3610-card-slot-link-guard · 20261028-134828Z
 
