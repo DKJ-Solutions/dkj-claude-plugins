@@ -428,7 +428,6 @@ function Format-ConnectorPageStart {
     [void]$sb.AppendLine('.cd-signals li .badge { margin-top: 1px; }')
     [void]$sb.AppendLine('.cd-signals code, .cd-plugins code { font-size: var(--text-xs); }')
     [void]$sb.AppendLine('.cd-plugins { display: flex; flex-wrap: wrap; gap: var(--spacing-1-5) var(--spacing-4); margin-top: var(--spacing-2); font-size: var(--text-sm); color: var(--muted); }')
-    [void]$sb.AppendLine('.cd-notes { white-space: pre-wrap; font-size: var(--text-xs); color: var(--muted); max-height: 320px; overflow: auto; }')
     [void]$sb.AppendLine('.cd-status { display: inline-flex; align-items: center; gap: var(--spacing-1-5); }')
     [void]$sb.AppendLine('.table td.cd-left, .table th.cd-left { text-align: left; }')
     # Fixed layout, so the table takes these widths rather than sizing to its own content; the min-width keeps them readable, scrolling inside .table-wrap on a narrow screen.
@@ -478,8 +477,7 @@ function Format-ConnectorPageEnd {
 function Format-ConnectorRepoMiniCardHtml {
     <#
         One registered repo's details as a house mini-card: its status, visibility, checkout, GitHub link and
-        manifest, its trunk's last commit, its plugins with their lens counts, the drift, and what
-        check-connectors.ps1 reports for it, with the register's notes folded. A group's Issues card holds one
+        manifest, and what the check says about it (Format-ConnectorRepoDetailsHtml). A group's Issues card holds one
         per repo, and a DKJ repo's own page holds its own (Format-DkjRepoPageHtml). -Connector is one of
         Format-ConnectorDashboardHtml's -Connectors.
     #>
@@ -503,8 +501,9 @@ function Format-ConnectorRepoMiniCardHtml {
 function Format-ConnectorRepoDetailsHtml {
     <#
         What the register's check says about one repo, under the line that names it: its trunk's last commit, its
-        plugins with their lens counts, the drift, the check's findings (or that every check passes), and the
-        register's notes folded. A group's mini-card (Format-ConnectorRepoMiniCardHtml) and a DKJ repo's own Repo
+        plugins with their lens counts, the drift, and the check's findings (or that every check passes). The register's
+        notes are not shown: they are the register's own log, for whoever keeps it (connectors/README.md), and run to
+        tens of kilobytes a repo (Maikel, October 28, 2026). A group's mini-card (Format-ConnectorRepoMiniCardHtml) and a DKJ repo's own Repo
         card (Format-DkjRepoCardHtml, Maikel, October 28, 2026) both hold it.
     #>
     param([Parameter(Mandatory = $true)][hashtable]$Connector)
@@ -536,9 +535,6 @@ function Format-ConnectorRepoDetailsHtml {
         $nOk = @($c.Signals | Where-Object { $_.Level -eq 'OK' }).Count
         [void]$sb.AppendLine('<p class="note">All ' + $nOk + ' checks pass.</p>')
     }
-    if ($c.Notes) {
-        [void]$sb.AppendLine('<details class="more"><summary>Register notes</summary><div class="cd-notes">' + (& $e $c.Notes) + '</div></details>')
-    }
     return $sb.ToString()
 }
 
@@ -546,7 +542,7 @@ function Format-ConnectorDashboardHtml {
     <#
         The whole page. -Connectors is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
         (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Trunk; Subject; When }
-        or $null); Notes }. -Meta is @{ GeneratedAt; Seconds; CheckFailed }.
+        or $null) }. -Meta is @{ GeneratedAt; Seconds; CheckFailed }.
         It is the Connectors page under the hub on '/' (#3097): a two-crumb trail and its own h1. The
         facts card belongs to the hub, so this page ends on its footer note.
 

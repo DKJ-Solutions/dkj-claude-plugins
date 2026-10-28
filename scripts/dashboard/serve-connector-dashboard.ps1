@@ -181,7 +181,6 @@ function Get-DashboardModel {
             Drift      = if ($parsed.Contains($repo)) { $parsed[$repo].Drift } else { $null }
             Status     = Get-ConnectorStatus $signals
             Git        = if ($resolved) { Get-DashboardGitInfo $resolved } else { $null }
-            Notes      = [string]$m.notes
         }
     }
     $meta.Seconds = ((Get-Date) - $started).TotalSeconds
