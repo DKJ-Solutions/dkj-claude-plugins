@@ -19,12 +19,9 @@
                 Requires     = 'node_modules'   # optional: path(s) under the repo root that must exist
                 WaitSeconds  = 20               # optional: how long to wait for the server to listen (1-45)
                 OpenInVsCode = $false           # optional: also hand the URL to VS Code (see the hook)
-                OwnHub       = $false           # optional: this server IS the repo's hub, so the plugin's is not used (#3245)
                 DefaultTheme = 'teal'           # optional: the house theme the plugin's hub and general pages open in
                                                 #   while the visitor has picked none; lilac where unstated (#3390), or
                                                 #   a pair by OS mode, @{ Light = 'blue'; Dark = 'sky' } (#3608)
-                Product      = @{ ... }         # optional, only with OwnHub = $true: a product beside that hub, stating
-                                                #   Command, Ports, Path, Requires and WaitSeconds as above (#3283)
             }
         }
 
@@ -39,9 +36,14 @@
 
     THE PLUGIN SERVES THE REPOSITORY IN EVERY REPO (#3245, the owner's decision of October 21, 2026), whether
     or not the repo states Get-DevPreview: the general pages server answers '/' with the hub, and a server
-    the repo states is its PRODUCT, one link on that Repository. A repo that wants its own Repository keeps that option
-    through OwnHub = $true: its server is then the hub, as it was before. This replaces #3047's placeholder,
-    whose own server on 4880-4889 is retired: the hub IS the general pages server.
+    the repo states is its PRODUCT, one link on that Repository. This replaces #3047's placeholder, whose own
+    server on 4880-4889 is retired: the hub IS the general pages server.
+
+    THERE IS NO OPT-OUT (#3643, the owner's decision of October 29, 2026): every repo that runs dkj-policy gets
+    this hub, and it renders in the house style. From #3245 to #3643 OwnHub = $true let a repo's own server be
+    the hub, with a Product beside it from #3283. Like Name, both are ignored where a repo still states them,
+    so a config that predates this keeps its product, and the keys are named as config drift in a
+    DKJ-Solutions repo.
 
     OWNERSHIP IS READ OFF THE PROCESS TABLE, NOT OFF THE PORT. brandbook's rule, generalised: a listener
     is ours when its own command line, or one of its nearest ancestors' (the hook starts every server under
@@ -188,17 +190,6 @@ function ConvertTo-DevPreviewConfig {
         $wait = $w
     }
 
-    # OwnHub is the repo's opt-out of the plugin's hub (#3245): a real boolean, so a typo is a problem and not
-    # a silent default.
-    $ownHub = $false
-    if ($null -ne $Raw['OwnHub']) {
-        if ($Raw['OwnHub'] -isnot [bool]) {
-            $result.Problem = 'OwnHub must be $true or $false'
-            return $result
-        }
-        $ownHub = [bool]$Raw['OwnHub']
-    }
-
     # The theme the plugin's hub and general pages open in (#3390): a theme id, the shape house-theme.js names its
     # themes in, so it can be written into an attribute as it stands. One the house style does not know falls
     # back in the browser, the way a stored choice naming a retired theme does. A pair, @{ Light; Dark } (#3608),
@@ -223,38 +214,6 @@ function ConvertTo-DevPreviewConfig {
         }
     }
 
-    # A product BESIDE the repo's own hub (#3283): only where OwnHub is on, because without it the server
-    # itself is already the product. It states the same fields as the server and is held to the same rules,
-    # except the three that belong to the hub alone (OwnHub, OpenInVsCode and a Product of its own). A Product
-    # stated without OwnHub fails the whole answer, since the hub is then the plugin's and nothing is lost; any
-    # other fault in it costs the product alone, carried as ProductProblem, so a typo there never costs the
-    # repo its own hub (Victor's review).
-    $product = $null
-    $productProblem = $null
-    if ($null -ne $Raw['Product']) {
-        if (-not $ownHub) {
-            $result.Problem = 'a Product is stated without OwnHub = $true, where the server itself is the product'
-            return $result
-        }
-        if ($Raw['Product'] -isnot [System.Collections.IDictionary]) {
-            $productProblem = 'the Product must be a hashtable'
-        } else {
-            foreach ($k in 'OwnHub', 'OpenInVsCode', 'DefaultTheme', 'Product') {
-                if (-not $productProblem -and $Raw['Product'].Contains($k)) { $productProblem = "the Product states $k, which belongs to the hub alone" }
-            }
-        }
-        if (-not $productProblem) {
-            $inner = ConvertTo-DevPreviewConfig -Raw $Raw['Product']
-            if (-not $inner.Ok) {
-                $productProblem = "the Product: $($inner.Problem)"
-            } else {
-                $shared = @($inner.Config.Ports | Where-Object { $ports -contains $_ })
-                if ($shared.Count) { $productProblem = "the Product's ports overlap the hub's ($(Format-DevPreviewPorts -Ports $shared))" }
-                else { $product = $inner.Config }
-            }
-        }
-    }
-
     $result.Ok = $true
     $result.Config = @{
         Command      = $command
@@ -263,12 +222,11 @@ function ConvertTo-DevPreviewConfig {
         Requires     = $requires
         Name         = $script:DevPreviewLabel   # fixed: a repo's own Name is not read (#3064)
         NameStated   = $Raw.Contains('Name')     # ...but one still stated is named as drift (#3463)
+        # OwnHub and the Product beside it are retired (#3643): not read, whatever they hold, and named as drift.
+        RetiredStated = @(@('OwnHub', 'Product') | Where-Object { $Raw.Contains($_) })
         WaitSeconds  = $wait
         OpenInVsCode = [bool]$Raw['OpenInVsCode']
-        OwnHub       = $ownHub
         DefaultTheme = $theme
-        Product      = $product
-        ProductProblem = $productProblem
     }
     return $result
 }
@@ -279,17 +237,17 @@ function Get-DevPreviewDriftClauses {
         order they print; empty where nothing does. -Config is ConvertTo-DevPreviewConfig's, -Mode what the
         repo states, -SettingsText its .vscode/settings.json, -HubPorts the plugin hub's range.
 
-        THREE KINDS, AND ONE IS NOT A DEFECT (the owner's decision, October 25, 2026). OwnHub is a supported
-        opt-out, so it is named as a plain fact, never as something to repair; the source repo's own OwnHub
-        (-SourceTree) is not named at all, since it runs the hub from its own tree and is ahead of every
-        release rather than behind. OpenInVsCode with no hub port routed, and a Name still stated, are defects
-        in the repo's config: since #3245 OpenInVsCode hands out the HUB's url, so a route written for the
-        product alone sends it to the system browser, and Name has been ignored since #3064.
+        EVERY ONE IS A DEFECT IN THE REPO'S CONFIG. OpenInVsCode with no hub port routed: since #3245
+        OpenInVsCode hands out the HUB's url, so a route written for the product alone sends it to the system
+        browser. A Name still stated: ignored since #3064. An OwnHub or a Product still stated: ignored since
+        #3643 retired the opt-out, which until then was named here as a plain fact (October 25, 2026). The
+        keys a repo still states but nothing reads share ONE defect, "delete Get-DevPreview's <keys>", and the
+        OpenInVsCode defect drops "in .vscode", which OpenInVsCode already says: with all four at once, the line
+        must still end inside 300 characters after the longest product head (measured, 316 before).
         Outside a DKJ-Solutions repo (-DkjSolutions false) nothing is named: the roll-out is theirs.
     #>
     param(
         [bool]$DkjSolutions,
-        [bool]$SourceTree,
         [AllowEmptyString()][string]$Mode = 'none',
         [AllowNull()]$Config,
         [AllowNull()][AllowEmptyString()][string]$SettingsText,
@@ -299,12 +257,12 @@ function Get-DevPreviewDriftClauses {
     # every word here is one the product's url and words cannot use.
     $clauses = @()
     if (-not $DkjSolutions -or -not $Config) { return $clauses }
-    if ($Mode -eq 'ownhub' -and -not $SourceTree) { $clauses += 'own hub (OwnHub): hub releases do not reach it' }
     $defects = @()
     if ($Mode -eq 'product' -and $Config.OpenInVsCode -and -not @($HubPorts | Where-Object { Test-DevPreviewVsCodeRoute -SettingsText $SettingsText -Port $_ }).Count) {
-        $defects += "OpenInVsCode but no hub port ($((Format-DevPreviewPorts -Ports $HubPorts) -replace '^ports? ', '')) routed in .vscode"
+        $defects += "OpenInVsCode but no hub port ($((Format-DevPreviewPorts -Ports $HubPorts) -replace '^ports? ', '')) routed"
     }
-    if ($Config.NameStated) { $defects += 'Get-DevPreview states Name: delete it' }
+    $unread = @(@($(if ($Config.NameStated) { 'Name' })) + @($Config.RetiredStated) | Where-Object { $_ })
+    if ($unread.Count) { $defects += "delete Get-DevPreview's " + ($unread -join ', ') }
     if ($defects.Count) { $clauses += 'config drift: ' + ($defects -join '; ') }
     return $clauses
 }
@@ -834,19 +792,18 @@ function Test-RepoHubLocalUrl {
 
 function Format-RepoHubState {
     <#
-        The state file's text (#3245). -Hub is the Repository's url: the general server's own base plus '/' where
-        the plugin serves the hub, the repo's own server where the repo opted out. -Pages is the general
-        server's base url, '' where none is running. -Product is the repo's own server url, or ''. -Mode is
-        what the repo states: 'none' (no Get-DevPreview, so the hub carries the setup cards), 'product' (a
-        server of its own, one link on the plugin's hub) or 'ownhub' (OwnHub: its server is the hub, and the
-        general server sends '/hub' there instead of rendering one). -Theme is the repo's DefaultTheme, or '' (#3390).
+        The state file's text (#3245). -Hub is the Repository's url: the general server's own base plus '/'.
+        -Pages is the general server's base url, '' where none is running. -Product is the repo's own server
+        url, or ''. -Mode is what the repo states: 'none' (no Get-DevPreview, so the hub carries the setup
+        cards) or 'product' (a server of its own, one link on the plugin's hub); 'ownhub' went with #3643.
+        -Theme is the repo's DefaultTheme, or '' (#3390).
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Root,
         [AllowEmptyString()][string]$Hub = '',
         [AllowEmptyString()][string]$Pages = '',
         [AllowEmptyString()][string]$Product = '',
-        [ValidateSet('none', 'product', 'ownhub')][string]$Mode = 'none',
+        [ValidateSet('none', 'product')][string]$Mode = 'none',
         [AllowEmptyString()][string]$Theme = ''
     )
     return ([ordered]@{ root = $Root; hub = $Hub; pages = $Pages; product = $Product; mode = $Mode; theme = $Theme } | ConvertTo-Json -Compress)
@@ -860,8 +817,9 @@ function ConvertFrom-RepoHubState {
         Path allows (Test-RepoHubLocalUrl), the pages' a bare base on one of the general pages ports
         (Get-GeneralPagesPortRange), so a file another process can write cannot point a hub's links at any
         other local service. The urls are redirect targets and link hrefs, so a state file that names anything
-        else is ignored. Mode is believed only as one of its three words; a file written before #3245 has
-        none, and reads as 'none': the plugin's own hub. Theme is believed only as a theme id or a 'light/dark'
+        else is ignored. Mode is believed only as 'none' or 'product'; a file written before #3245 has none,
+        and reads as 'none': the plugin's own hub. An 'ownhub' a hook before #3643 wrote reads as 'product',
+        since that repo states a server and its next session start writes the file again. Theme is believed only as a theme id or a 'light/dark'
         pair of them (Test-DevPreviewThemeValue), since every page writes it into its <html> (#3390, #3608).
     #>
     param([AllowNull()][AllowEmptyString()][string]$Text, [Parameter(Mandatory = $true)][string]$Root)
@@ -877,7 +835,8 @@ function ConvertFrom-RepoHubState {
     if (Test-RepoHubLocalUrl $h) { $state.Hub = $h }
     if (Test-RepoHubLocalUrl $q) { $state.Product = $q }
     if ($p -cmatch '^http://localhost:([0-9]{4,5})/?\z' -and (@(Get-GeneralPagesPortRange) -contains [int]$Matches[1])) { $state.Pages = $p.TrimEnd('/') }
-    if ($m -cmatch '^(none|product|ownhub)\z') { $state.Mode = $m }
+    if ($m -cmatch '^(none|product)\z') { $state.Mode = $m }
+    elseif ($m -ceq 'ownhub') { $state.Mode = 'product' }
     $t = if ($s.PSObject.Properties['theme']) { [string]$s.theme } else { '' }
     if (Test-DevPreviewThemeValue $t) { $state.Theme = $t }
     return $state

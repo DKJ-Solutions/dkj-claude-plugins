@@ -51,9 +51,8 @@
       /hub, / and /index.html
                       the plugin's hub (Format-PluginRepoHubHtml), built per request from the state file
                       the hook wrote (%TEMP%\dkj-repo-hub-<leaf>-<hash>.json): the repo's own server as the
-                      Product card (mode 'product'), the setup cards (mode 'none'). EXCEPT where the repo
-                      opted out with OwnHub (mode 'ownhub', #3245): then a 303 to the repo's own hub, the url
-                      the file names, and a plain 404 text where it names none.
+                      Product card (mode 'product'), the setup cards (mode 'none'). In every repo: the
+                      OwnHub opt-out, which sent '/hub' on to a repo's own hub, went with #3643.
       /repository     the hub's Repository page (Format-PluginRepoRepositoryHtml, #3383): the facts the home page
                       held until the house hub became a grid of card links, and the Issues page's card.
       /refresh        ?page=issues or ?page=sessionstart drops that page's cache (at most once per
@@ -462,16 +461,7 @@ try {
                 continue
             }
             if ($path -eq '/' -or $path -eq '/index.html' -or $path -eq '/hub') {
-                # THE HUB IS THIS SERVER'S (#3245), built per request from the state file: unless the repo opted
-                # out with OwnHub, in which case its own server is the hub and this one sends the visitor there.
-                if ($state.Mode -eq 'ownhub') {
-                    if ($state.Hub) {
-                        Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $state.Hub } -Method $method
-                    } else {
-                        Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('This repo''s hub is not known yet: the dev-preview hook records it at the next session start.')) -Method $method
-                    }
-                    continue
-                }
+                # THE HUB IS THIS SERVER'S (#3245), built per request from the state file, in every repo (#3643).
                 $hubMode = if ($state.Mode -eq 'product') { 'product' } else { 'none' }
                 $hubHtml = Format-PluginRepoHubHtml -RepoName (Get-RepoIdentity).Name -Folder (Split-Path -Leaf $root) -Mode $hubMode -ProductUrl $state.Product -PagesUrl "http://localhost:$Port"
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($hubHtml)) -Method $method

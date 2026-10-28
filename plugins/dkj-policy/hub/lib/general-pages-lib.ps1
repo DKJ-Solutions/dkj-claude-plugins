@@ -128,8 +128,7 @@ function Format-GeneralPageHtml {
     <#
         The whole page around -Body. -Title is the page's own name: the last crumb, the h1 and the
         <title> (after -SiteName). -Eyebrow is the line over the h1, the repo's name. -HubHref is where
-        the first crumb, "Home" (#3270), goes: '/hub' on the general server, which answers it with the home page or, under OwnHub,
-        sends the visitor on to the repo's own hub -- or, where a hub relays these pages from its own origin, '/hub' on that hub, which
+        the first crumb, "Home" (#3270), goes: '/hub' on the general server, which answers it with the home page -- or, where a hub relays these pages from its own origin, '/hub' on that hub, which
         answers it itself (#3168). -Style is the page's own layer, names the house file does not define. -Lead and
         -FooterNote are markup the caller has escaped. -Lead is the page's <meta name="description">, never a
         paragraph under the h1: screen height is scarce, so a page opens on its h1 and goes straight to its content

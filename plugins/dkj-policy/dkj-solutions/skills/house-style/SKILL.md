@@ -17,8 +17,12 @@ into this plugin, and [#3531](https://github.com/DKJ-Solutions/dkj-claude-plugin
 every repo installs. **The rule stays here**: this skill, the pin table below, `check-house-style` and
 its session check. This skill carries the rules a session needs before it fetches anything.
 
-**The rule reaches DKJ-Solutions and nothing else.** This plugin is enabled only in DKJ-Solutions repos.
-BWJ-Development styles its own apps, and this skill says nothing about them.
+**The rule reaches DKJ-Solutions and nothing else.** This plugin is enabled only in DKJ-Solutions repos, so
+a DKJ-Solutions product starts from the house style by this rule: copied in unchanged and held to the pin by
+`check-house-style`, never applied to it automatically. BWJ-Development styles its own apps, and this skill
+says nothing about them. The Toolbox is not such an app: `dkj-policy` serves it in every repo, BWJ's
+included, always in the house style, with no opt-out (#3643; the three-part rule is in `dkj-policy`'s
+`hub/README.md`, "One look in every repo").
 
 ## Where the files are
 
@@ -71,8 +75,8 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    uses `DKJTheme.settings(el)` from that script, the round settings button with the picker inside,
    instead of building its own toggle around `DKJTheme.picker`; the README has its options.
    **The hub** (a repo's dev server's home page on `/`, one page under the site header since #3289, with
-   `/about` sending an old link there; the dkj-policy plugin serves one in every repo that does not opt out,
-   with the repo's own server as its first card, #3245) **takes the one form the README lays down
+   `/about` sending an old link there; the dkj-policy plugin serves one in every repo, with no opt-out since
+   #3643, and the repo's own server as its first card, #3245) **takes the one form the README lays down
    under "Page patterns", "The hub"**: its blocks and their order, with only the content the repo's own.
    The site header names the repo; the page is one grid of card links with no heading (its products, its
    own pages and the general ones), and its facts, its Issues and what is in flight sit on a
@@ -193,7 +197,7 @@ DKJ-Solutions app the next time it takes a copy, so the branch stops for the own
 merging.
 
 **There is one canonical copy of the files, and it is that folder.** The source repo's connector dashboard
-and the plugin's own hub (the general pages server, which serves every repo's hub unless the repo opts out with `OwnHub`) both read it in place, so
+and the plugin's own hub (the general pages server, which serves every repo's hub) both read it in place, so
 no second copy needs replacing by hand
 ([#2989](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2989),
 [#3047](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3047)). The table above guards two

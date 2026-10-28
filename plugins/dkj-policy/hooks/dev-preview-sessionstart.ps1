@@ -12,9 +12,10 @@
     pages server (hub/pages/serve-general-pages.ps1: the hub on '/', and Artifacts, Issues, Release notes,
     SessionStart) is the hub, on the first free port of 4890-4899,
     under the ownership rule, with its log in %TEMP%\dev-preview-general-<repo>-<hash>.log. A server the repo
-    states in Get-DevPreview is its PRODUCT, one link on that hub. A repo that wants its own hub states
-    OwnHub = $true: its server is then the hub, as before, and the general server still starts beside it and
-    sends '/hub' there.
+    states in Get-DevPreview is its PRODUCT, one link on that hub. There is no opt-out (#3643, the owner's
+    decision of October 29, 2026): every repo gets this hub, in the house style. The OwnHub key that let a
+    repo serve its own hub from #3245 to #3643, and the Product it allowed beside it (#3283), are ignored
+    where a repo still states them, and named as config drift in a DKJ-Solutions repo.
 
     WHAT IT DOES, in order: reads Get-DevPreview (in a child scope with StrictMode off, the way the
     bwj-development hooks read their seams). It then takes one snapshot of the listening sockets and the
@@ -24,7 +25,7 @@
     second half, settled by #3245). The one thing that can keep the hub from starting is the hub's own
     problem: its ports 4890-4899 all taken, a '%' or '^' in the plugin or repo path, a plugin install that
     lacks the state library. The line then names that instead of a link.
-    Then, where the repo states a server and has not opted out, it REUSES the first port whose listener is
+    Then, where the repo states a server, it REUSES the first port whose listener is
     this checkout's product, or STARTS the repo's Command on the first free port, hidden and detached so it
     outlives the hook, under a cmd.exe that changes into the repo root first (that command line is what
     makes a server recognisable as ours next time). It waits until each server it started actually listens
@@ -36,7 +37,7 @@
     every session, from whatever the hook found, because it is the one contract by which the servers and
     hubs find each other. It is written before the wait and again after it where a wait failed, so it never
     names a server that did not come up. mode is what the repo states: 'none' (no Get-DevPreview, so the hub
-    shows the setup cards), 'product' or 'ownhub'.
+    shows the setup cards) or 'product'.
 
     SILENCE: a Get-DevPreview that answers nothing used to print nothing. Since #3245 it is a repo that
     states no server, so it gets the hub's line like one with no seam at all. Nothing is silent but a
@@ -50,16 +51,10 @@
       no product      Toolbox: <hub> (started|already running) -- this repo states no Get-DevPreview yet[; route ...]
       with a product  Toolbox: <hub> -- product: <url> (started|already running[, LISTENING ON ALL INTERFACES ...])
       product failed  Toolbox: <hub> -- product not started: <why>
-      OwnHub          Toolbox: <repo's own url> (started|already running[...])   -- as before #3245
-      OwnHub+Product  Toolbox: <repo's own url> (...) -- product: <url> (started|already running) | product not started: <why>
 
-    WHAT KEEPS A DKJ-SOLUTIONS REPO FROM FOLLOWING A HUB CHANGE (#3463) is appended to the product and OwnHub
-    forms, from Get-DevPreviewDriftClauses: '-- own hub (OwnHub): hub releases do not reach it' as a plain fact (not in
-    the source repo), and '-- config drift: ...' for OpenInVsCode with no hub port routed or a Name still stated.
-
-    A PRODUCT BESIDE THE OWN HUB (#3283): a repo that states OwnHub = $true may also state Product = @{...},
-    a second server with the same fields. It is started (or reused) and waited for exactly like the first,
-    with its own log (dev-preview-product-<repo>-<hash>.log), and the state file's product names it.
+    WHAT KEEPS A DKJ-SOLUTIONS REPO FROM FOLLOWING A HUB CHANGE (#3463) is appended to the product form, from
+    Get-DevPreviewDriftClauses: '-- config drift: ...' for OpenInVsCode with no hub port routed, or a Name, an
+    OwnHub or a Product still stated.
 
     BIND TO 127.0.0.1 IN THE COMMAND. The hook cannot know what a server exposes, so where the repo serves
     something private (etf-tracker its ledger, life-hub its Brains/), its own Command says so -- e.g.
@@ -67,8 +62,7 @@
     (one started by hand in the checkout counts as ours too), so where the Command names loopback and the
     reused listener is bound to every interface, the line says so (#3041).
 
-    OpenInVsCode hands the HUB's URL to VS Code through `code --open-url` (the repo's own server's where it
-    opted out with OwnHub), only when the session runs in VS Code's terminal (TERM_PROGRAM=vscode) --
+    OpenInVsCode hands the HUB's URL to VS Code through `code --open-url`, only when the session runs in VS Code's terminal (TERM_PROGRAM=vscode) --
     etf-tracker's route, where .vscode/settings.json routes the URL to the Simple Browser through
     workbench.externalUriOpeners. Off by default: without that setting VS Code passes the URL to the system
     browser. A repo that states no Get-DevPreview has no way to set it, so it is on where the repo routes the
@@ -156,7 +150,7 @@ if (Test-Path -LiteralPath $configPath -PathType Leaf) {
 if ($raw -is [array]) { $raw = @($raw | Where-Object { $_ -is [System.Collections.IDictionary] })[-1] }
 
 # What the repo states, and so what the hub shows (#3245): 'none' (no Get-DevPreview, or one that answers
-# nothing, or a config that could not be read), 'product' (a server of its own), 'ownhub' (that server is the hub).
+# nothing, or a config that could not be read) or 'product' (a server of its own).
 # A seam that states something the hook cannot run is 'product' with no server, and its Problem is the line's reason.
 $cfg = $null
 $mode = 'none'
@@ -169,7 +163,6 @@ if ($unreadable) {
     $mode = 'product'
     if ($parsed.Ok) {
         $cfg = $parsed.Config
-        if ($cfg.OwnHub) { $mode = 'ownhub' }
     } else {
         $productProblem = "$($parsed.Problem) (scripts/repo-config.ps1)"
     }
@@ -277,8 +270,8 @@ function Start-DevPreviewHub($Listeners, $Processes) {
     return $r
 }
 
-# A server the repo states -- its own, or the Product beside its own hub (#3283) -- reused or started (the
-# ownership and start rules are unchanged since #2967), each with a log of its own. Returns
+# The server the repo states, reused or started (the ownership and start rules are unchanged since #2967),
+# with a log of its own. Returns
 # @{ Action = 'reuse'|'start'|'failed'; Port; Url; Detail; NotStarted; Exposed; Proc; Log }: Detail is the
 # reason where it failed, and NotStarted says whether it reads "not started: <Detail>" or stands on its own.
 function Start-DevPreviewProduct($Listeners, $Processes, $Cfg, [string]$LogName = 'dev-preview') {
@@ -331,9 +324,6 @@ function Start-DevPreviewProduct($Listeners, $Processes, $Cfg, [string]$LogName 
 
 $ports = @(Get-GeneralPagesPortRange)
 if ($cfg) { $ports += @($cfg.Ports) }
-# The product beside the repo's own hub (#3283): only under OwnHub, where ConvertTo-DevPreviewConfig allows one.
-$extraCfg = if ($cfg -and $mode -eq 'ownhub') { $cfg.Product } else { $null }
-if ($extraCfg) { $ports += @($extraCfg.Ports) }
 $listeners = @(Get-DevPreviewListeners $ports)
 $processes = if ($listeners.Count) { Get-DevPreviewProcesses } else { @{} }
 
@@ -348,14 +338,6 @@ if ($cfg) {
         $prod = @{ Action = 'failed'; Port = 0; Url = ''; Detail = ('could not be started: ' + ((([string]$_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', '')); NotStarted = $true; Exposed = ''; Proc = $null; Log = '' }
     }
 }
-# And the same for the product beside the own hub, whose failure costs neither the hub nor its line.
-$extra = $null
-if ($extraCfg) {
-    try { $extra = Start-DevPreviewProduct -Listeners $listeners -Processes $processes -Cfg $extraCfg -LogName 'dev-preview-product' }
-    catch {
-        $extra = @{ Action = 'failed'; Port = 0; Url = ''; Detail = ('could not be started: ' + ((([string]$_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', '')); NotStarted = $true; Exposed = ''; Proc = $null; Log = '' }
-    }
-}
 
 # --- Wait until what was started listens: one loop, one clock each -----------------------------------
 $targets = @()
@@ -366,8 +348,6 @@ if ([string]$env:DKJ_DEV_PREVIEW_HUB_WAIT -match '^[0-9]{1,2}$') { $hubWait = [i
 if ([string]$env:DKJ_DEV_PREVIEW_SETTLE -match '^[0-9]{1,2}$') { $script:DevPreviewSettleSeconds = [int]$env:DKJ_DEV_PREVIEW_SETTLE }
 if ($hub.Action -eq 'start') { $targets += @{ Name = 'hub'; Port = $hub.Port; Proc = $hub.Proc; Deadline = (Get-Date).AddSeconds($hubWait); Done = $false; Ok = $false; Fail = '' } }
 if ($prod -and $prod.Action -eq 'start') { $targets += @{ Name = 'product'; Port = $prod.Port; Proc = $prod.Proc; Deadline = (Get-Date).AddSeconds($cfg.WaitSeconds); Done = $false; Ok = $false; Fail = '' } }
-if ($extra -and $extra.Action -eq 'start') { $targets += @{ Name = 'extra'; Port = $extra.Port; Proc = $extra.Proc; Deadline = (Get-Date).AddSeconds($extraCfg.WaitSeconds); Done = $false; Ok = $false; Fail = '' } }
-
 # The state file goes in before the wait, so a hub that answers early already knows what the repo states, and
 # again after it where a wait failed, so it never names a server that did not come up.
 function Save-DevPreviewState {
@@ -375,11 +355,7 @@ function Save-DevPreviewState {
         if (-not (Get-Command Write-RepoHubState -ErrorAction SilentlyContinue)) { return }
         $pagesUrl = if ($hub.Base -and -not (@($targets | Where-Object { $_.Name -eq 'hub' -and $_.Fail -eq 'exited' }).Count)) { $hub.Base } else { '' }
         $productUrl = if ($prod -and $prod.Url -and -not (@($targets | Where-Object { $_.Name -eq 'product' -and $_.Done -and -not $_.Ok }).Count)) { $prod.Url } else { '' }
-        $hubUrl = if ($mode -eq 'ownhub') { $productUrl } elseif ($pagesUrl) { "$pagesUrl/" } else { '' }
-        # Under OwnHub the own server is the hub, so 'product' names the product beside it, or nothing (#3283).
-        if ($mode -eq 'ownhub') {
-            $productUrl = if ($extra -and $extra.Url -and -not (@($targets | Where-Object { $_.Name -eq 'extra' -and $_.Done -and -not $_.Ok }).Count)) { $extra.Url } else { '' }
-        }
+        $hubUrl = if ($pagesUrl) { "$pagesUrl/" } else { '' }
         $theme = if ($cfg) { [string]$cfg.DefaultTheme } else { '' }
         Write-RepoHubState -Root $root -Hub $hubUrl -Pages $pagesUrl -Product $productUrl -Mode $mode -Theme $theme
     } catch { }
@@ -468,38 +444,19 @@ function Format-DevPreviewProductClause($Part, $P) {
 }
 
 $part = Get-DevPreviewServerPart $prod $prodT $cfg
-$prodUrl = $part.Url
-$prodWord = $part.Word
-$prodFail = $part.Fail
-$extraT = @($targets | Where-Object { $_.Name -eq 'extra' }) | Select-Object -First 1
-$extraClause = if ($extra) { ' -- ' + (Format-DevPreviewProductClause (Get-DevPreviewServerPart $extra $extraT $extraCfg) $extra) }
-               elseif ($cfg -and $mode -eq 'ownhub' -and $cfg.ProductProblem) { " -- product not started: $($cfg.ProductProblem) (scripts/repo-config.ps1)" }
-               else { '' }
 
 $settings = Join-Path $root '.vscode\settings.json'
 # An unreadable settings file must not cost the hub link: it reads as no route.
 $text = ''
 try { if (Test-Path -LiteralPath $settings -PathType Leaf) { $text = [System.IO.File]::ReadAllText($settings) } } catch { $text = '' }
 
-# What keeps this repo from following a hub change, in a DKJ-Solutions repo (#3463). The source repo runs the
-# hub from its own tree, which is how it is recognised. A failure here costs the drift clauses, never the line.
+# What keeps this repo from following a hub change, in a DKJ-Solutions repo (#3463). A failure here costs the
+# drift clauses, never the line.
 $drift = ''
 try {
     $dkjSolutions = [bool]((Get-Command Test-DkjSolutionsEnabled -ErrorAction SilentlyContinue) -and (Test-DkjSolutionsEnabled -Root $root))
-    $sourceTree = Test-Path -LiteralPath (Join-Path $root 'plugins\dkj-policy\hub\lib\general-pages-lib.ps1') -PathType Leaf
-    $drift = -join @(Get-DevPreviewDriftClauses -DkjSolutions $dkjSolutions -SourceTree $sourceTree -Mode $mode -Config $cfg -SettingsText $text | ForEach-Object { " -- $_" })
+    $drift = -join @(Get-DevPreviewDriftClauses -DkjSolutions $dkjSolutions -Mode $mode -Config $cfg -SettingsText $text | ForEach-Object { " -- $_" })
 } catch { $drift = '' }
-
-if ($mode -eq 'ownhub') {
-    # The repo's own server IS the hub: the line it always had.
-    if ($prodUrl) {
-        $script:openInVsCode = $cfg.OpenInVsCode
-        $opened = Open-DevPreviewInVsCode $prodUrl
-        $exposed = if ($prod.Action -eq 'reuse') { $prod.Exposed } else { '' }
-        Write-DevPreviewLine "$($cfg.Name): $prodUrl ($prodWord$opened$exposed$($prod.Stale))$extraClause$drift"
-    }
-    Write-DevPreviewLine "$($cfg.Name): $(if ($prodFail -like 'not started: *') { 'not started -- ' + $prodFail.Substring(13) } else { $prodFail })$($prod.Stale)$extraClause$drift"
-}
 
 $head = if ($hubUrl) { "$script:DevPreviewLabel`: $hubUrl" } else { "$script:DevPreviewLabel`: not started -- $hubReason" }
 
