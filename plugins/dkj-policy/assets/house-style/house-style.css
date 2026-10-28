@@ -216,6 +216,10 @@ body > header, main > header { display: flex; justify-content: space-between; al
 /* .grid-3: the same group three to a row (owner, October 22, 2026), for short cards such as one link each; it takes
    .grid__head and .grid__full as .grid-2 does, and steps down to two columns, then one. */
 .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-4); }
+/* The container the cards sit in always keeps at least --spacing-3 (12px) of padding (owner, October 28, 2026), so a
+   card never touches the edge of its group. .card-grid carries the same padding for a repo's own card grid (its own
+   columns in its own class beside it: <div class="card-grid my-cards">), which never sets a padding of its own. */
+:is(.grid-2, .grid-3, .card-grid) { padding: var(--spacing-3); }
 /* The grid's gap is the spacing between its rows, so a direct .card, .tiles or .notice gives up its own top
    margin here too, as in .page-column (#207). */
 :is(.grid-2, .grid-3) > :is(.card, .tiles, .notice) { margin-top: 0; }

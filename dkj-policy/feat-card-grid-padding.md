@@ -43,17 +43,31 @@ The owner wants the container the cards sit in (a .grid-2, a .grid-3, a repo's o
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: `:is(.grid-2, .grid-3, .card-grid) { padding: var(--spacing-3); }`, with `.card-grid` as the
+  house class a repo puts on its own card grid beside the class that sets its columns
+- [x] `dev-pages-lib.ps1`: the DKJ repos page's `.dr-repos` grid carries `card-grid` (the example the owner named,
+  `/connectors/dkj`); its test follows
+- [x] the house-style README names the padding and `.card-grid`; the skill's sha256 pin follows the stylesheet
 
 ### TEST
 
+- [x] suites `check-house-style` (90), `dev-pages` (478) and `house-palette` (128) pass
+- [ ] the owner looks at `/connectors/dkj` (a visible result: the branch stops here for that look)
+
 ### DEPLOY: feat/card-grid-padding
 
-**Score:**
+Every container of cards in the house style -- a `.grid-2`, a `.grid-3`, and a repo's own card grid marked with the
+new house class `.card-grid` -- now keeps at least 12px of padding round its cards, so a card never touches the
+edge of its group. The DKJ repos page under Connectors is the first page to use `.card-grid`.
+
+**Score:** 2 -- small; noticed if somebody points it out
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions app that takes the next house-style copy sees its card groups gain 12px of padding, and can put
+`.card-grid` on a card grid of its own.
+
+**Score:** 2 -- small; a slightly roomier card group in every app on its next copy
 
 #### Pull Request
 

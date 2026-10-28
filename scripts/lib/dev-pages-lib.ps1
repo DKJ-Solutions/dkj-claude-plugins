@@ -813,8 +813,9 @@ function Format-DkjReposPageHtml {
     }
     # Four to a row, each card three lines at most -- its name, its facts, its checkout -- a longer one cut off with
     # an ellipsis and whole in its tooltip (Maikel, October 28, 2026). The house grids stop at three, so the four
-    # columns are this page's own layer (.dr-repos), never a house class redefined.
-    [void]$sb.AppendLine('<div class="dr-repos" id="repos">')
+    # columns are this page's own layer (.dr-repos), never a house class redefined; .card-grid gives it the house
+    # padding every container of cards keeps.
+    [void]$sb.AppendLine('<div class="card-grid dr-repos" id="repos">')
     $clip = { param($html) '<span class="dr-clip" title="' + (& $e ($html -replace '<[^>]+>', '' -replace '&middot;', [string][char]0x00B7)) + '">' + $html + '</span>' }
     foreach ($r in @($set.Rows)) {
         $co = $set.ByRepo[$r.Repo]
