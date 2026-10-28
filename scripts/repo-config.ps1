@@ -741,14 +741,17 @@ function Get-ReleasePluginTier {
 # URLs at this repo's own release tag, and the only tag carrying the bytes its checksum table names is the
 # one of the release that ships them -- a number that does not exist until the cut decides it. So the cut
 # writes it, in the release commit beside the plugin.json bumps. The owner chose this over pinning by hand
-# (Dave, October 19, 2026, on #3133).
+# (Dave, October 19, 2026, on #3133). The checksums beside those URLs are the cut's to write too (#3636, the
+# owner's choice of October 28, 2026): a cell every house-style branch rewrote by hand conflicted between any two
+# of them, and between releases it named bytes the tag beside it does not serve.
 $script:ReleaseVersionPins = @(
     @{ Path = 'plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md'
-       Prefix = 'https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/' }
+       Prefix = 'https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/'
+       Checksums = @('plugins/dkj-policy/assets/house-style/house-style.css', 'plugins/dkj-policy/assets/house-style/house-theme.js') }
 )
 
 function Get-ReleaseVersionPins {
-    <# The files whose '<Prefix>vX.Y.Z/' URLs cut-release rewrites to the tag it cuts. #>
+    <# The files whose '<Prefix>vX.Y.Z/' URLs, and the sha256 beside each Checksums file, cut-release rewrites at the tag it cuts. #>
     return $script:ReleaseVersionPins
 }
 

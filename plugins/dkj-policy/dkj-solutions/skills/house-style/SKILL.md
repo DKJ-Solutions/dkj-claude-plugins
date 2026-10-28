@@ -36,7 +36,7 @@ always pins the release that carries the bytes its checksums name.
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.36.0/plugins/dkj-policy/assets/house-style/house-style.css` | `16eafe96205774206a7e5a5be18de8ea029fca6e6d89e595d9fd0773d308bb79` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.36.0/plugins/dkj-policy/assets/house-style/house-style.css` | `d547fe56e3e54a801727caa93237521e0ae7690e715f86c452c556133275e157` |
 | `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.36.0/plugins/dkj-policy/assets/house-style/house-theme.js` | `24ed94dd5f096274826bbdc47ff63f29932369f6bd55f2b47ab9ece25a09599f` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
@@ -200,12 +200,12 @@ merging.
 and the plugin's own hub (the general pages server, which serves every repo's hub) both read it in place, so
 no second copy needs replacing by hand
 ([#2989](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2989),
-[#3047](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3047)). The table above guards two
-things: a consuming repo's own vendored copy, which `check-house-style` holds to it, and the canonical copy
-itself, which the `check-house-style` test suite holds to it and which goes red the moment a file changes
-without the table following. So a change to a house file lands together with the new checksums here and,
-where a token is retired, with the new names in `Get-HouseStyleRetiredTokens` in
-`scripts/lib/house-style-rules.ps1`.
+[#3047](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3047)). The table above guards a
+consuming repo's own vendored copy, which `check-house-style` holds to it. **Nobody edits its checksums by
+hand**: the release cut writes them from the files it tags, beside the tag it writes
+([#3636](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3636)), so two branches that change a
+house file never conflict on the cell. A change to a house file lands alone, or, where a token is retired,
+with the new names in `Get-HouseStyleRetiredTokens` in `scripts/lib/house-style-rules.ps1`.
 
 **A theme's colours are computed, never typed**
 ([#3235](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3235)). Each theme's eleven colours (one
@@ -222,18 +222,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File plugins/dkj-policy/dkj-solut
 Without `-Apply` it prints every theme's declarations and each pairing that misses its floor, and writes
 nothing; with `-Apply` it rewrites the twelve theme lines and the three default blocks, and refuses to write
 when a floor is missed. The `house-palette` test suite holds the stylesheet to the computed values, so a hand
-edit to a colour goes red. After `-Apply` the checksum in the table above changes too.
+edit to a colour goes red. The checksum in the table above follows at the next release cut.
 
 **A merged change reaches the apps only once it is released.** The house style has no version of its
 own: it ships with the plugin and follows its lockstep release. The cut repoints the consumer URLs above
-at the tag it cuts (`Get-ReleaseVersionPins` in this repo's `scripts/repo-config.ps1`), so a change lands
-with its new checksums and nothing else. Between the merge and the cut, the page on `main` names the
-previous tag beside the new checksums, and a fetch from it would mismatch. **So the reusable gate, which runs
-from `main`, reads the table from this page as it stands at the tag the page names**
-([#3148](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3148)). That page is coherent by
-construction: the cut writes its own tag into it, and the tagged tree holds the very files those checksums
-were taken from. **An installed copy of this page is NOT coherent that way**: an install tracks `main`, so
-in the same window it carries the new checksums beside the old tag
-([#3588](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3588)). So the session check, and a
-session following the rule above, check a copy that fails against the page at its tag: the check fetches
-it only then, so a clean session never touches the network.
+at the tag it cuts and writes the checksums of the files that tag serves (`Get-ReleaseVersionPins` in this
+repo's `scripts/repo-config.ps1`, #3133 and #3636). Between the merge and the cut, the page on `main` names
+the previous tag beside that tag's checksums, so the table is coherent at every commit, an installed copy
+included.
+
+**Before #3636 it was not**: a branch wrote the new checksums beside the old tag, so the page on `main`, and
+an install tracking it, could name bytes the tag does not serve. Two safeguards were built for that window, and
+both stay. **The reusable gate reads the table from this page as it stands at the tag the page names**
+([#3148](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3148)), and the session check, and a
+session following the rule above, check a failing copy once more against the page at its tag
+([#3588](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3588)). The check fetches only then, so a
+clean session never touches the network.

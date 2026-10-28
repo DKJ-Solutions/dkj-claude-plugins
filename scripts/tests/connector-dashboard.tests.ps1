@@ -6,7 +6,7 @@
 .DESCRIPTION
     Group 1 pins the rules without a server: how check-connectors.ps1's report splits into repos and
     plugins, which status a repo gets, which Host is served, that every value the page shows is
-    escaped, and that the plugin's canonical house style is the copy the house-style skill pins. Group 2 starts
+    escaped, and that the house-style skill pins a checksum for each canonical file. Group 2 starts
     the real server on a free loopback port against this tree and asks it for the static files, a foreign Host, a cross-site request, a POST, a missing path, a dripping client and
     an oversized head. Group 3 serves the page from a fixture tree: a checkout with no upstream, one
     outside the scope root, and no check-connectors.ps1 at all -- and the four general routes that moved to
@@ -307,18 +307,16 @@ $framed = (Format-ConnectorPageStart -PageName 'a <b>' -Trail @(@{ Href = '/conn
 Assert-True ($framed.Contains('<title>dkj-claude-plugins -- a &lt;b&gt;</title>') -and $framed.Contains('<h1>a &lt;b&gt;</h1>') -and $framed.Contains('<a href="/connectors/dkj">DKJ repos</a>') -and $framed.Contains('.x { }') -and $framed.Contains('<p class="footer-note">Foot <code>x</code></p>') -and $framed.TrimEnd().EndsWith('</html>')) 'the page frame escapes its name, walks its trail, carries the caller''s style and footer, and closes the page'
 Assert-True ($overview -notmatch 'id="lenses"' -and $dkj -notmatch 'id="lenses"') 'neither the overview nor a group''s page holds a Lenses card: that is a repo''s own page'
 
-Write-Host '-- group 1e: the canonical house style is the copy the skill pins' -ForegroundColor Cyan
+Write-Host '-- group 1e: the skill pins a checksum for each canonical file' -ForegroundColor Cyan
 
 # History (#2989): a repoint of the skill to a new tag once left two vendored files on the old one, and
-# nothing noticed. There is now one canonical copy, in the plugin (#3130); the skill's table is still the
-# one place the checksums live, so the copy is held to it.
+# nothing noticed. There is now one canonical copy, in the plugin (#3130), which the dashboard reads in place.
+# Its checksums are the release cut's to write (#3636): between cuts the table names the tag's bytes, not the
+# tree's, so this suite holds only that the table has a cell for each file.
 $skillPage = Get-Content -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\skills\house-style\SKILL.md') -Raw
 foreach ($file in 'house-style.css', 'house-theme.js') {
     $row = [regex]::Match($skillPage, '(?m)^\| `' + [regex]::Escape($file) + '` \|.*\| `([0-9a-f]{64})` \|\s*$')
     Assert-True $row.Success "the skill's table pins a sha256 for $file"
-    if (-not $row.Success) { continue }
-    $actual = (Get-FileHash -LiteralPath (Join-Path $RepoRoot "plugins\dkj-policy\assets\house-style\$file") -Algorithm SHA256).Hash.ToLowerInvariant()
-    Assert-Equal $row.Groups[1].Value $actual "the canonical $file hashes to the skill's pinned sha256"
 }
 
 Write-Host '-- group 2: the server answers on loopback only to itself' -ForegroundColor Cyan
