@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**3 / 5 minor entries** <!-- pending-tally -->
+**3 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3630-house-style-60-30-10 · 20261028-171028Z
+
+The house-style README now reads a theme's colours by the 60-30-10 rule
+([#3630](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3630)): the paper (`--paper-*`) is the 60%,
+the theme's colour (`--primary`, with `--muted`) the 30%, and the text (`--fg-*`) the 10%. No token or value
+changes; it is the grouping a page and a repo layer are held to.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+House style: read a theme's colours by the 60-30-10 rule (Paper 60, Primary 30, Text 10)
+
+Plugins: dkj-policy
+
+[PR #3632](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3632)
+
+---
 
 ### DEPLOY: feat/3629-house-style-specimens-in-dkj-policy · 20261028-165357Z
 
