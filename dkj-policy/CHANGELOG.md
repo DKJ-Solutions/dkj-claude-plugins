@@ -2,7 +2,57 @@
 
 ## [Unreleased]
 
-**4 / 8 minor entries** <!-- pending-tally -->
+**4 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3637-canonical-house-style-not-a-copy · 20261028-230422Z
+
+A session in `dkj-claude-plugins` no longer opens with a warning to replace the canonical house stylesheet
+with the last release's file, a step that would revert work merged since that cut
+([#3637](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3637)). The two files in
+`plugins/dkj-policy/assets/house-style/` are now named as the source and still read for the redefine check.
+Every other copy, in every repo, is held to the pin as before.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+the source repo's canonical house style is not held to the installed pin
+
+Plugins: dkj-solutions
+
+[PR #3640](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3640)
+
+---
+
+### DEPLOY: feat/specialists-card-under-plugins · 20261028-223647Z
+
+The Specialists pages are merged into the specialist teams' Plugins pages: the product home page drops
+its Specialists card, a team's card on `/plugins/dkj-subagents` counts its specialists and their full
+read, a team's own page shows its facts and then its specialists with what each costs, and a
+specialist's page sits under its team. An old `/specialists` address redirects to the same page at its
+new one.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A: the product's own dev pages, which no consumer takes.
+
+**Score:** N/A
+
+#### Pull Request
+
+Merge the Specialists pages into the specialist teams' Plugins pages
+
+[PR #3638](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3638)
+
+---
 
 ### DEPLOY: fix/3620-report-orphan-hub-processes · 20261028-215705Z
 

@@ -56,6 +56,13 @@
     canonical copy in assets/house-style/ that retires a name updates this list in the same change
     (#3130), and the suite holds the list to that copy so a live name can never be listed as retired.
 
+    THE SOURCE REPO'S OWN COPY IS NOT A COPY (#3637). In DKJ-Solutions/dkj-claude-plugins the files under
+    plugins/dkj-policy/assets/house-style/ are the canonical source, and between a house-style merge and
+    the next cut they run ahead of the tag that every install pins -- so holding them to that pin told
+    the session to revert merged work. There those two files skip check 1, still serve as the verified
+    stylesheet for check 2, and a note says when they differ from the pinned tag. Every other copy in
+    that repo, a demo nested in the same folder included, is held to the pin as anywhere else.
+
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/check-house-style.tests.ps1 in the
     source repo -- change one, run the other.
 #>
@@ -77,6 +84,26 @@ function Get-HouseStyleRetiredTokens {
 function Get-HouseStyleCopyNames {
     <# The leaf names a vendored copy carries. A renamed copy is not found, and is not a copy. #>
     return [string[]]@('house-style.css', 'house-theme.js')
+}
+
+function Get-HouseStyleCanonicalDir {
+    <# Where the source repo keeps the canonical house style, relative to its root (#3531). #>
+    return 'plugins/dkj-policy/assets/house-style'
+}
+
+function Test-HouseStyleSourceRepo {
+    <#
+        Is this checkout the house style's source: its marketplace manifest publishes dkj-solutions, the
+        plugin whose skill page pins the copies. Read rather than counted, as seam-lib's
+        Test-IsWorkflowSourceRepo reads it -- a repo that publishes other plugins is still a consumer. An
+        unreadable manifest is $false: the careful answer is to judge every copy against the pin.
+    #>
+    param([Parameter(Mandatory)][string]$RepoRoot)
+    $manifest = Join-Path $RepoRoot '.claude-plugin/marketplace.json'
+    if (-not (Test-Path -LiteralPath $manifest -PathType Leaf)) { return $false }
+    try { $json = [System.IO.File]::ReadAllText($manifest, [System.Text.Encoding]::UTF8) | ConvertFrom-Json } catch { return $false }
+    if (-not $json -or -not ($json.PSObject.Properties.Name -contains 'plugins')) { return $false }
+    return [bool](@($json.plugins | Where-Object { $_ -and $_.PSObject.Properties.Name -contains 'name' -and $_.name -ceq 'dkj-solutions' }).Count)
 }
 
 function Get-HouseStyleScanExtensions {
@@ -419,17 +446,21 @@ function Read-HouseStyleAllowlist {
 function Invoke-HouseStyleCheck {
     <#
         Run the three checks over a checkout. Returns
-        @{ Tag; Copies = @(@{ Path; Ok }); Findings = @(@{ Check; Path; Line; Name; Text }); Allowed; Notes }.
-        $Files defaults to the checkout's tracked files; tests pass their own.
+        @{ Tag; Copies = @(@{ Path; Ok; Canonical }); Findings = @(@{ Check; Path; Line; Name; Text }); Allowed; Notes }.
+        $Files defaults to the checkout's tracked files; tests pass their own. $SourceRepo defaults to
+        Test-HouseStyleSourceRepo; a canonical copy is Ok whatever it hashes to (#3637).
     #>
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
         [Parameter(Mandatory)][hashtable]$Pin,
         [AllowEmptyCollection()][object[]]$Allow = @(),
-        [string[]]$Files
+        [string[]]$Files,
+        [switch]$SourceRepo
     )
 
     if (-not $PSBoundParameters.ContainsKey('Files')) { $Files = Get-HouseStyleTrackedFiles -RepoRoot $RepoRoot }
+    $isSource = if ($PSBoundParameters.ContainsKey('SourceRepo')) { [bool]$SourceRepo } else { Test-HouseStyleSourceRepo -RepoRoot $RepoRoot }
+    $canonicalDir = (Get-HouseStyleCanonicalDir) + '/'
     $findings = New-Object System.Collections.Generic.List[object]
     $notes = New-Object System.Collections.Generic.List[string]
     $copies = @()
@@ -444,9 +475,15 @@ function Invoke-HouseStyleCheck {
         $full = Join-Path $RepoRoot $rel
         if (-not (Test-Path -LiteralPath $full -PathType Leaf)) { continue }
         $bytes = [System.IO.File]::ReadAllBytes($full)
-        $ok = @(Get-HouseStyleSha256 -Bytes $bytes) -contains $Pin.Hashes[$leaf]
-        $copies += @{ Path = $rel; Ok = $ok }
-        if ($ok) {
+        $pinned = @(Get-HouseStyleSha256 -Bytes $bytes) -contains $Pin.Hashes[$leaf]
+        # The two files themselves, not the folder: a demo copy nested under it is still a copy.
+        $canonical = $isSource -and ($rel -ceq ($canonicalDir + $leaf))
+        $copies += @{ Path = $rel; Ok = ($pinned -or $canonical); Canonical = $canonical }
+        if ($canonical) {
+            # The source is the stylesheet check 2 reads the house set from, ahead of any vendored copy.
+            if ($leaf -eq 'house-style.css') { $verifiedCss = [System.Text.Encoding]::UTF8.GetString($bytes) }
+            if (-not $pinned) { $notes.Add("$rel is this repo's canonical copy and differs from $($Pin.Tag) -- not a finding; the next release cut updates the pin") }
+        } elseif ($pinned) {
             if ($leaf -eq 'house-style.css' -and -not $verifiedCss) { $verifiedCss = [System.Text.Encoding]::UTF8.GetString($bytes) }
         } else {
             $findings.Add(@{ Check = 'pin'; Path = $rel; Line = 0; Name = $leaf; Text = "is not the copy the house-style skill pins at $($Pin.Tag) -- replace it with the file served at that tag, unchanged" })

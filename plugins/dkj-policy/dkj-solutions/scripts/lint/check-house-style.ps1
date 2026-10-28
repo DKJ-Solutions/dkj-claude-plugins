@@ -2,7 +2,8 @@
 .SYNOPSIS
     The house-style gate (#3035): every vendored house-style.css / house-theme.js is the copy the
     house-style skill pins, and the repo's own layer redefines no house token or class, and uses no
-    retired token name.
+    retired token name. In this plugin's source repo the canonical copy is the source rather than a
+    copy, and is exempt from the pin (#3637; the lib says why).
 
 .DESCRIPTION
     The rules and the reasoning behind each are in scripts/lib/house-style-rules.ps1 beside this
@@ -80,7 +81,8 @@ if (-not $PSBoundParameters.ContainsKey('SkillPath') -and @($result.Findings | W
 }
 
 foreach ($c in $result.Copies) {
-    if ($c.Ok) { Write-Host "  [pinned]   $($c.Path) -- the $($result.Tag) copy" -ForegroundColor DarkGray }
+    if ($c.Canonical) { Write-Host "  [source]   $($c.Path) -- the canonical copy, not held to the $($result.Tag) pin (#3637)" -ForegroundColor DarkGray }
+    elseif ($c.Ok) { Write-Host "  [pinned]   $($c.Path) -- the $($result.Tag) copy" -ForegroundColor DarkGray }
 }
 foreach ($n in $result.Notes) { Write-Host "  [note]     $n" -ForegroundColor Yellow }
 foreach ($f in $result.Findings) {

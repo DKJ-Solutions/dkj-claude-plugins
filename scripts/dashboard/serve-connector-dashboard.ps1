@@ -8,9 +8,10 @@
     redirects there), each opening a page of its own at /connectors/dkj/<name>: the repo, what the register's
     check reports for it, a session to open there, and what its checkout's specialist lenses hold (October 28,
     2026); and
-    /specialists, every specialist the dkj-subagents plugins ship and the context each one costs, read from this tree; and /plugins, every plugin
-    .claude-plugin/marketplace.json lists, each with a page of its own at /plugins/<name>, the specialist
-    teams (dkj-subagents-*) one card whose page is /plugins/dkj-subagents. The rules of
+    /plugins, every plugin .claude-plugin/marketplace.json lists, each with a page of its own at /plugins/<name>,
+    the specialist teams (dkj-subagents-*) one card whose page is /plugins/dkj-subagents; a team's own page shows
+    its specialists and the context each one costs, read from this tree, and each has a page of its own under it
+    (/specialists, their own pages until October 28, 2026, redirects there). The rules of
     each page are in scripts/lib/dev-pages-lib.ps1. The server takes no POST but the banner's.
 
     EVERY REPO HAS A PRODUCT PORT (Maikel, October 26, 2026, #3540). This server was this repo's own hub
@@ -424,28 +425,26 @@ try {
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/connectors/dkj' } -Method $method
                 continue
             }
-            if ($path -cmatch '^/specialists(?:/([a-z0-9-]+)(?:/([a-z0-9-]+))?)?\z') {
-                # The overview with one card per specialist plugin, one plugin's own page (#3550), or one specialist's
-                # (#3551); a plugin or specialist the tree does not ship is a 404, never an empty page.
-                $spPlugin = [string]$Matches[1]; $spOne = [string]$Matches[2]
-                $sp = Get-SpecialistsModel
-                $html = Format-SpecialistsPageHtml -Rows $sp.Rows -ReadError $sp.Error -CharsPerToken $sp.CharsPerToken -Plugin $spPlugin -Specialist $spOne
-                if ($null -eq $html) {
-                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found: no specialist plugin or specialist of that name.')) -Method $method
-                } else {
-                    Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
-                }
+            $spTo = Resolve-SpecialistsRedirect -Path $path
+            if ($spTo) {
+                # The Specialists pages until October 28, 2026; the specialists live on their teams' Plugins pages
+                # since (the owner). An old link or bookmark lands there.
+                Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $spTo } -Method $method
                 continue
             }
-            if ($path -cmatch '^/plugins(?:/([a-z0-9-]+)(?:/([a-z0-9-]+))?)?/?\z') {
+            if ($path -cmatch '^/plugins(?:/([a-z0-9-]+)(?:/([a-z0-9-]+)(?:/([a-z0-9-]+))?)?)?/?\z') {
                 # Every plugin this marketplace ships, the specialist teams' page, or one plugin's own page (the
-                # owner, October 27, 2026): /plugins/dkj-subagents[/<team>] or /plugins/<name>. Anything the
-                # marketplace does not list is a 404, never an empty page.
-                $plFirst = [string]$Matches[1]; $plSecond = [string]$Matches[2]
+                # owner, October 27, 2026): /plugins/dkj-subagents[/<team>[/<specialist>]] or /plugins/<name>, a team's
+                # page carrying its specialists since October 28, 2026. Anything the marketplace or the team does not
+                # list is a 404, never an empty page.
+                $plFirst = [string]$Matches[1]; $plSecond = [string]$Matches[2]; $plThird = [string]$Matches[3]
                 $plGroup = if ($plFirst -ceq 'dkj-subagents') { $plFirst } elseif ($plSecond) { 'none' } else { '' }
                 $plName = if ($plGroup) { $plSecond } else { $plFirst }
                 $pl = Get-PluginsModel
-                $html = Format-MarketplacePluginsPageHtml -Plugins $pl.Plugins -ReadError $pl.Error -Group $plGroup -Plugin $plName
+                # The specialists are read only for the teams' pages, the one place that shows them.
+                $sp = if ($plGroup -ceq 'dkj-subagents') { Get-SpecialistsModel } else { @{ Rows = @(); Error = ''; CharsPerToken = 3.0 } }
+                $html = Format-MarketplacePluginsPageHtml -Plugins $pl.Plugins -ReadError $pl.Error -Group $plGroup -Plugin $plName -Specialist $plThird `
+                    -SpecialistRows $sp.Rows -CharsPerToken $sp.CharsPerToken -SpecialistReadError $sp.Error
                 if ($null -eq $html) {
                     Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found: the marketplace lists no plugin of that name.')) -Method $method
                 } else {
