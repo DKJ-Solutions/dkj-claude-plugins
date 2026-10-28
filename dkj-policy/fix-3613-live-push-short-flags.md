@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Inbound #3613: `guard-live-theme` read a live push only through `--allow-live` or the live id, so
+`-l -a` and `-t <live name> -a` passed. Read the short flags after `theme push` as well.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `guard-live-theme.ps1`: `--live`, `-a`, `-l` and combined push clusters (`-la`) count as aimed at
+  live, scanned only after `theme push` so a wrapper's `-Command` does not trip it
+- [x] `guard-live-theme.tests.ps1`: the report's five rows, the short-flag variants, and the preview
+  pushes that must stay allowed
 
 ### TEST
 
+- [x] `guard-live-theme.tests.ps1` standalone: 218 passed, 0 failed
+
 ### DEPLOY: fix/3613-live-push-short-flags
 
-**Score:**
+The Shopify live-theme guard now also blocks a live push written with the short flags: `-a` for
+`--allow-live`, `-l` or `--live` for live, and combined clusters such as `-la`. A push naming the
+live theme by name is caught through the `-a` it needs. A preview push, including one wrapped in
+`powershell -Command`, and every pull stay allowed (#3613).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A Shopify consumer's live theme is guarded against `shopify theme push -l -a` and
+`-t <live name> -a`, which used to pass. A session that pushes to live has to carry the authorisation
+marker however it spells the flags.
+
+**Score:** 3
 
 #### Pull Request
 
