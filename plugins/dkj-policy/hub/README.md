@@ -23,7 +23,7 @@ hub (below).
 | The banner's airsquats state, and its sync with every other machine | [`lib/airsquats-lib.ps1`](lib/airsquats-lib.ps1), [`pages/sync-airsquats.ps1`](pages/sync-airsquats.ps1) |
 | The Test gate page | [`lib/test-gate-lib.ps1`](lib/test-gate-lib.ps1) |
 | The Plugins page, a card per enabled plugin, and each plugin's own page on `/plugins/<name>`, from `plugin-versions.ps1 -Json` | [`lib/plugins-page-lib.ps1`](lib/plugins-page-lib.ps1) |
-| The Stopwatch and the Logbook: their pages, their router, the hooks that time a run, and the Stopwatch's sync | [`lib/stopwatch-lib.ps1`](lib/stopwatch-lib.ps1), [`lib/logbook-lib.ps1`](lib/logbook-lib.ps1), [`lib/timing-pages.ps1`](lib/timing-pages.ps1), [`../hooks/stopwatch-hook.ps1`](../hooks/stopwatch-hook.ps1), [`../hooks/logbook-hook.ps1`](../hooks/logbook-hook.ps1), [`lib/stopwatch-sync-lib.ps1`](lib/stopwatch-sync-lib.ps1), [`pages/stopwatch-sync.ps1`](pages/stopwatch-sync.ps1), [`pages/stopwatch-hide.ps1`](pages/stopwatch-hide.ps1) and the [`stopwatch-hide`](../skills/stopwatch-hide/SKILL.md) skill |
+| The Stopwatch and the Logbook: their pages, their router, the hooks that time a run, and the Stopwatch's sync | [`lib/stopwatch-lib.ps1`](lib/stopwatch-lib.ps1), [`lib/logbook-lib.ps1`](lib/logbook-lib.ps1), [`lib/timing-pages.ps1`](lib/timing-pages.ps1), [`../hooks/stopwatch-hook.ps1`](../hooks/stopwatch-hook.ps1), [`../hooks/logbook-hook.ps1`](../hooks/logbook-hook.ps1), [`lib/stopwatch-sync-lib.ps1`](lib/stopwatch-sync-lib.ps1), [`pages/stopwatch-sync.ps1`](pages/stopwatch-sync.ps1), [`pages/stopwatch-hide.ps1`](pages/stopwatch-hide.ps1), the [`stopwatch-hide`](../skills/stopwatch-hide/SKILL.md) skill, [`pages/stopwatch-prepare.ps1`](pages/stopwatch-prepare.ps1) and the [`stopwatch-prepare`](../skills/stopwatch-prepare/SKILL.md) skill |
 
 These are plugin-only files, like [`../worker/`](../worker/): no root copy in the source repo mirrors
 them. They are tested there by `dev-preview-sessionstart.tests.ps1`, `dev-pages.tests.ps1`,
@@ -223,8 +223,9 @@ names the checkout), started hidden and detached.
 **It serves no Brandbook, in any repo** ([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475),
 the owner, October 25, 2026). From #3198 to #3475 a DKJ-Solutions repo's server served a fifth page, the
 brand book app's build from `dkj-solutions/assets/brandbook/`, under `/brandbook/`. The route went with #3475, and the app itself with #3493: no repo has a Brand book to
-show. The house style's own specimens are a page under Plugins instead, on `/plugins/dkj-solutions/house-style`,
-in every repo that enables `dkj-solutions`.
+show. The house style's own specimens are a page under Plugins instead, on `/plugins/dkj-policy/house-style`,
+in every repo that runs the toolbox, BWJ-Development's included ([#3629](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3629));
+the old `/plugins/dkj-solutions/house-style` redirects there.
 
 | Page | Reads, from the repo it was started in | When it is absent |
 |---|---|---|

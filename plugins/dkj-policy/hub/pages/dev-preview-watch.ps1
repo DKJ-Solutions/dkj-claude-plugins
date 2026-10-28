@@ -27,6 +27,11 @@
       -PollSeconds   how often it looks (default 15)
       -ForceState    the TEST override: the connect states to read instead of the session's own, one per
                      poll and the last one repeated, space-separated (e.g. '0 4')
+      -OwnerId, -OwnerStartTicks
+                     the process the server is tied to (#3620), passed only where a test set
+                     DKJ_DEV_PREVIEW_OWNER_PID: once it has exited, or its pid is no longer that process, the
+                     server's tree is stopped at the next poll, whatever the session's state. A killed gate
+                     never reaches a suite's finally, so without this its servers outlived it.
 
     Exits 0 in every case: nobody reads its exit code. Pure ASCII (repo convention for .ps1).
 #>
@@ -36,7 +41,9 @@ param(
     [long]$StartTicks = 0,
     [int]$GraceSeconds = -1,
     [int]$PollSeconds = -1,
-    [string]$ForceState = ''
+    [string]$ForceState = '',
+    [int]$OwnerId = 0,
+    [long]$OwnerStartTicks = 0
 )
 $ErrorActionPreference = 'Stop'
 try {
@@ -47,6 +54,17 @@ try {
     # Held as a handle, so HasExited answers for THIS process even after its pid is reused.
     $target = [Diagnostics.Process]::GetProcessById($ProcessId)
     if ($StartTicks -and $target.StartTime.ToFileTimeUtc() -ne $StartTicks) { exit 0 }
+
+    # THE OWNER (#3620), held as a handle too. One already gone, or a pid that is now another process, is an
+    # owner that has ended: the server is stopped at the first poll.
+    $owner = $null
+    $ownerGone = $false
+    if ($OwnerId -gt 0) {
+        try {
+            $owner = [Diagnostics.Process]::GetProcessById($OwnerId)
+            if ($OwnerStartTicks -and $owner.StartTime.ToFileTimeUtc() -ne $OwnerStartTicks) { $ownerGone = $true }
+        } catch { $ownerGone = $true }
+    }
 
     $forced = @($ForceState -split '\s+' | Where-Object { $_ } | ForEach-Object { [int]$_ })
     if (-not $forced.Count) {
@@ -93,6 +111,10 @@ public static int ConnectState() {
     $armed = $false
     $poll = 0
     while (-not $target.HasExited) {
+        if ($ownerGone -or ($owner -and $owner.HasExited)) {
+            & taskkill.exe /T /F /PID $ProcessId 2>&1 | Out-Null
+            break
+        }
         $state = if ($forced.Count) { $forced[[Math]::Min($poll, $forced.Count - 1)] } else { try { [DkjDevPreview.Wts]::ConnectState() } catch { -1 } }
         $poll++
         $step = Get-DevPreviewWatchStep -State $state -Since $since -Now (Get-Date) -GraceSeconds $GraceSeconds -Armed $armed

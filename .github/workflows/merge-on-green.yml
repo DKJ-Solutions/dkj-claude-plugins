@@ -13,11 +13,16 @@ name: Merge on green
 # checks: AND statuses: ARE THE PICKER'S, NOT A WIDENING (#3491). It reads the required checks with
 # `gh pr checks --required`. This repo is public, so check runs read without them; a private consumer's
 # do not, and its picker then never picks anything while every run concludes success.
+#
+# AND actions: IS THE SCOPE THAT ACTUALLY MISSED (#3619). gh resolves the workflow run behind every check
+# run, so with actions at none the read still fails ("Resource not accessible by integration") after
+# checks: and statuses: were added. Read-only, like the rest of this block.
 permissions:
   contents: read
   pull-requests: read
   checks: read
   statuses: read
+  actions: read
 
 # THREE TRIGGERS FOR ONE SWEEP, AND THE SWEEP IGNORES WHICH OF THEM WOKE IT. workflow_run gives
 # immediacy; the schedule is what makes the mechanism durable, because #2319's own incident was

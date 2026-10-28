@@ -127,6 +127,14 @@ try {
     [System.IO.File]::WriteAllText($eraseStore, '{"runs":[{"id":"20261023-100000-aaaa","label":"x","start":"2026-10-23T10:00:00.000Z","end":"2026-10-23T10:01:00.000Z"},{"id":"bad id!"}]}')
     $skip = Remove-StopwatchHiddenFromStore -StorePath $eraseStore -Entries $h1
     Assert-True (-not @($skip.Erased).Count -and $skip.Error -match 'do not parse' -and ([System.IO.File]::ReadAllText($eraseStore)) -match 'bad id!') 'a store with a run that does not parse is not rewritten, since that run would be lost'
+    # Prepared labels (this machine's own): the erase keeps them, and nothing publishes them.
+    $prepStore = Join-Path $tmp 'prep\stopwatch.json'
+    Save-StopwatchStore -Path $prepStore -Runs @($done1, $done2) -Prepared @(@{ Label = 'release cut'; PreparedAt = (& $at 1) })
+    $pe = Remove-StopwatchHiddenFromStore -StorePath $prepStore -Entries $byLabel
+    $ps2 = Read-StopwatchStore -Path $prepStore
+    Assert-True (@($pe.Erased).Count -eq 1 -and @($ps2.Prepared).Count -eq 1 -and $ps2.Prepared[0].Label -eq 'release cut') 'the erase of a hidden run keeps the store''s prepared labels (sync erase writer)'
+    $pubJson = ConvertTo-StopwatchSharedJson -MachineId 'abcdef01' -Runs @($done1, $done2) -Phases $phases
+    Assert-True ($pubJson -notmatch 'release cut|prepared') 'a prepared label is never in the published payload'
     $future ='{"machine":"abcdef01","runs":[],"hidden":[{"kind":"label","value":"Docs","at":"9999-12-31T00:00:00.000Z","hidden":true}]}'
     Assert-Equal 0 @((ConvertFrom-StopwatchSharedJson -Text $future).Hidden).Count 'a hide entry dated far ahead is dropped, since no show could ever be newer'
 

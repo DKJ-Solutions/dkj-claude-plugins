@@ -32,8 +32,8 @@ always pins the release that carries the bytes its checksums name.
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.35.0/plugins/dkj-policy/assets/house-style/house-style.css` | `3d7ba8eb9dfa3913bb89b2414b2db0438ba41294c6bdf7ac4635a92ade81decf` |
-| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.35.0/plugins/dkj-policy/assets/house-style/house-theme.js` | `24ed94dd5f096274826bbdc47ff63f29932369f6bd55f2b47ab9ece25a09599f` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.36.0/plugins/dkj-policy/assets/house-style/house-style.css` | `16eafe96205774206a7e5a5be18de8ea029fca6e6d89e595d9fd0773d308bb79` |
+| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.36.0/plugins/dkj-policy/assets/house-style/house-theme.js` | `24ed94dd5f096274826bbdc47ff63f29932369f6bd55f2b47ab9ece25a09599f` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
 [`assets/house-style/README.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/assets/house-style/README.md) in `dkj-policy`. It ships in the same
@@ -115,6 +115,8 @@ page, dashboard and Artifact is designed to that screen first:
   paragraph under it, whether `.lead`, a `.lede` of the repo's own or a plain `<p>`. Screen height is
   scarce. What the page is for goes in its `<meta name="description">`. An empty state that says a list is
   empty is content, not an intro, and stays.
+- **The `h1` is never framed** (the owner, October 28, 2026): no border, outline, shadow or background
+  on it, and the page's `h1` never sits inside a card, panel or bordered box. It stands on the page.
 - **One row where one row does.** Label and value on one line (`.facts--row`), a card's action beside
   its heading rather than on a row of its own, filters in one bar. A second row has to carry something
   the first could not.

@@ -116,18 +116,22 @@ function Get-PluginRowStatus {
 function Resolve-PluginsPageRequest {
     <#
         Which Plugins page -Path asks for: @{ Name = ''; Page = '' } for the overview on /plugins, @{ Name = '<plugin>';
-        Page = '' } for one plugin's page on /plugins/<plugin>, @{ Name = 'dkj-solutions'; Page = 'house-style' } for
-        the house style's specimens under the plugin that ships them (#3493), or $null for a path that is none of
-        these. Section is '' on the specimens' overview and the section's slug on /plugins/dkj-solutions/house-style/
-        <section>, one page per section (#3563); whether a section of that slug exists is the page's question. The name
-        is held to a plugin slug, so nothing else reaches a lookup; whether a plugin of that name is enabled is the
-        page's question (a 404 when not).
+        Page = '' } for one plugin's page on /plugins/<plugin>, @{ Name = 'dkj-policy'; Page = 'house-style' } for
+        the house style's specimens under the plugin whose files they document (#3493; under dkj-solutions until
+        #3629, which BWJ-Development never enables), or $null for a path that is none of these. Section is '' on the
+        specimens' overview and the section's slug on /plugins/dkj-policy/house-style/<section>, one page per section
+        (#3563); whether a section of that slug exists is the page's question. The old /plugins/dkj-solutions/
+        house-style[/<section>] returns @{ Redirect = '<the same page under dkj-policy>' }, so a link to it still
+        lands. The name is held to a plugin slug, so nothing else reaches a lookup; whether a plugin of that name is
+        enabled is the page's question (a 404 when not).
     #>
     param([AllowEmptyString()][string]$Path = '')
     if ($Path -eq '/plugins' -or $Path -eq '/plugins/') { return @{ Name = ''; Page = ''; Section = '' } }
     if ($Path -cmatch '^/plugins/([a-z0-9][a-z0-9-]{0,63})/?$') { return @{ Name = $Matches[1]; Page = ''; Section = '' } }
-    if ($Path -cmatch '^/plugins/dkj-solutions/house-style(?:/([a-z][a-z-]{0,39}))?/?$') {
-        return @{ Name = 'dkj-solutions'; Page = 'house-style'; Section = [string]$Matches[1] }
+    if ($Path -cmatch '^/plugins/(dkj-policy|dkj-solutions)/house-style(?:/([a-z][a-z-]{0,39}))?/?$') {
+        $section = [string]$Matches[2]
+        if ($Matches[1] -ceq 'dkj-solutions') { return @{ Redirect = '/plugins/dkj-policy/house-style' + $(if ($section) { '/' + $section }) } }
+        return @{ Name = 'dkj-policy'; Page = 'house-style'; Section = $section }
     }
     return $null
 }
@@ -268,11 +272,11 @@ function Format-PluginPageHtml {
     }
     [void]$body.AppendLine('<div><dt>Enabled in</dt><dd>' + $(if ($Model.Consulted) { & $e $Model.Consulted } else { '--' }) + '</dd></div>')
     [void]$body.AppendLine('</dl></section></div>')
-    # What a plugin ships that can be looked at: dkj-solutions' house style, its specimens one page below (#3493),
-    # then the hub's own pages about this plugin.
+    # What a plugin ships that can be looked at: dkj-policy's house style, its specimens one page below (#3493,
+    # #3629), then the hub's own pages about this plugin.
     $below = @()
-    if ($Row.Name -ceq 'dkj-solutions') {
-        $below += @{ Href = '/plugins/dkj-solutions/house-style'; Label = 'House style'; Sub = 'Every token, the twelve themes and every component, with their variants and states'; Icon = 'house-style' }
+    if ($Row.Name -ceq 'dkj-policy') {
+        $below += @{ Href = '/plugins/dkj-policy/house-style'; Label = 'House style'; Sub = 'Every token, the twelve themes and every component, with their variants and states'; Icon = 'house-style' }
     }
     $below += @($Cards | Where-Object { $_ })
     if ($below.Count) {
@@ -314,15 +318,16 @@ function Split-HouseStyleSpecimens {
 
 function Format-HouseStyleSpecimensPageHtml {
     <#
-        The house style's specimens under /plugins/dkj-solutions/house-style (#3493): every token, theme and component
-        of the stylesheet, under the Plugins and dkj-solutions crumbs, because the house style is that plugin's rule
-        (its files sit in dkj-policy since #3531) and not any one repo's page. -Body is assets/house-style/specimens.html
+        The house style's specimens under /plugins/dkj-policy/house-style (#3493): every token, theme and component
+        of the stylesheet, under the Plugins and dkj-policy crumbs, because the files they document sit in dkj-policy
+        (#3531) and every repo running its toolbox renders with them (#3629); the rule to start from them stays
+        dkj-solutions'. -Body is assets/house-style/specimens.html
         from the same payload as house-style.css (Get-HouseStyleDir), a body fragment trusted as the plugin's own
         markup; -ReadError is why it could not be read, shown, escaped, in its place.
 
         A LONG PAGE BECOMES CARDS WITH A PAGE EACH (#3563): with no -Section the page is an overview, one card per
         section of the specimens naming how many specimens it holds, and each card opens
-        /plugins/dkj-solutions/house-style/<section>, that section alone. A -Section no section has returns $null,
+        /plugins/dkj-policy/house-style/<section>, that section alone. A -Section no section has returns $null,
         which the server answers with a 404.
     #>
     param(
@@ -333,8 +338,8 @@ function Format-HouseStyleSpecimensPageHtml {
         [string]$HubHref = '/hub'
     )
     $e = { param($v) ConvertTo-GeneralPageText $v }
-    $base = '/plugins/dkj-solutions/house-style'
-    $crumbs = @(@{ Label = 'Plugins'; Href = '/plugins' }, @{ Label = 'dkj-solutions'; Href = '/plugins/dkj-solutions' })
+    $base = '/plugins/dkj-policy/house-style'
+    $crumbs = @(@{ Label = 'Plugins'; Href = '/plugins' }, @{ Label = 'dkj-policy'; Href = '/plugins/dkj-policy' })
     $footer = 'The stylesheet and these specimens are <code>assets/house-style/</code> in the dkj-policy plugin this toolbox runs from.'
     $split = if ($ReadError) { @{ Head = ''; Sections = @(); Tail = '' } } else { Split-HouseStyleSpecimens -Body $Body }
 
