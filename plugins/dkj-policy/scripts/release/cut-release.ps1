@@ -1755,7 +1755,7 @@ if ($cutNote) {
 # measurement that ended the "no seam, deliberately" era applies to this root too.
 $bodyRelPath = "$githubNotesRootRelPath/$notesDirName/$new.md"
 $bodyPointer = if ($cutNote) {
-    "Whether you need to act, and what it is worth: see the notes attached to this release."
+    "Whether you need to act: see the notes attached to this release."
 } else {
     ''
 }
@@ -1885,7 +1885,7 @@ if ($cutNote) {
     $noteAbs = Join-Path $repoRoot ($noteRelPath -replace '/', '\')
     New-Item -ItemType Directory -Force -Path (Split-Path -Parent $noteAbs) | Out-Null
     Write-Utf8NoBom -Path $noteAbs -Content $noteContent
-    $sectionCount = if ($audienceEntries.Count -gt 0) { 'audience + organisation sections' } else { "organisation section only -- no entry reached tier $audienceTier" }
+    $sectionCount = if ($audienceEntries.Count -gt 0) { 'audience section' } else { "header only -- no entry reached tier $audienceTier" }
     Write-Host "  created: $noteRelPath (draft -- $sectionCount)" -ForegroundColor DarkGray
 }
 
@@ -2002,10 +2002,9 @@ function Write-FollowUpSteps {
         Write-Host "      the audience section is a DRAFT of solved tasks (titled from their issues -- rewrite each in plain words);"
         Write-Host "      what it left out, and why, is in the comment beneath its heading."
     } elseif ($audienceEntries.Count -gt 0) {
-        Write-Host "      the audience section is a DRAFT (the tier-$audienceTier entries, in the words their authors wrote for a reviewer);"
-        Write-Host "      'what it is worth' and 'what was still open' are empty and cannot be generated."
+        Write-Host "      the audience section is a DRAFT (the tier-$audienceTier entries, in the words their authors wrote for a reviewer)."
     } else {
-        Write-Host "      no entry reached tier $audienceTier, so it carries the organisation's sections only -- both empty."
+        Write-Host "      no entry reached tier $audienceTier, so it carries its header only."
     }
 }
 
