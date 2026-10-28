@@ -50,7 +50,7 @@ Closes #3639. The owner's rule from 3fb642b72 (October 28, 2026): a page's h1 st
 ### TEST
 
 - [x] `stopwatch` 268/0, `dev-pages` 478/0
-- [ ] The owner has looked at `/stopwatch`, a label page, a run page and `/logbook`
+- [x] The owner has looked at `/stopwatch`, a label page, a run page and `/logbook`
 
 ### DEPLOY: fix/3639-stopwatch-h1-above-group
 
