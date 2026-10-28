@@ -56,7 +56,8 @@ runs the dkj plugins, as an overview card on the product's `/connectors` page.
 
 The product's `/connectors` page has a **Specialist lenses** card under its three group cards: every
 checkout on this machine that holds `.claude/specialists/lenses/`, how many lenses it has, how many are
-filled in beyond their scaffold, and which those are by id, specialist name and size. A filled-in lens
+filled in beyond their scaffold, and which those are by id, specialist name and size, one per line. Both
+run big to small: the checkouts by the total size of their filled-in lenses, the lenses by their own. A filled-in lens
 that still carries `VUL-IN` is tagged. "Filled in" is read from the text (any line that is not
 frontmatter, a heading, a quote or a comment), because the `VUL-IN` marker turned out not to say it.
 
