@@ -299,8 +299,9 @@ function Format-SpecialistPageHtml {
 function Get-SpecialistStyle {
     <#
         The style the specialist sections and pages add to the dev bar's: an off plugin's card muted, never hidden;
-        the specialist grid its own, four to a row and stepping down 4 -> 3 -> 2 -> 1, in .grid-3's gap and
-        breakpoints (as the DKJ repos' .dr-grid is); and a definition's folded text.
+        the specialist grid its own columns, four to a row and stepping down 4 -> 3 -> 2 -> 1, in .grid-3's gap and
+        breakpoints, beside the house .card-grid that gives it the group's padding and surface (as the DKJ repos'
+        .dr-grid does); and a definition's folded text.
     #>
     return $script:DevBarStyle + "`n" + (@(
         '.sp-card--off { opacity: 0.7; }',
@@ -337,13 +338,14 @@ function Format-SpecialistTeamHtml {
     if ($ReadError) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The specialists could not all be read: ' + (& $e $ReadError) + '.</p>')
     }
+    # Its own columns beside the house .card-grid, which gives the group its padding and surface (the house .grid-3
+    # is never restyled here); the heading inside it, as a headed group's is, and so each card untitled (#206).
+    [void]$body.AppendLine('<div class="card-grid sp-grid" id="cards">')
     [void]$body.AppendLine('<div class="grid__head"><h2>Specialists</h2></div>')
-    # In a grid of its own: the house .grid-3 is never restyled here.
-    [void]$body.AppendLine('<div class="sp-grid" id="cards">')
     foreach ($r in @($rows | Sort-Object @{ Expression = { $_.Id } })) {
         $sub = @(('#' + (& $e $r.Number)), $(if ($r.Title) { & $e $r.Title }), (& $e $r.Form), ('full read ' + (& $tok $r.TotalBytes))) |
             Where-Object { $_ }
-        [void]$body.AppendLine((Format-HubCardLinkHtml -Href ($BaseHref + '/' + $r.Slug) -SubHtml ($sub -join ' &middot; ') -Heading 2 `
+        [void]$body.AppendLine((Format-HubCardLinkHtml -Href ($BaseHref + '/' + $r.Slug) -SubHtml ($sub -join ' &middot; ') `
             -Label ($r.Name + $(if ($r.Emoji) { ' ' + $r.Emoji } else { '' })) -Id ('specialist-' + $r.Slug) -Class 'sp-card'))
     }
     if (-not $rows.Count) {

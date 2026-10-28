@@ -52,6 +52,9 @@ visible result, so the branch waits for the owner's look before it merges.
   `Format-SpecialistsPageHtml` replaced by `Format-SpecialistTeamHtml` (the cards, the table and the
   column legend, drawn on a team's Plugins page); `Format-MarketplacePluginsPageHtml` takes the specialist
   rows, counts them on each team's card and serves a specialist's page; `Resolve-SpecialistsRedirect`
+- [x] The specialists' card grid carries the house `.card-grid` beside its own `.sp-grid` columns, so
+  it gets the group's padding and surface (`house-style.css:224`, `:230`) as `.grid-2` does; its
+  heading moved inside it and the cards under it lost their h2 (#206)
 - [x] `scripts/dashboard/serve-connector-dashboard.ps1`: the `/specialists` route becomes the redirect,
   and `/plugins` takes a third level and reads the specialists for the teams' pages only
 - [x] `scripts/tests/dev-pages.tests.ps1` and `connector-dashboard.tests.ps1`: the Specialists asserts

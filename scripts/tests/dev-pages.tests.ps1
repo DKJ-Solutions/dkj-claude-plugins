@@ -663,7 +663,7 @@ Write-Host '-- a team''s page carries its specialists (#3550, #3551; one page si
 $rows3 = @($sa, $pa, $evil)
 $al = Format-MarketplacePluginsPageHtml -Plugins $market -Group 'dkj-subagents' -Plugin 'dkj-subagents-alpha' -SpecialistRows $rows3 -CharsPerToken 3.12
 Assert-True ($al.Contains('<dt>Kind</dt><dd>core team</dd>') -and $al.IndexOf('id="about"') -lt $al.IndexOf('id="cards"')) 'the team''s facts come first, its specialists under them'
-Assert-True ($al.Contains('<div class="grid__head"><h2>Specialists</h2></div>')) 'the specialists stand under their own heading'
+Assert-True ($al -match '<div class="card-grid sp-grid" id="cards">\r?\n<div class="grid__head"><h2>Specialists</h2></div>') 'the specialists are a group of their own, in the house .card-grid beside their own columns so it keeps the group''s padding and surface, its heading inside it (the owner, October 28, 2026)'
 Assert-True ($al.Contains('<strong><a href="/plugins/dkj-subagents/dkj-subagents-alpha/paula">Paula') -and $al.Contains('<strong><a href="/plugins/dkj-subagents/dkj-subagents-alpha/chris">Chris') -and -not $al.Contains('>Eve')) 'it lists its own specialists and nobody else''s, each name a link to its page under the team'
 Assert-True ($al.IndexOf('-alpha/paula">Paula') -lt $al.IndexOf('-alpha/chris">Chris')) 'the table puts the largest full read first'
 Assert-True ($al.Contains('always-on</span>')) 'the orchestrator carries the always-on badge'
@@ -671,11 +671,11 @@ Assert-True ($al.Contains('~' + (Format-DevNumber ([Math]::Round(1000 / 3.12))) 
 Assert-True ($al.Contains('3.12 characters per token') -and $al.Contains('.claude-plugin/marketplace.json')) 'the footer names both sources, and the factor, so the estimate is labelled as one'
 Assert-True (-not $al.Contains('Not enabled in')) 'an enabled team carries no off notice'
 Assert-True ($al.Contains('id="when"') -and $al.IndexOf('</table>') -lt $al.IndexOf('id="when"')) 'the column explanation sits under the table it explains'
-Assert-True ($al.Contains('<div class="sp-grid" id="cards">') -and $al.IndexOf('id="cards"') -lt $al.IndexOf('<table')) 'one card per specialist, above the table (#3551)'
+Assert-True ($al.Contains('id="cards"') -and $al.IndexOf('id="cards"') -lt $al.IndexOf('<table')) 'one card per specialist, above the table (#3551)'
 Assert-True ($al.Contains('.sp-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));') -and $al.Contains('.pl-card--off')) 'the specialist cards sit four to a row, in a grid of their own, beside the page''s own style'
 Assert-True ($al.Contains('<section class="card card--link sp-card" id="specialist-paula">') -and $al.Contains('<a class="menu-item" href="/plugins/dkj-subagents/dkj-subagents-alpha/chris">')) 'each card is the link to that specialist''s page'
 Assert-True ($al.IndexOf('id="specialist-chris"') -lt $al.IndexOf('id="specialist-paula"')) 'the cards are in roster order, 01-01 before 02-09, where the table is by size'
-Assert-True ($al.Contains('<h2 class="menu-item__title">Paula ' + $compass + '</h2><span class="menu-item__sub">#09 &middot; Project Planner &middot; subagent &middot; full read ~')) 'a card names the specialist, its number, title, form and full read'
+Assert-True ($al.Contains('<span class="menu-item__label">Paula ' + $compass + '<span class="menu-item__sub">#09 &middot; Project Planner &middot; subagent &middot; full read ~') -and $al -notmatch '<h2 class="menu-item__title">') 'a card names the specialist, its number, title, form and full read, untitled under the group''s heading (#206)'
 $ec = Format-MarketplacePluginsPageHtml -Plugins $market -Group 'dkj-subagents' -Plugin 'dkj-subagents-ecomm' -SpecialistRows $rows3 -CharsPerToken 3.12
 Assert-True ($ec.Contains('Eve &lt;i&gt;') -and -not $ec.Contains('Eve <i>')) 'a name is escaped'
 Assert-True ($ec.Contains('Not enabled in') -and $ec.Contains('style="width: 100%"')) 'an off team says so, and the bar is drawn against the largest on its own page'
