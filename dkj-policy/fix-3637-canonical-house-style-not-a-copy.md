@@ -39,19 +39,48 @@
 
 ### PLAN
 
+#3637. In this source repo the house-style gate held the canonical stylesheet in
+`plugins/dkj-policy/assets/house-style/` to the installed plugin's pin, which lags `main` between cuts (seven
+house-style commits since v5.36.0), so every session here opened with an advice to revert merged work. The
+fallback to the page at the tag returns the same hashes, so nothing cleared it before the next cut. The fix
+makes the lib recognise the source repo (its marketplace manifest publishes `dkj-solutions`) and exempt
+exactly those two files from check 1, while still reading them as the verified stylesheet for check 2.
+Independent of #3636, which moves the checksum write to the cut and touches neither the lib nor the hook.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style-rules.ps1`: `Test-HouseStyleSourceRepo`, `Get-HouseStyleCanonicalDir`, and the exemption in
+  `Invoke-HouseStyleCheck` (exact paths, a `Canonical` flag per copy, a note when it differs from the tag)
+- [x] `check-house-style.ps1` prints a canonical copy as `[source]`; the session hook counts it apart
+- [x] `house-style` skill page: check 1 names the exemption
 
 ### TEST
 
+- [x] `check-house-style.tests.ps1`: a fixture source repo (canonical copy ahead of the pin passes with the
+  note, check 2 still runs, the hook says so), a vendored and a nested demo copy there still fail the pin, a
+  manifest publishing other plugins or an unreadable one is a consumer; this repo reads as the source. 102 passed
+- [x] The gate on this repo against the installed v5.36.0 page: `[FAIL]` before, `[OK]` after
+- [x] Review (Victor, Sebastian, Edith) taken in: exact paths instead of the folder prefix, "differs from"
+  instead of "ahead of", a positive hook assert, the wording of the outputs and the skill sentence
+- [x] `check-plugin-integrity.ps1` 0 errors
+
 ### DEPLOY: fix/3637-canonical-house-style-not-a-copy
 
-**Score:**
+A session in `dkj-claude-plugins` no longer opens with a warning to replace the canonical house stylesheet
+with the last release's file, a step that would revert work merged since that cut
+([#3637](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3637)). The two files in
+`plugins/dkj-policy/assets/house-style/` are now named as the source and still read for the redefine check.
+Every other copy, in every repo, is held to the pin as before.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
+
+the source repo's canonical house style is not held to the installed pin
 

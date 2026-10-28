@@ -23,6 +23,10 @@
     checksums. Only then does this hook fetch the page at that tag (Get-HouseStyleTagPin, a short timeout)
     and judge every copy against it; a clean session never touches the network.
 
+    IN THE SOURCE REPO THE CANONICAL COPY IS NOT JUDGED AGAINST THE PIN (#3637). Its files under
+    plugins/dkj-policy/assets/house-style/ run ahead of the installed tag between cuts, and telling the
+    session to replace them with the tag's file would revert merged work. The lib decides it.
+
 .PARAMETER RepoRootOverride
     (For tests) The repo root instead of CLAUDE_PROJECT_DIR or the working directory.
 #>
@@ -76,7 +80,11 @@ $findings = @($result.Findings)
 $onlyMissing = ($findings.Count -eq 1 -and $findings[0].Check -eq 'missing' -and -not @($result.Copies).Count)
 
 if (-not $findings.Count) {
-    Write-Output "${name}: the house style holds at $($result.Tag) -- $(@($result.Copies).Count) pinned copy/copies, no redefined house token or class, no retired token name."
+    # The source repo's canonical copies are not held to the pin (#3637), so they are counted apart.
+    $canon = @($result.Copies | Where-Object { $_.Canonical }).Count
+    $what = "$(@($result.Copies).Count - $canon) pinned copy/copies"
+    if ($canon) { $what = "$canon canonical file(s) of this source repo, not held to the pin, and $what" }
+    Write-Output "${name}: the house style holds at $($result.Tag) -- $what, no redefined house token or class, no retired token name."
     exit 0
 }
 if ($onlyMissing) {
