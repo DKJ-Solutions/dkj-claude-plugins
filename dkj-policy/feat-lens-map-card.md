@@ -44,22 +44,29 @@ runs the dkj plugins, as an overview card on the product's `/connectors` page.
 
 ### CREATE
 
-- [x] `Test-LensFilled`, `Format-DashboardBytes` and `Format-LensMapSectionHtml` in `scripts/lib/connector-dashboard-lib.ps1`; `Format-ConnectorDashboardHtml` takes `-OverviewSectionHtml`/`-OverviewSectionStyle`
-- [x] `Get-LensMapModel` in `serve-connector-dashboard.ps1`, read with the register and cached with it
-- [ ] The owner has looked at the card on `/connectors` (a visible result)
+Maikel then split it (the same day): no map on `/connectors`, but a page per DKJ repo, reached from
+its card on `/connectors/dkj`, holding a **Lenses** card.
+
+- [x] `Test-LensFilled`, `Format-DashboardBytes`, `Get-CheckoutLenses` and `Format-RepoLensesCardHtml` in `scripts/lib/connector-dashboard-lib.ps1`
+- [x] The connector page frame moved into `Format-ConnectorPageStart`/`Format-ConnectorPageEnd`, which the repo page shares
+- [x] `Get-DkjRepoRows`, `Format-DkjRepoCardHtml`, `Get-DkjRepoCardStyle` and `Format-DkjRepoPageHtml` in `scripts/lib/dev-pages-lib.ps1`; the DKJ repo cards' titles open the repo's page
+- [x] The `/connectors/dkj/<name>` route in `serve-connector-dashboard.ps1`, a 404 for a name that is neither on GitHub nor checked out here
+- [ ] The owner has looked at `/connectors/dkj` and a repo's page (a visible result)
 
 ### TEST
 
-- [x] `connector-dashboard.tests.ps1`: the filled-in rule, the card's markup and order, and the server reading a fixture checkout's lenses (233 passed)
+- [x] `connector-dashboard.tests.ps1`: the filled-in rule, the lens reader on a fixture tree, the Lenses card's order and markup, the page frame (234 passed)
+- [x] `dev-pages.tests.ps1`: the repo card's link, the repo rows and the repo page (475 passed)
 
 ### DEPLOY: feat/lens-map-card
 
-The product's `/connectors` page has a **Specialist lenses** card under its three group cards: every
-checkout on this machine that holds `.claude/specialists/lenses/`, how many lenses it has, how many are
-filled in beyond their scaffold, and which those are by id, specialist name and size, one per line. Both
-run big to small: the checkouts by the total size of their filled-in lenses, the lenses by their own. A filled-in lens
-that still carries `VUL-IN` is tagged. "Filled in" is read from the text (any line that is not
+Every DKJ repo card on the product's `/connectors/dkj` now opens a page of its own,
+`/connectors/dkj/<name>`: the repo's card (its GitHub facts, its checkout and the session to copy) and a
+**Lenses** card listing what its checkout's `.claude/specialists/lenses/` holds. The filled-in lenses are
+a table, big to small, by id, specialist name and size, a filled-in lens still marked `VUL-IN` tagged;
+the scaffolds are one line under it. "Filled in" is read from the text (any line that is not
 frontmatter, a heading, a quote or a comment), because the `VUL-IN` marker turned out not to say it.
+The GitHub link moved from the card's title onto its facts line.
 
 **Score:** 2
 
