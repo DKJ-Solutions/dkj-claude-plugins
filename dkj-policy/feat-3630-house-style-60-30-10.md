@@ -70,5 +70,3 @@ N/A
 #### Pull Request
 
 House style: read a theme's colours by the 60-30-10 rule (Paper 60, Primary 30, Text 10)
-
-Plugins: dkj-policy
