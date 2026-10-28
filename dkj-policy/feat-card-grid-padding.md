@@ -48,7 +48,7 @@ The owner wants the container the cards sit in (a .grid-2, a .grid-3, a repo's o
 - [x] `dev-pages-lib.ps1`: the DKJ repos page's `.dr-repos` grid carries `card-grid` (the example the owner named,
   `/connectors/dkj`); its test follows
 - [x] the group is a `--paper-2` surface with a 16px radius, and each direct `.card` in it sits one step further on
-  `--paper-3`, its lines (border, table rows, hover) moved to `--paper-4` through two tokens resolved on the group
+  `--paper-3`, its lines (border, table rows, hover) moved to `--paper-4`, with no token of its own
 - [x] the house-style README names the padding and `.card-grid`; the skill's sha256 pin follows the stylesheet
 
 ### TEST
