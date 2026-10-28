@@ -253,6 +253,31 @@
                                         "seconds":  0.692
                                     }
                                 ]
+                 },
+                 {
+                     "id":  "20261028-152014-d240",
+                     "label":  "release cut",
+                     "start":  "2026-10-28T15:20:14.359Z",
+                     "end":  "2026-10-28T15:35:17.262Z",
+                     "sessions":  1,
+                     "phases":  [
+                                    {
+                                        "name":  "Local gates and tests",
+                                        "seconds":  59.621
+                                    },
+                                    {
+                                        "name":  "Other tool calls",
+                                        "seconds":  753.136
+                                    },
+                                    {
+                                        "name":  "Claude thinking and writing",
+                                        "seconds":  89.185
+                                    },
+                                    {
+                                        "name":  "Waiting on you",
+                                        "seconds":  0.961
+                                    }
+                                ]
                  }
              ]
 }
