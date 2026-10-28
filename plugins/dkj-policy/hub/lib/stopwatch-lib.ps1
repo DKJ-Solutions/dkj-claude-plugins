@@ -1161,15 +1161,13 @@ function Format-StopwatchPageHtml {
     # read "Measurements" on the Logbook and on an empty overview.
     # The overview's labels, the pinned ones with no run yet included (not in -Flat, the Logbook's).
     $sets = if ($Flat) { @() } else { @(Get-StopwatchOverviewSets -Model $Model) }
-    $h1 = '<div class="grid__head"><h1>' + (& $e $PageTitle) + '</h1></div>'
-    if (-not @($Model.Groups).Count -and -not $sets.Count) {
-        [void]$body.AppendLine($h1)
-    } else {
+    # The h1 stands on the page above the group, never inside its surface: the h1 is never framed (owner, October 28, 2026).
+    [void]$body.AppendLine('<div><h1>' + (& $e $PageTitle) + '</h1></div>')
+    if (@($Model.Groups).Count -or $sets.Count) {
         # The grid stands in a wrapper whose gap is the space between grids, so no grid carries a top margin (the owner,
-        # October 24, 2026). A head is its h2 alone, with no sub line under it.
+        # October 24, 2026).
         [void]$body.AppendLine('<div class="sw-groups">')
         [void]$body.AppendLine($(if ($Flat) { '<div class="sw-grid">' } else { '<div class="sw-grid sw-grid--wide">' }))
-        [void]$body.AppendLine($h1)
         if ($Flat) {
             foreach ($g in @($Model.Groups)) { [void]$body.AppendLine((Format-StopwatchRunCard -Group $g -Route $Route -Now $Now -NoDelta:$NoDelta -CardNotes $CardNotes -CardTones $CardTones)) }
         } else {
@@ -1218,10 +1216,11 @@ function Format-StopwatchLabelPageHtml {
     )
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $body = New-Object System.Text.StringBuilder
+    $title = Get-StopwatchShortTitle $Set.Title
+    # Above the group, never inside it: the h1 is never framed (owner, October 28, 2026).
+    [void]$body.AppendLine('<div><h1>' + (& $e $title) + '</h1></div>')
     [void]$body.AppendLine('<div class="sw-groups">')
     [void]$body.AppendLine('<div class="sw-grid">')
-    $title = Get-StopwatchShortTitle $Set.Title
-    [void]$body.AppendLine('<div class="grid__head"><h1>' + (& $e $title) + '</h1></div>')
     foreach ($g in @($Set.Groups)) { [void]$body.AppendLine((Format-StopwatchRunCard -Group $g -Route ('/stopwatch/' + $Set.Slug) -Now $Now -ShortLabel)) }
     # A pinned label before its first run (Get-StopwatchOverviewSets): one card saying so, where the runs will stand.
     if (-not @($Set.Groups).Count) {
@@ -1288,7 +1287,7 @@ function Format-StopwatchRunPageHtml {
     $body = New-Object System.Text.StringBuilder
     $pageTitle = $Group.Latest.ToLocalTime().ToString('yyyy-MM-dd HH:mm', [Globalization.CultureInfo]::InvariantCulture)
     # Under -LabelCrumb the label is already the crumb before this run, so it is not said again beneath the heading.
-    [void]$body.AppendLine('<div class="grid__head"><h1>' + (& $e $pageTitle) + '</h1>' + $(if ($LabelCrumb -and $Group.LabelSlug) { '' } else { '<p class="card__sub">' + (& $e $label) + '</p>' }) + '</div>')
+    [void]$body.AppendLine('<div><h1>' + (& $e $pageTitle) + '</h1>' + $(if ($LabelCrumb -and $Group.LabelSlug) { '' } else { '<p class="card__sub">' + (& $e $label) + '</p>' }) + '</div>')
     if ($Group.Running) {
         [void]$body.AppendLine('<section class="card"><h3>Going now</h3>')
         [void]$body.AppendLine('<p class="sw-clock num" data-start="' + (Format-StopwatchStamp $Group.Running.Start) + '">' + (Format-DevSeconds ($Now - $Group.Running.Start).TotalSeconds) + '</p>')

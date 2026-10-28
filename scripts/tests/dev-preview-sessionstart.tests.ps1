@@ -5,8 +5,8 @@
     since #3198, and the hub the plugin serves in every repo (#3245).
 
 .DESCRIPTION
-    Group 1 pins the rules without a server: what Get-DevPreview may state (OwnHub, the opt-out of the
-    plugin's hub, and the Product beside it, #3283, included), when a command line names a checkout,
+    Group 1 pins the rules without a server: what Get-DevPreview may state (OwnHub and the Product beside it,
+    retired by #3643, recorded and ignored), when a command line names a checkout,
     and which port is reused, started or refused -- from hand-built socket and process tables.
     Group 1d pins the hub page (#3245): the Product card present or absent, the setup cards only for a repo
     that states no Get-DevPreview, same-origin General links, escaping and the fixed h1; the Simple Browser
@@ -16,11 +16,11 @@
     shape (the product and the mode included), and what a reader believes of it.
     Group 2 runs the hook as a child process against scratch repos, on Windows: the hub link for a repo with
     no seam, one line naming the hub and the product for a repo with one, the hub still handed out and the
-    general pages still running where the product cannot start (#3244), the OwnHub line as it was before
-    #3245, one line on a seam it cannot run, and one real start of a tiny loopback listener followed by a
+    general pages still running where the product cannot start (#3244), a retired OwnHub serving its server as
+    the product (#3643), one line on a seam it cannot run, and one real start of a tiny loopback listener followed by a
     second run that REUSES it, which is the whole point of the hook. It also covers the general pages server
     the hook starts: started once and reused, the state file written, and the server's routes -- the hub
-    rendered on '/' and '/hub', or a 303 to the repo's own hub under OwnHub -- answering over HTTP.
+    rendered on '/' and '/hub' -- answering over HTTP.
 
     Pure ASCII (repo convention for .ps1).
 #>
@@ -77,32 +77,19 @@ Assert-Equal '/' $c.Config.Path 'Path defaults to /'
 Assert-Equal 'Toolbox' $c.Config.Name 'the line opens with Toolbox (#3064, #3291; the owner, October 27, 2026)'
 Assert-Equal 20 $c.Config.WaitSeconds 'WaitSeconds defaults to 20'
 Assert-Equal $false $c.Config.OpenInVsCode 'OpenInVsCode defaults to off'
-Assert-Equal $false $c.Config.OwnHub 'OwnHub defaults to off: the plugin serves the hub (#3245)'
-$c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 3000; OwnHub = $true }
-Assert-True ($c.Ok -and $c.Config.OwnHub -eq $true) 'OwnHub = $true is the repo''s opt-out of the plugin''s hub'
-$c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 3000; OwnHub = $false }
-Assert-True ($c.Ok -and $c.Config.OwnHub -eq $false) 'and OwnHub = $false states the default'
-foreach ($badOwn in 'yes', 1, 'true') {
-    $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 3000; OwnHub = $badOwn }
-    Assert-True (-not $c.Ok -and $c.Problem -match 'OwnHub') "an OwnHub that is not a boolean ('$badOwn') is a problem, not a silent default"
+Assert-Equal 0 @($c.Config.RetiredStated).Count 'a config without OwnHub or Product records no retired key'
+# OWNHUB AND ITS PRODUCT ARE RETIRED (#3643): ignored whatever they hold, so a config that predates this keeps its
+# product, and recorded so the drift clause can name them.
+foreach ($own in $true, $false, 'yes') {
+    $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; OwnHub = $own; Product = @{ Command = 'y {port}'; Ports = 5173 } }
+    Assert-True ($c.Ok -and (@($c.Config.Ports) -join ',') -eq '4870' -and -not $c.Config.Contains('OwnHub') -and -not $c.Config.Contains('Product')) "an OwnHub of '$own' with a Product is ignored: the server is the product on the plugin's hub"
+    Assert-Equal 'OwnHub,Product' (@($c.Config.RetiredStated) -join ',') "and both keys are recorded as stated ('$own')"
 }
-# A PRODUCT BESIDE THE OWN HUB (#3283): the same fields as the server, under the same rules, only with OwnHub.
-$c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; OwnHub = $true; Product = @{ Command = 'y {port}'; Ports = 5173..5174; Path = 'brandbook/' } }
-Assert-True ($c.Ok -and $c.Config.Product.Command -eq 'y {port}' -and $c.Config.Product.Path -eq '/brandbook/' -and $c.Config.Product.WaitSeconds -eq 20) 'OwnHub may state a Product, validated and defaulted like the server itself'
-Assert-True ($null -eq (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; OwnHub = $true }).Config.Product) 'and without one there is none'
-$c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 3000; Product = @{ Command = 'y {port}'; Ports = 5173 } }
-Assert-True (-not $c.Ok -and $c.Problem -match 'without OwnHub') 'a Product without OwnHub is a problem: the server itself is the product there'
-$c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; OwnHub = $true; Product = 'npm run dev' }
-Assert-True ($c.Ok -and $null -eq $c.Config.Product -and $c.Config.ProductProblem -match 'must be a hashtable') 'a Product that is not a hashtable costs the product alone, never the own hub'
-$c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; OwnHub = $true; Product = @{ Command = 'y' ; Ports = 5173 } }
-Assert-True ($c.Ok -and $c.Config.ProductProblem -match '^the Product: .*\{port\}') 'a Product held to the server''s rules names itself in the problem'
-$c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870..4872; OwnHub = $true; Product = @{ Command = 'y {port}'; Ports = 4872..4873 } }
-Assert-True ($c.Ok -and $c.Config.ProductProblem -match 'overlap the hub''s \(port 4872\)') 'a Product whose ports overlap the hub''s is refused'
-foreach ($k in 'OwnHub', 'OpenInVsCode', 'DefaultTheme', 'Product') {
-    $inner = @{ Command = 'y {port}'; Ports = 5173 }; $inner[$k] = $true
-    $c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870; OwnHub = $true; Product = $inner }
-    Assert-True ($c.Ok -and $c.Config.ProductProblem -match "states $k") "a Product stating $k, which belongs to the hub alone, is a problem of the product"
-}
+$c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 3000; Product = 'npm run dev' }
+Assert-True ($c.Ok -and (@($c.Config.RetiredStated) -join ',') -eq 'Product') 'a Product alone, of any shape, is no longer a problem: it is recorded and ignored'
+$c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x'; Ports = 3000; OwnHub = $true }
+Assert-True (-not $c.Ok -and $c.Problem -match '\{port\}') 'a retired key beside a config the hook cannot run still fails with the real problem'
+$c = ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 3000 }
 Assert-Equal 1 @($c.Config.Ports).Count 'one port becomes a list of one'
 # The default theme of the plugin's hub and general pages (#3390).
 Assert-Equal '' (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4870 }).Config.DefaultTheme 'a repo that states no DefaultTheme states none, so its pages keep lilac'
@@ -378,7 +365,7 @@ Assert-True ((Format-PluginRepoHubHtml -RepoName 'r' -PagesUrl 'http://localhost
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'and starts from the house style its own server serves'
 Assert-True ($html -notmatch '<h2>Products</h2>') 'without a stated server there is no Products section'
 Assert-True ($html -match '<h2>Set up a product</h2>' -and $html -match '<h3 class="card__title">Add a dev server of your own</h3>' -and $html -match '<h3 class="card__title">Open it in VS Code</h3>') 'the two setup cards share one h2, each titled with an h3 (#3175)'
-Assert-True ($html -match 'Get-DevPreview' -and $html -match 'scripts/repo-config.ps1' -and $html -match 'OwnHub = \$true' -and $html -match '"localhost:4890": "simpleBrowser.open"') 'they say how to state a server, how to opt out, and which port to route'
+Assert-True ($html -match 'Get-DevPreview' -and $html -match 'scripts/repo-config.ps1' -and $html -notmatch 'OwnHub' -and $html -match '"localhost:4890": "simpleBrowser.open"') 'they say how to state a server and which port to route, and offer no opt-out (#3643)'
 Assert-True ($html -notmatch '4880') 'and no longer name the retired 4880-4889 range'
 # The house hub form (#3383): one .grid-3 of card links with no heading above them; the facts and Issues are the
 # Repository page's.
@@ -455,32 +442,26 @@ $named = (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 8765;
 $own = (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4860; OwnHub = $true }).Config
 Assert-True ($named.NameStated -and -not $plain.NameStated) 'a Name still stated is recorded, though not read'
 Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $plain -SettingsText '').Count 'a clean product config names nothing'
-$d = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'ownhub' -Config $own -SettingsText '')
-Assert-True ($d.Count -eq 1 -and $d[0] -match 'OwnHub' -and $d[0] -notmatch 'drift|delete|route') 'OwnHub is named as a plain fact, with no repair in it (the owner''s decision)'
-Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $true -SourceTree $true -Mode 'ownhub' -Config $own -SettingsText '').Count 'and not in the source repo, which runs the hub from its own tree'
+$d = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $own -SettingsText '')
+Assert-True ($d.Count -eq 1 -and $d[0] -ceq "config drift: delete Get-DevPreview's OwnHub") 'an OwnHub still stated is drift since #3643, no longer a plain fact'
 $d = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $vsc -SettingsText $productRoute -HubPorts (4890..4899))
 Assert-True ($d.Count -eq 1 -and $d[0] -match '^config drift: OpenInVsCode but no hub port \(4890-4899\) routed')'OpenInVsCode with only the product routed is drift: the hub opens in the system browser'
 Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $vsc -SettingsText $hubRoute -HubPorts (4890..4899)).Count 'and any one hub port routed is enough'
-Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'ownhub' -Config (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4860; OwnHub = $true; OpenInVsCode = $true }).Config -SourceTree $true -SettingsText '').Count 'under OwnHub OpenInVsCode opens the own server, so no hub route is owed'
 $d = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $named -SettingsText '')
-Assert-True ($d.Count -eq 1 -and $d[0] -match '^config drift: .*states Name.*delete it$') 'a Name still stated is drift'
+Assert-True ($d.Count -eq 1 -and $d[0] -ceq "config drift: delete Get-DevPreview's Name") 'a Name still stated is drift'
 $both = (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 8765; OpenInVsCode = $true; Name = 'x' }).Config
 $d = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $both -SettingsText '' -HubPorts (4890..4899))
-Assert-True ($d.Count -eq 1 -and $d[0] -match 'OpenInVsCode.+; Get-DevPreview states Name') 'two defects share one clause'
-# The most each line form can carry, on top of a long head, survives the 300-character cap (Victor's review). The
-# OpenInVsCode defect is a product line's alone, so the two forms' worst cases are OwnHub + Name and both defects.
+Assert-True ($d.Count -eq 1 -and $d[0] -match 'OpenInVsCode.+; delete Get-DevPreview''s Name$') 'two defects share one clause'
+# The most the line can carry, on top of the longest head, survives the 300-character cap (Victor's review): every
+# defect at once, OpenInVsCode unrouted and all three unread keys, which share one defect (#3643).
 $exposed = ', LISTENING ON ALL INTERFACES -- not started by the loopback Command; restart it to bind 127.0.0.1'
-$ownName = (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 4860; OwnHub = $true; Name = 'x' }).Config
-$worst = @{
-    own     = @{ Head = "Toolbox: http://localhost:4860/ (already running$exposed)"; Clauses = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'ownhub' -Config $ownName -SettingsText '') }
-    product = @{ Head = "Toolbox: http://localhost:4890/ -- product: http://localhost:8765/ (already running$exposed)"; Clauses = $d }
-}
-foreach ($k in $worst.Keys) {
-    $tail = -join @($worst[$k].Clauses | ForEach-Object { " -- $_" })
-    Assert-True ($tail.Length -le 120) "the $k line's drift stays within 120 characters (got $($tail.Length))"
-    Assert-True ((ConvertTo-DevPreviewLine ($worst[$k].Head + $tail)).EndsWith('delete it')) "and survives the cap after a long $k head"
-}
-Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $false -Mode 'ownhub' -Config $own -SettingsText '').Count 'outside a DKJ-Solutions repo nothing is named'
+$all = (ConvertTo-DevPreviewConfig -Raw @{ Command = 'x {port}'; Ports = 8765; OpenInVsCode = $true; Name = 'x'; OwnHub = $true; Product = @{} }).Config
+$d = @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'product' -Config $all -SettingsText '' -HubPorts (4890..4899))
+Assert-True ($d.Count -eq 1 -and $d[0].EndsWith("delete Get-DevPreview's Name, OwnHub, Product")) 'the three unread keys share one defect, in a fixed order'
+$tail = -join @($d | ForEach-Object { " -- $_" })
+Assert-True ($tail.Length -le 118) "the worst drift stays within 118 characters (got $($tail.Length))"
+Assert-True ((ConvertTo-DevPreviewLine ("Toolbox: http://localhost:4890/ -- product: http://localhost:8765/ (already running$exposed)" + $tail)).EndsWith('Product')) 'and survives the cap after the longest product head'
+Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $false -Mode 'product' -Config $own -SettingsText '').Count 'outside a DKJ-Solutions repo nothing is named'
 Assert-Equal 0 @(Get-DevPreviewDriftClauses -DkjSolutions $true -Mode 'none' -Config $null -SettingsText '').Count 'and a repo that states no server has nothing to drift'
 
 Write-Host '-- group 1e: the state file the two servers share (#3119)' -ForegroundColor Cyan
@@ -543,7 +524,10 @@ Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stat
 $st = ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4890/' -Pages 'http://localhost:4890' -Product 'http://localhost:4321/dkj-recipes/?tab=1#top' -Mode 'product') -Root $stateRoot
 Assert-True ($st.Product -eq 'http://localhost:4321/dkj-recipes/?tab=1#top' -and $st.Mode -eq 'product' -and $st.Hub -eq 'http://localhost:4890/') 'a state file reads back the product url and the mode'
 Assert-Equal 'http://localhost:4321' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Product 'http://localhost:4321') -Root $stateRoot).Product 'a product url may be a bare base'
-Assert-Equal 'ownhub' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4870/' -Mode 'ownhub') -Root $stateRoot).Mode 'ownhub is a mode a reader believes'
+$old = (([ordered]@{ root = $stateRoot; hub = 'http://localhost:4870/'; pages = ''; product = ''; mode = 'ownhub' }) | ConvertTo-Json -Compress)
+Assert-Equal 'product' (ConvertFrom-RepoHubState -Text $old -Root $stateRoot).Mode 'an ownhub a hook before #3643 wrote reads as product: that repo states a server'
+$threw = $false; try { $null = Format-RepoHubState -Root $stateRoot -Mode 'ownhub' } catch { $threw = $true }
+Assert-True $threw 'and no hook writes ownhub any more'
 foreach ($badProduct in 'http://evil.example/', 'http://localhost.evil.example:4321/', 'https://localhost:4321/', 'http://localhost:4321@evil.example/', 'http://127.0.0.1:4321/', 'javascript:alert(1)', 'http://localhost:4321/a b', 'http://localhost:4321/"x', "http://localhost:4321/x`r`nSet-Cookie: y", "http://localhost:4321/x`ty", 'http://localhost/', ('http://localhost:4321/' + ('a' * 240))) {
     Assert-Equal '' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Hub 'http://localhost:4890/' -Product $badProduct) -Root $stateRoot).Product "a product url of '$(($badProduct -replace '\s', ' ').Substring(0, [Math]::Min(40, $badProduct.Length)))' is not believed"
 }
@@ -554,11 +538,11 @@ $legacy = (([ordered]@{ root = $stateRoot; hub = 'http://localhost:4870/'; pages
 $st = ConvertFrom-RepoHubState -Text $legacy -Root $stateRoot
 Assert-True ($st.Mode -eq 'none' -and $st.Product -eq '' -and $st.Hub -eq 'http://localhost:4870/') 'a file written before #3245 has no mode and no product, and reads as the plugin''s own hub'
 $st = ConvertFrom-RepoHubState -Text ((([ordered]@{ root = $stateRoot; hub = ''; pages = ''; mode = 'bogus' }) | ConvertTo-Json -Compress)) -Root $stateRoot
-Assert-Equal 'none' $st.Mode 'a mode that is none of the three words is none'
+Assert-Equal 'none' $st.Mode 'a mode that is neither word is none'
 $st = ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Product 'http://localhost:4321/' -Mode 'product') -Root 'C:\Users\x\GitHub\other'
 Assert-True ($st.Product -eq '' -and $st.Mode -eq 'none') 'and for another root the product and the mode are nothing too'
 # The theme (#3390).
-Assert-Equal 'teal' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Mode 'ownhub' -Theme 'teal') -Root $stateRoot).Theme 'a state file reads back the repo''s DefaultTheme'
+Assert-Equal 'teal' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Mode 'product' -Theme 'teal') -Root $stateRoot).Theme 'a state file reads back the repo''s DefaultTheme'
 Assert-Equal 'blue/sky' (ConvertFrom-RepoHubState -Text (Format-RepoHubState -Root $stateRoot -Mode 'product' -Theme 'blue/sky') -Root $stateRoot).Theme 'and a light/dark pair (#3608)'
 Assert-Equal '' (ConvertFrom-RepoHubState -Text $legacy -Root $stateRoot).Theme 'a file written before #3390 has no theme, so the pages keep lilac'
 Assert-Equal '' (ConvertFrom-RepoHubState -Text ((([ordered]@{ root = $stateRoot; theme = 'x" onload="y' }) | ConvertTo-Json -Compress)) -Root $stateRoot).Theme 'a theme that is not an id''s shape is not believed: every page writes it into an attribute'
@@ -867,7 +851,7 @@ try {
         $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
         $requiresRepo = New-Repo 'requires' "function Get-DevPreview { @{ Command = 'x {port}'; Ports = $port; Requires = 'node_modules' } }`n"
         $requiresRoot = [System.IO.Path]::GetFullPath($requiresRepo)
-        Write-RepoHubState -Root $requiresRoot -Hub 'http://localhost:4870/' -Pages "http://localhost:$g" -Product 'http://localhost:4870/' -Mode 'ownhub'
+        Write-RepoHubState -Root $requiresRoot -Hub 'http://localhost:4870/' -Pages "http://localhost:$g" -Product 'http://localhost:4870/' -Mode 'product'
         $r = Invoke-Hook $requiresRepo
         $m = Get-Message $r.Text
         Assert-True ($m -match "^Toolbox: http://localhost:$g/ -- product not started: 'node_modules' is missing") "a missing prerequisite is named, nothing of the product is started and the hub is handed out (got '$m')"
@@ -942,80 +926,22 @@ try {
         $r = Invoke-Hook (New-Repo 'chatty' ("Write-Host 'loading config'`n" + $cfg.Replace('WaitSeconds = 30', 'Name = ''Chatty''; WaitSeconds = 30')))
         Assert-True ((Get-Message $r.Text) -match '^Toolbox: ') 'a Write-Host in the config does not break the JSON the hook prints'
 
-        # OWNHUB (#3245): the repo's own server IS the hub, as before; the general pages server still starts beside it.
+        # A RETIRED OWNHUB (#3643): the key and the Product beside it are ignored, so the repo's own server is its
+        # product on the plugin's hub, the Product's server is never started, and /hub renders the hub itself.
         Use-GeneralPort (New-FreePort)
         $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
         $port3 = New-FreePort
-        $cfgOwn = "function Get-DevPreview { @{ Command = '" + $listen.Replace("'", "''") + "'; Ports = $port3; Path = '/index.html'; WaitSeconds = 30; OwnHub = " + '$true' + " } }`n"
-        $own = New-Repo 'ownhub' $cfgOwn
-        $r = Invoke-Hook $own
-        $m = Get-Message $r.Text
-        Assert-True ($m -eq "Toolbox: http://localhost:$port3/index.html (started)") "a repo that opted out is handed its own server as the hub, the line it had before (got '$m')"
-        $started += Get-Owners $port3
-        Assert-Equal 1 (Get-Owners $g).Count 'while the general pages server starts beside it'
-        $st = Get-HubState $own
-        Assert-True ($st.Mode -eq 'ownhub' -and $st.Hub -eq "http://localhost:$port3/index.html" -and $st.Pages -eq "http://localhost:$g") 'its state file names the repo''s own hub and the pages'
-        $r2 = & $getRaw $g '/hub'
-        Assert-True ($r2 -match 'HTTP/1.1 303' -and $r2 -match "Location: http://localhost:$port3/index.html\r") '/hub on the general server goes to the repo''s own hub, as the state file names it, instead of rendering one'
-        Assert-True ((& $getRaw $g '/') -match 'HTTP/1.1 303' -and (& $getRaw $g '/index.html') -match 'HTTP/1.1 303') 'and so do / and /index.html'
-        # /artifacts, not /issues (#3324): the assert is about the routing, and /issues spawns git and gh inside the
-        # server's single-threaded loop. It went unanswered for 30 s on loaded CI shards seven times on October 23,
-        # 2026 while answering locally in 0 s, cause not established. On a miss, /whoami says whether the loop was
-        # held or is gone, which is the next fact that cause needs.
-        $t1 = Get-Date
-        $general = & $getRaw $g '/artifacts'
-        $first = if ($general) { ($general -split "`r?`n")[0] } else { '(no answer)' }
-        $after = if ($general -match 'HTTP/1.1 200') { '' } else { $w = try { & $getRaw $g '/whoami' } catch { '' }; "; /whoami then: $(if ($w) { ($w -split "`r?`n")[0] } else { '(no answer)' })" }
-        Assert-True ($general -match 'HTTP/1.1 200') "while the general pages answer as ever (got '$first' after $([int]((Get-Date) - $t1).TotalSeconds) s$after)"
-        $r = Invoke-Hook $own
-        Assert-Equal "Toolbox: http://localhost:$port3/index.html (already running)" (Get-Message $r.Text) 'a second start reuses it, in the old words'
-        # An opted-out repo whose server cannot start has no hub to send to: a plain 404 text, as before.
-        Use-GeneralPort (New-FreePort)
-        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
-        $port4 = New-FreePort
-        $ownRequires = New-Repo 'ownhub-requires' ("function Get-DevPreview { @{ Command = 'x {port}'; Ports = $port4; Requires = 'node_modules'; OwnHub = " + '$true' + " } }`n")
-        $r = Invoke-Hook $ownRequires
-        Assert-True ((Get-Message $r.Text) -match "^Toolbox: not started -- 'node_modules' is missing") 'an opted-out repo whose server cannot start is told so, as before'
-        Assert-Equal 1 (Get-Owners $g).Count 'and its general pages start anyway'
-        Assert-True ((& $getRaw $g '/hub') -match 'HTTP/1.1 404[\s\S]*hub is not known yet') 'and its /hub, with no hub to send to, is a plain 404 text'
-
-        # OWNHUB WITH A PRODUCT (#3283): both servers are started, waited for and linked on the one line.
-        Use-GeneralPort (New-FreePort)
-        $g = [int]$env:DKJ_GENERAL_PAGES_PORTS
-        $port5 = New-FreePort
         $port6 = New-FreePort
         $q = $listen.Replace("'", "''")
-        $both = New-Repo 'ownhub-product' ("function Get-DevPreview { @{ Command = '$q'; Ports = $port5; WaitSeconds = 30; OwnHub = " + '$true' + "; Product = @{ Command = '$q'; Ports = $port6; Path = '/brandbook/'; WaitSeconds = 30 } } }`n")
-        $r = Invoke-Hook $both
+        $own = New-Repo 'ownhub-retired' ("function Get-DevPreview { @{ Command = '$q'; Ports = $port3; Path = '/index.html'; WaitSeconds = 30; OwnHub = " + '$true' + "; Product = @{ Command = '$q'; Ports = $port6; Path = '/brandbook/'; WaitSeconds = 30 } } }`n")
+        $r = Invoke-Hook $own
         $m = Get-Message $r.Text
-        Assert-True ($m -eq "Toolbox: http://localhost:$port5/ (started) -- product: http://localhost:$port6/brandbook/ (started)") "an own hub and its product are both started and handed out (got '$m')"
-        $started += Get-Owners $port5
-        $started += Get-Owners $port6
-        Assert-True ((Get-Owners $port6).Count -eq 1 -and (Get-Owners $g).Count -eq 1) 'the product listens, and the general pages start beside them'
-        $st = Get-HubState $both
-        Assert-True ($st.Mode -eq 'ownhub' -and $st.Hub -eq "http://localhost:$port5/" -and $st.Product -eq "http://localhost:$port6/brandbook/") 'the state file names the own hub as the hub and the product as the product'
-        $r = Invoke-Hook $both
-        Assert-Equal "Toolbox: http://localhost:$port5/ (already running) -- product: http://localhost:$port6/brandbook/ (already running)" (Get-Message $r.Text) 'a second start reuses both'
-        Assert-Equal 1 (Get-Owners $port6).Count 'and exactly one process listens on the product port'
-        # A product that cannot start costs neither the own hub nor its link.
-        Use-GeneralPort (New-FreePort)
-        $port7 = New-FreePort
-        $port8 = New-FreePort
-        $half = New-Repo 'ownhub-product-requires' ("function Get-DevPreview { @{ Command = '$q'; Ports = $port7; WaitSeconds = 30; OwnHub = " + '$true' + "; Product = @{ Command = 'x {port}'; Ports = $port8; Requires = 'brandbook/node_modules' } } }`n")
-        $r = Invoke-Hook $half
-        $m = Get-Message $r.Text
-        Assert-True ($m -eq "Toolbox: http://localhost:$port7/ (started) -- product not started: 'brandbook/node_modules' is missing (set it up, then start a new session)") "a product that cannot start is named beside the own hub's link (got '$m')"
-        $started += Get-Owners $port7
-        Assert-True ((Get-HubState $half).Product -eq '') 'and the state file names no product'
-        # A Product the hook cannot run costs the product alone: the own hub still starts (Victor's review).
-        Use-GeneralPort (New-FreePort)
-        $port9 = New-FreePort
-        $typo = New-Repo 'ownhub-product-typo' ("function Get-DevPreview { @{ Command = '$q'; Ports = $port9; WaitSeconds = 30; OwnHub = " + '$true' + "; Product = @{ Command = 'npm run dev'; Ports = 5173 } } }`n")
-        $r = Invoke-Hook $typo
-        $m = Get-Message $r.Text
-        Assert-True ($m -match "^Toolbox: http://localhost:$port9/ \(started\) -- product not started: the Product: the Command carries no \{port\}") "a Product with a typo is named, and the own hub is still handed out (got '$m')"
-        $started += Get-Owners $port9
-
+        Assert-True ($m -eq "Toolbox: http://localhost:$g/ -- product: http://localhost:$port3/index.html (started)") "a repo still stating OwnHub gets the plugin's hub, its server as the product (got '$m')"
+        $started += Get-Owners $port3
+        Assert-Equal 0 (Get-Owners $port6).Count 'and the Product beside the old own hub is not started'
+        $st = Get-HubState $own
+        Assert-True ($st.Mode -eq 'product' -and $st.Hub -eq "http://localhost:$g/" -and $st.Product -eq "http://localhost:$port3/index.html") 'its state file names the plugin''s hub and the product, mode product'
+        Assert-True ((& $getRaw $g '/hub') -match 'HTTP/1.1 200') '/hub on the general server renders the hub, with no redirect to an own hub'
         # A SERVER THAT DIES AT START: the hook stops waiting for it, not at WaitSeconds, and the hub is still handed out.
         Use-GeneralPort (New-FreePort)
         $g = [int]$env:DKJ_GENERAL_PAGES_PORTS

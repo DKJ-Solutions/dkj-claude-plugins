@@ -25,8 +25,12 @@ URLs, with `<tag>` the release tag the skill pins, which the release cut writes 
 - `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/<tag>/plugins/dkj-policy/assets/house-style/house-style.css`
 - `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/<tag>/plugins/dkj-policy/assets/house-style/house-theme.js`
 
-**As a rule it reaches DKJ-Solutions and nothing else.** BWJ-Development styles its own apps; only the
-plugin's own screens look the same there.
+**The rule that an app starts from it reaches DKJ-Solutions and nothing else**, through the
+`dkj-solutions` extension, where an app copies the files in and `check-house-style` holds the copy to the pin:
+nothing applies them to a product automatically. BWJ-Development styles its own apps. The files themselves
+reach every repo, because the plugin's own screens, the Toolbox, render in them there with no opt-out
+([#3643](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3643)); the three-part rule is in
+[`hub/README.md`](../../hub/README.md#one-look-in-every-repo).
 
 **Every change to a stylesheet in this folder passes a CSS gate of its own**
 ([#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)): `house-style-css` in this repo's
@@ -725,13 +729,14 @@ bar's own colours change only right under one.
 
 It is called a hub, not a dashboard (owner's call, October 17, 2026, [#199](https://github.com/DKJ-Solutions/dkj-brandbook/issues/199)): its job is to get you to the page you want quickly, while a dashboard is a page that shows how something stands, and the pages below it can be dashboards.
 
-**On screen it is called Toolbox** (the owner, October 27, 2026): the session-start line opens with `Toolbox:`, the site header tags the repo's name `toolbox`, its first crumb reads **Tools**, and a product links it on a **Toolbox** card. The code, its routes (`/hub`), the `OwnHub` key and these pages still say *hub*, which names the mechanism.
+**On screen it is called Toolbox** (the owner, October 27, 2026): the session-start line opens with `Toolbox:`, the site header tags the repo's name `toolbox`, its first crumb reads **Tools**, and a product links it on a **Toolbox** card. The code, its routes (`/hub`) and these pages still say *hub*, which names the mechanism.
 
-**Every DKJ-Solutions repo's hub has this one form, and only its content differs** (owner's
-decision, October 16, 2026, [#139](https://github.com/DKJ-Solutions/dkj-brandbook/issues/139)). Where a repo
-states no dev server, or has not opted out of it (`OwnHub` in `Get-DevPreview`), the hub is the dkj-policy
-plugin's own hub server, and the repo's server is its product
-([#3245](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3245)).
+**Every repo's hub has this one form, and only its content differs** (owner's decision, October 16, 2026,
+[#139](https://github.com/DKJ-Solutions/dkj-brandbook/issues/139)). The hub is the dkj-policy plugin's own hub
+server in every repo that runs it, BWJ-Development's included, and the repo's server is its product
+([#3245](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3245)). No repo can opt out of it: the
+`OwnHub` key that let a repo serve its own hub went with
+[#3643](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3643).
 
 **The hub is one page, on `/`, under the site header** (owner, October 22, 2026,
 [#3289](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3289)). From October 21 it was two

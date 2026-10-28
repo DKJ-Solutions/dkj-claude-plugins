@@ -6,8 +6,8 @@
 .DESCRIPTION
     The rules -- the path, the shape, what is believed -- are in dev-preview-rules.ps1 (no I/O), which this
     file dot-sources. What is here touches the disk and one loopback socket, and is shared by the three
-    things that need it: the dev-preview hook (writes), the general pages server (reads, to render the hub
-    or send '/hub' on to the repo's own, #3245) and a repo's own hub (reads, to render its General card). A
+    things that need it: the dev-preview hook (writes), the general pages server (reads, to render the hub,
+    #3245) and a repo's product that relays the General pages (reads, to render its General card). A
     state file that is absent, unreadable or about another root reads as nothing, never as an error: a hub
     then shows the card's "not running" form. Beside it,
     Test-DkjSolutionsEnabled: whether the repo enables dkj-solutions, which the dev-preview hook asks.
@@ -36,7 +36,7 @@ function Write-RepoHubState {
         [AllowEmptyString()][string]$Hub = '',
         [AllowEmptyString()][string]$Pages = '',
         [AllowEmptyString()][string]$Product = '',
-        [ValidateSet('none', 'product', 'ownhub')][string]$Mode = 'none',
+        [ValidateSet('none', 'product')][string]$Mode = 'none',
         [AllowEmptyString()][string]$Theme = ''
     )
     $text = Format-RepoHubState -Root $Root -Hub $Hub -Pages $Pages -Product $Product -Mode $Mode -Theme $Theme

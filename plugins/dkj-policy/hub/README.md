@@ -1,6 +1,6 @@
 # The hub — the dev-preview hook and the general pages server
 
-**On screen it is called Toolbox** (the owner, October 27, 2026): the session-start line, the site header's tag, a product's card, and the first crumb, which reads **Tools**. The code, the `/hub` route, the `OwnHub` key and this page keep the word *hub* for the mechanism.
+**On screen it is called Toolbox** (the owner, October 27, 2026): the session-start line, the site header's tag, a product's card, and the first crumb, which reads **Tools**. The code, the `/hub` route and this page keep the word *hub* for the mechanism.
 
 **Every repo that runs `dkj-policy` gets a hub at session start**, served by the plugin, with the
 General pages linked from it: Artifacts, Issues, Release notes, SessionStart, Test gate, Stopwatch, Logbook (the last three
@@ -31,14 +31,25 @@ them. They are tested there by `dev-preview-sessionstart.tests.ps1`, `dev-pages.
 
 ## One look in every repo
 
-**The pages render in the DKJ-Solutions house style everywhere, BWJ-Development's repos included.** They
-are this plugin's own tooling, not a repo's product, so they keep one look wherever they run, the way any
-tool's own screens do. The stylesheet and theme script come from this plugin's own
+**The rule, in three parts** (Maikel, October 29, 2026,
+[#3643](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3643)):
+
+1. **Every repo that runs `dkj-policy` gets the Toolbox, with no exceptions.** The plugin serves it at
+   session start whatever the repo states, and no repo can opt out of it or put its own server in its place.
+2. **The Toolbox renders in the house style in every one of those repos, BWJ-Development's included.** It is
+   this plugin's own tooling, not a repo's product, so it keeps one look wherever it runs, the way any tool's
+   own screens do. Nothing in the repo can change that.
+3. **A repo's product port is the repo's own, and the house style reaches it only in a DKJ-Solutions repo.**
+   There it is a rule, not an automatism: the `dkj-solutions` extension says every page a DKJ-Solutions app
+   renders starts from the house style, the app copies `house-style.css` and `house-theme.js` in unchanged,
+   and that extension's `check-house-style` gate holds the copies to the pinned release. A BWJ-Development
+   repo, which never enables `dkj-solutions`, styles its product itself.
+
+The stylesheet and theme script come from this plugin's own
 [`assets/house-style/`](../assets/house-style/) (`Get-HouseStyleDir`), which every install of `dkj-policy`
 carries. They sat in the `dkj-solutions` extension's folder until
 [#3531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3531); the rule that a DKJ-Solutions app
-starts from them stays there. A repo's own pages are
-another matter: BWJ-Development styles those itself.
+starts from them stays there.
 
 **No hub shows or serves the Brandbook, whether or not the repo enables `dkj-solutions`**
 ([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475), the owner, October 25, 2026). The
@@ -79,21 +90,16 @@ choose another word. A `Name` a repo still states in `Get-DevPreview` is ignored
 edit. "dev-preview" names the mechanism, which is why the hook's lines about its own setup (skipped) still
 open with it.
 
-**A repo that wants a hub of its own opts out with `OwnHub = $true`** in `Get-DevPreview`. Its server is
-then the hub, as it was before #3245: the line is `Hub: <its url>`, and the general pages server
-still starts beside it and answers `/hub` and `/` with a 303 to that hub. This repo's connector dashboard
-is such a hub, which relays the general pages from its own origin
-([#3168](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3168)).
-
-**A repo with its own hub can still state a product** beside it, with a nested `Product = @{ ... }` in
-the same `Get-DevPreview` ([#3283](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3283)). The
-`Product` takes the fields the server itself takes (`Command`, `Ports`, `Path`, `Requires`,
-`WaitSeconds`), under the same rules, and its ports may not overlap the hub's. It is refused without
-`OwnHub = $true`, because there the server itself is already the product. Any other fault in it costs the
-product alone: the own hub still starts, and the line says `product not started: the Product: <why>`. This repo used it, from
-#3283 until #3493 retired the brand book app: the connector dashboard was the hub, and the app's Vite dev
-server the product. Since #3540 it opts out no longer: every repo has a product port, so its connector dashboard is
-its product and the hub is this plugin's.
+**There is no opt-out** ([#3643](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3643), Maikel,
+October 29, 2026). From #3245 to #3643 a repo could state `OwnHub = $true` in `Get-DevPreview`, and its own
+server was then the hub instead of this plugin's, with a nested `Product = @{ ... }` beside it from
+[#3283](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3283). Such a hub was the repo's own, so
+nothing held it to the house style, and a BWJ-Development repo could leave the Toolbox's one look behind.
+Since #3540 every repo has a product port and #3464 had rolled this plugin's hub out to every DKJ repo, so
+the opt-out had no remaining use. **Both keys are ignored where a repo still states them**, the way `Name`
+has been since #3064: the repo's server is its product on this plugin's Toolbox, a `Product` beside it is
+never started, and in a DKJ-Solutions repo the line ends `-- config drift: delete Get-DevPreview's OwnHub,
+Product`. This repo was the last to use the opt-out, until #3540.
 
 ## The dev-preview hook
 
@@ -110,7 +116,7 @@ its product and the hub is this plugin's.
    ([#3244](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3244)). Only the hub's own problems
    stop it: ports 4890-4899 all taken, a `%` or `^` in the plugin or repo path, a plugin install without
    the hub's libraries. The line then names that instead of a link.
-3. Where the repo states a server and has not opted out, it reuses this checkout's product or starts the
+3. Where the repo states a server, it reuses this checkout's product or starts the
    `Command` on the first free port, then waits until each server it started listens: **a dead link is worse
    than none.** Both waits run in one loop, so the common case costs the longer of the two, not their sum.
    The hub's own deadline is 12 seconds; the product's is `WaitSeconds`.
@@ -136,9 +142,8 @@ its product and the hub is this plugin's.
 | and the holder runs in another Windows logon session | `... 3000 by pid 22588 (another logon session, 29 -- its command line cannot be read; stop it in that session, or from an elevated shell: Stop-Process -Id 22588)` (#3401, #3569) |
 | states a server that binds and then quits | `... -- product: the server on port 3001 stopped right after it started listening -- see <log>`: a started server reads as `(started)` only once it is still listening two seconds after its first answer (#3404) |
 | `Requires` a `node_modules` older than the `package-lock.json` beside it | the product's clause ends `; 'node_modules' is older than its package-lock.json -- run npm install` where a package the lock pins is installed at another version, or not at all, according to npm's own `node_modules/.package-lock.json`. A lock that was only rewritten is not named (#3419), and the server is still started (#3404) |
-| states `OwnHub = $true` | `Toolbox: http://localhost:4870/ (started)`, as before #3245 |
-| states `OwnHub = $true` and a `Product` | `Toolbox: http://localhost:4870/ (started) -- product: http://localhost:5173/app/ (started)` |
-| and the hub cannot start | `Hub: not started -- <why>`, then the product's clause where there is one |
+| still states a retired key (`Name`, `OwnHub`, `Product`), in a DKJ-Solutions repo | the line as for a server, ending `-- config drift: delete Get-DevPreview's OwnHub, Product`; the keys are not read (#3064, #3643) |
+| and the hub cannot start | `Toolbox: not started -- <why>`, then the product's clause where there is one |
 
 The route hint appears only where the repo states no server and does not route the hub's port; with the
 route, the hub opens in VS Code by itself. Routing the port is done once in the repo's
@@ -163,7 +168,6 @@ function Get-DevPreview {
         Requires     = 'node_modules'   # optional: relative path(s) inside the repo that must exist first
         WaitSeconds  = 20               # optional: how long to wait until it listens (1-45, default 20)
         OpenInVsCode = $false           # optional: also hand the hub's URL to VS Code (see below)
-        OwnHub       = $false           # optional: $true when this server IS the repo's hub (default: the plugin's)
         DefaultTheme = 'teal'           # optional: the theme the plugin's hub and general pages open in (default lilac)
     }
 }
@@ -172,7 +176,8 @@ function Get-DevPreview {
 - **Trusted repos only.** The hook runs the repo's own `Command` at every session start, the same trust
   the repo's `scripts/repo-config.ps1` already gets from every hook that reads it. Enable this plugin only
   in repos you own.
-- **`OwnHub` is a real boolean.** Anything else is a problem the line names, not a silent default.
+- **`OwnHub` and `Product` are retired** (#3643): a repo that still states them keeps its server as the
+  product, and deletes the two keys at its next edit.
 - **`DefaultTheme` is the theme the plugin's pages open in while the visitor has picked none**
   ([#3390](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3390)): a house theme id, such as
   `teal`. A repo whose own product or hub opens in its own theme states it here, so the hub and the general
@@ -199,13 +204,12 @@ function Get-DevPreview {
   its port is skipped and the next one tried.
 - **The servers outlive the session.** They run hidden and detached, logging to
   `%TEMP%\dev-preview-<repo>-<hash>.log` (the product) and `%TEMP%\dev-preview-general-<repo>-<hash>.log`
-  (the hub). Under `OwnHub` the first is the repo's own hub, and a product beside it logs to
-  `%TEMP%\dev-preview-product-<repo>-<hash>.log`. Each log is overwritten when its server
+  (the hub). Each log is overwritten when its server
   starts, and the servers are stopped like any process. A server that exits at start is reported at once,
   with that log's path. **The price of the hub is one small PowerShell server per
   checkout**, whatever the repo's own server is: a repo on Vite or Next.js gets the same pages without
   touching its server.
-- **`OpenInVsCode`** runs `code --open-url <hub url>` (the repo's own server's under `OwnHub`), only when
+- **`OpenInVsCode`** runs `code --open-url <hub url>`, only when
   the session runs in VS Code's terminal. A repo that states no server needs no setting: it is on where the
   repo routes the hub's port. To land in VS Code's Simple Browser rather than the system browser, the
   repo routes the URL as above.
@@ -229,7 +233,7 @@ the old `/plugins/dkj-solutions/house-style` redirects there.
 
 | Page | Reads, from the repo it was started in | When it is absent |
 |---|---|---|
-| `/`, `/index.html`, `/hub` | The state file below, on every request: the home page of this plugin's hub; `/about` answers 303 to `/` (#3289). Under `OwnHub` a 303 to the repo's own hub instead | Under `OwnHub` with no hub known, a short 404 text |
+| `/`, `/index.html`, `/hub` | The state file below, on every request: the home page of this plugin's hub; `/about` answers 303 to `/` (#3289). No repo's `/hub` redirects elsewhere any more (the `OwnHub` 303 went with #3643) | Always answers |
 | `/repository` | The state file and the `origin` remote: the hub's GitHub page, its facts and a card for Issues and, where the remote is on github.com, its pull requests and CI runs (#3383) | Always answers; with no github.com remote the facts carry no GitHub row and the page no GitHub cards |
 | `/artifacts` | `scripts/dashboard/artifacts.json`, on every request | The page says the file is not there |
 | `/issues` | `gh issue list`, three calls (the open issues, and those opened and closed in the last 28 days), for `--repo <owner/name>` taken from the `origin` remote when it is on github.com, else for the repo `gh` finds in the working directory; kept for five minutes | A `gh` that fails or is missing is a warning on the page |
@@ -248,12 +252,12 @@ where it has one: the same trust the dev-preview hook already gives
 loopback**: any process on the machine can read them, so a private repo's issue titles are readable by
 every local process, not only by the browser of whoever started the session.
 
-Every page's first crumb is `/hub`, the hub on the same origin. A repo's own hub (`OwnHub`) may instead
-**relay** these pages from its own origin with `Copy-LoopbackUpstream` (in
-[`lib/loopback-server-lib.ps1`](lib/loopback-server-lib.ps1)) and link them by bare path,
-answering `/hub` itself. The pages then share that hub's
-`localStorage`, and with it the theme and width choice under their key, `general-pages`. The source repo's
-own hub does this ([#3168](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3168)). The pages
+Every page's first crumb is `/hub`, the hub on the same origin. A repo's product may also **relay** these
+pages from its own origin with `Copy-LoopbackUpstream` (in
+[`lib/loopback-server-lib.ps1`](lib/loopback-server-lib.ps1)) and link them by bare path. The pages then
+share that product's `localStorage`, and with it the theme and width choice under their key,
+`general-pages`. The source repo's connector dashboard does this, a relay it kept from its years as an own
+hub ([#3168](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3168)). The pages
 carry the repo's name, `owner/name` from the `origin` remote, else the folder's. Each issue links to the
 `url` `gh` returned for it, and only when that is a GitHub issue link.
 
@@ -261,24 +265,23 @@ carry the repo's name, `owner/name` from the `origin` remote, else the folder's.
 `%TEMP%\dkj-repo-hub-<folder>-<hash>.json`, which the hook writes at every session start, whatever it found:
 
 ```json
-{ "root": "<repo root>", "hub": "<url>", "pages": "<http://localhost:489x, or empty>", "product": "<url, or empty>", "mode": "none|product|ownhub" }
+{ "root": "<repo root>", "hub": "<url>", "pages": "<http://localhost:489x, or empty>", "product": "<url, or empty>", "mode": "none|product" }
 ```
 
 `mode` is what the repo states: `none` (no `Get-DevPreview`, so the hub shows the setup cards), `product`
-(a server of its own, one link on the plugin's hub) or `ownhub` (the repo opted out). `hub` is the general
-server's own base plus `/` where the plugin serves the hub, and the repo's own server where it opted out;
-`product` is the repo's own server url, and under `ownhub` the url of the product beside that hub, or empty
-where it states none (#3283). The hash is the one the hook's log paths use (SHA1 of the lowercased
+(a server of its own, one link on the plugin's hub). `hub` is the general server's own base plus `/`;
+`product` is the repo's own server url, or empty. The hash is the one the hook's log paths use (SHA1 of the lowercased
 root). A reader believes the file only when `root` names its own checkout. `hub` and `product` are believed
 only as `http://localhost:<port>` plus an optional path of the characters `Path` allows (at most 240
 characters: no other host, no other scheme, no control character), `pages` only on a port of 4890-4899, and
-`mode` only as one of its three words, so the file is never a way to send a link elsewhere. A file written
-before #3245 has no `mode` and no `product`, and reads as `none`.
+`mode` only as `none` or `product`, so the file is never a way to send a link elsewhere. A file written
+before #3245 has no `mode` and no `product`, and reads as `none`; an `ownhub` written before #3643 reads as
+`product`, until the next session start writes the file again.
 
 **An open port does not say whose server it is** (two checkouts race for the same ports, and a stale file
 can name a port another checkout has taken), so the server answers `/whoami` with the hash of the root it
-was started in, and a repo's own hub links it only when that is its own root's hash
-(`Get-GeneralPagesUrl`). A repo's own hub that is not PowerShell (Vite, Next.js) reads the same file in its
+was started in, and a product that relays the pages links them only when that is its own root's hash
+(`Get-GeneralPagesUrl`). A product that is not PowerShell (Vite, Next.js) reads the same file in its
 own language; a request for one of the four paths on its own server is best answered with a redirect to
 `<pages><path>`, and the source repo's server answers a short 404 text naming the general pages server when
 no server answers as this checkout's.
@@ -356,7 +359,7 @@ record the runs (`hooks/stopwatch-hook.ps1`, `hooks/logbook-hook.ps1`), and the 
 
 ## In the source repo
 
-This repo's hub is this plugin's, as in every other repo: since #3540 its `Get-DevPreview` states no `OwnHub`, because every repo has a product port. Its product is the **connector dashboard** (every repo
+This repo's hub is this plugin's, as in every other repo: since #3540 its `Get-DevPreview` states no `OwnHub`; #3643 then retired that opt-out for every repo. Its product is the **connector dashboard** (every repo
 registered under `connectors/` and what `check-connectors.ps1` reports for it), the specialists and their
 context cost, and, on the DKJ group's connector page, every DKJ repo on GitHub, served on `127.0.0.1` by `scripts/dashboard/serve-connector-dashboard.ps1`,
 with the house style from this tree and a first card back to the hub. `scripts/lib/dev-pages-lib.ps1` reads
