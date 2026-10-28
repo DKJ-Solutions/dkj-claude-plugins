@@ -471,20 +471,25 @@ function Format-HubCardLinkHtml {
         It is the ONE card link (#3566): an overview that needs more says so through the slots below, never with markup
         of its own. -SubHtml is the description as the caller's own markup, in place of -Sub. -ValueHtml is the card's
         headline figure (a count, a time), a line of its own under the description; -BadgeHtml a status mark in the
-        icon's place. Those three are inline HTML the caller has already escaped. -Heading 2 makes the label an h2, for
-        an overview whose cards are its sections; -Id and -Class (extra classes, such as a tone) go on the card.
+        icon's place, and -TitleBadgeHtml one right after the label instead (Maikel, October 28, 2026), the label then
+        in a <span> of its own so a page can cut a long one off without cutting off its mark. Those four are inline
+        HTML the caller has already escaped, and they hold NO <a>: the card is one link, an <a> inside an <a> is
+        invalid HTML, and the browser closes the card's link at the inner one, so the card falls apart (#3610).
+        -Heading 2 makes the label an h2, for an overview whose cards are its sections; -Id and -Class (extra classes,
+        such as a tone) go on the card.
     #>
     param([Parameter(Mandatory = $true)][string]$Href, [Parameter(Mandatory = $true)][string]$Label, [AllowEmptyString()][string]$Sub = '',
         [AllowEmptyString()][string]$Icon = '', [AllowEmptyString()][string]$SubHtml = '', [AllowEmptyString()][string]$ValueHtml = '',
         [AllowEmptyString()][string]$BadgeHtml = '', [ValidateSet(0, 2)][int]$Heading = 0, [AllowEmptyString()][string]$Id = '',
-        [AllowEmptyString()][string]$Class = '')
+        [AllowEmptyString()][string]$Class = '', [AllowEmptyString()][string]$TitleBadgeHtml = '')
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $subText = if ($SubHtml) { $SubHtml } elseif ($Sub) { & $e $Sub } else { '' }
     $s = if ($subText) { '<span class="menu-item__sub">' + $subText + '</span>' } else { '' }
     $v = if ($ValueHtml) { '<span class="menu-item__value">' + $ValueHtml + '</span>' } else { '' }
+    $title = if ($TitleBadgeHtml) { '<span>' + (& $e $Label) + '</span>' + $TitleBadgeHtml } else { & $e $Label }
     # A heading may not sit in a <span>, so a card with one holds its label in a <div>.
-    $labelHtml = if ($Heading) { '<div class="menu-item__label"><h2 class="menu-item__title">' + (& $e $Label) + '</h2>' + $s + $v + '</div>' }
-             else { '<span class="menu-item__label">' + (& $e $Label) + $s + $v + '</span>' }
+    $labelHtml = if ($Heading) { '<div class="menu-item__label"><h2 class="menu-item__title">' + $title + '</h2>' + $s + $v + '</div>' }
+             else { '<span class="menu-item__label">' + $title + $s + $v + '</span>' }
     $mark = if ($BadgeHtml) { $BadgeHtml } else { Get-HubIconSvg -Name $Icon }
     return '<section class="card card--link' + $(if ($Class) { ' ' + (& $e $Class) } else { '' }) + '"' + $(if ($Id) { ' id="' + (& $e $Id) + '"' } else { '' }) +
         '><nav class="menu-list" aria-label="' + (& $e $Label) + '"><a class="menu-item" href="' + (& $e $Href) + '">' + $mark + $labelHtml + $script:RepoHubChevron + '</a></nav></section>'

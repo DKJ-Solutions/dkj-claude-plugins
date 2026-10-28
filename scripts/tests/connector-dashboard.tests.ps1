@@ -212,7 +212,7 @@ $connectors = @(
 $html = Format-ConnectorDashboardHtml -Connectors $connectors -Meta @{ GeneratedAt = 'now'; SourceCommit = 'abc1234'; Seconds = 1.25; CheckFailed = $null } -Group 'other'
 Assert-True ($html -notmatch '<script>alert') 'a git subject is shown as text, never as markup'
 Assert-True ($html -match '&lt;script&gt;alert') 'and it is still shown'
-Assert-True ($html -match 'a&quot;note') 'the register notes are escaped too'
+Assert-True ($html -notmatch 'a&quot;note' -and $html -notmatch 'a"note' -and $html -notmatch 'Register notes') 'the register notes are not on the page at all (October 28, 2026), so they need no escaping'
 Assert-True ($html -match 'Last commit on main 2 days ago: ' -and $html -notmatch 'feat/y') 'the card states the trunk''s last commit, never the checked-out branch'
 Assert-True ($html -match 'not on this machine') 'an absent checkout says so'
 Assert-True ($html.IndexOf('id="repo-org-beta"') -lt $html.IndexOf('id="repo-org-gamma"')) 'a repo that needs action comes before a skipped one'
@@ -220,7 +220,8 @@ Assert-True ($html -match 'href="/refresh\?page=connectors/other"') 'a group pag
 Assert-True ($html -match 'href="/house-style.css"' -and $html -match 'src="/house-theme.js"') 'the page loads the house style from its own server'
 Assert-True ($html -match 'DKJTheme\.settings\(' -and $html -notmatch 'DKJTheme\.picker\(') 'the theme choice is the house settings button, not a hand-built picker card'
 Assert-True ($html -match '<div id="settings"></div></div></header>' -and $html -notmatch 'theme-settings--floating') 'the settings button sits at the far right of the site header'
-Assert-True (([regex]::Matches($html, 'var\(--(primary|muted|fg-|paper-)')).Count -ge 6 -and $html -match 'class="cd-link"') 'the chosen theme reaches the page beyond its buttons, through the repo layer''s own theme-colour accents'
+# Five since the register notes' style went with them (October 28, 2026).
+Assert-True (([regex]::Matches($html, 'var\(--(primary|muted|fg-|paper-)')).Count -ge 5 -and $html -match 'class="cd-link"') 'the chosen theme reaches the page beyond its buttons, through the repo layer''s own theme-colour accents'
 Assert-True ($html -notmatch 'class="eyebrow"' -and $html -match '<header class="site-header"><div class="container"><a class="site-header__brand" href="/"' -and $html -match '<h1>Other repos</h1>' -and $html -match '<main class="page-column">') 'the page keeps the hub frame: the site header in place of the eyebrow, its own h1, the page column'
 Assert-True ($html -match '(?s)<body>\s*<div class="notice" id="hub-banner".*?</script>\s*<header class="site-header">.*?</header>\s*<div class="breadcrumbs-bar"><div class="container"><nav class="breadcrumbs" aria-label="Breadcrumb"><ol>\s*<li><a href="/">Home</a></li>\s*<li><span class="breadcrumbs__sep" aria-hidden="true"><svg\ viewBox="0\ 0\ 24\ 24"><path\ fill="currentColor"\ fill-rule="evenodd"\ d="M9\.793\ 16\.707a1\ 1\ 0\ 0\ 1\ 0-1\.414L13\.086\ 12\ 9\.793\ 8\.707a1\ 1\ 0\ 0\ 1\ 1\.414-1\.414l4\ 4a1\ 1\ 0\ 0\ 1\ 0\ 1\.414l-4\ 4a1\ 1\ 0\ 0\ 1-1\.414\ 0"\ clip-rule="evenodd"/></svg></span><a href="/connectors">Connectors</a></li>\s*<li><span class="breadcrumbs__sep" aria-hidden="true"><svg[^>]*><path[^>]*/></svg></span><span aria-current="page">Other repos</span></li>') 'the banner opens <body>, then the site header and the breadcrumb bar, its trail from the hub through Connectors to the group (#3090, #3097)'
 Assert-True (([regex]::Matches($html, '<header')).Count -eq 1 -and $html -notmatch 'cd-band|cd-accent') 'and its intro is no <header> (the one is the site header), and no decoration the form does not carry'
@@ -268,6 +269,43 @@ Assert-True ($html -notmatch '<th>Errors</th>' -and $html -notmatch '<th>Notes</
 Assert-True ($html -notmatch '>Main</th>' -and $html -notmatch '>Checkout</th>' -and $html -notmatch 'behind') 'the overview has no Main or Checkout column, and nothing measures a trunk against origin'
 $failed = Format-ConnectorDashboardHtml -Connectors @() -Meta @{ GeneratedAt = 'now'; SourceCommit = ''; Seconds = $null; CheckFailed = 'boom <b>' }
 Assert-True ($failed -match 'class="msg msg--warn" role="alert"' -and $failed -match 'boom &lt;b&gt;') 'a check that could not run is the form''s warning line, escaped'
+
+$noted = Format-ConnectorRepoMiniCardHtml -Connector @{ Repo = 'Org/n'; Status = 'good'; Visibility = 'public'; File = 'n.json'; Checkout = @('../n'); Plugins = @(); Signals = @(); Present = $true; Git = $null; Notes = 'REGISTERED on 2026-08-20, a long log' }
+Assert-True ($noted -notmatch 'Register notes' -and $noted -notmatch 'a long log' -and $noted -notmatch 'cd-notes') 'the register''s notes are not shown: they are its keeper''s log, not something to read on a page (October 28, 2026)'
+# The Lenses card on a DKJ repo's own page, /connectors/dkj/<name> (Maikel, October 28, 2026).
+$scaffold = "---`nid: 17`ngroup: 06`n---`n`n# 06-17 - repo lens`n`n> Created by specialists-init as an empty template.`n`n## Specific to this repo (VUL-IN)`n`n<!-- TODO: describe what this specialist does`n     in THIS repo. -->`n"
+Assert-True (-not (Test-LensFilled $scaffold)) 'a scaffold lens is not filled in: frontmatter, headings, quotes and a comment only'
+Assert-True (Test-LensFilled ($scaffold + "`nThe theme lives in theme/.`n")) 'one line of prose fills it in, its VUL-IN heading or not'
+Assert-True (-not (Test-LensFilled '') -and -not (Test-LensFilled $null)) 'an empty lens is not filled in'
+Assert-Equal '709 B' (Format-DashboardBytes 709) 'a size under 1 KB is in bytes'
+Assert-Equal '27 KB' (Format-DashboardBytes 27393) 'and above it in whole KB'
+$card = Format-RepoLensesCardHtml -Lenses @(
+    @{ Id = '06-17'; Bytes = 709; Filled = $false; Marked = $true },
+    @{ Id = '05-05'; Bytes = 27393; Filled = $true; Marked = $false },
+    @{ Id = '05-06'; Bytes = 30000; Filled = $true; Marked = $true },
+    @{ Id = '02-09'; Bytes = 711; Filled = $false; Marked = $true }) -Names @{ '05-05' = 'Derek <i>'; '02-09' = 'Paula' }
+Assert-True ($card.Html.Contains('<div class="grid-2" id="lenses">') -and $card.Html.Contains('<h2>Lenses</h2><p class="card__sub">4 lenses &#183; 2 filled in &#183; 56 KB</p>')) 'the Lenses card is headed Lenses, counting the lenses, the filled-in ones and their size'
+Assert-True ($card.Html.IndexOf('<code>05-06</code>') -ge 0 -and $card.Html.IndexOf('<code>05-06</code>') -lt $card.Html.IndexOf('<code>05-05</code>') -and $card.Html.IndexOf('<code>05-05</code>') -lt $card.Html.IndexOf('Scaffolds only')) 'the filled-in lenses are a list, big to small, the scaffolds under it'
+Assert-True ($card.Html.Contains('<dl class="facts cd-lenses">') -and $card.Html -notmatch '<table' -and $card.Style -match '\.cd-lenses \{ columns: 240px;' -and $card.Html.Contains('<div><dt><code>05-05</code> Derek &lt;i&gt;</dt><dd>27 KB</dd></div>') -and $card.Html -match '<div><dt><code>05-06</code> <span class="tag tag--warn"[^>]*>VUL-IN</span></dt><dd>29 KB</dd></div>') 'the lenses are the house facts list in columns (October 28, 2026); a lens names its specialist, escaped, or nothing for an unknown id, and a filled-in lens still marked VUL-IN is tagged'
+Assert-True ($card.Html.Contains('Scaffolds only (2): <code>02-09</code> Paula, <code>06-17</code></p>')) 'the scaffolds are one line, by id, with their names where known'
+Assert-True ((Format-RepoLensesCardHtml -Lenses $null).Html.Contains('No checkout of this repo on this machine holds') -and (Format-RepoLensesCardHtml -Lenses $null).Html.Contains('Not read on this machine')) 'no checkout or no lens folder is said, not an empty table'
+Assert-True ((Format-RepoLensesCardHtml -Lenses @()).Html.Contains('holds no lens') -and (Format-RepoLensesCardHtml -Lenses @(@{ Id = '06-17'; Bytes = 709; Filled = $false })).Html.Contains('Every lens is still its scaffold')) 'an empty folder, and a folder of scaffolds only, each say so'
+$lensTree = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-lenses-$PID-$([guid]::NewGuid().ToString('n'))"
+try {
+    New-Item -ItemType Directory -Force -Path (Join-Path $lensTree '.claude\specialists\lenses') | Out-Null
+    Set-Content -LiteralPath (Join-Path $lensTree '.claude\specialists\lenses\specialist-05-05-lens.md') -Encoding ASCII -Value "## Specific to this repo`n`nThe theme lives in theme/."
+    Set-Content -LiteralPath (Join-Path $lensTree '.claude\specialists\lenses\specialist-06-17-lens.md') -Encoding ASCII -Value "## Specific to this repo (VUL-IN)`n`n<!-- TODO -->"
+    Set-Content -LiteralPath (Join-Path $lensTree '.claude\specialists\lenses\notes.md') -Encoding ASCII -Value 'x'
+    $read = Get-CheckoutLenses -Path $lensTree
+    Assert-True ($read.Count -eq 2 -and $read[0].Id -eq '05-05' -and $read[0].Filled -and -not $read[0].Marked -and $read[1].Id -eq '06-17' -and -not $read[1].Filled -and $read[1].Marked) 'a checkout''s lenses are read with their id, whether filled in and whether marked; another file is not a lens'
+    Get-ChildItem -LiteralPath (Join-Path $lensTree '.claude\specialists\lenses') -File | Remove-Item -Force
+    $none = Get-CheckoutLenses -Path $lensTree
+    Assert-True ($null -ne $none -and @($none).Count -eq 0) 'an empty lens folder reads as no lens, not as no folder'
+    Assert-True ($null -eq (Get-CheckoutLenses -Path (Join-Path $lensTree 'missing')) -and $null -eq (Get-CheckoutLenses -Path '')) 'no folder, or no checkout, reads as $null'
+} finally { Remove-Item -LiteralPath $lensTree -Recurse -Force -ErrorAction SilentlyContinue }
+$framed = (Format-ConnectorPageStart -PageName 'a <b>' -Trail @(@{ Href = '/connectors'; Label = 'Connectors' }, @{ Href = '/connectors/dkj'; Label = 'DKJ repos' }) -Style '.x { }') + (Format-ConnectorPageEnd -FooterHtml 'Foot <code>x</code>')
+Assert-True ($framed.Contains('<title>dkj-claude-plugins -- a &lt;b&gt;</title>') -and $framed.Contains('<h1>a &lt;b&gt;</h1>') -and $framed.Contains('<a href="/connectors/dkj">DKJ repos</a>') -and $framed.Contains('.x { }') -and $framed.Contains('<p class="footer-note">Foot <code>x</code></p>') -and $framed.TrimEnd().EndsWith('</html>')) 'the page frame escapes its name, walks its trail, carries the caller''s style and footer, and closes the page'
+Assert-True ($overview -notmatch 'id="lenses"' -and $dkj -notmatch 'id="lenses"') 'neither the overview nor a group''s page holds a Lenses card: that is a repo''s own page'
 
 Write-Host '-- group 1e: the canonical house style is the copy the skill pins' -ForegroundColor Cyan
 
