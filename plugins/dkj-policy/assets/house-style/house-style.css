@@ -220,6 +220,13 @@ body > header, main > header { display: flex; justify-content: space-between; al
    card never touches the edge of its group. .card-grid carries the same padding for a repo's own card grid (its own
    columns in its own class beside it: <div class="card-grid my-cards">), which never sets a padding of its own. */
 :is(.grid-2, .grid-3, .card-grid) { padding: var(--spacing-3); }
+/* The group is a surface one step off the page (--paper-2), and each card in it one step further (--paper-3), so
+   on a dark theme the group is a little lighter than the page and the cards a little lighter again (owner, October
+   28, 2026). The steps run away from the page in both modes, so on a light theme each is a little darker. A card on
+   --paper-3 would lose every line drawn in --paper-3 (its border, a table's rows, its hover), so inside it the line
+   moves one step on to --paper-4: the two are resolved on the group, where --paper-3 is still the theme's own. */
+:is(.grid-2, .grid-3, .card-grid) { background: var(--paper-2); border-radius: 16px; --group-card: var(--paper-3); --group-line: var(--paper-4); }
+:is(.grid-2, .grid-3, .card-grid) > .card { background: var(--group-card); --paper-3: var(--group-line); }
 /* The grid's gap is the spacing between its rows, so a direct .card, .tiles or .notice gives up its own top
    margin here too, as in .page-column (#207). */
 :is(.grid-2, .grid-3) > :is(.card, .tiles, .notice) { margin-top: 0; }
