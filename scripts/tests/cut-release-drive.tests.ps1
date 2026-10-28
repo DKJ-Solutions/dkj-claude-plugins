@@ -285,14 +285,20 @@ A fixture release page.
 $HistoryMajors
 "@
     # The file this repo's Get-ReleaseVersionPins names (#3133), so the verbatim seam has something to
-    # repoint: two pinned URLs, and one under another prefix that the cut must leave alone.
+    # repoint: two pinned URLs, and one under another prefix that the cut must leave alone. Each pinned URL
+    # carries a stale sha256 cell, and the two files its Checksums names exist, LF-only (#3636).
+    $zeros = '0' * 64
     Write-Utf8 (Join-Path $root 'plugins\dkj-policy\dkj-solutions\skills\house-style\SKILL.md') @"
 # A fixture pin page
 
-https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v$PluginVersion/a/house-style.css
-https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v$PluginVersion/a/house-theme.js
+| ``house-style.css`` | ``https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v$PluginVersion/plugins/dkj-policy/assets/house-style/house-style.css`` | ``$zeros`` |
+| ``house-theme.js`` | ``https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v$PluginVersion/plugins/dkj-policy/assets/house-style/house-theme.js`` | ``$zeros`` |
 https://raw.githubusercontent.com/DKJ-Solutions/other-repo/v0.1.0/a/file.css
 "@
+    $assets = Join-Path $root 'plugins\dkj-policy\assets\house-style'
+    New-Item -ItemType Directory -Path $assets -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $assets 'house-style.css'), ":root { --x: 1; }`n")
+    [System.IO.File]::WriteAllText((Join-Path $assets 'house-theme.js'), "// fixture`n")
     New-Item -ItemType Directory -Path (Join-Path $root 'dkj-policy\releases\audience\1.x') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $root 'dkj-policy\releases\changelog\1.x') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $root 'dkj-policy\releases\github\1.x') -Force | Out-Null
@@ -361,6 +367,15 @@ try {
     Assert-Match 'other-repo/v0\.1\.0/' $pinPage 'happy path: a URL under another prefix is left alone'
     Assert-Says 'repinned: plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md -> v1.4.1 (2 URL(s))' $r.Out 'happy path: the run says what it repinned'
     Assert-NotMatch '\?\? .*SKILL\.md|M .*SKILL\.md' (Get-GitOut -Root $root -GitArgs @('status', '--porcelain')) 'happy path: the repinned page is inside the release commit'
+    # The checksums (#3636): each cell beside a pinned URL is the sha256 of the bytes that tag serves.
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    foreach ($leaf in 'house-style.css', 'house-theme.js') {
+        $want = ([System.BitConverter]::ToString($sha.ComputeHash([System.IO.File]::ReadAllBytes((Join-Path $root "plugins\dkj-policy\assets\house-style\$leaf")))) -replace '-', '').ToLowerInvariant()
+        Assert-Match ([regex]::Escape("house-style/$leaf``") + '.*' + $want) $pinPage "happy path: the cut wrote the sha256 of $leaf beside its URL"
+    }
+    $sha.Dispose()
+    Assert-NotMatch ('0' * 64) $pinPage 'happy path: no stale checksum cell is left'
+    Assert-Says 'checksummed: plugins/dkj-policy/assets/house-style/house-style.css' $r.Out 'happy path: the run says what it checksummed'
 
     # The release build (#3210): built after the gates, copied into the plugin, and committed with the release.
     $shipped = Join-Path $root 'plugins\workflows\workflow-fixture\assets\app\index.html'
@@ -850,6 +865,20 @@ $cutSectH11 Pull Request
     $v17 = (Get-Content -LiteralPath (Join-Path $root17 'plugins\dkj-subagents\team-fixture\.claude-plugin\plugin.json') -Raw | ConvertFrom-Json).version
     Assert-Equal '1.4.0' $v17 'pin missing: nothing was written'
     Assert-Equal '' (Get-GitOut -Root $root17 -GitArgs @('status', '--porcelain')).Trim() 'pin missing: the tree is as clean as it was'
+
+    # A checksummed file the page names on no line beside a sha256 refuses the same way (#3636): the cut
+    # would otherwise have no cell to write, and the page would ship a stale checksum.
+    $root17b = New-CutFixture -Name 'checksum-cell-missing'
+    $page17b = Join-Path $root17b 'plugins\dkj-policy\dkj-solutions\skills\house-style\SKILL.md'
+    Write-Utf8 $page17b (((Get-Content -LiteralPath $page17b -Raw) -split "`r?`n" | Where-Object { $_ -notmatch 'house-theme\.js' }) -join "`n")
+    Push-Location $root17b
+    try { Invoke-NativeCapture -FilePath 'git' -Arguments @('commit', '--quiet', '-am', 'fixture: drop a checksum row') | Out-Null }
+    finally { Pop-Location }
+    $r17b = Invoke-Cut -Root $root17b -Arguments @('-Bump', 'patch', '-NoPush', '-SkipLint', '-SkipTests')
+    Assert-True ($r17b.Code -ne 0) 'checksum cell missing: refused with a non-zero exit'
+    Assert-Says "names 'plugins/dkj-policy/assets/house-style/house-theme.js' beside a sha256 on 0 line(s)" $r17b.Out 'checksum cell missing: the refusal names the file and the count'
+    $v17b = (Get-Content -LiteralPath (Join-Path $root17b 'plugins\dkj-subagents\team-fixture\.claude-plugin\plugin.json') -Raw | ConvertFrom-Json).version
+    Assert-Equal '1.4.0' $v17b 'checksum cell missing: nothing was written'
 
     # --- 14. A release build that fails, or builds where git can see it, refuses the cut (#3210) -------
     Write-Host ""

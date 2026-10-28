@@ -39,19 +39,49 @@
 
 ### PLAN
 
+#### The owner's choice
+
+Direction 1 of #3636 (davekokbwj, October 28, 2026): `cut-release` writes the house-style checksums in the
+release commit beside the tag it already writes (#3133), and `check-house-style.tests.ps1` stops holding the
+canonical copy to the pin between cuts.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `cut-release.ps1` (both copies): `Get-ReleaseVersionPins` entries take an optional `Checksums`; the
+  preflight checks each file is committed and named on exactly one line beside a sha256, hashes its blob at
+  HEAD, and the bump writes the hash into that cell.
+- [x] `scripts/repo-config.ps1`: the skill page's pin names both house files under `Checksums`; the contract
+  text (both copies) and the blueprint follow.
+- [x] The pin cell put back to v5.36.0's own `house-style.css` hash, so the page names the tag's bytes again.
+- [x] `SKILL.md`: the canonical-copy and release paragraphs say the cut writes the checksums.
 
 ### TEST
 
+- [x] `check-house-style.tests.ps1`: the in-tree == pin assert is replaced by asserting the seam names both
+  files; the gate and hook cases run from a plugin copy whose page pins the tree's files. 91/91, and also
+  91/91 with the cell set to an unrelated hash (the between-cuts state).
+- [x] `cut-release-drive.tests.ps1`: the happy path asserts both cells carry the blob's sha256, and a page
+  that names a checksummed file on no line refuses before the first write. 131/131.
+
 ### DEPLOY: fix/3636-house-style-pin-at-cut
 
-**Score:**
+A change to the house stylesheet or theme script no longer hand-edits the sha256 in the `house-style` skill's
+pin table, and two such branches no longer conflict on that cell. The release cut now writes both checksums
+from the files it tags, beside the tag it already writes
+([#3636](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3636)). `Get-ReleaseVersionPins` takes an
+optional `Checksums` list for this, and the cut refuses before its first write when a listed file is not
+committed or is not named on exactly one line beside a sha256. Between releases the table names the previous
+tag together with that tag's own checksums.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Between releases, an installed `house-style` skill page now pins checksums that the tag beside them actually
+serves. A consuming repo's session check therefore no longer flags a correct vendored copy and then fetches
+the page at the tag to clear it.
+
+**Score:** 2
 
 #### Pull Request
 

@@ -53,9 +53,14 @@ Assert-True ($null -ne $pin) 'the skill page carries a complete checksum table'
 Assert-True ($pin.Tag -cmatch '^v\d+\.\d+\.\d+$') 'the tag is read from the fetch URL'
 Assert-True ([System.IO.File]::ReadAllText($Skill).Contains('](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/assets/house-style/README.md)')) 'the skill links the README in dkj-policy absolutely, since a relative link leaves the dkj-solutions plugin root'
 Assert-True (Test-Path -LiteralPath (Join-Path $Vendored 'README.md')) 'the README the skill links exists in the plugin'
+# The canonical copy is NOT held to the pin here (#3636): between releases the pin names the tag's bytes, and a
+# branch that changes the stylesheet no longer hand-edits the cell -- the cut writes it from the blob it tags. So
+# what this suite holds is that the cut is told to: both files are under Checksums of the skill page's pin.
+. (Join-Path $RepoRoot 'scripts\repo-config.ps1')
+$skillPins = @(Get-ReleaseVersionPins | Where-Object { $_.Path -eq 'plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md' })
+Assert-Equal 1 $skillPins.Count 'the cut repoints the skill page (Get-ReleaseVersionPins)'
 foreach ($leaf in 'house-style.css', 'house-theme.js') {
-    $hashes = Get-HouseStyleSha256 -Bytes ([System.IO.File]::ReadAllBytes((Join-Path $Vendored $leaf)))
-    Assert-True (@($hashes) -contains $pin.Hashes[$leaf]) "this repo's canonical (in-plugin) $leaf is the pinned copy"
+    Assert-True (@($skillPins | ForEach-Object { $_.Checksums }) -contains "plugins/dkj-policy/assets/house-style/$leaf") "...and writes the checksum of the canonical $leaf beside its URL"
 }
 Assert-True ($null -eq (Get-HouseStylePin -SkillText '| `house-style.css` | `x` | `aa` |')) 'a page without both rows is no pin'
 # A page at a tag before #3531 names the files under dkj-solutions/assets/, and the reusable gate reads the page AT that tag.
@@ -185,6 +190,26 @@ function Invoke-Child([string]$Script, [string]$Dir, [string]$ParamName) {
 $env:DKJ_HOUSE_STYLE_TAG_PAGE = Join-Path $Fixture 'no-tag-page.md'
 
 try {
+    # The gate and the hook run from a copy of the plugin whose skill page pins THIS tree's canonical files
+    # (#3636): between releases the real page pins the tag's bytes, which a fixture cannot fetch offline. Every
+    # case below is about the rules, not about which bytes the release carries -- the cut owns that.
+    $fxPlugin = Join-Path $Fixture 'plugin'
+    foreach ($rel in 'hooks\house-style-sessioncheck.ps1', 'scripts\lint\check-house-style.ps1', 'scripts\lib\house-style-rules.ps1') {
+        New-Item -ItemType Directory -Force -Path (Split-Path (Join-Path $fxPlugin $rel)) | Out-Null
+        Copy-Item -LiteralPath (Join-Path $Plugin $rel) -Destination (Join-Path $fxPlugin $rel)
+    }
+    $realSkill = [System.IO.File]::ReadAllText($Skill)
+    foreach ($leaf in 'house-style.css', 'house-theme.js') {
+        $treeHash = @(Get-HouseStyleSha256 -Bytes ([System.IO.File]::ReadAllBytes((Join-Path $Vendored $leaf))))[-1]
+        $realSkill = $realSkill.Replace($pin.Hashes[$leaf], $treeHash)
+    }
+    $Skill = Join-Path $fxPlugin 'skills\house-style\SKILL.md'
+    New-Item -ItemType Directory -Force -Path (Split-Path $Skill) | Out-Null
+    [System.IO.File]::WriteAllText($Skill, $realSkill)
+    $pin = Get-HouseStylePin -SkillText $realSkill
+    $Gate = Join-Path $fxPlugin 'scripts\lint\check-house-style.ps1'
+    $Hook = Join-Path $fxPlugin 'hooks\house-style-sessioncheck.ps1'
+
     $clean = New-FixtureRepo 'clean'
     Add-PinnedCopy $clean
     Set-Content -LiteralPath (Join-Path $clean 'web\app.css') -Value ':root { --my-accent: var(--primary); } .my-card { color: var(--fg-1); }' -Encoding ascii
@@ -255,14 +280,15 @@ try {
     Assert-True ($r.Code -eq 1 -and $r.Out -match '\[missing\]') 'a repo without a house-style copy fails the gate'
     $r = Invoke-Child $Hook $none 'RepoRootOverride'
     Assert-True ($r.Code -eq 0 -and $r.Out -match 'nothing to check') 'and the session check stays quiet about it'
+
+    # The self-run: this repo's own layer, against the page that pins its canonical copy -- a clean repo, so it
+    # asks for no page at the tag.
+    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Gate -RepoRoot $RepoRoot -SkillPath $Skill 2>&1 | Out-String
+    Assert-Equal 0 $LASTEXITCODE 'this repo passes its own house-style gate'
 } finally {
     Remove-Item -LiteralPath $Fixture -Recurse -Force -ErrorAction SilentlyContinue
 }
-# The self-run below is a clean repo and asks for no page.
 Remove-Item Env:\DKJ_HOUSE_STYLE_TAG_PAGE -ErrorAction SilentlyContinue
-
-$r = Invoke-Child $Gate $RepoRoot 'RepoRoot'
-Assert-Equal 0 $r.Code 'this repo passes its own house-style gate'
 
 # The reusable workflow reads the pin at the tag the page names (#3148), not at the ref it runs from.
 $wf = [System.IO.File]::ReadAllText((Join-Path $RepoRoot '.github\workflows\reusable-house-style.yml'))

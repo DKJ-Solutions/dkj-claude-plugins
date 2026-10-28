@@ -430,7 +430,27 @@ Assert-WorkflowIsolatedSeamPath -RepoRoot $repoRoot -RelativePath $historyRelPat
 $pluginTier    = Get-SeamValue -Name 'Get-ReleasePluginTier' `
     -Default (Test-Path -LiteralPath (Join-Path $repoRoot '.claude-plugin\marketplace.json'))
 
-# The version pins the cut repoints at the new tag (#3133), each @{ Path; Prefix }. Read and checked HERE,
+# The sha256 of a file's blob at HEAD (#3636): the bytes a tag cut from this commit serves, whatever line
+# endings this checkout smudged onto the working copy. Streamed, because a native pipe in Windows PowerShell 5.1
+# decodes stdout as text and would hash something else. $null when HEAD carries no such blob.
+function Get-ReleaseBlobSha256 {
+    param([Parameter(Mandatory)][string]$RelPath)
+    $psi = New-Object System.Diagnostics.ProcessStartInfo 'git'
+    $psi.Arguments = "-C `"$repoRoot`" cat-file blob `"HEAD:$RelPath`""
+    $psi.UseShellExecute = $false; $psi.RedirectStandardOutput = $true; $psi.RedirectStandardError = $true; $psi.CreateNoWindow = $true
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    $errTask = $proc.StandardError.ReadToEndAsync()
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { $hash = ([System.BitConverter]::ToString($sha.ComputeHash($proc.StandardOutput.BaseStream)) -replace '-', '').ToLowerInvariant() }
+    finally { $sha.Dispose() }
+    $proc.WaitForExit()
+    $null = $errTask.Result
+    if ($proc.ExitCode -ne 0) { return $null }
+    return $hash
+}
+
+# The version pins the cut repoints at the new tag (#3133), each @{ Path; Prefix } and optionally Checksums, the
+# files whose sha256 the pin carries beside the URL (#3636). Read, checked and hashed HERE,
 # before anything is written, because a bad entry found at the bump would abort a cut that has already
 # written to the trunk. Empty by default: a repo that names no pin is untouched.
 $versionPins = @(foreach ($pin in @(Get-SeamValue -Name 'Get-ReleaseVersionPins' -Default @())) {
@@ -441,7 +461,23 @@ $versionPins = @(foreach ($pin in @(Get-SeamValue -Name 'Get-ReleaseVersionPins'
     $pattern = [regex]::Escape($pin.Prefix) + 'v\d+\.\d+\.\d+/'
     $hits = [regex]::Matches([System.IO.File]::ReadAllText($pinAbs, [System.Text.Encoding]::UTF8), $pattern).Count
     if ($hits -eq 0) { Write-Error "Get-ReleaseVersionPins: '$($pin.Path)' carries no '$($pin.Prefix)vX.Y.Z/' -- release aborted."; exit 1 }
-    [pscustomobject]@{ Path = $pin.Path; Prefix = $pin.Prefix; Abs = $pinAbs; Pattern = $pattern; Hits = $hits }
+    # Optional Checksums (#3636): files whose sha256 the pin file carries on the one line that names the file's
+    # path. Each must exist and be named on exactly one line that holds a sha256, so the rewrite has one cell.
+    $sums = @(if ($pin -is [hashtable] -and $pin.ContainsKey('Checksums')) { @($pin.Checksums | Where-Object { $_ }) })
+    $pinText = [System.IO.File]::ReadAllText($pinAbs, [System.Text.Encoding]::UTF8)
+    $checksums = @(foreach ($rel in $sums) {
+        $rel = ([string]$rel).Replace('\', '/')
+        if (-not (Test-Path -LiteralPath (Join-Path $repoRoot ($rel -replace '/', '\')) -PathType Leaf)) { Write-Error "Get-ReleaseVersionPins: '$($pin.Path)' checksums '$rel', which does not exist -- release aborted."; exit 1 }
+        $linePattern = '(?m)^(?=.*/' + [regex]::Escape($rel) + '(?![\w./-]))(.*?)\b[0-9a-f]{64}\b'
+        $lines = [regex]::Matches($pinText, $linePattern).Count
+        if ($lines -ne 1) { Write-Error "Get-ReleaseVersionPins: '$($pin.Path)' names '$rel' beside a sha256 on $lines line(s), not one -- release aborted."; exit 1 }
+        # Hashed here rather than at the bump: the cut's own commits never touch a checksummed file, and a
+        # failure here aborts before the first write.
+        $hash = Get-ReleaseBlobSha256 -RelPath $rel
+        if (-not $hash) { Write-Error "Get-ReleaseVersionPins: '$rel' is not committed at HEAD, so no tag would serve it -- release aborted."; exit 1 }
+        [pscustomobject]@{ File = $rel; LinePattern = $linePattern; Hash = $hash }
+    })
+    [pscustomobject]@{ Path = $pin.Path; Prefix = $pin.Prefix; Abs = $pinAbs; Pattern = $pattern; Hits = $hits; Checksums = $checksums }
 })
 
 # The builds the cut ships (#3210), each @{ Name; WorkingDirectory; Commands; Output; Target }: the commands run
@@ -1904,10 +1940,16 @@ foreach ($p in $manifests) {
 # '<Prefix>v<new>/'. OPTIONAL and empty by default, so a repo that names no pin is untouched. The files
 # land in the release commit like the plugin.json bumps beside them -- the same version, a second place.
 # The pins were read and checked before the first write (beside the other seams), so nothing here can abort.
+#
+# AND THE CHECKSUMS BESIDE THOSE URLS (#3636), hashed in the preflight above: each named line's sha256 becomes
+# the hash of the bytes the new tag serves. The line already passed its one-cell check there, so this cannot miss.
 foreach ($pin in $versionPins) {
     $raw = [System.IO.File]::ReadAllText($pin.Abs, [System.Text.Encoding]::UTF8)
-    Write-Utf8NoBom -Path $pin.Abs -Content ([regex]::Replace($raw, $pin.Pattern, ($pin.Prefix + "v$new/").Replace('$', '$$')))
+    $raw = [regex]::Replace($raw, $pin.Pattern, ($pin.Prefix + "v$new/").Replace('$', '$$'))
+    foreach ($c in $pin.Checksums) { $raw = [regex]::Replace($raw, $c.LinePattern, ('${1}' + $c.Hash)) }
+    Write-Utf8NoBom -Path $pin.Abs -Content $raw
     Write-Host "  repinned: $($pin.Path) -> v$new ($($pin.Hits) URL(s))" -ForegroundColor DarkGray
+    foreach ($c in $pin.Checksums) { Write-Host "  checksummed: $($c.File) -> $($c.Hash.Substring(0, 12))" -ForegroundColor DarkGray }
 }
 
 # --- Ship the builds the repo names (#3210) ------------------------------------------------------------
