@@ -232,9 +232,10 @@ body > header, main > header { display: flex; justify-content: space-between; al
 /* The grid's gap is the spacing between its rows, so a direct .card, .tiles or .notice gives up its own top
    margin here too, as in .page-column (#207). */
 :is(.grid-2, .grid-3) > :is(.card, .tiles, .notice) { margin-top: 0; }
-/* A block's heading above its card(s), NEVER inside them (#206, a hard rule since #3175): <div class="grid-2"><div
-   class="grid__head"><h2>Title</h2><p class="card__sub">Sub line</p></div> then the card(s)</div>. An h2 heads a group of
-   cards, so it stands above the group and every card under it is titled with an h3 or not at all. The head spans every
+/* A group's heading above its cards (#206), where a page groups cards: <div class="grid-2"><div
+   class="grid__head"><h2>Title</h2><p class="card__sub">Sub line</p></div> then the card(s)</div>. Each card under such a
+   heading is titled with an h3 or not at all; a card standing on its own may be titled by an h2 (#3175's no-h2-in-a-card
+   rule was retired October 24, 2026). The head spans every
    column, as does a .grid__full child (a card that takes the whole row). The h2 gives up its bottom margin and the
    .card__sub supplies the --spacing-1 under it, as in .card__head; the grid's own gap is the space between head and cards.
    Left-aligned, like .card__head. */

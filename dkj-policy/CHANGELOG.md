@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**5 / 7 minor entries** <!-- pending-tally -->
+**5 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3616-grid-head-h2-comment · 20261028-144854Z
+
+The `.grid__head` comment in `house-style.css` no longer calls the retired no-h2-in-a-card rule a hard rule.
+It now matches the house-style README: an `h2` heads a group of cards, and a card standing on its own may be
+titled by an `h2` (#3616).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+house-style.css: the .grid__head comment no longer states the retired no-h2 rule
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3622](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3622)
+
+---
 
 ### DEPLOY: feat/repo-card-split · 20261028-135859Z
 
