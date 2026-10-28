@@ -856,7 +856,8 @@ function Format-DkjRepoPageHtml {
     $style = (Get-DkjRepoCardStyle) + $(if ($LensesStyle) { "`n" + $LensesStyle } else { '' })
     [void]$sb.Append((Format-ConnectorPageStart -PageName ([string]$Row.Name) -Trail @(@{ Href = '/connectors'; Label = 'Connectors' }, @{ Href = '/connectors/dkj'; Label = 'DKJ repos' }) -Style $style))
     [void]$sb.AppendLine('<div class="grid-2" id="repo">')
-    [void]$sb.AppendLine('<div class="grid__head"><h2>Repo</h2><p class="card__sub">' + (& $e $Row.Repo) + '</p></div>')
+    # No sub line: the card's own GitHub row names the repo, and the page is to fit one screen.
+    [void]$sb.AppendLine('<div class="grid__head"><h2>Repo</h2></div>')
     [void]$sb.Append((Format-DkjRepoCardHtml -Row $Row -Checkout $Checkout -Connector $Connector))
     [void]$sb.AppendLine('</div>')
     if ($LensesHtml) { [void]$sb.Append($LensesHtml) }
