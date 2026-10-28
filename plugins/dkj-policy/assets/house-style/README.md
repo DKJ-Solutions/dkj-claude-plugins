@@ -37,9 +37,9 @@ so a stylesheet added later is gated without an edit.
 
 **A house-style change is judged by eye on the House style page**, `specimens.html` in this folder: every
 token, the twelve themes and every component with its variants and states, drawn from the stylesheet beside it.
-It ships with the plugin, and every hub that enables `dkj-solutions` shows it under Plugins, on
-`/plugins/dkj-solutions/house-style` (#3493), as one card per section with a page each
-(`/plugins/dkj-solutions/house-style/<section>`, #3563); in the source repo that page reads the working tree, so a change
+It ships with the plugin, and every hub that runs `dkj-policy` shows it under Plugins, on
+`/plugins/dkj-policy/house-style` (#3493, #3629), as one card per section with a page each
+(`/plugins/dkj-policy/house-style/<section>`, #3563); in the source repo that page reads the working tree, so a change
 shows there before the release that ships it. It replaces the brand book app's showcase, which is retired. `house-style-css` is the gate
 that checks the stylesheet's syntax and tokens; the page is the look.
 
@@ -76,6 +76,19 @@ that checks the stylesheet's syntax and tokens; the page is the look.
    page heading always sits outside the boxes.
 
 ## What it holds
+
+**A theme's colours are three groups, read by the 60-30-10 rule** (owner, October 28, 2026,
+[#3630](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3630)). It is a grouping of the tokens a theme
+already has, not a new colour:
+
+| Share | Group | Tokens | What it is |
+|---|---|---|---|
+| **60%** | Paper | `--paper-1` … `--paper-4` | the ground: the page, the cards, the lines |
+| **30%** | Primary | `--primary`, with `--muted` (its grey) | the theme's colour: `h1` and `h2`, links, the breadcrumb bar, `.btn--primary`, the states |
+| **10%** | Text | `--fg-1` … `--fg-4` | what sits on the paper: every paragraph, label and quiet icon |
+
+A repo layer keeps to the same shares: what it adds lands in one of the three groups, and a page whose
+primary outweighs its paper has spent the 30% as ground.
 
 **Tokens**, each in light and dark:
 

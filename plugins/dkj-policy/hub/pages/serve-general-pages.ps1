@@ -38,10 +38,10 @@
       /plugins, /plugins/<name>   a card per enabled plugin, and each one's own page: plugin-versions.ps1 -Json, the repo's
                       own copy first, then this plugin's, run in a CHILD process bounded at 30 s (Read-PluginsPageModel,
                       hub/lib/plugins-page-lib.ps1, #3482). A script that fails or is missing is a warning on the page.
-      /plugins/dkj-solutions/house-style[/<section>]
+      /plugins/dkj-policy/house-style[/<section>]
                       the house style's specimens (assets/house-style/specimens.html, read per request): a card per
                       section, and each section's own page (Split-HouseStyleSpecimens, #3563); a slug no section has
-                      is a 404.
+                      is a 404. The old /plugins/dkj-solutions/house-style[/<section>] is a 301 to it (#3629).
       /stopwatch, /stopwatch/<label>[/<run>], /logbook, /logbook/<slug>
                       this repo's timing stores on this machine (%LOCALAPPDATA%\dkj-claude-plugins\repos\<repo>\),
                       which the plugin's UserPromptSubmit and Stop hooks write, and the session transcripts under
@@ -522,6 +522,11 @@ try {
                 }
             } elseif ($plReq = Resolve-PluginsPageRequest -Path $path) {
                 # The overview, or one plugin's page (#3482); a name no enabled plugin has is a 404.
+                if ($plReq.Redirect) {
+                    # The house style's old address under dkj-solutions (#3629), so a link to it still lands.
+                    Send-LoopbackResponse $stream 301 'Moved Permanently' 'text/plain; charset=utf-8' ($utf8.GetBytes('Moved.')) @{ Location = $plReq.Redirect } -Method $method
+                    continue
+                }
                 $pl = Read-PluginsPageModel -Script (Resolve-DkjPolicyScript -RelativePath 'scripts\task\plugin-versions.ps1') -RepoRoot $root
                 if (-not $plReq.Name) {
                     $html = Format-PluginsPageHtml -Model $pl.Model -ReadError $pl.Error -RepoName (Get-RepoIdentity).Name

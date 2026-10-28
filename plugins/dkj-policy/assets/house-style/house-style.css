@@ -212,7 +212,9 @@ body > header, main > header { display: flex; justify-content: space-between; al
 /* An in-page anchor in the column lands with room above it, clear of the settings button (#156). */
 .page-column [id] { scroll-margin-top: 5rem; }
 .page-cta { margin: var(--spacing-4) 0 0; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-4); }
+/* minmax(0, 1fr), never a bare 1fr: a 1fr track never shrinks below the min-content of its card, so one nowrap line
+   wider than half the row widened the page past the viewport (#3614). .grid-3 and both steps down use the same form. */
+.grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-4); }
 /* .grid-3: the same group three to a row (owner, October 22, 2026), for short cards such as one link each; it takes
    .grid__head and .grid__full as .grid-2 does, and steps down to two columns, then one. */
 .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-4); }
@@ -249,7 +251,7 @@ body > header, main > header { display: flex; justify-content: space-between; al
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); column-gap: var(--spacing-4); }
 .mini-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--spacing-2-5); margin-top: var(--spacing-3); }
 @media (max-width: 1000px) { .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 760px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } .hero .value { font-size: var(--text-h1); } }
+@media (max-width: 760px) { .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); } .hero .value { font-size: var(--text-h1); } }
 
 /* ---- Typography ----------------------------------------------------------- */
 /* Every heading is in the body sans: h1 since October 24, 2026 (the owner; it was set in --font-serif, and in
