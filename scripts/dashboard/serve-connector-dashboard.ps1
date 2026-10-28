@@ -3,10 +3,11 @@
     Serve this repo's PRODUCT on http://localhost:<Port>/ (#3540): the home page on '/', and this repo's own
     pages, which it links: /connectors, every repo registered under connectors/ with its plugins, its local
     checkout and what check-connectors.ps1 reports for it on this machine (#2976), one card per owner group
-    with each group a page of its own at /connectors/dkj, /bwj and /other -- the DKJ one also holding every
-    DKJ-Solutions repo on GitHub with its checkout here and a session to open there (#3231; its own page at
-    /dkj-repos until #3549, which now redirects there), each of those repos a page of its own at
-    /connectors/dkj/<name> with what its checkout's specialist lenses hold (October 28, 2026); and
+    with each group a page of its own at /connectors/dkj, /bwj and /other -- the DKJ one a card per
+    DKJ-Solutions repo on GitHub or checked out here (#3231; its own page at /dkj-repos until #3549, which now
+    redirects there), each opening a page of its own at /connectors/dkj/<name>: the repo, what the register's
+    check reports for it, a session to open there, and what its checkout's specialist lenses hold (October 28,
+    2026); and
     /specialists, every specialist the dkj-subagents plugins ship and the context each one costs, read from this tree; and /plugins, every plugin
     .claude-plugin/marketplace.json lists, each with a page of its own at /plugins/<name>, the specialist
     teams (dkj-subagents-*) one card whose page is /plugins/dkj-subagents. The rules of
@@ -384,16 +385,16 @@ try {
                 # The overview with one card per owner group, or one group's own page (owner, October 26, 2026).
                 $group = [string]$Matches[1]
                 if ($null -eq $cache -or ((Get-Date) - $cache.At).TotalSeconds -ge $CacheSeconds) { $cache = Get-DashboardModel }
-                # The DKJ group's page also holds every DKJ-Solutions repo on GitHub (#3549), read only for that page.
-                $section = @{ Html = ''; Style = ''; FooterNote = '' }
                 if ($group -eq 'dkj') {
+                    # The DKJ group's page is a card per DKJ repo, each opening its own page (Maikel, October 28, 2026).
                     if ($null -eq $dkjCache -or ((Get-Date) - $dkjCache.At).TotalSeconds -ge $CacheSeconds) { $dkjCache = Get-DkjReposModel }
-                    $section = Format-DkjReposSectionHtml -Query $dkjCache.Query -Checkouts $dkjCache.Checkouts -Meta $dkjCache.Meta
+                    $dkjConnectors = @($cache.Connectors | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq 'dkj' })
+                    $html = Format-DkjReposPageHtml -Query $dkjCache.Query -Checkouts $dkjCache.Checkouts -Connectors $dkjConnectors -Meta $dkjCache.Meta -CheckMeta $cache.Meta
                     # A failed read of GitHub is shown once and not kept, so the next request asks again (Victor, #3231).
                     if ($dkjCache.Query.Error) { $dkjCache = $null }
+                } else {
+                    $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta -Group $group
                 }
-                $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta -Group $group `
-                    -SectionHtml $section.Html -SectionStyle $section.Style -SectionFooterNote $section.FooterNote
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
@@ -411,13 +412,16 @@ try {
                     continue
                 }
                 $co = $set.ByRepo[$row.Repo]
+                # Its Connector card is its entry in the register, read with the register and cached with it.
+                if ($null -eq $cache -or ((Get-Date) - $cache.At).TotalSeconds -ge $CacheSeconds) { $cache = Get-DashboardModel }
+                $reg = @($cache.Connectors | Where-Object { ([string]$_.Repo) -eq [string]$row.Repo })[0]
                 $lensCard = Format-RepoLensesCardHtml -Lenses (Get-CheckoutLenses -Path $(if ($co) { [string]$co.Path } else { '' })) -Names (Get-SpecialistNames)
-                $html = Format-DkjRepoPageHtml -Row $row -Checkout $co -LensesHtml $lensCard.Html -LensesStyle $lensCard.Style -Meta $meta
+                $html = Format-DkjRepoPageHtml -Row $row -Checkout $co -Connector $reg -LensesHtml $lensCard.Html -LensesStyle $lensCard.Style -Meta $meta
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
             if ($path -eq '/dkj-repos') {
-                # Its own page until #3549, now a section of the DKJ group's: an old link or bookmark lands there.
+                # Its own page until #3549; the DKJ group's page has held the DKJ repos since. An old link or bookmark lands there.
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/connectors/dkj' } -Method $method
                 continue
             }

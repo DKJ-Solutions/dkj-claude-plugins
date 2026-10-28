@@ -475,6 +475,58 @@ function Format-ConnectorPageEnd {
     return $sb.ToString()
 }
 
+function Format-ConnectorRepoMiniCardHtml {
+    <#
+        One registered repo's details as a house mini-card: its status, visibility, checkout, GitHub link and
+        manifest, its trunk's last commit, its plugins with their lens counts, the drift, and what
+        check-connectors.ps1 reports for it, with the register's notes folded. A group's Issues card holds one
+        per repo, and a DKJ repo's own page holds its own (Format-DkjRepoPageHtml). -Connector is one of
+        Format-ConnectorDashboardHtml's -Connectors.
+    #>
+    param([Parameter(Mandatory = $true)][hashtable]$Connector)
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $c = $Connector
+    $sb = New-Object System.Text.StringBuilder
+    $b = Get-DashboardStatusBadge ([string]$c.Status)
+    $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
+    [void]$sb.AppendLine('<section class="mini-card cd-repo-card" id="' + $anchor + '">')
+    [void]$sb.AppendLine('<div class="cd-repo"><span class="badge ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span><p class="cd-repo__name">' + (& $e $c.Repo) + '</p></div>')
+    $where = (@(Get-ConnectorCheckoutCandidates $c.Checkout) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ' or '
+    $ghUrl = 'https://github.com/' + (& $e $c.Repo)
+    [void]$sb.AppendLine('<p class="sub">' + $b.Word + ' &#183; ' + (& $e $c.Visibility) + ' &#183; checkout ' + $where +
+        ' &#183; <a class="cd-link" href="' + $ghUrl + '">GitHub</a> &#183; <code>connectors/' + (& $e $c.File) + '</code></p>')
+    if ($c.Git -and $c.Git.Subject) {
+        [void]$sb.AppendLine('<p class="meta" style="white-space: normal">Last commit on ' + (& $e $c.Git.Trunk) + ' ' + (& $e $c.Git.When) + ': ' + (& $e $c.Git.Subject) + '</p>')
+    }
+    [void]$sb.AppendLine('<div class="cd-plugins">')
+    foreach ($p in @($c.Plugins)) {
+        $n = @($p.Extensions).Count
+        [void]$sb.AppendLine('<span><code>' + (& $e $p.Id) + '</code> &#183; ' + $n + ' lens' + $(if ($n -ne 1) { 'es' } else { '' }) + '</span>')
+    }
+    [void]$sb.AppendLine('</div>')
+    $drift = Format-DashboardDrift $c.Drift
+    if ($drift) { [void]$sb.AppendLine('<p class="meta" style="white-space: normal">' + $drift + '</p>') }
+    $shown =@($c.Signals | Where-Object { $_.Level -eq 'ERROR' -or $_.Level -eq 'INFO' -or $_.Level -eq 'SKIP' })
+    if ($shown.Count) {
+        [void]$sb.AppendLine('<ul class="cd-signals">')
+        foreach ($s in $shown) {
+            $cls = switch ($s.Level) { 'ERROR' { 'badge--bad' } 'INFO' { 'badge--warn' } default { 'badge--neutral' } }
+            $mk = switch ($s.Level) { 'ERROR' { '!' } 'INFO' { 'i' } default { '-' } }
+            $who = if ($s.Plugin) { '<code>' + (& $e $s.Plugin) + '</code> ' } else { '' }
+            [void]$sb.AppendLine('<li><span class="badge badge--sm ' + $cls + '" aria-label="' + $s.Level + '">' + $mk + '</span><span>' + $who + (& $e $s.Text) + '</span></li>')
+        }
+        [void]$sb.AppendLine('</ul>')
+    } elseif ($c.Present) {
+        $nOk = @($c.Signals | Where-Object { $_.Level -eq 'OK' }).Count
+        [void]$sb.AppendLine('<p class="note">All ' + $nOk + ' checks pass.</p>')
+    }
+    if ($c.Notes) {
+        [void]$sb.AppendLine('<details class="more"><summary>Register notes</summary><div class="cd-notes">' + (& $e $c.Notes) + '</div></details>')
+    }
+    [void]$sb.AppendLine('</section>')
+    return $sb.ToString()
+}
+
 function Format-ConnectorDashboardHtml {
     <#
         The whole page. -Connectors is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
@@ -487,21 +539,16 @@ function Format-ConnectorDashboardHtml {
         one card per owner group (Get-DashboardOwnerGroups), each linking that group's page. A group's Key, it is
         /connectors/<Key>: a three-crumb trail, the tiles over that group, its overview table and its repo cards.
 
-        -SectionHtml, with its -SectionStyle and -SectionFooterNote, is a block a group's page holds between its
-        Connected repos and its Issues: on /connectors/dkj, the DKJ repos on GitHub (Format-DkjReposSectionHtml,
-        #3549), which the server hands in so this lib stays free of the GitHub read. The overview ignores it.
+        The server serves the DKJ group its own page instead (Format-DkjReposPageHtml, Maikel, October 28, 2026):
+        a card per DKJ repo, each opening that repo's page. -Group 'dkj' still renders here, as any group does.
         The frame -- head, banner, header, trail, h1 and the closing lines -- is Format-ConnectorPageStart and
-        Format-ConnectorPageEnd, which a DKJ repo's own page shares (Format-DkjRepoPageHtml).
+        Format-ConnectorPageEnd, which the DKJ pages share. A repo's mini-card is Format-ConnectorRepoMiniCardHtml.
     #>
     param(
         [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Connectors,
         [Parameter(Mandatory = $true)][hashtable]$Meta,
-        [ValidateSet('', 'dkj', 'bwj', 'other')][AllowEmptyString()][string]$Group = '',
-        [AllowEmptyString()][string]$SectionHtml = '',
-        [AllowEmptyString()][string]$SectionStyle = '',
-        [AllowEmptyString()][string]$SectionFooterNote = ''
+        [ValidateSet('', 'dkj', 'bwj', 'other')][AllowEmptyString()][string]$Group = ''
     )
-    if (-not $Group) { $SectionHtml = ''; $SectionStyle = ''; $SectionFooterNote = '' }
     $groupDef = if ($Group) { @(Get-DashboardOwnerGroups | Where-Object { $_.Key -eq $Group })[0] } else { $null }
     $pageName = if ($groupDef) { $groupDef.Title } else { 'Connectors' }
     $e = { param($v) ConvertTo-DashboardText $v }
@@ -510,7 +557,7 @@ function Format-ConnectorDashboardHtml {
 
     $sb = New-Object System.Text.StringBuilder
     $trail = if ($groupDef) { @(@{ Href = '/connectors'; Label = 'Connectors' }) } else { @() }
-    [void]$sb.Append((Format-ConnectorPageStart -PageName $pageName -Trail $trail -Style $SectionStyle))
+    [void]$sb.Append((Format-ConnectorPageStart -PageName $pageName -Trail $trail))
 
     # The warning that the signals could not be read.
     if ($Meta.CheckFailed) {
@@ -559,8 +606,6 @@ function Format-ConnectorDashboardHtml {
         [void]$sb.AppendLine('</section>')
         [void]$sb.AppendLine('</div>')
 
-        if ($SectionHtml) { [void]$sb.Append($SectionHtml) }
-
         # The per-repo details, a card of their own beside Connected repos, headed Issues: an h2, the group's summary line,
         # and a house mini-card per repo (a card inside a card). The overview links down to it, so its head carries the way
         # back. A group with no repo has no details.
@@ -570,45 +615,7 @@ function Format-ConnectorDashboardHtml {
             [void]$sb.AppendLine('<section class="card grid__full">')
             [void]$sb.AppendLine('<div id="group-' + $g.Key + '">')
             [void]$sb.AppendLine('<p class="sub cd-group-summary">' + (Format-DashboardGroupSummary $members) + '</p>')
-            foreach ($c in $members) {
-                $b = Get-DashboardStatusBadge ([string]$c.Status)
-                $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
-                [void]$sb.AppendLine('<section class="mini-card cd-repo-card" id="' + $anchor + '">')
-                [void]$sb.AppendLine('<div class="cd-repo"><span class="badge ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span><p class="cd-repo__name">' + (& $e $c.Repo) + '</p></div>')
-                $where = (@(Get-ConnectorCheckoutCandidates $c.Checkout) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ' or '
-                $ghUrl = 'https://github.com/' + (& $e $c.Repo)
-                [void]$sb.AppendLine('<p class="sub">' + $b.Word + ' &#183; ' + (& $e $c.Visibility) + ' &#183; checkout ' + $where +
-                    ' &#183; <a class="cd-link" href="' + $ghUrl + '">GitHub</a> &#183; <code>connectors/' + (& $e $c.File) + '</code></p>')
-                if ($c.Git -and $c.Git.Subject) {
-                    [void]$sb.AppendLine('<p class="meta" style="white-space: normal">Last commit on ' + (& $e $c.Git.Trunk) + ' ' + (& $e $c.Git.When) + ': ' + (& $e $c.Git.Subject) + '</p>')
-                }
-                [void]$sb.AppendLine('<div class="cd-plugins">')
-                foreach ($p in @($c.Plugins)) {
-                    $n = @($p.Extensions).Count
-                    [void]$sb.AppendLine('<span><code>' + (& $e $p.Id) + '</code> &#183; ' + $n + ' lens' + $(if ($n -ne 1) { 'es' } else { '' }) + '</span>')
-                }
-                [void]$sb.AppendLine('</div>')
-                $drift = Format-DashboardDrift $c.Drift
-                if ($drift) { [void]$sb.AppendLine('<p class="meta" style="white-space: normal">' + $drift + '</p>') }
-                $shown =@($c.Signals | Where-Object { $_.Level -eq 'ERROR' -or $_.Level -eq 'INFO' -or $_.Level -eq 'SKIP' })
-                if ($shown.Count) {
-                    [void]$sb.AppendLine('<ul class="cd-signals">')
-                    foreach ($s in $shown) {
-                        $cls = switch ($s.Level) { 'ERROR' { 'badge--bad' } 'INFO' { 'badge--warn' } default { 'badge--neutral' } }
-                        $mk = switch ($s.Level) { 'ERROR' { '!' } 'INFO' { 'i' } default { '-' } }
-                        $who = if ($s.Plugin) { '<code>' + (& $e $s.Plugin) + '</code> ' } else { '' }
-                        [void]$sb.AppendLine('<li><span class="badge badge--sm ' + $cls + '" aria-label="' + $s.Level + '">' + $mk + '</span><span>' + $who + (& $e $s.Text) + '</span></li>')
-                    }
-                    [void]$sb.AppendLine('</ul>')
-                } elseif ($c.Present) {
-                    $nOk = @($c.Signals | Where-Object { $_.Level -eq 'OK' }).Count
-                    [void]$sb.AppendLine('<p class="note">All ' + $nOk + ' checks pass.</p>')
-                }
-                if ($c.Notes) {
-                    [void]$sb.AppendLine('<details class="more"><summary>Register notes</summary><div class="cd-notes">' + (& $e $c.Notes) + '</div></details>')
-                }
-                [void]$sb.AppendLine('</section>')
-            }
+            foreach ($c in $members) { [void]$sb.Append((Format-ConnectorRepoMiniCardHtml -Connector $c)) }
             [void]$sb.AppendLine('</div>')
             [void]$sb.AppendLine('</section>')
             [void]$sb.AppendLine('</div>')
@@ -618,6 +625,6 @@ function Format-ConnectorDashboardHtml {
     # Where the data comes from, with the way to read it again: the refresh comes back to this same page.
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
     $back = if ($groupDef) { 'connectors/' + $Group } else { 'connectors' }
-    [void]$sb.Append((Format-ConnectorPageEnd -FooterHtml ('Read from <code>check-connectors.ps1</code>, checked ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=' + $back + '">re-run the check</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.' + $(if ($SectionFooterNote) { ' ' + $SectionFooterNote } else { '' }))))
+    [void]$sb.Append((Format-ConnectorPageEnd -FooterHtml ('Read from <code>check-connectors.ps1</code>, checked ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=' + $back + '">re-run the check</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.')))
     return $sb.ToString()
 }

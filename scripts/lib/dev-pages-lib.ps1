@@ -654,30 +654,37 @@ function Get-DkjRepoRows {
     return @{ Rows = $rows; ByRepo = $byRepo }
 }
 
-function Format-DkjRepoCardHtml {
+function Format-DkjRepoFactsHtml {
     <#
-        One DKJ repo's card: its description, visibility, open issues and PRs, last push and GitHub link, and --
-        where it is checked out here -- its branch, state and the session command to copy. -Href makes the h3 a
-        link to the repo's own page (/connectors/dkj/<name>); without it the card has no h3, as on that page,
-        whose h1 already names the repo. The GitHub links are built from owner/name, never from the answer's url
-        field (Sebastian, #3231).
+        A DKJ repo's GitHub facts as one line of the caller's markup: its visibility, its open issues and PRs (each
+        a link where there are any), the day of its last push. Shared by its card on /connectors/dkj and the Repo
+        card on its own page. The links are built from owner/name, never from the answer's url field (Sebastian,
+        #3231).
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$Row, [AllowNull()]$Checkout, [AllowEmptyString()][string]$Href = '')
+    param([Parameter(Mandatory = $true)][hashtable]$Row)
     $e = { param($v) ConvertTo-DashboardText $v }
-    $r = $Row
-    $url = 'https://github.com/' + (& $e $r.Repo)
+    $url = 'https://github.com/' + (& $e $Row.Repo)
     $count = { param($n, $path, $noun) if ($null -eq $n) { '-- ' + $noun } elseif ($n -gt 0) { '<a class="dr-link" href="' + $url + $path + '">' + $n + '</a> ' + $noun } else { '0 ' + $noun } }
     $facts = @()
-    if ($r.Visibility) { $facts += (& $e $r.Visibility) }
-    $facts += (& $count $r.Issues '/issues' 'issues')
-    $facts += (& $count $r.Pulls '/pulls' 'PRs')
-    if ($r.PushedAt -match '^(\d{4}-\d{2}-\d{2})') { $facts += $Matches[1] }
-    $facts += '<a class="dr-link" href="' + $url + '">GitHub</a>'
+    if ($Row.Visibility) { $facts += (& $e $Row.Visibility) }
+    $facts += (& $count $Row.Issues '/issues' 'issues')
+    $facts += (& $count $Row.Pulls '/pulls' 'PRs')
+    if ($Row.PushedAt -match '^(\d{4}-\d{2}-\d{2})') { $facts += $Matches[1] }
+    return ($facts -join ' &middot; ')
+}
+
+function Format-DkjRepoCardHtml {
+    <#
+        The Repo card on a DKJ repo's own page: its description, its GitHub facts (Format-DkjRepoFactsHtml) and
+        link, and -- where it is checked out here -- its branch, state and the session command to copy. The page's
+        h1 names the repo, so the card has no title of its own.
+    #>
+    param([Parameter(Mandatory = $true)][hashtable]$Row, [AllowNull()]$Checkout)
+    $e = { param($v) ConvertTo-DashboardText $v }
     $sb = New-Object System.Text.StringBuilder
-    [void]$sb.Append('<section class="card dr-card">')
-    if ($Href) { [void]$sb.Append('<h3><a href="' + (& $e $Href) + '">' + (& $e $r.Name) + '</a></h3>') }
-    if ($r.Description) { [void]$sb.Append('<p class="dr-desc" title="' + (& $e $r.Description) + '">' + (& $e $r.Description) + '</p>') }
-    [void]$sb.Append('<p class="dr-line">' + ($facts -join ' &middot; ') + '</p>')
+    [void]$sb.Append('<section class="card dr-card grid__full">')
+    if ($Row.Description) { [void]$sb.Append('<p class="dr-desc" title="' + (& $e $Row.Description) + '">' + (& $e $Row.Description) + '</p>') }
+    [void]$sb.Append('<p class="dr-line">' + (Format-DkjRepoFactsHtml -Row $Row) + ' &middot; <a class="dr-link" href="https://github.com/' + (& $e $Row.Repo) + '">GitHub</a></p>')
     if ($Checkout) {
         $state = if ($Checkout.Dirty) { [string]$Checkout.Dirty + ' uncommitted' } else { 'clean' }
         $cmd = Format-RepoSessionCommand -Path ([string]$Checkout.Path)
@@ -691,17 +698,9 @@ function Format-DkjRepoCardHtml {
 }
 
 function Get-DkjRepoCardStyle {
-    <# The repo layer for the DKJ repo cards (.dr-*), on /connectors/dkj and on a repo's own page. #>
+    <# The repo layer for the DKJ pages (.dr-*): the Repo card's lines and the session command. #>
     return (@(
         '.dr-link { color: var(--primary); text-underline-offset: 2px; }',
-        '.dr-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--spacing-4); }',
-        '@media (max-width: 1000px) { .dr-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }',
-        '@media (max-width: 760px) { .dr-grid { grid-template-columns: 1fr; } }',
-        '.dr-grid > .grid__head, .dr-grid > .msg { grid-column: 1 / -1; }',
-        '.dr-grid > .msg { margin: 0; }',
-        '.dr-grid > .card { margin-top: 0; }',
-        '.dr-card > h3 { margin: 0 0 var(--spacing-1); }',
-        '.dr-card > h3 a { color: inherit; text-decoration: none; }',
         '.dr-card > p { margin: 0; }',
         '.dr-card > p + p { margin-top: var(--spacing-1); }',
         # A card's lines in the Stopwatch card's sizes: the description one muted line ending in an ellipsis, its
@@ -714,16 +713,69 @@ function Get-DkjRepoCardStyle {
     ) -join "`n")
 }
 
+function Format-DkjReposPageHtml {
+    <#
+        /connectors/dkj (Maikel, October 28, 2026): one card per DKJ repo, in the hub's card form three to a row
+        (Format-HubCardLinkHtml), each opening that repo's own page (Format-DkjRepoPageHtml). Newest push first: the
+        repos GitHub lists, then every checkout it did not (Get-DkjRepoRows), so the page never hides a folder on
+        disk. A card's line is its GitHub facts, its value its checkout here, and its mark the status
+        check-connectors.ps1 gives it where it is registered under connectors/.
+        -Query is ConvertFrom-DkjRepoQuery's result, -Checkouts Find-DkjCheckouts' list, -Connectors the
+        register's repos (Format-ConnectorDashboardHtml's -Connectors), -Meta @{ GeneratedAt; Seconds } of the
+        GitHub read and -CheckMeta that of the register's, with its CheckFailed.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][hashtable]$Query,
+        [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Checkouts,
+        [AllowEmptyCollection()][object[]]$Connectors = @(),
+        [Parameter(Mandatory = $true)][hashtable]$Meta,
+        [hashtable]$CheckMeta = @{}
+    )
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $set = Get-DkjRepoRows -Query $Query -Checkouts $Checkouts
+    $byConnector = @{}
+    foreach ($c in @($Connectors | Where-Object { $_ })) { $byConnector[([string]$c.Repo).ToLowerInvariant()] = $c }
+
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.Append((Format-ConnectorPageStart -PageName 'DKJ repos' -Trail @(@{ Href = '/connectors'; Label = 'Connectors' }) -Style (Get-DkjRepoCardStyle)))
+    if ($Query.Error) {
+        [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">GitHub could not be read: ' + (& $e $Query.Error) + '. The checkouts on this machine are shown without their issues.</p>')
+    }
+    if ($CheckMeta.CheckFailed) {
+        [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">check-connectors.ps1 could not be run: ' + (& $e $CheckMeta.CheckFailed) + '. The cards are shown without their status.</p>')
+    }
+    [void]$sb.AppendLine('<div class="grid-3" id="repos">')
+    foreach ($r in @($set.Rows)) {
+        $co = $set.ByRepo[$r.Repo]
+        $value = if ($co) { '<code>' + (& $e $co.Branch) + '</code> ' + $(if ($co.Dirty) { [string]$co.Dirty + ' uncommitted' } else { 'clean' }) } else { 'Not checked out here' }
+        $reg = $byConnector[([string]$r.Repo).ToLowerInvariant()]
+        $badge = if ($reg) { $b = Get-DashboardStatusBadge ([string]$reg.Status); '<span class="badge ' + $b.Class + '" title="' + $b.Word + '" aria-label="' + $b.Word + '">' + $b.Mark + '</span>' } else { '' }
+        $id = 'repo-' + (([string]$r.Name) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
+        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/dkj/' + $r.Name) -Label ([string]$r.Name) -SubHtml (Format-DkjRepoFactsHtml -Row $r) -ValueHtml $value -BadgeHtml $badge -Heading 2 -Id $id))
+    }
+    [void]$sb.AppendLine('</div>')
+    if (-not @($set.Rows).Count) { [void]$sb.AppendLine('<p class="note">No DKJ-Solutions repo was found, on GitHub or beside this repo.</p>') }
+    $nArch = @(@($Query.Archived) | Where-Object { $_ -and -not $set.ByRepo.ContainsKey($_) }).Count
+    if ($nArch) { [void]$sb.AppendLine('<p class="note">' + $nArch + ' archived repo' + $(if ($nArch -ne 1) { 's are' } else { ' is' }) + ' left out.</p>') }
+
+    $secs = { param($m) if ($null -ne $m.Seconds) { ' in ' + ([double]$m.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' } }
+    $checked = if ($CheckMeta.GeneratedAt) { ' The status is read from <code>check-connectors.ps1</code>, checked ' + (& $e $CheckMeta.GeneratedAt) + (& $secs $CheckMeta) + '.' } else { '' }
+    [void]$sb.Append((Format-ConnectorPageEnd -FooterHtml ('Read with one <code>gh api graphql</code> call and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + (& $secs $Meta) + '.' + $checked + ' (<a class="cd-link" href="/refresh?page=connectors/dkj">read again</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.')))
+    return $sb.ToString()
+}
+
 function Format-DkjRepoPageHtml {
     <#
         A DKJ repo's own page, /connectors/dkj/<name> (Maikel, October 28, 2026): the trail Home > Connectors > DKJ
-        repos > the repo, its card (Format-DkjRepoCardHtml, without a title), and its Lenses card
-        (Format-RepoLensesCardHtml, which the server hands in as -LensesHtml and -LensesStyle). -Meta is
-        @{ GeneratedAt; Seconds } of the read behind the card.
+        repos > the repo, and three cards -- Repo (Format-DkjRepoCardHtml), Connector (what check-connectors.ps1
+        reports for it, Format-ConnectorRepoMiniCardHtml, or that it is not registered under connectors/) and Lenses
+        (Format-RepoLensesCardHtml, which the server hands in as -LensesHtml and -LensesStyle). -Connector is its
+        entry in the register or $null; -Meta is @{ GeneratedAt; Seconds } of the GitHub read.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Row,
         [AllowNull()]$Checkout,
+        [AllowNull()]$Connector,
         [AllowEmptyString()][string]$LensesHtml = '',
         [AllowEmptyString()][string]$LensesStyle = '',
         [Parameter(Mandatory = $true)][hashtable]$Meta
@@ -734,55 +786,24 @@ function Format-DkjRepoPageHtml {
     [void]$sb.Append((Format-ConnectorPageStart -PageName ([string]$Row.Name) -Trail @(@{ Href = '/connectors'; Label = 'Connectors' }, @{ Href = '/connectors/dkj'; Label = 'DKJ repos' }) -Style $style))
     [void]$sb.AppendLine('<div class="grid-2" id="repo">')
     [void]$sb.AppendLine('<div class="grid__head"><h2>Repo</h2><p class="card__sub">' + (& $e $Row.Repo) + '</p></div>')
-    [void]$sb.AppendLine(((Format-DkjRepoCardHtml -Row $Row -Checkout $Checkout) -replace '^<section class="card dr-card">', '<section class="card dr-card grid__full">'))
+    [void]$sb.AppendLine((Format-DkjRepoCardHtml -Row $Row -Checkout $Checkout))
+    [void]$sb.AppendLine('</div>')
+    [void]$sb.AppendLine('<div class="grid-2" id="connector">')
+    if ($Connector) {
+        $b = Get-DashboardStatusBadge ([string]$Connector.Status)
+        [void]$sb.AppendLine('<div class="grid__head"><h2>Connector</h2><p class="card__sub">' + $b.Word + '</p></div>')
+        [void]$sb.AppendLine('<section class="card grid__full">')
+        [void]$sb.Append((Format-ConnectorRepoMiniCardHtml -Connector $Connector))
+    } else {
+        [void]$sb.AppendLine('<div class="grid__head"><h2>Connector</h2><p class="card__sub">Not registered</p></div>')
+        [void]$sb.AppendLine('<section class="card grid__full">')
+        [void]$sb.AppendLine('<p class="note">Not registered under <code>connectors/</code>, so <code>check-connectors.ps1</code> does not check it.</p>')
+    }
+    [void]$sb.AppendLine('</section>')
     [void]$sb.AppendLine('</div>')
     if ($LensesHtml) { [void]$sb.Append($LensesHtml) }
     [void]$sb.AppendLine((Get-CopyButtonScript))
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
     [void]$sb.Append((Format-ConnectorPageEnd -FooterHtml ('Read with one <code>gh api graphql</code> call and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=connectors/dkj/' + (& $e $Row.Name) + '">read again</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.')))
     return $sb.ToString()
-}
-
-function Format-DkjReposSectionHtml {
-    <#
-        The DKJ repos on GitHub (#3231), as a section of the DKJ group's connector page (#3549): the old
-        /dkj-repos page and /connectors/dkj both covered the DKJ repos under one title, so the cards moved onto
-        the connector page, between its Connected repos table and its Issues card. Returns @{ Html; Style;
-        FooterNote } for Format-ConnectorDashboardHtml's -Section* parameters.
-        -Query is ConvertFrom-DkjRepoQuery's result; -Checkouts is Find-DkjCheckouts' list; -Meta is
-        @{ GeneratedAt; Seconds }. A checkout whose repo GitHub did not list (the query failed, a repo outside
-        the first hundred, or an archived one, marked so) still gets its card, so the page never hides a
-        folder on disk.
-    #>
-    param(
-        [Parameter(Mandatory = $true)][hashtable]$Query,
-        [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Checkouts,
-        [Parameter(Mandatory = $true)][hashtable]$Meta
-    )
-    $e = { param($v) ConvertTo-DashboardText $v }
-    $set = Get-DkjRepoRows -Query $Query -Checkouts $Checkouts
-    $rows = $set.Rows; $byRepo = $set.ByRepo
-
-    # One card per repo, newest push first, in the Stopwatch overview's three-column grid (the owner, October 26,
-    # 2026): no tiles and no table, and a checkout's session command in its own repo's card rather than a list of
-    # its own. Its h2 heads the grid as Connected repos and Issues head theirs. The server starts nothing (#3231).
-    $body = New-Object System.Text.StringBuilder
-    [void]$body.AppendLine('<div class="dr-grid" id="repos">')
-    [void]$body.AppendLine('<div class="grid__head"><h2>On GitHub</h2><p class="card__sub">Every DKJ-Solutions repo, its checkout here, and a session to open there</p></div>')
-    if ($Query.Error) {
-        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">GitHub could not be read: ' + (& $e $Query.Error) + '. The checkouts on this machine are shown without their issues.</p>')
-    }
-    # Each card's title opens the repo's own page, which holds its Lenses (Maikel, October 28, 2026).
-    foreach ($r in $rows) { [void]$body.AppendLine((Format-DkjRepoCardHtml -Row $r -Checkout $byRepo[$r.Repo] -Href ('/connectors/dkj/' + $r.Name))) }
-    [void]$body.AppendLine('</div>')
-    $nArch = @(@($Query.Archived) | Where-Object { $_ -and -not $byRepo.ContainsKey($_) }).Count
-    if ($nArch) { [void]$body.AppendLine('<p class="note">' + $nArch + ' archived repo' + $(if ($nArch -ne 1) { 's are' } else { ' is' }) + ' left out.</p>') }
-    if (-not $byRepo.Count) { [void]$body.AppendLine('<p class="note">No DKJ-Solutions checkout was found beside this repo.</p>') }
-    [void]$body.AppendLine((Get-CopyButtonScript))
-
-    $style = Get-DkjRepoCardStyle
-    $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
-    # The page's one refresh link re-reads both, so this note names its source and time and offers no link of its own.
-    return @{ Html = $body.ToString(); Style = $style
-              FooterNote = 'On GitHub: read with one <code>gh api graphql</code> call and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + $secs + '.' }
 }
