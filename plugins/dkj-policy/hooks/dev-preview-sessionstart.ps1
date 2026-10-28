@@ -47,11 +47,11 @@
 
     THE OUTPUT is SessionStart JSON with BOTH systemMessage (shown to the owner, so the links are clickable
     in the terminal) and additionalContext (the session knows the URLs too), ONE line, in one of these forms:
-      no product      Hub: <hub> (started|already running) -- this repo states no Get-DevPreview yet[; route ...]
-      with a product  Hub: <hub> -- product: <url> (started|already running[, LISTENING ON ALL INTERFACES ...])
-      product failed  Hub: <hub> -- product not started: <why>
-      OwnHub          Hub: <repo's own url> (started|already running[...])   -- as before #3245
-      OwnHub+Product  Hub: <repo's own url> (...) -- product: <url> (started|already running) | product not started: <why>
+      no product      Toolbox: <hub> (started|already running) -- this repo states no Get-DevPreview yet[; route ...]
+      with a product  Toolbox: <hub> -- product: <url> (started|already running[, LISTENING ON ALL INTERFACES ...])
+      product failed  Toolbox: <hub> -- product not started: <why>
+      OwnHub          Toolbox: <repo's own url> (started|already running[...])   -- as before #3245
+      OwnHub+Product  Toolbox: <repo's own url> (...) -- product: <url> (started|already running) | product not started: <why>
 
     WHAT KEEPS A DKJ-SOLUTIONS REPO FROM FOLLOWING A HUB CHANGE (#3463) is appended to the product and OwnHub
     forms, from Get-DevPreviewDriftClauses: '-- own hub (OwnHub): hub releases do not reach it' as a plain fact (not in

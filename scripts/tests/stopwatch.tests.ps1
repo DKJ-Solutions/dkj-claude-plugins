@@ -259,8 +259,8 @@ Assert-True ($twinSlugs.Count -eq 2 -and $twinSlugs[0] -ne $twinSlugs[1] -and $t
 
 Write-Host '-- the page' -ForegroundColor Cyan
 $page = Format-StopwatchPageHtml -Model $m -StorePath 'C:\x\stopwatch.json' -Now (& $at 5065)
-Assert-True ($page -match 'aria-current="page">Stopwatch</span>' -and $page -match '<li><a href="/hub">Home</a></li>') 'the page has the house shell and its crumb back to the hub'
-Assert-True ((Format-StopwatchPageHtml -Model $m -StorePath 's' -HubHref '/' -RepoName 'dkj-claude-plugins') -match '<li><a href="/">Home</a></li>') 'a hub that answers Home itself passes its own -HubHref, as the source repo''s does (#3470)'
+Assert-True ($page -match 'aria-current="page">Stopwatch</span>' -and $page -match '<li><a href="/hub">Tools</a></li>') 'the page has the house shell and its crumb back to the hub'
+Assert-True ((Format-StopwatchPageHtml -Model $m -StorePath 's' -HubHref '/' -RepoName 'dkj-claude-plugins') -match '<li><a href="/">Tools</a></li>') 'a hub that answers Home itself passes its own -HubHref, as the source repo''s does (#3470)'
 Assert-True ($page -notmatch 'class="lead"|Runs recorded|id="now"|class="sw-clock') 'the overview is bare: no lead, tiles or Now section above the cards'
 Assert-True (([regex]::Matches($page, 'id="hub-banner"')).Count -eq 1 -and $page.IndexOf('id="hub-banner"') -lt $page.IndexOf('<h1>')) 'but it carries the airsquats banner once, above the first heading, as every hub page does (#3356)'
 Assert-True ($page.IndexOf('<h1>') -lt $page.IndexOf('card--link')) 'it opens on its heading, then the cards'
@@ -283,7 +283,7 @@ Assert-True ($rel -match 'until the release notes of the cut are committed\.') '
 Write-Host '-- the label page' -ForegroundColor Cyan
 $labs = (@(Get-StopwatchLabelSets -Model $m) | ForEach-Object { Format-StopwatchLabelPageHtml -Set $_ -StorePath 'C:\x\stopwatch.json' -Now (& $at 5065) }) -join "`n"
 $lab = Format-StopwatchLabelPageHtml -Set $cssLabel -StorePath 's'
-Assert-True ($lab -match '<li><a href="/hub">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/clock">Clock</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">CSS comment</span></li>') 'the trail reads Home, Clock, Stopwatch (linking /stopwatch), then the label'
+Assert-True ($lab -match '<li><a href="/hub">Tools</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/clock">Clock</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">CSS comment</span></li>') 'the trail reads Tools, Clock, Stopwatch (linking /stopwatch), then the label'
 Assert-True ($lab -notmatch 'class="lead"' -and ([regex]::Matches($lab, 'id="hub-banner"')).Count -eq 1 -and $lab.IndexOf('id="hub-banner"') -lt $lab.IndexOf('<h1>')) 'it is bare like the overview, and carries the banner once, above its heading'
 Assert-Equal 'CSS comment' (([regex]::Matches($lab, '<h1>([^<]+)</h1>') | ForEach-Object { $_.Groups[1].Value }) -join '|') 'it opens with an h1, the label, and has no other h1 (the owner, October 25, 2026: a page always begins with an h1)'
 Assert-True ($lab -notmatch '<h2>') 'and a label that is not pinned has no h2 under it'
@@ -382,7 +382,7 @@ Assert-True ($broken -match 'could not be read') 'a store that does not read say
 Write-Host '-- the run page (#3323)' -ForegroundColor Cyan
 $lp = Format-StopwatchRunPageHtml -Group (Find-StopwatchGroup -Model $m -Slug (& $stampAt 3000)) -StorePath 's'
 Assert-True ($lp -match ('<h1>' + [regex]::Escape((& $sp 3000)) + '</h1><p class="card__sub">CSS comment</p>') -and ([regex]::Matches($lp, '<h1>')).Count -eq 1 -and ([regex]::Matches($lp, 'id="hub-banner"')).Count -eq 1 -and $lp.IndexOf('id="hub-banner"') -lt $lp.IndexOf('<h1>')) 'a run''s page is named by its start, its label beneath, and carries the banner once, above its heading (#3356)'
-Assert-True ($lp -match ('<li><a href="/hub">Home</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/clock">Clock</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">' + [regex]::Escape((& $sp 3000)) + '</span></li>')) 'the trail reads Home, Clock, Stopwatch (linking /stopwatch), then the run''s start'
+Assert-True ($lp -match ('<li><a href="/hub">Tools</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/clock">Clock</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">' + [regex]::Escape((& $sp 3000)) + '</span></li>')) 'the trail reads Tools, Clock, Stopwatch (linking /stopwatch), then the run''s start'
 $lpLabel = Format-StopwatchRunPageHtml -Group (Find-StopwatchGroup -Model $m -Slug (& $stampAt 3000)) -StorePath 's' -LabelCrumb
 Assert-True ($lpLabel -match ('<a href="/stopwatch">Stopwatch</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><a href="/stopwatch/css-comment">CSS comment</a></li>\s*<li><span class="breadcrumbs__sep"[^>]*>.*?</span><span aria-current="page">' + [regex]::Escape((& $sp 3000)) + '</span></li>')) 'with -LabelCrumb the trail passes the run''s label page on the way to the run'
 Assert-True ($lpLabel -match ('<h1>' + [regex]::Escape((& $sp 3000)) + '</h1></div>')) 'with -LabelCrumb the label is not said again beneath the heading'
