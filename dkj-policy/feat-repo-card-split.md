@@ -41,17 +41,27 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Split `Format-DkjRepoCardHtml` into a GitHub card and a This machine card, side by side in the `grid-2`
+- [x] Drop the `Repo` group head and the description; each card carries its own `h2`
+- [x] Every fact one line: a detail follows its value after a dot, cut off with an ellipsis, whole on hover
+- [x] `.dr-card { min-width: 0; }` so the pair never scrolls the page sideways (house-style cause filed as #3614)
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` green (482 passed), asserts updated for the two cards, the h2s and the one-line facts
+- [x] The owner looked at the page on the dev server and gave the go-ahead ("goed genoeg zo. Ship it")
+
 ### DEPLOY: feat/repo-card-split
 
-**Score:**
+A DKJ repo's own page in the hub (`/connectors/dkj/<name>`) no longer shows one wide Repo card. It shows two cards side by side, each titled with its own `h2`. **GitHub** holds visibility, open issues and PRs, the last push and the link. **This machine** holds the register check's status, the checkout, the last commit, the plugins, the checks, the drift, the manifest, the findings and the session command. The description line and the `Repo` group head are gone. Every fact now sits on one line: the last commit reads `<age> · <subject>`, cut off with an ellipsis, with the whole text on hover. A `min-width: 0` on the cards keeps the pair from widening the page into a horizontal scroll. The underlying `.grid-2` track shape is filed as #3614.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the hub is this repo's own dev server, so nobody who takes a release sees this page.
+
+**Score:** N/A
 
 #### Pull Request
 
