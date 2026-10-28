@@ -39,19 +39,32 @@
 
 ### PLAN
 
+#3616: the `.grid__head` comment in `house-style.css` still called the no-h2-in-a-card rule a hard rule. #3430
+repaired the `.card__head` comment only, so this is a second site, not a regression. Reword it to the
+README's current rule.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: the `.grid__head` comment states the grouping form, h3 under a group heading, and an
+  h2 allowed on a card that stands on its own
 
 ### TEST
 
+- [x] Comment-only: no rule or value changed, and nothing else in the house style restates the retired rule
+
 ### DEPLOY: fix/3616-grid-head-h2-comment
 
-**Score:**
+The `.grid__head` comment in `house-style.css` no longer calls the retired no-h2-in-a-card rule a hard rule.
+It now matches the house-style README: an `h2` heads a group of cards, and a card standing on its own may be
+titled by an `h2` (#3616).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
