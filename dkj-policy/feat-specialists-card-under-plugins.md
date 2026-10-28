@@ -64,7 +64,7 @@ visible result, so the branch waits for the owner's look before it merges.
 
 - [x] `dev-pages.tests.ps1`: 478 passed, 0 failed; `connector-dashboard.tests.ps1`: 236 passed, 0 failed
 - [x] `check-plugin-integrity.ps1`: 0 errors
-- [ ] The owner has looked at `/` and `/plugins` on the product server
+- [x] The owner has looked at the product server's pages and said "ship it" (Maikel, October 28, 2026)
 
 ### DEPLOY: feat/specialists-card-under-plugins
 
