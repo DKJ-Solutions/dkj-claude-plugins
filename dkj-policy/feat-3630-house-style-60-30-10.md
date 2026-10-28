@@ -44,18 +44,13 @@ The owner's 60-30-10 grouping (#3630), as revised the same day: Paper is the 60%
 take that added a per-theme `--accent` as the 10% was withdrawn when the owner revised the model; it is kept as
 a patch outside the tree, not on this branch.
 
-#### Waiting on the owner
-
-The owner is still weighing the grouping ("ik zit hier nog even over na te denken"), so this branch is not
-shipped until they confirm it.
-
 ### CREATE
 
 - [x] README: the 60-30-10 table (Paper 60, Primary 30, Text 10) at the head of "What it holds"
 
 ### TEST
 
-- [ ] the owner confirms the grouping
+- [x] the owner confirms the grouping ("ship it", October 28, 2026)
 
 ### DEPLOY: feat/3630-house-style-60-30-10
 
