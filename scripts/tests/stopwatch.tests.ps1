@@ -10,6 +10,7 @@ $ErrorActionPreference = 'Continue'
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 . (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1')
 . (Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\stopwatch-lib.ps1')
+. (Join-Path $RepoRoot 'scripts\lib\fixture-git-lib.ps1')
 
 $script:pass = 0
 $script:fail = 0
@@ -562,7 +563,105 @@ try {
     Remove-Item -LiteralPath $tdir -Recurse -Force -ErrorAction SilentlyContinue
 }
 
+Write-Host '-- prepared labels: a card ahead of its run' -ForegroundColor Cyan
+Assert-Equal 'Release Cut' (ConvertTo-StopwatchLabel -Text "  Release`tCut  ") 'a label is normalised as a prompt''s is: control characters as spaces, trimmed'
+Assert-True ((ConvertTo-StopwatchLabel -Text ('x' * 200)).Length -eq 80 -and (ConvertTo-StopwatchLabel -Text '  ') -eq '') 'cut at the label maximum, and nothing left is empty'
+Assert-Equal (Get-StopwatchPromptMarker -Prompt "stopwatch: `tRelease`tCut ") (ConvertTo-StopwatchLabel -Text "`tRelease`tCut ") 'a prepared label and the prompt marker normalise alike'
+$pdir = Join-Path ([System.IO.Path]::GetTempPath()) ('stopwatch-prep-' + [guid]::NewGuid().ToString('N'))
+try {
+    $pHook = Join-Path $RepoRoot 'plugins\dkj-policy\hooks\stopwatch-hook.ps1'
+    $pPrep = Join-Path $RepoRoot 'plugins\dkj-policy\hub\pages\stopwatch-prepare.ps1'
+    $ps = Join-Path $pdir 'a\stopwatch.json'
+    $prep = { param([string[]]$a) $o = & powershell -NoProfile -ExecutionPolicy Bypass -File $pPrep -StorePath $ps -RepoRoot $RepoRoot @a 2>&1; $script:prepExit = $LASTEXITCODE; $o }
+    $o = & $prep @('-Label', 'release cut')
+    $s = Read-StopwatchStore -Path $ps
+    Assert-True ($script:prepExit -eq 0 -and @($s.Prepared).Count -eq 1 -and $s.Prepared[0].Label -eq 'release cut' -and $s.Prepared[0].PreparedAt -and @($s.Runs).Count -eq 0) 'the prepare script adds the label and no run'
+    $o = & $prep @('-Label', 'Release Cut')
+    Assert-True (@((Read-StopwatchStore -Path $ps).Prepared).Count -eq 1) 'preparing the same label again, in other case, adds nothing: idempotent'
+    $longLabel = 'x' * 200
+    $o = & $prep @('-Label', $longLabel)
+    $long = @((Read-StopwatchStore -Path $ps).Prepared | Where-Object { $_.Label.Length -gt 20 })
+    Assert-True ($long.Count -eq 1 -and $long[0].Label.Length -eq 80) 'an over-long label is capped at 80 when stored'
+    $o = & $prep @('-Label', '   ')
+    Assert-True ($script:prepExit -eq 1 -and @((Read-StopwatchStore -Path $ps).Prepared).Count -eq 2) 'an empty label is refused and writes nothing'
+    $o = & $prep @('-Label', 'nothing here', '-Remove')
+    Assert-True ($script:prepExit -eq 0 -and @((Read-StopwatchStore -Path $ps).Prepared).Count -eq 2) 'withdrawing a label that is not prepared is a no-op'
+    $o = & $prep @('-Label', $longLabel, '-Remove')
+    Assert-True (@((Read-StopwatchStore -Path $ps).Prepared).Count -eq 1) '-Remove withdraws, the over-long label by its capped form too'
+
+    # Every writer keeps a prepared label it is not about (Save-StopwatchStore writes `prepared` only when passed).
+    $seedRun = @{ Id = 'p1'; Label = 'Seed'; Start = (& $at 0); End = (& $at 5); Auto = $true; StartHead = 'x' }
+    $survives = { param($path) @((Read-StopwatchStore -Path $path).Prepared | Where-Object { $_.Label -eq 'release cut' }).Count -eq 1 }
+    $o = & $prep @('-Label', 'other card')
+    Assert-True ((& $survives $ps) -and @((Read-StopwatchStore -Path $ps).Prepared).Count -eq 2) 'the prepare script keeps the other prepared labels when it adds one'
+    $o = & $prep @('-Label', 'other card', '-Remove')
+    Assert-True ((& $survives $ps) -and @((Read-StopwatchStore -Path $ps).Prepared).Count -eq 1) 'and when it withdraws one'
+    Save-StopwatchStore -Path $ps -Runs @($seedRun) -Prepared (Read-StopwatchStore -Path $ps).Prepared
+    # Prompt path: a prompt for a DIFFERENT label starts its run and keeps the prepared entry.
+    $o = '{"prompt":"stopwatch: Something else\nbody"}' | & powershell -NoProfile -ExecutionPolicy Bypass -File $pHook -Hook Prompt -StorePath $ps 2>&1
+    $s = Read-StopwatchStore -Path $ps
+    Assert-True ($LASTEXITCODE -eq 0 -and @($s.Runs | Where-Object { $_.Label -eq 'Something else' }).Count -eq 1 -and (& $survives $ps)) 'a prompt for another label starts its run and keeps the prepared card (hook Prompt writer)'
+    # Prompt path: the matching label, in other case, drops its entry.
+    $o = '{"prompt":"stopwatch: Release Cut\nbody"}' | & powershell -NoProfile -ExecutionPolicy Bypass -File $pHook -Hook Prompt -StorePath $ps 2>&1
+    $s = Read-StopwatchStore -Path $ps
+    Assert-True ($LASTEXITCODE -eq 0 -and @($s.Prepared).Count -eq 0 -and @($s.Runs | Where-Object { $_.Label -eq 'Release Cut' -and -not $_.End }).Count -eq 1) 'the prompt "stopwatch: Release Cut" starts the run and removes the prepared "release cut"'
+    # Stop path, in a throwaway git repo on main: a prepared label survives the write that ends the run.
+    $gr = Join-Path $pdir 'repo'
+    [void](New-Item -ItemType Directory -Path $gr -Force)
+    Invoke-FixtureGitIn $gr init -q -b main
+    Invoke-FixtureGitIn $gr -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m init
+    $ss = Join-Path $pdir 'stop\stopwatch.json'
+    $stopRun = @{ Id = 's1'; Label = 'Going'; Start = (& $at 0); End = $null; Auto = $true; StartHead = '0000000000000000000000000000000000000000' }
+    Save-StopwatchStore -Path $ss -Runs @($stopRun) -Prepared @(@{ Label = 'release cut'; PreparedAt = (& $at 1) })
+    $o = & powershell -NoProfile -ExecutionPolicy Bypass -File $pHook -Hook Stop -StorePath $ss -RepoRoot $gr 2>&1
+    $s = Read-StopwatchStore -Path $ss
+    Assert-True ($LASTEXITCODE -eq 0 -and $s.Runs[0].End -and (& $survives $ss)) 'a Stop that ends the run keeps the prepared card (hook Stop writer)'
+    # Unreadable store: refused, untouched.
+    $bad = Join-Path $pdir 'bad\stopwatch.json'
+    [void](New-Item -ItemType Directory -Path (Split-Path $bad) -Force)
+    [System.IO.File]::WriteAllText($bad, '{ not json')
+    $o = & powershell -NoProfile -ExecutionPolicy Bypass -File $pPrep -StorePath $bad -RepoRoot $RepoRoot -Label 'x' 2>&1
+    Assert-True ($LASTEXITCODE -eq 1 -and (Get-Content -LiteralPath $bad -Raw) -eq '{ not json' -and -not (Test-Path "$bad.tmp")) 'the prepare script refuses an unreadable store and writes nothing'
+    [System.IO.File]::WriteAllText($bad, '{"runs":[],"prepared":[{"label":"A b","preparedAt":"2026-10-23T10:00:00.000Z"},{"label":"a B"},{"label":"  "},null]}')
+    $rp = Read-StopwatchStore -Path $bad
+    Assert-True (@($rp.Prepared).Count -eq 1 -and $rp.Prepared[0].Label -eq 'A b') 'reading drops a duplicate (any case), an empty and a null prepared entry'
+} finally {
+    Remove-Item -LiteralPath $pdir -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host '-- prepared labels: the overview and the label page' -ForegroundColor Cyan
+$prepM = ConvertTo-StopwatchModel -Runs @() -Prepared @(@{ Label = 'release cut'; PreparedAt = (& $at 0) })
+$prepPage = Format-StopwatchPageHtml -Model $prepM -StorePath 's' -HubHref '/hub' -RepoName 'r'
+Assert-True ($prepPage -match 'Ready, not started' -and $prepPage -match 'href="/stopwatch/release-cut"' -and $prepPage -match '<code>stopwatch: release cut</code>' -and $prepPage -notmatch 'data-start=') 'a prepared-only label has a "Ready, not started" card telling the prompt, and no clock'
+$withRun = ConvertTo-StopwatchModel -Runs @((& $mk 'Release cut' 0 100)) -Prepared @(@{ Label = 'release cut'; PreparedAt = (& $at 0) })
+$wrPage = Format-StopwatchPageHtml -Model $withRun -StorePath 's' -HubHref '/hub' -RepoName 'r'
+Assert-True ($wrPage -notmatch 'Ready, not started' -and $wrPage -match '<span class="sw-time num">1:40</span>' -and ([regex]::Matches($wrPage, 'href="/stopwatch/release-cut"')).Count -eq 1) 'a prepared label that already has runs shows its normal card, once'
+$pSet = Find-StopwatchLabel -Model $prepM -Slug 'release-cut'
+Assert-True ($null -ne $pSet -and $pSet.Prepared) 'the label page of a prepared-only label resolves (not a 404)'
+$pLab = Format-StopwatchLabelPageHtml -Set $pSet -StorePath 's'
+Assert-True ($pLab -match 'Ready, not started: no clock is running' -and $pLab -notmatch 'The first one sets the baseline') 'and says it is prepared and not started'
+$evilM = ConvertTo-StopwatchModel -Runs @() -Prepared @(@{ Label = '<script>x</script>'; PreparedAt = (& $at 0) })
+$evilP = Format-StopwatchPageHtml -Model $evilM -StorePath 's' -HubHref '/hub' -RepoName 'r'
+Assert-True ($evilP -notmatch '<script>x</script>' -and $evilP -match '&lt;script&gt;x&lt;/script&gt;') 'an HTML-bearing prepared label is escaped on the overview'
+$evilL = Format-StopwatchLabelPageHtml -Set (Find-StopwatchLabel -Model $evilM -Slug 'script-x-script') -StorePath 's'
+Assert-True ($evilL -notmatch '<script>x</script>' -and $evilL -match '&lt;script&gt;') 'and on its label page'
+# Through the router, over a temp store.
+. (Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\timing-pages.ps1')
+$rdir = Join-Path ([System.IO.Path]::GetTempPath()) ('stopwatch-route-' + [guid]::NewGuid().ToString('N'))
+try {
+    $rs = Join-Path $rdir 'stopwatch.json'
+    Save-StopwatchStore -Path $rs -Runs @() -Prepared @(@{ Label = 'release cut'; PreparedAt = (& $at 0) })
+    $ctx = New-HubTimingContext -RepoRoot $RepoRoot -RepoName 'r' -StopwatchPath $rs -LogbookPath (Join-Path $rdir 'logbook.json') -TranscriptDir (Join-Path $rdir 't')
+    $r1 = Resolve-HubTimingPage -Path '/stopwatch/release-cut' -Context $ctx
+    $r0 = Resolve-HubTimingPage -Path '/stopwatch' -Context $ctx
+    $r2 = Resolve-HubTimingPage -Path '/stopwatch/not-prepared' -Context $ctx
+    Assert-True ($r1.Status -eq 200 -and $r0.Status -eq 200 -and $r0.Html -match 'Ready, not started' -and $r2.Status -eq 404) 'routed: the prepared label''s page is 200, the overview shows its card, an unknown slug is still 404'
+} finally {
+    Remove-Item -LiteralPath $rdir -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 Write-Host ''
+$fixtureBroken = Write-FixtureGitSummary -Subject 'stopwatch.ps1'
 Write-Host "stopwatch: $script:pass passed, $script:fail failed"
-if ($script:fail -gt 0) { exit 1 }
+if ($script:fail -gt 0 -or $fixtureBroken) { exit 1 }
 exit 0

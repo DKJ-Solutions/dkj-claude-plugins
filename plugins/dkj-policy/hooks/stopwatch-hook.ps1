@@ -70,7 +70,8 @@ try {
     $running = @($store.Runs | Where-Object { -not $_.End }) | Select-Object -Last 1
     if ($Hook -eq 'Prompt' -and $raw.Trim()) { try { $prompt = [string]($raw | ConvertFrom-Json).prompt } catch { $prompt = '' } }
     # Nothing to decide, so no git: a Prompt needs the marker; a Stop an Auto run going.
-    if ($Hook -eq 'Prompt' -and $null -eq (Get-StopwatchPromptMarker -Prompt $prompt)) { exit 0 }
+    $marker = $null
+    if ($Hook -eq 'Prompt') { $marker = Get-StopwatchPromptMarker -Prompt $prompt; if ($null -eq $marker) { exit 0 } }
     if ($Hook -eq 'Stop' -and (-not $running -or -not $running.Auto)) { exit 0 }
 
     $trunk = 'main'
@@ -102,7 +103,10 @@ try {
     $r = Invoke-StopwatchHookEvent -Hook $Hook -Runs $store.Runs -Now ([datetime]::UtcNow) -Branch $branch -Clean $clean -Head $head -Trunk $trunk -Prompt $prompt -Commits $commits
     if ($r.Changed) {
         if ($store.Skipped) { Copy-Item -LiteralPath $StorePath -Destination "$StorePath.bak" -Force -ErrorAction SilentlyContinue }
-        Save-StopwatchStore -Path $StorePath -Runs $r.Runs
+        # The prepared labels are kept, less the one this prompt just started a run for (the run carries the card now).
+        $prepared = @($store.Prepared)
+        if ($Hook -eq 'Prompt') { $prepared = @($prepared | Where-Object { $_.Label -ine $marker }) }
+        Save-StopwatchStore -Path $StorePath -Runs $r.Runs -Prepared $prepared
         # A run that ended is shared with the other machines (#3349), in a process of its own so the turn never
         # waits on the network. Not when the tests pass a store of their own: a test must never push.
         if ($Hook -eq 'Stop' -and $ownStore) {

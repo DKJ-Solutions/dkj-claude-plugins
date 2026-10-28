@@ -208,7 +208,7 @@ function Remove-StopwatchHiddenFromStore {
     if (-not $erased.Count) { return @{ Erased = @(); Error = '' } }
     if ($store.Skipped) { return @{ Erased = @(); Error = "the store holds $($store.Skipped) run(s) that do not parse" } }
     if ((& $readText) -cne $text) { return @{ Erased = @(); Error = '' } }
-    Save-StopwatchStore -Path $StorePath -Runs $kept
+    Save-StopwatchStore -Path $StorePath -Runs $kept -Prepared $store.Prepared
     return @{ Erased = $erased; Error = '' }
 }
 
