@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**4 / 7 minor entries** <!-- pending-tally -->
+**4 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3620-report-orphan-hub-processes · 20261028-215705Z
+
+A session now starts with a line naming every hub server and `dev-preview-watch` process that has outlived
+the run that started it, with its memory and the `Stop-Process` line that ends it
+([#3620](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3620)). `tidy-machine` lists the same
+thing as its lane 13. One killed gate had left 26 such processes holding about 2.3 GB, and nothing said
+so. The healthy session hub is left alone, and nothing is stopped for you.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+name every hub process that outlived the run that started it, at session start and in tidy-machine
+
+Plugins: dkj-policy
+
+[PR #3634](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3634)
+
+---
 
 ### DEPLOY: fix/3614-grid-2-minmax-tracks · 20261028-214803Z
 
