@@ -2,7 +2,36 @@
 
 ## [Unreleased]
 
-**0 / 1 patch entry** <!-- pending-tally -->
+**1 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3619-merge-on-green-actions-read · 20261028-160541Z
+
+The merge-on-green runner that `adopt-ci-floor` places now also grants its job token `actions: read`
+([#3619](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3619)). `checks: read` and `statuses: read`
+(#3491) were not enough: `gh pr checks --required` also reads the workflow run behind each check run, so a
+private repo's picker still could not read its required checks and still merged nothing. A re-run of
+`adopt-ci-floor` now names a runner without the scope under `[scope]`. When the required-check read
+fails, the picker now prints the first line of the error instead of only "could not be read".
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+In a private repo, merge-when-green had still never merged anything, and this release is the one that fixes it.
+Add `actions: read` under `permissions:` in `.github/workflows/merge-on-green.yml`, or delete that file and run
+`adopt-ci-floor -Apply` again. A re-run of `adopt-ci-floor` tells you whether your runner needs it.
+
+**Score:** 3
+
+#### Pull Request
+
+merge-on-green: the job token also reads actions, so a private repo's picker can read its required checks
+
+Plugins: dkj-policy
+
+[PR #3624](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3624)
+
+---
 
 ### DEPLOY: fix/3620-suite-servers-owner-watch · 20261028-155416Z
 
