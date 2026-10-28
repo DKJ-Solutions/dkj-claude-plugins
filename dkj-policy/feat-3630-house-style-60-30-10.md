@@ -39,19 +39,41 @@
 
 ### PLAN
 
+The owner's 60-30-10 grouping (#3630), as revised the same day: Paper is the 60%, Primary the 30%, the text
+(`--fg-*`) the 10%. No colour is added; only the grouping is written down, in the house-style README. A first
+take that added a per-theme `--accent` as the 10% was withdrawn when the owner revised the model; it is kept as
+a patch outside the tree, not on this branch.
+
+#### Waiting on the owner
+
+The owner is still weighing the grouping ("ik zit hier nog even over na te denken"), so this branch is not
+shipped until they confirm it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] README: the 60-30-10 table (Paper 60, Primary 30, Text 10) at the head of "What it holds"
 
 ### TEST
 
+- [ ] the owner confirms the grouping
+
 ### DEPLOY: feat/3630-house-style-60-30-10
 
-**Score:**
+The house-style README now reads a theme's colours by the 60-30-10 rule
+([#3630](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3630)): the paper (`--paper-*`) is the 60%,
+the theme's colour (`--primary`, with `--muted`) the 30%, and the text (`--fg-*`) the 10%. No token or value
+changes; it is the grouping a page and a repo layer are held to.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
+House style: read a theme's colours by the 60-30-10 rule (Paper 60, Primary 30, Text 10)
+
+Plugins: dkj-policy

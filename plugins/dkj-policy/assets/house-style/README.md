@@ -73,6 +73,19 @@ that checks the stylesheet's syntax and tokens; the page is the look.
 
 ## What it holds
 
+**A theme's colours are three groups, read by the 60-30-10 rule** (owner, October 28, 2026,
+[#3630](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3630)). It is a grouping of the tokens a theme
+already has, not a new colour:
+
+| Share | Group | Tokens | What it is |
+|---|---|---|---|
+| **60%** | Paper | `--paper-1` … `--paper-4` | the ground: the page, the cards, the lines |
+| **30%** | Primary | `--primary`, with `--muted` (its grey) | the theme's colour: `h1` and `h2`, links, the breadcrumb bar, `.btn--primary`, the states |
+| **10%** | Text | `--fg-1` … `--fg-4` | what sits on the paper: every paragraph, label and quiet icon |
+
+A repo layer keeps to the same shares: what it adds lands in one of the three groups, and a page whose
+primary outweighs its paper has spent the 30% as ground.
+
 **Tokens**, each in light and dark:
 
 | Group | Tokens | Meaning |
