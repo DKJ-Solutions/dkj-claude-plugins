@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**4 / 11 minor entries** <!-- pending-tally -->
+**5 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3643-retire-ownhub · 20261028-232812Z
+
+A repo that ran its own hub through `OwnHub` now gets the plugin's Toolbox at its next session start, its
+own server becoming the product; every other repo sees no change.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo that runs `dkj-policy` now gets the plugin's Toolbox, always in the house style, with no
+opt-out. A repo that still states `OwnHub = $true` (or a `Product` beside it) in `Get-DevPreview` keeps
+working: its server becomes its product on the Toolbox, and in a DKJ-Solutions repo the session line asks
+you to delete those keys. The rule, Toolbox for all and the house style on a product only in DKJ-Solutions
+repos, is in the [hub README](../plugins/dkj-policy/hub/README.md#one-look-in-every-repo).
+
+**Score:** 2
+
+#### Pull Request
+
+Retire OwnHub: every dkj-policy consumer gets the Toolbox, no exceptions
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3644](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3644)
+
+---
 
 ### DEPLOY: fix/3639-stopwatch-h1-above-group · 20261028-231550Z
 
