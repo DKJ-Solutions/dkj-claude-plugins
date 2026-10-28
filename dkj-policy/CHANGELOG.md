@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**5 / 8 minor entries** <!-- pending-tally -->
+**6 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/stopwatch-prepare-card · 20261028-150345Z
+
+The hub's Stopwatch page can now show a card for a label before any run of it exists, with no clock running. A new `stopwatch-prepare` skill (`-Label "release cut"`, `-Remove` to withdraw) puts the label in this machine's Stopwatch store; the `/stopwatch` overview then shows a "Ready, not started" card that tells the reader to send a prompt whose first line is `stopwatch: <label>`, and the label's page opens with the same message. Nothing else changes about how a run starts: it still begins only with that prompt, lands on the prepared card, and the prepared entry is removed. A prepared label is kept on this machine and is not shared with other machines. Older stores read unchanged.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Nobody has to change anything to take it, and no store needs migrating, but every dkj-policy user gets a new skill and a new kind of card on their hub, so it is a feature the user can notice and choose to use, not a pure internal change.
+
+**Score:** 2
+
+#### Pull Request
+
+a Stopwatch card can be prepared before its first run starts
+
+Plugins: dkj-policy
+
+[PR #3623](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3623)
+
+---
 
 ### DEPLOY: fix/3616-grid-head-h2-comment · 20261028-144854Z
 
