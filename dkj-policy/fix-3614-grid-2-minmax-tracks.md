@@ -39,19 +39,38 @@
 
 ### PLAN
 
+#3614: `.grid-2`'s `1fr 1fr` tracks never shrink below a card's min-content, so a nowrap line scrolls
+the page sideways. Use `minmax(0, 1fr)`, as `.grid-3` already does, in the 760px single-column step
+too. The hub's local `.dr-card { min-width: 0; }` workaround lives only on `feat/repo-card-split`, not
+on `main`, so it goes with that branch.
+
+#### Parked for the owner's eye (a sweep, #3552)
+
+Styling, so no PR until the owner has looked: two cards side by side in a `.grid-2`, one with a nowrap line,
+no horizontal scrollbar, at desktop width and below 760px.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: `.grid-2` is `repeat(2, minmax(0, 1fr))`, and the 760px step is `minmax(0, 1fr)`
 
 ### TEST
 
+- [ ] The owner has looked at a `.grid-2` page: no sideways scroll
+
 ### DEPLOY: fix/3614-grid-2-minmax-tracks
 
-**Score:**
+House style: a `.grid-2` row no longer widens the page when one of its cards holds a one-line nowrap
+element such as an ellipsised description or a `code` command. Its tracks now shrink like `.grid-3`'s,
+`minmax(0, 1fr)`, and so does the single column below 760px (#3614).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions app that sets two cards side by side no longer scrolls sideways when one of them holds
+a long single line; a local `min-width: 0` workaround for it can go.
+
+**Score:** 2
 
 #### Pull Request
 
