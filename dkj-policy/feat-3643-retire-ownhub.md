@@ -39,19 +39,46 @@
 
 ### PLAN
 
+Maikel chose option A on October 29, 2026: retire `OwnHub`, so every `dkj-policy` consumer gets the
+plugin's Toolbox with no exceptions, always in the house style. Shape as filed in #3643: a stated `OwnHub`
+or `Product` is ignored, not refused, like `Name` since #3064, and named as config drift.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Hook and rules: `OwnHub` and its `Product` are recorded as stated and otherwise not read; the `ownhub`
+      mode, the second server, its line forms and the OwnHub drift fact go; an old `ownhub` state file
+      reads as `product`
+- [x] Drift: the unread keys (`Name`, `OwnHub`, `Product`) share one defect, so the worst line still ends
+      inside the 300-character cap (measured 316 with one defect per key)
+- [x] General pages server: the 303 to an own hub goes; the setup card no longer offers the opt-out
+- [x] `cut-release.ps1` (both copies): the product's ports are the stated ports
+- [x] Docs: the three-part rule in `hub/README.md`, "One look in every repo"; the house-style README's
+      line 28 sharpened; the `house-style` skill; the stale DEV-PREVIEW sentence in the `dkj-solutions`
+      manifest descriptions (the hook is `dkj-policy`'s since #3198)
 
 ### TEST
 
+- [x] `dev-preview-sessionstart.tests.ps1`: 402 passed, 0 failed, the OwnHub cases rewritten as a retired
+      OwnHub serving its server as the product
+- [x] `dev-pages.tests.ps1` 478 passed, `connector-dashboard.tests.ps1` 236 passed
+
 ### DEPLOY: feat/3643-retire-ownhub
 
-**Score:**
+The hub's opt-out is retired, so the plugin's own hub code loses a mode, a second server and a redirect.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every repo that runs `dkj-policy` now gets the plugin's Toolbox, always in the house style, with no
+opt-out. A repo that still states `OwnHub = $true` (or a `Product` beside it) in `Get-DevPreview` keeps
+working: its server becomes its product on the Toolbox, and in a DKJ-Solutions repo the session line asks
+you to delete those keys. The rule, Toolbox for all and the house style on a product only in DKJ-Solutions
+repos, is in the [hub README](../plugins/dkj-policy/hub/README.md).
+
+**Score:** 2
 
 #### Pull Request
+
+Retire OwnHub: every dkj-policy consumer gets the Toolbox, no exceptions
 
