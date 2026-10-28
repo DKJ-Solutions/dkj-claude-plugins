@@ -525,8 +525,9 @@ function Format-HubGroupPageHtml {
     $g = @(Get-HubGroups | Where-Object { $_.Href -ceq $Href })[0]
     if (-not $g) { return $null }
     $body = New-Object System.Text.StringBuilder
+    # The h1 stands on the page above the group, never inside its surface: the h1 is never framed (owner, October 28, 2026).
+    [void]$body.AppendLine('<div><h1>' + (ConvertTo-GeneralPageText $g.Label) + '</h1></div>')
     [void]$body.AppendLine('<div class="grid-3">')
-    [void]$body.AppendLine('<div class="grid__head"><h1>' + (ConvertTo-GeneralPageText $g.Label) + '</h1></div>')
     foreach ($p in @(Get-GeneralPages | Where-Object { $_.Group -eq $g.Href })) {
         [void]$body.AppendLine((Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon))
     }
@@ -1290,10 +1291,10 @@ function Get-SessionStartSections {
     return @(@($documents) + @(Get-SessionStartSnapshotSections -Snapshot $Snapshot))
 }
 
-# The page layer of the SessionStart pages (names the house file does not define, ss-): the h1 in the overview's grid
-# head, and a card's description held to two lines. The card itself is the house one (Format-HubCardLinkHtml, #3566).
+# The page layer of the SessionStart pages (names the house file does not define, ss-): a card's description held to
+# two lines. The h1 stands above the cards, outside their group (the h1 is never framed, owner, October 28, 2026). The
+# card itself is the house one (Format-HubCardLinkHtml, #3566).
 $script:SessionStartStyle = $script:DevBarStyle + "`n" +
-    '.ss-cards > .grid__head > h1 { margin: 0; }' + "`n" +
     # Two lines at most on a card; the section's page shows the line whole.
     '.ss-card .menu-item__sub { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }'
 
@@ -1338,8 +1339,8 @@ function Format-SessionStartPageHtml {
         $s = @($sections | Where-Object { $_.Slug -ceq $Section }) | Select-Object -First 1
         if (-not $s) { return $null }
         if ($s.Slug -eq 'documents' -and $alert) { [void]$body.AppendLine($alert) }
+        [void]$body.AppendLine('<div><h1>' + (& $e $s.Title) + '</h1><p class="card__sub">' + $s.Sub + '</p></div>')
         [void]$body.AppendLine('<div class="grid-2" id="' + $s.Slug + '">')
-        [void]$body.AppendLine('<div class="grid__head"><h1>' + (& $e $s.Title) + '</h1><p class="card__sub">' + $s.Sub + '</p></div>')
         [void]$body.AppendLine('<section class="card grid__full">')
         [void]$body.Append($s.Body)
         [void]$body.AppendLine('</section>')
@@ -1352,8 +1353,8 @@ function Format-SessionStartPageHtml {
     if ($SnapshotError) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">scripts/dashboard/session-start-snapshot.json could not be read: ' + (& $e $SnapshotError) + '.</p>')
     }
+    [void]$body.AppendLine('<div><h1>SessionStart</h1></div>')
     [void]$body.AppendLine('<div class="grid-3 ss-cards">')
-    [void]$body.AppendLine('<div class="grid__head"><h1>SessionStart</h1></div>')
     foreach ($s in $sections) {
         [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/sessionstart/' + $s.Slug) -Label $s.Title -SubHtml $s.Sub -ValueHtml ('<span class="num">' + $s.Value + '</span>') `
             -Heading 2 -Id $s.Slug -Class 'ss-card'))

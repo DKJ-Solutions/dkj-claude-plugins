@@ -46,21 +46,23 @@ House style: the h1 is never framed -- no border, outline, shadow or background 
 - [x] `house-style.css`: a second `h1` rule clears `border`, `outline`, `box-shadow` and `background`, with its comment
 - [x] `assets/house-style/README.md`: rule 6 under "How to use it", the h1 is never framed
 - [x] `house-style` skill: the same rule under "Density", and the pin table's `house-style.css` checksum follows the file
+- [x] Applied in the hub: the group pages (`/clock` among them) and both SessionStart pages put their `h1` above the card group instead of in its `.grid__head`, since the group has stood on its own `--paper-2` surface since October 28; the dead `.ss-cards > .grid__head > h1` rule goes
 
 ### TEST
 
 - [x] `check-house-style.tests.ps1`: 90 passed, 0 failed (8 failed before the checksum followed the file, as the skill says it must)
 - [x] `house-palette.tests.ps1`: 128 passed, 0 failed
+- [x] `dev-pages` 484/0 (the `/clock` assert now pins the h1 above its group), `dev-preview-sessionstart` 419/0, `stopwatch` 266/0, `connector-dashboard` 235/0
 
 ### DEPLOY: feat/h1-never-framed
 
-A new house-style rule: the `h1` is never framed. `house-style.css` now clears any border, outline, shadow and background on every `h1`. The README (rule 6) and the `house-style` skill state the layout half too: a page's `h1` stands on the page itself, never inside a card, panel or bordered box. A repo whose own layer gave its `h1` a frame through a plain `h1` selector loses that frame when it takes this copy. A rule on a class of the repo's own still wins, and the rule says it must not be written.
+A new house-style rule: the `h1` is never framed. `house-style.css` now clears any border, outline, shadow and background on every `h1`. The README (rule 6) and the `house-style` skill state the layout half too: a page's `h1` stands on the page itself, never inside a card, panel or bordered box. The hub follows it already: its group pages (`/clock` among them) and the SessionStart pages had their `h1` inside the card group's surface, and now set it above the group. A repo whose own layer gave its `h1` a frame through a plain `h1` selector loses that frame when it takes this copy. A rule on a class of the repo's own still wins, and the rule says it must not be written.
 
 **Score:** 2
 
 #### What makes this deploy extra special
 
-Every DKJ-Solutions app takes this the next time it copies the house style. Most pages already keep the `h1` unframed, so few will look different. The rule exists so that no app starts framing it.
+Every DKJ-Solutions app takes this the next time it copies the house style. On the hub, the group pages and the SessionStart pages now show their `h1` above the cards rather than inside the group's surface. The rule exists so that no app starts framing it.
 
 **Score:** 2
 
