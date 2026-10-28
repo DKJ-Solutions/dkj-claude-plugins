@@ -2,7 +2,7 @@
 .SYNOPSIS
     One command for the clutter this workflow leaves on a machine: finished branches, stale lanes,
     abandoned work, expired backups, plugin records naming a checkout or a plugin name that is gone,
-    and leftover fixture trees. It DELETES
+    leftover fixture trees, and hub processes that outlived the run that started them. It DELETES
     only what prune-merged.ps1 can already prove; everything else it classifies and hands over.
 
 .DESCRIPTION
@@ -17,7 +17,7 @@
     proof it does not have is the defect inbound #1191 measured. What was missing was a command that
     NAMES the rest, plus the four kinds of clutter that are not branches at all.
 
-    SO THIS IS A CONDUCTOR, NOT A SECOND IMPLEMENTATION. Six of its twelve lanes are a call into a
+    SO THIS IS A CONDUCTOR, NOT A SECOND IMPLEMENTATION. Seven of its thirteen lanes are a call into a
     script that already exists and is already tested; only six carry new logic, and that logic is pure
     and lives in tidy-lib.ps1. Nothing here re-derives a merge proof, re-reads a worktree list by hand, or
     re-answers a question another script in this repo already answers -- which is the whole of Ravi's
@@ -100,17 +100,17 @@
     it is passed straight through to prune-merged.ps1. Use it the first time on any machine.
 
 .PARAMETER CheckoutOnly
-    Run only the six per-checkout lanes and skip the six machine-wide ones.
+    Run only the six per-checkout lanes and skip the seven machine-wide ones.
 
 .PARAMETER MachineOnly
-    Run only the six machine-wide lanes. Useful when a checkout is mid-flight and you want the
+    Run only the seven machine-wide lanes. Useful when a checkout is mid-flight and you want the
     ~/.claude and scratch answers without anything reading the branch list.
 
     AND IT IS THE ONE MODE THAT RUNS WITHOUT A CHECKOUT AT ALL (issue #1926) -- from a home directory,
     from anywhere. Every other invocation still refuses without one, because the per-checkout lanes have
-    no subject without it. Five of the six lanes here need no repo: lane 7 delegates to a script that
-    already resolves tolerantly, lanes 8, 11 and 12 hand Get-InstallRecord a root only to read a field
-    that does not depend on it, and lane 10 walks the scratch root. The sixth, lane 9, asks how far
+    no subject without it. Six of the seven lanes here need no repo: lanes 7 and 13 delegate to a script
+    that resolves tolerantly or reads no repo, lanes 8, 11 and 12 hand Get-InstallRecord a root only to
+    read a field that does not depend on it, and lane 10 walks the scratch root. The seventh, lane 9, asks how far
     behind THIS CHECKOUT's plugins are, so outside a checkout it is skipped and says so.
 
     This was never the behaviour, despite a fallback that looked like it: the old
@@ -135,6 +135,9 @@
 .PARAMETER ScratchRoot
     (Fixtures) pin the scratch root the fixture-tree lane walks. Defaults to this machine's TEMP.
 
+.PARAMETER ProcessTableJson
+    (Fixtures) the process table lane 13 judges instead of this machine's; see check-hub-processes.ps1.
+
 .EXAMPLE
     ./scripts/maintenance/tidy-machine.ps1 -DryRun
 
@@ -153,7 +156,8 @@ param(
     [double]$MinFixtureAgeHours = 24,
     [string]$Remote = 'origin',
     [string]$UserHomeOverride = '',
-    [string]$ScratchRoot = ''
+    [string]$ScratchRoot = '',
+    [string]$ProcessTableJson = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -922,6 +926,28 @@ if ($runMachine) {
             Write-Item (Get-TidySummaryLine -Lane 'Payload trees' -Reported $ownerless -Untouched ($loaded + $leased)) 'White'
         }
     }
+}
+
+# ===================================================================================================
+# LANE 13 -- hub servers and watchers that outlived the run that started them (#3620).
+#
+# DELEGATED, like lanes 6 and 7: check-hub-processes.ps1 is also what the session check runs, so the two
+# cannot disagree. It REPORTS and hands over a Stop-Process line; a process is not a merge proof, so this
+# run stops none.
+# ===================================================================================================
+
+if ($runMachine) {
+    Write-Lane '13' 'Hub processes that outlived the run that started them -- delegated to check-hub-processes.ps1'
+    $hubCheck = Join-Path $PSScriptRoot '..\lint\check-hub-processes.ps1'
+    if (Test-Path -LiteralPath $hubCheck -PathType Leaf) {
+        $hubArgs = @{}
+        if ($UserHomeOverride) { $hubArgs['UserHomeOverride'] = $UserHomeOverride }
+        if ($ProcessTableJson) { $hubArgs['ProcessTableJson'] = $ProcessTableJson }
+        $hubOut = @(& $hubCheck @hubArgs 6>&1)
+        foreach ($line in $hubOut) { Write-Item ([string]$line).TrimEnd() 'Yellow' }
+        $reportedTotal += @($hubOut | Where-Object { ([string]$_) -match '^\s+\[WARN\] pid ' }).Count
+    }
+    else { Write-Item 'check-hub-processes.ps1 is not present in this repo -- lane skipped.' 'DarkGray' }
 }
 
 # ===================================================================================================

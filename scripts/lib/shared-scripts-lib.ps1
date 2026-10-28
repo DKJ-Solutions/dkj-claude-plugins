@@ -393,7 +393,7 @@ function Get-SharedScriptPairs {
             MeasureArgs = @('-DryRun')
             # Fixture seams, so the suite can drive the machine-wide lanes against a scratch tree. A
             # consumer never types either, and documenting them would invite someone to.
-            SkillParamsExempt = @('UserHomeOverride', 'ScratchRoot')
+            SkillParamsExempt = @('UserHomeOverride', 'ScratchRoot', 'ProcessTableJson')
         },
         @{
             Name   = 'measure-skill'
@@ -1934,6 +1934,21 @@ function Get-SharedScriptPairs {
             # A consumer never types either.
             SkillParamsExempt = @('RootOverride', 'RootDocument')
             # Timeable with no arguments: reads the always-on closure and reports, no write of any kind.
+            MeasureArgs = @()
+        },
+        @{
+            # The orphaned-hub-process check (issue #3620). A gate killed for low memory left 26
+            # suite-started hub servers and watchers holding about 2.3 GB, and nothing reported them.
+            # Its callers are the SessionStart hook hub-processes-sessioncheck.ps1 and tidy-machine's
+            # lane 13. ADVISORY and in no gate: a CI runner has no hub. NO SKILL: both callers are
+            # automatic or already a skill.
+            Name   = 'check-hub-processes'
+            Source = 'scripts\lint\check-hub-processes.ps1'
+            Plugin = 'dkj-policy'
+            Skill  = ''
+            # Fixture seams; a consumer never types either.
+            SkillParamsExempt = @('UserHomeOverride', 'ProcessTableJson')
+            # Timeable with no arguments: one read of the process table, no write of any kind.
             MeasureArgs = @()
         },
         @{

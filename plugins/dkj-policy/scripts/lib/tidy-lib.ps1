@@ -681,6 +681,172 @@ function Get-PayloadTreeVerdict {
     }
 }
 
+function Test-HubProcessAlive {
+    # Is $Id in the process table, and -- where $Ticks is known -- still the process it was? A pid is
+    # reused by the OS, so a match on the number alone could take a stranger for the server. CIM's
+    # CreationDate and Process.StartTime round differently, so a second's slack is allowed.
+    param([hashtable]$Processes, [int]$Id, [long]$Ticks = 0)
+    if ($Id -le 0 -or -not $Processes.ContainsKey($Id)) { return $false }
+    $seen = [long]$Processes[$Id].Ticks
+    if ($Ticks -gt 0 -and $seen -gt 0 -and [Math]::Abs($seen - $Ticks) -gt 10000000) { return $false }
+    return $true
+}
+
+function Get-HubProcessVerdict {
+    <#
+    .SYNOPSIS
+        What one powershell.exe IS, read from its command line: not a hub process, a hub server or
+        watcher that is doing its job, or one that has outlived the run that started it (#3620).
+
+    .DESCRIPTION
+        MEASURED OCTOBER 28, 2026 (#3620): a gate killed for low memory left 26 hub servers and
+        dev-preview-watch processes from the suites it was running, about 2.3 GB, and a watcher from
+        plugin 5.34.0 had outlived its own server by five hours. Nothing reported any of them. #3625
+        tied a suite's servers to the suite; this is the after-the-fact half -- the reading that names
+        what got through anyway.
+
+        THE PARENT IS NOT THE TEST, and that is the one thing the issue's first idea got wrong. The hook
+        starts the session's hub hidden and detached under a cmd.exe and then exits, so EVERY hub
+        server's launcher is gone, the healthy session hub's included -- it is meant to outlive the
+        session for the next one to reuse. So the verdicts read what each process was told instead:
+
+          watcher, -ProcessId ended        'orphan' -- it exits when its server does; still running, it
+                                           missed that (the 5.34.0 case, cause not established)
+          watcher, -OwnerId ended          'orphan' -- the run that started it has ended (#3625)
+          from a cache tree no install
+          record points at                 'stale'  -- a plugin version this machine has moved past
+                                           (never judged without a readable register)
+          server from outside the cache    its watcher's verdict where it has one; otherwise
+          whose launcher ended             'orphan' -- a session's hub runs from the cache, so this is
+                                           a suite's or a hand-run's, and that run is over
+          anything else                    'live'
+
+        A command line that could not be read is 'unreadable': a process in another security context
+        (elevated, or a sandboxed run) hides it, and that is said rather than taken for "not ours".
+
+        PURE: the process table, the install paths and the cache root are all handed in.
+
+    .PARAMETER CommandLine
+        The process's command line, '' where it could not be read.
+
+    .PARAMETER ParentId
+        The process's parent pid.
+
+    .PARAMETER Processes
+        pid -> @{ ParentId; Name; Ticks } for every process on the machine, Ticks the creation time as
+        FILETIME UTC (0 unknown).
+
+    .PARAMETER InstallPaths
+        Every installPath in the install register.
+
+    .PARAMETER CacheRoot
+        ~/.claude/plugins/cache.
+
+    .PARAMETER RegisterRead
+        Was the install register read? Without it no tree can be called stale -- an empty InstallPaths
+        would otherwise make the healthy session hub one.
+
+    .PARAMETER ProcessId
+        The process's own pid. .PARAMETER Ticks its creation time, FILETIME UTC (0 unknown).
+
+    .PARAMETER Watchers
+        Watcher target pid -> that watcher's Class ('live' or 'orphan'), from a first pass over the
+        watchers. A suite's working-tree server is started THROUGH the hook, whose process has exited by
+        then, so its launcher is always gone; its watcher, which carries the suite as -OwnerId, is what
+        knows whether its run still lives.
+    #>
+    param(
+        [AllowEmptyString()][string]$CommandLine = '',
+        [int]$ParentId = 0,
+        [hashtable]$Processes = @{},
+        [string[]]$InstallPaths = @(),
+        [AllowEmptyString()][string]$CacheRoot = '',
+        [bool]$RegisterRead = $true,
+        [int]$ProcessId = 0,
+        [long]$Ticks = 0,
+        [hashtable]$Watchers = @{}
+    )
+
+    if (-not $CommandLine) {
+        return [pscustomobject]@{ Class = 'unreadable'; Kind = ''; Where = ''; Reason = 'its command line cannot be read from here -- another security context.'; Target = 0 }
+    }
+    # ANCHORED TO THE INVOCATION'S SHAPE -- the interpreter, its own -Switch [value] options, then -File and
+    # the script -- so a -Command that merely MENTIONS the script is not taken for one running it.
+    $shape = '^\s*"?[^"]*?\b(?:powershell|pwsh)(?:\.exe)?"?(?:\s+-(?!File\b)[A-Za-z]+(?:\s+[A-Za-z0-9]+)?)*\s+-File\s+"?(?<script>[^"]*?\\(?<kind>serve-general-pages|dev-preview-watch)\.ps1)(?:"|\s|$)'
+    if ($CommandLine -notmatch $shape) {
+        return [pscustomobject]@{ Class = 'not-hub'; Kind = ''; Where = ''; Reason = ''; Target = 0 }
+    }
+    $scriptPath = $Matches['script'].Replace('/', '\')
+    $kind = if ($Matches['kind'] -eq 'dev-preview-watch') { 'watcher' } else { 'server' }
+
+    # WHERE IT RUNS FROM: a cache tree (<cache>\<marketplace>\<plugin>\<version>) or anywhere else. A
+    # command line is foreign text and this label reaches session context, so a segment is named only
+    # where it has the shape of a plugin name or a version; anything else reads as a constant.
+    $tree = ''
+    $where = 'a working tree'
+    $cache = ([string]$CacheRoot).Replace('/', '\').TrimEnd('\')
+    if ($cache -and $scriptPath.StartsWith($cache + '\', [System.StringComparison]::OrdinalIgnoreCase)) {
+        $parts = @($scriptPath.Substring($cache.Length + 1) -split '\\')
+        if ($parts.Count -ge 4) {
+            $tree = $cache + '\' + ($parts[0..2] -join '\')
+            $where = if ($parts[1] -match '^[A-Za-z0-9._-]{1,64}$' -and $parts[2] -match '^[A-Za-z0-9._-]{1,64}$') {
+                "plugin $($parts[1]) $($parts[2])"
+            } else { 'a plugin cache tree' }
+        }
+    }
+
+    $target = 0
+    if ($kind -eq 'watcher') {
+        $targetTicks = 0; $owner = 0; $ownerTicks = 0
+        if ($CommandLine -match '-ProcessId\s+(\d{1,9})\b') { $target = [int]$Matches[1] }
+        if ($CommandLine -match '-StartTicks\s+(\d{1,18})\b') { $targetTicks = [long]$Matches[1] }
+        if ($CommandLine -match '-OwnerId\s+(\d{1,9})\b') { $owner = [int]$Matches[1] }
+        if ($CommandLine -match '-OwnerStartTicks\s+(\d{1,18})\b') { $ownerTicks = [long]$Matches[1] }
+        if ($target -gt 0 -and -not (Test-HubProcessAlive -Processes $Processes -Id $target -Ticks $targetTicks)) {
+            return [pscustomobject]@{ Class = 'orphan'; Kind = $kind; Where = $where; Reason = 'the server it watches has ended, and it should have ended with it.'; Target = $target }
+        }
+        if ($owner -gt 0 -and -not (Test-HubProcessAlive -Processes $Processes -Id $owner -Ticks $ownerTicks)) {
+            return [pscustomobject]@{ Class = 'orphan'; Kind = $kind; Where = $where; Reason = 'the run that started it has ended.'; Target = $target }
+        }
+    }
+
+    if ($tree) {
+        $owned = -not $RegisterRead
+        foreach ($ip in @($InstallPaths)) {
+            if ($ip -and ([string]$ip).Replace('/', '\').TrimEnd('\') -ieq $tree) { $owned = $true; break }
+        }
+        if (-not $owned) {
+            return [pscustomobject]@{ Class = 'stale'; Kind = $kind; Where = $where; Reason = 'it runs from a plugin version no install record points at any more.'; Target = $target }
+        }
+        return [pscustomobject]@{ Class = 'live'; Kind = $kind; Where = $where; Reason = ''; Target = $target }
+    }
+
+    if ($kind -eq 'server') {
+        # ITS WATCHER DECIDES WHERE IT HAS ONE: it watches the cmd.exe the server runs under (or the
+        # server itself), and knows the run it is tied to.
+        foreach ($id in @($ParentId, $ProcessId)) {
+            if ($id -gt 0 -and $Watchers.ContainsKey($id)) {
+                if ([string]$Watchers[$id] -eq 'orphan') {
+                    return [pscustomobject]@{ Class = 'orphan'; Kind = $kind; Where = $where; Reason = 'the run its watcher was tied to has ended.'; Target = 0 }
+                }
+                return [pscustomobject]@{ Class = 'live'; Kind = $kind; Where = $where; Reason = ''; Target = 0 }
+            }
+        }
+        # Otherwise the launcher: the parent, or -- where the parent is the cmd.exe a server is wrapped
+        # in -- that cmd.exe's parent. One born after the server is a reused pid, not the launcher.
+        $launcher = $ParentId
+        if ($Processes.ContainsKey($launcher) -and ([string]$Processes[$launcher].Name) -ieq 'cmd.exe') {
+            $launcher = [int]$Processes[$launcher].ParentId
+        }
+        $alive = Test-HubProcessAlive -Processes $Processes -Id $launcher
+        if ($alive -and $Ticks -gt 0 -and [long]$Processes[$launcher].Ticks -gt $Ticks) { $alive = $false }
+        if (-not $alive) {
+            return [pscustomobject]@{ Class = 'orphan'; Kind = $kind; Where = $where; Reason = 'the run that started it has ended -- a session''s hub runs from the plugin cache, so this was a suite''s or a hand-run''s.'; Target = 0 }
+        }
+    }
+    return [pscustomobject]@{ Class = 'live'; Kind = $kind; Where = $where; Reason = ''; Target = $target }
+}
+
 function Get-TidySummaryLine {
     <#
     .SYNOPSIS
