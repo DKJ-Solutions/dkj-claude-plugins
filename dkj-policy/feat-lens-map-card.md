@@ -78,5 +78,5 @@ N/A: a page of this repo's own dev server, which no consumer runs.
 
 #### Pull Request
 
-Specialist lenses card on /connectors: what every checkout's lenses hold
+A page per DKJ repo on /connectors/dkj, holding what its specialist lenses say
 
