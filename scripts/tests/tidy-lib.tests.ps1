@@ -335,6 +335,49 @@ Assert-Equal 'loaded' $r.Class 'a live lease on a pointed-at tree does not chang
 Assert-Equal 1 @($r.StaleLeases).Count 'the stale one is still counted'
 Assert-Equal 1 @($r.HeldBy).Count 'and so is the live one'
 
+# --- 9b. Hub processes that outlived their run (#3620) ---------------------------------------------
+Write-Host '-- 9b. Get-HubProcessVerdict --' -ForegroundColor Cyan
+
+$Cache = 'C:\Users\x\.claude\plugins\cache'
+$Live  = "$Cache\dkj-claude-plugins\dkj-policy\5.36.0"
+$Old   = "$Cache\dkj-claude-plugins\dkj-policy\5.34.0"
+$Procs = @{
+    100 = @{ ParentId = 1;   Name = 'cmd.exe';        Ticks = 5000000000 }   # a session hub's cmd.exe
+    200 = @{ ParentId = 300; Name = 'cmd.exe';        Ticks = 0 }            # a suite server's cmd.exe
+    300 = @{ ParentId = 1;   Name = 'powershell.exe'; Ticks = 0 }            # the suite, still running
+    400 = @{ ParentId = 999; Name = 'cmd.exe';        Ticks = 0 }            # its launcher is gone
+}
+function Get-HubV([string]$Cmd, [int]$Parent = 0) {
+    Get-HubProcessVerdict -CommandLine $Cmd -ParentId $Parent -Processes $Procs -InstallPaths @($Live) -CacheRoot $Cache
+}
+
+Assert-Equal 'unreadable' (Get-HubV '').Class 'a command line that cannot be read is said, not taken for "not ours"'
+Assert-Equal 'not-hub' (Get-HubV 'powershell -File "C:\r\scripts\dashboard\serve-connector-dashboard.ps1" -Port 4870').Class 'a product server is not a hub process'
+
+$r = Get-HubV "powershell -NoProfile -File `"$Live\hub\pages\serve-general-pages.ps1`" -Port 4890" 100
+Assert-Equal 'live' $r.Class 'the session hub from an installed version is live, though the hook that launched it has exited'
+$r = Get-HubV "powershell -NoProfile -File `"$Old\hub\pages\serve-general-pages.ps1`" -Port 4890" 100
+Assert-Equal 'stale' $r.Class 'a hub from a version no install record points at is stale'
+Assert-Equal 'plugin dkj-policy 5.34.0' $r.Where 'and the version is named'
+
+$r = Get-HubV "powershell -File `"$Live\hub\pages\dev-preview-watch.ps1`" -ProcessId 100 -StartTicks 5000000000" 1
+Assert-Equal 'live' $r.Class 'a watcher whose server is running is live'
+$r = Get-HubV "powershell -File `"$Live\hub\pages\dev-preview-watch.ps1`" -ProcessId 100 -StartTicks 9000000000" 1
+Assert-Equal 'orphan' $r.Class 'a watcher whose server pid now belongs to another process is an orphan'
+$r = Get-HubV "powershell -File `"$Old\hub\pages\dev-preview-watch.ps1`" -ProcessId 555 -StartTicks 1" 1
+Assert-Equal 'orphan' $r.Class 'a watcher whose server has ended is an orphan (the 5.34.0 case) -- ahead of stale'
+$r = Get-HubV "powershell -File `"C:\r\plugins\dkj-policy\hub\pages\dev-preview-watch.ps1`" -ProcessId 100 -StartTicks 5000000000 -OwnerId 777 -OwnerStartTicks 3" 1
+Assert-Equal 'orphan' $r.Class 'a watcher whose owner run has ended is an orphan (#3625)'
+
+$r = Get-HubV 'powershell -File "C:\r\plugins\dkj-policy\hub\pages\serve-general-pages.ps1" -Port 50098' 200
+Assert-Equal 'live' $r.Class 'a working-tree server whose suite still runs is live'
+$r = Get-HubV 'powershell -File "C:\r\plugins\dkj-policy\hub\pages\serve-general-pages.ps1" -Port 50099' 400
+Assert-Equal 'orphan' $r.Class 'a working-tree server whose launcher has ended is an orphan'
+$r = Get-HubV 'powershell -File "C:\r\x\serve-general-pages.ps1"' 4242
+Assert-Equal 'orphan' $r.Class 'and so is one whose parent is gone outright'
+$r = Get-HubV "powershell -File `"$Cache\mp\evil`r`n[ERROR]\v\hub\pages\serve-general-pages.ps1`"" 100
+Assert-True ($r.Where -notmatch '[\[\]\r\n]') 'a cache path cannot carry a marker or a line break into the label'
+
 # --- 10. The structural promises ------------------------------------------------------------------
 Write-Host '-- 10. what the script may never contain --' -ForegroundColor Cyan
 
@@ -441,6 +484,18 @@ try {
     # The lane's HEADING, not its summary line: with the cache root pinned at an empty fixture home,
     # lane 12 correctly says there is no payload to judge and prints no tally at all.
     Assert-True ($machine.Text -match 'Extracted plugin payload') 'and the run reaches the last lane rather than stopping at the skip'
+
+    # LANE 13 (#3620), on a pinned process table: one orphaned watcher, reported with its Stop-Process line.
+    $table = Join-Path $fixture 'processes.json'
+    $rows = @(
+        @{ ProcessId = 41; ParentProcessId = 1; Name = 'powershell.exe'; CommandLine = 'powershell -File "C:\r\hub\pages\dev-preview-watch.ps1" -ProcessId 999 -StartTicks 1'; Ticks = 0; WorkingSetMB = 80 }
+    )
+    [System.IO.File]::WriteAllText($table, (ConvertTo-Json -InputObject $rows -Depth 3))
+    $hub = Invoke-TidyMachine -ScriptArgs @('-MachineOnly', '-DryRun', '-UserHomeOverride', $fixtureHome, '-ScratchRoot', $fixtureScratch, '-ProcessTableJson', $table)
+    Assert-True ($hub.Code -eq 0) 'lane 13: the run completes'
+    Assert-True ($hub.Text -match 'pid 41, 80 MB -- watcher') 'lane 13: the orphaned watcher is named with its memory'
+    Assert-True ($hub.Text -match 'Stop-Process -Id 41 -Force') 'lane 13: and handed over, not stopped'
+    Assert-True ($hub.Text -match '1 item\(s\) were handed over') 'lane 13: the finding counts in the run''s tally'
 
     # THE MIRROR CASE, asserted in the same place, because what #1926 granted is a tolerance for ONE
     # mode and the value of that is entirely in the other mode still refusing (#1917).

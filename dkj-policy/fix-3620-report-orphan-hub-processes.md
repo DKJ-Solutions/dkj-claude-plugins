@@ -39,19 +39,46 @@
 
 ### PLAN
 
+#3620's second half. #3625 tied a suite's servers to the suite; what is still missing is something that
+REPORTS a hub process that has outlived the run that started it, which the owner asked to be watched far
+better to save memory. One check script, `check-hub-processes.ps1`, judged by a pure verdict in
+`tidy-lib.ps1`, run by a new SessionStart check and by a new `tidy-machine` lane 13. A missing parent is
+not the test, because the healthy session hub has none either; the verdict reads each process's own
+command line. It reports and stops nothing. The 5.34.0 watcher's cause is not established here; such a
+watcher is now named (its server has ended).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `tidy-lib.ps1`: `Get-HubProcessVerdict` (orphan watcher, owner gone, stale cache version, working-tree
+  server whose launcher ended, unreadable command line)
+- [x] `scripts/lint/check-hub-processes.ps1`: reads the process table once, reports each finding with its
+  memory and a `Stop-Process` line, and counts the processes it cannot read
+- [x] `hooks/hub-processes-sessioncheck.ps1`: runs that check at session start, through the dispatcher
+- [x] `tidy-machine.ps1`: lane 13 delegates to the same check
+- [x] Registered in `shared-scripts-lib.ps1`, mirrored, listed in the scripts README and the skill page
 
 ### TEST
 
+- [x] `tidy-lib.tests.ps1`: thirteen verdict asserts, and a lane-13 run on a pinned process table
+- [x] The session check by hand on a fixture table (report shown, `[INFO]` left out) and on this machine
+- [x] `check-plugin-integrity.ps1` 0 errors; `shared-scripts`, `sessioncheck-dispatch`, `tidy-lib` suites green
+
 ### DEPLOY: fix/3620-report-orphan-hub-processes
 
-**Score:**
+A session now starts with a line naming every hub server and `dev-preview-watch` process that has outlived
+the run that started it, with its memory and the `Stop-Process` line that ends it
+([#3620](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3620)). `tidy-machine` lists the same
+thing as its lane 13. One killed gate had left 26 such processes holding about 2.3 GB, and nothing said
+so. The healthy session hub is left alone, and nothing is stopped for you.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
+name every hub process that outlived the run that started it, at session start and in tidy-machine

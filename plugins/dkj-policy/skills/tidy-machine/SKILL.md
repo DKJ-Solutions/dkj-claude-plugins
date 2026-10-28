@@ -1,19 +1,20 @@
 ---
 name: tidy-machine
 description: >-
-  Clear the clutter this workflow leaves behind on a machine, in one command and twelve lanes: finished
+  Clear the clutter this workflow leaves behind on a machine, in one command and thirteen lanes: finished
   branches, stale worktree lanes, branches whose pull request was CLOSED without merging, expired
   backup branches, old stashes, an unfolded changelog entry, the ~/.claude plugin administration,
   install records pointing at a checkout that is gone or naming a plugin the marketplace has retired,
-  plugin/marketplace staleness, extracted plugin payload no install record points at any more, and
-  fixture trees under the scratch root. It DELETES only what
+  plugin/marketplace staleness, extracted plugin payload no install record points at any more,
+  fixture trees under the scratch root, and hub servers and watchers that outlived the run that
+  started them. It DELETES only what
   prune-merged can already prove -- an ancestor of the trunk, or a tip that is the head commit of a
   merged PR -- and everything else it classifies and hands over with the command, paste-ready. Use it when branches have piled up, as the closing tidy-up
   of a working session, when a lane worktree has outlived its branch, or when you want to know which
   of the trees under your temp directory belong to runs that have ended.
 ---
 
-# tidy-machine -- the whole-machine tidy, in twelve lanes
+# tidy-machine -- the whole-machine tidy, in thirteen lanes
 
 `prune-merged` answers one question extremely well: **was this branch merged?** This command answers
 the ones next to it, and calls `prune-merged` for that one rather than re-deciding it.
@@ -84,7 +85,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 | `-MinFixtureAgeHours <n>` | how old a scratch tree must be before its dead pid counts. Default 24 |
 | `-Remote <name>` | the remote `prune-merged` fetches and prunes. Default `origin` |
 
-## The twelve lanes
+## The thirteen lanes
 
 **Per checkout:**
 
@@ -107,8 +108,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scrip
 | 10 | **fixture trees under the scratch root** | attributes -- **never deletes** |
 | 11 | **install records under a plugin name the marketplace has retired** | reports, with the uninstall |
 | 12 | **extracted plugin payload no install record points at** | reports -- **no command, nothing removed** |
+| 13 | **hub servers and watchers that outlived the run that started them** (#3620) | → `check-hub-processes.ps1`; reports, with a `Stop-Process` line -- **stops nothing** |
 
-Six of the twelve are a call into a script that already exists and already has its own suite. Only six
+Seven of the thirteen are a call into a script that already exists and already has its own suite. Only six
 carry new logic, and that logic is pure and lives in `tidy-lib.ps1`, which is what lets its suite drive
 the classifier over states no machine here has ever been in.
 
@@ -123,10 +125,10 @@ cd ~
 powershell -NoProfile -ExecutionPolicy Bypass -File "${CLAUDE_PLUGIN_ROOT}/scripts/maintenance/tidy-machine.ps1" -MachineOnly -DryRun
 ```
 
-**Five of the six lanes need no repo, and that was measured rather than assumed.** Lane 7 delegates to a
-script that already resolves its root tolerantly; lanes 8, 11 and 12 hand `Get-InstallRecord` a root only
+**Six of the seven lanes need no repo, and that was measured rather than assumed.** Lane 7 delegates to a
+script that already resolves its root tolerantly, and lane 13 to one that reads only the process table; lanes 8, 11 and 12 hand `Get-InstallRecord` a root only
 to read the one field of its answer that is not filtered by it; lane 10 walks the scratch root. **The
-sixth is lane 9, and it is the exception**: its question is how far behind *this checkout's* plugins are,
+seventh is lane 9, and it is the exception**: its question is how far behind *this checkout's* plugins are,
 so with no checkout it is skipped by name and says so, rather than being left to refuse inside
 `plugin-versions.ps1` -- where the refusal is worded for somebody who ran that script directly and would
 read, from here, as the whole run having failed.
@@ -271,6 +273,24 @@ grows this pile rather than clearing it.
   under your home, which is the delete primitive `New-ScratchPath` exists to remove
   ([#1659](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1659)). Clear by hand what
   you recognise.
+
+### Lane 13 reads what each hub process was told, not who its parent is (#3620)
+
+Measured October 28, 2026: a gate killed for low memory left 26 suite-started hub servers and
+`dev-preview-watch` processes holding about 2.3 GB, and a watcher from plugin 5.34.0 had outlived its own
+server by five hours. #3625 tied a suite's servers to the suite; this lane names what still gets through.
+
+**A missing parent is not the test**, because the healthy session hub has none either: the SessionStart
+hook starts it detached under a `cmd.exe` and exits, so that it outlives the session for the next one. So
+`Get-HubProcessVerdict` in `tidy-lib.ps1` reads the command line instead. A watcher whose `-ProcessId`
+server or `-OwnerId` run has ended is an orphan. A hub process from a plugin cache version no install
+record points at is stale. A server from outside the cache whose launcher has ended is an orphan, because
+a session's hub runs from the cache. A process whose command line this run cannot read (another security
+context, elevated or sandboxed) is counted and named, never judged.
+
+The same script, `check-hub-processes.ps1`, is what the `hub-processes-sessioncheck` hook runs at every
+session start, so the lane and the session check cannot disagree. It **stops nothing**: a process is not
+a merge proof, so each finding carries its `Stop-Process` line for the reader.
 
 ## What it never touches
 
