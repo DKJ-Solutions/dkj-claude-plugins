@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**3 / 6 minor entries** <!-- pending-tally -->
+**4 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3614-grid-2-minmax-tracks · 20261028-214803Z
+
+House style: a `.grid-2` row no longer widens the page when one of its cards holds a one-line nowrap
+element such as an ellipsised description or a `code` command. Its tracks now shrink like `.grid-3`'s,
+`minmax(0, 1fr)`, and so does the single column below 760px (#3614).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions app that sets two cards side by side no longer scrolls sideways when one of them holds
+a long single line; a local `min-width: 0` workaround for it can go.
+
+**Score:** 2
+
+#### Pull Request
+
+House style: .grid-2 tracks shrink below a card's min-content
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3635](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3635)
+
+---
 
 ### DEPLOY: feat/3630-house-style-60-30-10 · 20261028-171028Z
 
