@@ -701,12 +701,13 @@ function Get-DkjRepoCardStyle {
     <# The repo layer for the DKJ pages (.dr-*): the repo cards' grid and lines, the Repo card's lines and the session command. #>
     return (@(
         '.dr-link { color: var(--primary); text-underline-offset: 2px; }',
-        # /connectors/dkj: four cards to a row, three on a laptop, then the house grids' own two and one.
-        '.dr-repos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--spacing-4); }',
+        # /connectors/dkj: four cards to a row, at most three rows of them (Maikel, October 28, 2026) -- so four
+        # columns hold down to a narrow editor pane, where the VS Code Simple Browser this page is read in sits,
+        # three below that, and one only at phone width.
+        '.dr-repos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--spacing-3); }',
         '.dr-repos > .card { margin-top: 0; }',
-        '@media (max-width: 1280px) { .dr-repos { grid-template-columns: repeat(3, minmax(0, 1fr)); } }',
-        '@media (max-width: 1000px) { .dr-repos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }',
-        '@media (max-width: 760px) { .dr-repos { grid-template-columns: 1fr; } }',
+        '@media (max-width: 720px) { .dr-repos { grid-template-columns: repeat(3, minmax(0, 1fr)); } }',
+        '@media (max-width: 520px) { .dr-repos { grid-template-columns: 1fr; } }',
         # Each card three lines at most: the name, the facts and the checkout each one line, cut off with an ellipsis.
         '.dr-repos h2 { display: block; font-size: var(--text-lg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
         '.dr-clip { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-sm); }',
