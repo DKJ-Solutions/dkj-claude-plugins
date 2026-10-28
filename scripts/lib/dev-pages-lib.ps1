@@ -678,9 +678,9 @@ function Format-DkjRepoFactsHtml {
 function Format-DkjRepoCardHtml {
     <#
         The two cards on a DKJ repo's own page, side by side (Maikel, October 28, 2026: the one Repo card split in
-        two), each the house facts list -- a label on the left, its value on the right, one line each. GitHub: the
-        description above the list, then Visibility, Open issues and Open PRs (links where there are any), Last
-        push and the GitHub link. This machine: Status (the register check's, or Not registered), Checkout, Last
+        two), each titled with an h2 and the house facts list -- a label on the left, its value on the right, one
+        line each. GitHub: Visibility, Open issues and Open PRs (links where there are any), Last push and the
+        GitHub link; no description, which only repeated what the repo is (Maikel, October 28, 2026). This machine: Status (the register check's, or Not registered), Checkout, Last
         commit on its trunk, Plugins (by name, with their lens count where they have any), Checks, Drift where
         there is any, and its manifest; the check's findings under the list, only where there are any; the
         session command to copy last. -Connector is its entry in the register, or $null.
@@ -688,15 +688,21 @@ function Format-DkjRepoCardHtml {
     param([Parameter(Mandatory = $true)][hashtable]$Row, [AllowNull()]$Checkout, [AllowNull()]$Connector)
     $e = { param($v) ConvertTo-DashboardText $v }
     $url = 'https://github.com/' + (& $e $Row.Repo)
-    $fact = { param($term, $valueHtml, $detailHtml) '<div><dt>' + $term + '</dt><dd>' + $valueHtml + $(if ($detailHtml) { '<span class="facts__detail">' + $detailHtml + '</span>' } else { '' }) + '</dd></div>' }
+    # Every fact is one line (Maikel, October 28, 2026): a detail follows its value after a dot instead of on a line of
+    # its own, and a fact that may be cut off by its ellipsis (-Tip, or any with a detail) carries its whole text on hover.
+    $fact = {
+        param($term, $valueHtml, $detailHtml, [switch]$Tip)
+        $v = $valueHtml + $(if ($detailHtml) { ' &middot; ' + $detailHtml } else { '' })
+        $t = if ($Tip -or $detailHtml) { ' title="' + ($v -replace '<[^>]+>', '') + '"' } else { '' }
+        '<div><dt>' + $term + '</dt><dd' + $t + '>' + $v + '</dd></div>'
+    }
     $count = { param($n, $path) if ($null -eq $n) { '--' } elseif ($n -gt 0) { '<a class="dr-link" href="' + $url + $path + '">' + $n + '</a>' } else { '0' } }
-    $head = { param($title) '<div class="card__head"><h3 class="card__title">' + $title + '</h3></div>' }
+    $head = { param($title) '<div class="card__head"><h2>' + $title + '</h2></div>' }
     $b = if ($Connector) { Get-DashboardStatusBadge ([string]$Connector.Status) } else { @{ Class = 'badge--neutral'; Mark = '-'; Word = 'Not registered' } }
 
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<section class="card dr-card">')
     [void]$sb.AppendLine((& $head 'GitHub'))
-    if ($Row.Description) { [void]$sb.AppendLine('<p class="dr-desc" title="' + (& $e $Row.Description) + '">' + (& $e $Row.Description) + '</p>') }
     [void]$sb.AppendLine('<dl class="facts dr-facts">')
     if ($Row.Visibility) { [void]$sb.AppendLine((& $fact 'Visibility' (& $e $Row.Visibility) '')) }
     [void]$sb.AppendLine((& $fact 'Open issues' (& $count $Row.Issues '/issues') ''))
@@ -721,7 +727,7 @@ function Format-DkjRepoCardHtml {
             $n = @($_.Extensions).Count
             (& $e (([string]$_.Id) -replace '@.*$', '')) + $(if ($n) { ' (' + $n + ' lens' + $(if ($n -ne 1) { 'es' } else { '' }) + ')' } else { '' })
         })
-        if ($plugins.Count) { [void]$sb.AppendLine((& $fact 'Plugins' ($plugins -join ', ') '')) }
+        if ($plugins.Count) { [void]$sb.AppendLine((& $fact 'Plugins' ($plugins -join ', ') '' -Tip)) }
         $findings = @(@($Connector.Signals) | Where-Object { $_.Level -eq 'ERROR' -or $_.Level -eq 'INFO' -or $_.Level -eq 'SKIP' })
         $nOk = @(@($Connector.Signals) | Where-Object { $_.Level -eq 'OK' }).Count
         $checks = if ($findings.Count) { [string]$findings.Count + ' finding' + $(if ($findings.Count -ne 1) { 's' } else { '' }) + ', listed below' } elseif ($Connector.Present) { 'All ' + $nOk + ' pass' } else { 'Not run: no checkout here' }
@@ -768,20 +774,18 @@ function Get-DkjRepoCardStyle {
         '.dr-repos h2 { font-size: var(--text-lg); }',
         '.dr-clip { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-sm); }',
         '.dr-clip code { font-size: var(--text-xs); }',
-        # A grid-2 track is 1fr, which never shrinks below what its card holds -- and the description and the session
-        # command are one nowrap line each, wider than half a card, so without this the two cards push the page into
-        # a horizontal scroll (Maikel, October 28, 2026). The lines are cut off with their ellipsis instead.
+        # A grid-2 track is 1fr, which never shrinks below what its card holds -- and the session command is one nowrap
+        # line, wider than half a card, so without this the two cards push the page into a horizontal scroll (Maikel,
+        # October 28, 2026; #3614). The line is cut off with its ellipsis instead.
         '.dr-card { min-width: 0; }',
         '.dr-card > p { margin: 0; }',
-        '.dr-card > p + p { margin-top: var(--spacing-1); }',
-        # Each card's facts list under its head and description, the check's findings under that; a value may wrap
-        # here, since the last commit's subject under its age is a sentence, not a figure. One column of facts: the
-        # two cards stand side by side, which keeps the page as short as the one card's two columns did.
+        # Each card's facts list under its head, the check's findings under that. One column of facts, every fact one
+        # line (Maikel, October 28, 2026): the label keeps its width and the value is cut off with an ellipsis, its
+        # whole text on hover where it can be cut. The two cards stand side by side, which keeps the page short.
         '.dr-card > .dr-facts, .dr-card > .cd-signals { margin-top: var(--spacing-3); }',
-        '.dr-facts dd { min-width: 0; white-space: normal; overflow-wrap: anywhere; }',
-        # A card's lines in the Stopwatch card's sizes: the description one muted line ending in an ellipsis, its
-        # whole text on hover, and the session command likewise, copied whole by its button.
-        '.dr-desc { font-size: var(--text-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+        '.dr-facts dt { flex: none; white-space: nowrap; }',
+        '.dr-facts dd { min-width: 0; overflow: hidden; text-overflow: ellipsis; }',
+        # The session command in the Stopwatch card's sizes: one line ending in an ellipsis, copied whole by its button.
         '.dr-line { font-size: var(--text-sm); }',
         '.dr-muted { color: var(--muted); }',
         '.dr-card > .dr-session { display: flex; align-items: center; gap: var(--spacing-2); margin-top: var(--spacing-3); }',
@@ -848,8 +852,8 @@ function Format-DkjReposPageHtml {
 function Format-DkjRepoPageHtml {
     <#
         A DKJ repo's own page, /connectors/dkj/<name> (Maikel, October 28, 2026): the trail Home > Connectors > DKJ
-        repos > the repo, then the Repo group -- a GitHub card and a This machine card side by side
-        (Format-DkjRepoCardHtml) -- and Lenses (Format-RepoLensesCardHtml, which the server hands in as -LensesHtml and
+        repos > the repo, then a GitHub card and a This machine card side by side, with no group head
+        (Format-DkjRepoCardHtml), and Lenses (Format-RepoLensesCardHtml, which the server hands in as -LensesHtml and
         -LensesStyle). -Connector is its entry in the register or $null; -Meta is @{ GeneratedAt; Seconds } of the
         GitHub read.
     #>
@@ -865,9 +869,8 @@ function Format-DkjRepoPageHtml {
     $sb = New-Object System.Text.StringBuilder
     $style = (Get-DkjRepoCardStyle) + $(if ($LensesStyle) { "`n" + $LensesStyle } else { '' })
     [void]$sb.Append((Format-ConnectorPageStart -PageName ([string]$Row.Name) -Trail @(@{ Href = '/connectors'; Label = 'Connectors' }, @{ Href = '/connectors/dkj'; Label = 'DKJ repos' }) -Style $style))
+    # No group head (Maikel, October 28, 2026): the page's h1 names the repo and each card carries its own h2.
     [void]$sb.AppendLine('<div class="grid-2" id="repo">')
-    # No sub line: the GitHub card's own row names the repo, and the page is to fit one screen.
-    [void]$sb.AppendLine('<div class="grid__head"><h2>Repo</h2></div>')
     [void]$sb.Append((Format-DkjRepoCardHtml -Row $Row -Checkout $Checkout -Connector $Connector))
     [void]$sb.AppendLine('</div>')
     if ($LensesHtml) { [void]$sb.Append($LensesHtml) }
