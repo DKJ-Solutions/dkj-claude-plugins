@@ -678,32 +678,63 @@ function Format-DkjRepoFactsHtml {
 function Format-DkjRepoCardHtml {
     <#
         The Repo card on a DKJ repo's own page: ONE card for the repo and what the register's check says about it
-        (Maikel, October 28, 2026). Its description; a line with its status (the check's, or Not registered), its
-        GitHub facts (Format-DkjRepoFactsHtml), its GitHub link and its manifest; its checkout here; what the check
-        reports (Format-ConnectorRepoDetailsHtml), or that it is not registered under connectors/; and the session
-        command to copy. The page's h1 names the repo, so the card has no title of its own. -Connector is its entry in
-        the register, or $null.
+        (Maikel, October 28, 2026), as the house facts list -- a label on the left, its value on the right, one
+        line each -- rather than loose lines in as many styles. Its description above the list; then Status (the
+        check's, or Not registered), Visibility, Open issues and Open PRs (links where there are any), Last push,
+        Checkout, Last commit on its trunk, Plugins (by name, with their lens count where they have any), Checks,
+        Drift where there is any, and its manifest and GitHub link; the check's findings under the list, only where
+        there are any; the session command to copy last. The page's h1 names the repo, so the card has no title of
+        its own. -Connector is its entry in the register, or $null.
     #>
     param([Parameter(Mandatory = $true)][hashtable]$Row, [AllowNull()]$Checkout, [AllowNull()]$Connector)
     $e = { param($v) ConvertTo-DashboardText $v }
+    $url = 'https://github.com/' + (& $e $Row.Repo)
+    $fact = { param($term, $valueHtml, $detailHtml) '<div><dt>' + $term + '</dt><dd>' + $valueHtml + $(if ($detailHtml) { '<span class="facts__detail">' + $detailHtml + '</span>' } else { '' }) + '</dd></div>' }
+    $count = { param($n, $path) if ($null -eq $n) { '--' } elseif ($n -gt 0) { '<a class="dr-link" href="' + $url + $path + '">' + $n + '</a>' } else { '0' } }
     $b = if ($Connector) { Get-DashboardStatusBadge ([string]$Connector.Status) } else { @{ Class = 'badge--neutral'; Mark = '-'; Word = 'Not registered' } }
+
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<section class="card dr-card grid__full">')
     if ($Row.Description) { [void]$sb.AppendLine('<p class="dr-desc" title="' + (& $e $Row.Description) + '">' + (& $e $Row.Description) + '</p>') }
-    $line = '<span class="cd-status"><span class="badge badge--sm ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span>' + $b.Word + '</span> &middot; ' +
-        (Format-DkjRepoFactsHtml -Row $Row) + ' &middot; <a class="dr-link" href="https://github.com/' + (& $e $Row.Repo) + '">GitHub</a>'
-    if ($Connector) { $line += ' &middot; <code>connectors/' + (& $e $Connector.File) + '</code>' }
-    [void]$sb.AppendLine('<p class="dr-line">' + $line + '</p>')
-    if ($Checkout) {
-        $state = if ($Checkout.Dirty) { [string]$Checkout.Dirty + ' uncommitted' } else { 'clean' }
-        [void]$sb.AppendLine('<p class="dr-line"><code>' + (& $e $Checkout.Branch) + '</code> <span class="dr-muted">' + $state + '</span></p>')
-    } else {
-        [void]$sb.AppendLine('<p class="dr-line dr-muted">Not checked out here</p>')
+    [void]$sb.AppendLine('<dl class="facts dr-facts">')
+    [void]$sb.AppendLine((& $fact 'Status' ('<span class="cd-status"><span class="badge badge--sm ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span>' + $b.Word + '</span>') ''))
+    if ($Row.Visibility) { [void]$sb.AppendLine((& $fact 'Visibility' (& $e $Row.Visibility) '')) }
+    [void]$sb.AppendLine((& $fact 'Open issues' (& $count $Row.Issues '/issues') ''))
+    [void]$sb.AppendLine((& $fact 'Open PRs' (& $count $Row.Pulls '/pulls') ''))
+    if ($Row.PushedAt -match '^(\d{4}-\d{2}-\d{2})') { [void]$sb.AppendLine((& $fact 'Last push' $Matches[1] '')) }
+    $where = if ($Checkout) { '<code>' + (& $e $Checkout.Branch) + '</code> &middot; ' + $(if ($Checkout.Dirty) { [string]$Checkout.Dirty + ' uncommitted' } else { 'clean' }) } else { 'Not checked out here' }
+    [void]$sb.AppendLine((& $fact 'Checkout' $where ''))
+    if ($Connector -and $Connector.Git -and $Connector.Git.Subject) {
+        [void]$sb.AppendLine((& $fact ('Last commit on ' + (& $e $Connector.Git.Trunk)) (& $e $Connector.Git.When) (& $e $Connector.Git.Subject)))
     }
     if ($Connector) {
-        [void]$sb.Append((Format-ConnectorRepoDetailsHtml -Connector $Connector))
+        # A plugin by its name alone: the '@<marketplace>' every id here carries says nothing on this page.
+        $plugins = @(@($Connector.Plugins) | Where-Object { $_ } | ForEach-Object {
+            $n = @($_.Extensions).Count
+            (& $e (([string]$_.Id) -replace '@.*$', '')) + $(if ($n) { ' (' + $n + ' lens' + $(if ($n -ne 1) { 'es' } else { '' }) + ')' } else { '' })
+        })
+        if ($plugins.Count) { [void]$sb.AppendLine((& $fact 'Plugins' ($plugins -join ', ') '')) }
+        $findings = @(@($Connector.Signals) | Where-Object { $_.Level -eq 'ERROR' -or $_.Level -eq 'INFO' -or $_.Level -eq 'SKIP' })
+        $nOk = @(@($Connector.Signals) | Where-Object { $_.Level -eq 'OK' }).Count
+        $checks = if ($findings.Count) { [string]$findings.Count + ' finding' + $(if ($findings.Count -ne 1) { 's' } else { '' }) + ', listed below' } elseif ($Connector.Present) { 'All ' + $nOk + ' pass' } else { 'Not run: no checkout here' }
+        [void]$sb.AppendLine((& $fact 'Checks' $checks ''))
+        $drift = Format-DashboardDrift $Connector.Drift
+        if ($drift) { [void]$sb.AppendLine((& $fact 'Drift' $drift '')) }
+        [void]$sb.AppendLine((& $fact 'Register' ('<code>connectors/' + (& $e $Connector.File) + '</code>') ''))
     } else {
-        [void]$sb.AppendLine('<p class="note">Not registered under <code>connectors/</code>, so <code>check-connectors.ps1</code> does not check it.</p>')
+        [void]$sb.AppendLine((& $fact 'Register' 'Not under <code>connectors/</code>, so not checked' ''))
+    }
+    [void]$sb.AppendLine((& $fact 'GitHub' ('<a class="dr-link" href="' + $url + '">' + (& $e $Row.Repo) + '</a>') ''))
+    [void]$sb.AppendLine('</dl>')
+    if ($Connector -and $findings.Count) {
+        [void]$sb.AppendLine('<ul class="cd-signals">')
+        foreach ($s in $findings) {
+            $cls = switch ($s.Level) { 'ERROR' { 'badge--bad' } 'INFO' { 'badge--warn' } default { 'badge--neutral' } }
+            $mk = switch ($s.Level) { 'ERROR' { '!' } 'INFO' { 'i' } default { '-' } }
+            $who = if ($s.Plugin) { '<code>' + (& $e (([string]$s.Plugin) -replace '@.*$', '')) + '</code> ' } else { '' }
+            [void]$sb.AppendLine('<li><span class="badge badge--sm ' + $cls + '" aria-label="' + $s.Level + '">' + $mk + '</span><span>' + $who + (& $e $s.Text) + '</span></li>')
+        }
+        [void]$sb.AppendLine('</ul>')
     }
     if ($Checkout) {
         $cmd = Format-RepoSessionCommand -Path ([string]$Checkout.Path)
@@ -714,7 +745,7 @@ function Format-DkjRepoCardHtml {
 }
 
 function Get-DkjRepoCardStyle {
-    <# The repo layer for the DKJ pages (.dr-*): the repo cards' grid and lines, the Repo card's lines, its details' rhythm and the session command. #>
+    <# The repo layer for the DKJ pages (.dr-*): the repo cards' grid and lines, the Repo card's description, facts list and session command. #>
     return (@(
         '.dr-link { color: var(--primary); text-underline-offset: 2px; }',
         # /connectors/dkj: four cards to a row, at most three rows of them (Maikel, October 28, 2026) -- so four
@@ -732,8 +763,10 @@ function Get-DkjRepoCardStyle {
         '.dr-clip code { font-size: var(--text-xs); }',
         '.dr-card > p { margin: 0; }',
         '.dr-card > p + p { margin-top: var(--spacing-1); }',
-        # The check's details in the Repo card: a little air above them, as in the group pages' mini-card.
-        '.dr-card > .meta, .dr-card > .cd-plugins, .dr-card > .cd-signals, .dr-card > .note, .dr-card > details { margin-top: var(--spacing-2); }',
+        # The Repo card's facts list under its description, the check's findings under that; a value may wrap here, since
+        # the last commit's subject under its age is a sentence, not a figure.
+        '.dr-card > .dr-facts, .dr-card > .cd-signals { margin-top: var(--spacing-3); }',
+        '.dr-facts dd { min-width: 0; white-space: normal; overflow-wrap: anywhere; }',
         # A card's lines in the Stopwatch card's sizes: the description one muted line ending in an ellipsis, its
         # whole text on hover, and the session command likewise, copied whole by its button.
         '.dr-desc { font-size: var(--text-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',

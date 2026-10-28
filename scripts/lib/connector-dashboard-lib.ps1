@@ -503,8 +503,8 @@ function Format-ConnectorRepoDetailsHtml {
         What the register's check says about one repo, under the line that names it: its trunk's last commit, its
         plugins with their lens counts, the drift, and the check's findings (or that every check passes). The register's
         notes are not shown: they are the register's own log, for whoever keeps it (connectors/README.md), and run to
-        tens of kilobytes a repo (Maikel, October 28, 2026). A group's mini-card (Format-ConnectorRepoMiniCardHtml) and a DKJ repo's own Repo
-        card (Format-DkjRepoCardHtml, Maikel, October 28, 2026) both hold it.
+        tens of kilobytes a repo (Maikel, October 28, 2026). A group's mini-card (Format-ConnectorRepoMiniCardHtml) holds it; a DKJ repo's own Repo
+        card lays the same facts out as a facts list of its own (Format-DkjRepoCardHtml).
     #>
     param([Parameter(Mandatory = $true)][hashtable]$Connector)
     $e = { param($v) ConvertTo-DashboardText $v }
