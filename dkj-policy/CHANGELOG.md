@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**1 / 2 minor entries** <!-- pending-tally -->
+**1 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3626-cut-release-stale-section-lines · 20261028-162619Z
+
+`cut-release` no longer names the two audience-note sections #3584 removed
+([#3626](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3626)). The GitHub Release body now
+points at the attached notes for "whether you need to act" only. The cut's console says the drafted note
+holds the audience section, or only its header where no entry reached the audience tier.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+cut-release's console and Release body no longer name the two note sections #3584 removed
+
+Plugins: dkj-policy
+
+[PR #3628](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3628)
+
+---
 
 ### DEPLOY: fix/3619-merge-on-green-actions-read · 20261028-160541Z
 
