@@ -6,12 +6,13 @@
     can be made shorter.
 
 .DESCRIPTION
-    THE PAGE ONLY SHOWS. It has no button and the server takes no POST for it. The runs are written by two Claude
-    Code hooks, this plugin's hooks/stopwatch-hook.ps1, which call Invoke-StopwatchHookEvent here:
+    THE PAGE ONLY SHOWS. It has no button and the server takes no POST for it. The runs are written by two Claude Code
+    hooks, this plugin's hooks/stopwatch-hook.ps1, which call Invoke-StopwatchHookEvent here:
 
       - A prompt whose first line begins with `stopwatch:` (any case, leading whitespace allowed) starts an Auto
         run at once, labelled with the rest of that line (Get-StopwatchPromptMarker; "Assignment" when empty),
-        with the checkout's HEAD as its StartHead. It is the only way a run starts. A run still going when a
+        with the checkout's HEAD as its StartHead. It is the only way a run starts (a prepared card, below, has no run
+        behind it; the first prompt carrying its label starts the run on that card). A run still going when a
         marked prompt arrives is DISCARDED and the new one starts: a run that never reached the trunk would
         otherwise block every later measurement, and the page has no button left to discard it.
       - A Stop hook ends the running run once the checkout is on the trunk, clean, with HEAD moved off StartHead.
@@ -21,6 +22,10 @@
         not on the trunk, so the run keeps going in both. HEAD must also hold a commit made during the run, so a
         fast-forward of older commits stops nothing, and a label that begins with `release` waits for the cut's
         `release: vX.Y.Z release notes` commit (#3400), so a release cut is timed to its end.
+
+    A CARD CAN BE PREPARED AHEAD OF ITS RUN, and that is not a run: this plugin's stopwatch-prepare skill writes a
+    `prepared` list into the store (Read-/Save-StopwatchStore), the overview shows a "Ready, not started" card for the
+    label, and the prompt that starts its run removes the entry.
 
     THREE PAGES, ALL READ-ONLY AND BARE (no lead or tiles above their content, only the hub's airsquats banner,
     which is on every hub page, #3356; the plugin's Format-GeneralPageHtml -Bare). '/stopwatch' is an overview of
@@ -238,16 +243,17 @@ function Read-StopwatchStore {
     <#
         The runs in the store at -Path, oldest first, and an Error that is empty when it read. A missing file is
         an empty store, not an error. A run that does not parse is skipped and counted in Skipped; a field of an
-        older version (laps, notes, an armed label) is ignored. Sessions is the store's list of session ids seen,
+        older version (laps, notes, an armed label) is ignored. Prepared is the labels prepared ahead of a run, each
+        @{ Label; PreparedAt } (a card on the overview with no clock running; the stopwatch-prepare skill). Sessions is the store's list of session ids seen,
         which only the Logbook's store keeps (logbook-lib.ps1 beside this file, #3364); empty for the Stopwatch's.
     #>
     param([Parameter(Mandatory = $true)][string]$Path)
-    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return @{ Runs = @(); Error = ''; Skipped = 0; Sessions = @() } }
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { return @{ Runs = @(); Error = ''; Skipped = 0; Sessions = @(); Prepared = @() } }
     try {
         $text = [System.IO.File]::ReadAllText($Path, (New-Object System.Text.UTF8Encoding($false)))
         $json = if ($text.Trim()) { $text | ConvertFrom-Json } else { $null }
     } catch {
-        return @{ Runs = @(); Error = 'it is not valid JSON'; Skipped = 0; Sessions = @() }
+        return @{ Runs = @(); Error = 'it is not valid JSON'; Skipped = 0; Sessions = @(); Prepared = @() }
     }
     $runs = @(); $skipped = 0
     foreach ($r in @($(if ($json) { $json.runs } else { @() }))) {
@@ -256,15 +262,26 @@ function Read-StopwatchStore {
         if ($run) { $runs += $run } else { $skipped++ }
     }
     $sessions = @($(if ($json -and $json.sessions) { @($json.sessions) } else { @() }) | Where-Object { $_ -is [string] -and $_ -cmatch '^[0-9A-Za-z-]{1,64}\z' })
-    return @{ Runs = @($runs | Sort-Object { $_.Start }); Error = ''; Skipped = $skipped; Sessions = $sessions }
+    # Labels prepared ahead of a run (see the header): the same normalisation a prompt's label gets, no duplicates.
+    $prepared = @(); $seen = @{}
+    foreach ($p in @($(if ($json -and $json.prepared) { @($json.prepared) } else { @() }))) {
+        if ($null -eq $p) { continue }
+        $l = ConvertTo-StopwatchLabel -Text ([string]$p.label)
+        if (-not $l -or $seen.ContainsKey($l.ToLowerInvariant())) { continue }
+        $seen[$l.ToLowerInvariant()] = 1
+        $prepared += @{ Label = $l; PreparedAt = (ConvertTo-StopwatchTime $p.preparedAt) }
+    }
+    return @{ Runs = @($runs | Sort-Object { $_.Start }); Error = ''; Skipped = $skipped; Sessions = $sessions; Prepared = $prepared }
 }
 
 function Save-StopwatchStore {
     <#
         Writes -Runs to -Path through a file beside it, so a failed write never leaves half a store. A run's Session
-        and the store's -Sessions are written only when set: the Logbook's (#3364), never the Stopwatch's.
+        and the store's -Sessions are written only when set: the Logbook's (#3364), never the Stopwatch's. -Prepared (the
+        store's prepared labels) is written only when passed, so EVERY WRITER OF THE STOPWATCH'S STORE passes what it
+        read, or the prepared labels are dropped.
     #>
-    param([Parameter(Mandatory = $true)][string]$Path, [AllowEmptyCollection()][object[]]$Runs = @(), [AllowEmptyCollection()][string[]]$Sessions)
+    param([Parameter(Mandatory = $true)][string]$Path, [AllowEmptyCollection()][object[]]$Runs = @(), [AllowEmptyCollection()][string[]]$Sessions, [AllowEmptyCollection()][object[]]$Prepared)
     $dir = Split-Path -Parent $Path
     if (-not (Test-Path -LiteralPath $dir -PathType Container)) { [void](New-Item -ItemType Directory -Path $dir -Force) }
     $out = @{ runs = @(foreach ($r in @($Runs)) {
@@ -280,6 +297,11 @@ function Save-StopwatchStore {
                 $o
             }) }
     if ($PSBoundParameters.ContainsKey('Sessions')) { $out.sessions = @($Sessions | Where-Object { $_ }) }
+    if ($PSBoundParameters.ContainsKey('Prepared')) {
+        $out.prepared = @(foreach ($p in @($Prepared | Where-Object { $_ })) {
+                [ordered]@{ label = [string]$p.Label; preparedAt = $(if ($p.PreparedAt) { Format-StopwatchStamp $p.PreparedAt } else { $null }) }
+            })
+    }
     $tmp = "$Path.tmp"
     [System.IO.File]::WriteAllText($tmp, ($out | ConvertTo-Json -Depth 6), (New-Object System.Text.UTF8Encoding($false)))
     Move-Item -LiteralPath $tmp -Destination $Path -Force
@@ -297,6 +319,18 @@ function New-StopwatchRun {
     return @{ Id = (New-StopwatchRunId -Now $Now); Label = $Label; Start = $Now.ToUniversalTime(); End = $null; Auto = $true; StartHead = $StartHead }
 }
 
+function ConvertTo-StopwatchLabel {
+    <#
+        A label as a `stopwatch:` prompt gives it, so a prepared label and the prompt that starts its run land on one
+        card: control characters as spaces, trimmed, cut to the label maximum. '' when nothing is left (the prompt
+        marker turns that into "Assignment"; a prepared label refuses it).
+    #>
+    param([AllowEmptyString()][string]$Text = '')
+    $label = ($Text -replace ('[' + [char]0 + '-' + [char]31 + [char]127 + ']'), ' ').Trim()
+    if ($label.Length -gt $script:StopwatchLabelMax) { $label = $label.Substring(0, $script:StopwatchLabelMax).Trim() }
+    return $label
+}
+
 function Get-StopwatchPromptMarker {
     <#
         The label a prompt asks a run under, or $null when it carries no marker (#3323): the first line of -Prompt
@@ -309,8 +343,7 @@ function Get-StopwatchPromptMarker {
     $text = [regex]::Replace($Prompt.TrimStart(), '^<pasted_content id="[0-9a-f]{4}">[ \t]*\r?\n', '')
     $m = [regex]::Match($text.TrimStart(), '^stopwatch:([^' + [char]13 + [char]10 + ']*)', [Text.RegularExpressions.RegexOptions]::IgnoreCase)
     if (-not $m.Success) { return $null }
-    $label = ($m.Groups[1].Value -replace ('[' + [char]0 + '-' + [char]31 + [char]127 + ']'), ' ').Trim()
-    if ($label.Length -gt $script:StopwatchLabelMax) { $label = $label.Substring(0, $script:StopwatchLabelMax).Trim() }
+    $label = ConvertTo-StopwatchLabel -Text $m.Groups[1].Value
     if (-not $label) { $label = 'Assignment' }
     return $label
 }
@@ -423,9 +456,10 @@ function ConvertTo-StopwatchModel {
         going now when this is it, else $null), and its Version of Versions: the run's place among the shown runs of
         its label, oldest first, and how many there are. A run without an end that is not the one going (a run a later prompt
         discarded) is not shown, unless -KeepOpenRuns: the Logbook's runs are one per session and several can be
-        open at once (two sessions side by side, a branch parked for the owner's eye), so each is shown as going.
+        open at once (two sessions side by side, a branch parked for the owner's eye), so each is shown as going. -Prepared (the store's
+        prepared labels) rides along as Prepared, for Get-StopwatchOverviewSets.
     #>
-    param([AllowEmptyCollection()][object[]]$Runs = @(), [switch]$KeepOpenRuns)
+    param([AllowEmptyCollection()][object[]]$Runs = @(), [switch]$KeepOpenRuns, [AllowEmptyCollection()][object[]]$Prepared = @())
     $all = @($Runs | Where-Object { $_ } | Sort-Object { $_.Start })
     $running = @($all | Where-Object { -not $_.End }) | Select-Object -Last 1
     $isGoing = { param($r) (-not $r.End) -and ($KeepOpenRuns -or ($running -and $r.Id -eq $running.Id)) }
@@ -465,6 +499,7 @@ function ConvertTo-StopwatchModel {
         Running = $running
         Groups  = @($groups | Sort-Object { $_.Latest } -Descending)
         Count   = @($all | Where-Object { $_.End }).Count
+        Prepared = @($Prepared | Where-Object { $_ })
     }
 }
 
@@ -497,7 +532,8 @@ function Get-StopwatchOverviewSets {
     <#
         The label sets the overview shows: Get-StopwatchLabelSets, then one set with no Groups for every pinned label
         ($script:StopwatchPinnedLabels) that has no run yet, so its card and its page exist before its first run (the
-        owner, October 25, 2026: a new card comes with its own page). Its slug is computed beside every run label's, so
+        owner, October 25, 2026: a new card comes with its own page). So does every prepared label with no run (a set
+        with Prepared $true). Its slug is computed beside every run label's, so
         a run label sharing its base gives both a suffix rather than one address to two labels. The sets stand slowest
         first, by the fastest time their card shows (the owner, October 25, 2026); a set with no finished run follows
         them, a run going before a pinned label with none, each kept in the order it came in.
@@ -508,9 +544,18 @@ function Get-StopwatchOverviewSets {
     foreach ($p in $script:StopwatchPinnedLabels) {
         if (-not @($sets | Where-Object { $_.Title -ieq $p.Label }).Count) { $missing += $p }
     }
+    # A prepared label (the store's, ahead of its run) with no run yet and no pinned card of its own stands the same way,
+    # marked Prepared so its card says it is ready and how to start it. One that already has runs shows its normal card.
+    $preparedOnly = @{}
+    foreach ($q in @($Model.Prepared)) {
+        if (-not $q -or -not $q.Label) { continue }
+        if (@($sets | Where-Object { $_.Title -ieq $q.Label }).Count -or @($missing | Where-Object { $_.Label -ieq $q.Label }).Count) { continue }
+        $missing += @{ Label = [string]$q.Label }
+        $preparedOnly[([string]$q.Label).ToLowerInvariant()] = $true
+    }
     if ($missing.Count) {
         $slugs = Get-StopwatchSlugs -Labels (@($Model.Groups | ForEach-Object { $_.Label }) + @($missing | ForEach-Object { $_.Label }))
-        foreach ($p in $missing) { $sets += @{ Title = $p.Label; Slug = $slugs[$p.Label.ToLowerInvariant()]; Groups = @() } }
+        foreach ($p in $missing) { $sets += @{ Title = $p.Label; Slug = $slugs[$p.Label.ToLowerInvariant()]; Groups = @(); Prepared = [bool]$preparedOnly[$p.Label.ToLowerInvariant()] } }
     }
     # The place it came in breaks a tie, since Sort-Object in Windows PowerShell 5.1 is not stable.
     $n = 0
@@ -981,8 +1026,13 @@ function Format-StopwatchLabelCard {
     $fastest = @($Set.Groups | ForEach-Object { $_.Rows } | Where-Object { $_ } | Sort-Object { $_.Seconds }) | Select-Object -First 1
     # A pinned label with no run yet (Get-StopwatchOverviewSets) has no time to show, and says so.
     $time = if ($fastest) { '<span class="sw-time num">' + (Format-DevSeconds $fastest.Seconds) + '</span>' }
+            elseif ($Set.Prepared -and -not @($Set.Groups).Count) { '<span class="sw-time">Ready, not started</span>' }
             elseif (-not @($Set.Groups).Count) { '<span class="sw-time">No run yet</span>' }
             else { Format-StopwatchCardTime -Group $Set.Groups[0] -Now $Now }
+    if ($Set.Prepared -and -not @($Set.Groups).Count) {
+        return Format-HubCardLinkHtml -Href ('/stopwatch/' + $Set.Slug) -Label (Get-StopwatchShortTitle $Set.Title) -Heading 2 -Class 'sw-card' -ValueHtml $time `
+            -SubHtml ('Ready, not started: no clock is running. Start it by sending a prompt whose first line is <code>stopwatch: ' + (& $e $Set.Title) + '</code>.')
+    }
     return Format-HubCardLinkHtml -Href ('/stopwatch/' + $Set.Slug) -Label (Get-StopwatchShortTitle $Set.Title) -Heading 2 -Class 'sw-card' -ValueHtml $time `
         -SubHtml ('From the prompt <code>stopwatch: ' + (& $e $Set.Title) + '</code> until ' + $stop + '.')
 }
@@ -1174,7 +1224,10 @@ function Format-StopwatchLabelPageHtml {
     [void]$body.AppendLine('<div class="grid__head"><h1>' + (& $e $title) + '</h1></div>')
     foreach ($g in @($Set.Groups)) { [void]$body.AppendLine((Format-StopwatchRunCard -Group $g -Route ('/stopwatch/' + $Set.Slug) -Now $Now -ShortLabel)) }
     # A pinned label before its first run (Get-StopwatchOverviewSets): one card saying so, where the runs will stand.
-    if (-not @($Set.Groups).Count) { [void]$body.AppendLine('<section class="card sw-card"><p class="sw-instruction">No run yet. The first one sets the baseline for this label.</p></section>') }
+    if (-not @($Set.Groups).Count) {
+        $none = if ($Set.Prepared) { 'Ready, not started: no clock is running. Start it by sending a prompt whose first line is <code>stopwatch: ' + (& $e $Set.Title) + '</code>; the run lands here.' } else { 'No run yet. The first one sets the baseline for this label.' }
+        [void]$body.AppendLine('<section class="card sw-card"><p class="sw-instruction">' + $none + '</p></section>')
+    }
     [void]$body.AppendLine('</div>')
     # A pinned label's prompt to copy and its steps stand here, on its page, each under an h2 of its own above the one
     # card that holds it: the prompt first, since it is what a run starts from.
