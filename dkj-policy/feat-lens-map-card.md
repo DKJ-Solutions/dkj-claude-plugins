@@ -55,7 +55,8 @@ its card on `/connectors/dkj`, holding a **Lenses** card.
 - [x] A repo's mini-card is `Format-ConnectorRepoMiniCardHtml`, shared by a group's Issues card and the repo page's Connector card
 - [x] The DKJ repo cards: four to a row, three lines each, no `<a>` inside the card's own link (#3610), the status mark after the name (`Format-HubCardLinkHtml -TitleBadgeHtml`)
 - [x] The house style: every card link's title is one line, cut off with an ellipsis (`house-style.css`, its README, the skill's sha256 pin)
-- [ ] The owner has looked at `/connectors/dkj` and a repo's page (a visible result)
+- [x] The owner has looked at `/connectors/dkj` and a repo's page (a visible result): Maikel, October 28, 2026 -- "not yet as wanted, but a lot better than before; ship it for now", to be returned to later
+- [x] A repo's Repo card is the house facts list in two columns, its Lenses a facts list in columns; the register's notes are no longer shown
 
 ### TEST
 
