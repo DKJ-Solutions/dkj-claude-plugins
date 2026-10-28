@@ -768,6 +768,10 @@ function Get-DkjRepoCardStyle {
         '.dr-repos h2 { font-size: var(--text-lg); }',
         '.dr-clip { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-sm); }',
         '.dr-clip code { font-size: var(--text-xs); }',
+        # A grid-2 track is 1fr, which never shrinks below what its card holds -- and the description and the session
+        # command are one nowrap line each, wider than half a card, so without this the two cards push the page into
+        # a horizontal scroll (Maikel, October 28, 2026). The lines are cut off with their ellipsis instead.
+        '.dr-card { min-width: 0; }',
         '.dr-card > p { margin: 0; }',
         '.dr-card > p + p { margin-top: var(--spacing-1); }',
         # Each card's facts list under its head and description, the check's findings under that; a value may wrap
