@@ -437,13 +437,13 @@ Assert-True ($html -match ('site-header__name">n{80} <span')) 'and cut at 80 cha
 Assert-True ((Format-PluginRepoHubHtml -RepoName "a`nb") -match 'site-header__name">a b <span') 'with control characters made spaces'
 Assert-True ((Format-PluginRepoHubHtml -RepoName '  ') -match 'site-header__name">this repo <span') 'and a blank name read as this repo'
 
-# The plugin's canonical copy is held to the house-style skill's table, like the dashboard's (#2989): a
-# repoint that leaves it behind goes red here instead of shipping a stale page to every repo.
+# The hub serves the plugin's canonical copy in place (#2989). Its checksums in the house-style skill's
+# table are the release cut's to write (#3636), so between cuts they name the tag's bytes, not the tree's:
+# what holds here is that the copy is where the hub reads it and the table has a cell for it.
 $skillPage = Get-Content -LiteralPath (Join-Path $SolutionsRoot 'skills\house-style\SKILL.md') -Raw
 foreach ($file in 'house-style.css', 'house-theme.js') {
     $pinned = [regex]::Match($skillPage, '\|\s*`' + [regex]::Escape($file) + '`\s*\|[^|]*\|\s*`([0-9a-f]{64})`').Groups[1].Value
-    $actual = (Get-FileHash -LiteralPath (Join-Path (Get-HouseStyleDir -PluginRoot $PluginRoot) $file) -Algorithm SHA256).Hash.ToLowerInvariant()
-    Assert-True ($pinned -and $actual -eq $pinned) "the plugin's canonical $file is the copy the house-style skill pins"
+    Assert-True ($pinned -and (Test-Path -LiteralPath (Join-Path (Get-HouseStyleDir -PluginRoot $PluginRoot) $file) -PathType Leaf)) "the plugin's canonical $file is where the hub reads it, and the skill pins a checksum for it"
 }
 
 Write-Host '-- group 1d2: the config drift that keeps a DKJ-Solutions repo from following a hub change (#3463)' -ForegroundColor Cyan

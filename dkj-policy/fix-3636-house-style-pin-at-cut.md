@@ -62,6 +62,9 @@ canonical copy to the pin between cuts.
   91/91 with the cell set to an unrelated hash (the between-cuts state).
 - [x] `cut-release-drive.tests.ps1`: the happy path asserts both cells carry the blob's sha256, and a page
   that names a checksummed file on no line refuses before the first write. 131/131.
+- [x] The first ship's gate found two more copies of the in-tree == pin assert, in
+  `connector-dashboard.tests.ps1` and `dev-preview-sessionstart.tests.ps1`. Both now hold only that the
+  table has a cell for each canonical file (233/233, 426/426 standalone).
 
 ### DEPLOY: fix/3636-house-style-pin-at-cut
 
