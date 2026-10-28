@@ -288,6 +288,87 @@ function Get-DashboardStatusBadge {
     }
 }
 
+function Test-LensFilled {
+    <#
+        True when a repo lens says something beyond its scaffold: a line is left once the frontmatter, the HTML
+        comments, the headings, the blockquotes and the blank lines are taken away. The VUL-IN marker cannot
+        answer this, because a lens that has been filled in still carries it now and then (measured October 28,
+        2026: xoxowildhearts' 05-06 lens holds 13 KB under a 'Specific to this repo (VUL-IN)' heading).
+    #>
+    param([AllowNull()][AllowEmptyString()][string]$Text)
+    if (-not $Text) { return $false }
+    $body = ($Text -replace '(?s)\A---\r?\n.*?\r?\n---\r?\n', '') -replace '(?s)<!--.*?-->', ''
+    return [bool](@($body -split '\r?\n' | Where-Object { $_.Trim() -and $_ -notmatch '^\s*[#>]' }).Count)
+}
+
+function Format-DashboardBytes {
+    <# A size as the page prints it: bytes under 1 KB, else whole KB. #>
+    param([int64]$Bytes)
+    if ($Bytes -lt 1024) { return "$Bytes B" }
+    return ([math]::Round($Bytes / 1024)).ToString([Globalization.CultureInfo]::InvariantCulture) + ' KB'
+}
+
+function Format-LensMapSectionHtml {
+    <#
+        The Specialist lenses card on /connectors (Maikel, October 28, 2026): every checkout on this machine
+        that holds .claude/specialists/lenses/, how many lenses it has, how many say something beyond their
+        scaffold (Test-LensFilled), and which those are, by id and specialist name. -Checkouts is a list of
+        @{ Name ('<owner folder>/<repo folder>'); Branch; Lenses (list of @{ Id; Bytes; Filled; Marked }) };
+        -Names maps an id to its specialist's name, and an id it lacks is shown bare. Most filled first.
+        Returns @{ Html; Style }, the server reading the disk so this stays a pure function.
+    #>
+    param(
+        [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Checkouts,
+        [hashtable]$Names = @{}
+    )
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $all = @($Checkouts | Where-Object { $_ })
+    $filledOf = { param($c) @(@($c.Lenses) | Where-Object { $_ -and $_.Filled }) }
+    $nLenses = 0; $nFilled = 0
+    foreach ($c in $all) { $nLenses += @(@($c.Lenses) | Where-Object { $_ }).Count; $nFilled += @(& $filledOf $c).Count }
+    $summary = "$($all.Count) checkout" + $(if ($all.Count -ne 1) { 's' } else { '' }) + " &#183; $nLenses lenses &#183; $nFilled filled in"
+
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine('<div class="grid-2" id="lenses">')
+    [void]$sb.AppendLine('<div class="grid__head"><h2>Specialist lenses</h2><p class="card__sub">' + $summary + '</p></div>')
+    [void]$sb.AppendLine('<section class="card grid__full">')
+    [void]$sb.AppendLine('<div>')
+    if (-not $all.Count) {
+        [void]$sb.AppendLine('<p class="note">No checkout on this machine holds <code>.claude/specialists/lenses/</code>.</p>')
+    } else {
+        [void]$sb.AppendLine('<div class="table-wrap cd-table-gap"><table class="table cd-lenses"><colgroup><col class="cd-col-co"><col class="cd-col-n"><col class="cd-col-n"><col></colgroup><thead class="cd-thead"><tr><th>Checkout</th><th>Lenses</th><th>Filled in</th><th class="cd-left">What is filled in</th></tr></thead><tbody>')
+        $sorted = @($all | Sort-Object @{ Expression = { @(& $filledOf $_).Count }; Descending = $true }, @{ Expression = { [string]$_.Name } })
+        foreach ($c in $sorted) {
+            $filled = @(& $filledOf $c)
+            $branch = [string]$c.Branch
+            $on = if ($branch -and $branch -ne 'main' -and $branch -ne 'master') { '<br><span class="meta">on <code>' + (& $e $branch) + '</code></span>' } else { '' }
+            $items = if ($filled.Count) {
+                ($filled | ForEach-Object {
+                    $id = [string]$_.Id
+                    $name = if ($Names.ContainsKey($id) -and $Names[$id]) { ' ' + (& $e $Names[$id]) } else { '' }
+                    $mark = if ($_.Marked) { ' <span class="tag tag--warn" title="Filled in, and still marked VUL-IN">VUL-IN</span>' } else { '' }
+                    '<span class="cd-lens"><code>' + (& $e $id) + '</code>' + $name + ' <span class="cd-lens__size">' + (Format-DashboardBytes ([int64]$_.Bytes)) + '</span>' + $mark + '</span>'
+                }) -join ''
+            } else { '<span class="note">Scaffolds only</span>' }
+            [void]$sb.AppendLine('<tr><td>' + (& $e $c.Name) + $on + '</td><td>' + @(@($c.Lenses) | Where-Object { $_ }).Count + '</td><td>' + $filled.Count + '</td><td class="cd-left"><div class="cd-lens-list">' + $items + '</div></td></tr>')
+        }
+        [void]$sb.AppendLine('</tbody></table></div>')
+    }
+    [void]$sb.AppendLine('</div>')
+    [void]$sb.AppendLine('</section>')
+    [void]$sb.AppendLine('</div>')
+
+    $style = @(
+        '.cd-lenses { table-layout: fixed; width: 100%; min-width: 760px; }',
+        '.cd-lenses td { overflow-wrap: anywhere; vertical-align: top; }',
+        '.cd-col-co { width: 26%; } .cd-col-n { width: 10%; }',
+        '.cd-lens-list { display: flex; flex-wrap: wrap; gap: var(--spacing-1-5) var(--spacing-4); font-size: var(--text-sm); }',
+        '.cd-lens { display: inline-flex; align-items: center; gap: var(--spacing-1); }',
+        '.cd-lens code { font-size: var(--text-xs); }',
+        '.cd-lens__size { color: var(--muted); }') -join "`r`n"
+    return @{ Html = $sb.ToString(); Style = $style }
+}
+
 function Format-ConnectorDashboardHtml {
     <#
         The whole page. -Connectors is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
@@ -303,6 +384,8 @@ function Format-ConnectorDashboardHtml {
         -SectionHtml, with its -SectionStyle and -SectionFooterNote, is a block a group's page holds between its
         Connected repos and its Issues: on /connectors/dkj, the DKJ repos on GitHub (Format-DkjReposSectionHtml,
         #3549), which the server hands in so this lib stays free of the GitHub read. The overview ignores it.
+        -OverviewSectionHtml and its -OverviewSectionStyle are the overview's counterpart, under its group cards:
+        the Specialist lenses card (Format-LensMapSectionHtml). A group's page ignores them.
     #>
     param(
         [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Connectors,
@@ -310,9 +393,11 @@ function Format-ConnectorDashboardHtml {
         [ValidateSet('', 'dkj', 'bwj', 'other')][AllowEmptyString()][string]$Group = '',
         [AllowEmptyString()][string]$SectionHtml = '',
         [AllowEmptyString()][string]$SectionStyle = '',
-        [AllowEmptyString()][string]$SectionFooterNote = ''
+        [AllowEmptyString()][string]$SectionFooterNote = '',
+        [AllowEmptyString()][string]$OverviewSectionHtml = '',
+        [AllowEmptyString()][string]$OverviewSectionStyle = ''
     )
-    if (-not $Group) { $SectionHtml = ''; $SectionStyle = ''; $SectionFooterNote = '' }
+    if (-not $Group) { $SectionHtml = $OverviewSectionHtml; $SectionStyle = $OverviewSectionStyle; $SectionFooterNote = '' }
     $groupDef = if ($Group) { @(Get-DashboardOwnerGroups | Where-Object { $_.Key -eq $Group })[0] } else { $null }
     $pageName = if ($groupDef) { $groupDef.Title } else { 'Connectors' }
     $e = { param($v) ConvertTo-DashboardText $v }
@@ -392,6 +477,8 @@ function Format-ConnectorDashboardHtml {
             [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/' + $g.Key) -Label $g.Label -SubHtml (Format-DashboardGroupSummary $members) -Heading 2))
         }
         [void]$sb.AppendLine('</div>')
+        # Under the cards, the overview's own section: the Specialist lenses card (Maikel, October 28, 2026).
+        if ($SectionHtml) { [void]$sb.Append($SectionHtml) }
     } else {
         # A group's page: worst first, then by name.
         $rank = @{ bad = 0; warn = 1; skip = 2; good = 3 }

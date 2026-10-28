@@ -5,7 +5,8 @@
     checkout and what check-connectors.ps1 reports for it on this machine (#2976), one card per owner group
     with each group a page of its own at /connectors/dkj, /bwj and /other -- the DKJ one also holding every
     DKJ-Solutions repo on GitHub with its checkout here and a session to open there (#3231; its own page at
-    /dkj-repos until #3549, which now redirects there); and /specialists, every specialist the dkj-subagents
+    /dkj-repos until #3549, which now redirects there) -- and under the cards what every checkout's specialist
+    lenses hold (the Specialist lenses card, October 28, 2026); and /specialists, every specialist the dkj-subagents
     plugins ship and the context each one costs, read from this tree; and /plugins, every plugin
     .claude-plugin/marketplace.json lists, each with a page of its own at /plugins/<name>, the specialist
     teams (dkj-subagents-*) one card whose page is /plugins/dkj-subagents. The rules of
@@ -182,8 +183,38 @@ function Get-DashboardModel {
             Notes      = [string]$m.notes
         }
     }
+    $lensMap = Get-LensMapModel
     $meta.Seconds = ((Get-Date) - $started).TotalSeconds
-    return @{ Connectors = $connectors; Meta = $meta; At = Get-Date }
+    return @{ Connectors = $connectors; Meta = $meta; LensMap = $lensMap; At = Get-Date }
+}
+
+function Get-LensMapModel {
+    <#
+        The Specialist lenses card's data: every <owner folder>/<repo folder> under the scope root that holds
+        .claude/specialists/lenses/, with each specialist-<id>-lens.md's size, whether it is filled in
+        (Test-LensFilled) and whether it still carries VUL-IN, and the branch the checkout stands on. The names
+        come from this tree's specialist definitions. A lens that cannot be read is counted as a scaffold.
+    #>
+    $names = @{}
+    foreach ($r in @((Get-SpecialistsModel).Rows)) { if ($r.Id -and $r.Name -and -not $names.ContainsKey($r.Id)) { $names[$r.Id] = $r.Name } }
+    $checkouts = @()
+    foreach ($owner in @(Get-ChildItem -LiteralPath $scopeRoot -Directory -ErrorAction SilentlyContinue | Sort-Object Name)) {
+        foreach ($repo in @(Get-ChildItem -LiteralPath $owner.FullName -Directory -ErrorAction SilentlyContinue | Sort-Object Name)) {
+            $dir = Join-Path $repo.FullName '.claude\specialists\lenses'
+            if (-not (Test-Path -LiteralPath $dir -PathType Container)) { continue }
+            $lenses = @()
+            foreach ($f in @(Get-ChildItem -LiteralPath $dir -File -Filter 'specialist-*-lens.md' -ErrorAction SilentlyContinue | Sort-Object Name)) {
+                if ($f.Name -notmatch '^specialist-(\d\d-\d\d)-lens\.md\z') { continue }
+                $id = $Matches[1]
+                $text = ''
+                try { $text = [System.IO.File]::ReadAllText($f.FullName, $utf8) } catch { $text = '' }
+                $lenses += @{ Id = $id; Bytes = [int64]$f.Length; Filled = (Test-LensFilled $text); Marked = $text.Contains('VUL-IN') }
+            }
+            $branch = Invoke-DashboardGit $repo.FullName @('rev-parse', '--abbrev-ref', 'HEAD')
+            $checkouts += @{ Name = "$($owner.Name)/$($repo.Name)"; Branch = $(if ($branch) { [string]$branch[0] } else { '' }); Lenses = $lenses }
+        }
+    }
+    return @{ Checkouts = $checkouts; Names = $names }
 }
 
 function Get-DkjReposModel {
@@ -384,8 +415,11 @@ try {
                     # A failed read of GitHub is shown once and not kept, so the next request asks again (Victor, #3231).
                     if ($dkjCache.Query.Error) { $dkjCache = $null }
                 }
+                # The overview also holds the Specialist lenses card, read with the register and cached with it.
+                $lensSection = Format-LensMapSectionHtml -Checkouts @($cache.LensMap.Checkouts) -Names $cache.LensMap.Names
                 $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta -Group $group `
-                    -SectionHtml $section.Html -SectionStyle $section.Style -SectionFooterNote $section.FooterNote
+                    -SectionHtml $section.Html -SectionStyle $section.Style -SectionFooterNote $section.FooterNote `
+                    -OverviewSectionHtml $lensSection.Html -OverviewSectionStyle $lensSection.Style
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }

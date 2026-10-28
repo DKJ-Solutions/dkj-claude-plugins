@@ -39,19 +39,34 @@
 
 ### PLAN
 
+Maikel asked (October 28, 2026) for the map of what the specialist lenses hold in every repo that
+runs the dkj plugins, as an overview card on the product's `/connectors` page.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Test-LensFilled`, `Format-DashboardBytes` and `Format-LensMapSectionHtml` in `scripts/lib/connector-dashboard-lib.ps1`; `Format-ConnectorDashboardHtml` takes `-OverviewSectionHtml`/`-OverviewSectionStyle`
+- [x] `Get-LensMapModel` in `serve-connector-dashboard.ps1`, read with the register and cached with it
+- [ ] The owner has looked at the card on `/connectors` (a visible result)
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1`: the filled-in rule, the card's markup and order, and the server reading a fixture checkout's lenses (233 passed)
+
 ### DEPLOY: feat/lens-map-card
 
-**Score:**
+The product's `/connectors` page has a **Specialist lenses** card under its three group cards: every
+checkout on this machine that holds `.claude/specialists/lenses/`, how many lenses it has, how many are
+filled in beyond their scaffold, and which those are by id, specialist name and size. A filled-in lens
+that still carries `VUL-IN` is tagged. "Filled in" is read from the text (any line that is not
+frontmatter, a heading, a quote or a comment), because the `VUL-IN` marker turned out not to say it.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: a page of this repo's own dev server, which no consumer runs.
+
+**Score:** N/A
 
 #### Pull Request
 

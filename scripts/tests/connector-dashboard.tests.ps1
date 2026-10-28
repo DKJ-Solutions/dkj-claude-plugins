@@ -269,6 +269,31 @@ Assert-True ($html -notmatch '>Main</th>' -and $html -notmatch '>Checkout</th>' 
 $failed = Format-ConnectorDashboardHtml -Connectors @() -Meta @{ GeneratedAt = 'now'; SourceCommit = ''; Seconds = $null; CheckFailed = 'boom <b>' }
 Assert-True ($failed -match 'class="msg msg--warn" role="alert"' -and $failed -match 'boom &lt;b&gt;') 'a check that could not run is the form''s warning line, escaped'
 
+# The Specialist lenses card under the overview's group cards (Maikel, October 28, 2026).
+$scaffold = "---`nid: 17`ngroup: 06`n---`n`n# 06-17 - repo lens`n`n> Created by specialists-init as an empty template.`n`n## Specific to this repo (VUL-IN)`n`n<!-- TODO: describe what this specialist does`n     in THIS repo. -->`n"
+Assert-True (-not (Test-LensFilled $scaffold)) 'a scaffold lens is not filled in: frontmatter, headings, quotes and a comment only'
+Assert-True (Test-LensFilled ($scaffold + "`nThe theme lives in theme/.`n")) 'one line of prose fills it in, its VUL-IN heading or not'
+Assert-True (-not (Test-LensFilled '') -and -not (Test-LensFilled $null)) 'an empty lens is not filled in'
+Assert-Equal '709 B' (Format-DashboardBytes 709) 'a size under 1 KB is in bytes'
+Assert-Equal '27 KB' (Format-DashboardBytes 27393) 'and above it in whole KB'
+$lm = Format-LensMapSectionHtml -Checkouts @(
+    @{ Name = 'dkj-solutions/empty'; Branch = 'main'; Lenses = @(@{ Id = '06-17'; Bytes = 709; Filled = $false; Marked = $true }) },
+    @{ Name = 'bwj-development/<shop>'; Branch = 'feat/x'; Lenses = @(
+        @{ Id = '05-05'; Bytes = 27393; Filled = $true; Marked = $false },
+        @{ Id = '05-06'; Bytes = 13244; Filled = $true; Marked = $true },
+        @{ Id = '06-17'; Bytes = 709; Filled = $false; Marked = $true }) }) -Names @{ '05-05' = 'Derek' }
+Assert-True ($lm.Html.Contains('<h2>Specialist lenses</h2><p class="card__sub">2 checkouts &#183; 4 lenses &#183; 2 filled in</p>')) 'the lenses card counts checkouts, lenses and the filled-in ones'
+Assert-True ($lm.Html.IndexOf('bwj-development/&lt;shop&gt;') -ge 0 -and $lm.Html.IndexOf('bwj-development/&lt;shop&gt;') -lt $lm.Html.IndexOf('dkj-solutions/empty')) 'a checkout''s name is escaped, and the most filled-in checkout comes first'
+Assert-True ($lm.Html.Contains('<code>05-05</code> Derek <span class="cd-lens__size">27 KB</span></span>') -and $lm.Html -notmatch '<code>06-17</code>') 'a filled-in lens is named with its specialist and size; a scaffold is not listed'
+Assert-True ($lm.Html -match '<code>05-06</code> <span class="cd-lens__size">13 KB</span> <span class="tag tag--warn"') 'an id with no known name is shown bare, and a filled-in lens still marked VUL-IN is tagged'
+Assert-True ($lm.Html.Contains('<span class="note">Scaffolds only</span>') -and $lm.Html.Contains('on <code>feat/x</code>') -and -not $lm.Html.Contains('on <code>main</code>')) 'a checkout with no filled-in lens says so, and only a branch other than the trunk is named'
+Assert-True ((Format-LensMapSectionHtml -Checkouts @()).Html.Contains('No checkout on this machine holds')) 'no checkout with lenses is said, not an empty table'
+$withLens = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' } -OverviewSectionHtml $lm.Html -OverviewSectionStyle $lm.Style
+$iG = $withLens.IndexOf('id="groups"'); $iL = $withLens.IndexOf('id="lenses"')
+Assert-True ($iG -ge 0 -and $iG -lt $iL -and $iL -lt $withLens.IndexOf('class="footer-note"') -and $withLens -match '\.cd-lenses \{ table-layout: fixed;') 'the overview holds the lenses card under its group cards, with its style'
+$dkjWith = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' } -Group 'dkj' -OverviewSectionHtml $lm.Html -OverviewSectionStyle $lm.Style
+Assert-True ($dkjWith -notmatch 'id="lenses"' -and $dkjWith -notmatch '\.cd-lenses') 'and a group''s page does not'
+
 Write-Host '-- group 1e: the canonical house style is the copy the skill pins' -ForegroundColor Cyan
 
 # History (#2989): a repoint of the skill to a new tag once left two vendored files on the old one, and
@@ -418,6 +443,11 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         & git -C $noup init -q 2>$null
         & git -C $noup -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m 'local only' 2>$null
         & git -C $outside init -q 2>$null
+        # Two lenses in the no-upstream checkout, for the Specialist lenses card: one filled in, one a scaffold.
+        $lensDir3 = Join-Path $noup '.claude\specialists\lenses'
+        New-Item -ItemType Directory -Force -Path $lensDir3 | Out-Null
+        Set-Content -LiteralPath (Join-Path $lensDir3 'specialist-05-05-lens.md') -Encoding ASCII -Value "## Specific to this repo`n`nThe theme lives in theme/."
+        Set-Content -LiteralPath (Join-Path $lensDir3 'specialist-06-17-lens.md') -Encoding ASCII -Value "## Specific to this repo (VUL-IN)`n`n<!-- TODO -->"
 
         $probe = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
         $probe.Start(); $port3 = $probe.LocalEndpoint.Port; $probe.Stop()
@@ -442,6 +472,8 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $at = $page.IndexOf('id="repo-org-far"')
             $far = if ($at -ge 0) { $page.Substring($at, $page.IndexOf('</section>', $at) - $at) } else { '' }
             Assert-True ($far -and $far -notmatch 'class="meta"') 'a checkout outside the scope root is not read'
+            Assert-True ($overviewPage -match 'id="lenses"' -and $overviewPage -match '<tr><td>org/noup</td><td>2</td><td>1</td>' -and $overviewPage -match '<code>05-05</code> <span class="cd-lens__size">') '/connectors reads every checkout''s lenses under the scope root: two in org/noup, one filled in'
+            Assert-True ($overviewPage -notmatch 'org/src</td>' -and $page -notmatch 'id="lenses"') 'a checkout without lenses has no row, and a group''s page has no lenses card'
             # THE PRODUCT (#3540): the general pages are the plugin hub's, so this server neither relays nor builds them.
             foreach ($moved in '/artifacts', '/issues', '/sessionstart', '/release-notes', '/test-gate', '/repository') {
                 $r = if ($up) { Get-Raw 'GET' $moved "localhost:$port3" '' $port3 } else { '' }
