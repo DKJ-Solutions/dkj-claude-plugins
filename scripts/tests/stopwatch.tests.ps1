@@ -266,7 +266,9 @@ Assert-True ($page -notmatch 'class="lead"|Runs recorded|id="now"|class="sw-cloc
 Assert-True (([regex]::Matches($page, 'id="hub-banner"')).Count -eq 1 -and $page.IndexOf('id="hub-banner"') -lt $page.IndexOf('<h1>')) 'but it carries the airsquats banner once, above the first heading, as every hub page does (#3356)'
 Assert-True ($page.IndexOf('<h1>') -lt $page.IndexOf('card--link')) 'it opens on its heading, then the cards'
 Assert-Equal 'Stopwatch' (([regex]::Matches($page, '<h1>([^<]+)</h1>') | ForEach-Object { $_.Groups[1].Value }) -join '|') 'the overview has one h1, naming the page, over a card per prompt label'
-Assert-True ($page -match '<div class="grid__head"><h1>Stopwatch</h1></div>' -and $page -notmatch 'card__sub') 'its head is its h1 alone: the overview carries no sub line'
+Assert-True ($page -match '<div><h1>Stopwatch</h1></div>' -and $page -notmatch 'card__sub') 'its head is its h1 alone: the overview carries no sub line'
+# THE h1 IS NEVER FRAMED (owner, October 28, 2026; #3639): it stands above the card group, not in a grid__head inside it.
+Assert-True ($page -match '<div><h1>Stopwatch</h1></div>\r?\n<div class="sw-groups">' -and $page -notmatch 'grid__head"><h1') 'the overview''s h1 stands above its card group, not inside it'
 Assert-True ($page -match 'querySelectorAll\("\[data-start\]"\)') 'the clock script ticks every [data-start] element, the card''s live time included'
 Assert-Equal 4 ([regex]::Matches($page, '<section class="card card--link sw-card">')).Count 'one card per prompt label, case-insensitively: the three CSS comment runs are one card (three labels with runs, plus the pinned Ship PR)'
 Assert-True ($page -match '<div class="sw-groups">\r?\n<div class="sw-grid[^"]*">' -and $page -notmatch 'class="grid-3' -and $page -match '\.sw-groups \{ display: grid; gap: var\(--spacing-7\); \}' -and $page -match '\.sw-grid \{ display: grid; grid-template-columns: repeat\(5, minmax\(0, 1fr\)\); gap: var\(--spacing-4\); \}' -and $page -notmatch 'max-width: 1400px') 'the cards stand five to a row, two and one only on a narrow screen, in grids of the page''s own with no top margin, spaced apart by their wrapper''s gap'
@@ -329,7 +331,8 @@ $noneModel = ConvertTo-StopwatchModel -Runs @()
 $shipSet = Find-StopwatchLabel -Model $noneModel -Slug 'ship-pr'
 Assert-True ($null -ne $shipSet -and $shipSet.Title -eq 'Ship PR' -and @($shipSet.Groups).Count -eq 0) 'its page resolves before its first run, so the card''s link is never a 404'
 $shipPage = Format-StopwatchLabelPageHtml -Set $shipSet -StorePath 's'
-Assert-True ($shipPage -match '<div class="grid__head"><h1>Ship PR</h1></div>' -and $shipPage -match 'No run yet\. The first one sets the baseline') 'the page heads its runs with the label and says none has been made'
+Assert-True ($shipPage -match '<div><h1>Ship PR</h1></div>' -and $shipPage -match 'No run yet\. The first one sets the baseline') 'the page heads its runs with the label and says none has been made'
+Assert-True ($shipPage -match '<div><h1>Ship PR</h1></div>\r?\n<div class="sw-groups">' -and $shipPage -notmatch 'grid__head"><h1') 'a label page''s h1 stands above its card group too (#3639)'
 Assert-True ($shipPage -match '<div class="grid__head"><h2>How to time it</h2></div>\s*<section class="card sw-card"><ol class="sw-steps">(<li>[^<]+</li>){5}</ol></section>') 'and holds the five steps in one card, under an h2 of their own above it'
 Assert-True ($shipPage -match 'exactly &quot;stopwatch: Ship PR&quot;' -and $shipPage -match 'ship-pr\.ps1' -and $shipPage -match 'the CI wait') 'the steps say which first line to use, what to ship, and which steps a run''s page splits out'
 Assert-True ($shipPage -notmatch '<section class="card[^"]*">\s*<h2') 'no h2 stands inside a card on that page'
@@ -352,8 +355,8 @@ Assert-True ($cssPage -notmatch 'sw-steps">|How to time it|sw-prompt"|data-copy'
 $flatNone = Format-StopwatchPageHtml -Model $noneModel -StorePath 's' -Flat
 # THE h1 NAMES THE PAGE ITS BREADCRUMB NAMES: it was a fixed "Measurements" on the Logbook and on an empty overview.
 $flatRun = Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @((& $mk 'Docs' 0 10))) -StorePath 's' -Flat -Route '/logbook' -PageTitle 'Logbook'
-Assert-True ($flatRun -match '<div class="grid__head"><h1>Logbook</h1></div>' -and $flatRun -notmatch 'Measurements') 'the flat overview''s h1 is its -PageTitle, as the Logbook passes it'
-Assert-True ($none -match '<div class="grid__head"><h1>Stopwatch</h1></div>' -and $none -notmatch 'Measurements') 'and an empty overview is headed with its page title too'
+Assert-True ($flatRun -match '<div><h1>Logbook</h1></div>' -and $flatRun -notmatch 'Measurements') 'the flat overview''s h1 is its -PageTitle, as the Logbook passes it'
+Assert-True ($none -match '<div><h1>Stopwatch</h1></div>' -and $none -notmatch 'Measurements') 'and an empty overview is headed with its page title too'
 # EVERY PAGE BEGINS WITH AN h1 (the owner, October 25, 2026): the overview, a label's page with or without runs,
 # and the Logbook's flat overview. The run page is held to it beside its own asserts below.
 foreach ($pg in @(@{ N = 'the overview'; H = $page }, @{ N = 'an empty overview'; H = $none }, @{ N = 'a label page'; H = $cssPage }, @{ N = 'the Ship PR page'; H = $shipPage }, @{ N = 'the flat overview'; H = $flatNone })) {

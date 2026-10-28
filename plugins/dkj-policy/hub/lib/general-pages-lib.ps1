@@ -117,7 +117,7 @@ $script:LongPageSectionLimit = 4
 function Get-PageSectionCount {
     <#
         How many sections -Body holds: the .grid__head blocks opening on an h2, the house's section heading. Cards,
-        rows and a grid__head holding the page's own h1 do not count, so a long list inside one section is not a
+        rows and the page's own h1 do not count, so a long list inside one section is not a
         long page.
     #>
     param([AllowEmptyString()][string]$Body = '')

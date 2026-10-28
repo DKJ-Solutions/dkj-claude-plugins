@@ -39,19 +39,32 @@
 
 ### PLAN
 
+Closes #3639. The owner's rule from 3fb642b72 (October 28, 2026): a page's h1 stands above its card group and is never framed inside it. The group and SessionStart pages follow it; the Stopwatch pages still set their h1 in a `grid__head` inside the group. A visible result, so the branch stops for the owner's look before the merge.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `stopwatch-lib.ps1`: the overview / Logbook, a label's page and a run's page set their h1 (and the run page's sub line) in a bare `<div>` above the group, as `Format-HubGroupPageHtml` does
+- [x] `general-pages-lib.ps1`: `Get-PageSectionCount`'s docstring no longer describes a grid__head holding the page's h1
+- [x] `stopwatch.tests.ps1`: the four asserts on the old shape follow, and two new ones pin the h1 above the group on the overview and a label page
 
 ### TEST
 
+- [x] `stopwatch` 268/0, `dev-pages` 478/0
+- [ ] The owner has looked at `/stopwatch`, a label page, a run page and `/logbook`
+
 ### DEPLOY: fix/3639-stopwatch-h1-above-group
 
-**Score:**
+The hub's Stopwatch pages follow the house rule that the `h1` is never framed: the overview, the Logbook, a label's page and a run's page now set their `h1` above the card group instead of inside its surface.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
+
+the Stopwatch pages set their h1 above the card group
 
