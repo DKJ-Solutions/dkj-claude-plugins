@@ -32,7 +32,7 @@ always pins the release that carries the bytes its checksums name.
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.36.0/plugins/dkj-policy/assets/house-style/house-style.css` | `d547fe56e3e54a801727caa93237521e0ae7690e715f86c452c556133275e157` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.36.0/plugins/dkj-policy/assets/house-style/house-style.css` | `5736e9c4654a781c2051dcd01ab98b7c0b94012aaf6de07c56906370a1f3ef21` |
 | `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.36.0/plugins/dkj-policy/assets/house-style/house-theme.js` | `24ed94dd5f096274826bbdc47ff63f29932369f6bd55f2b47ab9ece25a09599f` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
@@ -115,6 +115,8 @@ page, dashboard and Artifact is designed to that screen first:
   paragraph under it, whether `.lead`, a `.lede` of the repo's own or a plain `<p>`. Screen height is
   scarce. What the page is for goes in its `<meta name="description">`. An empty state that says a list is
   empty is content, not an intro, and stays.
+- **The `h1` is never framed** (the owner, October 28, 2026): no border, outline, shadow or background
+  on it, and the page's `h1` never sits inside a card, panel or bordered box. It stands on the page.
 - **One row where one row does.** Label and value on one line (`.facts--row`), a card's action beside
   its heading rather than on a row of its own, filters in one bar. A second row has to carry something
   the first could not.

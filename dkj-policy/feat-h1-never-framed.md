@@ -43,17 +43,27 @@ House style: the h1 is never framed -- no border, outline, shadow or background 
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: a second `h1` rule clears `border`, `outline`, `box-shadow` and `background`, with its comment
+- [x] `assets/house-style/README.md`: rule 6 under "How to use it", the h1 is never framed
+- [x] `house-style` skill: the same rule under "Density", and the pin table's `house-style.css` checksum follows the file
 
 ### TEST
 
+- [x] `check-house-style.tests.ps1`: 90 passed, 0 failed (8 failed before the checksum followed the file, as the skill says it must)
+- [x] `house-palette.tests.ps1`: 128 passed, 0 failed
+
 ### DEPLOY: feat/h1-never-framed
 
-**Score:**
+A new house-style rule: the `h1` is never framed. `house-style.css` now clears any border, outline, shadow and background on every `h1`. The README (rule 6) and the `house-style` skill state the layout half too: a page's `h1` stands on the page itself, never inside a card, panel or bordered box. A repo whose own layer gave its `h1` a frame through a plain `h1` selector loses that frame when it takes this copy. A rule on a class of the repo's own still wins, and the rule says it must not be written.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every DKJ-Solutions app takes this the next time it copies the house style. Most pages already keep the `h1` unframed, so few will look different. The rule exists so that no app starts framing it.
+
+**Score:** 2
 
 #### Pull Request
 
+the h1 is never framed
