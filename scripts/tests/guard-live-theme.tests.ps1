@@ -174,7 +174,17 @@ function Get-ShopifyThemeEstateStore { 'x.myshopify.com' }
         @{ n = 'delete';                       c = "shopify theme delete --store x.myshopify.com --theme 123" },
         @{ n = 'live push by id, no marker';   c = "shopify theme push --store x.myshopify.com --theme $LIVE --only assets/x.css" },
         @{ n = 'live push by --allow-live';    c = "shopify theme push --store x.myshopify.com --allow-live" },
-        @{ n = 'live push through a wrapper';  c = 'powershell -Command "shopify theme push --allow-live"' }
+        @{ n = 'live push through a wrapper';  c = 'powershell -Command "shopify theme push --allow-live"' },
+        # #3613: the five commands the inbound report fed the guard, two of which passed.
+        @{ n = '#3613 long flags, by id';      c = "shopify theme push --allow-live --theme $LIVE" },
+        @{ n = '#3613 short -a -t, by id';     c = "shopify theme push -a -t $LIVE" },
+        @{ n = '#3613 short -l -a';            c = 'shopify theme push -l -a --store x.myshopify.com' },
+        @{ n = '#3613 --live --allow-live';    c = 'shopify theme push --live --allow-live' },
+        @{ n = '#3613 by NAME with -a';        c = 'shopify theme push -t smartwatchbanden/live -a' },
+        @{ n = 'combined short flags -la';     c = 'shopify theme push -la' },
+        @{ n = '--live alone';                 c = 'shopify theme push --live --store x.myshopify.com' },
+        @{ n = '-l alone';                     c = 'shopify theme push -l' },
+        @{ n = 'short flags through a wrapper'; c = 'powershell -Command "shopify theme push -t main -a"' }
     )
     foreach ($case in $blocked) { Assert-Equal 2 (Invoke-Guard -Command $case.c -Root $configured) "blocked: $($case.n)" }
     # #3265: the publish refusal is where a session preparing a theme switch meets the translation carry-over.
@@ -190,7 +200,12 @@ function Get-ShopifyThemeEstateStore { 'x.myshopify.com' }
         @{ n = 'pull from live (pre-task sync)';   c = "shopify theme pull --store x.myshopify.com --theme $LIVE" },
         @{ n = 'pull --live';                      c = "shopify theme pull --store x.myshopify.com --live" },
         @{ n = 'theme list';                       c = "shopify theme list --store x.myshopify.com" },
-        @{ n = 'an ordinary command';              c = "git status --short" }
+        @{ n = 'an ordinary command';              c = "git status --short" },
+        # #3613's short-flag scan reads only what follows 'theme push', and only push's boolean letters.
+        @{ n = 'preview push through -Command';    c = 'powershell -Command "shopify theme push --theme 987654321"' },
+        @{ n = 'preview push with short flags';    c = 'shopify theme push -s x.myshopify.com -t 987654321 -n -o assets/x.css' },
+        @{ n = 'unpublished with short -u -j';     c = 'shopify theme push -u -j --theme-name feat-live' },
+        @{ n = 'pull -l (pre-task sync)';          c = 'shopify theme pull -l' }
     )
     foreach ($case in $allowed) { Assert-Equal 0 (Invoke-Guard -Command $case.c -Root $configured) "allowed: $($case.n)" }
 
@@ -246,6 +261,7 @@ function Get-ShopifyThemeEstateStore { 'x.myshopify.com' }
     Assert-Equal 2 (Invoke-Guard -Command 'shopify theme publish --theme 1' -Root $bare) 'no config: publish is still blocked -- rule 1 needs no answer'
     Assert-Equal 2 (Invoke-Guard -Command 'shopify theme delete --theme 1' -Root $bare) 'no config: delete is still blocked -- nor does rule 2'
     Assert-Equal 2 (Invoke-Guard -Command 'shopify theme push --allow-live' -Root $bare) 'no config: --allow-live still blocks, because the flag declares itself'
+    Assert-Equal 2 (Invoke-Guard -Command 'shopify theme push -l -a' -Root $bare) 'no config: and so do its short flags (#3613)'
     # AND THE HOLE, ASSERTED RATHER THAN LEFT IMPLIED. This is the case the session check exists for:
     # the guard is installed, so it reads as protection, while a push aimed at live BY ID passes.
     Assert-Equal 0 (Invoke-Guard -Command "shopify theme push --theme $LIVE" -Root $bare) 'no config: a push aimed at live BY ID passes -- the id half cannot fire, which is what the session check reports'

@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**4 / 4 minor entries** <!-- pending-tally -->
+**5 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3613-live-push-short-flags · 20261028-133056Z
+
+The Shopify live-theme guard now also blocks a live push written with the short flags: `-a` for
+`--allow-live`, `-l` or `--live` for live, and combined clusters such as `-la`. A push naming the
+live theme by name is caught through the `-a` it needs. A preview push, including one wrapped in
+`powershell -Command`, and every pull stay allowed (#3613).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A Shopify consumer's live theme is guarded against `shopify theme push -l -a` and
+`-t <live name> -a`, which used to pass. A session that pushes to live has to carry the authorisation
+marker however it spells the flags.
+
+**Score:** 3
+
+#### Pull Request
+
+guard-live-theme catches a live push written with short flags
+
+Plugins: dkj-subagents-shopify
+
+[PR #3615](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3615)
+
+---
 
 ### DEPLOY: feat/card-grid-padding · 20261028-125307Z
 
