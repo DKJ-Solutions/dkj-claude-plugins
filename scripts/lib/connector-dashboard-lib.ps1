@@ -314,8 +314,10 @@ function Format-LensMapSectionHtml {
         that holds .claude/specialists/lenses/, how many lenses it has, how many say something beyond their
         scaffold (Test-LensFilled), and which those are, by id and specialist name. -Checkouts is a list of
         @{ Name ('<owner folder>/<repo folder>'); Branch; Lenses (list of @{ Id; Bytes; Filled; Marked }) };
-        -Names maps an id to its specialist's name, and an id it lacks is shown bare. Most filled first.
-        Returns @{ Html; Style }, the server reading the disk so this stays a pure function.
+        -Names maps an id to its specialist's name, and an id it lacks is shown bare. Big to small, twice (Maikel,
+        October 28, 2026): the checkouts by the total size of their filled-in lenses, and inside a checkout its
+        lenses one per line, largest first. Returns @{ Html; Style }, the server reading the disk so this stays a
+        pure function.
     #>
     param(
         [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Checkouts,
@@ -337,20 +339,23 @@ function Format-LensMapSectionHtml {
         [void]$sb.AppendLine('<p class="note">No checkout on this machine holds <code>.claude/specialists/lenses/</code>.</p>')
     } else {
         [void]$sb.AppendLine('<div class="table-wrap cd-table-gap"><table class="table cd-lenses"><colgroup><col class="cd-col-co"><col class="cd-col-n"><col class="cd-col-n"><col></colgroup><thead class="cd-thead"><tr><th>Checkout</th><th>Lenses</th><th>Filled in</th><th class="cd-left">What is filled in</th></tr></thead><tbody>')
-        $sorted = @($all | Sort-Object @{ Expression = { @(& $filledOf $_).Count }; Descending = $true }, @{ Expression = { [string]$_.Name } })
+        # Summed by hand: Measure-Object -Property reads no hashtable key in Windows PowerShell 5.1.
+        $bytesOf = { param($c) $n = [int64]0; foreach ($l in @(& $filledOf $c)) { $n += [int64]$l.Bytes }; $n }
+        $sorted = @($all | Sort-Object @{ Expression = { & $bytesOf $_ }; Descending = $true }, @{ Expression = { [string]$_.Name } })
         foreach ($c in $sorted) {
-            $filled = @(& $filledOf $c)
+            $filled = @(& $filledOf $c | Sort-Object @{ Expression = { [int64]$_.Bytes }; Descending = $true }, @{ Expression = { [string]$_.Id } })
             $branch = [string]$c.Branch
             $on = if ($branch -and $branch -ne 'main' -and $branch -ne 'master') { '<br><span class="meta">on <code>' + (& $e $branch) + '</code></span>' } else { '' }
             $items = if ($filled.Count) {
-                ($filled | ForEach-Object {
+                '<ul class="cd-lens-list">' + (($filled | ForEach-Object {
                     $id = [string]$_.Id
-                    $name = if ($Names.ContainsKey($id) -and $Names[$id]) { ' ' + (& $e $Names[$id]) } else { '' }
+                    $name = if ($Names.ContainsKey($id) -and $Names[$id]) { & $e $Names[$id] } else { '' }
                     $mark = if ($_.Marked) { ' <span class="tag tag--warn" title="Filled in, and still marked VUL-IN">VUL-IN</span>' } else { '' }
-                    '<span class="cd-lens"><code>' + (& $e $id) + '</code>' + $name + ' <span class="cd-lens__size">' + (Format-DashboardBytes ([int64]$_.Bytes)) + '</span>' + $mark + '</span>'
-                }) -join ''
+                    '<li><code>' + (& $e $id) + '</code><span>' + $name + $mark + '</span><span class="cd-lens__size">' + (Format-DashboardBytes ([int64]$_.Bytes)) + '</span></li>'
+                }) -join '') + '</ul>'
             } else { '<span class="note">Scaffolds only</span>' }
-            [void]$sb.AppendLine('<tr><td>' + (& $e $c.Name) + $on + '</td><td>' + @(@($c.Lenses) | Where-Object { $_ }).Count + '</td><td>' + $filled.Count + '</td><td class="cd-left"><div class="cd-lens-list">' + $items + '</div></td></tr>')
+            $total = if ($filled.Count) { '<br><span class="meta">' + (Format-DashboardBytes (& $bytesOf $c)) + '</span>' } else { '' }
+            [void]$sb.AppendLine('<tr><td>' + (& $e $c.Name) + $on + '</td><td>' + @(@($c.Lenses) | Where-Object { $_ }).Count + '</td><td>' + $filled.Count + $total + '</td><td class="cd-left">' + $items + '</td></tr>')
         }
         [void]$sb.AppendLine('</tbody></table></div>')
     }
@@ -362,10 +367,11 @@ function Format-LensMapSectionHtml {
         '.cd-lenses { table-layout: fixed; width: 100%; min-width: 760px; }',
         '.cd-lenses td { overflow-wrap: anywhere; vertical-align: top; }',
         '.cd-col-co { width: 26%; } .cd-col-n { width: 10%; }',
-        '.cd-lens-list { display: flex; flex-wrap: wrap; gap: var(--spacing-1-5) var(--spacing-4); font-size: var(--text-sm); }',
-        '.cd-lens { display: inline-flex; align-items: center; gap: var(--spacing-1); }',
-        '.cd-lens code { font-size: var(--text-xs); }',
-        '.cd-lens__size { color: var(--muted); }') -join "`r`n"
+        '.cd-lens-list { list-style: none; padding: 0; margin: 0; max-width: 420px; font-size: var(--text-sm); }',
+        '.cd-lens-list li { display: grid; grid-template-columns: 3.5rem 1fr auto; gap: var(--spacing-2); align-items: center; padding: var(--spacing-1) 0; border-top: 1px solid var(--paper-3); }',
+        '.cd-lens-list li:first-child { border-top: 0; }',
+        '.cd-lens-list code { font-size: var(--text-xs); }',
+        '.cd-lens__size { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }') -join "`r`n"
     return @{ Html = $sb.ToString(); Style = $style }
 }
 
