@@ -55,7 +55,7 @@ no horizontal scrollbar, at desktop width and below 760px.
 
 ### TEST
 
-- [ ] The owner has looked at a `.grid-2` page: no sideways scroll
+- [x] The owner has looked at a `.grid-2` page: no sideways scroll
 
 ### DEPLOY: fix/3614-grid-2-minmax-tracks
 
