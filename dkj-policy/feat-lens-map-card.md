@@ -51,22 +51,30 @@ its card on `/connectors/dkj`, holding a **Lenses** card.
 - [x] The connector page frame moved into `Format-ConnectorPageStart`/`Format-ConnectorPageEnd`, which the repo page shares
 - [x] `Get-DkjRepoRows`, `Format-DkjRepoCardHtml`, `Get-DkjRepoCardStyle` and `Format-DkjRepoPageHtml` in `scripts/lib/dev-pages-lib.ps1`; the DKJ repo cards' titles open the repo's page
 - [x] The `/connectors/dkj/<name>` route in `serve-connector-dashboard.ps1`, a 404 for a name that is neither on GitHub nor checked out here
+- [x] Maikel's remake of `/connectors/dkj` (the same day): `Format-DkjReposPageHtml`, a hub card per DKJ repo; `Format-DkjReposSectionHtml` and `Format-ConnectorDashboardHtml`'s `-Section*` parameters retired
+- [x] A repo's mini-card is `Format-ConnectorRepoMiniCardHtml`, shared by a group's Issues card and the repo page's Connector card
 - [ ] The owner has looked at `/connectors/dkj` and a repo's page (a visible result)
 
 ### TEST
 
 - [x] `connector-dashboard.tests.ps1`: the filled-in rule, the lens reader on a fixture tree, the Lenses card's order and markup, the page frame (234 passed)
-- [x] `dev-pages.tests.ps1`: the repo card's link, the repo rows and the repo page (475 passed)
+- [x] `dev-pages.tests.ps1`: the DKJ page's cards, the repo rows and the repo page's three cards (473 passed)
 
 ### DEPLOY: feat/lens-map-card
 
-Every DKJ repo card on the product's `/connectors/dkj` now opens a page of its own,
-`/connectors/dkj/<name>`: the repo's card (its GitHub facts, its checkout and the session to copy) and a
-**Lenses** card listing what its checkout's `.claude/specialists/lenses/` holds. The filled-in lenses are
-a table, big to small, by id, specialist name and size, a filled-in lens still marked `VUL-IN` tagged;
-the scaffolds are one line under it. "Filled in" is read from the text (any line that is not
-frontmatter, a heading, a quote or a comment), because the `VUL-IN` marker turned out not to say it.
-The GitHub link moved from the card's title onto its facts line.
+The product's `/connectors/dkj` is now a card per DKJ repo, in the hub's card form three to a row: its
+GitHub facts, its checkout here and, where it is registered under `connectors/`, its status mark. Each
+card opens a page of its own, `/connectors/dkj/<name>`, holding three cards:
+
+- **Repo** -- its description, GitHub facts and link, its checkout's state and the session to copy;
+- **Connector** -- what `check-connectors.ps1` reports for it, or that it is not registered;
+- **Lenses** -- what its checkout's `.claude/specialists/lenses/` holds: the filled-in lenses a table, big
+  to small, by id, specialist name and size, a filled-in lens still marked `VUL-IN` tagged, and the
+  scaffolds one line under it. "Filled in" is read from the text (any line that is not frontmatter, a
+  heading, a quote or a comment), because the `VUL-IN` marker turned out not to say it.
+
+The DKJ page's Connected repos table, its On GitHub grid and its Issues card are gone: what each held per
+repo is on that repo's page. The BWJ and Other pages are unchanged.
 
 **Score:** 2
 
