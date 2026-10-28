@@ -232,6 +232,11 @@ Assert-True (-not $s.Armed) 'an unreadable state does not arm the watch either'
 $s = Get-DevPreviewWatchStep -State 1 -Since $null -Now $t0 -GraceSeconds 60
 Assert-True $s.Armed 'WTSConnected arms it as WTSActive does'
 Assert-Equal '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\p\w.ps1" -ProcessId 12 -StartTicks 34' (Get-DevPreviewWatchArgs -Watcher 'C:\p\w.ps1' -ProcessId 12 -StartTicks 34) 'the watcher is started for the server''s pid and start time'
+Assert-Equal '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\p\w.ps1" -ProcessId 12 -StartTicks 34 -OwnerId 56 -OwnerStartTicks 78' (Get-DevPreviewWatchArgs -Watcher 'C:\p\w.ps1' -ProcessId 12 -StartTicks 34 -OwnerId 56 -OwnerStartTicks 78) 'and for its owner, where a test named one (#3620)'
+Assert-True ($null -eq (Get-DevPreviewOwner -Value '')) 'no DKJ_DEV_PREVIEW_OWNER_PID: no owner, which is every real session (#3620)'
+Assert-True ($null -eq (Get-DevPreviewOwner -Value 'abc')) 'a value that is not a pid: no owner'
+$selfOwner = Get-DevPreviewOwner -Value ([string]$PID)
+Assert-True ($selfOwner -and $selfOwner.Id -eq $PID -and $selfOwner.StartTicks -gt 0) 'a running pid: that process and its start time'
 
 # #3404: the settle after a started product's first answer -- the port decides, never the launcher.
 Assert-Equal 'pending' (Get-DevPreviewSettleOutcome -State 'ours' -Due $false) 'still ours before the settle ends: keep holding'
@@ -600,6 +605,9 @@ function Use-GeneralPort {
     $script:allGen += $Port
 }
 $env:DKJ_GENERAL_PAGES_PORTS = [string]$genPort
+# EVERY SERVER THE HOOK STARTS HERE IS TIED TO THIS SUITE (#3620): its watcher stops it once this process has
+# gone, so a gate killed before the finally below leaves no server behind.
+$env:DKJ_DEV_PREVIEW_OWNER_PID = [string]$PID
 $repos = @()
 function Invoke-Hook {
     param([string]$Root)
@@ -671,6 +679,15 @@ try {
         $tgt = & $newTarget
         $w = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -PassThru -ArgumentList ((Get-DevPreviewWatchArgs -Watcher $Watch -ProcessId $tgt.Id -StartTicks 1) + ' -ForceState 4 -GraceSeconds 0 -PollSeconds 1')
         Assert-True ($w.WaitForExit(15000) -and -not $tgt.HasExited) 'a pid whose start time is not the server''s is never stopped'
+        & taskkill.exe /T /F /PID $tgt.Id 2>&1 | Out-Null
+        # THE OWNER (#3620): an active session keeps the server only while the process it is tied to runs.
+        $tgt = & $newTarget
+        $own = & $newTarget
+        $w = Start-Process -FilePath 'powershell.exe' -WindowStyle Hidden -PassThru -ArgumentList ((Get-DevPreviewWatchArgs -Watcher $Watch -ProcessId $tgt.Id -StartTicks $tgt.StartTime.ToFileTimeUtc() -OwnerId $own.Id -OwnerStartTicks $own.StartTime.ToFileTimeUtc()) + ' -ForceState 0 -GraceSeconds 0 -PollSeconds 1')
+        Assert-True (-not $tgt.WaitForExit(3000)) 'a running owner and an active session: the server keeps running'
+        & taskkill.exe /T /F /PID $own.Id 2>&1 | Out-Null
+        Assert-True $tgt.WaitForExit(15000) 'once its owner has ended, the watcher stops the server, the session still active (#3620)'
+        Assert-True $w.WaitForExit(15000) 'and then exits itself'
         & taskkill.exe /T /F /PID $tgt.Id 2>&1 | Out-Null
 
         # NO SEAM (#3245): the hub is the general pages server, and the line hands out its link.
@@ -1046,6 +1063,7 @@ try {
         Assert-True ($r.Code -eq 0 -and -not $r.Text.Trim()) 'off Windows the hook prints nothing'
     }
 } finally {
+    Remove-Item Env:\DKJ_DEV_PREVIEW_OWNER_PID -ErrorAction SilentlyContinue
     foreach ($p in $started) { Stop-Process -Id $p -Force -ErrorAction SilentlyContinue }
     if ($blocker) { $blocker.Stop() }
     # The general pages servers are detached, so they are found by their ports; and their state and log files

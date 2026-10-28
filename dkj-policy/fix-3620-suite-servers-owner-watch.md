@@ -39,19 +39,43 @@
 
 ### PLAN
 
+#3620: a killed `ship-pr` left 26 suite-started hub servers and their `dev-preview-watch` watchers holding
+about 2.3 GB. The suite stops them in its `finally`, which a killed gate never reaches, and the watcher stops a
+server only on a disconnected session. This branch is the first half of the issue: tie a server a TEST starts to
+that test's process. A real session's hub is meant to outlive the session for the next one to reuse, so it gets
+no owner. The second half, a `tidy-machine` lane that names orphaned hub processes, stays open on #3620.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `dev-preview-rules.ps1`: `Get-DevPreviewOwner` reads `DKJ_DEV_PREVIEW_OWNER_PID`, and
+  `Get-DevPreviewWatchArgs` passes `-OwnerId`/`-OwnerStartTicks` only when there is one
+- [x] `dev-preview-sessionstart.ps1`: the watcher it starts is given that owner
+- [x] `dev-preview-watch.ps1`: stops the server's tree once its owner has exited, or its pid is another process now
+- [x] `dev-preview-sessionstart.tests.ps1`: sets the variable to its own pid, so every server it starts through
+  the hook is tied to it
 
 ### TEST
 
+- [x] Unit asserts on the argument line with an owner, and on `Get-DevPreviewOwner` (unset, not a pid, a running pid)
+- [x] A live assert: an active session keeps the server while its owner runs, and the watcher stops it once the
+  owner is killed
+
 ### DEPLOY: fix/3620-suite-servers-owner-watch
 
-**Score:**
+A hub server that a test suite starts through the dev-preview hook is now stopped once that suite's process
+has ended ([#3620](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3620)). The suite sets
+`DKJ_DEV_PREVIEW_OWNER_PID` to its own pid, and `dev-preview-watch` stops the server's tree when that process
+is gone. Until now a killed gate never reached the suite's own cleanup, and one kill left 26 servers and
+watchers holding about 2.3 GB. A real session never sets the variable, so its hub still outlives the session
+for the next one to reuse.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
