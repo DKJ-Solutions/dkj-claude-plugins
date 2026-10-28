@@ -698,9 +698,19 @@ function Format-DkjRepoCardHtml {
 }
 
 function Get-DkjRepoCardStyle {
-    <# The repo layer for the DKJ pages (.dr-*): the Repo card's lines and the session command. #>
+    <# The repo layer for the DKJ pages (.dr-*): the repo cards' grid and lines, the Repo card's lines and the session command. #>
     return (@(
         '.dr-link { color: var(--primary); text-underline-offset: 2px; }',
+        # /connectors/dkj: four cards to a row, three on a laptop, then the house grids' own two and one.
+        '.dr-repos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--spacing-4); }',
+        '.dr-repos > .card { margin-top: 0; }',
+        '@media (max-width: 1280px) { .dr-repos { grid-template-columns: repeat(3, minmax(0, 1fr)); } }',
+        '@media (max-width: 1000px) { .dr-repos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }',
+        '@media (max-width: 760px) { .dr-repos { grid-template-columns: 1fr; } }',
+        # Each card three lines at most: the name, the facts and the checkout each one line, cut off with an ellipsis.
+        '.dr-repos h2 { display: block; font-size: var(--text-lg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+        '.dr-clip { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-sm); }',
+        '.dr-clip code { font-size: var(--text-xs); }',
         '.dr-card > p { margin: 0; }',
         '.dr-card > p + p { margin-top: var(--spacing-1); }',
         # A card's lines in the Stopwatch card's sizes: the description one muted line ending in an ellipsis, its
@@ -744,14 +754,18 @@ function Format-DkjReposPageHtml {
     if ($CheckMeta.CheckFailed) {
         [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">check-connectors.ps1 could not be run: ' + (& $e $CheckMeta.CheckFailed) + '. The cards are shown without their status.</p>')
     }
-    [void]$sb.AppendLine('<div class="grid-3" id="repos">')
+    # Four to a row, each card three lines at most -- its name, its facts, its checkout -- a longer one cut off with
+    # an ellipsis and whole in its tooltip (Maikel, October 28, 2026). The house grids stop at three, so the four
+    # columns are this page's own layer (.dr-repos), never a house class redefined.
+    [void]$sb.AppendLine('<div class="dr-repos" id="repos">')
+    $clip = { param($html) '<span class="dr-clip" title="' + (& $e ($html -replace '<[^>]+>', '' -replace '&middot;', [string][char]0x00B7)) + '">' + $html + '</span>' }
     foreach ($r in @($set.Rows)) {
         $co = $set.ByRepo[$r.Repo]
-        $value = if ($co) { '<code>' + (& $e $co.Branch) + '</code> ' + $(if ($co.Dirty) { [string]$co.Dirty + ' uncommitted' } else { 'clean' }) } else { 'Not checked out here' }
+        $value = & $clip $(if ($co) { '<code>' + (& $e $co.Branch) + '</code> ' + $(if ($co.Dirty) { [string]$co.Dirty + ' uncommitted' } else { 'clean' }) } else { 'Not checked out here' })
         $reg = $byConnector[([string]$r.Repo).ToLowerInvariant()]
         $badge = if ($reg) { $b = Get-DashboardStatusBadge ([string]$reg.Status); '<span class="badge ' + $b.Class + '" title="' + $b.Word + '" aria-label="' + $b.Word + '">' + $b.Mark + '</span>' } else { '' }
         $id = 'repo-' + (([string]$r.Name) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
-        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/dkj/' + $r.Name) -Label ([string]$r.Name) -SubHtml (Format-DkjRepoFactsHtml -Row $r) -ValueHtml $value -BadgeHtml $badge -Heading 2 -Id $id))
+        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/dkj/' + $r.Name) -Label ([string]$r.Name) -SubHtml (& $clip (Format-DkjRepoFactsHtml -Row $r)) -ValueHtml $value -BadgeHtml $badge -Heading 2 -Id $id))
     }
     [void]$sb.AppendLine('</div>')
     if (-not @($set.Rows).Count) { [void]$sb.AppendLine('<p class="note">No DKJ-Solutions repo was found, on GitHub or beside this repo.</p>') }
