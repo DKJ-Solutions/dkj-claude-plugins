@@ -129,6 +129,15 @@ foreach ($record in $armed) {
     $requiredRead = Invoke-NativeCapture -FilePath 'gh' -DiscardStderr -Arguments @(
         'pr', 'checks', $number, '--repo', $repo, '--required', '--json', 'name,bucket,state,link,completedAt')
     $requiredJson = if ($requiredRead.ExitCode -eq 0) { ($requiredRead.Output -join "`n") } else { '' }
+    # A FAILED READ SAYS WHY (#3619). The verdict below only knows the list was unreadable, and that hid a
+    # missing token scope through two fixes. The first read discards stderr so it cannot pollute the JSON;
+    # this second one runs only on the failure path, where there is no JSON to protect.
+    if ($requiredRead.ExitCode -ne 0) {
+        $why = Invoke-NativeCapture -FilePath 'gh' -Arguments @(
+            'pr', 'checks', $number, '--repo', $repo, '--required', '--json', 'name')
+        $firstLine = @($why.Output | ForEach-Object { "$_".Trim() } | Where-Object { $_ }) | Select-Object -First 1
+        Write-Host ("  #{0}: the required-check read exited {1}: {2}" -f $number, $requiredRead.ExitCode, $(if ($firstLine) { $firstLine } else { '(no stderr)' }))
+    }
 
     # ChecksJson is left out deliberately: Get-MergeBlockVerdict uses it only to NAME the
     # not-required checks that failed, which no decision here reads, and skipping it halves the calls.

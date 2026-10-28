@@ -39,19 +39,44 @@
 
 ### PLAN
 
+#3619 (inbound, measured in smartwatchbanden#1033): #3496's `checks: read` and `statuses: read` did not make
+`gh pr checks --required` readable in a private repo. gh resolves the workflow run behind every check run, and
+the explicit permissions block leaves `actions` at none. A probe with `actions: read` added read the list.
+Add that scope where #3491 added the other two, teach the `[scope]` advisory to name it, and make the picker
+print why a required-check read failed, since the bare "unreadable" verdict hid the cause through two fixes.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `adopt-ci-floor.ps1`: the merge-on-green template grants `actions: read`, and `Write-MergeOnGreenScopeVerdict`
+  names it when an existing runner lacks it
+- [x] `.github/workflows/merge-on-green.yml`: this repo's own runner grants `actions: read` too
+- [x] `pick-merge-on-green.ps1`: a failed required-check read re-asks once without discarding stderr and prints
+  its first line, on the failure path only
+- [x] Both scripts copied to their `plugins/dkj-policy/scripts/` mirrors
 
 ### TEST
 
+- [x] `adopt-ci-floor.tests.ps1`: the placed template carries `actions: read`; the advisory names all three
+  scopes on a bare block, the missing two on a checks-only block, and `actions: read` alone on a #3491-era block
+
 ### DEPLOY: fix/3619-merge-on-green-actions-read
 
-**Score:**
+The merge-on-green runner that `adopt-ci-floor` places now also grants its job token `actions: read`
+([#3619](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3619)). `checks: read` and `statuses: read`
+(#3491) were not enough: `gh pr checks --required` also reads the workflow run behind each check run, so a
+private repo's picker still could not read its required checks and still merged nothing. A re-run of
+`adopt-ci-floor` now names a runner without the scope under `[scope]`. When the required-check read
+fails, the picker now prints the first line of the error instead of only "could not be read".
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+In a private repo, merge-when-green had still never merged anything, and this release is the one that fixes it.
+Add `actions: read` under `permissions:` in `.github/workflows/merge-on-green.yml`, or delete that file and run
+`adopt-ci-floor -Apply` again. A re-run of `adopt-ci-floor` tells you whether your runner needs it.
+
+**Score:** 3
 
 #### Pull Request
 
