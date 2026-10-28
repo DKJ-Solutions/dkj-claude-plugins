@@ -767,6 +767,9 @@ function Get-DkjRepoCardStyle {
         # the last commit's subject under its age is a sentence, not a figure.
         '.dr-card > .dr-facts, .dr-card > .cd-signals { margin-top: var(--spacing-3); }',
         '.dr-facts dd { min-width: 0; white-space: normal; overflow-wrap: anywhere; }',
+        # Two columns of facts, so the card is half as tall (Maikel, October 28, 2026); one at phone width.
+        '.dr-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: var(--spacing-8); }',
+        '@media (max-width: 760px) { .dr-facts { grid-template-columns: 1fr; } }',
         # A card's lines in the Stopwatch card's sizes: the description one muted line ending in an ellipsis, its
         # whole text on hover, and the session command likewise, copied whole by its button.
         '.dr-desc { font-size: var(--text-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',

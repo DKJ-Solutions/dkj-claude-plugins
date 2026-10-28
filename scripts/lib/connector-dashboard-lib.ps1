@@ -337,7 +337,7 @@ function Format-RepoLensesCardHtml {
         The Lenses card on a DKJ repo's own page, /connectors/dkj/<name> (Maikel, October 28, 2026): what the
         checkout's .claude/specialists/lenses/ holds. -Lenses is a list of @{ Id; Bytes; Filled; Marked }, or
         $null where there is no checkout here or it has no lens folder; -Names maps an id to its specialist's
-        name, and an id it lacks is shown bare. The filled-in lenses (Test-LensFilled) are a table, big to
+        name, and an id it lacks is shown bare. The filled-in lenses (Test-LensFilled) are the house facts list in columns, big to
         small (Maikel, the same day), and a lens filled in yet still marked VUL-IN is tagged; the scaffolds
         are one line under it. Returns @{ Html; Style }, the server reading the disk so this stays a pure
         function.
@@ -367,12 +367,12 @@ function Format-RepoLensesCardHtml {
         [void]$sb.AppendLine('<p class="note">Its <code>.claude/specialists/lenses/</code> holds no lens.</p>')
     } else {
         if ($filled.Count) {
-            [void]$sb.AppendLine('<div class="table-wrap cd-table-gap"><table class="table cd-lenses"><colgroup><col class="cd-col-id"><col><col class="cd-col-size"></colgroup><thead class="cd-thead"><tr><th class="cd-left">Lens</th><th class="cd-left">Specialist</th><th>Size</th></tr></thead><tbody>')
+            [void]$sb.AppendLine('<dl class="facts cd-lenses">')
             foreach ($l in $filled) {
                 $mark = if ($l.Marked) { ' <span class="tag tag--warn" title="Filled in, and still marked VUL-IN">VUL-IN</span>' } else { '' }
-                [void]$sb.AppendLine('<tr><td class="cd-left"><code>' + (& $e $l.Id) + '</code></td><td class="cd-left">' + (& $e (& $nameOf ([string]$l.Id))) + $mark + '</td><td>' + (Format-DashboardBytes ([int64]$l.Bytes)) + '</td></tr>')
+                [void]$sb.AppendLine('<div><dt><code>' + (& $e $l.Id) + '</code>' + $(if ($n = & $nameOf ([string]$l.Id)) { ' ' + (& $e $n) } else { '' }) + $mark + '</dt><dd>' + (Format-DashboardBytes ([int64]$l.Bytes)) + '</dd></div>')
             }
-            [void]$sb.AppendLine('</tbody></table></div>')
+            [void]$sb.AppendLine('</dl>')
         } else {
             [void]$sb.AppendLine('<p class="note">Every lens is still its scaffold.</p>')
         }
@@ -386,9 +386,10 @@ function Format-RepoLensesCardHtml {
     [void]$sb.AppendLine('</div>')
 
     $style = @(
-        '.cd-lenses { table-layout: fixed; width: 100%; max-width: 640px; }',
-        '.cd-col-id { width: 6rem; } .cd-col-size { width: 6rem; }',
-        '.cd-lenses td:last-child { font-variant-numeric: tabular-nums; }',
+        # Columns of at least 240px, filled top to bottom, so big to small reads down each column and the card stays short.
+        '.cd-lenses { columns: 240px; column-gap: var(--spacing-8); }',
+        '.cd-lenses > div { break-inside: avoid; }',
+        '.cd-lenses dt code { font-size: var(--text-xs); }',
         '.cd-scaffolds { white-space: normal; margin-top: var(--spacing-3); }') -join "`r`n"
     return @{ Html = $sb.ToString(); Style = $style }
 }
