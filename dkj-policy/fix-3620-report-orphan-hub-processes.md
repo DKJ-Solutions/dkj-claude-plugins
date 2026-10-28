@@ -59,7 +59,11 @@ watcher is now named (its server has ended).
 
 ### TEST
 
-- [x] `tidy-lib.tests.ps1`: thirteen verdict asserts, and a lane-13 run on a pinned process table
+- [x] `tidy-lib.tests.ps1`: the verdict asserts, and a lane-13 run on a pinned process table
+- [x] Review (Victor, Sebastian) taken in: a suite's server is judged by its watcher, since its hook launcher
+  has always exited; a launcher born after the server is a reused pid; no stale verdict without a readable
+  register; the match anchored to the `-File` invocation; a cache segment is named only when it has a
+  plugin-name or version shape
 - [x] The session check by hand on a fixture table (report shown, `[INFO]` left out) and on this machine
 - [x] `check-plugin-integrity.ps1` 0 errors; `shared-scripts`, `sessioncheck-dispatch`, `tidy-lib` suites green
 

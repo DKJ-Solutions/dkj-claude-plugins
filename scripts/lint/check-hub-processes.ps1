@@ -77,6 +77,7 @@ foreach ($r in $rows) { $table[[int]$r.ProcessId] = @{ ParentId = [int]$r.Parent
 $userHome = Get-UserClaudeHome -UserHomeOverride $UserHomeOverride
 $cacheRoot = if ($userHome) { Join-Path $userHome '.claude\plugins\cache' } else { '' }
 $installPaths = @()
+$registerRead = $false
 if ($userHome) {
     # Only AllRecords is read, which does not depend on the root. It is resolved properly anyway, as
     # check-claude-home.ps1 does and for its reason: every shared script resolves its root dual-context.
@@ -85,14 +86,27 @@ if ($userHome) {
     $install = Get-InstallRecord -RepoRoot $scopeRoot -UserHomeOverride $UserHomeOverride
     if ($install.Exists -and $install.Readable) {
         $installPaths = @(@($install.AllRecords) | ForEach-Object { [string]$_.InstallPath } | Where-Object { $_ })
+        $registerRead = $installPaths.Count -gt 0
     }
+}
+
+# TWO PASSES: the watchers first, because a suite's server is judged by its watcher (Get-HubProcessVerdict).
+$shells = @($rows | Where-Object { [string]$_.Name -match '^(powershell|pwsh)\.exe$' })
+function Get-Verdict($r, [hashtable]$Watchers) {
+    Get-HubProcessVerdict -CommandLine ([string]$r.CommandLine) -ParentId ([int]$r.ParentProcessId) -Processes $table `
+        -InstallPaths $installPaths -CacheRoot $cacheRoot -RegisterRead $registerRead `
+        -ProcessId ([int]$r.ProcessId) -Ticks ([long]$r.Ticks) -Watchers $Watchers
+}
+$watchers = @{}
+foreach ($r in $shells) {
+    $w = Get-Verdict $r @{}
+    if ($w.Kind -eq 'watcher' -and $w.Target -gt 0) { $watchers[[int]$w.Target] = $(if ($w.Class -eq 'orphan') { 'orphan' } else { 'live' }) }
 }
 
 $findings = @()
 $unreadable = 0; $unreadableMB = 0; $live = 0
-foreach ($r in $rows) {
-    if ([string]$r.Name -notmatch '^(powershell|pwsh)\.exe$') { continue }
-    $v = Get-HubProcessVerdict -CommandLine ([string]$r.CommandLine) -ParentId ([int]$r.ParentProcessId) -Processes $table -InstallPaths $installPaths -CacheRoot $cacheRoot
+foreach ($r in $shells) {
+    $v = Get-Verdict $r $watchers
     switch ($v.Class) {
         'unreadable' { $unreadable++; $unreadableMB += [double]$r.WorkingSetMB }
         'live'       { $live++ }
@@ -110,6 +124,9 @@ if ($findings.Count -eq 0) {
         Write-Host ("         Stop-Process -Id {0} -Force" -f $f.Pid)
     }
     Write-Host '  Stopping one ends nothing a session needs: the next session start brings its own hub back.'
+}
+if (-not $registerRead) {
+    Write-Host '[INFO] the install register could not be read, so no hub process was judged stale by its plugin version.'
 }
 if ($unreadable -gt 0) {
     Write-Host "[INFO] $unreadable powershell.exe process(es), about $([int]$unreadableMB) MB, run in another security context (elevated, or a sandboxed run) and hide their command line from this one -- not judged."
