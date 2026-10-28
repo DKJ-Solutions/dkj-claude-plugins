@@ -726,6 +726,16 @@ a.menu-item:hover { background: var(--paper-3); }
 .menu-item__value { display: block; margin-top: var(--spacing-1); font-size: var(--text-base); font-weight: 300; color: var(--fg-1); }
 .menu-item__title { margin: 0; }
 .menu-item > .badge { flex: none; }
+/* A card's title is ONE line, cut off with an ellipsis where it does not fit the card's width (owner, October 28,
+   2026): the plain label's first line, or the h2. A mark after the h2's label (Format-HubCardLinkHtml -TitleBadgeHtml:
+   <h2><span>label</span><span class="badge">) keeps its place, and the label in front of it is cut off instead. The
+   description and the value under it still wrap. */
+.card--link .menu-item__label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.card--link .menu-item__label > :is(.menu-item__sub, .menu-item__value) { white-space: normal; }
+.card--link .menu-item__title { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.card--link .menu-item__title:has(> .badge) { display: flex; align-items: center; gap: var(--spacing-2); }
+.card--link .menu-item__title > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.card--link .menu-item__title > .badge { flex: none; }
 
 /* ---- Screen readers only --------------------------------------------------------- */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }

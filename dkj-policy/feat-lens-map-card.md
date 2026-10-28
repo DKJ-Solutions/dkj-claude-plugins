@@ -53,6 +53,8 @@ its card on `/connectors/dkj`, holding a **Lenses** card.
 - [x] The `/connectors/dkj/<name>` route in `serve-connector-dashboard.ps1`, a 404 for a name that is neither on GitHub nor checked out here
 - [x] Maikel's remake of `/connectors/dkj` (the same day): `Format-DkjReposPageHtml`, a hub card per DKJ repo; `Format-DkjReposSectionHtml` and `Format-ConnectorDashboardHtml`'s `-Section*` parameters retired
 - [x] A repo's mini-card is `Format-ConnectorRepoMiniCardHtml`, shared by a group's Issues card and the repo page's Connector card
+- [x] The DKJ repo cards: four to a row, three lines each, no `<a>` inside the card's own link (#3610), the status mark after the name (`Format-HubCardLinkHtml -TitleBadgeHtml`)
+- [x] The house style: every card link's title is one line, cut off with an ellipsis (`house-style.css`, its README, the skill's sha256 pin)
 - [ ] The owner has looked at `/connectors/dkj` and a repo's page (a visible result)
 
 ### TEST
@@ -76,13 +78,18 @@ card opens a page of its own, `/connectors/dkj/<name>`, holding three cards:
 The DKJ page's Connected repos table, its On GitHub grid and its Issues card are gone: what each held per
 repo is on that repo's page. The BWJ and Other pages are unchanged.
 
+The shared card link, `Format-HubCardLinkHtml`, gained `-TitleBadgeHtml` (a status mark right after the
+label), and its docstring now says its markup slots hold no `<a>` (#3610).
+
 **Score:** 2
 
 #### What makes this deploy extra special
 
-N/A: a page of this repo's own dev server, which no consumer runs.
+Every hub card in a DKJ app keeps its title on one line: the house style cuts a label or `h2` that does not
+fit the card's width off with an ellipsis, a mark after it keeping its place. An app takes it with the
+release's pinned `house-style.css`, so a long name no longer pushes a card taller than its neighbours.
 
-**Score:** N/A
+**Score:** 2
 
 #### Pull Request
 

@@ -778,6 +778,16 @@ page code goes through it, since a suite in `dev-pages.tests.ps1` fails on one w
   the house `.badge`.
 - **The label as an `h2`** (`.menu-item__title`, inside a `<div class="menu-item__label">`) where the cards
   are a page's sections or groups, so the page's outline still names them.
+- **A status mark right after that label** (`-TitleBadgeHtml`: `<h2><span>label</span><span class="badge">`),
+  where the state belongs to the name rather than in the icon's place.
+
+**A card's title is always one line** (owner, October 28, 2026): where the label, plain or as an `h2`, does not
+fit the card's width it is cut off with an ellipsis, and a mark after it keeps its place. The description and
+the value under it still wrap. So a page never shortens a name to make it fit, and never styles this per page.
+
+**No slot holds an `<a>`.** The card is one link, and an `<a>` inside an `<a>` is invalid HTML: the browser
+closes the card's link at the inner one and the card falls apart
+([#3610](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3610)).
 - **An `id` and extra classes** on the card, for an anchor or a tone of the page's own (a run's speed colour).
 
 ```html

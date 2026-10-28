@@ -710,11 +710,10 @@ function Get-DkjRepoCardStyle {
         '.dr-repos > .card { margin-top: 0; }',
         '@media (max-width: 720px) { .dr-repos { grid-template-columns: repeat(3, minmax(0, 1fr)); } }',
         '@media (max-width: 520px) { .dr-repos { grid-template-columns: 1fr; } }',
-        # Each card three lines at most: the name, the facts and the checkout each one line, cut off with an ellipsis.
-        # The status mark sits right after the name (Maikel, October 28, 2026), and a long name is cut off before it.
-        '.dr-repos h2 { gap: var(--spacing-2); font-size: var(--text-lg); }',
-        '.dr-repos h2 > span:first-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
-        '.dr-repos h2 > .badge { flex: none; }',
+        # Each card three lines at most: the name, the facts and the checkout. The name a size down, to fit four to a
+        # row; the house style cuts it off where it still does not fit and keeps the status mark after it in its
+        # place, and .dr-clip does the same for the facts and the checkout (Maikel, October 28, 2026).
+        '.dr-repos h2 { font-size: var(--text-lg); }',
         '.dr-clip { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-sm); }',
         '.dr-clip code { font-size: var(--text-xs); }',
         '.dr-card > p { margin: 0; }',
