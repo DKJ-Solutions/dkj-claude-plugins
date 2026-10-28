@@ -99,7 +99,7 @@ function Resolve-HubTimingPage {
     $missing = @{ Status = 404; Html = ''; Location = '' }
     if ($Path -eq '/stopwatch') {
         $sw = Get-StopwatchPageRuns -Context $c; $store = $sw.Store
-        return (& $ok (Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs $sw.Runs) -ReadError $store.Error -Skipped $store.Skipped -StorePath $c.StopwatchPath `
+        return (& $ok (Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs $sw.Runs -Prepared $store.Prepared) -ReadError $store.Error -Skipped $store.Skipped -StorePath $c.StopwatchPath `
             -SharedMachines $sw.Shared.Machines -Fetching:([bool]$sw.Shared.Fetching) -LastFetched $(if ($sw.Shared.ContainsKey('LastFetched')) { $sw.Shared.LastFetched } else { $null }) `
             -Shared:([bool]$c.Shared) @site))
     }
@@ -107,7 +107,7 @@ function Resolve-HubTimingPage {
         $swSlug = $Matches[1]; $swRunSlug = $Matches[2]
         $sw = Get-StopwatchPageRuns -Context $c; $store = $sw.Store
         if ($store.Error) { return (& $ok (Format-StopwatchPageHtml -Model (ConvertTo-StopwatchModel -Runs @()) -ReadError $store.Error -StorePath $c.StopwatchPath -Shared:([bool]$c.Shared) @site)) }
-        $swModel = ConvertTo-StopwatchModel -Runs $sw.Runs
+        $swModel = ConvertTo-StopwatchModel -Runs $sw.Runs -Prepared $store.Prepared
         $labelSet = Find-StopwatchLabel -Model $swModel -Slug $swSlug
         if (-not $swRunSlug) {
             $group = Find-StopwatchGroup -Model $swModel -Slug $swSlug

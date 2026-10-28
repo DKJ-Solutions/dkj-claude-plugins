@@ -43,17 +43,28 @@ Owner's ask (Maikel, 2026-10-28): prepare a Stopwatch card for a label ahead of 
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Store: a `prepared` list (label, preparedAt) read and written by the Stopwatch store, labels normalised like a prompt's.
+- [x] Overview and label page: a "Ready, not started" card and page for a prepared label with no run; a label with runs keeps its normal card.
+- [x] Hooks: the marked prompt removes the matching prepared entry; every writer of the store keeps the rest.
+- [x] New `stopwatch-prepare` skill and script (prepare, `-Remove`), registered in the hub README.
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1` and `stopwatch-sync.tests.ps1` green, with new tests for the prepared label.
+- [x] `check-plugin-integrity.ps1`: 0 errors.
+- [~] Owner's look at the card on `/stopwatch`: the branch is parked for it, not merged (visible result).
+
 ### DEPLOY: feat/stopwatch-prepare-card
 
-**Score:**
+The hub's Stopwatch page can now show a card for a label before any run of it exists, with no clock running. A new `stopwatch-prepare` skill (`-Label "release cut"`, `-Remove` to withdraw) puts the label in this machine's Stopwatch store; the `/stopwatch` overview then shows a "Ready, not started" card that tells the reader to send a prompt whose first line is `stopwatch: <label>`, and the label's page opens with the same message. Nothing else changes about how a run starts: it still begins only with that prompt, lands on the prepared card, and the prepared entry is removed. A prepared label is kept on this machine and is not shared with other machines. Older stores read unchanged.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Nobody has to change anything to take it, and no store needs migrating, but every dkj-policy user gets a new skill and a new kind of card on their hub, so it is a feature the user can notice and choose to use, not a pure internal change.
+
+**Score:** 2
 
 #### Pull Request
 
