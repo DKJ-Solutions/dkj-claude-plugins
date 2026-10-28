@@ -866,17 +866,16 @@ function Get-ReservedRootMd {
 # changelog/ is the record, github/ is the generated published document, and the hand-written one is the
 # third root. The suffix went with the move: the root says it, and both siblings are '<X.Y.Z>.md' already.
 #
-# THE SECTIONS INSIDE THE NOTE FOLLOW THE TIER, while whether the note EXISTS follows the bump. Its
-# organisational section ("what it is worth") applies to every release the seam names; its consumer
-# section is written only when there are tier-2 entries, because a section about work no consumer can see
-# is worse than no section -- it looks written. A patch gets no hand-written document at all and is
-# announced by the generated body alone.
+# THE SECTION INSIDE THE NOTE FOLLOWS THE TIER, while whether the note EXISTS follows the bump. Its one
+# section, the consumer's, is written only when there are tier-2 entries, because a section about work no
+# consumer can see is worse than no section -- it looks written; without them the note is its header only.
+# The organisational sections ("what it is worth", "what was still open") were dropped under #3584. A patch
+# gets no hand-written document at all and is announced by the generated body alone.
 #
 # THE TIER NUMBER AND THE SECTION ARE THE SAME SCALE, which is the point of the renumbering (Dave,
-# August 5, 2026 -- they were 1/2/3 before, one off from the entries they describe). A tier-1 entry
-# reaches the organisational section; a tier-2 entry reaches the consumer section AND, the ladder being
-# cumulative, the organisational one as well. The development note carries everything, tier 0 included,
-# because it is the record.
+# August 5, 2026 -- they were 1/2/3 before, one off from the entries they describe). A tier-2 entry
+# reaches the consumer section. The development note carries everything, tier 0 and 1 included, because
+# it is the record.
 #
 # PER MAJOR, NOT PER MINOR (Dave, August 3, 2026). The consumer this came from folders its notes per
 # minor; this repo keeps <X>.x for all three tiers, which Get-ReleaseNotesGrouping above already says
