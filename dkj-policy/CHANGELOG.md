@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**5 / 12 minor entries** <!-- pending-tally -->
+**6 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3636-house-style-pin-at-cut · 20261028-233913Z
+
+A change to the house stylesheet or theme script no longer hand-edits the sha256 in the `house-style` skill's
+pin table, and two such branches no longer conflict on that cell. The release cut now writes both checksums
+from the files it tags, beside the tag it already writes
+([#3636](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3636)). `Get-ReleaseVersionPins` takes an
+optional `Checksums` list for this, and the cut refuses before its first write when a listed file is not
+committed or is not named on exactly one line beside a sha256. Between releases the table names the previous
+tag together with that tag's own checksums.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Between releases, an installed `house-style` skill page now pins checksums that the tag beside them actually
+serves. A consuming repo's session check therefore no longer flags a correct vendored copy and then fetches
+the page at the tag to clear it.
+
+**Score:** 2
+
+#### Pull Request
+
+House-style checksums are recomputed by the release cut, not hand-edited per branch
+
+Plugins: dkj-policy, dkj-solutions
+
+[PR #3642](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3642)
+
+---
 
 ### DEPLOY: feat/3643-retire-ownhub · 20261028-232812Z
 
