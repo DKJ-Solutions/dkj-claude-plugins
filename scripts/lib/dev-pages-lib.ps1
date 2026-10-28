@@ -714,6 +714,12 @@ function Get-DkjRepoCardStyle {
         # row; the house style cuts it off where it still does not fit and keeps the status mark after it in its
         # place, and .dr-clip does the same for the facts and the checkout (Maikel, October 28, 2026).
         '.dr-repos h2 { font-size: var(--text-lg); }',
+        # A repo's page: its Repo and Connector groups side by side, their cards one height, one column at phone width.
+        '.dr-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--spacing-4); align-items: stretch; }',
+        '.dr-pair > .grid-2 { grid-template-rows: auto 1fr; }',
+        # The room the house style gives a headed group above its h2 in the page column, which the pair now is.
+        '.page-column > .dr-pair { margin-top: var(--spacing-5); }',
+        '@media (max-width: 760px) { .dr-pair { grid-template-columns: 1fr; } }',
         '.dr-clip { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-sm); }',
         '.dr-clip code { font-size: var(--text-xs); }',
         '.dr-card > p { margin: 0; }',
@@ -803,6 +809,8 @@ function Format-DkjRepoPageHtml {
     $sb = New-Object System.Text.StringBuilder
     $style = (Get-DkjRepoCardStyle) + $(if ($LensesStyle) { "`n" + $LensesStyle } else { '' })
     [void]$sb.Append((Format-ConnectorPageStart -PageName ([string]$Row.Name) -Trail @(@{ Href = '/connectors'; Label = 'Connectors' }, @{ Href = '/connectors/dkj'; Label = 'DKJ repos' }) -Style $style))
+    # Repo and Connector side by side, each under its own h2 (Maikel, October 28, 2026); Lenses takes the row under them.
+    [void]$sb.AppendLine('<div class="dr-pair">')
     [void]$sb.AppendLine('<div class="grid-2" id="repo">')
     [void]$sb.AppendLine('<div class="grid__head"><h2>Repo</h2><p class="card__sub">' + (& $e $Row.Repo) + '</p></div>')
     [void]$sb.AppendLine((Format-DkjRepoCardHtml -Row $Row -Checkout $Checkout))
@@ -819,6 +827,7 @@ function Format-DkjRepoPageHtml {
         [void]$sb.AppendLine('<p class="note">Not registered under <code>connectors/</code>, so <code>check-connectors.ps1</code> does not check it.</p>')
     }
     [void]$sb.AppendLine('</section>')
+    [void]$sb.AppendLine('</div>')
     [void]$sb.AppendLine('</div>')
     if ($LensesHtml) { [void]$sb.Append($LensesHtml) }
     [void]$sb.AppendLine((Get-CopyButtonScript))
