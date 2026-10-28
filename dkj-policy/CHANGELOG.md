@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**4 / 10 minor entries** <!-- pending-tally -->
+**4 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3639-stopwatch-h1-above-group · 20261028-231550Z
+
+The hub's Stopwatch pages follow the house rule that the `h1` is never framed: the overview, the Logbook, a label's page and a run's page now set their `h1` above the card group instead of inside its surface.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+the Stopwatch pages set their h1 above the card group
+
+Plugins: dkj-policy
+
+[PR #3641](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3641)
+
+---
 
 ### DEPLOY: fix/3637-canonical-house-style-not-a-copy · 20261028-230422Z
 
