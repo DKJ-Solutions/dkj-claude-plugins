@@ -488,7 +488,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $srcState = Get-RepoHubStatePath -Root $src
             # The product's home page on '/' and the pages under it (#3540).
             $home3 = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($home3 -match 'HTTP/1.1 200' -and $home3 -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span>' -and $home3 -match 'href="/connectors"' -and $home3 -match 'href="/specialists"' -and $home3 -match 'href="/plugins"' -and $home3 -notmatch 'href="/dkj-repos"') '/ serves the product''s home page, linking Connectors, Specialists and Plugins'
+            Assert-True ($home3 -match 'HTTP/1.1 200' -and $home3 -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span>' -and $home3 -match 'href="/connectors"' -and $home3 -notmatch 'href="/specialists"' -and $home3 -match 'href="/plugins"' -and $home3 -notmatch 'href="/dkj-repos"') '/ serves the product''s home page, linking Connectors and Plugins'
             $r = if ($up) { Get-Raw 'GET' '/plugins' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Plugins</h1>' -and $r -match 'href="/plugins/p-one"' -and $r -match 'v9\.8\.7') '/plugins lists each marketplace plugin as a card linking its own page, with its version'
             Assert-True ($r -match 'id="plugin-p-bad"' -and $r -match 'msg--warn[^\n]*p-bad \(its source\)') 'and a plugin whose source leaves plugins/ keeps its card, with nothing read from it and the reason named'
@@ -499,6 +499,8 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $r = if ($up) { Get-Raw 'GET' '/plugins/p-one/x' "localhost:$port3" '' $port3 } else { '' }
             $r2 = if ($up) { Get-Raw 'GET' '/plugins/dkj-subagents' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($r -match 'HTTP/1.1 404' -and $r2 -match 'HTTP/1.1 404') 'nor is a level under a plugin that is no group, or the teams'' page of a marketplace with no teams'
+            $r = if ($up) { Get-Raw 'GET' '/specialists/alpha/paula' "localhost:$port3" '' $port3 } else { '' }
+            Assert-True ($r -match 'HTTP/1.1 303' -and $r -match 'Location: /plugins/dkj-subagents/dkj-subagents-alpha/paula\r') 'an old Specialists address sends an old link to the same page under its team (the owner, October 28, 2026)'
             $r = if ($up) { Get-Raw 'GET' '/dkj-repos' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($r -match 'HTTP/1.1 303' -and $r -match 'Location: /connectors/dkj\r') 'the old /dkj-repos sends an old link to /connectors/dkj, which holds the repos on GitHub since #3549'
             Assert-True ($home3 -match 'The toolbox is not running' -and $home3 -notmatch 'href="http://localhost' -and $home3 -notmatch 'href="/brandbook' -and $home3 -notmatch 'href="/test-gate"') 'with no state file it says the hub is not running, and links no general page of its own'
