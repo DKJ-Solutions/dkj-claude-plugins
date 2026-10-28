@@ -711,7 +711,10 @@ function Get-DkjRepoCardStyle {
         '@media (max-width: 720px) { .dr-repos { grid-template-columns: repeat(3, minmax(0, 1fr)); } }',
         '@media (max-width: 520px) { .dr-repos { grid-template-columns: 1fr; } }',
         # Each card three lines at most: the name, the facts and the checkout each one line, cut off with an ellipsis.
-        '.dr-repos h2 { display: block; font-size: var(--text-lg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+        # The status mark sits right after the name (Maikel, October 28, 2026), and a long name is cut off before it.
+        '.dr-repos h2 { gap: var(--spacing-2); font-size: var(--text-lg); }',
+        '.dr-repos h2 > span:first-child { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
+        '.dr-repos h2 > .badge { flex: none; }',
         '.dr-clip { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-sm); }',
         '.dr-clip code { font-size: var(--text-xs); }',
         '.dr-card > p { margin: 0; }',
@@ -766,9 +769,9 @@ function Format-DkjReposPageHtml {
         $co = $set.ByRepo[$r.Repo]
         $value = & $clip $(if ($co) { '<code>' + (& $e $co.Branch) + '</code> ' + $(if ($co.Dirty) { [string]$co.Dirty + ' uncommitted' } else { 'clean' }) } else { 'Not checked out here' })
         $reg = $byConnector[([string]$r.Repo).ToLowerInvariant()]
-        $badge = if ($reg) { $b = Get-DashboardStatusBadge ([string]$reg.Status); '<span class="badge ' + $b.Class + '" title="' + $b.Word + '" aria-label="' + $b.Word + '">' + $b.Mark + '</span>' } else { '' }
+        $badge = if ($reg) { $b = Get-DashboardStatusBadge ([string]$reg.Status); '<span class="badge badge--sm ' + $b.Class + '" title="' + $b.Word + '" aria-label="' + $b.Word + '">' + $b.Mark + '</span>' } else { '' }
         $id = 'repo-' + (([string]$r.Name) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
-        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/dkj/' + $r.Name) -Label ([string]$r.Name) -SubHtml (& $clip (Format-DkjRepoFactsHtml -Row $r -NoLinks)) -ValueHtml $value -BadgeHtml $badge -Heading 2 -Id $id))
+        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/dkj/' + $r.Name) -Label ([string]$r.Name) -SubHtml (& $clip (Format-DkjRepoFactsHtml -Row $r -NoLinks)) -ValueHtml $value -TitleBadgeHtml $badge -Heading 2 -Id $id))
     }
     [void]$sb.AppendLine('</div>')
     if (-not @($set.Rows).Count) { [void]$sb.AppendLine('<p class="note">No DKJ-Solutions repo was found, on GitHub or beside this repo.</p>') }
