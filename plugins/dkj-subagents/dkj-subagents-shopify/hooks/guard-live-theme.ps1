@@ -14,7 +14,8 @@
          deleted cannot be un-deleted, and whether a preview theme is really spent is a judgement rather
          than a cleanup step. A delete aimed at the LIVE theme id is refused even with the marker.
       3. a theme PUSH aimed at LIVE -- unless explicitly authorised. Aimed at live means the command
-         carries '--allow-live' or this repo's own live theme id.
+         carries '--allow-live' or '--live' (or their short flags '-a' and '-l', combined or not), or
+         this repo's own live theme id.
       4. an Admin GraphQL theme write through 'shopify store execute' or 'store:execute' (#2881) -- the
          same three rules reached through the API instead of 'shopify theme': themePublish (and a
          role: MAIN) always, themeDelete as rule 2, and the other theme writes as rule 3, where 'aimed
@@ -620,7 +621,16 @@ foreach ($segment in $segments) {
         }
     }
 
-    $aimedAtLive = ($lc -match '--allow-live') -or ($LIVE_ID -and $lc.Contains($LIVE_ID.ToLower()))
+    # THE SHORT FLAGS COUNT TOO (#3613): '-a' is '--allow-live' and '-l' is '--live', and oclif lets
+    # boolean short flags combine ('-la'). Measured: '-l -a' and '-t <live name> -a' both passed when
+    # only the long spelling was read. The short-flag scan reads only the text AFTER 'theme push', and
+    # only clusters of push's own boolean letters, because a wrapper's '-Command' carries an 'a' too.
+    # Naming the live theme by NAME is caught through the '-a' it needs: no session can answer the
+    # CLI's interactive live prompt, so a live push without '--allow-live'/'-a' cannot complete.
+    $pushTail = if ($lc -match 'shopify\s+theme[\s:]+push(.*)$') { $Matches[1] } else { '' }
+    $aimedAtLive = ($lc -match '--allow-live') -or ($LIVE_ID -and $lc.Contains($LIVE_ID.ToLower())) -or
+        ($pushTail -match '(?<![\w-])--live(?![\w-])') -or
+        ($pushTail -match '(?<![\w-])-[adjlnu]*[al][adjlnu]*(?![\w-])')
     if ($lc -match 'shopify\s+theme[\s:]+push' -and $aimedAtLive) {
         if ($authorised) {
             [Console]::Error.WriteLine("guard-live-theme: live push allowed (authorisation marker present).")
