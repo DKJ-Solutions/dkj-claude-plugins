@@ -39,19 +39,41 @@
 
 ### PLAN
 
+The owner asked for a loading screen while a session starts after `/clear` or `claude`. A hook does not
+own the terminal (the harness renders it, and a hook's stdout is captured), so a real progress screen is
+not possible. What the harness offers is `statusMessage` on a hook entry ("Custom status message to
+display in spinner while hook runs", read from the Claude Code binary's hook schema). The owner chose
+spinner text plus a measured duration line, with any decoupling of the slow steps decided afterwards
+from the numbers.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `statusMessage` on the four SessionStart entries of the enabled plugins (dkj-policy's dispatcher and dev-preview, the core team's roster check, dkj-solutions' house-style check)
+- [x] `sessioncheck-dispatch.ps1`: time each prep step and each check, and end the systemMessage with one `sessionstart:` line; never in additionalContext
+- [x] An otherwise silent start no longer writes an empty hookSpecificOutput
 
 ### TEST
 
+- [x] `sessioncheck-dispatch.tests.ps1`: the asserts that pinned the old systemMessage reworked; timing line, prep naming, the statusMessage on the entry and the context staying clean asserted (56 green)
+- [x] Measured on this repo: `sessionstart: 5.9 s in the dispatcher -- prep 0.5 s (trunk-sync), checks 5.4 s (slowest: connector 5.0 s, release-freshness 1.1 s, consumer-prose 0.2 s)`
+- [~] Seeing the spinner during SessionStart -- not testable from this tree: a session runs the installed copy, so the owner sees it after the release
+
 ### DEPLOY: feat/sessionstart-spinner-timing
 
-**Score:**
+A session start now says what it is waiting on and how long it took. Every SessionStart hook of the
+enabled plugins carries a `statusMessage`, so the spinner names the step, and the session-check
+dispatcher ends its message with one line such as `sessionstart: 5.9 s in the dispatcher -- prep 0.5 s
+(trunk-sync), checks 5.4 s (slowest: connector 5.0 s, ...)`. The line goes to the person only, never into
+the model's context. The first measurement already names the slow step: the connector check.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+Whoever runs these plugins now sees a named spinner while a session starts and a measured duration once
+it has, instead of a silent pause.
+
+**Score:** 3
 
 #### Pull Request
 
