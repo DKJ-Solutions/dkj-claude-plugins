@@ -57,7 +57,7 @@ changes; the route `/connectors` and the `connectors/` register keep their names
 - [x] The owner has looked at the card on the running product hub
 - [x] The owner has looked at the centred link cards
 - [x] `dev-pages`, `dev-preview-sessionstart`, `logbook`, `stopwatch`, `connector-dashboard` green after the icon and heading change
-- [ ] The owner has looked at the larger icons and the h2 labels
+- [x] The owner has looked at the larger icons and the h2 labels
 
 ### DEPLOY: feat/consumers-card
 
