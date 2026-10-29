@@ -4,6 +4,7 @@
 
 | Version | Date | Type | Title |
 |---|---|---|---|
+| [5.37.0](audience/5.x/5.37.0.md) | 2026-10-29 | Minor | Minor release |
 | [5.36.0](audience/5.x/5.36.0.md) | 2026-10-28 | Minor | Minor release |
 | [5.35.0](audience/5.x/5.35.0.md) | 2026-10-27 | Minor | Minor release |
 | [5.34.0](audience/5.x/5.34.0.md) | 2026-10-27 | Minor | Minor release |
