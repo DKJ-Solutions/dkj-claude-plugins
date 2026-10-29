@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**10 / 12 minor entries** <!-- pending-tally -->
+**11 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3662-dkj-marketplace-source · 20261029-214403Z
+
+The marketplace and its source repository are now called `dkj-marketplace`
+([#3660](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3660)). Plugin ids read
+`<plugin>@dkj-marketplace`, the clone sits at `~/.claude/plugins/marketplaces/dkj-marketplace/`, and
+the repo is `DKJ-Solutions/dkj-marketplace`. A marketplace name has no redirect. So every consuming repo
+and every machine moves over once, by the procedure in
+[`ADOPTION.md`](../plugins/ADOPTION.md#moving-to-dkj-marketplace). Until a consumer does, its plugins
+stop loading, and nothing reports that. The tooling still recognises the two older names wherever a
+consumer may carry them
+([#3662](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3662)).
+
+**Score:** 5
+
+#### What makes this deploy extra special
+
+Every consumer has to act: rewrite the settings keys and the `@`-imports, remove the old marketplace
+once per machine, and install again in every checkout. Skipped, the plugins silently stop loading.
+
+**Score:** 5
+
+#### Pull Request
+
+Rename the marketplace and the repo name to dkj-marketplace in the source
+
+Plugins: bwj-development, dkj-policy, dkj-solutions, dkj-subagents-alpha, dkj-subagents-ecomm, dkj-subagents-lifehub, dkj-subagents-shopify
+
+[PR #3671](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3671)
+
+---
 
 ### DEPLOY: docs/3661-dkj-marketplace-migration · 20261029-202503Z
 
