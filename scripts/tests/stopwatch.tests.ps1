@@ -401,6 +401,7 @@ Assert-True ((Format-StopwatchRunPageHtml -Group $evilGroup -StorePath '<i>') -n
 Write-Host '-- the transcript phases' -ForegroundColor Cyan
 Assert-Equal (Join-Path $HOME '.claude\projects\C--Users-x-my-repo') (Get-StopwatchTranscriptDir -RepoRoot 'C:\Users\x\my.repo\') 'the transcripts are under the root with every non-alphanumeric a dash'
 Assert-Equal 'Ship: CI wait, merge, fold' (Get-StopwatchToolPhase -Name 'PowerShell' -Command 'scripts/release/ship-pr.ps1 -NoResolves') 'ship-pr is the ship'
+Assert-Equal 'Release cut' (Get-StopwatchToolPhase -Name 'PowerShell' -Command 'scripts/release/cut-release.ps1 -Minor') 'cut-release is the release cut, not another tool call (#3646)'
 Assert-Equal 'Local gates and tests' (Get-StopwatchToolPhase -Name 'Bash' -Command 'scripts/tests/stopwatch.tests.ps1') 'a suite is a gate'
 Assert-Equal 'Subagents' (Get-StopwatchToolPhase -Name 'Agent') 'an Agent call is a subagent'
 Assert-Equal 'Other tool calls' (Get-StopwatchToolPhase -Name 'Read') 'anything else is another tool call'
@@ -546,12 +547,25 @@ try {
     # wait at 60, its merge at 180 and its fold at 190.
     $sm = { param([double]$s, $step, $ws = 'C:\repo') @{ At = (& $at $s); Run = 'ship-pr'; Step = $step; Workspace = $ws } }
     $shipMarks = @((& $sm 40 'gates'), (& $sm 60 'ci-wait'), (& $sm 180 'merge'), (& $sm 190 'fold'))
-    $split = Get-StopwatchTranscriptPhases -Events @($ev) -From (& $at 0) -To (& $at 330) -ShipMarks $shipMarks
+    $split = Get-StopwatchTranscriptPhases -Events @($ev) -From (& $at 0) -To (& $at 330) -StepMarks $shipMarks
     Assert-Equal 'Ship: checks before the PR=10;Ship: local gates and opening the PR=20;Ship: CI wait=120;Ship: merge=10;Ship: fold and close-out=10;Branch and claim=10;Other tool calls=1;Claude thinking and writing=48;Waiting on you=101' ((@($split.Phases) | ForEach-Object { "$($_.Name)=$([Math]::Round($_.Seconds))" }) -join ';') 'a ship call is cut at its step marks, each step lasting until the next mark or the call''s end'
-    $segs = Split-StopwatchShipTool -Tool @{ Phase = 'Ship: CI wait, merge, fold'; Start = (& $at 0); End = (& $at 100) } -Marks @((& $sm 50 'forward'), (& $sm 70 'something-new'), (& $sm 150 'merge'))
+    $segs = Split-StopwatchSteppedTool -Tool @{ Phase = 'Ship: CI wait, merge, fold'; Start = (& $at 0); End = (& $at 100) } -Marks @((& $sm 50 'forward'), (& $sm 70 'something-new'), (& $sm 150 'merge'))
     Assert-Equal 'Ship: checks before the PR,Ship: forwarded head, re-certified,Ship: CI wait, merge, fold' (($segs | ForEach-Object { $_.Phase }) -join ',') 'a mark outside the call is not its, and a step the page does not know keeps the ship''s own phase'
-    Assert-Equal 1 @(Split-StopwatchShipTool -Tool @{ Phase = 'Branch and claim'; Start = (& $at 0); End = (& $at 100) } -Marks $shipMarks).Count 'a call that is not a ship is never cut'
-    Assert-Equal 'Ship: CI wait, merge, fold' (@(Split-StopwatchShipTool -Tool @{ Phase = 'Ship: CI wait, merge, fold'; Start = (& $at 0); End = (& $at 20) } -Marks $shipMarks))[0].Phase 'a ship with no mark inside it stays one phase'
+    Assert-Equal 1 @(Split-StopwatchSteppedTool -Tool @{ Phase = 'Branch and claim'; Start = (& $at 0); End = (& $at 100) } -Marks $shipMarks).Count 'a call that is not a ship is never cut'
+    Assert-Equal 'Ship: CI wait, merge, fold' (@(Split-StopwatchSteppedTool -Tool @{ Phase = 'Ship: CI wait, merge, fold'; Start = (& $at 0); End = (& $at 20) } -Marks $shipMarks))[0].Phase 'a ship with no mark inside it stays one phase'
+    # A RELEASE CUT SPLIT BY ITS OWN MARKS (#3646), under its own run name: a ship's mark never cuts a cut.
+    $cm = { param([double]$s, $step) @{ At = (& $at $s); Run = 'cut-release'; Step = $step; Workspace = 'C:\repo' } }
+    $cutTool = @{ Phase = 'Release cut'; Start = (& $at 0); End = (& $at 100) }
+    $cutSegs = Split-StopwatchSteppedTool -Tool $cutTool -Marks @((& $cm 5 'origin-check-before'), (& $cm 10 'lint'), (& $cm 20 'tests'), (& $sm 30 'merge'), (& $cm 80 'origin-check-after'), (& $cm 90 'push'))
+    Assert-Equal 'Cut: start=5;Cut: origin check and guardrails=5;Cut: lint gate=10;Cut: test gate=60;Cut: origin check after the gates=10;Cut: push=10' (($cutSegs | ForEach-Object { "$($_.Phase)=$([Math]::Round(($_.End - $_.Start).TotalSeconds))" }) -join ';') 'a cut is cut at its own marks, and a ship-pr mark inside it is not one of them'
+    Assert-Equal 1 @(Split-StopwatchSteppedTool -Tool @{ Phase = 'Ship: CI wait, merge, fold'; Start = (& $at 0); End = (& $at 100) } -Marks @((& $cm 50 'lint'))).Count 'a cut-release mark never cuts a ship'
+    $cutPhases = Get-StopwatchTranscriptPhases -Events @(@{ Turns = @(); Tools = @($cutTool) }) -From (& $at 0) -To (& $at 100) -StepMarks @((& $cm 10 'lint'), (& $cm 40 'write'))
+    Assert-Equal 'Cut: start=10;Cut: lint gate=30;Cut: notes, overview and version bumps=60' ((@($cutPhases.Phases) | ForEach-Object { "$($_.Name)=$([Math]::Round($_.Seconds))" }) -join ';') 'the window''s phases name a cut''s steps beside the cut'
+    # The two sides of one contract: every step cut-release marks is a step the reader names, and the other way round.
+    $cutSource = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\scripts\release\cut-release.ps1'))
+    $marked = @([regex]::Matches($cutSource, "Add-RunStepMark -Run 'cut-release' -Step '([a-z-]+)'") | ForEach-Object { $_.Groups[1].Value })
+    $named = @($script:StopwatchCutStepPhases.Keys | Where-Object { $_ -ne 'before' })
+    Assert-Equal ($named -join ',') ($marked -join ',') 'cut-release marks exactly the steps the Stopwatch names, in the order it runs them'
 
     # The cache reads the marks from the step log, and only this checkout's. The transcript was emptied above, so it is written again.
     [System.IO.File]::WriteAllText($tfile, ($lines -join "`n"), (New-Object System.Text.UTF8Encoding($false)))

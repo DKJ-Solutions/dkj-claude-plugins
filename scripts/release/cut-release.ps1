@@ -947,6 +947,10 @@ function Invoke-TrunkCatchUp {
     & powershell @childArgs | Out-Host
     exit $LASTEXITCODE
 }
+# THE STEP MARKS (issue #3646): one line per step the cut enters, in the opt-in step log run-progress-lib.ps1
+# keeps (DKJ_RUN_STEP_LOG), so the Stopwatch can split a cut the way it splits a ship (#3338). A no-op where the
+# log is off or the lib is absent. A catch-up re-run marks its own steps from here again.
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'origin-check-before') }
 Assert-TrunkMatchesOrigin -Moment 'before the gates'
 
 # ISSUE #885, GROUP D: inverted from a name blocklist to a CONTENT test. The old form treated every
@@ -1411,6 +1415,7 @@ if ($CatchUpCertifiedSha) {
         Write-Host "lint + test gates: HEAD is not the commit the catch-up certified ($(Get-DisplayRef -Ref $CatchUpCertifiedSha)), so both run." -ForegroundColor Yellow
     }
 }
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'lint') }
 if (-not $SkipLint -and -not $catchUpCertified) {
     $lintRel  = Get-SeamValue -Name 'Get-LintScript' -Default 'scripts\lint\check-plugin-integrity.ps1'
     $lintPath = Join-Path $repoRoot $lintRel
@@ -1444,6 +1449,7 @@ if (-not $SkipLint -and -not $catchUpCertified) {
 #
 # Shares Invoke-TestSuiteGate with open-pr.ps1 rather than repeating its loop -- one owner, so the two
 # gates cannot drift into checking different things.
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'tests') }
 if (-not $SkipTests -and -not $catchUpCertified) {
     if (-not (Invoke-TestSuiteGate -TestsDir (Join-Path $repoRoot 'scripts\tests') -Context 'the release' -MaxParallel $MaxParallel)) {
         Write-Error "test gate found failing suites -- release aborted, nothing written. Fix the tests, or run with -SkipTests to cut without them."
@@ -1453,12 +1459,14 @@ if (-not $SkipTests -and -not $catchUpCertified) {
 
 # The second origin check (#2899): the gates above are the minutes in which a merge lands, so look again
 # before the first write rather than trusting the look taken before them.
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'origin-check-after') }
 Assert-TrunkMatchesOrigin -Moment 'after the gates'
 
 # THE BUILDS THE RELEASE SHIPS (#3210), run here: after the gates, before the first write. A failed command
 # aborts with nothing written, because a build only writes into its Output, which git ignores. One that touches
 # anything git sees -- a lockfile rewritten by an install, say -- aborts as well: git add -A would put it in the
 # release commit, and the commit is bounded to what the cut itself writes.
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'builds') }
 foreach ($b in $releaseBuilds) {
     Write-Host "release build: $($b.Name)..." -ForegroundColor Cyan
     # A stale output from an earlier local build must not ship beside the new one (code review, #3210).
@@ -1486,6 +1494,7 @@ foreach ($b in $releaseBuilds) {
     }
 }
 
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'write') }
 # --- Build content (before the write actions, so a parse error leaves nothing behind) --------
 # The notes folder: '<X>.x' per major (this workshop) or '<X.Y>' per minor, from the seam (#417).
 # $notesDirName is used for the path, the README row link and the directory creation below, so the
@@ -2200,6 +2209,7 @@ function Write-SelfConsumptionReminder {
 # `git add` (#107). Invoke-NativeCapture (#114) runs each git call under EAP=Continue and hands back
 # output + exit code, so we rely purely on $LASTEXITCODE; the captured chatter is echoed so the
 # release run stays as verbose as before.
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'commit-tag') }
 $add = Invoke-NativeCapture -FilePath 'git' -Arguments @('add', '-A')
 $add.Output | ForEach-Object { Write-Host $_ }
 if ($add.ExitCode -ne 0) { Write-Error "git add failed."; exit 1 }
@@ -2227,6 +2237,7 @@ if ($NoPush) {
     exit 0
 }
 
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'push') }
 $pushMain = Invoke-NativeCapture -FilePath 'git' -Arguments @('push', 'origin', 'main')
 $pushMain.Output | ForEach-Object { Write-Host $_ }
 if ($pushMain.ExitCode -ne 0) { Write-Error "git push of main failed."; exit 1 }
