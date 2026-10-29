@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**8 / 9 minor entries** <!-- pending-tally -->
+**8 / 10 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3658-connector-check-skip-drift · 20261029-193134Z
+
+A session start in this source checkout no longer waits on the agent-def drift lint: `connector-sessioncheck` now passes `-SkipDrift` to `check-connectors.ps1` by default, which took the hook from about 5.0 s to 2.3 s and the whole session start from 5.9 s to 3.0 s (one machine). The drift step ran one `check-consumer-drift.ps1` per registered consumer in sequence and found nothing on any of the three. It still runs in a manual `scripts/sync/check-connectors.ps1`, and `-IncludeDrift` puts it back in the hook. Consumer machines never took that path, so nothing changes there.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A -- only the workshop path ran the drift step, and that path exists only in this source checkout; a plugin user's session start is unchanged.
+
+**Score:** N/A
+
+#### Pull Request
+
+The connector session check skips the drift lint, so a session start here takes about half the time
+
+Plugins: dkj-policy
+
+[PR #3668](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3668)
+
+---
 
 ### DEPLOY: fix/3657-product-server-restart-after-trunk-move · 20261029-192014Z
 
