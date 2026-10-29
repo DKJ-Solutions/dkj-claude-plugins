@@ -309,8 +309,8 @@ three parts, run in this order:
 - Rewrite every absolute `@`-import, in `CLAUDE.md` and `.claude/specialists/SPECIALISTS.md`, from
   `~/.claude/plugins/marketplaces/dkj-claude-plugins/` to `~/.claude/plugins/marketplaces/dkj-marketplace/`.
 - In every CI runner under `.github/workflows/`, change the `repository: DKJ-Solutions/dkj-claude-plugins`
-  line to `DKJ-Solutions/dkj-marketplace`. The old slug keeps working through the redirect, but the line
-  is read by name, so it has to be current.
+  line to `DKJ-Solutions/dkj-marketplace`. The old slug keeps working through the redirect, but only until
+  something is created at the old path, and the check that finds the runner matches it by name.
 
 **2. Each machine, once — only after every consumer on it has merged part 1.**
 
@@ -361,7 +361,8 @@ would unlink that checkout's install silently, on top of part 3. Keeping the old
 a folder name that no longer matches the repo.
 
 **An organisation's business mirror follows the new name without anyone asking it to**, because
-`publish-to-business.ps1` copies the marketplace name from the source manifest. Colleagues who install
+`publish-to-business.ps1` rewrites only the `plugins` array of the source manifest and leaves its `name`
+as it is. Colleagues who install
 through Claude Enterprise get this migration through the release notes, not through the parts above.
 
 ## Which release am I on?
