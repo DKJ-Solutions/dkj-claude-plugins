@@ -53,7 +53,7 @@ off the shared plug too. A visible result: parked for the owner's look, not merg
 ### TEST
 
 - [x] dev-pages, connector-dashboard and dev-preview-sessionstart suites green, with an assert that the three icons differ
-- [ ] The owner has looked at both ports (product on 4870, the branch's toolbox on 4891)
+- [x] The owner has looked at both ports (product on 4870, the branch's toolbox on 4891)
 
 ### DEPLOY: feat/plugins-cards-installed-vs-marketplace
 
