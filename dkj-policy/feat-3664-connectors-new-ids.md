@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Part of #3664. The register writes a renamed id only after the consumer has migrated, and three have:
+dkj-lifehub (#600), smartwatchbanden (#1041) and xoxowildhearts (#476). dkj-thumbnail-generator and
+djcylow-react are not checked out on this machine and keep their old ids until they migrate, so #3664
+stays open.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `connectors/life-hub.json`, `smartwatchbanden.json`, `xoxowildhearts.json`: every `plugins[].id` to
+      `<plugin>@dkj-marketplace`. The `notes` keep the names they were written with.
 
 ### TEST
 
+- [x] `check-connectors.ps1`: 0 errors; every plugin of the three reads as enabled and on v6.0.0. The four
+      INFO lines are the BWJ runners' older `ref:` pins, which this change does not affect. The gates are
+      left to `ship-pr`.
+
 ### DEPLOY: feat/3664-connectors-new-ids
 
-**Score:**
+The connector register names the dkj-marketplace ids for the three consumers that have migrated:
+dkj-lifehub, smartwatchbanden and xoxowildhearts. Two consumers remain on the old ids until they move
+([#3664](https://github.com/DKJ-Solutions/dkj-marketplace/issues/3664)).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the register is this repo's own bookkeeping.
+
+**Score:** N/A
 
 #### Pull Request
 
