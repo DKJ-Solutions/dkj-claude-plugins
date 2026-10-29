@@ -1,0 +1,24 @@
+{
+  "repo": "DKJ-Solutions/dkj-maplestory-classic-mesowise",
+  "visibility": "public",
+  "localCheckout": "../dkj-maplestory-classic-mesowise",
+  "plugins": [
+    {
+      "id": "dkj-subagents-alpha@dkj-marketplace",
+      "extensions": [
+        "01-01", "02-09", "03-02", "03-07", "04-11", "04-12", "04-13", "04-18",
+        "05-05", "05-06", "05-15", "06-16", "06-17", "06-19", "06-23", "06-24",
+        "06-25", "06-29", "06-30"
+      ]
+    },
+    {
+      "id": "dkj-policy@dkj-marketplace",
+      "extensions": []
+    },
+    {
+      "id": "dkj-solutions@dkj-marketplace",
+      "extensions": []
+    }
+  ],
+  "notes": "REGISTERED 2026-10-30 (#3672). This consumer had project-scope installs on at least one machine but no manifest here, so the dkj-marketplace flag day's list of consumers (#3664) missed it and a machine-wide marketplace remove (#3665) would have stripped its plugins unnoticed; it was caught only by reading installed_plugins.json before the remove. Every field was measured against the consumer's origin/main rather than taken from the report: gh resolves the repo as PUBLIC and not archived; its .claude/settings.json enables dkj-subagents-alpha@, dkj-policy@ and dkj-solutions@, all three already suffixed @dkj-marketplace, because its own migration (DKJ-Solutions/dkj-maplestory-classic-mesowise#291, closed) landed before this registration, so the ids are recorded as the consumer HAS them, per decision A. dkj-subagents-shopify@dkj-marketplace is listed there as false and is deliberately NOT registered: the register records what a consumer enables. 19 lens files under .claude/specialists/lenses/, an exact match for the dkj-subagents-alpha roster. dkj-policy and dkj-solutions ship no agents/, so their extension lists are empty: the measured answer, as in the other manifests. localCheckout is the one layout measured on that machine, a sibling of this checkout. NOT MEASURED: other machines' layouts, the machine versions and the drift figures."
+}
