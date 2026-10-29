@@ -39,23 +39,40 @@
 
 ### PLAN
 
-A /clear or new session always serves the checkout's current code on the product port, also when the trunk sync and the server start race.
+After a /clear the product port still served the code from before the session-start trunk sync (#3657,
+measured: the product started at 19:30:23, the trunk fast-forwarded at 19:30:24). Two causes: the
+dispatcher's trunk sync and the dev-preview hook are separate SessionStart entries that race, and a
+product that survives a /clear is reused whatever moved under it. The owner asked for both to be
+automatic on every /clear.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] sessioncheck-dispatch marks the session's prep done in the session cache (Set-SessionPrepDone)
+- [x] dev-preview starts the hub first, then waits up to 20 s for that mark before it starts or reuses the product
+- [x] dev-preview restarts a product it started itself when HEAD moved after that server was created, and the line says so; a server started by hand is reused as before
 
 ### TEST
 
+- [x] session-cache-lib, dev-preview-sessionstart and sessioncheck-dispatch suites green, with unit asserts for the mark and the outdated-server rule and an end-to-end restart after a commit
+- [x] Live on this checkout: without a mark the real hook waits out its bound, with one it goes straight on (1.3 s); the product on 4871 serves the Marketplace card
+
 ### DEPLOY: fix/3657-product-server-restart-after-trunk-move
 
-**Score:**
+The dev-preview hook no longer hands out a product that serves stale code. On every session start, `/clear`
+included, it starts the toolbox first and then waits (up to 20 s) for the dispatcher's trunk sync to finish
+before it starts or reuses the product. A product the hook itself started before HEAD last moved (a trunk
+sync or a checkout) is stopped and started again on its port, and the line reads `(restarted: the checkout
+moved after it started)`. A server somebody started by hand is reused as before.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+In every repo with a product port, a merge pulled in by the session-start sync now shows up on that port
+right after `/clear`, without restarting the server by hand.
+
+**Score:** 2
 
 #### Pull Request
 
 dev-preview restarts a product server older than the trunk sync
-

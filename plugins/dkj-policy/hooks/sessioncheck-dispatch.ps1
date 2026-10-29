@@ -121,6 +121,10 @@ try {
             $context.Add("$($prep.BaseName) skipped due to an error: " + (Format-DispatchSafeText $_.Exception.Message))
         }
     }
+    # THE PREP IS DONE, AND THE DEV-PREVIEW HOOK WAITS FOR THIS MARK (issue #3657): it is a separate
+    # SessionStart entry running beside this one, and a product server it starts before the trunk moved
+    # serves the code from before the sync. Advisory: a mark that does not land costs that hook its wait.
+    try { $null = Set-SessionPrepDone -SessionId (Get-SessionIdFromPayload -Payload $payload) } catch { }
 
     $checks = @(Get-ChildItem -LiteralPath $HooksDir -Filter '*-sessioncheck.ps1' -File | Sort-Object Name)
 
