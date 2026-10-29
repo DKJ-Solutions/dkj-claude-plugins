@@ -39,19 +39,33 @@
 
 ### PLAN
 
+The owner asked to rename the hub's Connectors card to Consumers: the repos it lists are the ones that
+install plugins from this marketplace, so the word fits the marketplace beside it. Only the label
+changes; the route `/connectors` and the `connectors/` register keep their names.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Card label and its line on the product home (`Get-ProductPages`), the overview's h1 and every breadcrumb back to it
+- [x] The asserts in `connector-dashboard.tests.ps1` and `dev-pages.tests.ps1` follow the new name
 
 ### TEST
 
+- [x] `connector-dashboard` (234 passed) and `dev-pages` (480 passed) green
+- [ ] The owner has looked at the card on the running product hub
+
 ### DEPLOY: feat/consumers-card
 
-**Score:**
+The product hub's Connectors card, the page it opens and every breadcrumb back to it are now named
+Consumers, the repos that install plugins from this marketplace. The route `/connectors` and the
+`connectors/` register keep their names.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the product hub is the source repo's own maintainer page; no consumer runs it.
+
+**Score:** N/A
 
 #### Pull Request
 
