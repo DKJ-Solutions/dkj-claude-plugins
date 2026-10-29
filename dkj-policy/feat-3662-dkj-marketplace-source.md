@@ -76,8 +76,8 @@ would fail. So the branch is built now, parked on origin, and merged on the flag
 
 - [x] Built state, October 29, 2026: `open-pr -GatesOnly` passed lint; 5 of 171 suites failed, every one
       pinning the old name. After the fix, those five were run again and all pass.
-- [ ] Flag day: catch-up merge from `main`, then `git grep` again for new `@dkj-claude-plugins`, `marketplaces/dkj-claude-plugins` and slug literals
-- [ ] Flag day: gates and CI green on the caught-up branch, after the GitHub rename
+- [x] Flag day (October 29, 2026): catch-up merge from `main`. Nothing to merge: `main` had no new commits since the build, so there were no new `@dkj-claude-plugins`, `marketplaces/dkj-claude-plugins` and slug literals
+- [x] Flag day: the GitHub rename is done (`DKJ-Solutions/dkj-marketplace`, old slug redirects). Gates and CI are left to `ship-pr`
 
 ### DEPLOY: feat/3662-dkj-marketplace-source
 
