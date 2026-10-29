@@ -66,10 +66,21 @@
 
     Matcher note: hooks.json matches "startup|resume|clear|compact", not just "startup" -- a
     SessionStart hook's injected stdout does not survive a compaction by itself, so a startup-only
-    matcher made every report go silent after the first /compact and never return. This hook is the
-    slowest of the three (~2.6s, it runs the drift check per consumer), which is why the cost was
+    matcher made every report go silent after the first /compact and never return. This hook was the
+    slowest of the three (~2.6s, it ran the drift check per consumer), which is why the cost was
     measured before widening the matcher rather than assumed. See roster-sessioncheck.ps1's docstring
     for the full reasoning (JSON cannot carry a comment).
+
+    THE DRIFT STEP IS OFF THE SESSION START (#3658, Dave, October 29, 2026). Measured that day in the
+    source checkout, on the timing line #3659 added to the dispatcher: this hook set about 5.0 of the
+    6 s a session start took, because the dispatcher runs the checks in parallel and so waits for the
+    slowest. Half of it was the drift step -- one check-consumer-drift.ps1 spawn per registered
+    consumer, run one after another, ~0.9 s each, three of them -- and all three answered
+    "26 missing, 0 identical, 0 drifted": those consumers keep no local agent-def copies, so there was
+    nothing for it to find. Skipping it took the hook from ~5.0 s to ~2.6 s (n=3 per variant, one
+    machine). The step is not gone: a manual `scripts/sync/check-connectors.ps1` still runs it, and
+    -IncludeDrift puts it back into this hook. It only ever ran on the workshop path, so a consumer
+    machine's session start does not change.
 
     TWO NAMES FOR ONE THING, DELIBERATELY. This file's code and comments say "workshop checkout",
     after the $workshop variable that holds it; the lines this hook PRINTS say "source checkout",
@@ -139,7 +150,12 @@
     (the marker check still applies).
 
 .PARAMETER SkipDrift
-    Passed to check-connectors.ps1 (fast registry checks only).
+    Accepted and does nothing since #3658: the drift step is skipped by default now. Kept so a
+    caller that still passes it does not fail on a parameter that is gone.
+
+.PARAMETER IncludeDrift
+    Run check-connectors.ps1's drift step after all (one check-consumer-drift.ps1 per registered
+    consumer). Off by default since #3658; see "THE DRIFT STEP IS OFF THE SESSION START" above.
 
 .PARAMETER SkipVersions
     Passed to check-connectors.ps1 (for tests/CI without plugin administration).
@@ -153,6 +169,7 @@
 param(
     [string]$WorkshopPathOverride = '',
     [switch]$SkipDrift,
+    [switch]$IncludeDrift,
     [switch]$SkipVersions,
     # HOW LONG THE VERSION ENGINE GETS BEFORE THIS HOOK DEGRADES, in seconds. 30 is the production
     # answer and the default, so a real session start behaves exactly as before; the parameter exists
@@ -522,12 +539,13 @@ try {
 
     $checkScript = Join-Path $workshop 'scripts\sync\check-connectors.ps1'
 
+    # The drift step is opt-in here (#3658): it halved this hook and has found nothing at a session start.
     # A HASHTABLE, NEVER AN ARRAY. In-process an array splats POSITIONALLY, so '-SkipDrift' would bind
     # to $Manifest -- the check's first positional parameter -- and this hook would run the drift check
     # it meant to skip against a manifest path that is really a flag name. Silently. See trap 1 in
     # hook-check-lib.ps1's header.
     $checkArgs = @{}
-    if ($SkipDrift)    { $checkArgs['SkipDrift'] = $true }
+    if (-not $IncludeDrift) { $checkArgs['SkipDrift'] = $true }
     if ($SkipVersions) { $checkArgs['SkipVersions'] = $true }
 
     # Scoping (Sean recommendation): outside the workshop, a session only sees its own registry data.
