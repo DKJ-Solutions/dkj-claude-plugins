@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**5 / 6 minor entries** <!-- pending-tally -->
+**6 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/plugins-cards-installed-vs-marketplace · 20261029-182230Z
+
+The toolbox's Plugins card and page are now **Installed plugins**, drawn as a plug in its socket. The
+product port's Plugins card and page are now **Marketplace**, drawn as a storefront. Connectors draws
+a chain link. The two pages kept their `/plugins` URLs, and the three cards no longer share one plug.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo running dkj-policy shows the toolbox card and page as Installed plugins instead of Plugins.
+That is a rename the user will notice, and nothing for them to do.
+
+**Score:** 2
+
+#### Pull Request
+
+Name the two Plugins cards apart: Installed plugins and Marketplace
+
+Plugins: dkj-policy
+
+[PR #3656](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3656)
+
+---
 
 ### DEPLOY: feat/3649-btn-primary-bold · 20261029-173129Z
 
