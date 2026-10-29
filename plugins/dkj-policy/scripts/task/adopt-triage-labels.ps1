@@ -135,7 +135,7 @@ if (Test-Path -LiteralPath $repoConfig -PathType Leaf) {
 # Get-TriageLabels is Optional in the script contract, so a repo that has not yet run adopt-config (or
 # is on a plugin version older than this seam) does not define it -- and that must not read as "no
 # canonical set exists". The values below are this repo's OWN live labels (read back from
-# `gh label list --repo DKJ-Solutions/dkj-claude-plugins` at the time this was written) and must stay
+# `gh label list --repo DKJ-Solutions/dkj-marketplace` at the time this was written) and must stay
 # byte-identical to $script:TriageLabels in scripts/repo-config.ps1: the two are one answer stated
 # twice for the same reason Get-EntryFallbackType's 'Chore' is -- a consumer who has adopted the seam
 # and one who has not must never be told two different canonical sets.

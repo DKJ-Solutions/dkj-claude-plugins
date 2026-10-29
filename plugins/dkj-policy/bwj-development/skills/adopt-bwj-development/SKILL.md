@@ -3,7 +3,7 @@ name: adopt-bwj-development
 description: >-
   One-time setup of bwj-development in a repo permitted to run it -- BWJ's two Shopify stores
   (smartwatchbanden or xoxowildhearts, whichever org), and for ticket handling alone the plugin's own
-  source repo dkj-claude-plugins and BWJ's Lightspeed store phone-factory -- it refuses to run anywhere else -- both chapters:
+  source repo dkj-marketplace and BWJ's Lightspeed store phone-factory -- it refuses to run anywhere else -- both chapters:
   propose the Asana config seam for scripts/repo-config.ps1, check that the classification labels
   exist, report the board's numbered sections so the Filed section report-issue writes to can be
   found, write the BWJ extension import into CLAUDE.md, and scaffold chapter two's
@@ -29,7 +29,7 @@ parts of the retired asana-mirror mechanism that came back (Dave, October 5, 6 a
 ## 0 -- establish that this repo is a permitted adoption target
 
 **Refuse, not warn: nothing is written, copied or proposed until this check passes.** The constraint
--- `smartwatchbanden`, `xoxowildhearts`, `dkj-claude-plugins` or `phone-factory`, and nothing else -- lived only in
+-- `smartwatchbanden`, `xoxowildhearts`, `dkj-marketplace` or `phone-factory`, and nothing else -- lived only in
 this file's own frontmatter until #1522; none of the steps below actually checked which repo
 the session is standing in.
 
@@ -52,13 +52,13 @@ somebody passes in the moment, which is a decision nobody can read back afterwar
 
 **The third name is this skill's own SOURCE repo, and it was admitted deliberately** (Dave,
 September 14, 2026). Until that day it was named here as the *most likely wrong* target precisely
-because it is the source. That reading is retired for `dkj-claude-plugins` and for nothing else: the
+because it is the source. That reading is retired for `dkj-marketplace` and for nothing else: the
 repo is permitted because its maintainer decided it is, not because the guard stopped seeing it.
 
 **The fourth name is `phone-factory`, BWJ's Lightspeed store, admitted for ticket handling alone**
 (Dave, October 2, 2026, [#2705](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2705)). It
 follows the BWJ procedure, so chapter one applies. Chapters two to four are written against the Shopify
-theme and CLI, which it does not run, so they do not reach it -- the same reach as `dkj-claude-plugins`,
+theme and CLI, which it does not run, so they do not reach it -- the same reach as `dkj-marketplace`,
 for a different reason. It needs its own Asana board in step 2: a GID copied from another store's
 config fails silently.
 
@@ -73,7 +73,7 @@ order says so. The failure this step exists to catch is a clean first run in the
 "if the file exists, stop" guard cannot see because it answers a different question.
 
 **Measured, not hypothetical**: this skill was invoked once with the working directory set to the
-source repo, `DKJ-Solutions/dkj-claude-plugins`, and nothing before the first step stopped it -- the session
+source repo, `DKJ-Solutions/dkj-marketplace`, and nothing before the first step stopped it -- the session
 stopped by hand, not the skill
 ([#1522](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1522)). **Admitting that repo
 does not retire the measurement, and reading it as spent is the one mistake this paragraph exists to
@@ -241,7 +241,7 @@ function Get-BranchClosingSteps { @('Is the change visible in the frontend / sto
 ([#2655](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2655)). The page used to say the
 gate enforces the step by its position, but no scaffold ever wrote it. Measured in `xoxowildhearts`
 on September 30, 2026: no branch document there had ever carried it, and a branch with a visible theme
-change reached its PR with no handover at all. **Not in `dkj-claude-plugins`**: chapter three's reach
+change reached its PR with no handover at all. **Not in `dkj-marketplace`**: chapter three's reach
 excludes the source repo, which runs no theme, so there the question would be `- [~]` on every branch
 forever. It reaches branches created **after** the seam lands. A branch already open gets the line by
 hand.
@@ -545,7 +545,7 @@ the `dkj-policy` import that `adopt-dkj-policy` writes
 ([#2374](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2374)):
 
 ```
-@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/bwj-development/CLAUDE.md
+@~/.claude/plugins/marketplaces/dkj-marketplace/plugins/dkj-policy/bwj-development/CLAUDE.md
 ```
 
 **This step writes that line** ([#2532](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2532)).
@@ -572,7 +572,7 @@ whose own settings enable `bwj-development`, and names this step.
 
 ## 7 -- scaffold the sync-log folder (chapter two)
 
-**Skip this step in `dkj-claude-plugins` and `phone-factory`.** Both are admitted for chapter one alone,
+**Skip this step in `dkj-marketplace` and `phone-factory`.** Both are admitted for chapter one alone,
 and chapter two records drift on a live Shopify theme, which neither runs.
 
 Chapter two's record needs somewhere to land before the first `sync/` branch ever runs. If

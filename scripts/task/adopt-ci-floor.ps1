@@ -245,7 +245,7 @@ $trunk = Get-BranchTrunkName
 # beside the consumer's, exactly as adopt-workflow-folder's branch-entry.yml does, and for the same
 # reason: there is ONE definition of the fold and of the resolves check in this system, and a runner
 # that carried a hand-written copy would be a second one, free to drift from the first.
-$sharedRepo = 'DKJ-Solutions/dkj-claude-plugins'
+$sharedRepo = 'DKJ-Solutions/dkj-marketplace'
 $sharedRef  = 'main'
 $sharedPath = '.workflow-scripts'
 $pluginDir  = "$sharedPath/plugins/dkj-policy/scripts"
@@ -495,7 +495,7 @@ function Get-WorkflowFacts {
         # file is never excluded. Both repo names are read, as at the pinned-ref reader below: a caller
         # scaffolded before the rename still names the old one, and still runs.
         $pluginGate = $jobsBlock.Success `
-            -and ($jobsBlock.Groups['body'].Value -match '(?m)^\s{4}uses:\s*[^/\s]+/(?:dkj-claude-plugins|claude-code-specialists)/\.github/workflows/') `
+            -and ($jobsBlock.Groups['body'].Value -match '(?m)^\s{4}uses:\s*[^/\s]+/(?:dkj-marketplace|dkj-claude-plugins|claude-code-specialists)/\.github/workflows/') `
             -and ($jobsBlock.Groups['body'].Value -notmatch '(?m)^\s+(?:steps|runs-on):')
 
         $facts += [pscustomobject]@{
@@ -1491,7 +1491,7 @@ function Write-WriteRunnerPinVerdict {
     #>
     param([string]$Rel, [string]$Text)
 
-    $m = [regex]::Match($Text, '(?m)^ {10}repository:\s*\S*/(?:dkj-claude-plugins|claude-code-specialists)\s*$(?:\n {10}[^\n]*)*?\n {10}ref:[ \t]*(?<ref>[^\s#]+)[ \t]*(?:#[ \t]*(?<tag>\S+))?[ \t]*$')
+    $m = [regex]::Match($Text, '(?m)^ {10}repository:\s*\S*/(?:dkj-marketplace|dkj-claude-plugins|claude-code-specialists)\s*$(?:\n {10}[^\n]*)*?\n {10}ref:[ \t]*(?<ref>[^\s#]+)[ \t]*(?:#[ \t]*(?<tag>\S+))?[ \t]*$')
     if (-not $m.Success) {
         Write-Host "            its shared-scripts ref could not be read, so whether it is pinned was NOT established." -ForegroundColor DarkGray
         return

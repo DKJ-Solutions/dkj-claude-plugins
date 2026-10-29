@@ -341,9 +341,9 @@
         "previousBytes": 8514
       },
       {
-        "id": "external:~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md",
+        "id": "external:~/.claude/plugins/marketplaces/dkj-marketplace/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md",
         "name": "specialist-01-01-persona.md",
-        "sub": "~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md",
+        "sub": "~/.claude/plugins/marketplaces/dkj-marketplace/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md",
         "bytes": 19165,
         "previousBytes": 21300
       },

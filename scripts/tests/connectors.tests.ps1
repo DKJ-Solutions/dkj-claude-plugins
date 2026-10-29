@@ -118,7 +118,7 @@ function New-FixtureConsumer {
         Join-Path $Root '.claude\extensions'
     }
     New-Item -ItemType Directory -Path $extDir -Force | Out-Null
-    $enabled = if ($PluginEnabled) { '{ "dkj-subagents-alpha@dkj-claude-plugins": true }' } else { '{ }' }
+    $enabled = if ($PluginEnabled) { '{ "dkj-subagents-alpha@dkj-marketplace": true }' } else { '{ }' }
     $settings = '{ "enabledPlugins": ' + $enabled + ' }'
     [System.IO.File]::WriteAllText((Join-Path $Root '.claude\settings.json'), $settings)
     foreach ($id in $ExtensionIds) {
@@ -139,7 +139,7 @@ function New-FixtureManifest {
         # string form -- what every manifest but the two BWJ ones still carries -- would stop being
         # exercised at all.
         $LocalCheckout = 'nonexistent-fixture-path',
-        [string]$Plugin = 'dkj-subagents-alpha@dkj-claude-plugins',
+        [string]$Plugin = 'dkj-subagents-alpha@dkj-marketplace',
         # The register's own name for the consumer. A parameter since #1808: it is what the network
         # read turns into an API owner and name, so a scenario has to be able to hand it a slug the
         # guard must refuse.
@@ -171,7 +171,7 @@ function New-StubWorkshop {
     $root = Join-Path $Fixture $Name
     New-Item -ItemType Directory -Path (Join-Path $root 'scripts\sync') -Force | Out-Null
     New-Item -ItemType Directory -Path (Join-Path $root '.claude-plugin') -Force | Out-Null
-    $markerName = if ($ValidMarker) { 'dkj-claude-plugins' } else { 'fake-marketplace' }
+    $markerName = if ($ValidMarker) { 'dkj-marketplace' } else { 'fake-marketplace' }
     [System.IO.File]::WriteAllText((Join-Path $root '.claude-plugin\marketplace.json'), ('{ "name": "' + $markerName + '" }'))
     $body = (($OutputLines | ForEach-Object { 'Write-Host "' + $_ + '"' }) -join "`r`n") + "`r`nexit $ExitCode`r`n"
     [System.IO.File]::WriteAllText((Join-Path $root 'scripts\sync\check-connectors.ps1'), $body)
@@ -180,7 +180,7 @@ function New-StubWorkshop {
 
 # Overwrites the fixture's settings.json to enable exactly these ids (helper for check 5 / the
 # [UNLISTED] scenarios, #1775). New-FixtureConsumer only ever enables the one hardcoded plugin id
-# ('dkj-subagents-alpha@dkj-claude-plugins'), and check 5's whole subject is a SECOND id sitting
+# ('dkj-subagents-alpha@dkj-marketplace'), and check 5's whole subject is a SECOND id sitting
 # beside it that the manifest does not list -- so those scenarios need a settings.json this helper can
 # shape freely, written AFTER New-FixtureConsumer (which rebuilds $Fixture from scratch and would wipe
 # this file if called afterwards).
@@ -294,7 +294,7 @@ try {
     # --- 1f. Check 1b, arm 2: this repo's OWN rename history landing on a transfer redirect ---------
     #      Depends on the real, current values scripts\repo-config.ps1 states for THIS repo (the same
     #      dependency test 12h below already carries for check 6): Get-RepoName() is
-    #      'DKJ-Solutions/dkj-claude-plugins' and Get-RetiredRepoNames() lists 'claude-code-specialists'
+    #      'DKJ-Solutions/dkj-marketplace' and Get-RetiredRepoNames() lists 'claude-code-specialists'
     #      (the pre-#1769 name). So a manifest naming this repo's CURRENT slug, checked out from an
     #      origin that still names the RETIRED slug, is exactly the transfer-redirect case arm 2 exists
     #      for -- and is reproduced here rather than contorted through New-StubWorkshop, because it is
@@ -302,12 +302,12 @@ try {
     #      this tree's own repo-config.ps1 can supply.
     New-FixtureConsumer -ExtensionIds @('06-16')
     Set-FixtureGitCheckout -OriginUrl 'https://github.com/DKJ-Solutions/claude-code-specialists.git'
-    $mf = New-FixtureManifest -Extensions @('06-16') -Repo 'DKJ-Solutions/dkj-claude-plugins'
+    $mf = New-FixtureManifest -Extensions @('06-16') -Repo 'DKJ-Solutions/dkj-marketplace'
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
     Assert-Equal 0 $r.Code 'own rename history: exit code 0 (no false alarm)'
     Assert-Match '\[SKIP\]' $r.Out 'own rename history: a SKIP is printed'
     Assert-Match 'differs from the manifest' $r.Out 'own rename history: names it as a transfer redirect'
-    Assert-Match 'git -C <this checkout> remote set-url origin https://github\.com/DKJ-Solutions/dkj-claude-plugins\.git' $r.Out 'own rename history: names the one command that ends it'
+    Assert-Match 'git -C <this checkout> remote set-url origin https://github\.com/DKJ-Solutions/dkj-marketplace\.git' $r.Out 'own rename history: names the one command that ends it'
     Assert-Match '\[OK\]\s+plugin is enabled' $r.Out 'own rename history: proceeds exactly as on agreement'
     Assert-NotMatch "this checkout's 'origin' is" $r.Out 'own rename history: no arm-3 ERROR'
     # THE WORDING IS SOFTENED ON PURPOSE (#1821, Edith's finding): this run makes no network call, so
@@ -411,7 +411,7 @@ try {
     # identical to the character once the '-- plugin:' header is filtered out. Found live in this repo's
     # own register while verifying the connector-name fix, so the plugin id is part of the fix, not a
     # nice-to-have.
-    Assert-Match '\[ERROR\]\s+fixture/consumer / dkj-subagents-alpha@dkj-claude-plugins:' $r.Out 'missing extension: the ERROR line names the connector AND the plugin block it belongs to'
+    Assert-Match '\[ERROR\]\s+fixture/consumer / dkj-subagents-alpha@dkj-marketplace:' $r.Out 'missing extension: the ERROR line names the connector AND the plugin block it belongs to'
 
     # --- 3. Plugin not enabled -> exit 1 --------------------------------------------------------
     New-FixtureConsumer -ExtensionIds @('06-16') -PluginEnabled $false
@@ -431,7 +431,7 @@ try {
     #     reader who cross-referenced the two gates learned to trust neither.
     New-FixtureConsumer -ExtensionIds @('06-16') -PluginEnabled $false
     [System.IO.File]::WriteAllText((Join-Path $Fixture '.claude\settings.local.json'),
-        '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-claude-plugins": true } }')
+        '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-marketplace": true } }')
     $mf = New-FixtureManifest -Extensions @('06-16')
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
     Assert-Equal 0 $r.Code 'local-only enable: exit code 0 (no false alarm)'
@@ -614,7 +614,7 @@ try {
     Assert-Match '\[ERROR\].*outside the allowed scope' $r.Out 'path traversal: scope message'
 
     # 7c. Plugin field with path characters -> rejected, exit 1.
-    $mf = New-FixtureManifest -Extensions @('06-16') -Plugin '..\..\evil@dkj-claude-plugins'
+    $mf = New-FixtureManifest -Extensions @('06-16') -Plugin '..\..\evil@dkj-marketplace'
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
     Assert-Equal 1 $r.Code 'invalid plugin field: exit code 1'
     Assert-Match '\[ERROR\].*plugin field' $r.Out 'invalid plugin field: ERROR message'
@@ -632,7 +632,7 @@ try {
         # 8a. Stale record (projectPath does not exist) -> no crash, INFO, exit 0.
         New-FixtureConsumer -ExtensionIds @('06-16')
         $mf = New-FixtureManifest -Extensions @('06-16')
-        Set-FixtureAdmin '{ "version": 2, "plugins": { "dkj-subagents-alpha@dkj-claude-plugins": [ { "scope": "project", "projectPath": "C:\\does-not-exist-connectors-fixture", "installPath": "x", "version": "0.0.1" } ] } }'
+        Set-FixtureAdmin '{ "version": 2, "plugins": { "dkj-subagents-alpha@dkj-marketplace": [ { "scope": "project", "projectPath": "C:\\does-not-exist-connectors-fixture", "installPath": "x", "version": "0.0.1" } ] } }'
         $env:USERPROFILE = $Fixture
         $r = Invoke-Ps $Script @('-SkipDrift', '-Manifest', $mf, '-ConsumerPathOverride', $Fixture)
         Assert-Equal 0 $r.Code 'stale record: exit code 0 (no crash)'
@@ -640,7 +640,7 @@ try {
 
         # 8b. Record points to the fixture but with an older version than the source -> ERROR, exit 1.
         $fixtureEscaped = ($Fixture -replace '\\', '\\')
-        Set-FixtureAdmin ('{ "version": 2, "plugins": { "dkj-subagents-alpha@dkj-claude-plugins": [ { "scope": "project", "projectPath": "' + $fixtureEscaped + '", "installPath": "x", "version": "0.0.1" } ] } }')
+        Set-FixtureAdmin ('{ "version": 2, "plugins": { "dkj-subagents-alpha@dkj-marketplace": [ { "scope": "project", "projectPath": "' + $fixtureEscaped + '", "installPath": "x", "version": "0.0.1" } ] } }')
         $r = Invoke-Ps $Script @('-SkipDrift', '-Manifest', $mf, '-ConsumerPathOverride', $Fixture)
         Assert-Equal 1 $r.Code 'outdated record: exit code 1'
         Assert-Match '\[ERROR\].*machine record is on v0\.0\.1' $r.Out 'outdated record: ERROR message'
@@ -651,7 +651,7 @@ try {
         #     versions for one repo. An honest "cannot determine" is the only defensible output, and it
         #     must NOT be an INFO -- while the records disagree, every version claim about this consumer
         #     is unreliable.
-        Set-FixtureAdmin ('{ "version": 2, "plugins": { "dkj-subagents-alpha@dkj-claude-plugins": [ ' +
+        Set-FixtureAdmin ('{ "version": 2, "plugins": { "dkj-subagents-alpha@dkj-marketplace": [ ' +
             '{ "scope": "project", "projectPath": "' + $fixtureEscaped + '", "installPath": "x", "version": "0.0.1" }, ' +
             '{ "scope": "project", "projectPath": "' + $fixtureEscaped + '", "installPath": "x", "version": "0.0.2" }, ' +
             '{ "scope": "project", "projectPath": "' + $fixtureEscaped + '", "installPath": "x", "version": "0.0.3" } ] } }')
@@ -666,7 +666,7 @@ try {
         #     the casing are noise, and reporting them as a conflict would trade a confident wrong
         #     number for a confident false alarm.
         $fixtureLowerEscaped = ($Fixture.ToLowerInvariant() -replace '\\', '\\')
-        Set-FixtureAdmin ('{ "version": 2, "plugins": { "dkj-subagents-alpha@dkj-claude-plugins": [ ' +
+        Set-FixtureAdmin ('{ "version": 2, "plugins": { "dkj-subagents-alpha@dkj-marketplace": [ ' +
             '{ "scope": "project", "projectPath": "' + $fixtureEscaped + '\\", "installPath": "x", "version": "0.0.1" }, ' +
             '{ "scope": "project", "projectPath": "' + $fixtureLowerEscaped + '", "installPath": "x", "version": "0.0.1" } ] } }')
         $r = Invoke-Ps $Script @('-SkipDrift', '-Manifest', $mf, '-ConsumerPathOverride', $Fixture)
@@ -684,7 +684,7 @@ try {
         Assert-Equal 0 $r.Code 'enabled but no record: exit 0 -- INFO, never a gate breach'
         Assert-Match '\[INFO\].*no machine record for this consumer, while the plugin IS enabled' $r.Out 'enabled but no record: the consequence is stated, not just the skipped version check'
         Assert-Match 'loads none of this plugin' $r.Out 'enabled but no record: says what a session there actually gets'
-        Assert-Match 'claude plugin install dkj-subagents-alpha@dkj-claude-plugins --scope project' $r.Out 'enabled but no record: names the one command that settles it'
+        Assert-Match 'claude plugin install dkj-subagents-alpha@dkj-marketplace --scope project' $r.Out 'enabled but no record: names the one command that settles it'
         # ...and NOT the marker, because this run is walking a consumer that is not the session's repo.
         # This is the half that keeps the [INFO]-silence rule intact: promoting the line for every
         # connector would put another machine's business back into every session start.
@@ -701,7 +701,7 @@ try {
         Assert-Equal 0 $r.Code 'enabled but no record, SESSION repo: still exit 0 -- non-counting, nothing is broken about the source'
         Assert-Match '\[NOT-INSTALLED-HERE\]' $r.Out 'enabled but no record, SESSION repo: the marker fires'
         Assert-Match 'loads none of it' $r.Out 'enabled but no record, SESSION repo: says what a session here actually gets'
-        Assert-Match 'claude plugin install dkj-subagents-alpha@dkj-claude-plugins --scope project' $r.Out 'enabled but no record, SESSION repo: the marker carries the fix, not just the diagnosis'
+        Assert-Match 'claude plugin install dkj-subagents-alpha@dkj-marketplace --scope project' $r.Out 'enabled but no record, SESSION repo: the marker carries the fix, not just the diagnosis'
         Assert-Match '\[INFO\].*no machine record for this consumer, while the plugin IS enabled' $r.Out 'enabled but no record, SESSION repo: the [INFO] is kept -- a deliberate run should still list everything'
 
         # 8e3 (#533). Every 'source on vX' in a run is read from THIS checkout, now -- a point-in-time fact
@@ -925,7 +925,7 @@ try {
     #     wrong story -- its entry simply lists fewer lenses than the repo holds. The check emits the
     #     line only about the repo the session is in, so the hook can surface it unconditionally.
     $stub = New-StubWorkshop -Name 'stub-inventory' -ExitCode 0 -OutputLines @(
-        "  [INFO]  DKJ-Solutions/claude-code-specialists / dkj-subagents-alpha@dkj-claude-plugins: extension '04-11' exists in the consumer but is not in the register -- update the register or review the change.",
+        "  [INFO]  DKJ-Solutions/claude-code-specialists / dkj-subagents-alpha@dkj-marketplace: extension '04-11' exists in the consumer but is not in the register -- update the register or review the change.",
         "  [INVENTORY] this repo has 1 lens(es) that its own entry in the connector register does not list (04-11) -- add them to the 'extensions' array in dkj-claude-plugins.json, in the same change that landed the lens. Nothing is broken: the register's view of this repo is simply behind reality.",
         'Summary: 0 error(s), 1 info signal(s).'
     )
@@ -951,7 +951,7 @@ try {
     #     $unregistered -- a regression here would silently drop the marker whenever anything else is
     #     also wrong, which is exactly when a session is busiest).
     $stub = New-StubWorkshop -Name 'stub-inv-mixed' -ExitCode 1 -OutputLines @(
-        '  [ERROR] life-hub / dkj-subagents-alpha@dkj-claude-plugins: machine record is on v2.9.0, source on v2.11.0',
+        '  [ERROR] life-hub / dkj-subagents-alpha@dkj-marketplace: machine record is on v2.9.0, source on v2.11.0',
         "  [INVENTORY] this repo has 1 lens(es) that its own entry in the connector register does not list (04-11) -- add them to the 'extensions' array in dkj-claude-plugins.json, in the same change that landed the lens. Nothing is broken: the register's view of this repo is simply behind reality.",
         'Summary: 1 error(s), 1 info signal(s).'
     )
@@ -962,7 +962,7 @@ try {
 
     # 9h. Real signals AND an unregistered notice in one run: both surface, neither crowds out the other.
     $stub = New-StubWorkshop -Name 'stub-unreg-mixed' -ExitCode 1 -OutputLines @(
-        '  [ERROR] life-hub / dkj-subagents-alpha@dkj-claude-plugins: machine record is on v2.1.0, source on v2.9.0',
+        '  [ERROR] life-hub / dkj-subagents-alpha@dkj-marketplace: machine record is on v2.1.0, source on v2.9.0',
         '  [UNREGISTERED] this repo has no manifest in the workshop register.',
         'Summary: 1 error(s), 1 info signal(s).'
     )
@@ -974,7 +974,7 @@ try {
     # 9l (#533). The marker on its own: its own verdict, and NOT an errors summary. The distinction it has
     #     to keep is that nothing is wrong with the source -- this machine simply does not have the plugin
     #     -- which is why it rides in $notices rather than $signals.
-    $notInstalledLine = "  [NOT-INSTALLED-HERE] 'dkj-subagents-alpha@dkj-claude-plugins' is enabled in .claude/settings.json but has no install record for this checkout -- a session here loads none of it (no skills, no subagents, no hooks). Fix: 'claude plugin install dkj-subagents-alpha@dkj-claude-plugins --scope project' from this root. Nothing is wrong with the source; this machine simply does not have the plugin."
+    $notInstalledLine = "  [NOT-INSTALLED-HERE] 'dkj-subagents-alpha@dkj-marketplace' is enabled in .claude/settings.json but has no install record for this checkout -- a session here loads none of it (no skills, no subagents, no hooks). Fix: 'claude plugin install dkj-subagents-alpha@dkj-marketplace --scope project' from this root. Nothing is wrong with the source; this machine simply does not have the plugin."
     $stub = New-StubWorkshop -Name 'stub-notinstalled' -ExitCode 0 -OutputLines @(
         $notInstalledLine,
         'Summary: 0 error(s), 1 info signal(s).'
@@ -1001,7 +1001,7 @@ try {
     #     must not be dropped precisely when something else is also wrong, which is when a session is
     #     busiest and least able to notice its absence.
     $stub = New-StubWorkshop -Name 'stub-notinstalled-mixed' -ExitCode 1 -OutputLines @(
-        '  [ERROR] life-hub / dkj-subagents-alpha@dkj-claude-plugins: machine record is on v2.9.0, source on v2.11.0',
+        '  [ERROR] life-hub / dkj-subagents-alpha@dkj-marketplace: machine record is on v2.9.0, source on v2.11.0',
         $notInstalledLine,
         'Summary: 1 error(s), 1 info signal(s).'
     )
@@ -1028,7 +1028,7 @@ try {
     #     were read at, and a second git call could put a wrong timestamp on a right number.
     $stub = New-StubWorkshop -Name 'stub-stamp' -ExitCode 1 -OutputLines @(
         '== check-connectors -- 4 manifest(s) -- source read at 855fd40 ==',
-        '  [ERROR] life-hub / dkj-subagents-alpha@dkj-claude-plugins: machine record is on v3.4.0, source on v3.9.0',
+        '  [ERROR] life-hub / dkj-subagents-alpha@dkj-marketplace: machine record is on v3.4.0, source on v3.9.0',
         'Summary: 1 error(s), 0 info signal(s).'
     )
     $r = Invoke-Ps $Hook @('-WorkshopPathOverride', $stub)
@@ -1042,7 +1042,7 @@ try {
     #     trust this whole change is trying to make earnable.
     $stub = New-StubWorkshop -Name 'stub-nostamp' -ExitCode 1 -OutputLines @(
         '== check-connectors -- 4 manifest(s) ==',
-        '  [ERROR] life-hub / dkj-subagents-alpha@dkj-claude-plugins: machine record is on v3.4.0, source on v3.9.0',
+        '  [ERROR] life-hub / dkj-subagents-alpha@dkj-marketplace: machine record is on v3.4.0, source on v3.9.0',
         'Summary: 1 error(s), 0 info signal(s).'
     )
     $r = Invoke-Ps $Hook @('-WorkshopPathOverride', $stub)
@@ -1068,8 +1068,8 @@ try {
     #     scenarios: a whole plugin block the register never named is a different situation, with a
     #     different fix, from "not registered at all" or "an extension list is behind".
     $stub = New-StubWorkshop -Name 'stub-unlisted' -ExitCode 0 -OutputLines @(
-        "  [INFO]  DKJ-Solutions/claude-code-specialists / dkj-policy@dkj-claude-plugins: plugin 'dkj-subagents-ecomm@dkj-claude-plugins' is enabled in .claude/settings.json but this manifest's 'plugins' list does not name it -- it was never looped over above, so nothing about it was checked here (no extension check, no version check). Add a plugins[] block for it to dkj-claude-plugins.json, in the same change that enabled it, or remove the enable if that was not intended.",
-        "  [UNLISTED] this repo has 1 plugin(s) enabled that its own entry in the connector register does not list (dkj-subagents-ecomm@dkj-claude-plugins) -- add a plugins[] block for each to dkj-claude-plugins.json, in the same change that enabled it. Nothing is broken: the register's view of this repo is simply behind reality.",
+        "  [INFO]  DKJ-Solutions/claude-code-specialists / dkj-policy@dkj-marketplace: plugin 'dkj-subagents-ecomm@dkj-marketplace' is enabled in .claude/settings.json but this manifest's 'plugins' list does not name it -- it was never looped over above, so nothing about it was checked here (no extension check, no version check). Add a plugins[] block for it to dkj-claude-plugins.json, in the same change that enabled it, or remove the enable if that was not intended.",
+        "  [UNLISTED] this repo has 1 plugin(s) enabled that its own entry in the connector register does not list (dkj-subagents-ecomm@dkj-marketplace) -- add a plugins[] block for each to dkj-claude-plugins.json, in the same change that enabled it. Nothing is broken: the register's view of this repo is simply behind reality.",
         'Summary: 0 error(s), 1 info signal(s).'
     )
     $r = Invoke-Ps $Hook @('-WorkshopPathOverride', $stub)
@@ -1094,8 +1094,8 @@ try {
     # 9t. Real signals AND [UNLISTED] in one run: both surface -- same regression guard as 9k/9n, the
     #     marker must not be dropped precisely when something else is also wrong.
     $stub = New-StubWorkshop -Name 'stub-unlisted-mixed' -ExitCode 1 -OutputLines @(
-        '  [ERROR] life-hub / dkj-subagents-alpha@dkj-claude-plugins: machine record is on v2.9.0, source on v2.11.0',
-        '  [UNLISTED] this repo has 1 plugin(s) enabled that its own entry in the connector register does not list (dkj-subagents-ecomm@dkj-claude-plugins) -- add a plugins[] block for each to dkj-claude-plugins.json, in the same change that enabled it. Nothing is broken: the register''s view of this repo is simply behind reality.',
+        '  [ERROR] life-hub / dkj-subagents-alpha@dkj-marketplace: machine record is on v2.9.0, source on v2.11.0',
+        '  [UNLISTED] this repo has 1 plugin(s) enabled that its own entry in the connector register does not list (dkj-subagents-ecomm@dkj-marketplace) -- add a plugins[] block for each to dkj-claude-plugins.json, in the same change that enabled it. Nothing is broken: the register''s view of this repo is simply behind reality.',
         'Summary: 1 error(s), 1 info signal(s).'
     )
     $r = Invoke-Ps $Hook @('-WorkshopPathOverride', $stub)
@@ -1117,7 +1117,7 @@ try {
     #      register records what a consumer HAS.
     Write-Host "a retired plugin id is an unmigrated consumer, not an invalid register" -ForegroundColor Cyan
     New-FixtureConsumer -ExtensionIds @('06-16')
-    $mfOld = New-FixtureManifest -Extensions @('06-16') -Plugin 'specialists@dkj-claude-plugins'
+    $mfOld = New-FixtureManifest -Extensions @('06-16') -Plugin 'specialists@dkj-marketplace'
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mfOld, '-ConsumerPathOverride', $Fixture))
     Assert-Equal 0 $r.Code 'retired id: exit code 0 -- an unmigrated consumer does not fail the check'
     Assert-NotMatch '\[ERROR\]' $r.Out 'retired id: and raises no error at all'
@@ -1127,7 +1127,7 @@ try {
 
     #      The other two ways must still be errors -- separating them is only worth anything if the
     #      genuine faults keep their verdict.
-    $mfBad = New-FixtureManifest -Extensions @('06-16') -Plugin '../../etc/passwd@dkj-claude-plugins'
+    $mfBad = New-FixtureManifest -Extensions @('06-16') -Plugin '../../etc/passwd@dkj-marketplace'
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mfBad, '-ConsumerPathOverride', $Fixture))
     Assert-Equal 1 $r.Code 'malformed id: still exits 1'
     Assert-Match '\[ERROR\]' $r.Out 'malformed id: still an error -- a register file defect is not a migration'
@@ -1231,11 +1231,11 @@ try {
 
     # 11a. Enabled, not listed -> a counting [INFO] naming it, exit 0 (informational, not a gate breach).
     New-FixtureConsumer -ExtensionIds @('06-16')
-    Set-FixtureEnabledPlugins -Ids @('dkj-subagents-alpha@dkj-claude-plugins', 'dkj-subagents-ecomm@dkj-claude-plugins')
+    Set-FixtureEnabledPlugins -Ids @('dkj-subagents-alpha@dkj-marketplace', 'dkj-subagents-ecomm@dkj-marketplace')
     $mf = New-FixtureManifest -Extensions @('06-16')
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
     Assert-Equal 0 $r.Code 'unlisted plugin: exit code 0 (INFO, not an error)'
-    Assert-Match "\[INFO\].*'dkj-subagents-ecomm@dkj-claude-plugins'.*does not name it" $r.Out 'unlisted plugin: INFO names the id the manifest never lists'
+    Assert-Match "\[INFO\].*'dkj-subagents-ecomm@dkj-marketplace'.*does not name it" $r.Out 'unlisted plugin: INFO names the id the manifest never lists'
     # 11a / item 3: NOT the session repo (no -OnlyConsumer) -> the [INFO] stands, the [UNLISTED] must not.
     Assert-NotMatch '\[UNLISTED\]' $r.Out 'unlisted plugin, NOT the session repo: no [UNLISTED] marker'
 
@@ -1244,14 +1244,14 @@ try {
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture, '-OnlyConsumer', $Fixture))
     Assert-Equal 0 $r.Code 'unlisted plugin, SESSION repo: exit 0 -- non-counting, nothing is broken about the source'
     Assert-Match '\[UNLISTED\]' $r.Out 'unlisted plugin, SESSION repo: the marker fires'
-    Assert-Match 'dkj-subagents-ecomm@dkj-claude-plugins' $r.Out 'unlisted plugin, SESSION repo: the marker names the id'
-    Assert-Match "\[INFO\].*'dkj-subagents-ecomm@dkj-claude-plugins'" $r.Out 'unlisted plugin, SESSION repo: the [INFO] is kept too -- a deliberate run should still list everything'
+    Assert-Match 'dkj-subagents-ecomm@dkj-marketplace' $r.Out 'unlisted plugin, SESSION repo: the marker names the id'
+    Assert-Match "\[INFO\].*'dkj-subagents-ecomm@dkj-marketplace'" $r.Out 'unlisted plugin, SESSION repo: the [INFO] is kept too -- a deliberate run should still list everything'
 
     # 11c. An id naming a DIFFERENT marketplace is silently out of scope -- not this register's business
     #      to judge a catalogue it does not own. Checked with -OnlyConsumer too, the stronger claim: even
     #      when this IS the session repo, an out-of-scope id raises neither line.
     New-FixtureConsumer -ExtensionIds @('06-16')
-    Set-FixtureEnabledPlugins -Ids @('dkj-subagents-alpha@dkj-claude-plugins', 'some-plugin@other-marketplace')
+    Set-FixtureEnabledPlugins -Ids @('dkj-subagents-alpha@dkj-marketplace', 'some-plugin@other-marketplace')
     $mf = New-FixtureManifest -Extensions @('06-16')
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture, '-OnlyConsumer', $Fixture))
     Assert-Equal 0 $r.Code 'different marketplace id: exit code 0'
@@ -1260,7 +1260,7 @@ try {
 
     # 11d. An id with NO '@' at all cannot be attributed to any marketplace -- also silently excluded.
     New-FixtureConsumer -ExtensionIds @('06-16')
-    Set-FixtureEnabledPlugins -Ids @('dkj-subagents-alpha@dkj-claude-plugins', 'no-at-sign-id')
+    Set-FixtureEnabledPlugins -Ids @('dkj-subagents-alpha@dkj-marketplace', 'no-at-sign-id')
     $mf = New-FixtureManifest -Extensions @('06-16')
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture, '-OnlyConsumer', $Fixture))
     Assert-Equal 0 $r.Code 'id without @: exit code 0'
@@ -1278,16 +1278,16 @@ try {
     # 11f. A RETIRED id (this marketplace's own segment, a name the marketplace no longer declares) that
     #      is enabled and absent from the manifest IS still reported -- the predicate agrees with the
     #      existing 'retired' branch in the per-plugin loop rather than re-excluding by segment what that
-    #      branch already treats as worth recording. 'specialists@dkj-claude-plugins' is the id case
+    #      branch already treats as worth recording. 'specialists@dkj-marketplace' is the id case
     #      10 above already establishes as retired for this marketplace.
     New-FixtureConsumer -ExtensionIds @('06-16')
-    Set-FixtureEnabledPlugins -Ids @('dkj-subagents-alpha@dkj-claude-plugins', 'specialists@dkj-claude-plugins')
+    Set-FixtureEnabledPlugins -Ids @('dkj-subagents-alpha@dkj-marketplace', 'specialists@dkj-marketplace')
     $mf = New-FixtureManifest -Extensions @('06-16')
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture, '-OnlyConsumer', $Fixture))
     Assert-Equal 0 $r.Code 'retired id, unlisted: exit code 0 (non-error)'
-    Assert-Match "\[INFO\].*'specialists@dkj-claude-plugins'.*does not name it" $r.Out 'retired id, unlisted: the INFO reports it too'
+    Assert-Match "\[INFO\].*'specialists@dkj-marketplace'.*does not name it" $r.Out 'retired id, unlisted: the INFO reports it too'
     Assert-Match '\[UNLISTED\]' $r.Out 'retired id, unlisted: the [UNLISTED] marker fires'
-    Assert-Match 'specialists@dkj-claude-plugins' $r.Out 'retired id, unlisted: the marker names the retired id'
+    Assert-Match 'specialists@dkj-marketplace' $r.Out 'retired id, unlisted: the marker names the retired id'
 
     # 11g. No settings file at all -> AnyFileExists is false, and check 5 stays silent entirely: an
     #      absence claim drawn from a file that does not exist is exactly what this repo refuses. The run
@@ -1308,7 +1308,7 @@ try {
     #      Deliberately excluded, same as an id with no '@' at all (11d): there is no plugin name to write
     #      an 'add a plugins[] block for it' finding about. Checked with -OnlyConsumer, the stronger claim.
     New-FixtureConsumer -ExtensionIds @('06-16')
-    Set-FixtureEnabledPlugins -Ids @('dkj-subagents-alpha@dkj-claude-plugins', '@dkj-claude-plugins')
+    Set-FixtureEnabledPlugins -Ids @('dkj-subagents-alpha@dkj-marketplace', '@dkj-marketplace')
     $mf = New-FixtureManifest -Extensions @('06-16')
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture, '-OnlyConsumer', $Fixture))
     Assert-Equal 0 $r.Code 'id with empty plugin name: exit code 0'
@@ -1392,7 +1392,7 @@ try {
     # 12a. The current path -- silence, and nothing about it in the output. This is the case every
     #      healthy consumer is in, so a check that cannot stay quiet here is one nobody will keep.
     New-FixtureConsumer -ExtensionIds @('06-16')
-    New-FixtureWorkflow -Name 'branch-entry.yml' -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath 'plugins/dkj-policy/scripts/lint/check-branch-entry.ps1'
+    New-FixtureWorkflow -Name 'branch-entry.yml' -Repository 'DKJ-Solutions/dkj-marketplace' -ScriptPath 'plugins/dkj-policy/scripts/lint/check-branch-entry.ps1'
     $mf = New-FixtureManifest -Extensions @('06-16')
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
     Assert-Equal 0 $r.Code 'current runner path: exit code 0'
@@ -1402,7 +1402,7 @@ try {
     #      The suggestion is asserted because it is the whole difference between a report and a repair:
     #      the reader is in a repo that does not contain this tree and cannot go looking.
     New-FixtureConsumer -ExtensionIds @('06-16')
-    New-FixtureWorkflow -Name 'branch-entry.yml' -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath 'plugins/workflows/contributing-davekjohn/scripts/lint/check-branch-entry.ps1'
+    New-FixtureWorkflow -Name 'branch-entry.yml' -Repository 'DKJ-Solutions/dkj-marketplace' -ScriptPath 'plugins/workflows/contributing-davekjohn/scripts/lint/check-branch-entry.ps1'
     $mf = New-FixtureManifest -Extensions @('06-16')
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
     Assert-Equal 1 $r.Code 'retired runner path: exit code 1 -- it counts as an error'
@@ -1516,13 +1516,13 @@ try {
     # from adopt-dkj-policy, so a consumer registered for the subagent teams alone is not asked. 12m is
     # that gate's own scenario, and it is the one that keeps every scenario ABOVE this block silent --
     # each of them writes the default manifest, which names dkj-subagents-alpha only.
-    $wfPlugin = 'dkj-policy@dkj-claude-plugins'
+    $wfPlugin = 'dkj-policy@dkj-marketplace'
 
     # 12j. ADOPTED -- silence. The case every healthy consumer is in, asserted first for the same
     #      reason 12a is: a check that cannot stay quiet here is one nobody keeps.
     New-FixtureConsumer -ExtensionIds @()
     Set-FixtureEnabledPlugins -Ids @($wfPlugin)
-    New-FixtureWorkflow -Name 'branch-entry.yml' -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath 'plugins/dkj-policy/scripts/lint/check-branch-entry.ps1'
+    New-FixtureWorkflow -Name 'branch-entry.yml' -Repository 'DKJ-Solutions/dkj-marketplace' -ScriptPath 'plugins/dkj-policy/scripts/lint/check-branch-entry.ps1'
     $mf = New-FixtureManifest -Extensions @() -Plugin $wfPlugin
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
     Assert-Equal 0 $r.Code 'adopted consumer: exit code 0'
@@ -1548,7 +1548,7 @@ try {
     }
     New-FixtureConsumer -ExtensionIds @()
     Set-FixtureEnabledPlugins -Ids @($wfPlugin)
-    New-FixtureCallerWorkflow -Name 'branch-entry.yml' -Uses 'DKJ-Solutions/dkj-claude-plugins/.github/workflows/reusable-branch-entry.yml@main'
+    New-FixtureCallerWorkflow -Name 'branch-entry.yml' -Uses 'DKJ-Solutions/dkj-marketplace/.github/workflows/reusable-branch-entry.yml@main'
     $mf = New-FixtureManifest -Extensions @() -Plugin $wfPlugin
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
     Assert-Equal 0 $r.Code 'caller-only consumer: exit code 0'
@@ -1607,7 +1607,7 @@ try {
     #      repo that can never produce a reference, and without the exclusion it would be the loudest
     #      finding in every run. The exit code is deliberately not asserted -- this points the check at
     #      the real repository, whose other verdicts are not this scenario's subject.
-    $mf = New-FixtureManifest -Extensions @() -Plugin $wfPlugin -Repo 'DKJ-Solutions/dkj-claude-plugins'
+    $mf = New-FixtureManifest -Extensions @() -Plugin $wfPlugin -Repo 'DKJ-Solutions/dkj-marketplace'
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $RepoRoot))
     Assert-NotMatch 'none of the runners' $r.Out 'source repo: not asked whether it checks itself out'
 
@@ -1622,7 +1622,7 @@ try {
 
     # 12o. The pre-#2333 shape: a credential beside ref: main. [INFO], exit 0 -- it works, and is exposed.
     New-FixtureConsumer -ExtensionIds @('06-16')
-    New-FixtureWorkflow -Name 'fold-on-merge.yml' -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath $pinScript -Credential
+    New-FixtureWorkflow -Name 'fold-on-merge.yml' -Repository 'DKJ-Solutions/dkj-marketplace' -ScriptPath $pinScript -Credential
     $mf = New-FixtureManifest -Extensions @('06-16')
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
     Assert-Equal 0 $r.Code 'write runner on main: exit code 0 -- a state, not a red gate'
@@ -1631,14 +1631,14 @@ try {
 
     # 12p. NO ref: AT ALL is the default branch -- moving, and said as such rather than read as unknown.
     New-FixtureConsumer -ExtensionIds @('06-16')
-    New-FixtureWorkflow -Name 'fold-on-merge.yml' -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath $pinScript -Credential -Ref ''
+    New-FixtureWorkflow -Name 'fold-on-merge.yml' -Repository 'DKJ-Solutions/dkj-marketplace' -ScriptPath $pinScript -Credential -Ref ''
     $mf = New-FixtureManifest -Extensions @('06-16')
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
     Assert-Match 'no ref: at all \(the default branch\) -- a moving ref' $r.Out 'write runner with no ref: reported as moving'
 
     # 12q. Pinned, but at an older release -- behind, with both versions named.
     New-FixtureConsumer -ExtensionIds @('06-16')
-    New-FixtureWorkflow -Name 'verify-resolved.yml' -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath $pinScript -Credential -Ref "$pinSha # v0.0.1"
+    New-FixtureWorkflow -Name 'verify-resolved.yml' -Repository 'DKJ-Solutions/dkj-marketplace' -ScriptPath $pinScript -Credential -Ref "$pinSha # v0.0.1"
     $mf = New-FixtureManifest -Extensions @('06-16')
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
     Assert-Equal 0 $r.Code 'write runner behind: exit code 0'
@@ -1647,7 +1647,7 @@ try {
 
     # 12r. Pinned at this release -- silence. The state adopt-ci-floor writes, so it must stay quiet.
     New-FixtureConsumer -ExtensionIds @('06-16')
-    New-FixtureWorkflow -Name 'merge-on-green.yml' -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath $pinScript -Credential -Ref "$pinSha # v$pinVersion"
+    New-FixtureWorkflow -Name 'merge-on-green.yml' -Repository 'DKJ-Solutions/dkj-marketplace' -ScriptPath $pinScript -Credential -Ref "$pinSha # v$pinVersion"
     $mf = New-FixtureManifest -Extensions @('06-16')
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
     Assert-NotMatch 'holds a write credential' $r.Out 'write runner pinned at this release: no pin finding'
@@ -1655,14 +1655,14 @@ try {
     # 12s. A READ-ONLY runner on main -- silence. branch-entry.yml tracks main on purpose (#1805), and
     #      every scenario in 12a-12n is this shape, so a check that fired here would have fired there.
     New-FixtureConsumer -ExtensionIds @('06-16')
-    New-FixtureWorkflow -Name 'branch-entry.yml' -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath 'plugins/dkj-policy/scripts/lint/check-branch-entry.ps1'
+    New-FixtureWorkflow -Name 'branch-entry.yml' -Repository 'DKJ-Solutions/dkj-marketplace' -ScriptPath 'plugins/dkj-policy/scripts/lint/check-branch-entry.ps1'
     $mf = New-FixtureManifest -Extensions @('06-16')
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
     Assert-NotMatch 'holds a write credential' $r.Out 'read-only runner on main: not judged'
 
     # 12t. A SHA with no version beside it is pinned but undatable -- not called moving, not called behind.
     New-FixtureConsumer -ExtensionIds @('06-16')
-    New-FixtureWorkflow -Name 'fold-on-merge.yml' -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath $pinScript -Credential -Ref $pinSha
+    New-FixtureWorkflow -Name 'fold-on-merge.yml' -Repository 'DKJ-Solutions/dkj-marketplace' -ScriptPath $pinScript -Credential -Ref $pinSha
     $mf = New-FixtureManifest -Extensions @('06-16')
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
     Assert-NotMatch 'holds a write credential' $r.Out 'bare SHA pin: no finding either way'
@@ -1789,7 +1789,7 @@ exit 1
     #       ref: main are the ones nobody visits, so the pin finding has to reach them over the network
     #       too -- with the branch it was read from, like every remote finding.
     New-FixtureConsumer -ExtensionIds @('06-16')
-    $foldYml = New-FixtureWorkflowText -Repository 'DKJ-Solutions/dkj-claude-plugins' -ScriptPath 'plugins/dkj-policy/scripts/release/fold-changelog-entry.ps1' -Credential
+    $foldYml = New-FixtureWorkflowText -Repository 'DKJ-Solutions/dkj-marketplace' -ScriptPath 'plugins/dkj-policy/scripts/release/fold-changelog-entry.ps1' -Credential
     $env:GH_GRAPHQL_BODY = New-GraphQlAnswer -Files @(@{ Name = 'fold-on-merge.yml'; Text = $foldYml })
     $mf = New-FixtureManifest -Extensions @('06-16')
     $r = Invoke-Absent -ManifestPath $mf -Remote
@@ -1944,7 +1944,7 @@ exit 1
         $extDir = Join-Path $Path '.claude\specialists\lenses'
         New-Item -ItemType Directory -Path $extDir -Force | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $Path '.claude\settings.json'),
-            '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-claude-plugins": true } }')
+            '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-marketplace": true } }')
         $i = 0
         foreach ($id in $Id) {
             $i++
@@ -1970,7 +1970,7 @@ exit 1
             repo          = $Repo
             visibility    = 'private'
             localCheckout = '..\..\' + (Split-Path $LensFixtureRoot -Leaf) + '\' + $Leaf
-            plugins       = @([ordered]@{ id = 'dkj-subagents-alpha@dkj-claude-plugins'; extensions = @() })
+            plugins       = @([ordered]@{ id = 'dkj-subagents-alpha@dkj-marketplace'; extensions = @() })
         }
         $path = Join-Path $dir 'c1.json'
         [System.IO.File]::WriteAllText($path, ($obj | ConvertTo-Json -Depth 8))

@@ -39,8 +39,8 @@ function Assert-Equal($Expected, $Actual, [string]$Message) {
     Assert-True $ok $Message
 }
 
-$Const = '@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md'
-$Ext   = '@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/bwj-development/CLAUDE.md'
+$Const = '@~/.claude/plugins/marketplaces/dkj-marketplace/plugins/dkj-policy/CLAUDE.md'
+$Ext   = '@~/.claude/plugins/marketplaces/dkj-marketplace/plugins/dkj-policy/bwj-development/CLAUDE.md'
 
 function New-Consumer([string]$Label) {
     $d = Join-Path $Fixture $Label
@@ -71,19 +71,19 @@ try {
     Assert-Equal '@~/.claude/plugins/marketplaces/old-mkt/plugins/dkj-policy/CLAUDE.md' `
         (Get-ConstitutionImportLine -LibDir 'C:\Users\x\.claude\plugins\cache\old-mkt\dkj-policy-bwj\5.14.0\scripts\lib') `
         'and off a payload still under a retired extension name (#2788)'
-    Assert-Equal '@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md' `
+    Assert-Equal '@~/.claude/plugins/marketplaces/dkj-marketplace/plugins/dkj-policy/CLAUDE.md' `
         (Get-ConstitutionImportLine -LibDir 'C:\Users\x\.claude\plugins\cache\old-mkt\dkj-subagents-alpha\5.14.0\scripts\lib') `
         'but not off a payload that is no dkj-policy plugin at all'
 
     Write-Host ''
     Write-Host 'Which plugins are extensions (#2697, #2788)'
     Assert-Equal 'bwj-development|dkj-solutions' ((Get-PolicyExtensionNames -PluginIds @(
-        'dkj-solutions@dkj-claude-plugins', 'dkj-policy@dkj-claude-plugins', 'dkj-subagents-alpha@dkj-claude-plugins',
+        'dkj-solutions@dkj-marketplace', 'dkj-policy@dkj-marketplace', 'dkj-subagents-alpha@dkj-marketplace',
         'bwj-development@claude-code-specialists', 'dkj-solutions@other', 'dkj-policy-Evil/../x@m')) -join '|') `
         'only listed extension ids, de-duplicated and sorted; the constitution, a team and a non-slug are not'
     Assert-Equal '' ((Get-PolicyExtensionNames -PluginIds @()) -join '|') 'no ids, no extensions'
     Assert-Equal 'bwj-development|dkj-solutions' ((Get-PolicyExtensionNames -PluginIds @(
-        'dkj-policy-bwj@dkj-claude-plugins', 'dkj-policy-dkjs@dkj-claude-plugins')) -join '|') `
+        'dkj-policy-bwj@dkj-marketplace', 'dkj-policy-dkjs@dkj-marketplace')) -join '|') `
         'a retired id counts as the extension it became, so an unmigrated consumer is still owed the current line (#2788)'
     Assert-True (-not (Test-PolicyExtensionName 'dkj-policy-bwj')) 'a retired name is not itself an extension name'
     Assert-True (-not (Test-PolicyExtensionName 'dkj-policy-other')) 'and the old prefix alone makes nothing an extension any more'
@@ -175,7 +175,7 @@ try {
     Write-Host 'Imported under the retired name dkj-policy-bwj (#2788)'
     $c9 = New-Consumer 'retired-name'
     $c9Md = Join-Path $c9 'CLAUDE.md'
-    $c9Old = '@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md'
+    $c9Old = '@~/.claude/plugins/marketplaces/dkj-marketplace/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md'
     [System.IO.File]::WriteAllText($c9Md, "# T`r`n$Const`r`n$c9Old`r`n@~/.claude/other.md`r`n", (New-Object System.Text.UTF8Encoding($false)))
     $r9 = Invoke-Script -Dir $c9 -ScriptArgs @('-Apply')
     Assert-True ($r9.Flat -match '\[renamed\]') 'reports the retired line as renamed'

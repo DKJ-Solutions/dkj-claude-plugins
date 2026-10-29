@@ -669,9 +669,9 @@ try {
 
     Assert-True ((Get-ConstitutionImportLine -LibDir 'C:\Users\x\.claude\plugins\cache\claude-code-specialists\dkj-policy\5.7.0\scripts\lib') -eq '@~/.claude/plugins/marketplaces/claude-code-specialists/plugins/dkj-policy/CLAUDE.md') `
         'the marketplace segment is read off a cache-shaped location -- a pre-rename consumer gets ITS clone name'
-    Assert-True ((Get-ConstitutionImportLine -LibDir 'C:\Users\x\.claude\plugins\cache\[ERROR] forged name\dkj-policy\5.7.0\scripts\lib') -eq '@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md') `
+    Assert-True ((Get-ConstitutionImportLine -LibDir 'C:\Users\x\.claude\plugins\cache\[ERROR] forged name\dkj-policy\5.7.0\scripts\lib') -eq '@~/.claude/plugins/marketplaces/dkj-marketplace/plugins/dkj-policy/CLAUDE.md') `
         'a marketplace segment that is not a plain slug is never printed -- the canonical name stands in'
-    Assert-True ((Get-ConstitutionImportLine -LibDir (Join-Path $RepoRoot 'scripts\lib')) -eq '@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md') `
+    Assert-True ((Get-ConstitutionImportLine -LibDir (Join-Path $RepoRoot 'scripts\lib')) -eq '@~/.claude/plugins/marketplaces/dkj-marketplace/plugins/dkj-policy/CLAUDE.md') `
         'anywhere else the canonical marketplace name is used'
 
     # $clean carries no import: the gap is WARNED, and the exit code the two detectors own is untouched.
@@ -718,7 +718,7 @@ try {
     Write-Host 'extension import (#2538)'
     $constLine = "@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/CLAUDE.md"
     $extLine = "@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/bwj-development/CLAUDE.md"
-    $bwjSettings = '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "bwj-development@dkj-claude-plugins": true } }'
+    $bwjSettings = '{ "enabledPlugins": { "dkj-policy@dkj-marketplace": true, "bwj-development@dkj-marketplace": true } }'
 
     $bwjMissing = New-Tree -Label 'bwjmissing'
     Set-Text -Dir $bwjMissing -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
@@ -747,14 +747,14 @@ try {
 
     $bwjOff = New-Tree -Label 'bwjoff'
     Set-Text -Dir $bwjOff -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
-    Set-Text -Dir $bwjOff -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "bwj-development@dkj-claude-plugins": false } }'
+    Set-Text -Dir $bwjOff -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy@dkj-marketplace": true, "bwj-development@dkj-marketplace": false } }'
     $r = Invoke-Script -Dir $bwjOff
     Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import the extension') `
         'bwj-development present but disabled -- no warning'
 
     $bwjBadJson = New-Tree -Label 'bwjbadjson'
     Set-Text -Dir $bwjBadJson -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
-    Set-Text -Dir $bwjBadJson -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "bwj-development@dkj-claude-plugins": true, } '
+    Set-Text -Dir $bwjBadJson -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "bwj-development@dkj-marketplace": true, } '
     $r = Invoke-Script -Dir $bwjBadJson
     Assert-True ($r.Code -eq 0 -and $r.Out -notmatch 'does not import the extension' -and $r.Out -match '\[OK\]') `
         'an unparseable settings.json is not an enable and does not take the check down'
@@ -762,10 +762,10 @@ try {
     # Any dkj-policy extension, not bwj alone (#2697): one warning per enabled extension whose line is
     # missing, and none for an extension that is imported.
     $dkjsLine = "@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/dkj-solutions/CLAUDE.md"
-    $bothSettings = '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "bwj-development@dkj-claude-plugins": true, "dkj-solutions@dkj-claude-plugins": true } }'
+    $bothSettings = '{ "enabledPlugins": { "dkj-policy@dkj-marketplace": true, "bwj-development@dkj-marketplace": true, "dkj-solutions@dkj-marketplace": true } }'
     $dkjsMissing = New-Tree -Label 'dkjsmissing'
     Set-Text -Dir $dkjsMissing -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine"
-    Set-Text -Dir $dkjsMissing -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-solutions@dkj-claude-plugins": true } }'
+    Set-Text -Dir $dkjsMissing -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy@dkj-marketplace": true, "dkj-solutions@dkj-marketplace": true } }'
     $r = Invoke-Script -Dir $dkjsMissing
     Assert-True ($r.Code -eq 0 -and $r.Out -match '\[WARNING\] this repo enables dkj-solutions, but its CLAUDE\.md does not import the extension' -and
                  $r.Out -match [regex]::Escape('/plugins/dkj-policy/dkj-solutions/CLAUDE.md') -and $r.Out -notmatch 'enables bwj-development') `
@@ -791,7 +791,7 @@ try {
     $retiredBwj = New-Tree -Label 'retiredbwj'
     $oldBwjLine = "@~/.claude/plugins/marketplaces/no-such-mkt-$PID/plugins/dkj-policy/dkj-policy-bwj/CLAUDE.md"
     Set-Text -Dir $retiredBwj -Rel 'CLAUDE.md' -Text "# Consumer`n`n$constLine`n$oldBwjLine"
-    Set-Text -Dir $retiredBwj -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-policy-bwj@dkj-claude-plugins": true } }'
+    Set-Text -Dir $retiredBwj -Rel '.claude/settings.json' -Text '{ "enabledPlugins": { "dkj-policy@dkj-marketplace": true, "dkj-policy-bwj@dkj-marketplace": true } }'
     $r = Invoke-Script -Dir $retiredBwj
     Assert-True ($r.Code -eq 0 -and $r.Out -match '\[WARNING\] this repo enables dkj-policy-bwj, a retired name -- the extension is bwj-development now') `
         'a retired enabled id -- a [WARNING] naming the current extension'

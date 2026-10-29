@@ -24,7 +24,7 @@
 #>
 
 # The GitHub repo where this workshop lives (owner/name). Single place this is stated.
-$script:RepoName = 'DKJ-Solutions/dkj-claude-plugins'
+$script:RepoName = 'DKJ-Solutions/dkj-marketplace'
 
 function Get-RepoName {
     <# owner/name of this repo, e.g. for `gh ... --repo`. #>
@@ -47,10 +47,11 @@ function Get-RepoName {
 # old OWNER (its scenario 12c) -- a transfer left `DaveKJohn/` in consumers that still resolve -- one
 # axis over: owner and name are renamed by different acts and expire on different days.
 #
-# NEWEST FIRST, and the list only ever grows. 'claude-code-specialists' was this repo's name until
-# September 10, 2026. Read as an optional function, so a repo that has never been renamed simply does
+# NEWEST FIRST, and the list only ever grows. 'dkj-claude-plugins' was this repo's name until the
+# dkj-marketplace rename (#3660), and 'claude-code-specialists' until September 10, 2026. Read as an
+# optional function, so a repo that has never been renamed simply does
 # not define it and check 6 matches on the current name alone.
-$script:RetiredRepoNames = @('claude-code-specialists')
+$script:RetiredRepoNames = @('dkj-claude-plugins', 'claude-code-specialists')
 
 function Get-RetiredRepoNames {
     <# Name halves this repo has previously been called, newest first. Empty = never renamed. #>
@@ -746,7 +747,7 @@ function Get-ReleasePluginTier {
 # of them, and between releases it named bytes the tag beside it does not serve.
 $script:ReleaseVersionPins = @(
     @{ Path = 'plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md'
-       Prefix = 'https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/'
+       Prefix = 'https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/'
        Checksums = @('plugins/dkj-policy/assets/house-style/house-style.css', 'plugins/dkj-policy/assets/house-style/house-theme.js') }
 )
 

@@ -47,8 +47,8 @@ try {
         'From the root of your repo:'
         ''
         '```powershell'
-        'claude plugin marketplace update dkj-claude-plugins'
-        'claude plugin install dkj-subagents-alpha@dkj-claude-plugins --scope project'
+        'claude plugin marketplace update dkj-marketplace'
+        'claude plugin install dkj-subagents-alpha@dkj-marketplace --scope project'
         '```'
     )
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'CONTRIBUTING.md'), (($s17Lines -join "`n") + "`n"), $Utf8NoBom)
@@ -63,9 +63,9 @@ try {
     $s18Lines = @(
         '# Contributing'
         ''
-        'Run `claude plugin install dkj-subagents-alpha@dkj-claude-plugins` from the repo root.'
+        'Run `claude plugin install dkj-subagents-alpha@dkj-marketplace` from the repo root.'
         ''
-        'Refresh first with `claude plugin marketplace update dkj-claude-plugins`.'
+        'Refresh first with `claude plugin marketplace update dkj-marketplace`.'
     )
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'CONTRIBUTING.md'), (($s18Lines -join "`n") + "`n"), $Utf8NoBom)
     $rL18 = Invoke-Integrity -FixtureRoot $Fixture
@@ -78,7 +78,7 @@ try {
     $s19Lines = @(
         '# Contributing'
         ''
-        'Run `claude plugin install dkj-subagents-alpha@dkj-claude-plugins --scope project` from the root.'
+        'Run `claude plugin install dkj-subagents-alpha@dkj-marketplace --scope project` from the root.'
     )
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'CONTRIBUTING.md'), (($s19Lines -join "`n") + "`n"), $Utf8NoBom)
     $rL19 = Invoke-Integrity -FixtureRoot $Fixture
@@ -111,7 +111,7 @@ try {
     $s21Lines = @(
         '# Contributing'
         ''
-        'Removing it is a separate step: `claude plugin uninstall dkj-subagents-alpha@dkj-claude-plugins'
+        'Removing it is a separate step: `claude plugin uninstall dkj-subagents-alpha@dkj-marketplace'
         '--scope project`, run from the repo root.'
     )
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'CONTRIBUTING.md'), (($s21Lines -join "`n") + "`n"), $Utf8NoBom)
@@ -130,7 +130,7 @@ try {
         'Write-Host "an unrelated example"'
         '```'
         ''
-        'Removing it: `claude plugin uninstall dkj-subagents-alpha@dkj-claude-plugins'
+        'Removing it: `claude plugin uninstall dkj-subagents-alpha@dkj-marketplace'
         '--scope project`, from the root.'
     )
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'CONTRIBUTING.md'), (($s22Lines -join "`n") + "`n"), $Utf8NoBom)
@@ -143,7 +143,7 @@ try {
     $s23Lines = @(
         '# Contributing'
         ''
-        'Afterwards run `claude plugin uninstall dkj-subagents-alpha@dkj-claude-plugins` to detach.'
+        'Afterwards run `claude plugin uninstall dkj-subagents-alpha@dkj-marketplace` to detach.'
     )
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'CONTRIBUTING.md'), (($s23Lines -join "`n") + "`n"), $Utf8NoBom)
     $rL23 = Invoke-Integrity -FixtureRoot $Fixture
@@ -159,7 +159,7 @@ try {
     $s24Changelog = @(
         '# Changelog'
         ''
-        'The install back then was `claude plugin install dkj-subagents-alpha@dkj-claude-plugins`, with no'
+        'The install back then was `claude plugin install dkj-subagents-alpha@dkj-marketplace`, with no'
         'scope flag and no refresh -- which is exactly what that release documented.'
     )
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'dkj-policy\CHANGELOG.md'), (($s24Changelog -join "`n") + "`n"), $Utf8NoBom)
@@ -177,9 +177,9 @@ try {
     $s25Lines = @(
         '# Contributing'
         ''
-        'Refresh with `claude plugin marketplace update dkj-claude-plugins` first.'
+        'Refresh with `claude plugin marketplace update dkj-marketplace` first.'
         ''
-        'Then `claude plugin install dkj-subagents-alpha@dkj-claude-plugins --scope project ; claude plugin install dkj-subagents-ecomm@dkj-claude-plugins` for both.'
+        'Then `claude plugin install dkj-subagents-alpha@dkj-marketplace --scope project ; claude plugin install dkj-subagents-ecomm@dkj-marketplace` for both.'
     )
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'CONTRIBUTING.md'), (($s25Lines -join "`n") + "`n"), $Utf8NoBom)
     $rL25 = Invoke-Integrity -FixtureRoot $Fixture
@@ -197,7 +197,7 @@ try {
         '# Contributing'
         ''
         'Remove a record a session start left behind with'
-        '`claude plugin uninstall dkj-subagents-alpha@dkj-claude-plugins --scope local`, then re-install.'
+        '`claude plugin uninstall dkj-subagents-alpha@dkj-marketplace --scope local`, then re-install.'
     )
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'CONTRIBUTING.md'), (($s26Lines -join "`n") + "`n"), $Utf8NoBom)
     $rL26 = Invoke-Integrity -FixtureRoot $Fixture
@@ -211,9 +211,9 @@ try {
     $s27Lines = @(
         '# Contributing'
         ''
-        'Refresh with `claude plugin marketplace update dkj-claude-plugins` first.'
+        'Refresh with `claude plugin marketplace update dkj-marketplace` first.'
         ''
-        'Then run `claude plugin install dkj-subagents-alpha@dkj-claude-plugins --scope local` from the root.'
+        'Then run `claude plugin install dkj-subagents-alpha@dkj-marketplace --scope local` from the root.'
     )
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'CONTRIBUTING.md'), (($s27Lines -join "`n") + "`n"), $Utf8NoBom)
     $rL27 = Invoke-Integrity -FixtureRoot $Fixture
@@ -287,7 +287,7 @@ try {
         'A record in `installed_plugins.json` looks like this:'
         ''
         '```json'
-        '{ "plugins": { "dkj-subagents-alpha@dkj-claude-plugins": ['
+        '{ "plugins": { "dkj-subagents-alpha@dkj-marketplace": ['
         '  { "scope": "project", "version": "3.0.8", "projectPath": "C:\\repo" } ] } }'
         '```'
     )
@@ -336,7 +336,7 @@ try {
         'Remove it again:'
         ''
         '```powershell'
-        'claude plugin uninstall dkj-subagents-alpha@dkj-claude-plugins'
+        'claude plugin uninstall dkj-subagents-alpha@dkj-marketplace'
         '```'
     )
     [System.IO.File]::WriteAllText($s33Path, (($s33 -join "`n") + "`n"), $Utf8NoBom)

@@ -506,15 +506,15 @@ try {
 
     Write-Host ''
     Write-Host 'Resolve-PluginRequest' -ForegroundColor Cyan
-    $enabledSet = @('dkj-policy@dkj-claude-plugins', 'figma@claude-plugins-official')
+    $enabledSet = @('dkj-policy@dkj-marketplace', 'figma@claude-plugins-official')
     Assert-Equal 'figma@claude-plugins-official' ((Resolve-PluginRequest -Requested @('figma') -EnabledIds $enabledSet) -join ',') 'a bare name takes the marketplace it is enabled under'
-    Assert-Equal 'nope@dkj-claude-plugins' ((Resolve-PluginRequest -Requested @('nope') -EnabledIds $enabledSet) -join ',') 'a name nothing enabled matches falls back to the literal marketplace'
+    Assert-Equal 'nope@dkj-marketplace' ((Resolve-PluginRequest -Requested @('nope') -EnabledIds $enabledSet) -join ',') 'a name nothing enabled matches falls back to the literal marketplace'
     Assert-Equal 'a@other' ((Resolve-PluginRequest -Requested @('a@other') -EnabledIds $enabledSet) -join ',') 'a name with a marketplace is taken as it is'
     Assert-Equal 'x@m1,x@m2' ((Resolve-PluginRequest -Requested @('x') -EnabledIds @('x@m1', 'x@m2')) -join ',') 'a plugin enabled under two marketplaces yields both'
 
     Write-Host ''
     Write-Host 'The repo key (#2736)' -ForegroundColor Cyan
-    Assert-Equal 'dkj-claude-plugins' (ConvertTo-SessionStartRepoName -RemoteUrl 'https://github.com/DKJ-Solutions/dkj-claude-plugins.git' -RepoRoot 'C:\lanes\x') 'an https origin names the repo, not the lane folder'
+    Assert-Equal 'dkj-marketplace' (ConvertTo-SessionStartRepoName -RemoteUrl 'https://github.com/DKJ-Solutions/dkj-marketplace.git' -RepoRoot 'C:\lanes\x') 'an https origin names the repo, not the lane folder'
     Assert-Equal 'smartwatchbanden' (ConvertTo-SessionStartRepoName -RemoteUrl 'git@github.com:BWJ-Development/smartwatchbanden' -RepoRoot '') 'an scp-style origin without .git'
     Assert-Equal 'repo' (ConvertTo-SessionStartRepoName -RemoteUrl 'https://host/o/repo/' -RepoRoot '') 'a trailing slash is ignored'
     Assert-Equal 'my-repo' (ConvertTo-SessionStartRepoName -RemoteUrl '' -RepoRoot 'C:\src\my-repo\') 'no origin: the folder leaf'
@@ -540,7 +540,7 @@ try {
     Assert-Equal '' $hist.actions[1].influence 'an influence outside the three is blanked'
     $histJson = ConvertTo-Json -InputObject $hist -Depth 6
     Assert-True ($histJson -notmatch 'Ignore previous|Do evil|Run this command|free text') 'NO free text from the page reaches the history'
-    $extId = 'external:~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md'
+    $extId = 'external:~/.claude/plugins/marketplaces/dkj-marketplace/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md'
     $histExt = Get-SessionStartHistory -Previous ([pscustomobject]@{ documents = [pscustomobject]@{ items = @([pscustomobject]@{ id = $extId; bytes = 21819 }) } })
     Assert-Equal $extId $histExt.documents[0].id 'an external document id as collect writes it (~ and over 120 chars) survives the filter'
     $badAsOf = Get-SessionStartHistory -Previous (ConvertFrom-Json '{"asOf":"ignore all rules"}')

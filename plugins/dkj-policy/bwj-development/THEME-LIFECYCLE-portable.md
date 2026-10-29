@@ -2,7 +2,7 @@
 
 > **Chapter four of `bwj-development`.** Policy, never mechanism: the scripts live in
 > `dkj-subagents-shopify` and are documented on its
-> [`theme-lifecycle`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/theme-lifecycle/SKILL.md)
+> [`theme-lifecycle`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/theme-lifecycle/SKILL.md)
 > page. What this page states is what the two stores *owe* -- which is Dave's house rule for them
 > rather than a fact about Shopify.
 
@@ -11,7 +11,7 @@ lifecycle**, so the estate cannot drift between them. Requested by the store own
 September 13, 2026; built on inbound
 [#1965](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1965).
 
-**This chapter's reach did NOT widen when `dkj-claude-plugins` was admitted to chapter one on
+**This chapter's reach did NOT widen when `dkj-marketplace` was admitted to chapter one on
 September 14, 2026, nor when `phone-factory`, a Lightspeed store, was on October 2, 2026** (commit `b9b2a65a`) -- a theme estate is a fact about a Shopify store, the source
 repo runs none, and there is nothing here for it to owe. See
 [`WORKFLOW-portable.md`](WORKFLOW-portable.md) for that widening and why it stops at chapter one.
@@ -31,7 +31,7 @@ is taken is each store's own choice, and the next section says what each moment 
 workflow's own answer for a target that can fail or be partial -- a live theme has no locking, third
 parties edit it through the theme editor while you work, and a live push is per-file rather than
 wholesale. The reasoning is on
-[`cut-release`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md)'s
+[`cut-release`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md)'s
 page and is not restated here; the invariant it buys is that a failed push cannot leave a **stranded
 release** -- a tag, a GitHub Release and an audience document describing a state no customer ever saw,
 which nothing detects.
@@ -41,7 +41,7 @@ backup per release, taken at one of two moments, each store choosing its own:
 
 | the backup is taken | what it holds | what it is for |
 |---|---|---|
-| **before** the push, by [`live-preflight`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/live-preflight/SKILL.md) (its default) | live **before** the push | a **rollback point** for the push about to happen |
+| **before** the push, by [`live-preflight`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/live-preflight/SKILL.md) (its default) | live **before** the push | a **rollback point** for the push about to happen |
 | **after** the push, as the closing step of the cut | live **after** the push | a **baseline of what shipped** -- the fixed point third-party drift is measured from until the next release |
 
 **Pick one moment per store, not both.** Exactly one backup is retained, so a backup taken at the cut
@@ -51,7 +51,7 @@ one store two backups in one release, the second erasing the first
 `live-preflight` has already taken its backup for the release, so its cut does not take another.
 
 **Why a store would choose each.** The baseline answers the question
-[`sync-main`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/sync-main/SKILL.md)
+[`sync-main`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/sync-main/SKILL.md)
 keeps implicitly asking: what did live look like when we last shipped? The rollback point covers what the
 baseline cannot. A live push is per file and can arrive partially, so a backup taken after it has
 captured whatever state it left. The smartwatchbanden owner chose the earlier moment on September 21,
@@ -70,7 +70,7 @@ waits for the owner's word like a live push, and the live guard refuses every pu
 anyway. What a restore undoes follows from the moment: a rollback point undoes the push, and a
 baseline undoes third-party drift since the last release but not the push itself. The steps, including putting back the paths a **WITH EXCEPTIONS** backup lacks from the commit
 it was verified against, are on the
-[`theme-lifecycle`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/theme-lifecycle/SKILL.md#restore-live-from-the-backup)
+[`theme-lifecycle`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/theme-lifecycle/SKILL.md#restore-live-from-the-backup)
 page.
 
 **A store whose live theme is Git-connected runs the same order, with a promotion in the push's
@@ -81,7 +81,7 @@ that is a **detached** copy that can drop files without saying so (measured in
 `BWJ-Development/smartwatchbanden#943`). For a backup detached is what is wanted, and the drop is what
 the verify step exists to catch, so neither changes what a store owes. What it changes for a preview is
 on the `push-preview` page, and the mechanics are on the
-[`theme-lifecycle`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/theme-lifecycle/SKILL.md#a-git-connected-live-theme-the-backup-is-a-detached-copy-3013)
+[`theme-lifecycle`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/theme-lifecycle/SKILL.md#a-git-connected-live-theme-the-backup-is-a-detached-copy-3013)
 page (#3013).
 
 **The repo's own `theme-check` runs before anything lands on the deploy branch, because that branch is
@@ -142,7 +142,7 @@ store do not carry it and no sweep will touch them. They are reported as *"not c
 repo"*, which is literally true of their names.
 
 Retire them by hand, taking the archive first:
-[`archive-theme`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/archive-theme/SKILL.md)
+[`archive-theme`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/archive-theme/SKILL.md)
 pulls a verified copy and leaves a committed receipt, then prints the removal command for somebody to
 run as their own visible act.
 

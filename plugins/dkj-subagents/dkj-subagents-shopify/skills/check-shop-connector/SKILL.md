@@ -8,7 +8,7 @@ description: Before the first claude.ai Shopify connector call in a session (pro
 **The claude.ai Shopify connector is bound to one store per account**, not per repo. A session in one
 store repo therefore answers for whichever store the last session switched it to, and finds out
 mid-task, or never. Measured by a consumer that works on two stores side by side, and recorded in
-[`research/shopify-store-switch/finding.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/research/shopify-store-switch/finding.md)
+[`research/shopify-store-switch/finding.md`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/research/shopify-store-switch/finding.md)
 ([#2879](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2879),
 [#2880](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2880)).
 

@@ -119,8 +119,8 @@ try {
     #     been applied to exactly one value, and #302 added markers that print ids.
     Write-Host "Format-SafeToken -- untrusted values that get PRINTED" -ForegroundColor Cyan
     # A legitimate id must survive completely untouched, or this guard would corrupt every normal report.
-    Assert-Equal 'dkj-subagents-alpha@dkj-claude-plugins' (Format-SafeToken -Value 'dkj-subagents-alpha@dkj-claude-plugins') 'a real plugin id passes through unchanged'
-    Assert-Equal 'dkj-subagents-lifehub@dkj-claude-plugins' (Format-SafeToken -Value 'dkj-subagents-lifehub@dkj-claude-plugins') 'hyphens and @ survive'
+    Assert-Equal 'dkj-subagents-alpha@dkj-marketplace' (Format-SafeToken -Value 'dkj-subagents-alpha@dkj-marketplace') 'a real plugin id passes through unchanged'
+    Assert-Equal 'dkj-subagents-lifehub@dkj-marketplace' (Format-SafeToken -Value 'dkj-subagents-lifehub@dkj-marketplace') 'hyphens and @ survive'
     Assert-Equal '06-16' (Format-SafeToken -Value '06-16') 'a specialist id survives'
     Assert-Equal 'a.b_c/d' (Format-SafeToken -Value 'a.b_c/d') 'dot, underscore and slash are in the charset'
 
@@ -297,16 +297,16 @@ try {
 
     # THE #294 CASE: the enable lives only in settings.local.json, the file the plugin's own settings
     # proposal points the reader at and all three call sites used to ignore.
-    [System.IO.File]::WriteAllText($localFile, '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-claude-plugins": true } }')
+    [System.IO.File]::WriteAllText($localFile, '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-marketplace": true } }')
     $e = Get-EnabledPlugins -RepoRoot $chainRoot -UserHomeOverride $userHome
-    Assert-Equal 'dkj-subagents-alpha@dkj-claude-plugins' ($e.Ids -join ',') 'local-only: the enable is seen'
-    Assert-Equal '.claude/settings.local.json' $e.LayerById['dkj-subagents-alpha@dkj-claude-plugins'] 'local-only: the deciding layer is reported'
+    Assert-Equal 'dkj-subagents-alpha@dkj-marketplace' ($e.Ids -join ',') 'local-only: the enable is seen'
+    Assert-Equal '.claude/settings.local.json' $e.LayerById['dkj-subagents-alpha@dkj-marketplace'] 'local-only: the deciding layer is reported'
     Assert-True $e.AnyKeyFound 'local-only: AnyKeyFound is true'
 
     # Per-key precedence, the deliberate choice documented on the helper: a local 'false' switches off a
     # project 'true' rather than the layers replacing one another wholesale.
-    [System.IO.File]::WriteAllText($projFile,  '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-claude-plugins": true } }')
-    [System.IO.File]::WriteAllText($localFile, '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-claude-plugins": false } }')
+    [System.IO.File]::WriteAllText($projFile,  '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-marketplace": true } }')
+    [System.IO.File]::WriteAllText($localFile, '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-marketplace": false } }')
     $e = Get-EnabledPlugins -RepoRoot $chainRoot -UserHomeOverride $userHome
     Assert-Equal 0 $e.Ids.Count 'precedence: a local false overrides a project true'
     Assert-True $e.AnyKeyFound 'precedence: the key WAS found -- "enables nothing", not "never configured"'
@@ -315,9 +315,9 @@ try {
     # Per-key merge, the other half: a project enable and a local enable of a DIFFERENT plugin both count.
     # Wholesale replacement would drop the project one, which is the failure direction this helper must
     # never take -- losing an enable is how the false green happened.
-    [System.IO.File]::WriteAllText($localFile, '{ "enabledPlugins": { "dkj-subagents-lifehub@dkj-claude-plugins": true } }')
+    [System.IO.File]::WriteAllText($localFile, '{ "enabledPlugins": { "dkj-subagents-lifehub@dkj-marketplace": true } }')
     $e = Get-EnabledPlugins -RepoRoot $chainRoot -UserHomeOverride $userHome
-    Assert-Equal 'dkj-subagents-alpha@dkj-claude-plugins,dkj-subagents-lifehub@dkj-claude-plugins' ($e.Ids -join ',') 'merge: layers combine per plugin id, they do not replace each other'
+    Assert-Equal 'dkj-subagents-alpha@dkj-marketplace,dkj-subagents-lifehub@dkj-marketplace' ($e.Ids -join ',') 'merge: layers combine per plugin id, they do not replace each other'
 
     # --- RepoEnabledIds: which enables are THIS REPO's (issue #1138) ------------------------------
     #     The gate behind check-roster-sync's [RECORD-SHAPE] count. It rests on a measurement against
@@ -327,35 +327,35 @@ try {
     #     Asserted here rather than only through the check, because "which enables are the repo's" is a
     #     question about this helper and every consumer of it inherits the answer.
     #     Both repo layers still carry an enable at this point (project: dkj-subagents-alpha, local: dkj-subagents-lifehub).
-    Assert-Equal 'dkj-subagents-alpha@dkj-claude-plugins,dkj-subagents-lifehub@dkj-claude-plugins' ($e.RepoEnabledIds -join ',') 'repo-enabled: both REPO layers count -- settings.local.json is the repo''s too, not the machine''s'
+    Assert-Equal 'dkj-subagents-alpha@dkj-marketplace,dkj-subagents-lifehub@dkj-marketplace' ($e.RepoEnabledIds -join ',') 'repo-enabled: both REPO layers count -- settings.local.json is the repo''s too, not the machine''s'
 
     # The case the gate exists for: the enable lives ONLY in the user layer. It is still enabled -- the
     # session really does load that plugin -- but it is not something this repo asked for or can fix from
     # inside itself, which is the whole distinction.
-    [System.IO.File]::WriteAllText($userFile,  '{ "enabledPlugins": { "widgets@dkj-claude-plugins": true } }')
+    [System.IO.File]::WriteAllText($userFile,  '{ "enabledPlugins": { "widgets@dkj-marketplace": true } }')
     $e = Get-EnabledPlugins -RepoRoot $chainRoot -UserHomeOverride $userHome
-    Assert-True ($e.Ids -contains 'widgets@dkj-claude-plugins') 'machine-wide: it IS enabled -- the plugin loads'
-    Assert-True (-not ($e.RepoEnabledIds -contains 'widgets@dkj-claude-plugins')) 'machine-wide: but it is not one of THIS repo''s enables'
+    Assert-True ($e.Ids -contains 'widgets@dkj-marketplace') 'machine-wide: it IS enabled -- the plugin loads'
+    Assert-True (-not ($e.RepoEnabledIds -contains 'widgets@dkj-marketplace')) 'machine-wide: but it is not one of THIS repo''s enables'
 
     # Precedence carries through: a repo layer outranks the user layer, so an id enabled in both decides in
     # the repo's and counts. Getting this backwards would suppress a repo enable that also happens to exist
     # machine-wide -- a false silence rather than a false alarm, which is the direction that must not fail.
-    [System.IO.File]::WriteAllText($userFile,  '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-claude-plugins": true } }')
+    [System.IO.File]::WriteAllText($userFile,  '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-marketplace": true } }')
     $e = Get-EnabledPlugins -RepoRoot $chainRoot -UserHomeOverride $userHome
-    Assert-True ($e.RepoEnabledIds -contains 'dkj-subagents-alpha@dkj-claude-plugins') 'enabled in both: the repo layer decides, so it counts as the repo''s'
+    Assert-True ($e.RepoEnabledIds -contains 'dkj-subagents-alpha@dkj-marketplace') 'enabled in both: the repo layer decides, so it counts as the repo''s'
 
     # And it is never larger than Ids: an id switched OFF in a repo layer is not enabled at all, so it must
     # appear in neither list. The predicate may narrow the set; it may not invent a member.
-    [System.IO.File]::WriteAllText($projFile,  '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-claude-plugins": false } }')
+    [System.IO.File]::WriteAllText($projFile,  '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-marketplace": false } }')
     $e = Get-EnabledPlugins -RepoRoot $chainRoot -UserHomeOverride $userHome
-    Assert-True (-not ($e.Ids -contains 'dkj-subagents-alpha@dkj-claude-plugins')) 'repo false: not enabled'
-    Assert-True (-not ($e.RepoEnabledIds -contains 'dkj-subagents-alpha@dkj-claude-plugins')) 'repo false: and therefore not repo-enabled either'
+    Assert-True (-not ($e.Ids -contains 'dkj-subagents-alpha@dkj-marketplace')) 'repo false: not enabled'
+    Assert-True (-not ($e.RepoEnabledIds -contains 'dkj-subagents-alpha@dkj-marketplace')) 'repo false: and therefore not repo-enabled either'
     Assert-Equal 0 (@($e.RepoEnabledIds | Where-Object { $e.Ids -notcontains $_ }).Count) 'repo-enabled is always a SUBSET of Ids'
 
     # Restore the state the cases below inherit.
     [System.IO.File]::WriteAllText($userFile,  '{ }')
-    [System.IO.File]::WriteAllText($projFile,  '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-claude-plugins": true } }')
-    [System.IO.File]::WriteAllText($localFile, '{ "enabledPlugins": { "dkj-subagents-lifehub@dkj-claude-plugins": true } }')
+    [System.IO.File]::WriteAllText($projFile,  '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-marketplace": true } }')
+    [System.IO.File]::WriteAllText($localFile, '{ "enabledPlugins": { "dkj-subagents-lifehub@dkj-marketplace": true } }')
     $e = Get-EnabledPlugins -RepoRoot $chainRoot -UserHomeOverride $userHome
 
     # THE ORDINAL SORT, ON A PAIR THAT ACTUALLY DISCRIMINATES. The helper sorts ordinally rather than by
@@ -374,23 +374,23 @@ try {
     # Put the chain back the way this block found it: the scenarios below build on the project layer
     # holding the core team's enable, and a synthetic pair left standing here would fail one of them
     # several screens away from the line that caused it.
-    [System.IO.File]::WriteAllText($projFile,  '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-claude-plugins": true } }')
-    [System.IO.File]::WriteAllText($localFile, '{ "enabledPlugins": { "dkj-subagents-lifehub@dkj-claude-plugins": true } }')
+    [System.IO.File]::WriteAllText($projFile,  '{ "enabledPlugins": { "dkj-subagents-alpha@dkj-marketplace": true } }')
+    [System.IO.File]::WriteAllText($localFile, '{ "enabledPlugins": { "dkj-subagents-lifehub@dkj-marketplace": true } }')
 
     # The user layer counts, and is overridable per key by the repo -- a plugin enabled machine-wide IS
     # loaded in every session, so excluding this layer would rebuild the same false green one level up.
     Remove-Item -LiteralPath $localFile -Force
-    [System.IO.File]::WriteAllText($userFile, '{ "enabledPlugins": { "dkj-subagents-shopify@dkj-claude-plugins": true } }')
+    [System.IO.File]::WriteAllText($userFile, '{ "enabledPlugins": { "dkj-subagents-shopify@dkj-marketplace": true } }')
     $e = Get-EnabledPlugins -RepoRoot $chainRoot -UserHomeOverride $userHome
-    Assert-True ($e.Ids -contains 'dkj-subagents-shopify@dkj-claude-plugins') 'user layer: a machine-wide enable counts'
-    Assert-Equal 'user ~/.claude/settings.json' $e.LayerById['dkj-subagents-shopify@dkj-claude-plugins'] 'user layer: named as the deciding layer'
+    Assert-True ($e.Ids -contains 'dkj-subagents-shopify@dkj-marketplace') 'user layer: a machine-wide enable counts'
+    Assert-Equal 'user ~/.claude/settings.json' $e.LayerById['dkj-subagents-shopify@dkj-marketplace'] 'user layer: named as the deciding layer'
 
     # A layer that does not parse is REPORTED, never thrown, and never silently turns the answer into
     # "nothing enabled" -- the rest of the chain still counts.
     [System.IO.File]::WriteAllText($localFile, '{ "enabledPlugins": { oops')
     $e = Get-EnabledPlugins -RepoRoot $chainRoot -UserHomeOverride $userHome
     Assert-Equal '.claude/settings.local.json' ($e.Unreadable -join ',') 'unparseable layer: reported by label, not thrown'
-    Assert-True ($e.Ids -contains 'dkj-subagents-alpha@dkj-claude-plugins') 'unparseable layer: the readable layers still counted'
+    Assert-True ($e.Ids -contains 'dkj-subagents-alpha@dkj-marketplace') 'unparseable layer: the readable layers still counted'
 
     # --- Shapes that are VALID but easy to crash on -----------------------------------------------
     #     Found live, not by reasoning: a settings.json holding exactly '{ }' was reported as "does not
@@ -1359,7 +1359,7 @@ Assert-True (-not (Test-PluginMarketplaceSlug -Marketplace ('mar' + $kelvin + 'e
 Assert-True (Test-PluginMarketplaceSlug -Marketplace 'Dkj-Claude.Plugins_2') '...and still admits mixed-case ASCII'
 Assert-True (-not (Test-GitHubOwnerNameSlug -Slug ('DKJ-Solutions/' + $kelvin)).Ok) 'Test-GitHubOwnerNameSlug refuses a name carrying the Kelvin sign'
 Assert-True (-not (Test-GitHubOwnerNameSlug -Slug ($kelvin + '/repo')).Ok) '...and an owner carrying it'
-Assert-True (Test-GitHubOwnerNameSlug -Slug 'DKJ-Solutions/dkj-claude-plugins').Ok '...and still admits this repo'
+Assert-True (Test-GitHubOwnerNameSlug -Slug 'DKJ-Solutions/dkj-marketplace').Ok '...and still admits this repo'
 
 Write-Host ''
 Write-Host "Result: $script:pass pass, $script:fail fail." -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })

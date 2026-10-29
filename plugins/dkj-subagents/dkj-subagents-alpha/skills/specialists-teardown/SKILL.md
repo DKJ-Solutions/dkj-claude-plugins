@@ -21,7 +21,7 @@ exempt, and stays as written.
 **This skill is only the repo half of leaving, and the other half is not in this payload.** The machine
 half -- the `claude plugin uninstall`/`marketplace remove` commands, the settings keys to take back out,
 and the order the two halves have to run in -- is in the undo section of
-[`plugins/ADOPTION.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/ADOPTION.md#undoing-it--the-half-that-is-yours). The pointer is here because it was
+[`plugins/ADOPTION.md`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/ADOPTION.md#undoing-it--the-half-that-is-yours). The pointer is here because it was
 measured to be missing exactly here: a reader who wanted to leave found this skill without trouble and
 reached the machine half **only by grepping blindly** (inbound
 [#338](https://github.com/DaveKJohn/claude-code-specialists/issues/338)). Read that page before running this
@@ -246,7 +246,7 @@ would have captured it has nothing to capture.
 
 > **Two acts here, out of the five steps (0–4) a full seam migration takes — a different unit, not a
 > different path.** The numbered list lives in
-> [`plugins/ADOPTION.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/ADOPTION.md#the-seam-specified); this page zooms in on step 0, the one that
+> [`plugins/ADOPTION.md`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/ADOPTION.md#the-seam-specified); this page zooms in on step 0, the one that
 > can lose files. Said explicitly because the family now counts this procedure in four places, and
 > inbound [#305](https://github.com/DaveKJohn/claude-code-specialists/issues/305) found this one had been
 > left out of the sweep that aligned the other three.
@@ -350,7 +350,7 @@ distance was measured by hand in `davekokbwj/smartwatchbanden` (July 29, 2026) r
 and it is four different kinds of leftover. Only the second is this skill's own limitation. Note that
 the target is **no *live* reference, not zero references** -- see
 [what is correctly left standing](#and-what-is-correctly-left-standing) at the end of this section, and
-the requirement itself in [`plugins/ADOPTION.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/ADOPTION.md#what-the-ideal-shape-looks-like).
+the requirement itself in [`plugins/ADOPTION.md`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/ADOPTION.md#what-the-ideal-shape-looks-like).
 
 **1. A runtime dependency no teardown can undo -- the one that actually hurts.** The plugin is the
 single source of truth for the operational scripts (`new-branch.ps1`, `park-branch.ps1`,

@@ -273,7 +273,7 @@ $report.Add('')
 
 foreach ($id in $pluginIds) {
     $pluginId = $id
-    if ($pluginId -notmatch '@') { $pluginId = "$pluginId@dkj-claude-plugins" }
+    if ($pluginId -notmatch '@') { $pluginId = "$pluginId@dkj-marketplace" }
     $shortName = ($pluginId -split '@')[0]
 
     Write-Host "Plugin: $pluginId" -ForegroundColor White

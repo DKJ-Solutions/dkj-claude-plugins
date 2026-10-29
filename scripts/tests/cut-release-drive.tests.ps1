@@ -291,8 +291,8 @@ $HistoryMajors
     Write-Utf8 (Join-Path $root 'plugins\dkj-policy\dkj-solutions\skills\house-style\SKILL.md') @"
 # A fixture pin page
 
-| ``house-style.css`` | ``https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v$PluginVersion/plugins/dkj-policy/assets/house-style/house-style.css`` | ``$zeros`` |
-| ``house-theme.js`` | ``https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v$PluginVersion/plugins/dkj-policy/assets/house-style/house-theme.js`` | ``$zeros`` |
+| ``house-style.css`` | ``https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/v$PluginVersion/plugins/dkj-policy/assets/house-style/house-style.css`` | ``$zeros`` |
+| ``house-theme.js`` | ``https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/v$PluginVersion/plugins/dkj-policy/assets/house-style/house-theme.js`` | ``$zeros`` |
 https://raw.githubusercontent.com/DKJ-Solutions/other-repo/v0.1.0/a/file.css
 "@
     $assets = Join-Path $root 'plugins\dkj-policy\assets\house-style'

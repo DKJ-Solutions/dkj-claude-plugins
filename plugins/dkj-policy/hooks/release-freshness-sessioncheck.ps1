@@ -246,7 +246,7 @@ try {
     if (-not $running) { exit 0 }
 
     # --- the other side: the clone whose origin is GitHub --------------------------------------------
-    $marketplace = 'dkj-claude-plugins'
+    $marketplace = 'dkj-marketplace'
     if ($CloneOverride) {
         $clone = $CloneOverride
     } else {

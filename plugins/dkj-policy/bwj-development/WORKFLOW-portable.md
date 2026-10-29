@@ -9,14 +9,14 @@ pair: one business (BWJ) running two Shopify stores that behave identically and 
 so they handle a discovered issue the same way. This page is that way, written once so neither repo can
 drift from the other.
 
-**The third is `dkj-claude-plugins`, this plugin's own source repo, admitted for this chapter alone by
+**The third is `dkj-marketplace`, this plugin's own source repo, admitted for this chapter alone by
 Dave on September 14, 2026 (commit `b9b2a65a`).** It is not a third store and gains nothing beyond
 ticket handling: a finding surfaced there can now file through this chapter's GitHub-first,
 Asana-mirrored procedure instead of a plain `gh issue create` against that repo's own tracker. The
 other three chapters of this plugin -- [`SYNC-LOG-portable.md`](SYNC-LOG-portable.md),
 [`PREVIEW-portable.md`](PREVIEW-portable.md) and
 [`THEME-LIFECYCLE-portable.md`](THEME-LIFECYCLE-portable.md) -- are Shopify-store policy through and
-through, and `dkj-claude-plugins` runs no store, so they stay at exactly the two names above; each says
+through, and `dkj-marketplace` runs no store, so they stay at exactly the two names above; each says
 so on its own opening line.
 
 **The fourth is `phone-factory`, BWJ's Lightspeed store, admitted for this chapter alone by Dave on
@@ -38,7 +38,7 @@ It is a layer on top of `dkj-policy`, not a replacement for it. It extends that
 workflow's **ticket-work step -- the layer before the branch** -- and changes nothing else:
 branch naming, what a change owes before a PR, and what a release is are still that workflow's
 answers. Read this page after
-[`dkj-policy`'s ticket-work section](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#ticket-work--the-layer-before-the-branch),
+[`dkj-policy`'s ticket-work section](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#ticket-work--the-layer-before-the-branch),
 which this one sharpens rather than repeats.
 
 **And "a layer on top" is a RANK, not a figure of speech.** Where a repo installs both plugins, this
@@ -49,10 +49,10 @@ to override `dkj-policy` itself.
 
 **The order is stated once, over there, and this line only names which rung this page sits on.** The
 binary choice a consumer actually makes is
-[Precedence -- full adoption, or none](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#precedence--full-adoption-or-none);
+[Precedence -- full adoption, or none](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#precedence--full-adoption-or-none);
 the ranking worked out in detail, what it is scoped to, and the corollary that actually keeps it (a
 consumer document may point at a shared law or answer a seam it names, but may not restate it) are in
-[A third rank sits above both](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#a-third-rank-sits-above-both-and-nothing-named-it-until-inbound-1379).
+[A third rank sits above both](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#a-third-rank-sits-above-both-and-nothing-named-it-until-inbound-1379).
 Read both there rather than here: a second copy of a rank order is exactly the restatement that
 corollary forbids.
 
@@ -88,7 +88,7 @@ in a repo where nothing had ever said the tracker was in scope. **They are not r
 An issue is a record of what was reported and when; rewriting the backlog buys a tidy list and loses
 that, and the rule is about what gets filed from here on. The rule itself is not this page's: it is
 stated for every consumer of the workflow in
-[`dkj-policy`'s step 1](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from),
+[`dkj-policy`'s step 1](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#1-new-issue-or-task--where-the-work-comes-from),
 which requires one answer per repo and leaves the answer to the repo. **BWJ's answer is English**, and
 that is what this section records.
 
@@ -141,7 +141,7 @@ an org setting, so it is the owner's to do.
 #### The reach label -- the reach axis, carried onto issues
 
 **The axis is not BWJ's own and is defined one layer up**, in
-[`RELEASES-portable.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/RELEASES-portable.md#the-same-scale-on-an-issue--the-reach-label):
+[`RELEASES-portable.md`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/RELEASES-portable.md#the-same-scale-on-an-issue--the-reach-label):
 it is the tier model read on an issue instead of on a changelog entry, and every repo running this
 workflow carries it ([#1870](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1870), Dave,
 September 11, 2026). Read it there for what the label means, the test that decides it -- *does the reader
@@ -609,7 +609,7 @@ the note is generated at cut time from entries a person has not looked at yet --
 judgement has no reader here to make it. Answer it only where a solved task earns its place by the
 owner's three rules: it carries an Asana card (the marker), it is a storefront change, and it is live --
 the last two only checkable with the live-push record `live-preflight` writes (see that plugin's
-[`live-preflight` skill](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/live-preflight/SKILL.md#the-live-push-record-it-writes-for-the-cut-2570-2586)),
+[`live-preflight` skill](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/live-preflight/SKILL.md#the-live-push-record-it-writes-for-the-cut-2570-2586)),
 which is why a store answering this seam passes that record to every cut.
 
 **In a Git-connected store, going live is merging the promotion PR** (trunk into the deploy branch,
@@ -1056,9 +1056,9 @@ Steps 1 to 7 run outward: a finding made here is filed on GitHub and mirrored on
 also arrives the other way** -- a colleague files a request in Asana as a desired outcome, and somebody
 has to decide whether it can be built at all before a branch is worth creating. The rules for that
 layer are `dkj-policy`'s, under
-[Ticket work -- the layer before the branch](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#ticket-work--the-layer-before-the-branch),
+[Ticket work -- the layer before the branch](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#ticket-work--the-layer-before-the-branch),
 and they deliberately leave a list of questions to the repo under
-[What your repo answers](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#what-your-repo-answers).
+[What your repo answers](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/CONTRIBUTING-portable.md#what-your-repo-answers).
 **This step is BWJ's answer to that list, once for all three stores**, so none can drift from the others.
 It restates none of the rules; read those first.
 
@@ -1068,7 +1068,7 @@ It restates none of the rules; read those first.
 owe is this plugin's rather than one repo's. **Its reach is the three stores**: `smartwatchbanden`,
 `xoxowildhearts` and `phone-factory`. The last was added by Dave on October 2, 2026
 ([#2712](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2712)), because the Lightspeed store
-gets an Asana board of its own, so colleagues' requests reach it the same way. `dkj-claude-plugins` was
+gets an Asana board of its own, so colleagues' requests reach it the same way. `dkj-marketplace` was
 admitted to this chapter for *filing* (see the top of this page), and nothing reaches that repo from
 the Asana board as a request, so there this step has nothing to apply to.
 

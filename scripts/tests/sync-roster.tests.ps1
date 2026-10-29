@@ -37,7 +37,7 @@ $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $Script   = Join-Path $RepoRoot 'plugins\dkj-subagents\dkj-subagents-alpha\skills\sync-roster\sync-roster.ps1'
 $Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "sync-roster-test-fixture-$PID-$([guid]::NewGuid().ToString('n'))"
 
-$Marketplace = 'dkj-claude-plugins'
+$Marketplace = 'dkj-marketplace'
 $PluginName  = 'dkj-subagents-alpha'
 $PluginId    = "$PluginName@$Marketplace"
 
@@ -259,7 +259,7 @@ try {
     $c2b = New-FixtureConsumer -RosterIds @('06-16') -LensIds @('06-16')
     $rosterBefore2b = Get-B64 (Join-Path $c2b 'CLAUDE.md')
     $stub = New-StubCheck -Name 'stub-bad-plugin' -OutputLines @(
-        "  [ERROR] agent '06-24' (Bad_Name@dkj-claude-plugins) has no roster row in CLAUDE.md -- add it to the roster.")
+        "  [ERROR] agent '06-24' (Bad_Name@dkj-marketplace) has no roster row in CLAUDE.md -- add it to the roster.")
     $r = Invoke-Ps @('-ConsumerPathOverride', $c2b, '-CacheRootOverride', $emptyCache, '-CheckScriptOverride', $stub)
     Assert-Equal 0 $r.Code 'guardrail: exit-code 0'
     Assert-Match 'invalid plugin id' $r.Out 'guardrail: malformed plugin id skipped'

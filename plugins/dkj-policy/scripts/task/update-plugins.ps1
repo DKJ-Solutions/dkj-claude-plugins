@@ -241,7 +241,7 @@ if ($AllCheckouts) {
         if ($useOwn) {
             $origin = Get-GitLine -Path $p -GitArgs @('remote', 'get-url', 'origin')
             $ownDirty = Invoke-NativeCapture -FilePath 'git' -Arguments @('-C', $p, 'status', '--porcelain', '--', 'scripts/task/update-plugins.ps1') -DiscardStderr
-            $isSource = $origin -match '[/:]DKJ-Solutions/dkj-claude-plugins(\.git)?$'
+            $isSource = $origin -match '[/:]DKJ-Solutions/dkj-marketplace(\.git)?$'
             # A git failure counts as modified: the own copy runs only on a positive answer.
             $ownModified = ($ownDirty.ExitCode -ne 0) -or (@(@($ownDirty.Output) | Where-Object { "$_".Trim() }).Count -gt 0)
             if (-not $isSource -or $ownModified) {

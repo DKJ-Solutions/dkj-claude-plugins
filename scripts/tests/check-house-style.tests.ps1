@@ -51,7 +51,7 @@ Assert-True ($null -ne $pin) 'the skill page carries a complete checksum table'
 # would turn every such pull request red. The README link is absolute since #3531: the README lives in dkj-policy,
 # outside the dkj-solutions plugin root a consumer installs.
 Assert-True ($pin.Tag -cmatch '^v\d+\.\d+\.\d+$') 'the tag is read from the fetch URL'
-Assert-True ([System.IO.File]::ReadAllText($Skill).Contains('](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/assets/house-style/README.md)')) 'the skill links the README in dkj-policy absolutely, since a relative link leaves the dkj-solutions plugin root'
+Assert-True ([System.IO.File]::ReadAllText($Skill).Contains('](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/assets/house-style/README.md)')) 'the skill links the README in dkj-policy absolutely, since a relative link leaves the dkj-solutions plugin root'
 Assert-True (Test-Path -LiteralPath (Join-Path $Vendored 'README.md')) 'the README the skill links exists in the plugin'
 # The canonical copy is NOT held to the pin here (#3636): between releases the pin names the tag's bytes, and a
 # branch that changes the stylesheet no longer hand-edits the cell -- the cut writes it from the blob it tags. So
@@ -64,7 +64,7 @@ foreach ($leaf in 'house-style.css', 'house-theme.js') {
 }
 Assert-True ($null -eq (Get-HouseStylePin -SkillText '| `house-style.css` | `x` | `aa` |')) 'a page without both rows is no pin'
 # A page at a tag before #3531 names the files under dkj-solutions/assets/, and the reusable gate reads the page AT that tag.
-$oldRow = '| `{0}` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.32.0/plugins/dkj-policy/dkj-solutions/assets/house-style/{0}` | `{1}` |'
+$oldRow = '| `{0}` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/v5.32.0/plugins/dkj-policy/dkj-solutions/assets/house-style/{0}` | `{1}` |'
 $oldPage = ($oldRow -f 'house-style.css', ('a' * 64)) + "`n" + ($oldRow -f 'house-theme.js', ('b' * 64))
 Assert-Equal 'v5.32.0' (Get-HouseStylePin -SkillText $oldPage).Tag 'a pin URL on the pre-#3531 path still yields its tag'
 

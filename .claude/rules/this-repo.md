@@ -1,4 +1,4 @@
-# This repo — dkj-claude-plugins
+# This repo — dkj-marketplace
 
 **The owners are Dave (DaveKJohn) and Maikel (maikel-bwj), with the same approval rights; wherever
 the constitution or a lens says "the owner", either of them can give that word here**
@@ -46,11 +46,11 @@ layers; the system-wide norm is in
 
 ### Repo citation — one owner name
 
-**Cite this repo as `DKJ-Solutions/dkj-claude-plugins`** in every new GitHub URL, `gh --repo` argument
-and `owner/name` reference. Neither retired spelling — `DaveKJohn/claude-code-specialists` or
-`DKJ-Solutions/claude-code-specialists` — may ever be recreated, because both resolve only through a
-redirect. Old citations are corrected when a file is edited for other reasons, not swept; the two
-renames, `Get-RetiredRepoNames` and the one-command `origin` fix are in
+**Cite this repo as `DKJ-Solutions/dkj-marketplace`** in every new GitHub URL, `gh --repo` argument
+and `owner/name` reference. No retired spelling — `DaveKJohn/claude-code-specialists`,
+`DKJ-Solutions/claude-code-specialists` or `DKJ-Solutions/dkj-claude-plugins` — may ever be recreated,
+because each resolves only through a redirect. Old citations are corrected when a file is edited for
+other reasons, not swept; the renames, `Get-RetiredRepoNames` and the one-command `origin` fix are in
 [Sylvester's lens](../specialists/lenses/specialist-05-15-lens.md#repo-citation--the-two-renames-behind-the-one-owner-name).
 
 ### Structure — where everything lives

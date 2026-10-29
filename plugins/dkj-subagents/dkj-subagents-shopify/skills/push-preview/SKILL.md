@@ -159,7 +159,7 @@ and page type. Measured on a handover of ten:
 
 **What replaces it is your repo's to state, not this script's.** Where the workflow you run ships a
 handover rule, follow it; `bwj-development` states one for BWJ's two store repos --
-[`PREVIEW-portable.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/bwj-development/PREVIEW-portable.md),
+[`PREVIEW-portable.md`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/bwj-development/PREVIEW-portable.md),
 one link to a published page carrying a QR code per market. Where your workflow says nothing, the
 generic part still holds: hand over one link to something that renders, not a list.
 

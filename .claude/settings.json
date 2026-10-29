@@ -77,20 +77,20 @@
     "refreshInterval": 2
   },
   "enabledPlugins": {
-    "dkj-policy@dkj-claude-plugins": true,
-    "dkj-subagents-alpha@dkj-claude-plugins": true,
-    "bwj-development@dkj-claude-plugins": false,
-    "dkj-solutions@dkj-claude-plugins": true,
-    "dkj-subagents-ecomm@dkj-claude-plugins": false,
-    "dkj-subagents-lifehub@dkj-claude-plugins": false,
-    "dkj-subagents-shopify@dkj-claude-plugins": false,
+    "dkj-policy@dkj-marketplace": true,
+    "dkj-subagents-alpha@dkj-marketplace": true,
+    "bwj-development@dkj-marketplace": false,
+    "dkj-solutions@dkj-marketplace": true,
+    "dkj-subagents-ecomm@dkj-marketplace": false,
+    "dkj-subagents-lifehub@dkj-marketplace": false,
+    "dkj-subagents-shopify@dkj-marketplace": false,
     "figma@claude-plugins-official": false
   },
   "extraKnownMarketplaces": {
-    "dkj-claude-plugins": {
+    "dkj-marketplace": {
       "source": {
         "source": "github",
-        "repo": "DKJ-Solutions/dkj-claude-plugins"
+        "repo": "DKJ-Solutions/dkj-marketplace"
       }
     }
   }

@@ -136,7 +136,7 @@ function Resolve-Blueprint {
     foreach ($c in $candidates) {
         if (Test-Path -LiteralPath $c -PathType Leaf) { return (Resolve-Path -LiteralPath $c).Path }
     }
-    throw "the config blueprint could not be found. It ships with the workflow plugin at blueprint/config-blueprint.json; if that plugin is enabled, update it (claude plugin update dkj-policy@dkj-claude-plugins --scope project)."
+    throw "the config blueprint could not be found. It ships with the workflow plugin at blueprint/config-blueprint.json; if that plugin is enabled, update it (claude plugin update dkj-policy@dkj-marketplace --scope project)."
 }
 
 $bpPath = Resolve-Blueprint -Explicit $BlueprintPath -RepoRoot $repoRoot

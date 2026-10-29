@@ -78,7 +78,7 @@ try {
     #    the way a captured transcript can.
     [System.IO.File]::WriteAllText($qs, @(
         '# Quickstart', '', 'Run this:', '', ($fence + 'powershell'),
-        'claude plugin install dkj-subagents-alpha@dkj-claude-plugins --scope project', $fence
+        'claude plugin install dkj-subagents-alpha@dkj-marketplace --scope project', $fence
     ) -join "`n", $Utf8NoBom)
     $s3 = Invoke-Integrity -FixtureRoot $Fixture
     Assert-True (-not ($s3.Out -match '\[expected-output\].*ADOPTION\.md')) `

@@ -1158,7 +1158,7 @@ try {
     $part1Wf = Join-Path $part1Dir '.github\workflows'
     [System.IO.File]::WriteAllText((Join-Path $part1Wf 'branch-entry.yml'), (@(
         'name: Branch entry', 'on:', '  pull_request:', '    branches: [main]', '', 'jobs:', '  branch-entry:',
-        '    uses: DKJ-Solutions/dkj-claude-plugins/.github/workflows/reusable-branch-entry.yml@main') -join "`n") + "`n")
+        '    uses: DKJ-Solutions/dkj-marketplace/.github/workflows/reusable-branch-entry.yml@main') -join "`n") + "`n")
     [System.IO.File]::WriteAllText((Join-Path $part1Wf 'always-on-budget.yml'), (@(
         'name: Always-on budget', 'on:', '  pull_request:', '    branches: [main]', '', 'jobs:', '  always-on-budget:',
         '    uses: DKJ-Solutions/claude-code-specialists/.github/workflows/reusable-always-on-budget.yml@main') -join "`n") + "`n")
@@ -1176,7 +1176,7 @@ try {
     $mixedDir = New-FixtureConsumerNoCI -Label 'mixed-caller'
     [System.IO.File]::WriteAllText((Join-Path $mixedDir '.github\workflows\gates.yml'), (@(
         'name: Gates', 'on:', '  pull_request:', '', 'jobs:', '  branch-entry:',
-        '    uses: DKJ-Solutions/dkj-claude-plugins/.github/workflows/reusable-branch-entry.yml@main',
+        '    uses: DKJ-Solutions/dkj-marketplace/.github/workflows/reusable-branch-entry.yml@main',
         '  build:', '    runs-on: ubuntu-latest', '    steps:', '      - run: echo build') -join "`n") + "`n")
     $rMixed = Invoke-Adopt -Dir $mixedDir -ScriptArgs @('-RulesJsonOverride', $rulesOffNoChecks)
     Assert-True (-not ($rMixed.Flat -like '*NOTHING IN THIS TREE TRIGGERS ON pull_request AT ALL*')) `
@@ -1292,7 +1292,7 @@ try {
     # above it, which legitimately says ref: <trunk>.
     function Get-SharedRefLine {
         param([string]$Text)
-        $m = [regex]::Match(($Text -replace "`r`n", "`n"), '(?m)^ {10}repository: DKJ-Solutions/dkj-claude-plugins\n {10}ref: (?<ref>[^\n]*)$')
+        $m = [regex]::Match(($Text -replace "`r`n", "`n"), '(?m)^ {10}repository: DKJ-Solutions/dkj-marketplace\n {10}ref: (?<ref>[^\n]*)$')
         if ($m.Success) { return $m.Groups['ref'].Value } else { return '' }
     }
     foreach ($w in @(@{ Name = 'fold-on-merge.yml'; Text = $fold }, @{ Name = 'verify-resolved.yml'; Text = $verify }, @{ Name = 'merge-on-green.yml'; Text = $mergeOnGreen })) {
@@ -1344,7 +1344,7 @@ try {
     # scaffolder never rewrites an existing runner, so a re-run is the one moment it can say so. The
     # fixture is the two lines the reader keys on, in the ten-space shape the pre-#2449 template wrote.
     $mogPath = Join-Path $pinDir '.github\workflows\merge-on-green.yml'
-    $oldShape = "name: Merge on green`n    steps:`n      - uses: actions/checkout@x`n        with:`n          ref: main`n          token: `${{ secrets.FOLD_PUSH_TOKEN }}`n`n      - uses: actions/checkout@x`n        with:`n          repository: DKJ-Solutions/dkj-claude-plugins`n          ref: main`n          path: .workflow-scripts`n          persist-credentials: false`n"
+    $oldShape = "name: Merge on green`n    steps:`n      - uses: actions/checkout@x`n        with:`n          ref: main`n          token: `${{ secrets.FOLD_PUSH_TOKEN }}`n`n      - uses: actions/checkout@x`n        with:`n          repository: DKJ-Solutions/dkj-marketplace`n          ref: main`n          path: .workflow-scripts`n          persist-credentials: false`n"
     [System.IO.File]::WriteAllText($mogPath, $oldShape)
     $rShape = Invoke-Adopt -Dir $pinDir -ScriptArgs @('-RulesJsonOverride', $rulesOff, '-Apply')
     Assert-True ($rShape.Flat -like '*`[shape`] it checks the trunk out ONCE with FOLD_PUSH_TOKEN*') 'a pre-#2449 merge-on-green.yml is reported as the single-workspace shape'

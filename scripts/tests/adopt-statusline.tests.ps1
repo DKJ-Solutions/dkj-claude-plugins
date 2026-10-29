@@ -360,7 +360,7 @@ $escapedPayload = $payload -replace '\\', '\\'
 
 # --- 7. this repo's own record is the one used ----------------------------------------------------
 $fixtureHome = New-FixtureHome -Label 'match' -AdminJson @"
-{"version":2,"plugins":{"dkj-policy@dkj-claude-plugins":[
+{"version":2,"plugins":{"dkj-policy@dkj-marketplace":[
   {"scope":"project","projectPath":"$escapedRoot","installPath":"$escapedPayload","version":"9.9.9"}
 ]}}
 "@
@@ -373,7 +373,7 @@ Assert-True ($res.Output -match 'PAYLOAD-REACHED') 'shim: it resolves this repo'
 # which on a machine running several consumers is the ordinary state, not an exotic one.
 $otherRoot = (New-FixtureRepo 'other') -replace '\\', '\\'
 $fixtureHome = New-FixtureHome -Label 'foreign' -AdminJson @"
-{"version":2,"plugins":{"dkj-policy@dkj-claude-plugins":[
+{"version":2,"plugins":{"dkj-policy@dkj-marketplace":[
   {"scope":"project","projectPath":"$otherRoot","installPath":"$escapedPayload","version":"9.9.9"}
 ]}}
 "@
@@ -384,7 +384,7 @@ Assert-True ($res.Output -notmatch 'PAYLOAD-REACHED') `
 
 # --- 9. a pathless (user-scope) record is the fallback ---------------------------------------------
 $fixtureHome = New-FixtureHome -Label 'userscope' -AdminJson @"
-{"version":2,"plugins":{"dkj-policy@dkj-claude-plugins":[
+{"version":2,"plugins":{"dkj-policy@dkj-marketplace":[
   {"scope":"user","installPath":"$escapedPayload","version":"9.9.9"}
 ]}}
 "@
@@ -408,7 +408,7 @@ $fixtureHome = New-FixtureHome -Label 'twokeys' -AdminJson @"
     {"scope":"project","projectPath":"$escapedRoot","installPath":"$escapedStale","version":"4.0.0",
      "installedAt":"2026-08-01T10:00:00.000Z","lastUpdated":"2026-08-01T10:00:00.000Z"}
   ],
-  "dkj-policy@dkj-claude-plugins":[
+  "dkj-policy@dkj-marketplace":[
     {"scope":"project","projectPath":"$escapedRoot","installPath":"$escapedPayload","version":"5.5.0",
      "installedAt":"2026-09-11T08:56:14.373Z","lastUpdated":"2026-09-18T08:30:50.300Z"}
   ]
@@ -423,7 +423,7 @@ Assert-True ($res.Output -notmatch 'STALE-PAYLOAD') 'shim: and the stale one fro
 # order, so a single fixture can only ever exercise one side of the bug it is written for.
 $fixtureHome = New-FixtureHome -Label 'twokeys-reversed' -AdminJson @"
 {"version":2,"plugins":{
-  "dkj-policy@dkj-claude-plugins":[
+  "dkj-policy@dkj-marketplace":[
     {"scope":"project","projectPath":"$escapedRoot","installPath":"$escapedPayload","version":"5.5.0",
      "installedAt":"2026-09-11T08:56:14.373Z","lastUpdated":"2026-09-18T08:30:50.300Z"}
   ],
@@ -445,7 +445,7 @@ $fixtureHome = New-FixtureHome -Label 'nostamp' -AdminJson @"
   "dkj-policy@claude-code-specialists":[
     {"scope":"project","projectPath":"$escapedRoot","installPath":"$escapedStale","version":"4.0.0"}
   ],
-  "dkj-policy@dkj-claude-plugins":[
+  "dkj-policy@dkj-marketplace":[
     {"scope":"project","projectPath":"$escapedRoot","installPath":"$escapedPayload","version":"5.5.0",
      "installedAt":"2026-09-11T08:56:14.373Z","lastUpdated":"2026-09-18T08:30:50.300Z"}
   ]
@@ -458,7 +458,7 @@ Assert-True ($res.Output -match 'PAYLOAD-REACHED') 'shim: a record carrying no t
 # A status line runs every couple of seconds for as long as a session is open. A failure here is not an
 # error report; it is a broken status line, repeated forever.
 $fixtureHome = New-FixtureHome -Label 'nopayload' -AdminJson @"
-{"version":2,"plugins":{"dkj-policy@dkj-claude-plugins":[
+{"version":2,"plugins":{"dkj-policy@dkj-marketplace":[
   {"scope":"project","projectPath":"$escapedRoot","installPath":"C:\\nope\\gone","version":"9.9.9"}
 ]}}
 "@

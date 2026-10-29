@@ -136,9 +136,9 @@ infrastructure.
     GitHub Actions cannot be added (422), so a workflow that pushes to `main` borrows an org owner's token
     (`FOLD_PUSH_TOKEN`, only for the push; #1506, #1507). A transfer can drop `bypass_actors` while the
     ruleset still reads `active` (#1244, #1239): check the sub-field
-    (`gh api repos/DKJ-Solutions/dkj-claude-plugins/rulesets/19008062 --jq .bypass_actors`), and read the push's own answer
+    (`gh api repos/DKJ-Solutions/dkj-marketplace/rulesets/19008062 --jq .bypass_actors`), and read the push's own answer
     (`GH013 ... is expected` = list empty, `Bypassed rule violations` = list works). A commit's author does
-    not name its pusher; `gh api "repos/DKJ-Solutions/dkj-claude-plugins/activity?ref=refs/heads/main"` does
+    not name its pusher; `gh api "repos/DKJ-Solutions/dkj-marketplace/activity?ref=refs/heads/main"` does
     (#1278). A blocked fold is waited out, never committed locally (#1244). A direct push that works from
     an account proves the admin bypass, not a Write role; the bypass rests on org ownership, which covers
     every repo in the org and shows on no settings page here (#1284).
@@ -279,7 +279,7 @@ infrastructure.
     the run's own last lines), and nothing announces it ahead of time.
   - **Renewal is manual**: **an org owner of `DKJ-Solutions`** creates a new fine-grained PAT with the
     identical scope and overwrites the secret:
-    `gh secret set FOLD_PUSH_TOKEN --repo DKJ-Solutions/dkj-claude-plugins`.
+    `gh secret set FOLD_PUSH_TOKEN --repo DKJ-Solutions/dkj-marketplace`.
   - **Decided in:** [#1493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1493),
     [PR #1507](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/1507),
     [#1499](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1499).
@@ -578,7 +578,7 @@ infrastructure.
   on drift. The pure expansion logic lives in the lib, so [Tycho #18](specialist-04-18-lens.md) can test
   it in isolation — mirroring the `release-lib` setup. **Never edit between the sentinels by hand.**
 - **`.claude/settings.json`** — this repo's harness config: the `extraKnownMarketplaces` (the
-  `github` source `DKJ-Solutions/dkj-claude-plugins`) and `enabledPlugins`, which plugins this repo loads
+  `github` source `DKJ-Solutions/dkj-marketplace`) and `enabledPlugins`, which plugins this repo loads
   ([which, and why](#the-plugins-enabled-here-and-what-that-costs)).
 - **The manifests** `.claude-plugin/marketplace.json` and every `<plugin>/.claude-plugin/plugin.json`
   (structure + `version`) — their *structure/config*; the descriptive *texts* he coordinates with
@@ -763,8 +763,8 @@ and are only pointed at below.
   asserts it.
 - **Renaming or moving this checkout unlinks its own install.** A deliberate `check-roster-sync.ps1` run
   prints `[NOT-INSTALLED-HERE]` (the hook cannot — it did not load); repair with
-  `claude plugin marketplace update dkj-claude-plugins`, then
-  `claude plugin install <plugin>@dkj-claude-plugins --scope project` from the new root.
+  `claude plugin marketplace update dkj-marketplace`, then
+  `claude plugin install <plugin>@dkj-marketplace --scope project` from the new root.
 - **A session loads the extracted payload; only an absolute `@`-import reads the clone** — the account
   is in [Updating the plugins](#updating-the-plugins--in-every-other-checkout-of-this-repo) (#845,
   #1812). Between two releases no command hands a session new plugin content, because `plugin update`
@@ -821,7 +821,7 @@ folder by folder:
   repo is worked on under, one PNG per account and named after it; nothing in the tree reads them. At the root for the same
   reason as `connectors/` and with one extra property: **the marketplace clone is the whole
   repository**, so anything here is on every machine at
-  `~/.claude/plugins/marketplaces/dkj-claude-plugins/assets/…` after a
+  `~/.claude/plugins/marketplaces/dkj-marketplace/assets/…` after a
   `claude plugin marketplace update` — no release, no version bump. Under `plugins/` the same files
   would wait for a cut and then land in the payload of every consumer, none of which has any use for
   them.
@@ -928,9 +928,9 @@ Two commands, from the root of the checkout you want to move — the refresh onc
 enabled plugin:
 
 ```powershell
-claude plugin marketplace update dkj-claude-plugins                            # 1. refresh the clone
-claude plugin update dkj-subagents-alpha@dkj-claude-plugins --scope project         # 2. then update, per plugin
-claude plugin update dkj-policy@dkj-claude-plugins --scope project
+claude plugin marketplace update dkj-marketplace                            # 1. refresh the clone
+claude plugin update dkj-subagents-alpha@dkj-marketplace --scope project         # 2. then update, per plugin
+claude plugin update dkj-policy@dkj-marketplace --scope project
 ```
 
 **The set step 2 walks is [`settings.json`](../../settings.json)'s own, and a plugin left off it simply
@@ -1072,19 +1072,24 @@ September 8 all six had been on, for validation. Before changing this, know:
 
 Moved here from `.claude/rules/this-repo.md` under
 [#2448](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2448); the rule keeps the canon
-itself — cite this repo as `DKJ-Solutions/dkj-claude-plugins` — and this is the history and the
+itself — cite this repo as `DKJ-Solutions/dkj-marketplace` — and this is the history and the
 machinery behind it.
 
-**Two renames sit behind that one line, and they retired different halves of it**, which is why both old
-spellings still appear in the tree and why neither may ever be recreated:
+**Three renames sit behind that one line, and they retired different halves of it**, which is why every old
+spelling still appears in the tree and why none may ever be recreated:
 
 - **The owner**, September 2, 2026: transferred from the personal account `DaveKJohn` into the
   `DKJ-Solutions` organisation; `DaveKJohn/…` resolves only through a redirect.
 - **The name**, September 10, 2026: `claude-code-specialists` became `dkj-claude-plugins`
   ([#1769](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1769)); the old
   `DKJ-Solutions/claude-code-specialists` resolves only through a redirect too.
+- **The name again**, together with the marketplace name: `dkj-claude-plugins` became `dkj-marketplace`
+  ([#3660](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3660)), so plugin ids read
+  `<plugin>@dkj-marketplace`. A marketplace name has no redirect, so consumers and machines migrate by the
+  procedure in [`ADOPTION.md`](../../../plugins/ADOPTION.md#moving-to-dkj-marketplace). The local checkout
+  folders keep the name `dkj-claude-plugins` (#3661).
 
-Both are **transfer redirects this repo does not control**, and each holds only while nothing is created
+All three are **transfer redirects this repo does not control**, and each holds only while nothing is created
 at its old path (the canonical-channel note in [`README.md`](../../../plugins/ADOPTION.md#consumption)). The machine
 layer states the current answer once, in `scripts/repo-config.ps1`. Before changing anything here, know:
 
@@ -1105,7 +1110,7 @@ layer states the current answer once, in `scripts/repo-config.ps1`. Before chang
   One cloned before the transfer pushes only because GitHub answers `remote: This repository moved`
   ([#1562](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1562)). The one command repairs
   every state, because it writes the whole URL:
-  `git remote set-url origin https://github.com/DKJ-Solutions/dkj-claude-plugins.git`.
+  `git remote set-url origin https://github.com/DKJ-Solutions/dkj-marketplace.git`.
 
 ### How the plugin tree got its current address
 

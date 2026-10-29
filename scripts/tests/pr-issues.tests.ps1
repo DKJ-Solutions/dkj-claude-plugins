@@ -653,7 +653,7 @@ Assert-Equal 0 $noList.Count 'an undeterminable closed-issue state claims nothin
 # (it calls gh), which is exactly why the rule was split out of it: what decides the answer is a pure
 # function of what gh said, and that is this.
 #
-# EVERY PAYLOAD BELOW IS A REAL SHAPE, measured against DKJ-Solutions/dkj-claude-plugins on 2026-09-17.
+# EVERY PAYLOAD BELOW IS A REAL SHAPE, measured against DKJ-Solutions/dkj-marketplace on 2026-09-17.
 Assert-Equal 'closed' (Get-IssueStateVerdict -ExitCode 0 -Output '{"state":"CLOSED","url":"https://github.com/o/r/issues/1282"}') 'a CLOSED issue is the one answer that sets the signal -- #1282''s real case'
 Assert-Equal 'other'  (Get-IssueStateVerdict -ExitCode 0 -Output '{"state":"OPEN","url":"https://github.com/o/r/issues/2055"}')   'an OPEN issue is not'
 

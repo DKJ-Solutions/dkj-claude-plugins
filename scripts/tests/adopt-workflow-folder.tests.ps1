@@ -747,7 +747,7 @@ try {
     # copying the example must still get the real line.
     $cC7 = New-FixtureConsumer -Label 'const-quoted'
     $cC7Md = Join-Path $cC7 'CLAUDE.md'
-    [System.IO.File]::WriteAllText($cC7Md, (@('# Ours', $bt3, '@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md', $bt3, '') -join "`n"))
+    [System.IO.File]::WriteAllText($cC7Md, (@('# Ours', $bt3, '@~/.claude/plugins/marketplaces/dkj-marketplace/plugins/dkj-policy/CLAUDE.md', $bt3, '') -join "`n"))
     $rC7 = Invoke-Adopt -Dir $cC7 -ScriptArgs @('-Apply')
     Assert-Match '\[added\]' $rC7.Flat 'constitution, quoted in a fence: not mistaken for an import -- the line is added'
     $cC7Lines = @(([System.IO.File]::ReadAllText($cC7Md)).TrimEnd() -split "`n")
@@ -779,7 +779,7 @@ try {
     $cE1 = New-FixtureConsumer -Label 'ext-both'
     New-Item -ItemType Directory -Path (Join-Path $cE1 '.claude') -Force | Out-Null
     [System.IO.File]::WriteAllText((Join-Path $cE1 '.claude\settings.json'),
-        '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-solutions@dkj-claude-plugins": true, "bwj-development@dkj-claude-plugins": false } }')
+        '{ "enabledPlugins": { "dkj-policy@dkj-marketplace": true, "dkj-solutions@dkj-marketplace": true, "bwj-development@dkj-marketplace": false } }')
     $cE1Md = Join-Path $cE1 'CLAUDE.md'
     [System.IO.File]::WriteAllText($cE1Md, "# T`n`n@~/.claude/other.md`n")
     $rE1 = Invoke-Adopt -Dir $cE1 -ScriptArgs @('-Apply')

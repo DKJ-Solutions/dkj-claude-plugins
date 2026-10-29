@@ -22,8 +22,8 @@ moving ref that an admin can push to past the review. A tag is a version somebod
 URLs, with `<tag>` the release tag the skill pins, which the release cut writes into the skill
 ([#3133](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3133)):
 
-- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/<tag>/plugins/dkj-policy/assets/house-style/house-style.css`
-- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/<tag>/plugins/dkj-policy/assets/house-style/house-theme.js`
+- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/<tag>/plugins/dkj-policy/assets/house-style/house-style.css`
+- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/<tag>/plugins/dkj-policy/assets/house-style/house-theme.js`
 
 **The rule that an app starts from it reaches DKJ-Solutions and nothing else**, through the
 `dkj-solutions` extension, where an app copies the files in and `check-house-style` holds the copy to the pin:
@@ -888,7 +888,7 @@ on the owner's explicit request, like any tag. The first four releases were set 
 [`dkj-policy/releases/history.md`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.4.0/dkj-policy/releases/history.md), which lists the four earlier releases
 too. A tag is never moved or reused: a fix is a new release. Then the `house-style` skill in the
 `dkj-solutions` plugin
-([DKJ-Solutions/dkj-claude-plugins](https://github.com/DKJ-Solutions/dkj-claude-plugins)) is repointed to
+([DKJ-Solutions/dkj-marketplace](https://github.com/DKJ-Solutions/dkj-marketplace)) is repointed to
 the new tag, through an inbound issue there, and the apps get it with that plugin release. So one house-style
 change costs one tag here and one pointer update there, and that second step is the point: nothing reaches
 the apps that has not been released.

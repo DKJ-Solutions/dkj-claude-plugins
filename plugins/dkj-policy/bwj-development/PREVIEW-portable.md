@@ -2,7 +2,7 @@
 
 **This page applies in exactly two repos, named by store rather than by org: `smartwatchbanden` and
 `xoxowildhearts`** -- see [`WORKFLOW-portable.md`](WORKFLOW-portable.md) for why the org is left out.
-**Unlike chapter one, this reach did NOT widen when `dkj-claude-plugins` was admitted on
+**Unlike chapter one, this reach did NOT widen when `dkj-marketplace` was admitted on
 September 14, 2026, nor when `phone-factory`, a Lightspeed store, was on October 2, 2026** -- a preview handover exists to compare a theme against its own live control, and
 the source repo runs no theme and no store, so there is nothing here for it to hand over. That page's
 opening explains the widening; this one stays exactly the pair it always was. It is chapter three of
@@ -451,7 +451,7 @@ print site too, in the generic plugin and in generic terms:
   material rather than the handover and pointing at whatever handover rule the repo's workflow states.
   One URL is left alone -- a single line in a terminal genuinely is a usable handover, and the count is
   the honest trigger.
-- [`push-preview`'s own page](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/push-preview/SKILL.md)
+- [`push-preview`'s own page](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/push-preview/SKILL.md)
   carries the same thing in prose, under its own heading.
 
 **Neither of those names BWJ or this page**, and that is the mechanism/policy split holding rather than

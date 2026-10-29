@@ -49,7 +49,7 @@ the craft is the same, only the bill differs.
 There is an authoritative measurement; do not estimate from file sizes:
 
 ```powershell
-claude plugin details dkj-subagents-alpha@dkj-claude-plugins
+claude plugin details dkj-subagents-alpha@dkj-marketplace
 ```
 
 It reports **Always-on** (tokens the plugin adds to *every* session through its listing text — skill
