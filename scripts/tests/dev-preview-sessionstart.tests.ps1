@@ -291,6 +291,33 @@ Assert-Equal 0 @(Get-DevPreviewOwnedTreeRoots -Ports @(5173) -Listeners @((& $L 
 Assert-Equal 0 @(Get-DevPreviewOwnedTreeRoots -Ports @(5173) -Listeners @((& $L 5174 103)) -Processes $procs -Root $root).Count 'our server on a port outside the product''s gives nothing'
 Assert-Equal 0 @(Get-DevPreviewOwnedTreeRoots -Ports @(5173) -Listeners @() -Processes $procs -Root $root).Count 'no listener, nothing to stop'
 
+# #3657: a product THIS HOOK started before HEAD last moved serves the old tree, so it is the one to restart.
+$T = [char]9
+Assert-Equal ([datetime]'2026-10-29T18:36:03Z').ToUniversalTime() (ConvertFrom-DevPreviewReflogTime @("HEAD@{1793298963}${T}merge refs/remotes/origin/main: Fast-forward")) 'a fast-forward is read as HEAD''s last move, in UTC'
+Assert-Equal ([datetime]'2026-10-29T18:36:02Z').ToUniversalTime() (ConvertFrom-DevPreviewReflogTime @("HEAD@{1793298970}${T}commit: work", "HEAD@{1793298965}${T}commit (amend): work", "HEAD@{1793298962}${T}checkout: moving from main to x")) 'plain commits and amends are skipped down to the checkout below them'
+Assert-Equal ([datetime]'2026-10-29T18:36:10Z').ToUniversalTime() (ConvertFrom-DevPreviewReflogTime @("HEAD@{1793298970}${T}commit (merge): Merge branch x")) 'a merge commit counts'
+Assert-Equal $null (ConvertFrom-DevPreviewReflogTime @("HEAD@{1793298970}${T}commit (initial): first")) 'a reflog of commits alone has no tree move'
+Assert-Equal $null (ConvertFrom-DevPreviewReflogTime @()) 'no reflog line, no moment'
+Assert-Equal $null (ConvertFrom-DevPreviewReflogTime @('HEAD@{2 hours ago}')) 'a line of another shape, no moment'
+$plog = 'C:\Temp\dev-preview-repo-0badc0de.log'
+$moved = [datetime]'2026-10-29T18:30:24Z'
+$outProcs = @{
+    100 = @{ CommandLine = "cmd.exe /d /s /c `"cd /d `"C:\Users\x\GitHub\repo`" && npm run dev > `"$plog`" 2>&1`""; ParentId = 1; Created = $moved.AddSeconds(-1) }
+    103 = @{ CommandLine = 'node vite.js --port 5174'; ParentId = 100; Created = $moved.AddSeconds(-1) }
+    110 = @{ CommandLine = "cmd.exe /d /s /c `"cd /d `"C:\Users\x\GitHub\repo`" && npm run dev > `"$plog`" 2>&1`""; ParentId = 1; Created = $moved.AddSeconds(1) }
+    113 = @{ CommandLine = 'node vite.js --port 5175'; ParentId = 110; Created = $moved.AddSeconds(5) }
+    120 = @{ CommandLine = 'pwsh -c cd C:\Users\x\GitHub\repo; npm run dev'; ParentId = 1; Created = $moved.AddHours(-1) }
+    123 = @{ CommandLine = 'node vite.js --port 5176'; ParentId = 120; Created = $moved.AddHours(-1) }
+    130 = @{ CommandLine = "cmd.exe /d /s /c `"cd /d `"C:\Users\x\GitHub\repo`" && npm run dev > `"$plog`" 2>&1`""; ParentId = 1 }
+    133 = @{ CommandLine = 'node vite.js --port 5177'; ParentId = 130 }
+}
+Assert-Equal '100' ((Get-DevPreviewOutdatedProductRoots -Port 5174 -Listeners @((& $L 5174 103)) -Processes $outProcs -Root $root -LogPath $plog -HeadMovedUtc $moved) -join ',') 'the hook''s own product, started a second before the trunk moved, is outdated (the measured race)'
+Assert-Equal 0 @(Get-DevPreviewOutdatedProductRoots -Port 5175 -Listeners @((& $L 5175 113)) -Processes $outProcs -Root $root -LogPath $plog -HeadMovedUtc $moved).Count 'one started a full second after the move is current'
+Assert-Equal 0 @(Get-DevPreviewOutdatedProductRoots -Port 5176 -Listeners @((& $L 5176 123)) -Processes $outProcs -Root $root -LogPath $plog -HeadMovedUtc $moved).Count 'one started by hand is never stopped, however old'
+Assert-Equal 0 @(Get-DevPreviewOutdatedProductRoots -Port 5177 -Listeners @((& $L 5177 133)) -Processes $outProcs -Root $root -LogPath $plog -HeadMovedUtc $moved).Count 'one whose start time could not be read is left alone'
+Assert-Equal 0 @(Get-DevPreviewOutdatedProductRoots -Port 5174 -Listeners @((& $L 5174 103)) -Processes $outProcs -Root $root -LogPath $plog -HeadMovedUtc $null).Count 'no HEAD move known, nothing outdated'
+Assert-Equal 0 @(Get-DevPreviewOutdatedProductRoots -Port 5174 -Listeners @((& $L 5174 103)) -Processes $outProcs -Root $root -LogPath 'C:\Temp\dev-preview-general-repo-0badc0de.log' -HeadMovedUtc $moved).Count 'another log path is another server''s tree'
+
 # #3244: the line names who holds a taken port, from the process table the hook already read.
 Assert-Equal 'repo2' (Get-DevPreviewHolderName -ProcessId 300 -Processes $procs) 'another checkout''s server is named by the folder above node_modules'
 Assert-Equal 'repo' (Get-DevPreviewHolderName -ProcessId 103 -Processes $procs) 'a server the hook started is named by the cd /d of its cmd.exe ancestor'
@@ -592,6 +619,8 @@ $env:DKJ_GENERAL_PAGES_PORTS = [string]$genPort
 # EVERY SERVER THE HOOK STARTS HERE IS TIED TO THIS SUITE (#3620): its watcher stops it once this process has
 # gone, so a gate killed before the finally below leaves no server behind.
 $env:DKJ_DEV_PREVIEW_OWNER_PID = [string]$PID
+# No prep wait and no stdin read for a session id (#3657): no dispatcher runs beside these hook runs.
+$env:DKJ_DEV_PREVIEW_PREP_WAIT = '0'
 $repos = @()
 function Invoke-Hook {
     param([string]$Root)
@@ -922,6 +951,26 @@ try {
         Assert-Equal "Toolbox: http://localhost:$g/ -- product: http://localhost:$port/index.html (already running)" (Get-Message $r.Text) 'a second session start reuses both instead of starting another'
         Assert-Equal 1 (Get-Owners $port).Count 'and exactly one process listens on the product port'
         Assert-Equal 1 (Get-Owners $g).Count 'and one on the hub port'
+
+        # #3657: a commit alone records a tree the server already serves, so the next start reuses it ...
+        $null = & git -C $live init -q 2>&1
+        Assert-Equal 0 $LASTEXITCODE 'the fixture repo is initialised'
+        $null = & git -C $live -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m first 2>&1
+        Assert-Equal 0 $LASTEXITCODE 'its first commit lands'
+        $r = Invoke-Hook $live
+        Assert-Equal "Toolbox: http://localhost:$g/ -- product: http://localhost:$port/index.html (already running)" (Get-Message $r.Text) 'a commit alone does not restart the product'
+        # ... while a checkout (here in the trunk sync's place) moves the tree, so the product is restarted.
+        Start-Sleep -Seconds 1
+        $null = & git -C $live checkout -q -b moved 2>&1
+        Assert-Equal 0 $LASTEXITCODE 'the checkout moves HEAD'
+        $before = @(Get-Owners $port)
+        $r = Invoke-Hook $live
+        Assert-Equal "Toolbox: http://localhost:$g/ -- product: http://localhost:$port/index.html (restarted: the checkout moved after it started)" (Get-Message $r.Text) 'a product older than HEAD''s last move is restarted, and the line says so'
+        $after = @(Get-Owners $port)
+        $started += $after
+        Assert-True ($after.Count -eq 1 -and $before.Count -eq 1 -and $after[0] -ne $before[0]) 'and a new process holds the product port'
+        $r = Invoke-Hook $live
+        Assert-Equal "Toolbox: http://localhost:$g/ -- product: http://localhost:$port/index.html (already running)" (Get-Message $r.Text) 'the restarted product is current, so the next start reuses it'
 
         $r = Invoke-Hook (New-Repo 'chatty' ("Write-Host 'loading config'`n" + $cfg.Replace('WaitSeconds = 30', 'Name = ''Chatty''; WaitSeconds = 30')))
         Assert-True ((Get-Message $r.Text) -match '^Toolbox: ') 'a Write-Host in the config does not break the JSON the hook prints'

@@ -505,3 +505,30 @@ function Remove-StaleSessionCacheEntry {
     }
     return $gone
 }
+
+# THE PREP STEPS' "DONE" MARK, one entry per session (issue #3657). sessioncheck-dispatch.ps1 runs the
+# *-sessionprep.ps1 steps -- the trunk fast-forward among them -- and dev-preview-sessionstart.ps1 is a
+# SEPARATE SessionStart entry, so the harness runs the two side by side. Measured October 29, 2026: the
+# product server was started at 19:30:23 and the trunk fast-forwarded at 19:30:24, so the server loaded
+# the code from before the sync and kept serving it. The dispatcher writes this mark once its prep steps
+# are done; the dev-preview hook waits for it before it starts or reuses the product. Same cache, same
+# advisory contract: a mark that cannot be written or read costs the wait, never the session start.
+$script:SessionPrepDoneKey = 'sessionprep-done'
+
+function Set-SessionPrepDone {
+    <# Mark this session's prep steps done. Returns $true when the mark landed. #>
+    param([string]$SessionId, [string]$Root = '')
+    if (-not (Test-SessionIdShape -SessionId $SessionId)) { return $false }
+    return (Set-SessionCacheEntry -SessionId $SessionId -Key $script:SessionPrepDoneKey -Output @('done') -Root $Root)
+}
+
+function Test-SessionPrepDone {
+    <#
+        True when this session's prep steps marked themselves done within the last -WithinSeconds. The
+        window is short on purpose: a resume keeps its session id, so a mark from an earlier firing of the
+        same session must not read as this firing's.
+    #>
+    param([string]$SessionId, [int]$WithinSeconds = 120, [string]$Root = '')
+    if (-not (Test-SessionIdShape -SessionId $SessionId)) { return $false }
+    return ($null -ne (Get-SessionCacheEntry -SessionId $SessionId -Key $script:SessionPrepDoneKey -Root $Root -MaxAgeHours ($WithinSeconds / 3600.0)))
+}
