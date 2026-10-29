@@ -954,12 +954,15 @@ try {
 
         # #3657: a commit alone records a tree the server already serves, so the next start reuses it ...
         $null = & git -C $live init -q 2>&1
+        Assert-Equal 0 $LASTEXITCODE 'the fixture repo is initialised'
         $null = & git -C $live -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m first 2>&1
+        Assert-Equal 0 $LASTEXITCODE 'its first commit lands'
         $r = Invoke-Hook $live
         Assert-Equal "Toolbox: http://localhost:$g/ -- product: http://localhost:$port/index.html (already running)" (Get-Message $r.Text) 'a commit alone does not restart the product'
         # ... while a checkout (here in the trunk sync's place) moves the tree, so the product is restarted.
         Start-Sleep -Seconds 1
         $null = & git -C $live checkout -q -b moved 2>&1
+        Assert-Equal 0 $LASTEXITCODE 'the checkout moves HEAD'
         $before = @(Get-Owners $port)
         $r = Invoke-Hook $live
         Assert-Equal "Toolbox: http://localhost:$g/ -- product: http://localhost:$port/index.html (restarted: the checkout moved after it started)" (Get-Message $r.Text) 'a product older than HEAD''s last move is restarted, and the line says so'
