@@ -721,6 +721,20 @@ if ($parkedFn.Count -eq 1) {
         'a failed read prints the command to run by hand instead of staying silent'
 }
 
+# THE RELEASE-NOTES COMMIT LINE IS PRINTED, AND IT IS THE SUBJECT THE STOPWATCH STOPS ON (#3647). The
+# Stop hook ends a release run only on a subject its own regex matches, and fails silently otherwise, so
+# the printed line is held to that regex read from the hook's lib -- not to a copy of it here.
+$printedSubject = [regex]::Match($cutReleaseText, 'git commit -m `"(release: \$tagName release notes)`"')
+Assert-True $printedSubject.Success 'cut-release prints the release-notes commit line with the version filled in'
+$stopwatchText = Get-Content -LiteralPath (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\stopwatch-lib.ps1') -Raw
+$stopRegex = [regex]::Match($stopwatchText, "Subject -match '(\^release:[^']+)'")
+Assert-True $stopRegex.Success "the Stopwatch's release-run stop regex is found in stopwatch-lib.ps1"
+if ($printedSubject.Success -and $stopRegex.Success) {
+    $sample = $printedSubject.Groups[1].Value.Replace('$tagName', 'v5.38.0')
+    Assert-True ($sample -match $stopRegex.Groups[1].Value) `
+        "and that printed subject, filled in ('$sample'), is one the Stopwatch ends a release run on"
+}
+
 if ($script:fail -gt 0) {
     Write-Host "FAILS: $($script:fail) failed, $($script:pass) passed." -ForegroundColor Red
     exit 1
