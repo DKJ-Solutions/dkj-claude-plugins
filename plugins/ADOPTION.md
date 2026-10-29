@@ -287,6 +287,84 @@ session-start check warns once for each old name. Migrating takes three steps, r
 3. Rewrite the `CLAUDE.md` import with the `adopt-dkj-policy` skill's `adopt-workflow-folder.ps1 -Apply`.
    It replaces the old `.../dkj-policy/dkj-policy-bwj/CLAUDE.md` line in place.
 
+### Moving to `dkj-marketplace`
+
+**The repository and the marketplace are both being renamed to `dkj-marketplace`**
+([#3660](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3660), Maikel, October 29, 2026).
+Plugin ids become `<plugin>@dkj-marketplace`, and the clone moves to
+`~/.claude/plugins/marketplaces/dkj-marketplace/`. **None of this applies before the release that carries
+the rename.** That release's notes say it has landed. Before it, `DKJ-Solutions/dkj-marketplace` does not
+resolve, and every step below fails.
+
+A repo slug survives a rename through GitHub's redirect, but **a marketplace name has no redirect**. So
+every `enabledPlugins` key and every install record on the old name stops loading, and nothing fails
+loudly. A dead absolute `@`-import is just as silent: the session loads without it. The procedure has
+three parts, run in this order:
+
+**1. Each consuming repo, once — a pull request in that repo, merged after the release.**
+
+- In `.claude/settings.json`, rename the `extraKnownMarketplaces` key `dkj-claude-plugins` to
+  `dkj-marketplace` and set its `source.repo` to `DKJ-Solutions/dkj-marketplace`. Rewrite every
+  `enabledPlugins` key from `<plugin>@dkj-claude-plugins` to `<plugin>@dkj-marketplace`.
+- Rewrite every absolute `@`-import, in `CLAUDE.md` and `.claude/specialists/SPECIALISTS.md`, from
+  `~/.claude/plugins/marketplaces/dkj-claude-plugins/` to `~/.claude/plugins/marketplaces/dkj-marketplace/`.
+- In every CI runner under `.github/workflows/`, change the `repository: DKJ-Solutions/dkj-claude-plugins`
+  line to `DKJ-Solutions/dkj-marketplace`. The old slug keeps working through the redirect, but only until
+  something is created at the old path, and the check that finds the runner matches it by name.
+
+**2. Each machine, once — only after every consumer on it has merged part 1.**
+
+Run this from an empty throwaway directory, never from a repo:
+
+```powershell
+claude plugin marketplace remove dkj-claude-plugins
+```
+
+The remove applies to the whole machine. It drops every install record on the old name, in every
+checkout, and that is the clean cut this part exists for. It also empties `enabledPlugins` and
+`extraKnownMarketplaces` in the directory it runs in, which is why that directory is a throwaway. Any
+checkout whose repo has not merged part 1 loses its plugins until it does, which is why this part waits
+for part 1.
+
+**3. Each checkout on that machine — from its root.**
+
+1. `git pull --ff-only` on the trunk, so the checkout has the settings from part 1.
+2. Restart Claude Code in the checkout. A session start registers `dkj-marketplace` from
+   `extraKnownMarketplaces`.
+3. Refresh the marketplace, then install each enabled plugin again:
+
+   ```powershell
+   claude plugin marketplace update dkj-marketplace
+   claude plugin install dkj-subagents-alpha@dkj-marketplace --scope project    # once per enabled plugin
+   git checkout -- .claude/settings.json ; git status                           # the CLI rewrites the file
+   ```
+
+4. Restart again. Then verify the install with the query in step 6 of
+   [Installing it yourself](#installing-it-yourself), where every line must now read `@dkj-marketplace`
+   and end in `payload present`. Also check that every absolute import resolves:
+
+   ```powershell
+   Get-Content CLAUDE.md, .claude/specialists/SPECIALISTS.md -ErrorAction SilentlyContinue |
+     Select-String '^@(~/\S+)' | ForEach-Object {
+       $p = $_.Matches[0].Groups[1].Value -replace '^~', $HOME
+       "$(if (Test-Path -LiteralPath $p) { 'ok     ' } else { 'MISSING' }) $p" }
+   ```
+
+**A checkout of this repo itself** also needs its remote updated, because a remote is per-checkout git
+config that no gate can see:
+`git remote set-url origin https://github.com/DKJ-Solutions/dkj-marketplace.git`.
+
+**Local checkout folders keep their name**, so a checkout of this repo stays `dkj-claude-plugins` on disk
+(decision recorded on [#3661](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3661),
+October 29, 2026). An install record is keyed on the checkout's folder path, so renaming the folder
+would unlink that checkout's install silently, on top of part 3. Keeping the old name costs nothing but
+a folder name that no longer matches the repo.
+
+**An organisation's business mirror follows the new name without anyone asking it to**, because
+`publish-to-business.ps1` rewrites only the `plugins` array of the source manifest and leaves its `name`
+as it is. Colleagues who install
+through Claude Enterprise get this migration through the release notes, not through the parts above.
+
 ## Which release am I on?
 
 Read the `version` in your cached `<plugin>/.claude-plugin/plugin.json`. It travels with the plugin
