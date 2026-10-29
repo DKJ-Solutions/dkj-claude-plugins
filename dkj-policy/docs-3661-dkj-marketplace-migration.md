@@ -39,19 +39,49 @@
 
 ### PLAN
 
+Step 1 of #3660, the rename to `dkj-marketplace`: write the flag-day procedure in the docs before
+anything functional changes, as #1778 did for #1769. The owner gave the go, and decided that local
+checkout folders keep their name (davekokbwj, October 29, 2026, recorded on #3661). Nothing functional
+changes on this branch, and no name is renamed here.
+
+The issue names `plugins/INSTALL.md` as well, but that page was removed (5a9c004c1). The consumer
+install steps now live in `plugins/ADOPTION.md`, so the procedure goes there. It is written to stay true
+on both sides of the flag-day merge: it states that it applies only from the release that carries the
+rename, so no step has to rewrite it on that day.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `plugins/ADOPTION.md`, new `### Moving to dkj-marketplace` under Consumption, in three ordered
+      parts. Per consuming repo: the settings keys and `source.repo`, the absolute `@`-imports and the CI
+      runners' `repository:` line. Per machine: `marketplace remove`, from a throwaway directory, after
+      every consumer on that machine has merged. Per checkout: pull, restart, update, install again,
+      verify the install and the imports.
+- [x] Record the decision on the folder name (keep it, so the install record stays linked) and the
+      `git remote set-url` line for checkouts of this repo
+- [x] One line for the business mirror, which follows the name by default, so the release notes have
+      to carry that migration
 
 ### TEST
 
+- [x] Gates left to `ship-pr` (the sweep's step 4)
+
 ### DEPLOY: docs/3661-dkj-marketplace-migration
 
-**Score:**
+The adoption page now has the procedure for the coming rename to `dkj-marketplace`
+([#3660](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3660)), in the order it has to run:
+first each consuming repo's settings, imports and CI runners, then one `marketplace remove` per machine,
+then a reinstall and verification in every checkout. Local checkout folders keep their name. Nothing is
+renamed yet, and the procedure says it applies only from the release that carries the rename
+([#3661](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3661)).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer can read ahead what the rename will ask of them, but nothing changes for them until that
+release. This entry is the preview, and that release is the act.
+
+**Score:** 2
 
 #### Pull Request
 
