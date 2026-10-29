@@ -41,9 +41,8 @@
 
 #### Status
 
-A visible result: parked by a sweep for the owner's eye, no PR until they have looked (#3649 carries
-`awaiting-review-dev`). Cut from `main` beside `feat/3648-btn-hover`, which edits the line after
-`.btn--primary`, so whichever merges second takes a one-line conflict.
+A visible result, looked at and approved by the owner (Maikel, October 29, 2026). Merged `main` after #3654 and
+resolved its one-line conflict: both the bold weight and the new hover rule stand.
 
 ### CREATE
 
@@ -53,7 +52,7 @@ A visible result: parked by a sweep for the owner's eye, no PR until they have l
 
 ### TEST
 
-- [ ] The owner's look at a primary button, plain and touch, in bold
+- [x] The owner's look at a primary button, plain and touch, in bold (approved, October 29, 2026)
 
 ### DEPLOY: feat/3649-btn-primary-bold
 

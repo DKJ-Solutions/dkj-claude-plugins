@@ -801,6 +801,8 @@ function Assert-TrunkMatchesOrigin([string]$Moment) {
     $ahead  = @($aheadLog.Output | Where-Object { "$_".Trim() })
     if ($behind.Count -eq 0 -and $ahead.Count -eq 0) {
         Write-Host "origin check ($Moment): main is origin/main." -ForegroundColor Green
+        # Measured, not assumed: only this line may let a first round ask CI about HEAD (#3645).
+        $script:CutHeadIsOrigin = $true
         return
     }
     $lines = @()
@@ -842,6 +844,71 @@ $script:CutCatchUpMaxRounds = 3
 # How many extra reads the catch-up spends on a check that has not REGISTERED yet on the new tip, one per
 # CiCertificateWaitPollSeconds -- the seconds between a merge and its push run appearing (#3155).
 $script:CutCatchUpRegistrationReads = 4
+# How long a FIRST round waits for a main-push run still in flight on HEAD before it runs the gates itself
+# (#3645). Below the local gate's own cost, because the wait only pays while what is left of the CI run is
+# shorter than the gate: main-push runs took 220-590s (15 runs, October 28-29, 2026), an uncontended local
+# gate 382-422s. A wrong number costs wall-clock and never coverage -- every exit that is not a green
+# certificate runs the gates, as before.
+$script:CutRoundOneCiWaitSeconds = 300
+
+function Read-MainPushCertificate {
+    <#
+        Has the CI run that a push to the trunk started proved this exact commit green? Reads the commit's
+        check runs, gives a check that has not registered yet a bounded grace, and waits up to -WaitSeconds
+        for one still in flight. Returns Get-CiTestCertificate's object; Certified is the only yes.
+
+        ONE READER FOR BOTH MOMENTS. The catch-up (#3155) asks it about origin/main's new tip after the gates;
+        a first round (#3645) asks it about HEAD before them, when HEAD is origin/main. The question is the
+        same, so the judging, the grace and the wait are the same, and only the bound on the wait differs.
+    #>
+    param([string]$Sha, [string]$CheckName, [string]$RepoName, [int]$WaitSeconds)
+
+    $short = $Sha.Substring(0, 8)
+    # Per page 100: the API's default 30 can leave the named check off the first page of a busy commit,
+    # and absent is a refusal, so a short page would refuse a green run.
+    $readChecks = {
+        $rcCap = Invoke-NativeCapture -FilePath 'gh' -Arguments @('api', "repos/$RepoName/commits/$Sha/check-runs?per_page=100") -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
+        if (-not (Test-NativeExitMeasured -Capture $rcCap) -or $rcCap.ExitCode -ne 0) { return $null }
+        [pscustomobject]@{ PrHeadSha = $Sha; RequiredChecksJson = (ConvertTo-CommitCheckBucketsJson -CheckRunsJson (@($rcCap.Output) -join "`n")) }
+    }
+    $first = & $readChecks
+    if ($null -eq $first) {
+        return [pscustomobject]@{ Certified = $false; InFlight = $false; Note = ("the CI run for {0} could not be read (gh api)" -f $short) }
+    }
+    $cert = Get-CiTestCertificate -HeadSha $Sha -PrHeadSha $first.PrHeadSha -RequiredChecksJson $first.RequiredChecksJson -CheckName $CheckName
+
+    # A REGISTRATION GRACE, because the race this exists for lands here too (code review of #3155): a merge
+    # seconds before this read has a push run that has not registered its check yet, and "not registered"
+    # is a refusal by design -- it cannot be told apart from a check this commit will never get. So a
+    # few reads, bounded, while the named check is ABSENT; anything it then says is judged as before.
+    $wantedName = Get-DisplayRef -Ref $CheckName
+    $isAbsent = {
+        param($Reading)
+        if ($null -eq $Reading) { return $true }
+        return (Test-NamedCheckUnregistered -RequiredChecksJson $Reading.RequiredChecksJson -CheckName $CheckName)
+    }
+    $graceLeft = $script:CutCatchUpRegistrationReads
+    while (-not $cert.Certified -and -not $cert.InFlight -and $graceLeft -gt 0 -and (& $isAbsent $first)) {
+        Write-Host "  '$wantedName' has not registered on $short yet -- reading again in $($script:CiCertificateWaitPollSeconds)s ($graceLeft left)." -ForegroundColor DarkGray
+        Start-Sleep -Seconds $script:CiCertificateWaitPollSeconds
+        $graceLeft--
+        $next = & $readChecks
+        if ($null -eq $next) { continue }
+        $first = $next
+        $cert = Get-CiTestCertificate -HeadSha $Sha -PrHeadSha $first.PrHeadSha -RequiredChecksJson $first.RequiredChecksJson -CheckName $CheckName
+    }
+    if (-not $cert.Certified -and $cert.InFlight -and $WaitSeconds -gt 0) {
+        Write-Host "  $($cert.Note) -- waiting for it, up to $([Math]::Round($WaitSeconds / 60.0, 1)) min, one read every $($script:CiCertificateWaitPollSeconds)s." -ForegroundColor Cyan
+        $cert = Wait-CiTestCertificate -HeadSha $Sha -CheckName $CheckName -Reader $readChecks `
+                                       -MaxLaps ([Math]::Ceiling($WaitSeconds / [double]$script:CiCertificateWaitPollSeconds)) `
+                                       -TimeoutSeconds $WaitSeconds `
+                                       -Sleeper { Start-Sleep -Seconds $script:CiCertificateWaitPollSeconds } `
+                                       -OnLap { param($lap, $elapsed) Write-Host ("  still running -- read {0}, {1}s elapsed." -f $lap, [int]$elapsed) -ForegroundColor DarkGray }
+    }
+    return $cert
+}
+# Set by the origin check's in-sync line, and by nothing else (#3645).
+$script:CutHeadIsOrigin = $false
 
 function Invoke-TrunkCatchUp {
     <#
@@ -890,45 +957,7 @@ function Invoke-TrunkCatchUp {
     $Lines | Select-Object -Skip 1 | ForEach-Object { Write-Host $_ -ForegroundColor Yellow }
     Write-Host "  asking the main-push CI run whether '$(Get-DisplayRef -Ref $CheckName)' has proved $short instead (#3155)." -ForegroundColor Cyan
 
-    # Per page 100: the API's default 30 can leave the named check off the first page of a busy commit,
-    # and absent is a refusal, so a short page would refuse a green run.
-    $readChecks = {
-        $rcCap = Invoke-NativeCapture -FilePath 'gh' -Arguments @('api', "repos/$RepoName/commits/$tip/check-runs?per_page=100") -DiscardStderr -TimeoutSeconds $NativeCaptureNetworkTimeoutSeconds
-        if (-not (Test-NativeExitMeasured -Capture $rcCap) -or $rcCap.ExitCode -ne 0) { return $null }
-        [pscustomobject]@{ PrHeadSha = $tip; RequiredChecksJson = (ConvertTo-CommitCheckBucketsJson -CheckRunsJson (@($rcCap.Output) -join "`n")) }
-    }
-    $first = & $readChecks
-    if ($null -eq $first) { return ("the CI run for {0} could not be read (gh api)" -f $short) }
-    $cert = Get-CiTestCertificate -HeadSha $tip -PrHeadSha $first.PrHeadSha -RequiredChecksJson $first.RequiredChecksJson -CheckName $CheckName
-
-    # A REGISTRATION GRACE, because the race this exists for lands here too (code review of #3155): a merge
-    # seconds before this read has a push run that has not registered its check yet, and "not registered"
-    # is a refusal by design -- it cannot be told apart from a check this commit will never get. So a
-    # few reads, bounded, while the named check is ABSENT; anything it then says is judged as before.
-    $wantedName = Get-DisplayRef -Ref $CheckName
-    $isAbsent = {
-        param($Reading)
-        if ($null -eq $Reading) { return $true }
-        return (Test-NamedCheckUnregistered -RequiredChecksJson $Reading.RequiredChecksJson -CheckName $CheckName)
-    }
-    $graceLeft = $script:CutCatchUpRegistrationReads
-    while (-not $cert.Certified -and -not $cert.InFlight -and $graceLeft -gt 0 -and (& $isAbsent $first)) {
-        Write-Host "  '$wantedName' has not registered on $short yet -- reading again in $($script:CiCertificateWaitPollSeconds)s ($graceLeft left)." -ForegroundColor DarkGray
-        Start-Sleep -Seconds $script:CiCertificateWaitPollSeconds
-        $graceLeft--
-        $next = & $readChecks
-        if ($null -eq $next) { continue }
-        $first = $next
-        $cert = Get-CiTestCertificate -HeadSha $tip -PrHeadSha $first.PrHeadSha -RequiredChecksJson $first.RequiredChecksJson -CheckName $CheckName
-    }
-    if (-not $cert.Certified -and $cert.InFlight) {
-        Write-Host "  $($cert.Note) -- waiting for it, up to $([int]($script:CiCertificateWaitSeconds / 60)) min, one read every $($script:CiCertificateWaitPollSeconds)s." -ForegroundColor Cyan
-        $cert = Wait-CiTestCertificate -HeadSha $tip -CheckName $CheckName -Reader $readChecks `
-                                       -MaxLaps ([Math]::Ceiling($script:CiCertificateWaitSeconds / [double]$script:CiCertificateWaitPollSeconds)) `
-                                       -TimeoutSeconds $script:CiCertificateWaitSeconds `
-                                       -Sleeper { Start-Sleep -Seconds $script:CiCertificateWaitPollSeconds } `
-                                       -OnLap { param($lap, $elapsed) Write-Host ("  still running -- read {0}, {1}s elapsed." -f $lap, [int]$elapsed) -ForegroundColor DarkGray }
-    }
+    $cert = Read-MainPushCertificate -Sha $tip -CheckName $CheckName -RepoName $RepoName -WaitSeconds $script:CiCertificateWaitSeconds
     if (-not $cert.Certified) { return ("the main-push CI run did not certify {0}: {1}" -f $short, $cert.Note) }
     Write-Host "  $($cert.Note) -- fast-forwarding main and cutting again on it." -ForegroundColor Green
 
@@ -947,6 +976,10 @@ function Invoke-TrunkCatchUp {
     & powershell @childArgs | Out-Host
     exit $LASTEXITCODE
 }
+# THE STEP MARKS (issue #3646): one line per step the cut enters, in the opt-in step log run-progress-lib.ps1
+# keeps (DKJ_RUN_STEP_LOG), so the Stopwatch can split a cut the way it splits a ship (#3338). A no-op where the
+# log is off or the lib is absent. A catch-up re-run marks its own steps from here again.
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'origin-check-before') }
 Assert-TrunkMatchesOrigin -Moment 'before the gates'
 
 # ISSUE #885, GROUP D: inverted from a name blocklist to a CONTENT test. The old form treated every
@@ -1410,7 +1443,28 @@ if ($CatchUpCertifiedSha) {
     } else {
         Write-Host "lint + test gates: HEAD is not the commit the catch-up certified ($(Get-DisplayRef -Ref $CatchUpCertifiedSha)), so both run." -ForegroundColor Yellow
     }
+} elseif ($script:CutHeadIsOrigin -and -not ($SkipLint -and $SkipTests)) {
+    # A FIRST ROUND ASKS THE SAME CERTIFICATE (#3645). The origin check before the gates has just measured
+    # HEAD to be origin/main, so the main-push run for HEAD is the lint and the suites on a clean checkout
+    # of exactly the tree this cut tags -- the proof the catch-up already accepts (#3155). Measured at the
+    # v5.36.0 cut: the local gate was about half of a 15-minute cut, re-proving a commit CI had proved.
+    # Anything short of green -- no named check, no slug, a red, unreadable or still-running run past the
+    # bound -- runs both gates exactly as before.
+    $r1CheckName = if (Test-FunctionDefined 'Get-CiTestCheckName') { [string](Get-CiTestCheckName) } else { '' }
+    $r1RepoName  = [string](Get-SeamValue -Name 'Get-RepoName' -Default '')
+    $r1Head = (@((Invoke-NativeCapture -FilePath 'git' -Arguments @('rev-parse', 'HEAD') -DiscardStderr).Output) -join '').Trim()
+    if ($r1CheckName.Trim() -and $r1RepoName.Trim() -and $r1Head -match '^[0-9a-f]{40}$') {
+        Write-Host "lint + test gates: asking the main-push CI run whether '$(Get-DisplayRef -Ref $r1CheckName)' has proved $($r1Head.Substring(0, 8)) already (#3645)." -ForegroundColor Cyan
+        $r1Cert = Read-MainPushCertificate -Sha $r1Head -CheckName $r1CheckName -RepoName $r1RepoName -WaitSeconds $script:CutRoundOneCiWaitSeconds
+        if ($r1Cert.Certified) {
+            $catchUpCertified = $true
+            Write-Host "lint + test gates: certified by the main-push CI run for $($r1Head.Substring(0, 8)) ($($r1Cert.Note), #3645) -- not run locally." -ForegroundColor Green
+        } else {
+            Write-Host "lint + test gates: not certified ($($r1Cert.Note)), so both run locally." -ForegroundColor Yellow
+        }
+    }
 }
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'lint') }
 if (-not $SkipLint -and -not $catchUpCertified) {
     $lintRel  = Get-SeamValue -Name 'Get-LintScript' -Default 'scripts\lint\check-plugin-integrity.ps1'
     $lintPath = Join-Path $repoRoot $lintRel
@@ -1444,6 +1498,7 @@ if (-not $SkipLint -and -not $catchUpCertified) {
 #
 # Shares Invoke-TestSuiteGate with open-pr.ps1 rather than repeating its loop -- one owner, so the two
 # gates cannot drift into checking different things.
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'tests') }
 if (-not $SkipTests -and -not $catchUpCertified) {
     if (-not (Invoke-TestSuiteGate -TestsDir (Join-Path $repoRoot 'scripts\tests') -Context 'the release' -MaxParallel $MaxParallel)) {
         Write-Error "test gate found failing suites -- release aborted, nothing written. Fix the tests, or run with -SkipTests to cut without them."
@@ -1453,12 +1508,14 @@ if (-not $SkipTests -and -not $catchUpCertified) {
 
 # The second origin check (#2899): the gates above are the minutes in which a merge lands, so look again
 # before the first write rather than trusting the look taken before them.
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'origin-check-after') }
 Assert-TrunkMatchesOrigin -Moment 'after the gates'
 
 # THE BUILDS THE RELEASE SHIPS (#3210), run here: after the gates, before the first write. A failed command
 # aborts with nothing written, because a build only writes into its Output, which git ignores. One that touches
 # anything git sees -- a lockfile rewritten by an install, say -- aborts as well: git add -A would put it in the
 # release commit, and the commit is bounded to what the cut itself writes.
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'builds') }
 foreach ($b in $releaseBuilds) {
     Write-Host "release build: $($b.Name)..." -ForegroundColor Cyan
     # A stale output from an earlier local build must not ship beside the new one (code review, #3210).
@@ -1486,6 +1543,7 @@ foreach ($b in $releaseBuilds) {
     }
 }
 
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'write') }
 # --- Build content (before the write actions, so a parse error leaves nothing behind) --------
 # The notes folder: '<X>.x' per major (this workshop) or '<X.Y>' per minor, from the seam (#417).
 # $notesDirName is used for the path, the README row link and the directory creation below, so the
@@ -2048,6 +2106,15 @@ function Write-FollowUpSteps {
     } else {
         Write-Host "      no entry reached tier $audienceTier, so it carries its header only."
     }
+    # THE COMMIT LINE IS PRINTED, VERSION FILLED IN (#3647). The Stopwatch's Stop hook ends a release run
+    # only on a subject matching '^release: v\d+\.\d+\.\d+ release notes' (Invoke-StopwatchHookEvent), and
+    # fails silently on any other. At v5.37.0 the notes went in as 'release-notes: v5.37.0 audience
+    # document', so the run stayed open; the subject lived on the skill page only, and this output is
+    # what is read at that moment.
+    Write-Host "  then commit it with exactly this subject -- the Stopwatch ends the cut's run on it:"
+    Write-Host "    git add $noteRelPath"
+    Write-Host "    git commit -m `"release: $tagName release notes`""
+    Write-Host "    git push origin main"
 }
 
 function Write-ParkedForRelease {
@@ -2191,6 +2258,7 @@ function Write-SelfConsumptionReminder {
 # `git add` (#107). Invoke-NativeCapture (#114) runs each git call under EAP=Continue and hands back
 # output + exit code, so we rely purely on $LASTEXITCODE; the captured chatter is echoed so the
 # release run stays as verbose as before.
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'commit-tag') }
 $add = Invoke-NativeCapture -FilePath 'git' -Arguments @('add', '-A')
 $add.Output | ForEach-Object { Write-Host $_ }
 if ($add.ExitCode -ne 0) { Write-Error "git add failed."; exit 1 }
@@ -2218,6 +2286,7 @@ if ($NoPush) {
     exit 0
 }
 
+if (Test-FunctionDefined 'Add-RunStepMark') { [void](Add-RunStepMark -Run 'cut-release' -Step 'push') }
 $pushMain = Invoke-NativeCapture -FilePath 'git' -Arguments @('push', 'origin', 'main')
 $pushMain.Output | ForEach-Object { Write-Host $_ }
 if ($pushMain.ExitCode -ne 0) { Write-Error "git push of main failed."; exit 1 }
