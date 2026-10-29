@@ -39,19 +39,41 @@
 
 ### PLAN
 
+#### Status
+
+A visible result: parked by a sweep for the owner's eye, no PR until they have looked (#3648 carries
+`awaiting-review-dev`). Look at any `.btn` and `.btn--primary` under the pointer and on keyboard focus, in a
+light and a dark theme -- `specimens.html` shows a primary button per theme.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `.btn:hover:not(:disabled)`: the house hover tint `--paper-3`, border one step on to `--paper-4`
+- [x] `.btn:focus-visible` for every variant (the plain `.btn` had none); the identical `.btn--primary` and
+  `.btn--touch` focus rules it replaces are removed
+- [x] `.btn--primary:hover:not(:disabled)`: fill and border 15% toward `--fg-1` via `color-mix`, so the
+  `--paper-1` label gains contrast in light and dark themes alike; outweighs `.btn--touch.btn--primary`
+- [x] README: the reserved-class list, the Buttons note and the brand-book "not carried over" line name the new states
 
 ### TEST
 
+- [ ] The owner's look at the hover and focus states in a light and a dark theme
+
 ### DEPLOY: feat/3648-btn-hover
 
-**Score:**
+A house `.btn` now answers the pointer: an outline button takes the `--paper-3` hover tint with a
+`--paper-4` edge, and a `.btn--primary` fill moves 15% toward `--fg-1` -- darker on a light theme,
+lighter on a dark one, so its label gains contrast either way. A disabled button keeps still. The plain
+`.btn` also gets the `--muted` keyboard focus ring the primary and touch variants already had, now one
+rule for every variant.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+An app built on the house style shows hover feedback on every button once it takes this version, with
+nothing to change in its own layer (asked for from `dkj-music-library`).
+
+**Score:** 2
 
 #### Pull Request
 
