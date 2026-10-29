@@ -479,7 +479,7 @@ p, p.meta { color: var(--fg-1); }
 .moretoggle:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 
 /* ---- Primary button -------------------------------------------------------- */
-.btn--primary { background: var(--primary); border-color: var(--primary); color: var(--paper-1); font-weight: 600; }
+.btn--primary { background: var(--primary); border-color: var(--primary); color: var(--paper-1); font-weight: 700; }   /* bold: the filled main action (owner, #3649) */
 /* Hover: the fill moves 15% toward --fg-1, so it darkens on a light theme and lightens on a dark one, and the
    --paper-1 label gains contrast either way. It outweighs the plain .btn hover above and .btn--touch.btn--primary below. */
 .btn--primary:hover:not(:disabled) { background: color-mix(in srgb, var(--primary) 85%, var(--fg-1)); border-color: color-mix(in srgb, var(--primary) 85%, var(--fg-1)); }
@@ -584,7 +584,7 @@ p, p.meta { color: var(--fg-1); }
 .btn--touch { display: inline-flex; align-items: center; justify-content: center; min-height: var(--tap);
   padding: var(--spacing-2-5) var(--spacing-4); font-size: var(--text-base); font-weight: 600; color: var(--fg-1);
   background: var(--paper-2); -webkit-tap-highlight-color: transparent; }
-.btn--touch.btn--primary { background: var(--primary); border-color: var(--primary); color: var(--paper-1); }
+.btn--touch.btn--primary { background: var(--primary); border-color: var(--primary); color: var(--paper-1); font-weight: 700; }
 .btn--block { width: 100%; }
 
 /* ---- Icon button and action row --------------------------------------------- */
