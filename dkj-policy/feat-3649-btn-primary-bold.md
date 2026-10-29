@@ -39,19 +39,35 @@
 
 ### PLAN
 
+#### Status
+
+A visible result: parked by a sweep for the owner's eye, no PR until they have looked (#3649 carries
+`awaiting-review-dev`). Cut from `main` beside `feat/3648-btn-hover`, which edits the line after
+`.btn--primary`, so whichever merges second takes a one-line conflict.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `.btn--primary` `font-weight: 600` → `700`
+- [x] `.btn--touch.btn--primary` restates `700`: `.btn--touch` sets 600 later in the file at the same weight,
+  so without it a touch primary stayed semibold
 
 ### TEST
 
+- [ ] The owner's look at a primary button, plain and touch, in bold
+
 ### DEPLOY: feat/3649-btn-primary-bold
 
-**Score:**
+The label of a house `.btn--primary` is bold (700) instead of semibold (600), the touch variant
+`.btn--touch.btn--primary` included, so the filled main action stands out further from an outline button.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+An app built on the house style shows every primary button in bold once it takes this version, with
+nothing to change in its own layer (asked for from `dkj-music-library`).
+
+**Score:** 2
 
 #### Pull Request
 

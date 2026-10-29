@@ -475,7 +475,7 @@ p, p.meta { color: var(--fg-1); }
 .moretoggle:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 
 /* ---- Primary button -------------------------------------------------------- */
-.btn--primary { background: var(--primary); border-color: var(--primary); color: var(--paper-1); font-weight: 600; }
+.btn--primary { background: var(--primary); border-color: var(--primary); color: var(--paper-1); font-weight: 700; }   /* bold: the filled main action (owner, #3649) */
 .btn--primary:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
 /* Disabled: one rule for every .btn variant, so an app never adds its own on this reserved class. */
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -578,7 +578,7 @@ p, p.meta { color: var(--fg-1); }
 .btn--touch { display: inline-flex; align-items: center; justify-content: center; min-height: var(--tap);
   padding: var(--spacing-2-5) var(--spacing-4); font-size: var(--text-base); font-weight: 600; color: var(--fg-1);
   background: var(--paper-2); -webkit-tap-highlight-color: transparent; }
-.btn--touch.btn--primary { background: var(--primary); border-color: var(--primary); color: var(--paper-1); }
+.btn--touch.btn--primary { background: var(--primary); border-color: var(--primary); color: var(--paper-1); font-weight: 700; }
 .btn--touch:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
 .btn--block { width: 100%; }
 
