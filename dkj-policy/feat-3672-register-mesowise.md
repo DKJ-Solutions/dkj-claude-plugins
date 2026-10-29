@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Resolves #3672. dkj-maplestory-classic-mesowise had project-scope installs but no manifest in
+`connectors/`, so the flag day's consumer list (#3664) missed it. Its own migration
+(DKJ-Solutions/dkj-maplestory-classic-mesowise#291) has landed, so it is registered straight under the
+`@dkj-marketplace` ids it enables.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `connectors/dkj-maplestory-classic-mesowise.json`: repo, visibility (public), `localCheckout`, the
+      three enabled plugins and the 19 alpha lenses, every field measured against the consumer's
+      `origin/main`. `dkj-subagents-shopify` is `false` there and is not registered.
 
 ### TEST
 
+- [x] `check-connectors.ps1`: 0 errors; all three plugins read as enabled, all 19 extensions present, and
+      every machine record is on v6.0.0. Its two INFO lines are the consumer's own CI runners pinned at
+      `v5.13.0`, which this change does not affect. The gates are left to `ship-pr`.
+
 ### DEPLOY: feat/3672-register-mesowise
 
-**Score:**
+The connector register now names dkj-maplestory-classic-mesowise, so the session check covers its
+plugins and a later rename or marketplace move lists it among the consumers
+([#3672](https://github.com/DKJ-Solutions/dkj-marketplace/issues/3672)).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the register is this repo's own bookkeeping.
+
+**Score:** N/A
 
 #### Pull Request
 
