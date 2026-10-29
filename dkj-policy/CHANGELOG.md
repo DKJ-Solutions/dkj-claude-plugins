@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**6 / 7 minor entries** <!-- pending-tally -->
+**7 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/sessionstart-spinner-timing · 20261029-185628Z
+
+A session start now says what it is waiting on and how long it took. Every SessionStart hook of the
+enabled plugins carries a `statusMessage`, so the spinner names the step, and the session-check
+dispatcher ends its message with one line such as `sessionstart: 5.9 s in the dispatcher -- prep 0.5 s
+(trunk-sync), checks 5.4 s (slowest: connector 5.0 s, ...)`. The line goes to the person only, never into
+the model's context. The first measurement already names the slow step: the connector check.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+Whoever runs these plugins now sees a named spinner while a session starts and a measured duration once
+it has, instead of a silent pause.
+
+**Score:** 3
+
+#### Pull Request
+
+SessionStart shows a spinner message and reports how long it took
+
+Plugins: dkj-policy, dkj-solutions, dkj-subagents-alpha
+
+[PR #3659](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3659)
+
+---
 
 ### DEPLOY: feat/plugins-cards-installed-vs-marketplace · 20261029-182230Z
 

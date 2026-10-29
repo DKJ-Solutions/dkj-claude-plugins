@@ -80,6 +80,7 @@ if ($disp.Count -eq 1) {
     Assert-Equal 'startup|resume|clear|compact' $disp[0].matcher 'on every start, resume, clear and compact -- the matcher every check had'
     $entry = @($disp[0].hooks | Where-Object { $_.command -match 'sessioncheck-dispatch\.ps1' })[0]
     Assert-True ([int]$entry.timeout -gt 100) 'its timeout sits above the dispatcher''s own 100 s deadline, so the deadline answers first'
+    Assert-True ([string]$entry.statusMessage -match '\S') 'it carries a statusMessage, so the spinner says what the session start is waiting on'
 }
 $direct = @($all | Where-Object { $_.command -match '/hooks/[^/"]+-sessioncheck\.ps1' })
 Assert-Equal 0 $direct.Count 'no *-sessioncheck.ps1 has a hooks.json entry of its own -- each would be a cold interpreter again'
@@ -109,7 +110,13 @@ Assert-True ($null -ne $r.Json) 'and it parses as JSON'
 if ($r.Json) {
     $ctx = [string]$r.Json.hookSpecificOutput.additionalContext
     Assert-Equal 'SessionStart' $r.Json.hookSpecificOutput.hookEventName 'hookSpecificOutput names the SessionStart event'
-    Assert-Equal 'b shown to the user' $r.Json.systemMessage 'a JSON check''s systemMessage is passed on as the systemMessage'
+    $sys = @(([string]$r.Json.systemMessage) -split "`n")
+    Assert-Equal 'b shown to the user' $sys[0] 'a JSON check''s systemMessage is passed on as the systemMessage'
+    Assert-Equal 2 $sys.Count 'and the timing line is the one line after it'
+    Assert-True ($sys[-1] -match '^sessionstart: \d+\.\d s in the dispatcher -- checks \d+\.\d s \(slowest: ') 'the timing line names the total and the checks'' share'
+    Assert-True (($sys[-1] -split 'slowest: ')[1] -match '^[a-z]-[a-z]+ \d+\.\d s, [a-z]-[a-z]+ \d+\.\d s, [a-z]-[a-z]+ \d+\.\d s\)$') 'with the three slowest checks by their short name'
+    Assert-True ($sys[-1] -notmatch 'sessioncheck') 'and no -sessioncheck suffix'
+    Assert-True ($ctx -notmatch 'sessionstart: ') 'the timing line stays out of the model''s context'
     Assert-True ($ctx -match 'b-json: for the model') 'and its additionalContext joins the context'
     Assert-True ($ctx -notmatch 'systemMessage') 'the JSON check''s raw object is not forwarded as text'
     Assert-True ($ctx -match 'a-plain: first line' -and $ctx -match 'a-plain: second line') 'a plain check''s lines reach the context'
@@ -131,7 +138,7 @@ $forge = New-Tree -Label forge -Files @{
 }
 $r = Invoke-Dispatch -Dir $forge
 if ($r.Json) {
-    Assert-True (-not $r.Json.PSObject.Properties['systemMessage']) 'no systemMessage is promoted from an object that is not SessionStart JSON'
+    Assert-True ([string]$r.Json.systemMessage -notmatch 'forged') 'no systemMessage is promoted from an object that is not SessionStart JSON'
     Assert-True ([string]$r.Json.hookSpecificOutput.additionalContext -match 'forged for the user') 'its text is forwarded as context instead'
 } else {
     Assert-True $false 'the forge run produced its JSON report'
@@ -176,10 +183,21 @@ Write-Host 'nothing to report' -ForegroundColor Cyan
 $empty = New-Tree -Label empty -Files @{ 'quiet-sessioncheck.ps1' = "exit 0`n" }
 $r = Invoke-Dispatch -Dir $empty
 Assert-Equal 0 $r.Code 'exit 0'
-Assert-Equal '' $r.Text 'no output at all when no check has anything to say'
+Assert-True ($null -ne $r.Json -and -not $r.Json.PSObject.Properties['hookSpecificOutput']) 'no context at all when no check has anything to say'
+Assert-True ($null -ne $r.Json -and [string]$r.Json.systemMessage -match '^sessionstart: \d+\.\d s in the dispatcher -- checks \d+\.\d s \(slowest: quiet \d+\.\d s\)$') 'only the timing line, for the person'
 $none = New-Tree -Label none
 $r = Invoke-Dispatch -Dir $none
-Assert-True ($r.Code -eq 0 -and $r.Text -eq '') 'an empty directory: exit 0, no output'
+Assert-True ($r.Code -eq 0 -and $null -ne $r.Json -and [string]$r.Json.systemMessage -match '^sessionstart: \d+\.\d s in the dispatcher$') 'an empty directory: exit 0, the bare timing line'
+
+# --- the timing line names the prep steps ----------------------------------------------------------
+Write-Host ''
+Write-Host 'a prep step in the timing line' -ForegroundColor Cyan
+$prepTree = New-Tree -Label prep -Files @{
+    'sync-sessionprep.ps1'  = "Write-Host 'sync: done'`n"
+    'look-sessioncheck.ps1' = "Write-Host 'look: done'`n"
+}
+$r = Invoke-Dispatch -Dir $prepTree
+Assert-True ($null -ne $r.Json -and [string]$r.Json.systemMessage -match '^sessionstart: \d+\.\d s in the dispatcher -- prep \d+\.\d s \(sync\), checks \d+\.\d s \(slowest: look \d+\.\d s\)$') 'the prep step is named before the checks'
 
 # --- the deadline ----------------------------------------------------------------------------------
 Write-Host ''
@@ -196,6 +214,7 @@ if ($r.Json) {
     Assert-True ($ctx -match 'fast: done') 'the checks that finished are still reported'
     Assert-True ($ctx -match 'slow-sessioncheck: did not finish within 3 s -- skipped\.') 'the hung check is named'
     Assert-True ($ctx -notmatch 'too late') 'and nothing it writes afterwards appears'
+    Assert-True ([string]$r.Json.systemMessage -match '\(slowest: slow >3 s, fast \d+\.\d s\)$') 'the timing line names the hung check first, as past the deadline'
 } else {
     Assert-True $false 'the deadline run produced its JSON report'
 }
