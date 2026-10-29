@@ -39,19 +39,42 @@
 
 ### PLAN
 
+#3645: a first round of `cut-release` reads the main-push CI certificate for HEAD the way the
+catch-up does (#3155), and skips the local lint and test gates on green. The in-flight wait is
+bounded below the local gate's cost (300s against 382-422s uncontended; main-push runs measured at
+220-590s over 15 runs, October 28-29, 2026).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `cut-release.ps1` (both copies): the catch-up's certificate read moved into
+      `Read-MainPushCertificate`, shared by the catch-up and the first round
+- [x] The first round asks it only when the origin check before the gates measured main = origin/main
+      (`$script:CutHeadIsOrigin`), so `-SkipOriginCheck` keeps the local gates
+- [x] `gate-lib.tests.ps1`: wiring asserts for the first round
+- [x] `cut-release` SKILL.md: the first round's paragraph
 
 ### TEST
 
+- [x] `gate-lib.tests.ps1` green (328 pass), parser clean on `cut-release.ps1`
+- [~] A live first-round read on a real cut -- only a cut exercises it, and a cut is the owner's to ask for
+
 ### DEPLOY: feat/3645-cut-certified-round-one
 
-**Score:**
+A release cut whose `main` already equals `origin/main` now asks the CI run that the push to the
+trunk started whether it has proved that exact commit green, before running the lint and test gates
+locally. On green it skips both and says so; a run still in flight is waited on for up to five
+minutes; anything else runs the gates as before. On the v5.36.0 cut the local gate was about half of
+the 15 minutes. The certificate reader is now one function, shared with the catch-up (#3155).
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+A maintainer cutting a release in a repo that names its CI check (`Get-CiTestCheckName`) and slug
+sees the cut skip the local gate when CI already proved the commit, and finish several minutes
+sooner.
+
+**Score:** 2
 
 #### Pull Request
 
