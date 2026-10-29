@@ -41,9 +41,7 @@
 
 #### Status
 
-A visible result: parked by a sweep for the owner's eye, no PR until they have looked (#3648 carries
-`awaiting-review-dev`). Look at any `.btn` and `.btn--primary` under the pointer and on keyboard focus, in a
-light and a dark theme -- `specimens.html` shows a primary button per theme.
+A visible result, looked at and approved by the owner (Maikel, October 29, 2026).
 
 ### CREATE
 
@@ -56,7 +54,7 @@ light and a dark theme -- `specimens.html` shows a primary button per theme.
 
 ### TEST
 
-- [ ] The owner's look at the hover and focus states in a light and a dark theme
+- [x] The owner's look at the hover and focus states in a light and a dark theme (approved, October 29, 2026)
 
 ### DEPLOY: feat/3648-btn-hover
 
