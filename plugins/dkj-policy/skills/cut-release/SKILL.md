@@ -260,6 +260,14 @@ a release for a missing timestamp would be ceremony rather than a guard.
      AHEAD, the check is not named, the CI run is red or cannot be read, or the trunk is still moving after
      three rounds. Before the gates, a first run still refuses: nothing has been paid yet, so running the
      gates on the new tree is the stronger proof.
+
+     **A first run whose `main` IS `origin/main` asks the same question before it runs the gates**
+     ([#3645](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3645)). Measured at the v5.36.0
+     cut: the local gate was about half of a 15-minute cut, re-proving a commit the main-push run had
+     already proved. So where the check and the slug are named, the cut reads that run for HEAD, waits up
+     to five minutes while it is still running, and on green skips the lint and test gates and says so.
+     Anything else (red, unreadable, still running past the bound, or `-SkipOriginCheck`, which leaves
+     HEAD unmeasured) runs both gates locally, as before.
    - **`-Type <major|minor|patch>` — state the bump type instead of letting it be inferred.** Belongs with
      `-Version`; refused alongside `-Bump`, which says the same thing already. **You need it in exactly one
      situation**: a repo whose git tag line and whose recorded release numbering have deliberately

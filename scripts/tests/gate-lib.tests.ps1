@@ -1321,6 +1321,13 @@ exit __EXIT__
     Assert-True ($cutSrc -match "merge', '--ff-only'") 'and the catch-up only ever fast-forwards'
     Assert-True ($cutSrc -match 'Test-NamedCheckUnregistered -RequiredChecksJson \$Reading\.RequiredChecksJson') 'and its registration grace asks Test-NamedCheckUnregistered (#3512)'
 
+    # A FIRST ROUND (#3645) asks the same reader, and only once the origin check measured HEAD = origin/main.
+    Assert-True ($cutSrc -match 'elseif \(\$script:CutHeadIsOrigin -and -not \(\$SkipLint -and \$SkipTests\)\)') 'a first round asks CI only when the origin check found main IS origin/main'
+    Assert-Equal 1 ([regex]::Matches($cutSrc, 'CutHeadIsOrigin = \$true')).Count 'and exactly one line -- the in-sync one -- sets that'
+    Assert-Equal 2 ([regex]::Matches($cutSrc, 'Read-MainPushCertificate -Sha ')).Count 'the catch-up and the first round share one certificate reader'
+    Assert-True ($cutSrc -match '-WaitSeconds \$script:CutRoundOneCiWaitSeconds') 'and a first round waits on a run in flight only up to its own, shorter bound'
+    Assert-True ($cutSrc -match "if \(\`$r1Cert\.Certified\) \{\s+\`$catchUpCertified = \`$true") 'and stands the gates down only on a green certificate'
+
 } finally {
     if (Test-Path -LiteralPath $FixtureRoot) {
         Remove-Item -Recurse -Force -LiteralPath $FixtureRoot -ErrorAction SilentlyContinue
