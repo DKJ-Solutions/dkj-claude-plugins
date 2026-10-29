@@ -31,7 +31,8 @@
           {
             "type": "command",
             "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/sessioncheck-dispatch.ps1\"",
-            "timeout": 120
+            "timeout": 120,
+            "statusMessage": "dkj-policy: syncing the trunk and running the session checks..."
           }
         ]
       },
@@ -41,7 +42,8 @@
           {
             "type": "command",
             "command": "powershell -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/dev-preview-sessionstart.ps1\"",
-            "timeout": 60
+            "timeout": 60,
+            "statusMessage": "dkj-policy: starting the local hub and preview servers..."
           }
         ]
       }
