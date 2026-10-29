@@ -1,6 +1,22 @@
 {
     "machine":  "cbd9941c",
     "runs":  [
-
+                 {
+                     "id":  "20261029-132738-8bd2",
+                     "label":  "release cut",
+                     "start":  "2026-10-29T13:27:38.348Z",
+                     "end":  "2026-10-29T13:29:10.000Z",
+                     "sessions":  1,
+                     "phases":  [
+                                    {
+                                        "name":  "Other tool calls",
+                                        "seconds":  45.565
+                                    },
+                                    {
+                                        "name":  "Claude thinking and writing",
+                                        "seconds":  46.087
+                                    }
+                                ]
+                 }
              ]
 }
