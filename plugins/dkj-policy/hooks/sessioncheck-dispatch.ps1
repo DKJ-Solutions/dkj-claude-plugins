@@ -60,6 +60,15 @@
     one hung check would silence all ten. This dispatcher stops waiting at -DeadlineSeconds, reports the
     checks that had not finished by name, and leaves the process -- comfortably inside the 120 s entry.
 
+    THE TIMING LINE. A session start had grown heavy (a trunk sync, ten checks, a hub start beside them)
+    while nothing on screen said how long it took. So the dispatcher times each prep step and each check
+    and ends its systemMessage with one line the person sees:
+        sessionstart: 3.4 s -- prep 0.9 s (trunk-sync), checks 2.5 s (slowest: connector 2.3 s, ...)
+    It goes to the systemMessage only, never to additionalContext: it is for the person waiting, and the
+    model has no use for it, so it costs no context. The interpreter's own cold start and the separate
+    dev-preview entry, which runs beside this one, are outside it -- the line says "dispatcher" time,
+    not the session's. The spinner text while this runs is hooks.json's statusMessage.
+
     The script ALWAYS ends with exit 0 -- a session start must never strand here.
 
 .PARAMETER HooksDir
@@ -83,8 +92,23 @@ function Format-DispatchSafeText([string]$Text) {
     return ((((($Text) -replace '\s+', ' ') -replace '\p{C}', '') -replace '\[', '(') -replace '\]', ')').Trim()
 }
 
+function Format-DispatchSeconds([double]$Ms) {
+    return ($Ms / 1000).ToString('0.0', [System.Globalization.CultureInfo]::InvariantCulture) + ' s'
+}
+
+# Each script's name without its pattern suffix, so the timing line reads 'connector', not
+# 'connector-sessioncheck'.
+function Get-DispatchShortName([string]$BaseName) {
+    return ($BaseName -replace '-session(check|prep)$', '')
+}
+
+$total = [System.Diagnostics.Stopwatch]::StartNew()
 $system  = New-Object System.Collections.Generic.List[string]
 $context = New-Object System.Collections.Generic.List[string]
+$prepTimes  = New-Object System.Collections.Generic.List[object]
+$checkTimes = New-Object System.Collections.Generic.List[object]
+$prepMs = 0
+$checkClock = $null
 $pool = $null
 $exitHard = $false
 
@@ -112,7 +136,9 @@ try {
     # discovery, same capture, same deadline; only the order differs.
     . $hookLib
     $deadline = [DateTime]::UtcNow.AddSeconds($DeadlineSeconds)
+    $prepClock = [System.Diagnostics.Stopwatch]::StartNew()
     foreach ($prep in @(Get-ChildItem -LiteralPath $HooksDir -Filter '*-sessionprep.ps1' -File | Sort-Object Name)) {
+        $stepClock = [System.Diagnostics.Stopwatch]::StartNew()
         try {
             $prepLines = @((Invoke-CheckScript -Path $prep.FullName).Output)
             $prepText = (@($prepLines | Where-Object { $_ -ne $null -and "$_".Trim() }) -join "`n").Trim()
@@ -120,20 +146,28 @@ try {
         } catch {
             $context.Add("$($prep.BaseName) skipped due to an error: " + (Format-DispatchSafeText $_.Exception.Message))
         }
+        $prepTimes.Add([pscustomobject]@{ Name = (Get-DispatchShortName $prep.BaseName); Ms = $stepClock.ElapsedMilliseconds })
     }
+    $prepMs = $prepClock.ElapsedMilliseconds
 
     $checks = @(Get-ChildItem -LiteralPath $HooksDir -Filter '*-sessioncheck.ps1' -File | Sort-Object Name)
 
+    $checkClock = [System.Diagnostics.Stopwatch]::StartNew()
     $pool = [runspacefactory]::CreateRunspacePool(1, [Math]::Max(1, $checks.Count))
     $pool.Open()
 
     $runs = foreach ($c in $checks) {
         $ps = [powershell]::Create()
         $ps.RunspacePool = $pool
+        # The check's own clock runs inside its runspace, so a check that waited for a pool thread is
+        # not charged for the wait. Ms rides on the result hashtable Invoke-CheckScript returns.
         [void]$ps.AddScript({
             param($lib, $path)
+            $clock = [System.Diagnostics.Stopwatch]::StartNew()
             . $lib
-            Invoke-CheckScript -Path $path
+            $res = Invoke-CheckScript -Path $path
+            if ($res -is [hashtable]) { $res['Ms'] = $clock.ElapsedMilliseconds }
+            $res
         }).AddArgument($hookLib).AddArgument($c.FullName)
         [pscustomobject]@{ Name = $c.BaseName; PS = $ps; Handle = $ps.BeginInvoke() }
     }
@@ -144,13 +178,18 @@ try {
         $left = [int][Math]::Max(0, ($deadline - [DateTime]::UtcNow).TotalMilliseconds)
         if (-not $r.Handle.AsyncWaitHandle.WaitOne($left)) {
             $context.Add("$($r.Name): did not finish within $DeadlineSeconds s -- skipped.")
+            # The slowest check of all must not be the one the timing line leaves out.
+            $checkTimes.Add([pscustomobject]@{ Name = (Get-DispatchShortName $r.Name); Ms = [long]$DeadlineSeconds * 1000; Hung = $true })
             $exitHard = $true
             continue
         }
         try {
             $result = @($r.PS.EndInvoke($r.Handle))
             $lines = @()
-            if ($result.Count -gt 0 -and $result[-1] -is [hashtable]) { $lines = @($result[-1].Output) }
+            if ($result.Count -gt 0 -and $result[-1] -is [hashtable]) {
+                $lines = @($result[-1].Output)
+                if ($result[-1].ContainsKey('Ms')) { $checkTimes.Add([pscustomobject]@{ Name = (Get-DispatchShortName $r.Name); Ms = [long]$result[-1].Ms; Hung = $false }) }
+            }
             # A check that answers in JSON writes one object as its whole output; anything else is
             # plain lines. Recognised by parsing, not by name, so a second JSON check needs no edit here.
             $text = (@($lines | Where-Object { $_ -ne $null -and "$_".Trim() }) -join "`n").Trim()
@@ -183,12 +222,35 @@ try {
     $exitHard = $true
 }
 
+# The timing line -- see THE TIMING LINE above. Built in its own try, so a failure here can never cost
+# the report the checks produced.
+try {
+    $parts = New-Object System.Collections.Generic.List[string]
+    if ($prepTimes.Count -gt 0) {
+        $parts.Add('prep ' + (Format-DispatchSeconds $prepMs) + ' (' + (@($prepTimes | ForEach-Object { $_.Name }) -join ', ') + ')')
+    }
+    if ($checkTimes.Count -gt 0 -and $checkClock) {
+        $slowest = @($checkTimes | Sort-Object -Property Ms -Descending | Select-Object -First 3 |
+            ForEach-Object { if ($_.Hung) { "$($_.Name) >$DeadlineSeconds s" } else { "$($_.Name) " + (Format-DispatchSeconds $_.Ms) } })
+        $parts.Add('checks ' + (Format-DispatchSeconds $checkClock.ElapsedMilliseconds) + ' (slowest: ' + ($slowest -join ', ') + ')')
+    }
+    $timing = 'sessionstart: ' + (Format-DispatchSeconds $total.ElapsedMilliseconds) + ' in the dispatcher'
+    if ($parts.Count -gt 0) { $timing += ' -- ' + ($parts -join ', ') }
+    $system.Add($timing)
+} catch {
+    $system.Add('sessionstart: timing skipped due to an error: ' + (Format-DispatchSafeText $_.Exception.Message))
+}
+
 if ($system.Count -gt 0 -or $context.Count -gt 0) {
     $payload = [ordered]@{}
     if ($system.Count -gt 0) { $payload['systemMessage'] = ($system -join "`n") }
-    $payload['hookSpecificOutput'] = [ordered]@{
-        hookEventName     = 'SessionStart'
-        additionalContext = ($context -join "`n")
+    # The timing line is always there, so an otherwise silent start carries no hookSpecificOutput --
+    # an empty additionalContext would only be noise in the session's context.
+    if ($context.Count -gt 0) {
+        $payload['hookSpecificOutput'] = [ordered]@{
+            hookEventName     = 'SessionStart'
+            additionalContext = ($context -join "`n")
+        }
     }
     [Console]::Out.WriteLine(($payload | ConvertTo-Json -Depth 4 -Compress))
     [Console]::Out.Flush()
