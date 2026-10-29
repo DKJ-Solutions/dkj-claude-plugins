@@ -223,7 +223,7 @@ function Format-PluginsPageHtml {
         }
         [void]$body.AppendLine('</div>')
     }
-    return Format-GeneralPageHtml -Title 'Plugins' -Body $body.ToString() -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
+    return Format-GeneralPageHtml -Title 'Installed plugins' -Body $body.ToString() -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
         -Lead '' `
         -FooterNote 'Read on every request by the plugin-versions skill''s own script, <code>plugin-versions.ps1 -Json</code>: the enable state from the settings files, the install record from <code>~/.claude/plugins/installed_plugins.json</code>, and the marketplace clone under <code>~/.claude/plugins/marketplaces</code>.'
 }
@@ -286,7 +286,7 @@ function Format-PluginPageHtml {
     }
     # No lead: the crumbs and the Id fact already say which plugin and marketplace this is (the density rule).
     return Format-GeneralPageHtml -Title ([string]$Row.Name) -Body $body.ToString() -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
-        -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }) -HeadAside $badge `
+        -ParentCrumbs @(@{ Label = 'Installed plugins'; Href = '/plugins' }) -HeadAside $badge `
         -Style '.dp-about p { font-size: var(--text-base); }' `
         -Lead '' `
         -FooterNote 'Read on every request by <code>plugin-versions.ps1 -Json</code>, the plugin-versions skill''s own script.'
@@ -339,7 +339,7 @@ function Format-HouseStyleSpecimensPageHtml {
     )
     $e = { param($v) ConvertTo-GeneralPageText $v }
     $base = '/plugins/dkj-policy/house-style'
-    $crumbs = @(@{ Label = 'Plugins'; Href = '/plugins' }, @{ Label = 'dkj-policy'; Href = '/plugins/dkj-policy' })
+    $crumbs = @(@{ Label = 'Installed plugins'; Href = '/plugins' }, @{ Label = 'dkj-policy'; Href = '/plugins/dkj-policy' })
     $footer = 'The stylesheet and these specimens are <code>assets/house-style/</code> in the dkj-policy plugin this toolbox runs from.'
     $split = if ($ReadError) { @{ Head = ''; Sections = @(); Tail = '' } } else { Split-HouseStyleSpecimens -Body $Body }
 
