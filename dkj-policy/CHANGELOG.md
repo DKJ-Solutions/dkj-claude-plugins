@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**4 / 5 minor entries** <!-- pending-tally -->
+**5 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3649-btn-primary-bold · 20261029-173129Z
+
+The label of a house `.btn--primary` is bold (700) instead of semibold (600), the touch variant
+`.btn--touch.btn--primary` included, so the filled main action stands out further from an outline button.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+An app built on the house style shows every primary button in bold once it takes this version, with
+nothing to change in its own layer (asked for from `dkj-music-library`).
+
+**Score:** 2
+
+#### Pull Request
+
+House style: the .btn--primary label in bold
+
+Plugins: dkj-policy
+
+[PR #3655](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3655)
+
+---
 
 ### DEPLOY: feat/3648-btn-hover · 20261029-172607Z
 
