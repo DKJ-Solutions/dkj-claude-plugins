@@ -50,16 +50,23 @@ took the house `.card-grid`: release-notes (`.cards`), stopwatch (`.sw-grid`) an
 - [x] `stopwatch-lib.ps1`: `card-grid sw-grid` on the overview and a label's page
 - [x] `test-gate-lib.ps1`: `card-grid tg-cards`
 - [x] `stopwatch.tests.ps1`: the two asserts that pin the grid's markup
+- [x] `general-pages-lib.ps1`: the release cards' version and date `--spacing-1` apart (was the
+      template's `.45rem`), and the LIVE chip no longer stretches its row -- Maikel, same day: every
+      other card in that row had an empty strip at its bottom
+- [x] `dev-pages.tests.ps1`: an assert pinning both rules
 
 ### TEST
 
-- [x] Suites stopwatch (268), release-notes-page (207) and dev-pages (478) green
+- [x] Suites stopwatch (268), release-notes-page (207) and dev-pages (479) green
+- [x] Headless screenshot of `/release-notes` from the tree: every row 67px, the LIVE row included
 
 ### DEPLOY: fix/card-grid-padding
 
 The release-notes, stopwatch and test-gate pages put their card grid in the house `.card-grid`, so the
 group under the h1 gets the same padding and surface as every other toolbox page instead of cards that
-touch its edge.
+touch its edge. On release-notes the version and its date now stand `--spacing-1` apart, as a title
+over its sub line does everywhere else, and the LIVE chip no longer makes its row taller, which left
+an empty strip at the bottom of every other card in it.
 
 **Score:** 2
 
