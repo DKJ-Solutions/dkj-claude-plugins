@@ -1938,6 +1938,9 @@ Assert-Equal "3" ((Get-OverviewSectionHeading -ReadmeContent $tiers) -replace '^
 # milestone the script deliberately does not perform for you, and THIS assert then went red -- so the
 # same edit could not land with only half of it done. The pairing is the point: the overview and this
 # pin are one fact written twice, and a cut is the one moment they are allowed to disagree.
+#
+# '5' -> '6' ON OCTOBER 29, 2026, when the 6.x section was opened to cut v6.0.0: the rename to
+# dkj-marketplace (#3660) breaks every existing install, which is what a major is for.
 # The path comes from the repo's own Get-ReleaseHistoryPath rather than being written out again here, and
 # that choice has now paid off TWICE IN OPPOSITE DIRECTIONS on the same day (August 4, 2026): the overview
 # moved out of releases/README.md into its own HISTORY.md, and then back again when the pages were merged.
@@ -1952,7 +1955,7 @@ $liveReadme = Join-Path $PSScriptRoot ('..\..\' + ((& {
     if (Test-FunctionDefined 'Get-ReleaseHistoryPath') { Get-ReleaseHistoryPath } else { 'releases/README.md' }
 }) -replace '/', '\'))
 if (Test-Path -LiteralPath $liveReadme) {
-    Assert-Equal '5' (Get-OverviewTargetMajor -ReadmeContent (Get-Content -LiteralPath $liveReadme -Raw -Encoding UTF8)) "this repo's own overview now targets 5.x -- a 5.0.0 cut lands under its own major, and a 4.x cut would be refused"
+    Assert-Equal '6' (Get-OverviewTargetMajor -ReadmeContent (Get-Content -LiteralPath $liveReadme -Raw -Encoding UTF8)) "this repo's own overview now targets 6.x -- a 6.0.0 cut lands under its own major, and a 5.x cut would be refused"
 }
 
 Write-Host "Get-OverviewLatestVersion -- the release the overview RECORDS as newest (inbound #802)" -ForegroundColor Cyan
