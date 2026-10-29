@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**7 / 8 minor entries** <!-- pending-tally -->
+**8 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3657-product-server-restart-after-trunk-move · 20261029-192014Z
+
+The dev-preview hook no longer hands out a product that serves stale code. On every session start, `/clear`
+included, it starts the toolbox first and then waits (up to 20 s) for the dispatcher's trunk sync to finish
+before it starts or reuses the product. A product the hook itself started before HEAD last moved (a trunk
+sync or a checkout) is stopped and started again on its port, and the line reads `(restarted: the checkout
+moved after it started)`. A plain commit does not count, since the server already serves that tree, and a
+server somebody started by hand is reused as before.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+In every repo with a product port, a merge pulled in by the session-start sync now shows up on that port
+right after `/clear`, without restarting the server by hand.
+
+**Score:** 2
+
+#### Pull Request
+
+dev-preview restarts a product server older than the trunk sync
+
+Plugins: dkj-policy
+
+[PR #3667](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3667)
+
+---
 
 ### DEPLOY: feat/sessionstart-spinner-timing · 20261029-185628Z
 

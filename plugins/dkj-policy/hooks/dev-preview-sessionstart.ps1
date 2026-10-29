@@ -70,7 +70,15 @@
 
     NEVER FAILS THE SESSION: every path exits 0, with at most one line. Windows only, like the three
     copies it replaces (the socket and process reads are Windows cmdlets); elsewhere it prints nothing.
-    Stdin is not read: a SessionStart payload carries nothing this hook needs.
+    Stdin is read only for the session id, and only where the repo states a product (#3657, below).
+
+    THE PRODUCT WAITS FOR THE TRUNK SYNC, AND OUTLIVES NO HEAD MOVE (#3657). sessioncheck-dispatch.ps1
+    fast-forwards the trunk in a SEPARATE SessionStart entry that runs beside this one, and a server loads its
+    code once at start: measured October 29, 2026, the product started at 19:30:23, the trunk moved at
+    19:30:24, and the product served the old code. So the hub starts first, then the product waits (up to
+    20 s) for the dispatcher's prep-done mark in the session cache. And a product this hook started that is
+    older than HEAD's last move -- a sync, a checkout, a /clear after either -- is stopped and started again
+    on its port, which the line names; a server somebody started by hand is reused as before.
 
     The matcher in hooks.json is startup|resume|clear and not compact: a compaction is mid-work, and
     etf-tracker excluded it so VS Code would not reopen the page under the owner's hands.
@@ -119,6 +127,10 @@ if (-not (Test-Path -LiteralPath $libPath -PathType Leaf)) {
 # install that lacks it still gets the repo's own server: the hub step checks before it calls.
 $stateLibPath = Join-Path $PSScriptRoot '..\hub\lib\general-pages-state.ps1'
 if (Test-Path -LiteralPath $stateLibPath -PathType Leaf) { . $stateLibPath }
+# The session cache, for the prep steps' done mark (#3657). A plugin install that lacks it starts the product
+# without waiting, as before.
+$cacheLibPath = Join-Path $PSScriptRoot '..\scripts\lib\session-cache-lib.ps1'
+if (Test-Path -LiteralPath $cacheLibPath -PathType Leaf) { try { . $cacheLibPath } catch { } }
 
 $root = if ($RepoRootOverride) { $RepoRootOverride }
         elseif ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR }
@@ -181,10 +193,36 @@ function Get-DevPreviewListeners([int[]]$Ports) {
 }
 function Get-DevPreviewProcesses {
     $processes = @{}
-    foreach ($p in @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId, CommandLine, SessionId -ErrorAction SilentlyContinue)) {
-        $processes[[int]$p.ProcessId] = @{ CommandLine = [string]$p.CommandLine; ParentId = [int]$p.ParentProcessId; SessionId = $p.SessionId }
+    foreach ($p in @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId, CommandLine, SessionId, CreationDate -ErrorAction SilentlyContinue)) {
+        $created = $null
+        if ($p.CreationDate) { $created = ([datetime]$p.CreationDate).ToUniversalTime() }
+        $processes[[int]$p.ProcessId] = @{ CommandLine = [string]$p.CommandLine; ParentId = [int]$p.ParentProcessId; SessionId = $p.SessionId; Created = $created }
     }
     return $processes
+}
+
+# WHEN HEAD LAST CHANGED THE TREE, in UTC, or $null (issue #3657): a product server loads its code once at
+# start, so one created before this moment serves the tree from before a trunk sync or a checkout.
+function Get-DevPreviewHeadMovedUtc {
+    try {
+        $ErrorActionPreference = 'Continue'
+        $lines = @(& git -C $root reflog -50 '--format=%gd%x09%gs' '--date=unix' 2>$null)
+        return (ConvertFrom-DevPreviewReflogTime ([string[]]$lines))
+    } catch { return $null }
+}
+
+# THE PREP STEPS FIRST (issue #3657): sessioncheck-dispatch.ps1 fast-forwards the trunk in a SEPARATE
+# SessionStart entry that runs beside this one, and marks its prep done in the session cache. The product
+# is started or reused only after that mark, or after -Seconds without it. Returns 'done', 'timeout' or
+# 'skipped' (no session id, no cache library, or a wait of 0).
+function Wait-DevPreviewSessionPrep([string]$SessionId, [int]$Seconds) {
+    if ($Seconds -le 0 -or -not $SessionId -or -not (Get-Command Test-SessionPrepDone -ErrorAction SilentlyContinue)) { return 'skipped' }
+    $until = (Get-Date).AddSeconds($Seconds)
+    while ($true) {
+        if (Test-SessionPrepDone -SessionId $SessionId) { return 'done' }
+        if ((Get-Date) -ge $until) { return 'timeout' }
+        Start-Sleep -Milliseconds 250
+    }
 }
 
 # A STARTED SERVER DOES NOT OUTLIVE ITS SESSION (INBOUND #3569): a disconnected session keeps its processes, so a
@@ -272,15 +310,34 @@ function Start-DevPreviewHub($Listeners, $Processes) {
 
 # The server the repo states, reused or started (the ownership and start rules are unchanged since #2967),
 # with a log of its own. Returns
-# @{ Action = 'reuse'|'start'|'failed'; Port; Url; Detail; NotStarted; Exposed; Proc; Log }: Detail is the
-# reason where it failed, and NotStarted says whether it reads "not started: <Detail>" or stands on its own.
-function Start-DevPreviewProduct($Listeners, $Processes, $Cfg, [string]$LogName = 'dev-preview') {
-    $r = @{ Action = 'failed'; Port = 0; Url = ''; Detail = ''; NotStarted = $true; Exposed = ''; Proc = $null; Log = ''; Stale = '' }
+# @{ Action = 'reuse'|'start'|'failed'; Port; Url; Detail; NotStarted; Exposed; Proc; Log; Restarted }: Detail is
+# the reason where it failed, NotStarted says whether it reads "not started: <Detail>" or stands on its own, and
+# Restarted that the start replaced this hook's own server from before HEAD last moved (-HeadMovedUtc).
+function Start-DevPreviewProduct($Listeners, $Processes, $Cfg, [string]$LogName = 'dev-preview', $HeadMovedUtc = $null) {
+    $r = @{ Action = 'failed'; Port = 0; Url = ''; Detail = ''; NotStarted = $true; Exposed = ''; Proc = $null; Log = ''; Stale = ''; Restarted = $false }
     # AN INSTALL OLDER THAN ITS LOCK IS NAMED, NOT REFUSED (#3404): the server may still run, and when it does
     # not, this is the line's only clue.
     $staleRel = Get-DevPreviewStaleInstall -Root $root -Requires $Cfg.Requires
     if ($staleRel) { $r.Stale = "; '$staleRel' is older than its package-lock.json -- run npm install" }
     $pick = Select-DevPreviewPort -Ports $Cfg.Ports -Listeners $Listeners -Processes $Processes -Root $root
+    # OURS, BUT OLDER THAN THE TREE IT SERVES (#3657): a server that loaded its code before HEAD last moved --
+    # a trunk sync, a checkout -- keeps serving the old code, so this hook's own tree is stopped and started
+    # again on the same port. One that will not let go of its port is reused, as before.
+    if ($pick.Action -eq 'reuse') {
+        $outdated = @(Get-DevPreviewOutdatedProductRoots -Port $pick.Port -Listeners $Listeners -Processes $Processes -Root $root `
+            -LogPath (Get-DevPreviewLogPath -Root $root -Name $LogName) -HeadMovedUtc $HeadMovedUtc)
+        if ($outdated.Count) {
+            foreach ($id in $outdated) {
+                Start-Process -FilePath 'taskkill.exe' -ArgumentList "/PID $id /T /F" -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue
+            }
+            $until = (Get-Date).AddSeconds(5)
+            while ((Get-Date) -lt $until -and @(Get-DevPreviewListeners @([int]$pick.Port)).Count) { Start-Sleep -Milliseconds 200 }
+            if (-not @(Get-DevPreviewListeners @([int]$pick.Port)).Count) {
+                $pick = @{ Action = 'start'; Port = $pick.Port }
+                $r.Restarted = $true
+            }
+        }
+    }
     if ($pick.Action -eq 'reuse') {
         $r.Action = 'reuse'
         $r.Port = [int]$pick.Port
@@ -333,7 +390,22 @@ $hub = Start-DevPreviewHub -Listeners $listeners -Processes $processes
 # file must survive it.
 $prod = $null
 if ($cfg) {
-    try { $prod = Start-DevPreviewProduct -Listeners $listeners -Processes $processes -Cfg $cfg }
+    # The hub is already starting; the product waits for the trunk sync (#3657), at most 20 s and never more
+    # than the hook's 60 s leave after the product's own wait, its settle and about 10 s for the rest (the
+    # stdin read, a restart's port release). DKJ_DEV_PREVIEW_PREP_WAIT (0-99) is the TEST override, and 0
+    # also skips the stdin read that finds the session id.
+    $prepWait = [Math]::Max(0, [Math]::Min(20, 50 - [int]$cfg.WaitSeconds - [int]$script:DevPreviewSettleSeconds))
+    if ([string]$env:DKJ_DEV_PREVIEW_PREP_WAIT -match '^[0-9]{1,2}$') { $prepWait = [int]$env:DKJ_DEV_PREVIEW_PREP_WAIT }
+    $sessionId = ''
+    if ($prepWait -gt 0 -and (Get-Command Get-HookSessionId -ErrorAction SilentlyContinue)) { try { $sessionId = Get-HookSessionId } catch { $sessionId = '' } }
+    if ((Wait-DevPreviewSessionPrep -SessionId $sessionId -Seconds $prepWait) -ne 'skipped') {
+        # A FRESH SNAPSHOT AFTER THE WAIT (review of #3657): the restart force-stops a process tree, so it acts
+        # on who listens NOW, not on who listened before the wait -- a pid can be reused, and a second
+        # session's hook may have restarted the product meanwhile.
+        $listeners = @(Get-DevPreviewListeners $ports)
+        $processes = if ($listeners.Count) { Get-DevPreviewProcesses } else { @{} }
+    }
+    try { $prod = Start-DevPreviewProduct -Listeners $listeners -Processes $processes -Cfg $cfg -HeadMovedUtc (Get-DevPreviewHeadMovedUtc) }
     catch {
         $prod = @{ Action = 'failed'; Port = 0; Url = ''; Detail = ('could not be started: ' + ((([string]$_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', '')); NotStarted = $true; Exposed = ''; Proc = $null; Log = '' }
     }
@@ -425,7 +497,7 @@ function Get-DevPreviewServerPart($P, $T, $Cfg) {
     if (-not $P) { return $r }
     if ($P.Action -eq 'reuse') { $r.Url = $P.Url; $r.Word = 'already running' }
     elseif ($P.Action -eq 'start') {
-        if ($T.Ok) { $r.Url = $P.Url; $r.Word = 'started' }
+        if ($T.Ok) { $r.Url = $P.Url; $r.Word = $(if ($P.Restarted) { 'restarted: the checkout moved after it started' } else { 'started' }) }
         elseif ($T.Fail -eq 'exited') { $r.Fail = "the server on port $($P.Port) exited at start -- see $($P.Log)" }
         elseif ($T.Fail -eq 'stopped') { $r.Fail = "the server on port $($P.Port) stopped right after it started listening -- see $($P.Log)" }
         elseif ($T.Fail -eq 'lost') { $r.Fail = "the server lost port $($P.Port) to a process this hook cannot identify ($($T.Holder)) -- it may be one started beside it; see $($P.Log)" }

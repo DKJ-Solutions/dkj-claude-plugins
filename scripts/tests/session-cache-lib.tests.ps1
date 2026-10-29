@@ -286,6 +286,21 @@ try {
         $env:LOCALAPPDATA = $prevL
     }
     Assert-Equal 'C:\somewhere\else' (Get-SessionCacheRoot -Override 'C:\somewhere\else') '8: -Override wins, which is the seam the suite uses'
+
+    # --- 9. the prep steps' done mark (#3657) -------------------------------------------------------
+    Write-Host '9. Set-SessionPrepDone / Test-SessionPrepDone -- the mark the dev-preview hook waits for' -ForegroundColor Cyan
+    $prepRoot = Join-Path $Fixture 'prep'
+    Assert-True (-not (Test-SessionPrepDone -SessionId $VALID -Root $prepRoot)) '9: no mark yet, not done'
+    Assert-True (Set-SessionPrepDone -SessionId $VALID -Root $prepRoot) '9: the mark lands'
+    Assert-True (Test-SessionPrepDone -SessionId $VALID -Root $prepRoot) '9: and reads back as done'
+    Assert-True (-not (Test-SessionPrepDone -SessionId 'b1b2c3d4-e5f6-4789-abcd-0123456789ab' -Root $prepRoot)) '9: another session''s mark is not this one''s'
+    Assert-True (-not (Set-SessionPrepDone -SessionId '' -Root $prepRoot)) '9: no session id, no mark'
+    Assert-True (-not (Test-SessionPrepDone -SessionId '' -Root $prepRoot)) '9: no session id, never done'
+    $markFile = Join-Path $prepRoot (Get-SessionCacheFileName -SessionId $VALID -Key $script:SessionPrepDoneKey)
+    $old = Get-Content -LiteralPath $markFile -Raw | ConvertFrom-Json
+    $old.writtenAt = [datetime]::UtcNow.AddSeconds(-300).ToString('o')
+    [System.IO.File]::WriteAllText($markFile, ($old | ConvertTo-Json -Depth 6))
+    Assert-True (-not (Test-SessionPrepDone -SessionId $VALID -Root $prepRoot)) '9: a mark from five minutes ago is an earlier firing of a resumed session, not this one'
 }
 finally {
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture -ErrorAction SilentlyContinue }

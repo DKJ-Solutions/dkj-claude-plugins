@@ -111,6 +111,7 @@ $prepMs = 0
 $checkClock = $null
 $pool = $null
 $exitHard = $false
+$payload = $null
 
 try {
     if (-not $HooksDir) { $HooksDir = $PSScriptRoot }
@@ -149,6 +150,10 @@ try {
         $prepTimes.Add([pscustomobject]@{ Name = (Get-DispatchShortName $prep.BaseName); Ms = $stepClock.ElapsedMilliseconds })
     }
     $prepMs = $prepClock.ElapsedMilliseconds
+    # THE PREP IS DONE, AND THE DEV-PREVIEW HOOK WAITS FOR THIS MARK (issue #3657): it is a separate
+    # SessionStart entry running beside this one, and a product server it starts before the trunk moved
+    # serves the code from before the sync. Advisory: a mark that does not land costs that hook its wait.
+    try { $null = Set-SessionPrepDone -SessionId (Get-SessionIdFromPayload -Payload $payload) } catch { }
 
     $checks = @(Get-ChildItem -LiteralPath $HooksDir -Filter '*-sessioncheck.ps1' -File | Sort-Object Name)
 
@@ -218,6 +223,8 @@ try {
     }
 } catch {
     $context.Add('sessioncheck-dispatch skipped due to an error: ' + (Format-DispatchSafeText $_.Exception.Message))
+    # The prep-done mark is owed whatever failed (#3657): without it the dev-preview hook waits out its bound.
+    try { $null = Set-SessionPrepDone -SessionId (Get-SessionIdFromPayload -Payload $payload) } catch { }
     # Checks may still be running on the pool, and Close() would wait on them.
     $exitHard = $true
 }

@@ -219,6 +219,25 @@ if ($r.Json) {
     Assert-True $false 'the deadline run produced its JSON report'
 }
 
+# --- the prep-done mark (#3657) --------------------------------------------------------------------
+Write-Host ''
+Write-Host 'the prep-done mark the dev-preview hook waits for' -ForegroundColor Cyan
+. (Join-Path $RepoRoot 'plugins\dkj-policy\scripts\lib\session-cache-lib.ps1')
+$markTree = New-Tree -Label mark -Files @{ 'a-sessionprep.ps1' = "Write-Host 'a-prep: ran'`n" }
+$markCache = New-Tree -Label markcache
+$sid = 'c1b2c3d4-e5f6-4789-abcd-0123456789ab'
+$prevLocal = $env:LOCALAPPDATA
+try {
+    $env:LOCALAPPDATA = $markCache
+    $r = Invoke-Dispatch -Dir $markTree -Stdin ('{"session_id":"' + $sid + '","source":"clear"}')
+    Assert-True ($r.Text -match 'a-prep: ran') 'the prep step ran'
+    Assert-True (Test-SessionPrepDone -SessionId $sid -Root (Join-Path $markCache 'dkj-session-cache')) 'and the dispatcher marked this session''s prep done'
+    $r = Invoke-Dispatch -Dir $markTree
+    Assert-Equal 0 $r.Code 'a run with no payload still exits 0, with no session to mark'
+} finally {
+    $env:LOCALAPPDATA = $prevLocal
+}
+
 # --- the source ------------------------------------------------------------------------------------
 $raw = Get-Content -LiteralPath $Hook -Raw
 Assert-True (-not ($raw -cmatch '[^\x00-\x7F]')) 'sessioncheck-dispatch.ps1 is pure ASCII'
