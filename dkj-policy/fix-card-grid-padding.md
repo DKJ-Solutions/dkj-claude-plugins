@@ -52,7 +52,9 @@ took the house `.card-grid`: release-notes (`.cards`), stopwatch (`.sw-grid`) an
 - [x] `stopwatch.tests.ps1`: the two asserts that pin the grid's markup
 - [x] `general-pages-lib.ps1`: the release cards' version and date `--spacing-1` apart (was the
       template's `.45rem`), and the LIVE chip no longer stretches its row -- Maikel, same day: every
-      other card in that row had an empty strip at its bottom
+      other card in that row had an empty strip at its bottom. First by a negative margin, which put
+      the chip into the card's padding; Maikel refused that, so it takes the house `.tag`'s size
+      instead, which fits inside the version's line
 - [x] `dev-pages.tests.ps1`: an assert pinning both rules
 
 ### TEST
@@ -65,8 +67,9 @@ took the house `.card-grid`: release-notes (`.cards`), stopwatch (`.sw-grid`) an
 The release-notes, stopwatch and test-gate pages put their card grid in the house `.card-grid`, so the
 group under the h1 gets the same padding and surface as every other toolbox page instead of cards that
 touch its edge. On release-notes the version and its date now stand `--spacing-1` apart, as a title
-over its sub line does everywhere else, and the LIVE chip no longer makes its row taller, which left
-an empty strip at the bottom of every other card in it.
+over its sub line does everywhere else, and the LIVE chip takes the house tag's size, so it sits inside
+the card's padding without making its row taller -- which had left an empty strip at the bottom of
+every other card in it.
 
 **Score:** 2
 
