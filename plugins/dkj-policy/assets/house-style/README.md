@@ -539,7 +539,7 @@ sortable headers via `.sort`/`.arrow` on `aria-sort`), `.seg` (a segmented switc
 `--line`), `.swatch`, `.badge` (with `--good`, `--warn`, `--bad`, `--info`, `--neutral`, `--sm`),
 `.badge-row`, `.badge-list` (a `<ul>` of `.badge-row` items), `.meter` (with `--good`, `--warn`, `--bad`, `--info`), `.mini-cards`/`.mini-card` (with
 `--highlight`), `.item-grid`/`.item`, `.notice`, `.note`, `.meta`, `.muted`, `.sub`, `.eyebrow`, `.lead`, `.msg` (with `--warn`), `.facts` (with `--row`: the facts as one row on the page, label over value, no card), `.fill-primary`, `.fill-inverse`, `.page-column`, `.page-cta`, `.num` (tabular
-numerals), `.delta` (with `--up`/`--down`, aliased `.pos`/`.neg`), `.btn` (with `--primary`, and a `:disabled` state for both), `.info-button`, `.tooltip`
+numerals), `.delta` (with `--up`/`--down`, aliased `.pos`/`.neg`), `.btn` (with `--primary`, and a `:hover`, `:focus-visible` and `:disabled` state for both), `.info-button`, `.tooltip`
 (with `--explain`, and `--open` for one anchored to a trigger), `.more` (a disclosure), `.moretoggle` (a full-width read-more button), `.chart` (the SVG chart scope),
 `.theme-picker` (with `__row`, `__label`, `__swatches`), `.theme-swatch` (with `--light`, `--dark`) and
 `.theme-settings` (with `--floating`, `__toggle`, `__open`, `__close`, `__panel`, `__title`, `__group`,
@@ -571,7 +571,7 @@ and a side drawer, a top bar and a menu list. The group sits at the end of
 
 - **Sizes.** Touch targets are at least `--tap` (44px) high. The column is `--column-narrow` (512px), a
   phone and, on a computer, the same width.
-- **Buttons.** `.btn--touch` and `.btn--block` are modifiers of `.btn`, so the `.btn:disabled` state
+- **Buttons.** `.btn--touch` and `.btn--block` are modifiers of `.btn`, so the `.btn` hover, focus and disabled states
   covers them too, `.btn--touch.btn--primary` included.
 - **Dialog.** A native `<dialog>` opened with `showModal`. Put `.dialog__title` on an `h3` or a `p`; in a
   `.dialog--drawer` it is bold. The page stands still behind a modal
@@ -597,7 +597,7 @@ generic `.chip`, the stat rows and the stepper are house classes since the
 
 **Ported:** alert, banner, panel, chip, tag, filter chips, round and badge toggles, help, a structured disclosure (`.more--structured`), group heading, question head and verdict, amount, answer box, flash, page header, read-only field value, checkbox, stepper, search combobox, value box, stat and formula rows, step header, info rows, bill, comparison and calculation tables, date list, figure, prose, and the chart's tooltip rows.
 
-**Dropped, the house class replaces it:** button and its variants (`.btn`, `.btn--primary`, `.btn--touch`, `.btn--block`), icon button (`.icon-btn`, `.action-row`), card (`.card`), dialog and drawer (`.dialog`, `.dialog--drawer`), top bar, menu rows, breadcrumbs, field, table wrap, message, tooltip, badge, meter, tile, hero figure, delta, legend, mini card, read-more, segmented choice (`.seg`, and `.menu-item` for a list), definition list (`.facts`), inline "?" toggle (`.info-button`). Not carried over, because the house class has no such state and the look is not general: the hover, outline, positive, compact and disabled-primary looks of the brand-book button, the `--row` and `--joined` choice layouts, the accent and info dialog tints, the `.table-wrap` column drop-out (`col-low`), the meter and badge in `--cat-1`, and the warning tone helper: `.warn` is a class MesoWise and the ETF tracker already style themselves, so `.msg--warn` and `.notice` carry a warning instead.
+**Dropped, the house class replaces it:** button and its variants (`.btn`, `.btn--primary`, `.btn--touch`, `.btn--block`), icon button (`.icon-btn`, `.action-row`), card (`.card`), dialog and drawer (`.dialog`, `.dialog--drawer`), top bar, menu rows, breadcrumbs, field, table wrap, message, tooltip, badge, meter, tile, hero figure, delta, legend, mini card, read-more, segmented choice (`.seg`, and `.menu-item` for a list), definition list (`.facts`), inline "?" toggle (`.info-button`). Not carried over, because the house class has no such state and the look is not general: the hover (the house `.btn` gained its own under [#3648](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3648)), outline, positive, compact and disabled-primary looks of the brand-book button, the `--row` and `--joined` choice layouts, the accent and info dialog tints, the `.table-wrap` column drop-out (`col-low`), the meter and badge in `--cat-1`, and the warning tone helper: `.warn` is a class MesoWise and the ETF tracker already style themselves, so `.msg--warn` and `.notice` carry a warning instead.
 
 **Added to existing classes** (no existing rule changed): `.card--open`, `.card--invalid`, `.msg--error`, `.table-wrap:focus-visible`, `.table .row-negative`, `.row-positive`, `.row-warn`, `.col-start`, `.col-end`, `.facts__detail`, `.facts__total`, `.chart .bar--active`.
 
