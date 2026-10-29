@@ -39,11 +39,43 @@
 
 ### PLAN
 
+Step 2 of #3660: the source-side rename to `dkj-marketplace`, the role #1819 played for #1769.
+
+#### Parked with no PR until the flag day
+
+This was decided by davekokbwj on October 29, 2026, and recorded on #3662. Merging before the GitHub
+rename (#3663) would point `Get-RepoName` at a repo that does not exist yet, and every PR in between
+would fail. So the branch is built now, parked on origin, and merged on the flag day together with step
+3. The two open steps under TEST are the flag day's.
+
+#### What changed, and what deliberately did not
+
+- **Changed:** the marketplace `name`; `Get-RepoName`; `dkj-claude-plugins` added to the front of
+  `Get-RetiredRepoNames`; every `<plugin>@…` id, every `marketplaces/…` and `cache/…` path, and every
+  `DKJ-Solutions/…` slug outside issue and PR links. Also every lookup of the marketplace name in code
+  (release-freshness, connector-sessioncheck, session-start-lib, the claude-md-import fallback), the CLI
+  commands in the docs, and the BWJ extension's admitted-repo name, which it matches against `origin`.
+- **Widened, not replaced:** the regexes that recognise this repo in a consumer's runner
+  (`adopt-ci-floor`, `teardown`, house-style pins, the Asana gate). They now take `dkj-marketplace` as
+  well as both older names, because consumers keep the old spelling until step 4.
+- **Kept:** issue and PR links (#1526); `dkj-policy/releases/**` and `CHANGELOG.md`; the five consumer
+  manifests in `connectors/` (a renamed id is written only after the consumer has migrated, which is
+  step 4); the local folder name, which stays `dkj-claude-plugins` (#3661), so the folder candidates,
+  `Get-HubRepoName` and the hub's `%LOCALAPPDATA%\dkj-claude-plugins` stores keep it; and dated history
+  that cites the old name.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Scripted pass: plugin ids, install paths, and the slug outside issue and PR links, with the
+      migration section in ADOPTION.md restored where it has to name the old name
+- [x] Hand pass over the 160 remaining occurrences of the bare name, sorted as above
+- [x] `repo-config.ps1`: `Get-RepoName`, `Get-RetiredRepoNames`; `this-repo.md`'s citation rule;
+      the third rename in Sylvester's lens
 
 ### TEST
+
+- [ ] Flag day: catch-up merge from `main`, then `git grep` again for new `@dkj-claude-plugins`, `marketplaces/dkj-claude-plugins` and slug literals
+- [ ] Flag day: gates and CI green on the caught-up branch, after the GitHub rename
 
 ### DEPLOY: feat/3662-dkj-marketplace-source
 
