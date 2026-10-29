@@ -47,27 +47,33 @@ changes; the route `/connectors` and the `connectors/` register keep their names
 
 - [x] Card label and its line on the product home (`Get-ProductPages`), the overview's h1 and every breadcrumb back to it
 - [x] The card's icon: the chain link (`connectors`) becomes a subscriber with a tick (`consumers`, Feather's `user-check`) in `general-pages-lib.ps1`'s `$script:HubIcons`
+- [x] House style: a `.card--link`'s content sits in the middle of the card's height instead of at its top (the owner asked for it on this branch while looking at the card)
 - [x] The asserts in `connector-dashboard.tests.ps1` and `dev-pages.tests.ps1` follow the new name
 
 ### TEST
 
 - [x] `connector-dashboard` (234 passed) and `dev-pages` (480 passed) green
 - [x] The owner has looked at the card on the running product hub
+- [ ] The owner has looked at the centred link cards
 
 ### DEPLOY: feat/consumers-card
 
 The product hub's Connectors card, the page it opens and every breadcrumb back to it are now named
 Consumers, the repos that install plugins from this marketplace, and the card's chain-link icon is now
-a subscriber with a tick. The route `/connectors` and the
+a subscriber with a tick. In the house style, the content of a card that is one link (`.card--link`) now
+sits in the middle of the card's height, so a card stretched by a taller neighbour in its row no longer
+leaves its content at the top. The route `/connectors` and the
 `connectors/` register keep their names.
 
 **Score:** 2
 
 #### What makes this deploy extra special
 
-N/A -- the product hub is the source repo's own maintainer page; no consumer runs it.
+A repo that takes the new house style sees the content of its link cards (`.card--link`) centred in the
+card's height, where a taller card beside it used to leave it at the top. The Consumers rename is the
+source repo's own hub and reaches nobody else.
 
-**Score:** N/A
+**Score:** 2
 
 #### Pull Request
 
