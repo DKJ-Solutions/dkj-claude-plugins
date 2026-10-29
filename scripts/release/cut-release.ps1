@@ -2048,6 +2048,15 @@ function Write-FollowUpSteps {
     } else {
         Write-Host "      no entry reached tier $audienceTier, so it carries its header only."
     }
+    # THE COMMIT LINE IS PRINTED, VERSION FILLED IN (#3647). The Stopwatch's Stop hook ends a release run
+    # only on a subject matching '^release: v\d+\.\d+\.\d+ release notes' (Invoke-StopwatchHookEvent), and
+    # fails silently on any other. At v5.37.0 the notes went in as 'release-notes: v5.37.0 audience
+    # document', so the run stayed open; the subject lived on the skill page only, and this output is
+    # what is read at that moment.
+    Write-Host "  then commit it with exactly this subject -- the Stopwatch ends the cut's run on it:"
+    Write-Host "    git add $noteRelPath"
+    Write-Host "    git commit -m `"release: $tagName release notes`""
+    Write-Host "    git push origin main"
 }
 
 function Write-ParkedForRelease {

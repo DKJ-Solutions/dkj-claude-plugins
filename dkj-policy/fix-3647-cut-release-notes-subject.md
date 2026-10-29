@@ -39,19 +39,34 @@
 
 ### PLAN
 
+Print the release-notes commit, with the version filled in, in cut-release's closing output (#3647).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `cut-release.ps1` (plugin copy and its root mirror) prints `git add`, `git commit -m "release: vX.Y.Z release notes"` and `git push origin main` under the hand-written-document step
+- [x] `cut-release-guardrail.tests.ps1` holds the printed subject to the Stopwatch's own stop regex, read from `stopwatch-lib.ps1`
 
 ### TEST
 
+- [x] `cut-release-guardrail.tests.ps1`: 130 asserts pass, the three new ones included
+
 ### DEPLOY: fix/3647-cut-release-notes-subject
 
-**Score:**
+The release cut's closing output now prints the release-notes commit to run, with the version filled in:
+`git commit -m "release: vX.Y.Z release notes"`, beside the `git add` and `git push` around it
+([#3647](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3647)). The Stopwatch ends a release run
+only on that exact subject and stays silent on any other. At v5.37.0 the notes were committed under a
+different subject and the run had to be closed by hand. A guardrail test holds the printed subject to the
+Stopwatch's own regex, so the two cannot drift apart.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A maintainer cutting a release copies one printed line instead of composing the subject. The Stopwatch then
+times the cut to its end without a manual repair.
+
+**Score:** 1
 
 #### Pull Request
 
