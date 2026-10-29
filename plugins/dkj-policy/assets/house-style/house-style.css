@@ -739,8 +739,10 @@ html:has(.breadcrumbs-bar) .theme-settings--floating { top: calc(var(--tap) + va
 a.menu-item:hover { background: var(--paper-3); }
 /* A card that is one link (#3298): <section class="card card--link"> around a single <a>. The link's area stretches
    over the whole card, so a click anywhere on it follows the link, and the whole card tints on hover rather than the
-   row alone. The <a> must not be positioned itself; one link per card, or the last one covers the rest. */
-.card--link { position: relative; }
+   row alone. The <a> must not be positioned itself; one link per card, or the last one covers the rest. Its content
+   sits in the middle of the card's height, so a card a taller neighbour in its grid row stretches does not leave its
+   row at the top (owner, October 29, 2026). */
+.card--link { position: relative; display: flex; flex-direction: column; justify-content: center; }
 .card--link a::after { content: ""; position: absolute; inset: 0; }
 .card--link:hover { background: var(--paper-3); }
 .card--link a.menu-item:hover { background: none; }

@@ -1036,7 +1036,7 @@ function Format-StopwatchRunCard {
     # The house card (Format-HubCardLinkHtml, #3566), in the owner's order: the start is its label, the prompt label
     # its description, the time its value.
     $sub = (& $e $label) + $(if ($Group.Versions -gt 1) { ' v' + $Group.Version } else { '' })
-    return Format-HubCardLinkHtml -Href ($Route + '/' + $Group.PageSlug) -Label $stamp -SubHtml $sub -ValueHtml $time -Class ('sw-card' + $toneClass + ' sw-run')
+    return Format-HubCardLinkHtml -Href ($Route + '/' + $Group.PageSlug) -Label $stamp -SubHtml $sub -ValueHtml $time -Class ('sw-card' + $toneClass + ' sw-run') -Heading 0
 }
 
 function Format-StopwatchLabelCard {

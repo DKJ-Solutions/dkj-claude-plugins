@@ -562,13 +562,13 @@ function Format-ConnectorDashboardHtml {
         [ValidateSet('', 'dkj', 'bwj', 'other')][AllowEmptyString()][string]$Group = ''
     )
     $groupDef = if ($Group) { @(Get-DashboardOwnerGroups | Where-Object { $_.Key -eq $Group })[0] } else { $null }
-    $pageName = if ($groupDef) { $groupDef.Title } else { 'Connectors' }
+    $pageName = if ($groupDef) { $groupDef.Title } else { 'Consumers' }
     $e = { param($v) ConvertTo-DashboardText $v }
     $everyone = @($Connectors | Where-Object { $_ })
     $all = if ($groupDef) { @($everyone | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $Group }) } else { $everyone }
 
     $sb = New-Object System.Text.StringBuilder
-    $trail = if ($groupDef) { @(@{ Href = '/connectors'; Label = 'Connectors' }) } else { @() }
+    $trail = if ($groupDef) { @(@{ Href = '/connectors'; Label = 'Consumers' }) } else { @() }
     [void]$sb.Append((Format-ConnectorPageStart -PageName $pageName -Trail $trail))
 
     # The warning that the signals could not be read.

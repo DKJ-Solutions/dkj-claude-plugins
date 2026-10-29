@@ -71,7 +71,7 @@ function Get-ProductPages {
         them: the specialists are the dkj-subagents teams', so they live on those teams' own Plugins pages.
     #>
     @(
-        @{ Href = '/connectors';  Label = 'Connectors';  Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine'; Icon = 'connectors' }
+        @{ Href = '/connectors';  Label = 'Consumers';   Sub = 'Every repo that installs plugins from this marketplace, registered under connectors/ and checked by check-connectors.ps1 on this machine'; Icon = 'consumers' }
         @{ Href = '/plugins';     Label = 'Marketplace'; Sub = 'Every plugin this marketplace ships, its version and what it holds'; Icon = 'marketplace' }
     )
 }
@@ -346,7 +346,7 @@ function Format-SpecialistTeamHtml {
         $sub = @(('#' + (& $e $r.Number)), $(if ($r.Title) { & $e $r.Title }), (& $e $r.Form), ('full read ' + (& $tok $r.TotalBytes))) |
             Where-Object { $_ }
         [void]$body.AppendLine((Format-HubCardLinkHtml -Href ($BaseHref + '/' + $r.Slug) -SubHtml ($sub -join ' &middot; ') `
-            -Label ($r.Name + $(if ($r.Emoji) { ' ' + $r.Emoji } else { '' })) -Id ('specialist-' + $r.Slug) -Class 'sp-card'))
+            -Label ($r.Name + $(if ($r.Emoji) { ' ' + $r.Emoji } else { '' })) -Id ('specialist-' + $r.Slug) -Class 'sp-card' -Heading 0))
     }
     if (-not $rows.Count) {
         [void]$body.AppendLine('<section class="card"><p class="note">No specialist was found.</p></section>')
@@ -830,7 +830,7 @@ function Format-DkjReposPageHtml {
     foreach ($c in @($Connectors | Where-Object { $_ })) { $byConnector[([string]$c.Repo).ToLowerInvariant()] = $c }
 
     $sb = New-Object System.Text.StringBuilder
-    [void]$sb.Append((Format-ConnectorPageStart -PageName 'DKJ repos' -Trail @(@{ Href = '/connectors'; Label = 'Connectors' }) -Style (Get-DkjRepoCardStyle)))
+    [void]$sb.Append((Format-ConnectorPageStart -PageName 'DKJ repos' -Trail @(@{ Href = '/connectors'; Label = 'Consumers' }) -Style (Get-DkjRepoCardStyle)))
     if ($Query.Error) {
         [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">GitHub could not be read: ' + (& $e $Query.Error) + '. The checkouts on this machine are shown without their issues.</p>')
     }
@@ -881,7 +881,7 @@ function Format-DkjRepoPageHtml {
     $e = { param($v) ConvertTo-DashboardText $v }
     $sb = New-Object System.Text.StringBuilder
     $style = (Get-DkjRepoCardStyle) + $(if ($LensesStyle) { "`n" + $LensesStyle } else { '' })
-    [void]$sb.Append((Format-ConnectorPageStart -PageName ([string]$Row.Name) -Trail @(@{ Href = '/connectors'; Label = 'Connectors' }, @{ Href = '/connectors/dkj'; Label = 'DKJ repos' }) -Style $style))
+    [void]$sb.Append((Format-ConnectorPageStart -PageName ([string]$Row.Name) -Trail @(@{ Href = '/connectors'; Label = 'Consumers' }, @{ Href = '/connectors/dkj'; Label = 'DKJ repos' }) -Style $style))
     # No group head (Maikel, October 28, 2026): the page's h1 names the repo and each card carries its own h2.
     [void]$sb.AppendLine('<div class="grid-2" id="repo">')
     [void]$sb.Append((Format-DkjRepoCardHtml -Row $Row -Checkout $Checkout -Connector $Connector))
