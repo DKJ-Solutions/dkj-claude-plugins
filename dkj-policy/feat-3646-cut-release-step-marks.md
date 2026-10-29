@@ -39,19 +39,43 @@
 
 ### PLAN
 
+#### Issue
+
+[#3646](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3646): on the v5.36.0 cut, 753 s of 903 s
+landed in "Other tool calls", because `cut-release.ps1` marked no steps and no phase named its call.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `cut-release.ps1` (both byte-identical copies) marks eight steps with `Add-RunStepMark -Run 'cut-release'`:
+  `origin-check-before`, `lint`, `tests`, `origin-check-after`, `builds`, `write`, `commit-tag`, `push`.
+- [x] `stopwatch-lib.ps1` gives a `cut-release.ps1` call its own phase, `Release cut`, and generalises the ship
+  split into `Split-StopwatchSteppedTool`: each stepped phase is cut only at its own run's marks.
 
 ### TEST
 
+- [x] `stopwatch.tests.ps1`: the cut's phase, its split (a ship's mark inside it does not cut it), its steps in
+  the window's phases, and a contract assert that the steps `cut-release` marks are exactly the steps the reader
+  names, in order. 273 passed, 0 failed.
+
 ### DEPLOY: feat/3646-cut-release-step-marks
 
-**Score:**
+The Stopwatch now splits a release cut into its steps instead of filing most of it under "Other tool calls"
+([#3646](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3646)). `cut-release.ps1` marks each step it
+enters in the opt-in step log, the way `ship-pr.ps1` already did (#3338): the origin check and guardrails, the
+lint gate, the test gate, the origin check after the gates, the release builds, the notes, overview and version
+bumps, the commit and tag, and the push. A cut's call is now a phase of its own, `Release cut`, and a run's page
+cuts it at those marks, so a change meant to make the next cut faster shows which step it moved. Runs already
+read stay as they were cached. A cut from before this release, or on a machine without the step log, stays one
+`Release cut` phase.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+The step log is opt-in (`DKJ_RUN_STEP_LOG`), and this repo is the one that turns it on, so a consumer sees no
+change unless it does the same.
+
+**Score:** N/A
 
 #### Pull Request
 
