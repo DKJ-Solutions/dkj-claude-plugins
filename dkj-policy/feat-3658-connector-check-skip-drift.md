@@ -39,19 +39,30 @@
 
 ### PLAN
 
+Resolves #3658. Dave chose option "skip drift at start" from a measured menu (comment on the issue).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `connector-sessioncheck.ps1`: the drift step is opt-in (`-IncludeDrift`); `-SkipDrift` is kept as an accepted no-op
+- [x] Docstring: the matcher note no longer claims the hook runs drift, and a dated paragraph records the measurement and where drift still runs
 
 ### TEST
 
+- [x] Hook default 2.3-2.5 s (was ~5.0 s), `-IncludeDrift` 4.8 s; dispatcher `sessionstart: 3.0 s` (was 5.9 s)
+- [x] `connector-sessioncheck` 51/51, `connectors` 417/417, `session-cache-lib` 71/71
+- [~] A suite assert for the default -- dropped: the hook suite exercises no workshop-path drift at all today, and the flag is one line
+
 ### DEPLOY: feat/3658-connector-check-skip-drift
 
-**Score:**
+A session start in this source checkout no longer waits on the agent-def drift lint: `connector-sessioncheck` now passes `-SkipDrift` to `check-connectors.ps1` by default, which took the hook from about 5.0 s to 2.3 s and the whole session start from 5.9 s to 3.0 s (one machine). The drift step ran one `check-consumer-drift.ps1` per registered consumer in sequence and found nothing on any of the three. It still runs in a manual `scripts/sync/check-connectors.ps1`, and `-IncludeDrift` puts it back in the hook. Consumer machines never took that path, so nothing changes there.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- only the workshop path ran the drift step, and that path exists only in this source checkout; a plugin user's session start is unchanged.
+
+**Score:** N/A
 
 #### Pull Request
 
