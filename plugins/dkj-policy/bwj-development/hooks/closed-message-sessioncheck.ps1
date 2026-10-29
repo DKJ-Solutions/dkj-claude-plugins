@@ -32,7 +32,7 @@
          had never stated it. The seam is proposed rather than placed by adopt-bwj-development, so its
          absence was silent. A repo with no scripts/repo-config.ps1 at all is left out: there is nothing
          to read, and the other session checks already report that.
-    Anywhere else it is silent: dkj-claude-plugins runs the ticket chapter without either workflow.
+    Anywhere else it is silent: dkj-marketplace runs the ticket chapter without either workflow.
 
     A SECRET IT CANNOT READ IS NOT A MISSING SECRET. Listing secrets needs more than read access, and
     gh may be absent or offline. Any failed read leaves finding 3 out, rather than reporting a gap

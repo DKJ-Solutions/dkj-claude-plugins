@@ -1028,10 +1028,10 @@ Assert-True ($c.Count -eq 1 -and $c[0] -eq 'scripts/maintenance/measure-closeout
 
 # THE MEASURED SHAPE OF AN ISSUE BODY IN THIS FAMILY: mostly links, whose tails are path-shaped and
 # belong to no tree this check can hold them against.
-$c = @(Get-IssuePathCitations -Text 'see https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/scripts/task/claim-issue.ps1 for it')
+$c = @(Get-IssuePathCitations -Text 'see https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/scripts/task/claim-issue.ps1 for it')
 Assert-True ($c.Count -eq 0) 'a URL is stripped before the scan -- its path-shaped tail is not a citation of this tree'
 
-$c = @(Get-IssuePathCitations -Text 'filed on DKJ-Solutions/dkj-claude-plugins today')
+$c = @(Get-IssuePathCitations -Text 'filed on DKJ-Solutions/dkj-marketplace today')
 Assert-True ($c.Count -eq 0) 'owner/name is not a path -- the extension is what tells them apart'
 
 $c = @(Get-IssuePathCitations -Text 'the fix is in `scripts/lib/foo.bar.ps1` today')

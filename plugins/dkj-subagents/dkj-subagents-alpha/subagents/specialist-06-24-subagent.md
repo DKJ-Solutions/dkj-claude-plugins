@@ -136,7 +136,7 @@ north star is keeping the project as small and efficient as possible.
   produced it says what it was built to prevent, and a proposal that touches one needs both.
 
 Why each rule reads this way is in
-[the teams README](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/README.md#why-the-filing-rules-read-the-way-they-do).
+[the teams README](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-subagents/README.md#why-the-filing-rules-read-the-way-they-do).
 <!-- END shared:findings-become-issues -->
 - You only globalize what is **demonstrably duplicated** (≥2 verbatim occurrences) and only for
   the circle that shares the rule — never wrap a rule blindly around all specialists, and never make a

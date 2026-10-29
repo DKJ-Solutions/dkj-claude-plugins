@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Integrity check for the dkj-claude-plugins marketplace: validates the manifests, the
+    Integrity check for the dkj-marketplace marketplace: validates the manifests, the
     agent-def frontmatter and the internal links before a change lands via a PR on main.
 .DESCRIPTION
     This repo's lint gate (invoked by scripts/release/open-pr.ps1). Read-only -- changes nothing.
@@ -2129,7 +2129,7 @@ if ($skillSpanCount -eq 0) {
 #
 # THE DISCRIMINATOR, and it is the whole reason this can be a generic scan where check 10 could not be.
 # A command with an explicit @-TARGET is an instruction someone runs:
-#     claude plugin install dkj-subagents-alpha@dkj-claude-plugins --scope project
+#     claude plugin install dkj-subagents-alpha@dkj-marketplace --scope project
 #     claude plugin update <plugin>@<marketplace> --scope project
 # A BARE mention is prose discussing the command, and demanding flags there would be nonsense:
 #     "`claude plugin update` has the same default", "Because `claude plugin update` pins the cache"
@@ -5000,7 +5000,7 @@ Write-Coverage -Category 'check-list' -Checked $clChecked `
 # Checks 1 and 2 read every plugin.json -- check 1 for the marketplace's view of it, check 2 for valid JSON
 # and a non-empty name -- and neither has ever had an opinion about a FIELD's accepted shape. So all four
 # team plugins shipped in v4.33.0 with "agents": "./subagents/", this gate reported 0 error(s) over them,
-# CI agreed, and 'claude plugin install <id>@dkj-claude-plugins --scope project' answered
+# CI agreed, and 'claude plugin install <id>@dkj-marketplace --scope project' answered
 # 'Validation errors: agents: Invalid input' on every one. Four of the six plugins in the marketplace could
 # not be installed at all, by any consumer, for a whole release.
 #

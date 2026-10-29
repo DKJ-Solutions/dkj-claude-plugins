@@ -193,7 +193,7 @@ function Test-WorkshopMarker([string]$Path) {
     try {
         $mp = Get-Content -LiteralPath $marker -Raw -Encoding UTF8 | ConvertFrom-Json
         if (-not ($mp.PSObject.Properties.Name -contains 'name')) { return $false }
-        return ($mp.name -eq 'dkj-claude-plugins')
+        return ($mp.name -eq 'dkj-marketplace')
     } catch {
         return $false
     }

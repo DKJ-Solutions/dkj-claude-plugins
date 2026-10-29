@@ -7,7 +7,7 @@ description: The DKJ-Solutions house style -- the design tokens, the twelve them
 
 **Every DKJ-Solutions app looks like one family** (Dave, issue
 [#2695](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2695), October 1, 2026), and that
-family is written down in **[`assets/house-style/`](https://github.com/DKJ-Solutions/dkj-claude-plugins/tree/main/plugins/dkj-policy/assets/house-style/)** of the `dkj-policy`
+family is written down in **[`assets/house-style/`](https://github.com/DKJ-Solutions/dkj-marketplace/tree/main/plugins/dkj-policy/assets/house-style/)** of the `dkj-policy`
 plugin: the stylesheet, the theme script, the rules and the page patterns. They lived in the
 `dkj-brandbook` repo from October 13, 2026 until
 [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130) (October 18, 2026) moved them
@@ -26,7 +26,7 @@ included, always in the house style, with no opt-out (#3643; the three-part rule
 
 ## Where the files are
 
-`DKJ-Solutions/dkj-claude-plugins` is public, so these read without auth. **The consumer URLs are pinned
+`DKJ-Solutions/dkj-marketplace` is public, so these read without auth. **The consumer URLs are pinned
 to this repo's release tag, never to `main`**: `main` moves, and `house-theme.js` is executable wherever
 it is inlined, so a fetch from `main` would carry an unreleased push into every app's next copy
 ([#2954](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2954)). **The tag below is the
@@ -36,11 +36,11 @@ always pins the release that carries the bytes its checksums name.
 
 | File | Fetch from | sha256 |
 |---|---|---|
-| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.37.0/plugins/dkj-policy/assets/house-style/house-style.css` | `16eafe96205774206a7e5a5be18de8ea029fca6e6d89e595d9fd0773d308bb79` |
-| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/v5.37.0/plugins/dkj-policy/assets/house-style/house-theme.js` | `24ed94dd5f096274826bbdc47ff63f29932369f6bd55f2b47ab9ece25a09599f` |
+| `house-style.css` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/v5.37.0/plugins/dkj-policy/assets/house-style/house-style.css` | `16eafe96205774206a7e5a5be18de8ea029fca6e6d89e595d9fd0773d308bb79` |
+| `house-theme.js` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/v5.37.0/plugins/dkj-policy/assets/house-style/house-theme.js` | `24ed94dd5f096274826bbdc47ff63f29932369f6bd55f2b47ab9ece25a09599f` |
 
 The full rules (every token, the twelve themes, the reserved class names, what was left out) are in
-[`assets/house-style/README.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/assets/house-style/README.md) in `dkj-policy`. It ships in the same
+[`assets/house-style/README.md`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/assets/house-style/README.md) in `dkj-policy`. It ships in the same
 release as this page, so it describes the files that tag serves.
 
 **Check each fetched file's sha256 against the table before you use it. If it does not match, check it
@@ -81,8 +81,8 @@ appears, or the fetch fails, stop and report. Do not retype a copy from memory i
    The site header names the repo; the page is one grid of card links with no heading (its products, its
    own pages and the general ones), and its facts, its Issues and what is in flight sit on a
    separate **Repository** page on `/repository` (#3383). A repo without a build starts from
-   [`patterns/repo-dashboard.html`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/assets/house-style/patterns/repo-dashboard.html) and
-   [`patterns/repo-repository.html`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/assets/house-style/patterns/repo-repository.html)
+   [`patterns/repo-dashboard.html`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/assets/house-style/patterns/repo-dashboard.html) and
+   [`patterns/repo-repository.html`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/assets/house-style/patterns/repo-repository.html)
    in `dkj-policy`'s `assets/house-style/`, which carry no CSS of their own
    ([#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)).
    **Every page a repo's dev server serves opens with the breadcrumb bar**, the home page and the
@@ -175,7 +175,7 @@ permissions:
   contents: read
 jobs:
   house-style:
-    uses: DKJ-Solutions/dkj-claude-plugins/.github/workflows/reusable-house-style.yml@main
+    uses: DKJ-Solutions/dkj-marketplace/.github/workflows/reusable-house-style.yml@main
 ```
 
 **At session start**, the plugin's `house-style-sessioncheck` hook runs the same checks and reports them.
@@ -185,14 +185,14 @@ It is read-only, and in a repo with no house style at all it prints one line say
 
 **In this plugin, never in the repo you are working in** (the extension's `CLAUDE.md` states the rule in
 full). A consuming repo files an inbound issue (`feature-inbound` or `bug-inbound`) on
-`DKJ-Solutions/dkj-claude-plugins` with what should change and why, keeps working on the repo's own
+`DKJ-Solutions/dkj-marketplace` with what should change and why, keeps working on the repo's own
 domain layer, and takes the new copy once it has been released and this page points at it (below). Until
 [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130) (October 18, 2026) that route
 led to the `dkj-brandbook` repo, which will be archived once the migration in
 [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130) is complete.
 
 **In this source repo the change is made directly**, in
-[`assets/house-style/`](https://github.com/DKJ-Solutions/dkj-claude-plugins/tree/main/plugins/dkj-policy/assets/house-style/), and there it is a **visible result**: it reaches every
+[`assets/house-style/`](https://github.com/DKJ-Solutions/dkj-marketplace/tree/main/plugins/dkj-policy/assets/house-style/), and there it is a **visible result**: it reaches every
 DKJ-Solutions app the next time it takes a copy, so the branch stops for the owner's look instead of
 merging.
 

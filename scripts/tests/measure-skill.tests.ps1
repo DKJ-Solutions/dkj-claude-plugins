@@ -279,7 +279,7 @@ Write-Host '== An empty table: owed vs. not owed (#1771) ==' -ForegroundColor Cy
 $script:AgentsOnlyFixture = @(
     'Claude Specialists - team e-commerce (subagent scaffold) (dkj-subagents-ecomm) 4.33.0',
     '  Description: Add-on team for commercial webshop repos (any platform): Sergio, Craig, Sean.',
-    '  Source: dkj-subagents-ecomm@dkj-claude-plugins',
+    '  Source: dkj-subagents-ecomm@dkj-marketplace',
     '',
     'Component inventory',
     '  Skills (0)',
@@ -317,7 +317,7 @@ Assert-True ((($strippedProblems -join ' ') -match '19')) `
 # present, so nothing here is a problem -- the caveat about what the total omits is the script's half.
 $script:KeyedFixture = @(
     'Claude Specialists - team alpha (the core team) (dkj-subagents-alpha) 4.33.0',
-    '  Source: dkj-subagents-alpha@dkj-claude-plugins',
+    '  Source: dkj-subagents-alpha@dkj-marketplace',
     '',
     'Component inventory',
     '  Skills (4)  orchestrator, specialists-init, specialists-teardown, sync-roster',

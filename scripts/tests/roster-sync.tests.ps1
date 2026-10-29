@@ -33,7 +33,7 @@ $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $Script   = Join-Path $RepoRoot 'scripts\sync\check-roster-sync.ps1'
 $Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "roster-sync-test-fixture-$PID-$([guid]::NewGuid().ToString('n'))"
 
-$Marketplace = 'dkj-claude-plugins'
+$Marketplace = 'dkj-marketplace'
 $PluginName  = 'dkj-subagents-alpha'
 $PluginId    = "$PluginName@$Marketplace"
 
@@ -122,7 +122,7 @@ function Write-ChildStderr {
 }
 
 # Builds a throwaway ~/.claude/plugins/installed_plugins.json and returns the profile dir to point
-# $env:USERPROFILE at (inbound #302). -Records: @{ 'dkj-subagents-alpha@dkj-claude-plugins' = '<projectPath>' };
+# $env:USERPROFILE at (inbound #302). -Records: @{ 'dkj-subagents-alpha@dkj-marketplace' = '<projectPath>' };
 # pass an empty string as the value for a record carrying NO projectPath (the user-scope shape, which
 # covers every repo).
 #
@@ -412,10 +412,10 @@ try {
     Set-CheckScope ('x' * 400)
     Assert-Equal 120 (Format-CheckScoped '').Trim().TrimEnd(':').Length 'scope label: an absurdly long label is capped, so one manifest field cannot flood the summary'
     # The other half of sanitizing: a REAL label must survive untouched. A sanitizer that also mangles
-    # 'davekokbwj/smartwatchbanden / dkj-subagents-alpha@dkj-claude-plugins' would destroy the very
+    # 'davekokbwj/smartwatchbanden / dkj-subagents-alpha@dkj-marketplace' would destroy the very
     # attribution this whole change exists to add.
-    Set-CheckScope 'davekokbwj/smartwatchbanden / dkj-subagents-alpha@dkj-claude-plugins'
-    Assert-Equal 'davekokbwj/smartwatchbanden / dkj-subagents-alpha@dkj-claude-plugins: real finding' (Format-CheckScoped 'real finding') 'scope label: a real repo/plugin label passes through the sanitizer unchanged'
+    Set-CheckScope 'davekokbwj/smartwatchbanden / dkj-subagents-alpha@dkj-marketplace'
+    Assert-Equal 'davekokbwj/smartwatchbanden / dkj-subagents-alpha@dkj-marketplace: real finding' (Format-CheckScoped 'real finding') 'scope label: a real repo/plugin label passes through the sanitizer unchanged'
     Set-CheckScope
 
     # --- 1. Happy path: agents present in roster + lens -> exit 0 --------------------------------
@@ -1022,7 +1022,7 @@ try {
     #      repo-enabled and erase the very distinction under test.
     $mixCache = New-FixtureCache -VersionAgents @{ '1.11.0' = @('06-16') } -Plugin 'dkj-subagents-alpha'
     $mixCache = New-FixtureCache -VersionAgents @{ '1.11.0' = @('07-07') } -Plugin 'widgets' -KeepExisting
-    $secondId = 'widgets@dkj-claude-plugins'
+    $secondId = 'widgets@dkj-marketplace'
     $cMix = New-FixtureConsumer -RosterIds @('06-16', '07-07') -LensIds @('06-16') `
         -ExtraLensesByPlugin @{ 'widgets' = @('07-07') }
     $adminProfile = New-FixtureAdmin -Records @{ $PluginId = ''; $secondId = '' } -Name 'admin-mixed-enable' -UserSettings @{ $secondId = $true }
@@ -1246,7 +1246,7 @@ try {
     # Written as a real JSON escape (\n inside the key), so this is exactly the shape a settings file can
     # legitimately hold -- not a PowerShell-side construction that JSON would have rejected.
     [System.IO.File]::WriteAllText((Join-Path $c '.claude\settings.json'),
-        '{ "enabledPlugins": { "evil\n  [ERROR] forged: a specialist is missing@dkj-claude-plugins": true } }')
+        '{ "enabledPlugins": { "evil\n  [ERROR] forged: a specialist is missing@dkj-marketplace": true } }')
     $r = Invoke-Ps @('-ConsumerPathOverride', $c, '-CacheRootOverride', $cache)
 
     # The id is invalid as a slug, so the check rejects it -- that part already worked. What matters is
@@ -1476,13 +1476,13 @@ try {
     #      genuinely be in sync, but leading with that answers a question nobody can act on yet -- the
     #      reader's first move is the install, not the roster.
     $stub = New-StubCheck -Name 'stub-not-installed' -ExitCode 0 -OutputLines @(
-        '  [NOT-INSTALLED-HERE] 1 of 2 enabled plugin(s) have no install record for this path (dkj-subagents-lifehub@dkj-claude-plugins) -- a session here will not load them.',
+        '  [NOT-INSTALLED-HERE] 1 of 2 enabled plugin(s) have no install record for this path (dkj-subagents-lifehub@dkj-marketplace) -- a session here will not load them.',
         '  [OK]    all present',
         'Summary: 0 error(s), 0 info signal(s).')
     $r = Invoke-Hook @('-CheckScriptOverride', $stub)
     Assert-Equal 0 $r.Code 'hook not-installed: exit 0 (the hook never blocks)'
     Assert-Match 'not installed for this path' $r.Out 'hook not-installed: its own verdict line'
-    Assert-Match 'dkj-subagents-lifehub@dkj-claude-plugins' $r.Out 'hook not-installed: the marker reaches the session context, naming the plugin'
+    Assert-Match 'dkj-subagents-lifehub@dkj-marketplace' $r.Out 'hook not-installed: the marker reaches the session context, naming the plugin'
     Assert-NotMatch 'in sync' $r.Out 'hook not-installed: NOT reported as in sync'
     Assert-NotMatch 'drift found' $r.Out 'hook not-installed: NOT reported as drift either'
 
@@ -1491,7 +1491,7 @@ try {
     #       misleading about which end to start at. Same reasoning as [ORPHANS] in H8.
     $stub = New-StubCheck -Name 'stub-not-installed-drift' -ExitCode 1 -OutputLines @(
         "  [ERROR]  agent '06-24' has no roster row in CLAUDE.md -- add it to the roster.",
-        '  [NOT-INSTALLED-HERE] 1 of 1 enabled plugin(s) have no install record for this path (dkj-subagents-alpha@dkj-claude-plugins) -- a session here will not load them.',
+        '  [NOT-INSTALLED-HERE] 1 of 1 enabled plugin(s) have no install record for this path (dkj-subagents-alpha@dkj-marketplace) -- a session here will not load them.',
         'Summary: 1 error(s), 0 info signal(s).')
     $r = Invoke-Hook @('-CheckScriptOverride', $stub)
     Assert-Match 'blocking finding\(s\)' $r.Out 'hook not-installed-drift: the drift branch still fires'
@@ -1503,7 +1503,7 @@ try {
     #       surface that still will not load.
     $stub = New-StubCheck -Name 'stub-not-installed-bootstrap' -ExitCode 0 -OutputLines @(
         '  [BOOTSTRAP] this repo has no lenses and no roster rows -- run the specialists-init skill.',
-        '  [NOT-INSTALLED-HERE] 1 of 1 enabled plugin(s) have no install record for this path (dkj-subagents-alpha@dkj-claude-plugins) -- a session here will not load them.',
+        '  [NOT-INSTALLED-HERE] 1 of 1 enabled plugin(s) have no install record for this path (dkj-subagents-alpha@dkj-marketplace) -- a session here will not load them.',
         'Summary: 0 error(s), 0 info signal(s).')
     $r = Invoke-Hook @('-CheckScriptOverride', $stub)
     Assert-Match 'has not been set up yet' $r.Out 'hook not-installed-bootstrap: the bootstrap verdict still leads'
@@ -1526,7 +1526,7 @@ try {
     #      thing the hook can say, because a record administered at 'local' scope is reported by nothing
     #      else on the machine. Same argument that gave [BOOTSTRAP] its own line.
     $stub = New-StubCheck -Name 'stub-record-shape' -ExitCode 0 -OutputLines @(
-        "  [RECORD-SHAPE] 1 of 1 enabled plugin(s) have an install record for this path that differs from the assumed shape (dkj-subagents-alpha@dkj-claude-plugins).",
+        "  [RECORD-SHAPE] 1 of 1 enabled plugin(s) have an install record for this path that differs from the assumed shape (dkj-subagents-alpha@dkj-marketplace).",
         '  [OK]    all present',
         'Summary: 0 error(s), 0 info signal(s).')
     $r = Invoke-Hook @('-CheckScriptOverride', $stub)
@@ -1537,7 +1537,7 @@ try {
     # forwarded detail lines that may say the state needs no action at all.
     Assert-Match 'say whether that needs action' $r.Out 'hook record-shape: the verdict is deferred to the lines it forwards'
     Assert-NotMatch 'its record is not the shape' $r.Out 'hook record-shape: the header no longer asserts a defect on their behalf'
-    Assert-Match 'dkj-subagents-alpha@dkj-claude-plugins' $r.Out 'hook record-shape: the marker reaches the session context, naming the plugin'
+    Assert-Match 'dkj-subagents-alpha@dkj-marketplace' $r.Out 'hook record-shape: the marker reaches the session context, naming the plugin'
     Assert-NotMatch 'in sync' $r.Out 'hook record-shape: NOT reported as in sync -- the whole point of the branch'
     Assert-NotMatch 'drift found' $r.Out 'hook record-shape: NOT reported as drift either'
 
@@ -1546,7 +1546,7 @@ try {
     #       run -- an [INFO] the hook suppresses is indistinguishable from no finding at all.
     $stub = New-StubCheck -Name 'stub-record-shape-drift' -ExitCode 1 -OutputLines @(
         "  [ERROR]  agent '06-24' has no roster row in CLAUDE.md -- add it to the roster.",
-        "  [RECORD-SHAPE] 1 of 1 enabled plugin(s) have an install record for this path that differs from the assumed shape (dkj-subagents-alpha@dkj-claude-plugins).",
+        "  [RECORD-SHAPE] 1 of 1 enabled plugin(s) have an install record for this path that differs from the assumed shape (dkj-subagents-alpha@dkj-marketplace).",
         'Summary: 1 error(s), 0 info signal(s).')
     $r = Invoke-Hook @('-CheckScriptOverride', $stub)
     Assert-Match 'blocking finding\(s\)' $r.Out 'hook record-shape-drift: the drift branch still leads'
@@ -1557,8 +1557,8 @@ try {
     #       Ordering matters here -- not-installed leads, because its remedy comes first -- but neither may
     #       swallow the other.
     $stub = New-StubCheck -Name 'stub-both-install-markers' -ExitCode 0 -OutputLines @(
-        '  [NOT-INSTALLED-HERE] 1 of 2 enabled plugin(s) have no install record for this path (dkj-subagents-lifehub@dkj-claude-plugins).',
-        "  [RECORD-SHAPE] 1 of 2 enabled plugin(s) have an install record for this path that differs from the assumed shape (dkj-subagents-alpha@dkj-claude-plugins).",
+        '  [NOT-INSTALLED-HERE] 1 of 2 enabled plugin(s) have no install record for this path (dkj-subagents-lifehub@dkj-marketplace).',
+        "  [RECORD-SHAPE] 1 of 2 enabled plugin(s) have an install record for this path that differs from the assumed shape (dkj-subagents-alpha@dkj-marketplace).",
         'Summary: 0 error(s), 0 info signal(s).')
     $r = Invoke-Hook @('-CheckScriptOverride', $stub)
     Assert-Match 'not installed for this path' $r.Out 'hook both-markers: the not-installed verdict leads'
@@ -1643,7 +1643,7 @@ try {
     #     An uppercase/underscore plugin name fails the slug regex; the script must ERROR ("invalid
     #     plugin id") and skip it rather than build a path from it. Security-relevant branch (Sean/Victor).
     $cache = New-FixtureCache -VersionAgents @{ '1.11.0' = @('06-16') }
-    $c = New-FixtureConsumer -RosterIds @('06-16') -LensIds @('06-16') -EnabledPluginId 'Bad_Name@dkj-claude-plugins'
+    $c = New-FixtureConsumer -RosterIds @('06-16') -LensIds @('06-16') -EnabledPluginId 'Bad_Name@dkj-marketplace'
     $r = Invoke-Ps @('-ConsumerPathOverride', $c, '-CacheRootOverride', $cache)
     Assert-Equal 1 $r.Code 'guardrail: exit-code 1 on malformed plugin id'
     Assert-Match "\[ERROR\].*invalid plugin id" $r.Out 'guardrail: malformed plugin id rejected'
@@ -1659,7 +1659,7 @@ try {
     $cache = New-FixtureCache -VersionAgents @{ '1.11.0' = @('06-16') } -Plugin 'dkj-subagents-alpha'
     $cache = New-FixtureCache -VersionAgents @{ '1.11.0' = @('07-07') } -Plugin 'widgets' -KeepExisting
     $c = New-FixtureConsumer -RosterIds @('06-16', '07-07', '09-90', '09-91') -LensIds @('06-16', '09-90') `
-        -ExtraEnabledPluginIds @('widgets@dkj-claude-plugins') `
+        -ExtraEnabledPluginIds @('widgets@dkj-marketplace') `
         -ExtraLensesByPlugin @{ 'widgets' = @('07-07', '09-91') }
     $r = Invoke-Ps @('-ConsumerPathOverride', $c, '-CacheRootOverride', $cache)
     Assert-Equal 0 $r.Code 'two-plugin: exit-code 0 (both agents satisfied, orphans are INFO only)'

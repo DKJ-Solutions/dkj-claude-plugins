@@ -223,7 +223,7 @@ try {
         if (-not (Test-Path -LiteralPath $gateAbs -PathType Leaf)) { continue }
         $gateText = [System.IO.File]::ReadAllText($gateAbs, [System.Text.Encoding]::UTF8)
 
-        $calls = @(Get-SharedScriptReference -WorkflowText $gateText -RepositoryName 'dkj-claude-plugins')
+        $calls = @(Get-SharedScriptReference -WorkflowText $gateText -RepositoryName 'dkj-marketplace')
         Assert-Equal 1 $calls.Count "-Apply: the $gate caller reaches exactly one path into this repo"
         Assert-Equal 'call' ([string]@($calls | ForEach-Object { $_.Kind })[0]) "-Apply: the $gate caller reaches it by a reusable-workflow CALL, not a checkout of its own"
         # GitHub refuses timeout-minutes (and runs-on/steps) on a job that calls a reusable workflow, so a
@@ -235,7 +235,7 @@ try {
             if (-not $judged.Exists) { continue }
             $called = [System.IO.File]::ReadAllText((Join-Path $RepoRoot ($judged.Path -replace '/', '\')), [System.Text.Encoding]::UTF8)
             Assert-True ($called -match '(?m)^\s*workflow_call:') "-Apply: '$($judged.Path)' is a reusable workflow (on: workflow_call)"
-            $scripts = @(Get-SharedScriptReference -WorkflowText $called -RepositoryName 'dkj-claude-plugins' | Where-Object { $_.Kind -eq 'checkout' })
+            $scripts = @(Get-SharedScriptReference -WorkflowText $called -RepositoryName 'dkj-marketplace' | Where-Object { $_.Kind -eq 'checkout' })
             Assert-Equal 1 $scripts.Count "-Apply: '$($judged.Path)' runs exactly one script out of a checkout of this repo"
             foreach ($s in @(Test-SharedScriptReference -Reference $scripts -SourceRoot $RepoRoot)) {
                 Assert-True $s.Exists "-Apply: '$($judged.Path)' runs '$($s.Path)', and that path EXISTS in this tree"
@@ -747,7 +747,7 @@ try {
     # copying the example must still get the real line.
     $cC7 = New-FixtureConsumer -Label 'const-quoted'
     $cC7Md = Join-Path $cC7 'CLAUDE.md'
-    [System.IO.File]::WriteAllText($cC7Md, (@('# Ours', $bt3, '@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md', $bt3, '') -join "`n"))
+    [System.IO.File]::WriteAllText($cC7Md, (@('# Ours', $bt3, '@~/.claude/plugins/marketplaces/dkj-marketplace/plugins/dkj-policy/CLAUDE.md', $bt3, '') -join "`n"))
     $rC7 = Invoke-Adopt -Dir $cC7 -ScriptArgs @('-Apply')
     Assert-Match '\[added\]' $rC7.Flat 'constitution, quoted in a fence: not mistaken for an import -- the line is added'
     $cC7Lines = @(([System.IO.File]::ReadAllText($cC7Md)).TrimEnd() -split "`n")
@@ -779,7 +779,7 @@ try {
     $cE1 = New-FixtureConsumer -Label 'ext-both'
     New-Item -ItemType Directory -Path (Join-Path $cE1 '.claude') -Force | Out-Null
     [System.IO.File]::WriteAllText((Join-Path $cE1 '.claude\settings.json'),
-        '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-solutions@dkj-claude-plugins": true, "bwj-development@dkj-claude-plugins": false } }')
+        '{ "enabledPlugins": { "dkj-policy@dkj-marketplace": true, "dkj-solutions@dkj-marketplace": true, "bwj-development@dkj-marketplace": false } }')
     $cE1Md = Join-Path $cE1 'CLAUDE.md'
     [System.IO.File]::WriteAllText($cE1Md, "# T`n`n@~/.claude/other.md`n")
     $rE1 = Invoke-Adopt -Dir $cE1 -ScriptArgs @('-Apply')

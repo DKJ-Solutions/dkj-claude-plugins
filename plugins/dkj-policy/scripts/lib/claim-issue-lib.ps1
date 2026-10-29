@@ -1352,7 +1352,7 @@ function Get-IssuePathCitations {
 
             A PATH NEEDS A DIRECTORY AND AN EXTENSION. Requiring the slash is what keeps an ordinary
             English sentence out of the result; requiring the extension is what keeps
-            'DKJ-Solutions/dkj-claude-plugins' -- an owner/name citation, not a file -- out of it. The
+            'DKJ-Solutions/dkj-marketplace' -- an owner/name citation, not a file -- out of it. The
             cost is stated rather than hidden: a file cited bare at the repo root ('README.md') is not
             collected, because nothing distinguishes it from a word with a full stop after it.
 

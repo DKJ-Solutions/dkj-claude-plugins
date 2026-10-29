@@ -56,7 +56,7 @@
     canonical copy in assets/house-style/ that retires a name updates this list in the same change
     (#3130), and the suite holds the list to that copy so a live name can never be listed as retired.
 
-    THE SOURCE REPO'S OWN COPY IS NOT A COPY (#3637). In DKJ-Solutions/dkj-claude-plugins the files under
+    THE SOURCE REPO'S OWN COPY IS NOT A COPY (#3637). In DKJ-Solutions/dkj-marketplace the files under
     plugins/dkj-policy/assets/house-style/ are the canonical source, and between a house-style merge and
     the next cut they run ahead of the tag that every install pins -- so holding them to that pin told
     the session to revert merged work. There those two files skip check 1, still serve as the verified
@@ -156,7 +156,7 @@ function Get-HouseStylePin {
         $m = [regex]::Match($line, '^\|\s*`(?<file>house-style\.css|house-theme\.js)`\s*\|\s*`(?<url>[^`]+)`\s*\|\s*`(?<sha>[0-9a-f]{64})`\s*\|')
         if (-not $m.Success) { continue }
         $hashes[$m.Groups['file'].Value] = $m.Groups['sha'].Value
-        $t = [regex]::Match($m.Groups['url'].Value, '/dkj-claude-plugins/(?<tag>[^/]+)/plugins/dkj-policy/(?:dkj-solutions/)?assets/house-style/')
+        $t = [regex]::Match($m.Groups['url'].Value, '/(?:dkj-marketplace|dkj-claude-plugins)/(?<tag>[^/]+)/plugins/dkj-policy/(?:dkj-solutions/)?assets/house-style/')
         if ($t.Success) { $tag = $t.Groups['tag'].Value }
     }
     foreach ($name in (Get-HouseStyleCopyNames)) { if (-not $hashes.ContainsKey($name)) { return $null } }
@@ -181,7 +181,7 @@ function Get-HouseStyleTagPin {
         if (-not (Test-Path -LiteralPath $env:DKJ_HOUSE_STYLE_TAG_PAGE -PathType Leaf)) { return $null }
         $TagPageText = [System.IO.File]::ReadAllText($env:DKJ_HOUSE_STYLE_TAG_PAGE, [System.Text.Encoding]::UTF8)
     } elseif (-not $PSBoundParameters.ContainsKey('TagPageText')) {
-        $url = "https://raw.githubusercontent.com/DKJ-Solutions/dkj-claude-plugins/$($Pin.Tag)/plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md"
+        $url = "https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/$($Pin.Tag)/plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md"
         try {
             [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
             $TagPageText = [string](Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop).Content
@@ -518,10 +518,10 @@ function Invoke-HouseStyleCheck {
 
         $hits = @()
         foreach ($h in @(Find-HouseStyleTokenHit -Text $text -Names $houseTokens)) {
-            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "defines the house token $($h.Name) -- add a domain token under a name of its own, or fix the value at its source (plugins/dkj-policy/assets/house-style/ in DKJ-Solutions/dkj-claude-plugins)" }
+            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "defines the house token $($h.Name) -- add a domain token under a name of its own, or fix the value at its source (plugins/dkj-policy/assets/house-style/ in DKJ-Solutions/dkj-marketplace)" }
         }
         foreach ($h in @(Find-HouseStyleClassHit -Text $text -Classes $houseClasses)) {
-            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "styles the house class $($h.Name) -- give the element a domain class of its own, or fix the class at its source (plugins/dkj-policy/assets/house-style/ in DKJ-Solutions/dkj-claude-plugins)" }
+            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "styles the house class $($h.Name) -- give the element a domain class of its own, or fix the class at its source (plugins/dkj-policy/assets/house-style/ in DKJ-Solutions/dkj-marketplace)" }
         }
         foreach ($h in @(Find-HouseStyleTokenHit -Text $text -Names $retired -IncludeReads)) {
             $hits += @{ Check = 'retired'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "$($h.Kind) $($h.Name), a token name the house style retired -- rename it per the rename tables in house-style/README.md at $($Pin.Tag)" }

@@ -66,7 +66,7 @@ ships Git Bash, before you adopt.
 ## Installing it yourself
 
 **Skip this section if the plugins arrived through your organisation.** Every command here names the
-**public** source `DKJ-Solutions/dkj-claude-plugins`; running them against an organisation's own channel
+**public** source `DKJ-Solutions/dkj-marketplace`; running them against an organisation's own channel
 does not fail loudly, it quietly adds a second channel pointing somewhere else.
 
 **1. Write your repo's own `.claude/settings.json`** (create `.claude/` beside your `README.md` if it is
@@ -77,12 +77,12 @@ want that workflow.
 ```json
 {
   "extraKnownMarketplaces": {
-    "dkj-claude-plugins": {
-      "source": { "source": "github", "repo": "DKJ-Solutions/dkj-claude-plugins" }
+    "dkj-marketplace": {
+      "source": { "source": "github", "repo": "DKJ-Solutions/dkj-marketplace" }
     }
   },
   "enabledPlugins": {
-    "dkj-subagents-alpha@dkj-claude-plugins": true
+    "dkj-subagents-alpha@dkj-marketplace": true
   }
 }
 ```
@@ -93,8 +93,8 @@ the next command fails with `Marketplace … not found`.
 **3–4. Refresh, then install — from your repo's root, one install per plugin you enabled.**
 
 ```powershell
-claude plugin marketplace update dkj-claude-plugins                             # never skip: install does not refresh
-claude plugin install dkj-subagents-alpha@dkj-claude-plugins --scope project    # once per plugin
+claude plugin marketplace update dkj-marketplace                             # never skip: install does not refresh
+claude plugin install dkj-subagents-alpha@dkj-marketplace --scope project    # once per plugin
 ```
 
 `--scope project` is not optional — without it the install goes machine-wide and writes no
@@ -119,8 +119,8 @@ slash list, and the four steps below start.
 **Staying up to date** afterwards is the `update-plugins` skill (with `dkj-policy` enabled), or by hand:
 
 ```powershell
-claude plugin marketplace update dkj-claude-plugins
-claude plugin update dkj-subagents-alpha@dkj-claude-plugins --scope project
+claude plugin marketplace update dkj-marketplace
+claude plugin update dkj-subagents-alpha@dkj-marketplace --scope project
 ```
 
 ### Why six acts, and the measurements behind each
@@ -258,20 +258,20 @@ That last fact is why the per-plugin `CHANGELOG.md` and `RELEASE.md` card were *
 had the real one, and the 11,684 lines across those ten files were a second copy free to disagree with
 it. One repository, one product, one changelog.
 
-**One canonical channel — mind the old repo names.** The marketplace is named `dkj-claude-plugins`
-(repo `DKJ-Solutions/dkj-claude-plugins`) and that is the only channel **for a reader who registers it
+**One canonical channel — mind the old repo names.** The marketplace is named `dkj-marketplace`
+(repo `DKJ-Solutions/dkj-marketplace`) and that is the only channel **for a reader who registers it
 themselves**; use that name in `extraKnownMarketplaces`. If this copy reached you through an
 organisation's own marketplace, that channel is the canonical one for you and this paragraph is about
 the public source it was mirrored from — do not register a second one alongside it. The source repo has
-been renamed twice and transferred to a new owner once, and every old name and the old owner keep
+been renamed three times and transferred to a new owner once, and every old name and the old owner keep
 pointing at the same repo via **GitHub redirects** — the full detail, including the one condition that
 must hold for those redirects to keep working (nothing may ever be created at the old paths), is in that
-repo's own [`this-repo.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/.claude/rules/this-repo.md#repo-citation--one-owner-name).
+repo's own [`this-repo.md`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/.claude/rules/this-repo.md#repo-citation--one-owner-name).
 **There is no second source to mirror to.** However, the local marketplace clone of an old registration
 can lag behind (it was once cloned at an older commit and doesn't converge to the new `HEAD` on its
 own), so an install on that channel silently yields an older plugin version. If you run into this:
-update the marketplace registration (a marketplace update) or re-add it under `dkj-claude-plugins` — a
-fresh install should always use `DKJ-Solutions/dkj-claude-plugins`.
+update the marketplace registration (a marketplace update) or re-add it under `dkj-marketplace` — a
+fresh install should always use `DKJ-Solutions/dkj-marketplace`.
 
 **The two `dkj-policy` extensions were renamed** on October 4, 2026
 ([#2788](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2788)): `dkj-policy-bwj` is
@@ -280,9 +280,9 @@ ids, so a repo that enabled one loads nothing of it until it migrates. Nothing f
 session-start check warns once for each old name. Migrating takes three steps, run from the repo's root:
 
 1. In `.claude/settings.json`, replace the old key in `enabledPlugins` with the new one, e.g.
-   `"bwj-development@dkj-claude-plugins": true`.
-2. Install it: `claude plugin marketplace update dkj-claude-plugins`, then
-   `claude plugin install bwj-development@dkj-claude-plugins --scope project`, and
+   `"bwj-development@dkj-marketplace": true`.
+2. Install it: `claude plugin marketplace update dkj-marketplace`, then
+   `claude plugin install bwj-development@dkj-marketplace --scope project`, and
    `claude plugin uninstall dkj-policy-bwj@dkj-claude-plugins --scope project` for the stale record.
 3. Rewrite the `CLAUDE.md` import with the `adopt-dkj-policy` skill's `adopt-workflow-folder.ps1 -Apply`.
    It replaces the old `.../dkj-policy/dkj-policy-bwj/CLAUDE.md` line in place.
@@ -372,7 +372,7 @@ cache, so once `claude plugin update` has pinned your install to a version, that
 release you are on. Every plugin bumps in lockstep, so any one of them answers the question.
 
 For **what changed** in that release, read the source repo's `CHANGELOG.md` and `dkj-policy/releases/`
-in the marketplace clone you already have — `~/.claude/plugins/marketplaces/dkj-claude-plugins/`. See
+in the marketplace clone you already have — `~/.claude/plugins/marketplaces/dkj-marketplace/`. See
 [Consumption](#consumption) above for the mechanics.
 
 A newly added **skill** additionally needs a session restart before it becomes visible, and the
@@ -464,8 +464,8 @@ manifest to match. The workflow is not offered there because it is not there. No
 invented: the manifest format has none, and one would need Claude to honour it, while a plugin that did
 not travel cannot be offered by anything.
 
-**The marketplace keeps its name.** `dkj-claude-plugins` is the key in every consumer's
-`enabledPlugins` (`dkj-subagents-alpha@dkj-claude-plugins`), so the filtered marketplace is the *same*
+**The marketplace keeps its name.** `dkj-marketplace` is the key in every consumer's
+`enabledPlugins` (`dkj-subagents-alpha@dkj-marketplace`), so the filtered marketplace is the *same*
 marketplace with fewer entries, not a second one under a new key.
 
 **The unit is the plugin, and the degraded items travel.** `dkj-subagents-alpha`'s three PowerShell skills and
@@ -1028,10 +1028,10 @@ uninstalling. From your repo's root, once per plugin, then remove the `enabledPl
 `extraKnownMarketplaces` key lets a session start rebuild the install by itself:
 
 ```powershell
-claude plugin uninstall dkj-subagents-alpha@dkj-claude-plugins --scope project
+claude plugin uninstall dkj-subagents-alpha@dkj-marketplace --scope project
 ```
 
-`claude plugin marketplace remove dkj-claude-plugins` is **machine-wide**: it drops every install record
+`claude plugin marketplace remove dkj-marketplace` is **machine-wide**: it drops every install record
 on that marketplace, including other checkouts'. Run it only when this was the last checkout on the
 machine using the family.
 

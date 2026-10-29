@@ -279,7 +279,7 @@ reach into.
 `CLAUDE.md` holds **only** one absolute `@`-line loading them, and nothing else:
 
 ```
-@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-policy/CLAUDE.md
+@~/.claude/plugins/marketplaces/dkj-marketplace/plugins/dkj-policy/CLAUDE.md
 ```
 
 **Your `CLAUDE.md` carries no prose of its own** — no facts about the repo, no rules, nothing below the
@@ -887,7 +887,7 @@ runs in, so below the root it misses the shim, or runs another file at the same 
 October 6, 2026: Claude Code exports `CLAUDE_PROJECT_DIR` to the status line's shell and does not
 substitute it in the command text, so the shell expands it -- Git Bash on Windows, as for the hooks,
 which is why Git Bash is a stated requirement there
-([ADOPTION.md](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/ADOPTION.md#before-you-begin),
+([ADOPTION.md](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/ADOPTION.md#before-you-begin),
 #2850).
 
 **The shim is the whole design decision, so it is worth one paragraph.** The obvious thing is to write

@@ -242,7 +242,7 @@ notify-live.ps1 ... -LivePushRecord "<path this run printed>"
 
 **A failed write warns rather than refuses.** The push itself is still right; only the cut's two documents
 lose their input, and the cut says so when it runs without one. See the
-[`cut-release` skill](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md#the-live-push-record--what-a-push-then-cut-repo-hands-to-the-cut-2570-2586)
+[`cut-release` skill](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md#the-live-push-record--what-a-push-then-cut-repo-hands-to-the-cut-2570-2586)
 for what the cut does with it.
 
 ## The backup's moment moved, and that changed what it is for

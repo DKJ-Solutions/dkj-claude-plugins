@@ -158,7 +158,7 @@ prepared findings (which id is live, which target is safe, which files).
   produced it says what it was built to prevent, and a proposal that touches one needs both.
 
 Why each rule reads this way is in
-[the teams README](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/README.md#why-the-filing-rules-read-the-way-they-do).
+[the teams README](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-subagents/README.md#why-the-filing-rules-read-the-way-they-do).
 <!-- END shared:findings-become-issues -->
 
 <!-- BEGIN shared:language-behavior -- GENERATED, do not edit here -->

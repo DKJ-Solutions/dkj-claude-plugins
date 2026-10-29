@@ -280,7 +280,7 @@ tidy-up. **A seam whose answer authorises something else is not a shared fact.**
 
 ## The cut/push order, because it decides what the backup *means*
 
-This workflow runs **push, then cut** -- and [`cut-release`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md)
+This workflow runs **push, then cut** -- and [`cut-release`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md)
 argues for it on this exact target type: a Shopify live theme has no locking, third parties edit it
 through the theme editor while you work, and a live push is per-file rather than wholesale. Cutting
 first risks a **stranded release** -- a tag and a Release describing a state no customer ever saw, which

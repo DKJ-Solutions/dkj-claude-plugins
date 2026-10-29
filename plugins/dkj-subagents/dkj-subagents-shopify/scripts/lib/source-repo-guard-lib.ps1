@@ -114,7 +114,7 @@ function Get-GuardGitCommonDir {
 
           primary checkout   -> .../claude-code-specialists/.git
           lane worktree      -> .../claude-code-specialists/.git     (same -- it is the same repository)
-          plugin cache clone -> .../marketplaces/dkj-claude-plugins/.git   (different -- a clone)
+          plugin cache clone -> .../marketplaces/dkj-marketplace/.git   (different -- a clone)
 
         That third line is the one that matters: the guard must keep firing on the released mirror, and a
         clone is not a worktree. `--path-format=absolute` is asked for explicitly because the default is

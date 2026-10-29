@@ -271,10 +271,10 @@ $pick = Select-DevPreviewPort -Ports @(5173) -Listeners @((& $L 5173 200)) -Proc
 Assert-Equal 'none' $pick.Action 'every port taken by others is none'
 
 # #3275: a hub of this checkout that runs from another plugin version is stopped, not reused.
-$srv = 'C:\Users\x\.claude\plugins\cache\dkj-claude-plugins\dkj-policy\5.27.0\hub\pages\serve-general-pages.ps1'
+$srv = 'C:\Users\x\.claude\plugins\cache\dkj-marketplace\dkj-policy\5.27.0\hub\pages\serve-general-pages.ps1'
 $hubProcs = @{
-    600 = @{ CommandLine = 'powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\x\.claude\plugins\cache\dkj-claude-plugins\dkj-policy\5.26.0\hub\pages\serve-general-pages.ps1" -Port 4895'; ParentId = 100 }
-    601 = @{ CommandLine = 'powershell -NoProfile -ExecutionPolicy Bypass -File "c:/users/X/.claude/plugins/cache/dkj-claude-plugins/dkj-policy/5.27.0/hub/pages/serve-general-pages.ps1" -Port 4896'; ParentId = 100 }
+    600 = @{ CommandLine = 'powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\x\.claude\plugins\cache\dkj-marketplace\dkj-policy\5.26.0\hub\pages\serve-general-pages.ps1" -Port 4895'; ParentId = 100 }
+    601 = @{ CommandLine = 'powershell -NoProfile -ExecutionPolicy Bypass -File "c:/users/X/.claude/plugins/cache/dkj-marketplace/dkj-policy/5.27.0/hub/pages/serve-general-pages.ps1" -Port 4896'; ParentId = 100 }
     602 = @{ CommandLine = 'powershell -File hub\pages\serve-general-pages.ps1 -Port 4897'; ParentId = 100 }
 }
 Assert-Equal '600' ((Get-DevPreviewStaleHubOwners -Port 4895 -Listeners @((& $L 4895 600), (& $L 4895 600)) -Processes $hubProcs -Server $srv) -join ',') 'a hub run from another version''s payload is stale, once per process'
@@ -527,13 +527,13 @@ Remove-Item Env:\DKJ_GENERAL_PAGES_PORTS -ErrorAction SilentlyContinue
 $enRoot = Join-Path $Fixture 'enabled-check'
 New-Item -ItemType Directory -Force -Path (Join-Path $enRoot '.claude') | Out-Null
 Assert-True (-not (Test-DkjSolutionsEnabled -Root $enRoot)) 'a checkout with no settings file is no DKJ-Solutions repo'
-[System.IO.File]::WriteAllText((Join-Path $enRoot '.claude\settings.json'), '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-solutions@dkj-claude-plugins": true } }')
+[System.IO.File]::WriteAllText((Join-Path $enRoot '.claude\settings.json'), '{ "enabledPlugins": { "dkj-policy@dkj-marketplace": true, "dkj-solutions@dkj-marketplace": true } }')
 Assert-True (Test-DkjSolutionsEnabled -Root $enRoot) 'one whose settings.json enables dkj-solutions is'
-[System.IO.File]::WriteAllText((Join-Path $enRoot '.claude\settings.local.json'), '{ "enabledPlugins": { "dkj-solutions@dkj-claude-plugins": false } }')
+[System.IO.File]::WriteAllText((Join-Path $enRoot '.claude\settings.local.json'), '{ "enabledPlugins": { "dkj-solutions@dkj-marketplace": false } }')
 Assert-True (-not (Test-DkjSolutionsEnabled -Root $enRoot)) 'and settings.local.json wins where it names the plugin too'
 [System.IO.File]::WriteAllText((Join-Path $enRoot '.claude\settings.local.json'), '{ not json')
 Assert-True (Test-DkjSolutionsEnabled -Root $enRoot) 'while a settings.local.json that is not JSON says nothing'
-[System.IO.File]::WriteAllText((Join-Path $enRoot '.claude\settings.json'), '{ "enabledPlugins": { "dkj-policy@dkj-claude-plugins": true, "dkj-solutions@dkj-claude-plugins": false } }')
+[System.IO.File]::WriteAllText((Join-Path $enRoot '.claude\settings.json'), '{ "enabledPlugins": { "dkj-policy@dkj-marketplace": true, "dkj-solutions@dkj-marketplace": false } }')
 Assert-True (-not (Test-DkjSolutionsEnabled -Root $enRoot)) 'a repo that sets it false, as the BWJ-Development repos do, is none'
 Assert-True ((Get-HouseStyleDir -PluginRoot $PluginRoot).EndsWith('\dkj-policy\assets\house-style')) 'the house style is read from dkj-policy''s own assets folder, which every install carries'
 # The Sec-Fetch rule both plugin servers share (#3119). Ports do not count toward "site", so the hub's link, the
@@ -708,7 +708,7 @@ try {
         # A DKJ-Solutions repo, on purpose: even there the servers carry no Brandbook and no card for it, since
         # the brand book is the source repo's product (#3475).
         New-Item -ItemType Directory -Force -Path (Join-Path $noConfig '.claude') | Out-Null
-        [System.IO.File]::WriteAllText((Join-Path $noConfig '.claude\settings.json'), '{ "enabledPlugins": { "dkj-solutions@dkj-claude-plugins": true } }')
+        [System.IO.File]::WriteAllText((Join-Path $noConfig '.claude\settings.json'), '{ "enabledPlugins": { "dkj-solutions@dkj-marketplace": true } }')
         $r = Invoke-Hook $noConfig
         $m = Get-Message $r.Text
         Assert-True ($r.Code -eq 0 -and $m -match "^Toolbox: http://localhost:$genPort/ \(started\) -- this repo states no Get-DevPreview yet") "a repo without scripts/repo-config.ps1 gets the plugin's hub, started (got '$m')"

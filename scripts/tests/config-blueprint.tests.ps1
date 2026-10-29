@@ -173,7 +173,7 @@ Assert-True (Test-Path -LiteralPath $Artefact -PathType Leaf) 'the blueprint art
 
 $bp = Get-Content -LiteralPath $Artefact -Raw | ConvertFrom-Json
 Assert-Equal $contract.Count $bp.records.Count 'the artefact carries exactly one record per contract entry'
-Assert-Equal 'DKJ-Solutions/dkj-claude-plugins' $bp.sourceRepo 'the artefact names the repo it came from'
+Assert-Equal 'DKJ-Solutions/dkj-marketplace' $bp.sourceRepo 'the artefact names the repo it came from'
 
 # In sync with the libs as they stand right now. This is the same thing the lint gate runs; asserting
 # it here too means a stale artefact fails the suite rather than only the gate.
@@ -357,11 +357,11 @@ Assert-Equal 0 $r.Code 'apply: exit 0'
 
 $after = [System.IO.File]::ReadAllText($repoConfig)
 Assert-Match 'Get-RosterPath' $after 'apply: a copy record landed in the consumer lib'
-Assert-Match 'Adopted from the DKJ-Solutions/dkj-claude-plugins config blueprint' $after 'apply: the placed block says where it came from'
+Assert-Match 'Adopted from the DKJ-Solutions/dkj-marketplace config blueprint' $after 'apply: the placed block says where it came from'
 
 # NEVER OVERWRITES: the consumer's own answer survives, and the source's is not appended beside it.
 Assert-Match "someone/their-repo" $after "apply: the consumer's own Get-RepoName value is untouched"
-Assert-NotMatch 'DKJ-Solutions/dkj-claude-plugins.{0,40}Single place this is stated' $after "apply: the source's repo name was not written into the consumer"
+Assert-NotMatch 'DKJ-Solutions/dkj-marketplace.{0,40}Single place this is stated' $after "apply: the source's repo name was not written into the consumer"
 
 # A decide record is proposed and NEVER placed -- the assert that protects the whole doctrine.
 # Get-ReleaseNotesGrouping joined the list on August 10, 2026 (#560), and it is the case that shows what the
@@ -493,7 +493,7 @@ try {
     Assert-Equal 0 $mirrorCode 'mirror: exit 0 -- it found the blueprint beside itself, with no workshop root to fall back on'
     $mirrorAfter = [System.IO.File]::ReadAllText($mirrorConfig)
     Assert-Match 'Get-RosterPath' $mirrorAfter 'mirror: a copy record landed in the consumer lib, so the artefact it read was the real one'
-    Assert-Match 'Adopted from the DKJ-Solutions/dkj-claude-plugins config blueprint' $mirrorAfter 'mirror: the placed block says where it came from'
+    Assert-Match 'Adopted from the DKJ-Solutions/dkj-marketplace config blueprint' $mirrorAfter 'mirror: the placed block says where it came from'
     # The doctrine assert, repeated on this side on purpose: the two copies could only diverge by
     # reading a different artefact, and a decide record leaking through is what that would look like.
     Assert-NotMatch '(?m)^\s*function\s+Get-ReleasePluginTier\b' $mirrorAfter "mirror: a decide record was still NOT placed"

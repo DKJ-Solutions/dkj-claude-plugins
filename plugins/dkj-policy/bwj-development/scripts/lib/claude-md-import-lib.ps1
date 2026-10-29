@@ -114,7 +114,7 @@ function Get-DkjMarketplaceSegment {
             break
         }
     }
-    return 'dkj-claude-plugins'
+    return 'dkj-marketplace'
 }
 
 function Get-ConstitutionImportLine {

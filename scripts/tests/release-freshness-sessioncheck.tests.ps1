@@ -205,7 +205,7 @@ $r3 = Invoke-Hook -Fixture $f -Payload '{"session_id":"99999999-2222-3333-4444-5
 Assert-True ($r3.Out -eq '') 'a new session id measures afresh -- and an unreachable origin stays silent'
 
 # --- mixed versions across the enabled plugins (#3273) --------------------------------------------
-$mp = 'dkj-claude-plugins'
+$mp = 'dkj-marketplace'
 $ids = @("dkj-policy@$mp", "dkj-solutions@$mp", "other@elsewhere")
 # The measured shape: dkj-policy at user scope on the newer release (the copy this hook ran from) and
 # at project scope on the older one, dkj-solutions at project scope only, on the older one.

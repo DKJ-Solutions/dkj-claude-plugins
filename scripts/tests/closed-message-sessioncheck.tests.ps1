@@ -121,13 +121,13 @@ try {
     $r = Invoke-Hook -Root $seam -Slug 'BWJ-Development/smartwatchbanden' -Secret 'ASANA_PAT'
     Assert-True ($r.Text -match 'states no Get-ResolvesExemptMatchers') 'a longer name that merely starts with the seam''s does not'
 
-    $r = Invoke-Hook -Root $noSeam -Slug 'DKJ-Solutions/dkj-claude-plugins' -Secret 'ASANA_PAT'
+    $r = Invoke-Hook -Root $noSeam -Slug 'DKJ-Solutions/dkj-marketplace' -Secret 'ASANA_PAT'
     Assert-True ($r.Text.Trim() -eq '') 'and the seam is not asked of a repo that copies no workflow'
 
     $r = Invoke-Hook -Root $none -Slug 'BWJ-Development/smartwatchbanden' -Secret '<unreadable>'
     Assert-True ($r.Text -notmatch 'ASANA_PAT') 'a secret list it could not read is not reported as a missing secret'
 
-    foreach ($slug in @('DKJ-Solutions/dkj-claude-plugins', 'someone/else')) {
+    foreach ($slug in @('DKJ-Solutions/dkj-marketplace', 'someone/else')) {
         # A real list without ASANA_PAT, so silence here can only come from the repo name.
         $r = Invoke-Hook -Root $none -Slug $slug -Secret 'CLAUDE_CODE_OATH_TOKEN'
         Assert-True ($r.Text.Trim() -eq '') "silent outside the repos that copy a workflow: $slug"

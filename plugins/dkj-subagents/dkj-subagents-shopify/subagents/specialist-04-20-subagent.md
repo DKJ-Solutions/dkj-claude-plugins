@@ -134,7 +134,7 @@ the accompanying `assets/` (CSS/JS) and `locales/`.
   produced it says what it was built to prevent, and a proposal that touches one needs both.
 
 Why each rule reads this way is in
-[the teams README](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/README.md#why-the-filing-rules-read-the-way-they-do).
+[the teams README](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-subagents/README.md#why-the-filing-rules-read-the-way-they-do).
 <!-- END shared:findings-become-issues -->
 - You work on the branch that is already set up; do not commit or push yourself, and never open a PR
   unprompted.

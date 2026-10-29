@@ -135,7 +135,7 @@ $ConsumerRoot = (Resolve-Path -LiteralPath $ConsumerRoot).Path
 #
 # The FAMILY segment is deliberately NOT derived here either (issue #179). It used to be, and in the
 # plugin-cache layout that derivation yields the MARKETPLACE name: a repo installed through
-# 'specialists@dkj-claude-plugins' got its lenses written to .claude/plugins/dkj-claude-plugins/,
+# 'specialists@dkj-marketplace' got its lenses written to .claude/plugins/dkj-claude-plugins/,
 # while check-roster-sync.ps1 only ever looked under 'claude-specialists' -- so it reported 16 existing
 # lenses as missing, and the fix it suggested would have created a second copy of each on a second
 # path. The family is a property of the plugin family, not of the marketplace it came from, so it now

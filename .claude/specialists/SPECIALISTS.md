@@ -9,7 +9,7 @@
 The orchestrator (Chris) is always loaded -- portable body from the plugin install and repo lens from
 `lenses/`; he routes on demand to the specialists below.
 
-@~/.claude/plugins/marketplaces/dkj-claude-plugins/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md
+@~/.claude/plugins/marketplaces/dkj-marketplace/plugins/dkj-subagents/dkj-subagents-alpha/personas/specialist-01-01-persona.md
 
 @lenses/specialist-01-01-lens.md
 ## The Claude Specialists — who does what
@@ -96,7 +96,7 @@ Editor) · `06-19` Victor (Code Reviewer) · `06-23` Sebastian (Security Enginee
 
 `dkj-policy` and `dkj-solutions` are the other enabled plugins and ship **no** agents at all — it carries skills, hooks and
 scripts — so the roster check skips it by design rather than for want of a row.
-For a full description of any specialist, run `claude plugin details <plugin>@dkj-claude-plugins` or
+For a full description of any specialist, run `claude plugin details <plugin>@dkj-marketplace` or
 read their manual.
 
 **Every specialist the enabled plugins ship is listed above, without exception.** Some have little or

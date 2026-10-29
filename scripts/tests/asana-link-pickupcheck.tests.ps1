@@ -65,7 +65,7 @@ function Invoke-Hook {
 Write-Host ''
 Write-Host 'The lib -- which command picks up which issue' -ForegroundColor Cyan
 
-$cache = 'C:/Users/x/.claude/plugins/cache/dkj-claude-plugins/dkj-policy/5.17.0/scripts/task'
+$cache = 'C:/Users/x/.claude/plugins/cache/dkj-marketplace/dkj-policy/5.17.0/scripts/task'
 Assert-Equal 404 (Get-PickupIssueNumber -Command "powershell -File `"$cache/claim-issue.ps1`" 404 -Tag") 'a sweep claim through the plugin cache, the path quoted'
 Assert-Equal 404 (Get-PickupIssueNumber -Command 'pwsh scripts/task/claim-issue.ps1 #404') 'a plain claim with a hash'
 Assert-Equal 404 (Get-PickupIssueNumber -Command 'claim-issue.ps1 404 -Tag -TakeOver') 'a take-over picks the work up too'

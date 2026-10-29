@@ -12,7 +12,7 @@
 
         - uses: actions/checkout@v5
           with:
-            repository: DKJ-Solutions/dkj-claude-plugins
+            repository: DKJ-Solutions/dkj-marketplace
             ref: main
             path: .workflow-scripts
         - run: powershell ... -File .workflow-scripts/plugins/dkj-policy/scripts/lint/check-branch-entry.ps1

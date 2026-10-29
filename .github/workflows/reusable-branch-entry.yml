@@ -52,7 +52,7 @@ on:
   workflow_call:
     inputs:
       scripts-ref:
-        description: The ref of DKJ-Solutions/dkj-claude-plugins whose shared scripts this gate runs.
+        description: The ref of DKJ-Solutions/dkj-marketplace whose shared scripts this gate runs.
         type: string
         required: false
         default: main
@@ -69,7 +69,7 @@ jobs:
       - name: Fetch the shared workflow scripts
         uses: actions/checkout@v5
         with:
-          repository: DKJ-Solutions/dkj-claude-plugins
+          repository: DKJ-Solutions/dkj-marketplace
           ref: ${{ inputs.scripts-ref }}
           path: .workflow-scripts
 

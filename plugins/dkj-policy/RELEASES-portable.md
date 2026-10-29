@@ -367,7 +367,7 @@ task-form note asks which of *their* tasks are solved, not what a diff reviewer 
 live-push record (below) an entry qualifies only where three things hold together: it closed an issue
 carrying the marker, it changed a path the record names (a storefront change), and none of those paths is
 held back from the push. Without a record the marker is the whole test. The mechanics are in the
-[`cut-release` skill](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md#the-live-push-record--what-a-push-then-cut-repo-hands-to-the-cut-2570-2586).
+[`cut-release` skill](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md#the-live-push-record--what-a-push-then-cut-repo-hands-to-the-cut-2570-2586).
 
 **The first section is drawn from YOUR audience tier, not from tier 2** — so a tier-1 repo's entries fill it
 exactly as a tier-2 repo's do. A repo asks its entries about tier 0 and its own audience tier only, so that
@@ -576,7 +576,7 @@ into `## Not live yet`, naming the held files — the body stays the complete li
 across the two sections — so the page answers both "what merged" and "what a visitor can actually see"
 without a caveat on either line. `-NoLivePushRecord` states there was no push to record; without either,
 a repo with a live stage gets a warning and every entry reads as landed. The mechanics are in the
-[`cut-release` skill](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md#the-live-push-record--what-a-push-then-cut-repo-hands-to-the-cut-2570-2586).
+[`cut-release` skill](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/skills/cut-release/SKILL.md#the-live-push-record--what-a-push-then-cut-repo-hands-to-the-cut-2570-2586).
 
 **It comes last on the checklist, and the reason has outlived one rewrite already.** The body used to be a
 hand-written document merged via its own branch + PR, so publishing straight after the tag would have had no

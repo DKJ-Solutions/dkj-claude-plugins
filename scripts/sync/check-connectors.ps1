@@ -329,7 +329,7 @@ if ($RemoteRunners -and -not $OnlyConsumer) {
 }
 
 # THIS REPO'S OWN MARKETPLACE NAME, i.e. the segment after the '@' in an id like
-# 'dkj-policy@dkj-claude-plugins' (#1775). Needed by the per-connector [UNLISTED] check further
+# 'dkj-policy@dkj-marketplace' (#1775). Needed by the per-connector [UNLISTED] check further
 # down, which has to tell "an id this register is responsible for" from "an id naming a marketplace
 # this register has never heard of and has no business reporting on".
 #
@@ -1099,7 +1099,7 @@ foreach ($mf in $manifestFiles) {
                    }
                    return $false })) {
         # ARM 2 -- THIS REPO'S OWN RENAME HISTORY, AND BOUNDED TO IT. Measured on this machine:
-        # connectors/dkj-claude-plugins.json names 'DKJ-Solutions/dkj-claude-plugins' (the #1769
+        # connectors/dkj-claude-plugins.json names 'DKJ-Solutions/dkj-marketplace' (the #1769
         # rename), while THIS checkout's own origin is still
         # 'https://github.com/DKJ-Solutions/claude-code-specialists.git' -- a name-half match this
         # repo's own rename history explains, consistent with a transfer redirect. Without this arm,
@@ -1490,8 +1490,8 @@ foreach ($mf in $manifestFiles) {
     # those five as 'completely silent' and folds the fifth (dkj-subagents-alpha@) into 'one printed an
     # [INFO] because it carries a retired id', on the reading that the manifest's 'dkj-team-alpha@' entry
     # is that plugin's old name. That reading is about the underlying PLUGIN; this check compares ID
-    # STRINGS, and 'dkj-team-alpha@dkj-claude-plugins' is not
-    # 'dkj-subagents-alpha@dkj-claude-plugins' -- so, run today, this check reports dkj-subagents-alpha@
+    # STRINGS, and 'dkj-team-alpha@dkj-marketplace' is not
+    # 'dkj-subagents-alpha@dkj-marketplace' -- so, run today, this check reports dkj-subagents-alpha@
     # as unlisted too, a fifth finding rather than folding into the retired-name one. That is not a
     # contradiction of #1775's count, only a sharper reading of the same five ids: every one of them was
     # unchecked, and this block is what makes each of the five say so on its own.

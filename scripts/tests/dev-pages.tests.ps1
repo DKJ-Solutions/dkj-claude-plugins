@@ -176,7 +176,7 @@ Assert-True ($hp -match '&lt;x&gt;' -and $hp -notmatch '<x>') 'a suite name is e
 
 Write-Host '-- where it was measured' -ForegroundColor Cyan
 $ms = Format-TestGatePageHtml -Model $m -Path 'measured'
-Assert-True ((Format-TestGatePageHtml -Model $m -Path 'measured' -RepoSlug 'DKJ-Solutions/dkj-claude-plugins') -match 'href="https://github.com/DKJ-Solutions/dkj-claude-plugins/actions/runs/111"') 'each run links to its CI run, in the repo the origin remote names'
+Assert-True ((Format-TestGatePageHtml -Model $m -Path 'measured' -RepoSlug 'DKJ-Solutions/dkj-marketplace') -match 'href="https://github.com/DKJ-Solutions/dkj-marketplace/actions/runs/111"') 'each run links to its CI run, in the repo the origin remote names'
 Assert-True ($ms -notmatch 'actions/runs/' -and $ms -match '<dt>CI runs</dt><dd>111, 222</dd>' -and (Format-TestGatePageHtml -Model $m -Path 'measured' -RepoSlug 'x" onclick="y') -notmatch 'actions/runs/') 'without an owner/name it names each run by its number and links nowhere (#3470)'
 Assert-True ($ms -match '<dt>Not recorded yet</dt><dd><code>new.tests.ps1</code></dd>') 'the unrecorded suites are named here'
 Assert-True ($ms -match 'one after another' -and $ms -match 'never on a workstation') 'and the notes say how to read the numbers'

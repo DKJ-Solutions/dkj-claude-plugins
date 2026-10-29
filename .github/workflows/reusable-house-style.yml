@@ -12,7 +12,7 @@
 #     contents: read
 #   jobs:
 #     house-style:
-#       uses: DKJ-Solutions/dkj-claude-plugins/.github/workflows/reusable-house-style.yml@main
+#       uses: DKJ-Solutions/dkj-marketplace/.github/workflows/reusable-house-style.yml@main
 #
 # NEVER CALL IT FROM pull_request_target. The gate dot-sources the PR's own scripts/repo-config.ps1 (for
 # its allowlist), so under that trigger a fork's code would run with a privileged token. For the same
@@ -33,7 +33,7 @@ on:
   workflow_call:
     inputs:
       scripts-ref:
-        description: The ref of DKJ-Solutions/dkj-claude-plugins whose house-style gate this runs.
+        description: The ref of DKJ-Solutions/dkj-marketplace whose house-style gate this runs.
         type: string
         required: false
         default: main
@@ -53,7 +53,7 @@ jobs:
       - name: Fetch the shared workflow scripts
         uses: actions/checkout@v5
         with:
-          repository: DKJ-Solutions/dkj-claude-plugins
+          repository: DKJ-Solutions/dkj-marketplace
           ref: ${{ inputs.scripts-ref }}
           path: .workflow-scripts
           persist-credentials: false
@@ -82,7 +82,7 @@ jobs:
       - name: Fetch the skill page at that tag
         uses: actions/checkout@v5
         with:
-          repository: DKJ-Solutions/dkj-claude-plugins
+          repository: DKJ-Solutions/dkj-marketplace
           ref: ${{ steps.pin.outputs.tag }}
           path: .workflow-pin
           sparse-checkout: plugins/dkj-policy/dkj-solutions/skills/house-style

@@ -1,5 +1,5 @@
 {
-  "name": "dkj-claude-plugins",
+  "name": "dkj-marketplace",
   "description": "The Claude Specialists system by Dave (DaveKJohn): a team of specialized Claudes under one Chief of Staff. Every plugin here is either a TEAM — who the specialists are — or a WORKFLOW — how work moves through the repo they land in. Teams stack: enable the core team plus whichever add-on teams fit the repo. Workflows mostly do not — two that answered the same question differently would collide — so there is one general workflow, plus bwj-development, a deliberately narrow additive layer extending the ticket-work step, what a sync branch owes, and how a preview is handed to a reviewer. One product, one repository, one marketplace.",
   "owner": { "name": "Dave (DaveKJohn)" },
   "plugins": [

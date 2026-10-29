@@ -536,7 +536,7 @@ function Resolve-PluginRequest {
     param(
         [string[]]$Requested = @(),
         [string[]]$EnabledIds = @(),
-        [string]$DefaultMarketplace = 'dkj-claude-plugins'
+        [string]$DefaultMarketplace = 'dkj-marketplace'
     )
     $out = @()
     foreach ($req in @($Requested)) {

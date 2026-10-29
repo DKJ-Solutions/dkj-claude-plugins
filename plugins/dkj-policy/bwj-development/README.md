@@ -11,7 +11,7 @@ plugin is the thing that holds them together on the points that belong to exactl
 and to none of the others Dave runs.
 
 **And one of the four chapters below now reaches two more repos -- the other three do not.**
-`dkj-claude-plugins`, this plugin's own source repo, was admitted to ticket handling alone on
+`dkj-marketplace`, this plugin's own source repo, was admitted to ticket handling alone on
 September 14, 2026 (commit `b9b2a65a`): it is the one chapter whose subject -- a discovered issue --
 exists here too, where the other three are Shopify-store policy and this repo runs no store.
 `phone-factory`, BWJ's Lightspeed store, was admitted the same way on October 2, 2026 (#2705): the
@@ -62,7 +62,7 @@ below). What it still enumerates nowhere is which changes count as visible -- th
 consumer's own reach rule, are untouched.
 
 That is the deliberate reading of the "second workflow" note left in
-[the `dkj-subagents` README](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/README.md#teams-and-workflows--whats-the-difference) after
+[the `dkj-subagents` README](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-subagents/README.md#teams-and-workflows--whats-the-difference) after
 [#886](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/886): a second workflow plugin is
 safe here **because it is additive and non-overlapping**, not because the old guard was wrong.
 
@@ -365,7 +365,7 @@ skill needs to know which workspace and project a mirrored task lands in:
   its assignee.
 - `Get-ReachLabel` -- **the name GitHub stores for the reach label**, and the one function in this list
   that says nothing about Asana. The axis it carries is fixed and portable, defined for every repo running this workflow in
-  [`RELEASES-portable.md`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-policy/RELEASES-portable.md#the-same-scale-on-an-issue--the-reach-label)
+  [`RELEASES-portable.md`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/RELEASES-portable.md#the-same-scale-on-an-issue--the-reach-label)
   and applied to these two stores in [`WORKFLOW-portable.md`](WORKFLOW-portable.md#the-reach-label----the-reach-axis-carried-onto-issues);
   the string is yours, because a repo renames a label for its own colleagues without consulting a
   plugin. **Optional, default `minor`** -- so answer it only where your label is called something

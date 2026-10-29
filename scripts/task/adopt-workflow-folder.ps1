@@ -268,7 +268,7 @@ $noteRootRelPath = ($noteRootRelPath -replace '\\', '/').TrimEnd('/')
 $entryGateWorkflow = @(
     '# Every PR into the trunk carries a WRITTEN changelog entry.',
     '#',
-    '# The runner is not in this file: it is a reusable workflow in DKJ-Solutions/dkj-claude-plugins,',
+    '# The runner is not in this file: it is a reusable workflow in DKJ-Solutions/dkj-marketplace,',
     '# which runs check-branch-entry.ps1 -- the same two functions open-pr calls locally. One definition',
     '# of the gate, and a change to it reaches this repo without re-adopting. Its reasoning is written there.',
     '#',
@@ -292,7 +292,7 @@ $entryGateWorkflow = @(
     '',
     'jobs:',
     '  branch-entry:',
-    '    uses: DKJ-Solutions/dkj-claude-plugins/.github/workflows/reusable-branch-entry.yml@main'
+    '    uses: DKJ-Solutions/dkj-marketplace/.github/workflows/reusable-branch-entry.yml@main'
 )
 
 # THE SECOND PR GATE THIS COMMAND PLACES (issue #2037): a PR may not grow what every session pays before
@@ -320,7 +320,7 @@ $alwaysOnGateWorkflow = @(
     '# The always-on budget: a PR may not grow what every session pays before a single assignment is',
     '# given -- CLAUDE.md plus everything it ''@''-imports.',
     '#',
-    '# The runner is not in this file: it is a reusable workflow in DKJ-Solutions/dkj-claude-plugins,',
+    '# The runner is not in this file: it is a reusable workflow in DKJ-Solutions/dkj-marketplace,',
     '# which runs check-always-on-budget.ps1 -- the same verdict open-pr reads locally and the session',
     '# hook reports at start. Its reasoning is written there.',
     '#',
@@ -340,7 +340,7 @@ $alwaysOnGateWorkflow = @(
     '',
     'jobs:',
     '  always-on-budget:',
-    '    uses: DKJ-Solutions/dkj-claude-plugins/.github/workflows/reusable-always-on-budget.yml@main'
+    '    uses: DKJ-Solutions/dkj-marketplace/.github/workflows/reusable-always-on-budget.yml@main'
 )
 
 # CHANGELOG.md (issue #885, group A): this folder's own pending-changes list, isolated from any

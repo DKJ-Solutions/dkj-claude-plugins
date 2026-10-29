@@ -135,12 +135,12 @@ try {
     . $Lib
     $h = New-Home -Label 'lib' -Records @(
         "plug-behind@ccs-fixture=$NoWhere\dbg-1\repo",
-        "dkj-policy@dkj-claude-plugins=$RepoRoot"
+        "dkj-policy@dkj-marketplace=$RepoRoot"
     )
     $rec = Get-InstallRecord -RepoRoot $RepoRoot -UserHomeOverride $h
     Assert-True ($rec.Readable -and @($rec.AllRecords).Count -eq 2) `
         'AllRecords holds every record in the file, whatever path it names'
-    Assert-True (@($rec.Ids).Count -eq 1 -and $rec.Ids[0] -eq 'dkj-policy@dkj-claude-plugins') `
+    Assert-True (@($rec.Ids).Count -eq 1 -and $rec.Ids[0] -eq 'dkj-policy@dkj-marketplace') `
         'Ids stays filtered to this repo -- the new field did not widen the old ones'
     Assert-True (@($rec.AllRecords | Where-Object { $_.Id -eq 'plug-behind@ccs-fixture' }).Count -eq 1) `
         'a record whose projectPath does not resolve is in AllRecords -- the two filters would drop it'
@@ -150,14 +150,14 @@ try {
 
     $polluted = New-Home -Label 'polluted' -Records @(
         "plug-behind@ccs-fixture=$NoWhere\dbg-branch1-36616\repo",
-        "dkj-policy@dkj-claude-plugins=$RepoRoot"
+        "dkj-policy@dkj-marketplace=$RepoRoot"
     )
     $r = Invoke-Check -HomeOverride $polluted
     Assert-True ($r.Code -eq 1 -and $r.Out -cmatch '\[ERROR\] a FIXTURE has written') `
         'a record under a scratch tree is an [ERROR], exit 1'
     Assert-True ($r.Out -match 'plug-behind@ccs-fixture') `
         'the refusal names the polluted record'
-    Assert-True ($r.Out -notmatch 'dkj-policy@dkj-claude-plugins') `
+    Assert-True ($r.Out -notmatch 'dkj-policy@dkj-marketplace') `
         'and does NOT name the healthy record beside it'
     Assert-True ($r.Out -match '1 of 2 records names a scratch tree') `
         'it counts the polluted records against the total, and the verb agrees with the count'
@@ -183,7 +183,7 @@ try {
     $twoBad = New-Home -Label 'twobad' -Records @(
         "plug-a@ccs-fixture=$NoWhere\dbg-a\repo",
         "plug-b@ccs-fixture=$NoWhere\dbg-b\repo",
-        "dkj-policy@dkj-claude-plugins=$RepoRoot"
+        "dkj-policy@dkj-marketplace=$RepoRoot"
     )
     $r = Invoke-Check -HomeOverride $twoBad
     Assert-True ($r.Out -match '2 of 3 records name a scratch tree') `
@@ -226,7 +226,7 @@ try {
     Write-Host ''
     Write-Host '== check-claude-home: the states that are not a finding ==' -ForegroundColor Cyan
 
-    $clean = New-Home -Label 'clean' -Records @("dkj-policy@dkj-claude-plugins=$RepoRoot")
+    $clean = New-Home -Label 'clean' -Records @("dkj-policy@dkj-marketplace=$RepoRoot")
     $r = Invoke-Check -HomeOverride $clean
     Assert-True ($r.Code -eq 0 -and $r.Out -cmatch '\[OK\] no fixture records' -and $r.Out -match '1 record,') `
         'a clean administration is [OK] with its record count, exit 0'
@@ -265,7 +265,7 @@ try {
     Write-Host '== check-claude-home: the snapshot ==' -ForegroundColor Cyan
 
     # The only two cases that let the check write. Everything above passed -NoSnapshot.
-    $snapHome = New-Home -Label 'snap' -Records @("dkj-policy@dkj-claude-plugins=$RepoRoot")
+    $snapHome = New-Home -Label 'snap' -Records @("dkj-policy@dkj-marketplace=$RepoRoot")
     $snapPath = Get-SnapshotPath -HomeDir $snapHome
     Assert-True (-not (Test-Path -LiteralPath $snapPath)) 'no snapshot before the first run'
     $r = Invoke-Check -HomeOverride $snapHome -AllowSnapshot

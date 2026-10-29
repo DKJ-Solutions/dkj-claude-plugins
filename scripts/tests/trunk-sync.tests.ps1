@@ -198,7 +198,7 @@ $homeDir = Join-Path $a.Base 'home'
 $pluginsDir = Join-Path $homeDir '.claude\plugins'
 New-Item -ItemType Directory -Path $pluginsDir -Force | Out-Null
 $records = @{
-    'dkj-policy@dkj-claude-plugins' = @(
+    'dkj-policy@dkj-marketplace' = @(
         @{ scope = 'project'; projectPath = $a.Session },
         @{ scope = 'project'; projectPath = $b.Session },
         @{ scope = 'project'; projectPath = (Join-Path $a.Base 'vanished') }

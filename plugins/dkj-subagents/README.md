@@ -390,7 +390,7 @@ were declined and the reasoning is recorded here, because it is the kind of prop
   was meant to cure.
 - **`scaffold` cannot distinguish one plugin from another**, because on the definition above every
   plugin here is scaffold. A prefix every member carries is a constant, and a constant belongs in the
-  namespace — which `dkj-` and `@dkj-claude-plugins` already are. It would also collide with the two
+  namespace — which `dkj-` and `@dkj-marketplace` already are. It would also collide with the two
   established senses listed above, in a tree that has spent real effort keeping them sharp.
 - **`dkj-scaffold-core` cannot reach its own content.** `${CLAUDE_PLUGIN_ROOT}` resolves per installed
   plugin and does not cross plugin boundaries. `bwj-development` already demonstrates the consequence:

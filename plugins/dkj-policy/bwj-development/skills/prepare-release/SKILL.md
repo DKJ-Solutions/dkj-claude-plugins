@@ -113,7 +113,7 @@ promotion PR, not a push.** Three steps read differently; the rest are unchanged
 
 What the rule-suite log says about write-backs the sync rejected is read on the day, by `live-preflight`.
 The mechanics are on the
-[`live-preflight`](https://github.com/DKJ-Solutions/dkj-claude-plugins/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/live-preflight/SKILL.md#the-git-connected-mode-2998-3009)
+[`live-preflight`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-subagents/dkj-subagents-shopify/skills/live-preflight/SKILL.md#the-git-connected-mode-2998-3009)
 page and in [`SYNC-LOG-portable.md`](../../SYNC-LOG-portable.md).
 
 ## Requirements in the consumer
