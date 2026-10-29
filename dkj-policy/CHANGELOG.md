@@ -2,7 +2,37 @@
 
 ## [Unreleased]
 
-**8 / 10 minor entries** <!-- pending-tally -->
+**9 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/consumers-card · 20261029-195209Z
+
+The product hub's Connectors card, the page it opens and every breadcrumb back to it are now named
+Consumers, the repos that install plugins from this marketplace, and the card's chain-link icon is now
+a subscriber with a tick. In the house style, the content of a card that is one link (`.card--link`) now
+sits in the middle of the card's height, so a card stretched by a taller neighbour in its row no longer
+leaves its content at the top. The hub cards' icons are larger (32px), and a hub card's label is an h2 by
+default; a specialist card under its group's heading and a Stopwatch run card keep a plain label. The route `/connectors` and the
+`connectors/` register keep their names.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A repo that takes the new house style sees the content of its link cards (`.card--link`) centred in the
+card's height, where a taller card beside it used to leave it at the top. The Consumers rename is the
+source repo's own hub and reaches nobody else.
+
+**Score:** 2
+
+#### Pull Request
+
+The hub's Connectors card is named Consumers
+
+Plugins: dkj-policy
+
+[PR #3669](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3669)
+
+---
 
 ### DEPLOY: feat/3658-connector-check-skip-drift · 20261029-193134Z
 
