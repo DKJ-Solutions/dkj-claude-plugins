@@ -765,7 +765,7 @@ Assert-True ($rpUn.Contains('<span class="badge badge--sm badge--neutral" aria-h
 Write-Host '-- the Plugins page (#3482): plugin-versions -Json read into a model, and the page it draws' -ForegroundColor Cyan
 . (Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib\plugins-page-lib.ps1')
 Assert-True ((Get-HubIconSvg -Name 'plugins') -match '<svg') 'the Installed plugins card has an icon'
-Assert-Equal 3 (@('plugins', 'marketplace', 'connectors' | ForEach-Object { Get-HubIconSvg -Name $_ } | Where-Object { $_ } | Select-Object -Unique).Count) 'Installed plugins, Marketplace and Connectors each draw an icon of their own, so the three cards that once shared one plug read apart'
+Assert-Equal 3 (@('plugins', 'marketplace', 'consumers' | ForEach-Object { Get-HubIconSvg -Name $_ } | Where-Object { $_ } | Select-Object -Unique).Count) 'Installed plugins, Marketplace and Consumers each draw an icon of their own, so the three cards that once shared one plug read apart'
 $pvJson = '{"Root":"C:\r","Consulted":"user and repo","Plugins":[' +
     '{"Id":"zeta@m","Name":"zeta","Marketplace":"m","InstVersion":"1.0.0","InstScope":"project","Code":"match","Verdict":"up to date","Action":"the clone advances only on: x","Description":"<i>z</i>"},' +
     '{"Id":"alpha@m","Name":"alpha","Marketplace":"m","InstVersion":"0.9.0","InstScope":"project","Code":"behind","Verdict":"the clone is <b>ahead</b>","Action":"claude plugin update alpha@m --scope project"},' +

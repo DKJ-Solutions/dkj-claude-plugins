@@ -46,6 +46,7 @@ changes; the route `/connectors` and the `connectors/` register keep their names
 ### CREATE
 
 - [x] Card label and its line on the product home (`Get-ProductPages`), the overview's h1 and every breadcrumb back to it
+- [x] The card's icon: the chain link (`connectors`) becomes a subscriber with a tick (`consumers`, Feather's `user-check`) in `general-pages-lib.ps1`'s `$script:HubIcons`
 - [x] The asserts in `connector-dashboard.tests.ps1` and `dev-pages.tests.ps1` follow the new name
 
 ### TEST
@@ -56,7 +57,8 @@ changes; the route `/connectors` and the `connectors/` register keep their names
 ### DEPLOY: feat/consumers-card
 
 The product hub's Connectors card, the page it opens and every breadcrumb back to it are now named
-Consumers, the repos that install plugins from this marketplace. The route `/connectors` and the
+Consumers, the repos that install plugins from this marketplace, and the card's chain-link icon is now
+a subscriber with a tick. The route `/connectors` and the
 `connectors/` register keep their names.
 
 **Score:** 2

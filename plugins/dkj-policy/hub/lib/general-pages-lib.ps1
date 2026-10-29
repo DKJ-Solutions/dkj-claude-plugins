@@ -414,12 +414,12 @@ $script:HubIcons = @{
     'logbook'       = '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>'
     'clock'         = '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
     # Installed plugins: a plug pushed into its socket, in use here. The marketplace's offer is a storefront, and
-    # the connectors a chain link (Feather's 'link', MIT), so the three cards that once shared one plug read apart.
+    # its consumers a subscriber ticked off (Feather's 'user-check', MIT), so the three cards that once shared one plug read apart.
     'plugins'       = '<path d="M12 2v4M8 6h8v5a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2z"/><path d="M10 13v4M14 13v4"/><rect x="4" y="17" width="16" height="4" rx="1"/>'
     'marketplace'   = '<path d="M4 4h16l1 5H3z"/><path d="M5 9v11h14V9"/><path d="M10 20v-5h4v5"/>'
     # The source repo's own hub pages (#3493), drawn as the product port's root page drew them.
     'house-style'   = '<path d="M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.6 0-1-.8-1.4-.8-2.4s.8-1.5 1.8-1.5H17a4 4 0 0 0 4-4c0-4.7-4-8.5-9-8.5z"/><circle cx="7.5" cy="11" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16.5" cy="11" r="1"/>'
-    'connectors'    = '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>'
+    'consumers'     = '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M17 11l2 2 4-4"/>'
     'specialists'   = '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>'
     'dkj-repos'     = '<path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
 }

@@ -71,7 +71,7 @@ function Get-ProductPages {
         them: the specialists are the dkj-subagents teams', so they live on those teams' own Plugins pages.
     #>
     @(
-        @{ Href = '/connectors';  Label = 'Consumers';   Sub = 'Every repo that installs plugins from this marketplace, registered under connectors/ and checked by check-connectors.ps1 on this machine'; Icon = 'connectors' }
+        @{ Href = '/connectors';  Label = 'Consumers';   Sub = 'Every repo that installs plugins from this marketplace, registered under connectors/ and checked by check-connectors.ps1 on this machine'; Icon = 'consumers' }
         @{ Href = '/plugins';     Label = 'Marketplace'; Sub = 'Every plugin this marketplace ships, its version and what it holds'; Icon = 'marketplace' }
     )
 }
