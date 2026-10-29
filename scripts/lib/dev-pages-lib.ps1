@@ -346,7 +346,7 @@ function Format-SpecialistTeamHtml {
         $sub = @(('#' + (& $e $r.Number)), $(if ($r.Title) { & $e $r.Title }), (& $e $r.Form), ('full read ' + (& $tok $r.TotalBytes))) |
             Where-Object { $_ }
         [void]$body.AppendLine((Format-HubCardLinkHtml -Href ($BaseHref + '/' + $r.Slug) -SubHtml ($sub -join ' &middot; ') `
-            -Label ($r.Name + $(if ($r.Emoji) { ' ' + $r.Emoji } else { '' })) -Id ('specialist-' + $r.Slug) -Class 'sp-card'))
+            -Label ($r.Name + $(if ($r.Emoji) { ' ' + $r.Emoji } else { '' })) -Id ('specialist-' + $r.Slug) -Class 'sp-card' -Heading 0))
     }
     if (-not $rows.Count) {
         [void]$body.AppendLine('<section class="card"><p class="note">No specialist was found.</p></section>')

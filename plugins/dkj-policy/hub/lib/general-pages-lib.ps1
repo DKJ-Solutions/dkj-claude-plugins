@@ -397,7 +397,8 @@ function Format-RepoHubBanner {
 $script:RepoHubChevron = '<svg class="menu-item__chevron" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>'
 
 # The hub cards' icons: each a line drawing on a 24-unit grid, stroked in the text colour like the chevron. A card
-# names one by its key (-Icon on Format-HubCardLinkHtml); the svg wrapper is Get-HubIconSvg's.
+# names one by its key (-Icon on Format-HubCardLinkHtml); the svg wrapper is Get-HubIconSvg's, drawn at 32px with a 1.75 stroke so the
+# lines keep their weight at that size (owner, October 29, 2026).
 $script:HubIcons = @{
     'product'       = '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>'
     'repository'    = '<circle cx="6" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 8v8M18 10v1a5 5 0 0 1-5 5H8"/>'
@@ -428,7 +429,7 @@ function Get-HubIconSvg {
     <# The hub card icon -Name names, as a .menu-item__icon svg; '' for no name or a name $script:HubIcons lacks. #>
     param([AllowEmptyString()][string]$Name = '')
     if (-not $Name -or -not $script:HubIcons.ContainsKey($Name)) { return '' }
-    return '<svg class="menu-item__icon" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+    return '<svg class="menu-item__icon" viewBox="0 0 24 24" width="32" height="32" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">' +
         $script:HubIcons[$Name] + '</svg>'
 }
 
@@ -478,12 +479,13 @@ function Format-HubCardLinkHtml {
         HTML the caller has already escaped, and they hold NO <a>: the card is one link, an <a> inside an <a> is
         invalid HTML, and the browser closes the card's link at the inner one, so the card falls apart (#3610). One
         that does is refused with a throw.
-        -Heading 2 makes the label an h2, for an overview whose cards are its sections; -Id and -Class (extra classes,
+        The label is an h2 by default (owner, October 29, 2026): the cards are the sections of the page they sit on.
+        -Heading 0 keeps it a plain span, for a card inside a section that has a heading of its own; -Id and -Class (extra classes,
         such as a tone) go on the card.
     #>
     param([Parameter(Mandatory = $true)][string]$Href, [Parameter(Mandatory = $true)][string]$Label, [AllowEmptyString()][string]$Sub = '',
         [AllowEmptyString()][string]$Icon = '', [AllowEmptyString()][string]$SubHtml = '', [AllowEmptyString()][string]$ValueHtml = '',
-        [AllowEmptyString()][string]$BadgeHtml = '', [ValidateSet(0, 2)][int]$Heading = 0, [AllowEmptyString()][string]$Id = '',
+        [AllowEmptyString()][string]$BadgeHtml = '', [ValidateSet(0, 2)][int]$Heading = 2, [AllowEmptyString()][string]$Id = '',
         [AllowEmptyString()][string]$Class = '', [AllowEmptyString()][string]$TitleBadgeHtml = '')
     # The docstring's NO <a>, enforced (#3610): a caller that breaks it fails its suite instead of a broken card.
     foreach ($slot in @(@('SubHtml', $SubHtml), @('ValueHtml', $ValueHtml), @('BadgeHtml', $BadgeHtml), @('TitleBadgeHtml', $TitleBadgeHtml))) {
