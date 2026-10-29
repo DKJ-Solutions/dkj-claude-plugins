@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**2 / 3 minor entries** <!-- pending-tally -->
+**3 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3645-cut-certified-round-one · 20261029-145512Z
+
+A release cut whose `main` already equals `origin/main` now asks the CI run that the push to the
+trunk started whether it has proved that exact commit green, before running the lint and test gates
+locally. On green it skips both and says so; a run still in flight is waited on for up to five
+minutes; anything else runs the gates as before. On the v5.36.0 cut the local gate was about half of
+the 15 minutes. The certificate reader is now one function, shared with the catch-up (#3155).
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+A maintainer cutting a release in a repo that names its CI check (`Get-CiTestCheckName`) and slug
+sees the cut skip the local gate when CI already proved the commit, and finish several minutes
+sooner.
+
+**Score:** 2
+
+#### Pull Request
+
+cut-release: skip the round-one local gate when the main-push CI run certified HEAD
+
+Plugins: dkj-policy
+
+[PR #3652](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3652)
+
+---
 
 ### DEPLOY: feat/3646-cut-release-step-marks · 20261029-144441Z
 
