@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Maikel, October 29, 2026: the first grid under the h1 should carry the house padding on every page --
+seen on `/release-notes`. A sweep of the toolbox pages found three grids of a page's own that never
+took the house `.card-grid`: release-notes (`.cards`), stopwatch (`.sw-grid`) and test-gate
+(`.tg-cards`). Visible result, so the branch waits for the owner's look.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `build-release-notes-page.ps1` (both copies): `card-grid cards`
+- [x] `stopwatch-lib.ps1`: `card-grid sw-grid` on the overview and a label's page
+- [x] `test-gate-lib.ps1`: `card-grid tg-cards`
+- [x] `stopwatch.tests.ps1`: the two asserts that pin the grid's markup
 
 ### TEST
 
+- [x] Suites stopwatch (268), release-notes-page (207) and dev-pages (478) green
+
 ### DEPLOY: fix/card-grid-padding
 
-**Score:**
+The release-notes, stopwatch and test-gate pages put their card grid in the house `.card-grid`, so the
+group under the h1 gets the same padding and surface as every other toolbox page instead of cards that
+touch its edge.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A user of the toolbox sees three pages line up with the rest of the hub; nothing to act on.
+
+**Score:** 2
 
 #### Pull Request
 

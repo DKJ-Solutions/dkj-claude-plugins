@@ -368,7 +368,8 @@ function Format-TestGatePageHtml {
         [void]$body.AppendLine('<p class="msg" role="status">Grouped but no longer on disk: ' +
             ((@($Model.Unknown) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ', ') + '.</p>')
     }
-    [void]$body.AppendLine('<div class="tg-cards" id="groups">')
+    # The house .card-grid beside the page's own columns gives the group its padding and surface (the owner, October 28, 2026).
+    [void]$body.AppendLine('<div class="card-grid tg-cards" id="groups">')
     if (-not $lists.Count) {
         [void]$body.AppendLine('<section class="card"><p class="note">No suite durations are recorded' + $(if ($unmeasured) { ' in this repo' } else { '' }) + '.</p></section>')
     }

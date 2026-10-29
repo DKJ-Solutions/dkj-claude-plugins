@@ -828,7 +828,8 @@ function Format-ReleaseIndexCards {
 
     if ($Releases.Count -eq 0) { return '    <p>No release on this page carries a note yet.</p>' }
     $cards = New-Object System.Collections.Generic.List[string]
-    $cards.Add('    <div class="cards" id="cards">')
+    # The house .card-grid beside the page's own columns gives the group its padding and surface (the owner, October 28, 2026). On the self-contained page, where no house stylesheet loads, the class is inert.
+    $cards.Add('    <div class="card-grid cards" id="cards">')
     foreach ($r in $Releases) {
         $id      = ConvertTo-HtmlText ('v' + [string]$r.version)
         $href    = ConvertTo-HtmlText (Get-ReleasePageHref -LinkBase $LinkBase -Version ([string]$r.version))

@@ -922,7 +922,7 @@ function Format-StopwatchPageShell {
     $style = '.sw-clock { font-size: var(--text-h1); font-weight: 600; margin: var(--spacing-2) 0; }' + "`n" +
         # Five cards to a row, then two and one on a narrow screen (the owner, October 24, 2026).
         # A grid of the page's own rather than a .grid-3, so a group takes no top margin; the space between groups is
-        # .sw-groups' gap instead.
+        # .sw-groups' gap instead. The house .card-grid beside the page's own columns gives the group its padding and surface (the owner, October 28, 2026).
         '.sw-groups { display: grid; gap: var(--spacing-7); }' + "`n" +
         '.sw-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--spacing-4); }' + "`n" +
         '.sw-grid > .card { margin-top: 0; }' + "`n" +
@@ -1167,7 +1167,7 @@ function Format-StopwatchPageHtml {
         # The grid stands in a wrapper whose gap is the space between grids, so no grid carries a top margin (the owner,
         # October 24, 2026).
         [void]$body.AppendLine('<div class="sw-groups">')
-        [void]$body.AppendLine($(if ($Flat) { '<div class="sw-grid">' } else { '<div class="sw-grid sw-grid--wide">' }))
+        [void]$body.AppendLine($(if ($Flat) { '<div class="card-grid sw-grid">' } else { '<div class="card-grid sw-grid sw-grid--wide">' }))
         if ($Flat) {
             foreach ($g in @($Model.Groups)) { [void]$body.AppendLine((Format-StopwatchRunCard -Group $g -Route $Route -Now $Now -NoDelta:$NoDelta -CardNotes $CardNotes -CardTones $CardTones)) }
         } else {
@@ -1220,7 +1220,7 @@ function Format-StopwatchLabelPageHtml {
     # Above the group, never inside it: the h1 is never framed (owner, October 28, 2026).
     [void]$body.AppendLine('<div><h1>' + (& $e $title) + '</h1></div>')
     [void]$body.AppendLine('<div class="sw-groups">')
-    [void]$body.AppendLine('<div class="sw-grid">')
+    [void]$body.AppendLine('<div class="card-grid sw-grid">')
     foreach ($g in @($Set.Groups)) { [void]$body.AppendLine((Format-StopwatchRunCard -Group $g -Route ('/stopwatch/' + $Set.Slug) -Now $Now -ShortLabel)) }
     # A pinned label before its first run (Get-StopwatchOverviewSets): one card saying so, where the runs will stand.
     if (-not @($Set.Groups).Count) {
