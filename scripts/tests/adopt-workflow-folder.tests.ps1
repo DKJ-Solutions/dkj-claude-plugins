@@ -223,7 +223,7 @@ try {
         if (-not (Test-Path -LiteralPath $gateAbs -PathType Leaf)) { continue }
         $gateText = [System.IO.File]::ReadAllText($gateAbs, [System.Text.Encoding]::UTF8)
 
-        $calls = @(Get-SharedScriptReference -WorkflowText $gateText -RepositoryName 'dkj-claude-plugins')
+        $calls = @(Get-SharedScriptReference -WorkflowText $gateText -RepositoryName 'dkj-marketplace')
         Assert-Equal 1 $calls.Count "-Apply: the $gate caller reaches exactly one path into this repo"
         Assert-Equal 'call' ([string]@($calls | ForEach-Object { $_.Kind })[0]) "-Apply: the $gate caller reaches it by a reusable-workflow CALL, not a checkout of its own"
         # GitHub refuses timeout-minutes (and runs-on/steps) on a job that calls a reusable workflow, so a
@@ -235,7 +235,7 @@ try {
             if (-not $judged.Exists) { continue }
             $called = [System.IO.File]::ReadAllText((Join-Path $RepoRoot ($judged.Path -replace '/', '\')), [System.Text.Encoding]::UTF8)
             Assert-True ($called -match '(?m)^\s*workflow_call:') "-Apply: '$($judged.Path)' is a reusable workflow (on: workflow_call)"
-            $scripts = @(Get-SharedScriptReference -WorkflowText $called -RepositoryName 'dkj-claude-plugins' | Where-Object { $_.Kind -eq 'checkout' })
+            $scripts = @(Get-SharedScriptReference -WorkflowText $called -RepositoryName 'dkj-marketplace' | Where-Object { $_.Kind -eq 'checkout' })
             Assert-Equal 1 $scripts.Count "-Apply: '$($judged.Path)' runs exactly one script out of a checkout of this repo"
             foreach ($s in @(Test-SharedScriptReference -Reference $scripts -SourceRoot $RepoRoot)) {
                 Assert-True $s.Exists "-Apply: '$($judged.Path)' runs '$($s.Path)', and that path EXISTS in this tree"

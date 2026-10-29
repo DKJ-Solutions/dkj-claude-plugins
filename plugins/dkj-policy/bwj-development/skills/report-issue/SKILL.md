@@ -24,7 +24,7 @@ rather than by this page**: the reach-label gate in step 2 below. The full rule 
 ## Before you start
 
 - Confirm you are in a repo permitted to run this procedure: `git remote get-url origin` ends in
-  `smartwatchbanden`, `xoxowildhearts`, `dkj-marketplace` or `phone-factory`. It applies nowhere else. **Match the
+  `smartwatchbanden`, `xoxowildhearts`, `dkj-marketplace` or `phone-factory`, or in `dkj-claude-plugins`, the source repo's former name. It applies nowhere else. **Match the
   repo NAME, not the org** -- the two stores are no longer in one organisation (`smartwatchbanden`
   moved to `BWJ-Development` on September 7, 2026, its `BWJ-ecommerce` predecessor is archived, and
   there is no redirect), so a check written against an org path refuses in the live repo it was meant

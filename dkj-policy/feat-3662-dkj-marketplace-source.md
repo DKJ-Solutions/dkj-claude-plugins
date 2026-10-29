@@ -74,16 +74,31 @@ would fail. So the branch is built now, parked on origin, and merged on the flag
 
 ### TEST
 
+- [x] Built state, October 29, 2026: `open-pr -GatesOnly` passed lint; 5 of 171 suites failed, every one
+      pinning the old name. After the fix, those five were run again and all pass.
 - [ ] Flag day: catch-up merge from `main`, then `git grep` again for new `@dkj-claude-plugins`, `marketplaces/dkj-claude-plugins` and slug literals
 - [ ] Flag day: gates and CI green on the caught-up branch, after the GitHub rename
 
 ### DEPLOY: feat/3662-dkj-marketplace-source
 
-**Score:**
+The marketplace and its source repository are now called `dkj-marketplace`
+([#3660](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3660)). Plugin ids read
+`<plugin>@dkj-marketplace`, the clone sits at `~/.claude/plugins/marketplaces/dkj-marketplace/`, and
+the repo is `DKJ-Solutions/dkj-marketplace`. A marketplace name has no redirect. So every consuming repo
+and every machine moves over once, by the procedure in
+[`ADOPTION.md`](../plugins/ADOPTION.md#moving-to-dkj-marketplace). Until a consumer does, its plugins
+stop loading, and nothing reports that. The tooling still recognises the two older names wherever a
+consumer may carry them
+([#3662](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3662)).
+
+**Score:** 5
 
 #### What makes this deploy extra special
 
-**Score:**
+Every consumer has to act: rewrite the settings keys and the `@`-imports, remove the old marketplace
+once per machine, and install again in every checkout. Skipped, the plugins silently stop loading.
+
+**Score:** 5
 
 #### Pull Request
 

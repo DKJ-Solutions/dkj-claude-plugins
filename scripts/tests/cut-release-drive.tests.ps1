@@ -362,8 +362,8 @@ try {
 
     # The version pins (#3133): every URL under the pinned prefix names the new tag, and nothing else moved.
     $pinPage = Get-Content -LiteralPath (Join-Path $root 'plugins\dkj-policy\dkj-solutions\skills\house-style\SKILL.md') -Raw
-    Assert-Equal 2 ([regex]::Matches($pinPage, 'dkj-claude-plugins/v1\.4\.1/')).Count 'happy path: both pinned URLs name the tag the cut made'
-    Assert-NotMatch 'dkj-claude-plugins/v1\.4\.0/' $pinPage 'happy path: no pinned URL is left on the old tag'
+    Assert-Equal 2 ([regex]::Matches($pinPage, 'dkj-marketplace/v1\.4\.1/')).Count 'happy path: both pinned URLs name the tag the cut made'
+    Assert-NotMatch 'dkj-marketplace/v1\.4\.0/' $pinPage 'happy path: no pinned URL is left on the old tag'
     Assert-Match 'other-repo/v0\.1\.0/' $pinPage 'happy path: a URL under another prefix is left alone'
     Assert-Says 'repinned: plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md -> v1.4.1 (2 URL(s))' $r.Out 'happy path: the run says what it repinned'
     Assert-NotMatch '\?\? .*SKILL\.md|M .*SKILL\.md' (Get-GitOut -Root $root -GitArgs @('status', '--porcelain')) 'happy path: the repinned page is inside the release commit'

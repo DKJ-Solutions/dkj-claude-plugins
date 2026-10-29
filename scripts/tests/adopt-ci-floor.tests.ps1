@@ -408,7 +408,7 @@ try {
         @{ Name = 'repo-settings.yml';    Text = $repoSettings; Expect = 1 },
         @{ Name = 'merge-on-green.yml';   Text = $mergeOnGreen; Expect = 2 }
     )) {
-        $refs = @(Get-SharedScriptReference -WorkflowText $runner.Text -RepositoryName 'dkj-claude-plugins')
+        $refs = @(Get-SharedScriptReference -WorkflowText $runner.Text -RepositoryName 'dkj-marketplace')
         Assert-Equal $runner.Expect $refs.Count "$($runner.Name): reaches $($runner.Expect) script(s) out of a checkout of this repo"
         foreach ($judged in @(Test-SharedScriptReference -Reference $refs -SourceRoot $RepoRoot)) {
             Assert-True $judged.Exists "$($runner.Name): runs '$($judged.Path)', and that path EXISTS in this tree"
@@ -1308,10 +1308,10 @@ try {
     # shapes would make check 6d either blind to every pinned runner or loud about every fresh one.
     foreach ($w in @(@{ Name = 'fold-on-merge.yml'; Text = $fold }, @{ Name = 'verify-resolved.yml'; Text = $verify }, @{ Name = 'merge-on-green.yml'; Text = $mergeOnGreen })) {
         Assert-True (Test-WorkflowHoldsWriteCredential -WorkflowText $w.Text) "$($w.Name) reads back as holding a write credential"
-        $pins = @(Get-SharedScriptPin -WorkflowText $w.Text -RepositoryName 'dkj-claude-plugins' -CurrentVersion '1.2.3')
+        $pins = @(Get-SharedScriptPin -WorkflowText $w.Text -RepositoryName 'dkj-marketplace' -CurrentVersion '1.2.3')
         Assert-Equal 1 $pins.Count "$($w.Name) reads back one shared-scripts checkout"
         Assert-Equal 'current' $pins[0].State "$($w.Name) reads back as pinned at the release it was written with"
-        Assert-Equal 'behind' (@(Get-SharedScriptPin -WorkflowText $w.Text -RepositoryName 'dkj-claude-plugins' -CurrentVersion '1.2.4'))[0].State "$($w.Name) reads back as behind once a newer release exists"
+        Assert-Equal 'behind' (@(Get-SharedScriptPin -WorkflowText $w.Text -RepositoryName 'dkj-marketplace' -CurrentVersion '1.2.4'))[0].State "$($w.Name) reads back as behind once a newer release exists"
     }
     Assert-True (-not (Test-WorkflowHoldsWriteCredential -WorkflowText $repoSettings)) 'repo-settings.yml reads back as holding no write credential, so its ref: main is never judged'
 
