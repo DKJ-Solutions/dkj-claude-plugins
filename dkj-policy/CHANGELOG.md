@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**3 / 4 minor entries** <!-- pending-tally -->
+**4 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3648-btn-hover · 20261029-172607Z
+
+A house `.btn` now answers the pointer: an outline button takes the `--paper-3` hover tint with a
+`--paper-4` edge, and a `.btn--primary` fill moves 15% toward `--fg-1` -- darker on a light theme,
+lighter on a dark one, so its label gains contrast either way. A disabled button keeps still. The plain
+`.btn` also gets the `--muted` keyboard focus ring the primary and touch variants already had, now one
+rule for every variant.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+An app built on the house style shows hover feedback on every button once it takes this version, with
+nothing to change in its own layer (asked for from `dkj-music-library`).
+
+**Score:** 2
+
+#### Pull Request
+
+House style: a hover and focus state for .btn and .btn--primary
+
+Plugins: dkj-policy
+
+[PR #3654](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3654)
+
+---
 
 ### DEPLOY: feat/3645-cut-certified-round-one · 20261029-145512Z
 
