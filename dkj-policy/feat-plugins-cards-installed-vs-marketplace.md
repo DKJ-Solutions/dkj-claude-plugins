@@ -39,19 +39,36 @@
 
 ### PLAN
 
+The toolbox and the product port each had a card called Plugins, with the same plug icon, while one
+shows what this checkout installs and the other what the marketplace offers. Agreed with the owner
+(October 29, 2026): Installed plugins on the toolbox, Marketplace on the product port, and Connectors
+off the shared plug too. A visible result: parked for the owner's look, not merged.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Toolbox card, page title and crumbs read Installed plugins; the icon is a plug in its socket
+- [x] Product card, page title and crumbs read Marketplace; the icon is a storefront
+- [x] Connectors draws a chain link instead of a second plug
 
 ### TEST
 
+- [x] dev-pages, connector-dashboard and dev-preview-sessionstart suites green, with an assert that the three icons differ
+- [ ] The owner has looked at both ports (product on 4870, the branch's toolbox on 4891)
+
 ### DEPLOY: feat/plugins-cards-installed-vs-marketplace
 
-**Score:**
+The toolbox's Plugins card and page are now **Installed plugins**, drawn as a plug in its socket. The
+product port's Plugins card and page are now **Marketplace**, drawn as a storefront. Connectors draws
+a chain link. The two pages kept their `/plugins` URLs, and the three cards no longer share one plug.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every repo running dkj-policy shows the toolbox card and page as Installed plugins instead of Plugins.
+That is a rename the user will notice, and nothing for them to do.
+
+**Score:** 2
 
 #### Pull Request
 

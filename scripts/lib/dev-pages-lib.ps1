@@ -72,7 +72,7 @@ function Get-ProductPages {
     #>
     @(
         @{ Href = '/connectors';  Label = 'Connectors';  Sub = 'Every repo registered under connectors/, as check-connectors.ps1 reports it on this machine'; Icon = 'connectors' }
-        @{ Href = '/plugins';     Label = 'Plugins';     Sub = 'Every plugin this marketplace ships, its version and what it holds'; Icon = 'plugins' }
+        @{ Href = '/plugins';     Label = 'Marketplace'; Sub = 'Every plugin this marketplace ships, its version and what it holds'; Icon = 'marketplace' }
     )
 }
 
@@ -292,7 +292,7 @@ function Format-SpecialistPageHtml {
 
     $team = '/plugins/dkj-subagents/' + $Pick.Plugin
     return Format-DevPageHtml -Title $label -Style (Get-SpecialistStyle) -Body $body.ToString() -FooterNote (Get-SpecialistsFooter -CharsPerToken $CharsPerToken) `
-        -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }, @{ Label = 'dkj-subagents'; Href = '/plugins/dkj-subagents' }, @{ Label = $Pick.Plugin; Href = $team }) `
+        -ParentCrumbs @(@{ Label = 'Marketplace'; Href = '/plugins' }, @{ Label = 'dkj-subagents'; Href = '/plugins/dkj-subagents' }, @{ Label = $Pick.Plugin; Href = $team }) `
         -Lead ((& $e $r.Title) + $(if ($r.Title) { ' &middot; ' } else { '' }) + 'a ' + (& $e $r.Form) + ' in the <code>' + (& $e $Pick.Plugin) + '</code> plugin.')
 }
 
@@ -478,7 +478,7 @@ function Format-MarketplacePluginsPageHtml {
     if ($ReadError) {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">The plugins could not all be read: ' + (& $e $ReadError) + '.</p>')
     }
-    $footer = 'Read from this checkout''s <code>.claude-plugin/marketplace.json</code> and each plugin''s <code>.claude-plugin/plugin.json</code> on every request, so it is the tree, not the installed release; enabled or off is <code>.claude/settings.json</code>. What this checkout loads, and any problem with it, is on the hub''s own Plugins page.'
+    $footer = 'Read from this checkout''s <code>.claude-plugin/marketplace.json</code> and each plugin''s <code>.claude-plugin/plugin.json</code> on every request, so it is the tree, not the installed release; enabled or off is <code>.claude/settings.json</code>. What this checkout loads, and any problem with it, is on the toolbox''s Installed plugins page.'
     # An off plugin's card is muted, never hidden.
     $style = '.pl-card--off { opacity: 0.7; }'
 
@@ -501,7 +501,7 @@ function Format-MarketplacePluginsPageHtml {
             [void]$body.AppendLine('<section class="card grid__full"><p class="note">No plugin was found.</p></section>')
         }
         [void]$body.AppendLine('</div>')
-        return Format-DevPageHtml -Title 'Plugins' -Style $style -Body $body.ToString() -FooterNote $footer -Lead ''
+        return Format-DevPageHtml -Title 'Marketplace' -Style $style -Body $body.ToString() -FooterNote $footer -Lead ''
     }
 
     if (-not $Plugin) {
@@ -517,7 +517,7 @@ function Format-MarketplacePluginsPageHtml {
         }
         [void]$body.AppendLine('</div>')
         return Format-DevPageHtml -Title $teamGroup -Style $style -Body $body.ToString() -FooterNote $footer `
-            -ParentCrumbs @(@{ Label = 'Plugins'; Href = '/plugins' }) -Lead ''
+            -ParentCrumbs @(@{ Label = 'Marketplace'; Href = '/plugins' }) -Lead ''
     }
 
     $p = @($all | Where-Object { $_.Name -ceq $Plugin })[0]
@@ -528,7 +528,7 @@ function Format-MarketplacePluginsPageHtml {
         if (-not $one) { return $null }
         return Format-SpecialistPageHtml -Row $one -Pick $sp -CharsPerToken $CharsPerToken -ReadError $SpecialistReadError
     }
-    $crumbs = @(@{ Label = 'Plugins'; Href = '/plugins' })
+    $crumbs = @(@{ Label = 'Marketplace'; Href = '/plugins' })
     if ($Group) { $crumbs += @{ Label = $teamGroup; Href = '/plugins/' + $teamGroup } }
     # '' rather than no output for a zero: in 5.1 a call that writes nothing empties the whole @(a, b, ...) it stands in.
     $count = { param($n, $word) if ([int]$n -gt 0) { [string]$n + ' ' + $word + $(if ([int]$n -ne 1) { 's' } else { '' }) } else { '' } }
