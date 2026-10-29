@@ -52,7 +52,7 @@ changes; the route `/connectors` and the `connectors/` register keep their names
 ### TEST
 
 - [x] `connector-dashboard` (234 passed) and `dev-pages` (480 passed) green
-- [ ] The owner has looked at the card on the running product hub
+- [x] The owner has looked at the card on the running product hub
 
 ### DEPLOY: feat/consumers-card
 
