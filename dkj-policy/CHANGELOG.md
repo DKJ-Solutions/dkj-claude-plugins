@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**9 / 11 minor entries** <!-- pending-tally -->
+**10 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3661-dkj-marketplace-migration · 20261029-202503Z
+
+The adoption page now has the procedure for the coming rename to `dkj-marketplace`
+([#3660](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3660)), in the order it has to run:
+first each consuming repo's settings, imports and CI runners, then one `marketplace remove` per machine,
+then a reinstall and verification in every checkout. Local checkout folders keep their name. Nothing is
+renamed yet, and the procedure says it applies only from the release that carries the rename
+([#3661](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3661)).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A consumer can read ahead what the rename will ask of them, but nothing changes for them until that
+release. This entry is the preview, and that release is the act.
+
+**Score:** 2
+
+#### Pull Request
+
+Write the dkj-marketplace migration procedure
+
+[PR #3670](https://github.com/DKJ-Solutions/dkj-claude-plugins/pull/3670)
+
+---
 
 ### DEPLOY: feat/consumers-card · 20261029-195209Z
 
