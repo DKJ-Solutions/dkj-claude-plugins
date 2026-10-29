@@ -292,15 +292,19 @@ Assert-Equal 0 @(Get-DevPreviewOwnedTreeRoots -Ports @(5173) -Listeners @((& $L 
 Assert-Equal 0 @(Get-DevPreviewOwnedTreeRoots -Ports @(5173) -Listeners @() -Processes $procs -Root $root).Count 'no listener, nothing to stop'
 
 # #3657: a product THIS HOOK started before HEAD last moved serves the old tree, so it is the one to restart.
-Assert-Equal ([datetime]'2026-10-29T18:36:03Z').ToUniversalTime() (ConvertFrom-DevPreviewReflogTime 'HEAD@{1793298963}') 'the reflog line is read as HEAD''s last move, in UTC'
-Assert-Equal $null (ConvertFrom-DevPreviewReflogTime '') 'no reflog line, no moment'
-Assert-Equal $null (ConvertFrom-DevPreviewReflogTime 'HEAD@{2 hours ago}') 'a line of another shape, no moment'
+$T = [char]9
+Assert-Equal ([datetime]'2026-10-29T18:36:03Z').ToUniversalTime() (ConvertFrom-DevPreviewReflogTime @("HEAD@{1793298963}${T}merge refs/remotes/origin/main: Fast-forward")) 'a fast-forward is read as HEAD''s last move, in UTC'
+Assert-Equal ([datetime]'2026-10-29T18:36:02Z').ToUniversalTime() (ConvertFrom-DevPreviewReflogTime @("HEAD@{1793298970}${T}commit: work", "HEAD@{1793298965}${T}commit (amend): work", "HEAD@{1793298962}${T}checkout: moving from main to x")) 'plain commits and amends are skipped down to the checkout below them'
+Assert-Equal ([datetime]'2026-10-29T18:36:10Z').ToUniversalTime() (ConvertFrom-DevPreviewReflogTime @("HEAD@{1793298970}${T}commit (merge): Merge branch x")) 'a merge commit counts'
+Assert-Equal $null (ConvertFrom-DevPreviewReflogTime @("HEAD@{1793298970}${T}commit (initial): first")) 'a reflog of commits alone has no tree move'
+Assert-Equal $null (ConvertFrom-DevPreviewReflogTime @()) 'no reflog line, no moment'
+Assert-Equal $null (ConvertFrom-DevPreviewReflogTime @('HEAD@{2 hours ago}')) 'a line of another shape, no moment'
 $plog = 'C:\Temp\dev-preview-repo-0badc0de.log'
 $moved = [datetime]'2026-10-29T18:30:24Z'
 $outProcs = @{
     100 = @{ CommandLine = "cmd.exe /d /s /c `"cd /d `"C:\Users\x\GitHub\repo`" && npm run dev > `"$plog`" 2>&1`""; ParentId = 1; Created = $moved.AddSeconds(-1) }
     103 = @{ CommandLine = 'node vite.js --port 5174'; ParentId = 100; Created = $moved.AddSeconds(-1) }
-    110 = @{ CommandLine = "cmd.exe /d /s /c `"cd /d `"C:\Users\x\GitHub\repo`" && npm run dev > `"$plog`" 2>&1`""; ParentId = 1; Created = $moved.AddSeconds(5) }
+    110 = @{ CommandLine = "cmd.exe /d /s /c `"cd /d `"C:\Users\x\GitHub\repo`" && npm run dev > `"$plog`" 2>&1`""; ParentId = 1; Created = $moved.AddSeconds(1) }
     113 = @{ CommandLine = 'node vite.js --port 5175'; ParentId = 110; Created = $moved.AddSeconds(5) }
     120 = @{ CommandLine = 'pwsh -c cd C:\Users\x\GitHub\repo; npm run dev'; ParentId = 1; Created = $moved.AddHours(-1) }
     123 = @{ CommandLine = 'node vite.js --port 5176'; ParentId = 120; Created = $moved.AddHours(-1) }
@@ -308,7 +312,7 @@ $outProcs = @{
     133 = @{ CommandLine = 'node vite.js --port 5177'; ParentId = 130 }
 }
 Assert-Equal '100' ((Get-DevPreviewOutdatedProductRoots -Port 5174 -Listeners @((& $L 5174 103)) -Processes $outProcs -Root $root -LogPath $plog -HeadMovedUtc $moved) -join ',') 'the hook''s own product, started a second before the trunk moved, is outdated (the measured race)'
-Assert-Equal 0 @(Get-DevPreviewOutdatedProductRoots -Port 5175 -Listeners @((& $L 5175 113)) -Processes $outProcs -Root $root -LogPath $plog -HeadMovedUtc $moved).Count 'one started after the move is current'
+Assert-Equal 0 @(Get-DevPreviewOutdatedProductRoots -Port 5175 -Listeners @((& $L 5175 113)) -Processes $outProcs -Root $root -LogPath $plog -HeadMovedUtc $moved).Count 'one started a full second after the move is current'
 Assert-Equal 0 @(Get-DevPreviewOutdatedProductRoots -Port 5176 -Listeners @((& $L 5176 123)) -Processes $outProcs -Root $root -LogPath $plog -HeadMovedUtc $moved).Count 'one started by hand is never stopped, however old'
 Assert-Equal 0 @(Get-DevPreviewOutdatedProductRoots -Port 5177 -Listeners @((& $L 5177 133)) -Processes $outProcs -Root $root -LogPath $plog -HeadMovedUtc $moved).Count 'one whose start time could not be read is left alone'
 Assert-Equal 0 @(Get-DevPreviewOutdatedProductRoots -Port 5174 -Listeners @((& $L 5174 103)) -Processes $outProcs -Root $root -LogPath $plog -HeadMovedUtc $null).Count 'no HEAD move known, nothing outdated'
@@ -948,10 +952,14 @@ try {
         Assert-Equal 1 (Get-Owners $port).Count 'and exactly one process listens on the product port'
         Assert-Equal 1 (Get-Owners $g).Count 'and one on the hub port'
 
-        # #3657: HEAD moves after the product started (here: the first commit of a fresh repo, in the trunk
-        # sync's place), so the next session start restarts the product instead of reusing the old code.
+        # #3657: a commit alone records a tree the server already serves, so the next start reuses it ...
         $null = & git -C $live init -q 2>&1
-        $null = & git -C $live -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m moved 2>&1
+        $null = & git -C $live -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m first 2>&1
+        $r = Invoke-Hook $live
+        Assert-Equal "Toolbox: http://localhost:$g/ -- product: http://localhost:$port/index.html (already running)" (Get-Message $r.Text) 'a commit alone does not restart the product'
+        # ... while a checkout (here in the trunk sync's place) moves the tree, so the product is restarted.
+        Start-Sleep -Seconds 1
+        $null = & git -C $live checkout -q -b moved 2>&1
         $before = @(Get-Owners $port)
         $r = Invoke-Hook $live
         Assert-Equal "Toolbox: http://localhost:$g/ -- product: http://localhost:$port/index.html (restarted: the checkout moved after it started)" (Get-Message $r.Text) 'a product older than HEAD''s last move is restarted, and the line says so'

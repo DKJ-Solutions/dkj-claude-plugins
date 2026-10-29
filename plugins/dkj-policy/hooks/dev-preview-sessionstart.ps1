@@ -201,13 +201,13 @@ function Get-DevPreviewProcesses {
     return $processes
 }
 
-# WHEN HEAD LAST MOVED, in UTC, or $null (issue #3657): a product server loads its code once at start, so one
-# created before this moment serves the tree from before a trunk sync or a checkout.
+# WHEN HEAD LAST CHANGED THE TREE, in UTC, or $null (issue #3657): a product server loads its code once at
+# start, so one created before this moment serves the tree from before a trunk sync or a checkout.
 function Get-DevPreviewHeadMovedUtc {
     try {
         $ErrorActionPreference = 'Continue'
-        $line = @(& git -C $root reflog -1 '--format=%gd' '--date=unix' 2>$null) | Select-Object -First 1
-        return (ConvertFrom-DevPreviewReflogTime ([string]$line))
+        $lines = @(& git -C $root reflog -50 '--format=%gd%x09%gs' '--date=unix' 2>$null)
+        return (ConvertFrom-DevPreviewReflogTime ([string[]]$lines))
     } catch { return $null }
 }
 
@@ -390,13 +390,21 @@ $hub = Start-DevPreviewHub -Listeners $listeners -Processes $processes
 # file must survive it.
 $prod = $null
 if ($cfg) {
-    # The hub is already starting; the product waits for the trunk sync (#3657). DKJ_DEV_PREVIEW_PREP_WAIT
-    # (0-99) is the TEST override, and 0 also skips the stdin read that finds the session id.
-    $prepWait = 20
+    # The hub is already starting; the product waits for the trunk sync (#3657), at most 20 s and never more
+    # than the hook's 60 s leave after the product's own wait, its settle and about 10 s for the rest (the
+    # stdin read, a restart's port release). DKJ_DEV_PREVIEW_PREP_WAIT (0-99) is the TEST override, and 0
+    # also skips the stdin read that finds the session id.
+    $prepWait = [Math]::Max(0, [Math]::Min(20, 50 - [int]$cfg.WaitSeconds - [int]$script:DevPreviewSettleSeconds))
     if ([string]$env:DKJ_DEV_PREVIEW_PREP_WAIT -match '^[0-9]{1,2}$') { $prepWait = [int]$env:DKJ_DEV_PREVIEW_PREP_WAIT }
     $sessionId = ''
     if ($prepWait -gt 0 -and (Get-Command Get-HookSessionId -ErrorAction SilentlyContinue)) { try { $sessionId = Get-HookSessionId } catch { $sessionId = '' } }
-    $null = Wait-DevPreviewSessionPrep -SessionId $sessionId -Seconds $prepWait
+    if ((Wait-DevPreviewSessionPrep -SessionId $sessionId -Seconds $prepWait) -ne 'skipped') {
+        # A FRESH SNAPSHOT AFTER THE WAIT (review of #3657): the restart force-stops a process tree, so it acts
+        # on who listens NOW, not on who listened before the wait -- a pid can be reused, and a second
+        # session's hook may have restarted the product meanwhile.
+        $listeners = @(Get-DevPreviewListeners $ports)
+        $processes = if ($listeners.Count) { Get-DevPreviewProcesses } else { @{} }
+    }
     try { $prod = Start-DevPreviewProduct -Listeners $listeners -Processes $processes -Cfg $cfg -HeadMovedUtc (Get-DevPreviewHeadMovedUtc) }
     catch {
         $prod = @{ Action = 'failed'; Port = 0; Url = ''; Detail = ('could not be started: ' + ((([string]$_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', '')); NotStarted = $true; Exposed = ''; Proc = $null; Log = '' }

@@ -54,6 +54,7 @@ automatic on every /clear.
 ### TEST
 
 - [x] session-cache-lib, dev-preview-sessionstart and sessioncheck-dispatch suites green, with unit asserts for the mark and the outdated-server rule and an end-to-end restart after a commit
+- [x] Review (Victor, Sebastian): the snapshot is re-read after the wait before any kill, the wait is capped by the hook's 60 s, plain commits no longer count as a move, and the dispatcher marks its prep done on its failure path too
 - [x] Live on this checkout: without a mark the real hook waits out its bound, with one it goes straight on (1.3 s); the product on 4871 serves the Marketplace card
 
 ### DEPLOY: fix/3657-product-server-restart-after-trunk-move
@@ -62,7 +63,8 @@ The dev-preview hook no longer hands out a product that serves stale code. On ev
 included, it starts the toolbox first and then waits (up to 20 s) for the dispatcher's trunk sync to finish
 before it starts or reuses the product. A product the hook itself started before HEAD last moved (a trunk
 sync or a checkout) is stopped and started again on its port, and the line reads `(restarted: the checkout
-moved after it started)`. A server somebody started by hand is reused as before.
+moved after it started)`. A plain commit does not count, since the server already serves that tree, and a
+server somebody started by hand is reused as before.
 
 **Score:** 2
 

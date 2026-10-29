@@ -87,6 +87,7 @@ $system  = New-Object System.Collections.Generic.List[string]
 $context = New-Object System.Collections.Generic.List[string]
 $pool = $null
 $exitHard = $false
+$payload = $null
 
 try {
     if (-not $HooksDir) { $HooksDir = $PSScriptRoot }
@@ -183,6 +184,8 @@ try {
     }
 } catch {
     $context.Add('sessioncheck-dispatch skipped due to an error: ' + (Format-DispatchSafeText $_.Exception.Message))
+    # The prep-done mark is owed whatever failed (#3657): without it the dev-preview hook waits out its bound.
+    try { $null = Set-SessionPrepDone -SessionId (Get-SessionIdFromPayload -Payload $payload) } catch { }
     # Checks may still be running on the pool, and Close() would wait on them.
     $exitHard = $true
 }

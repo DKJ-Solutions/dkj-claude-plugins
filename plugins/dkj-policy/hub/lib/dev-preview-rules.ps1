@@ -523,12 +523,21 @@ function Get-DevPreviewOwnedTreeRoots {
 
 function ConvertFrom-DevPreviewReflogTime {
     <#
-        The UTC moment HEAD last moved, from the one line 'git reflog -1 --format=%gd --date=unix' prints
-        ('HEAD@{1793298963}'), or $null for anything else -- no reflog, no git, a line of another shape.
+        The UTC moment HEAD last changed the TREE, from the lines 'git reflog -<n> --format=%gd%x09%gs
+        --date=unix' prints, newest first ('HEAD@{1793298963}<TAB>checkout: moving from main to x'), or $null
+        when none qualifies -- no reflog, no git, lines of another shape. A plain commit, an amend and an
+        initial commit are skipped: they record a tree the server already serves, and counting them would
+        restart a product after every commit (review of #3657). A merge commit, a checkout, a pull, a reset
+        and a rebase all count.
     #>
-    param([AllowNull()][AllowEmptyString()][string]$Text)
-    if ([string]$Text -notmatch '^\s*HEAD@\{([0-9]{9,11})\}\s*$') { return $null }
-    return [DateTimeOffset]::FromUnixTimeSeconds([long]$Matches[1]).UtcDateTime
+    param([AllowNull()][AllowEmptyCollection()][string[]]$Lines)
+    foreach ($line in @($Lines)) {
+        if ([string]$line -notmatch '^\s*HEAD@\{([0-9]{9,11})\}\t(.*)$') { continue }
+        $at = [long]$Matches[1]
+        if ($Matches[2] -match '^commit( \((amend|initial)\))?:') { continue }
+        return [DateTimeOffset]::FromUnixTimeSeconds($at).UtcDateTime
+    }
+    return $null
 }
 
 function Get-DevPreviewOutdatedProductRoots {
@@ -538,7 +547,9 @@ function Get-DevPreviewOutdatedProductRoots {
         serves the tree from before a trunk sync or a checkout (issue #3657). Only a tree THIS HOOK started
         counts -- its cmd.exe writes to -LogPath, the product's own log -- so a server somebody started by
         hand is never stopped. -Processes maps an id to @{ CommandLine; ParentId; Created }, Created in UTC;
-        a root with no Created, or no -HeadMovedUtc at all, is left alone.
+        a root with no Created, or no -HeadMovedUtc at all, is left alone. The reflog counts whole seconds, so
+        a server created within the second of the move counts as before it: a spare restart is cheap, a
+        server left on the old tree is the defect.
     #>
     param(
         [int]$Port,
@@ -554,7 +565,7 @@ function Get-DevPreviewOutdatedProductRoots {
         $p = $Processes[$id]
         if (([string]$p.CommandLine).IndexOf("`"$LogPath`"", [StringComparison]::OrdinalIgnoreCase) -lt 0) { continue }
         if (-not $p.ContainsKey('Created') -or $null -eq $p.Created) { continue }
-        if ([datetime]$p.Created -lt [datetime]$HeadMovedUtc) { $outdated += $id }
+        if ([datetime]$p.Created -lt ([datetime]$HeadMovedUtc).AddSeconds(1)) { $outdated += $id }
     }
     return $outdated
 }
