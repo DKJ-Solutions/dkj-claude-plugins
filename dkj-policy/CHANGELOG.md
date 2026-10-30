@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**1 / 3 minor entries** <!-- pending-tally -->
+**2 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3698-house-style-scss-interpolation · 20261030-175934Z
+
+`check-house-style` reads an SCSS interpolation (`.a-#{$n}`) in a stylesheet as part of the selector
+it sits in, so an interpolated rule of the repo's own scopes the house classes nested inside it, like any
+other domain class ([#3698](https://github.com/DKJ-Solutions/dkj-marketplace/issues/3698)).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions repo whose SCSS nests a house class inside an interpolated selector of its own no longer
+gets a `[redefine]` finding for it.
+
+**Score:** 2
+
+#### Pull Request
+
+check-house-style still flags a house class nested in an interpolated SCSS selector
+
+Plugins: dkj-solutions
+
+[PR #3700](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3700)
+
+---
 
 ### DEPLOY: fix/3697-btn-edge-in-grid-card · 20261030-173410Z
 
