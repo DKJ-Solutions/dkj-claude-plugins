@@ -466,13 +466,14 @@ function Get-HubGroups {
         its own holding a card per member (Format-HubGroupPageHtml). A hub card is always ONE link, so a group is a
         page, never a card with several rows: Clock holds Test gate, Stopwatch and Logbook (the owner, October 27, 2026).
         A group may sit in another: its Group is the parent group's Href, and it is a card on that page instead of
-        the hub. A group with no general page of its own is still a hub card (Format-HubPageCardsHtml), so AI opens on
-        Claude, and Claude on Rules, Skills and Specialists (Maikel, October 30, 2026), each a page of its own.
+        the hub. A group with no general page of its own is still a hub card (Format-HubPageCardsHtml). A Section group
+        is no card and no page: it is an h2 on its parent's page, over a grid of its members' cards. So AI opens on
+        the Claude section, holding Rules, Skills and Specialists (Maikel, October 30, 2026), each a page of its own.
     #>
     @(
         @{ Href = '/clock'; Label = 'Clock'; Sub = 'How long the work takes: the Test gate, the Stopwatch and the Logbook'; Icon = 'clock' },
         @{ Href = '/ai'; Label = 'AI'; Sub = 'The AI this repo works with: Claude'; Icon = 'ai' },
-        @{ Href = '/ai/claude'; Label = 'Claude'; Sub = 'How Claude works here: its rules, its skills and its specialists'; Icon = 'claude'; Group = '/ai' },
+        @{ Href = '/ai/claude'; Label = 'Claude'; Sub = 'How Claude works here: its rules, its skills and its specialists'; Icon = 'claude'; Group = '/ai'; Section = $true },
         @{ Href = '/ai/claude/rules'; Label = 'Rules'; Sub = 'The rules Claude works by'; Icon = 'rules'; Group = '/ai/claude' },
         @{ Href = '/ai/claude/skills'; Label = 'Skills'; Sub = 'The skills Claude can use'; Icon = 'skills'; Group = '/ai/claude' },
         @{ Href = '/ai/claude/specialists'; Label = 'Specialists'; Sub = 'The Claude Specialists, each with a craft of their own'; Icon = 'specialists'; Group = '/ai/claude' }
@@ -494,12 +495,13 @@ function Format-HubCardLinkHtml {
         invalid HTML, and the browser closes the card's link at the inner one, so the card falls apart (#3610). One
         that does is refused with a throw.
         The label is an h2 by default (owner, October 29, 2026): the cards are the sections of the page they sit on.
-        -Heading 0 keeps it a plain span, for a card inside a section that has a heading of its own; -Id and -Class (extra classes,
+        -Heading 3 makes it an h3, for a card under a .grid__head's h2 (the AI page's Claude section, Maikel, October 30,
+        2026); -Heading 0 keeps it a plain span, for a card inside a section that has a heading of its own; -Id and -Class (extra classes,
         such as a tone) go on the card.
     #>
     param([Parameter(Mandatory = $true)][string]$Href, [Parameter(Mandatory = $true)][string]$Label, [AllowEmptyString()][string]$Sub = '',
         [AllowEmptyString()][string]$Icon = '', [AllowEmptyString()][string]$SubHtml = '', [AllowEmptyString()][string]$ValueHtml = '',
-        [AllowEmptyString()][string]$BadgeHtml = '', [ValidateSet(0, 2)][int]$Heading = 2, [AllowEmptyString()][string]$Id = '',
+        [AllowEmptyString()][string]$BadgeHtml = '', [ValidateSet(0, 2, 3)][int]$Heading = 2, [AllowEmptyString()][string]$Id = '',
         [AllowEmptyString()][string]$Class = '', [AllowEmptyString()][string]$TitleBadgeHtml = '')
     # The docstring's NO <a>, enforced (#3610): a caller that breaks it fails its suite instead of a broken card.
     foreach ($slot in @(@('SubHtml', $SubHtml), @('ValueHtml', $ValueHtml), @('BadgeHtml', $BadgeHtml), @('TitleBadgeHtml', $TitleBadgeHtml))) {
@@ -511,7 +513,7 @@ function Format-HubCardLinkHtml {
     $v = if ($ValueHtml) { '<span class="menu-item__value">' + $ValueHtml + '</span>' } else { '' }
     $title = if ($TitleBadgeHtml) { '<span>' + (& $e $Label) + '</span>' + $TitleBadgeHtml } else { & $e $Label }
     # A heading may not sit in a <span>, so a card with one holds its label in a <div>.
-    $labelHtml = if ($Heading) { '<div class="menu-item__label"><h2 class="menu-item__title">' + $title + '</h2>' + $s + $v + '</div>' }
+    $labelHtml = if ($Heading) { '<div class="menu-item__label"><h' + $Heading + ' class="menu-item__title">' + $title + '</h' + $Heading + '>' + $s + $v + '</div>' }
              else { '<span class="menu-item__label">' + $title + $s + $v + '</span>' }
     $mark = if ($BadgeHtml) { $BadgeHtml } else { Get-HubIconSvg -Name $Icon }
     return '<section class="card card--link' + $(if ($Class) { ' ' + (& $e $Class) } else { '' }) + '"' + $(if ($Id) { ' id="' + (& $e $Id) + '"' } else { '' }) +
@@ -542,31 +544,44 @@ function Format-HubPageCardsHtml {
 function Format-HubGroupPageHtml {
     <#
         The group page on -Href (Get-HubGroups), bare like the SessionStart overview: an h1 with a card per member
-        page and member group, three to a row, each one link; a group with no member yet says so in one card. Its trail
-        runs through every group it sits in. $null for an Href no group has.
+        page and member group, three to a row, each one link; then each member Section, a .grid-3 headed by its h2 and
+        holding its members as h3 cards. A group with no member yet says so in one card. Its trail runs through every
+        group it sits in but a Section, which has no page. $null for an Href no group has, and for a Section.
     #>
     param([Parameter(Mandatory = $true)][string]$Href, [AllowEmptyString()][string]$RepoName = '', [string]$HubHref = '/hub')
     $groups = @(Get-HubGroups)
     $g = @($groups | Where-Object { $_.Href -ceq $Href })[0]
-    if (-not $g) { return $null }
+    if (-not $g -or $g.Section) { return $null }
     $crumbs = @()
     $parent = $g.Group
     while ($parent) {
         $pg = @($groups | Where-Object { $_.Href -ceq $parent })[0]
         if (-not $pg) { break }
-        $crumbs = @(@{ Label = $pg.Label; Href = $pg.Href }) + $crumbs
+        if (-not $pg.Section) { $crumbs = @(@{ Label = $pg.Label; Href = $pg.Href }) + $crumbs }
         $parent = $pg.Group
     }
-    $members = @(@(Get-GeneralPages | Where-Object { $_.Group -eq $g.Href }) + @($groups | Where-Object { $_.Group -ceq $g.Href }))
+    $e = { param($v) ConvertTo-GeneralPageText $v }
+    $members = @(@(Get-GeneralPages | Where-Object { $_.Group -eq $g.Href }) + @($groups | Where-Object { $_.Group -ceq $g.Href -and -not $_.Section }))
+    $sections = @($groups | Where-Object { $_.Group -ceq $g.Href -and $_.Section })
     $body = New-Object System.Text.StringBuilder
     # The h1 stands on the page above the group, never inside its surface: the h1 is never framed (owner, October 28, 2026).
-    [void]$body.AppendLine('<div><h1>' + (ConvertTo-GeneralPageText $g.Label) + '</h1></div>')
-    if ($members.Count -eq 0) {
+    [void]$body.AppendLine('<div><h1>' + (& $e $g.Label) + '</h1></div>')
+    if ($members.Count -eq 0 -and $sections.Count -eq 0) {
         [void]$body.AppendLine('<section class="card"><p class="msg" role="status">Nothing on this page yet.</p></section>')
-    } else {
+    }
+    if ($members.Count -gt 0) {
         [void]$body.AppendLine('<div class="grid-3">')
         foreach ($p in $members) {
             [void]$body.AppendLine((Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon))
+        }
+        [void]$body.AppendLine('</div>')
+    }
+    foreach ($sec in $sections) {
+        # The house grouping form: a .grid__head (the h2, then a p.card__sub) over the cards, whose titles are then h3s.
+        [void]$body.AppendLine('<div class="grid-3"><div class="grid__head"><h2>' + (& $e $sec.Label) + '</h2>' +
+            $(if ($sec.Sub) { '<p class="card__sub">' + (& $e $sec.Sub) + '</p>' } else { '' }) + '</div>')
+        foreach ($p in @($groups | Where-Object { $_.Group -ceq $sec.Href })) {
+            [void]$body.AppendLine((Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon -Heading 3))
         }
         [void]$body.AppendLine('</div>')
     }

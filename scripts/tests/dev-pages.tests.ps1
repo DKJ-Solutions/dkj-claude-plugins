@@ -106,13 +106,12 @@ Assert-True ($null -eq (Format-HubGroupPageHtml -Href '/nope') -and $null -eq (F
 Write-Host '-- the AI group: AI > Claude > Rules, Skills, Specialists (Maikel, October 30, 2026)' -ForegroundColor Cyan
 Assert-True ($clockCards[6] -match 'href="/ai"' -and $clockCards[6] -match 'menu-item__title">AI<' -and -not ($clockCards -match 'href="/ai/')) 'the AI card is the hub''s last, after the general pages, and no nested group has a hub card of its own'
 $aiPage = Format-HubGroupPageHtml -Href '/ai' -RepoName 'dkj-claude-plugins'
-Assert-True ($aiPage -match '<div><h1>AI</h1></div>' -and ([regex]::Matches($aiPage, '<section class="card card--link">')).Count -eq 1 -and $aiPage -match 'href="/ai/claude"' -and $aiPage -match 'menu-item__title">Claude<') 'the /ai page holds one card, Claude'
-$claudePage = Format-HubGroupPageHtml -Href '/ai/claude' -RepoName 'dkj-claude-plugins'
-Assert-True (([regex]::Matches($claudePage, '<section class="card card--link">')).Count -eq 3 -and $claudePage.IndexOf('href="/ai/claude/rules"') -lt $claudePage.IndexOf('href="/ai/claude/skills"') -and $claudePage.IndexOf('href="/ai/claude/skills"') -lt $claudePage.IndexOf('href="/ai/claude/specialists"')) 'the /ai/claude page holds Rules, Skills and Specialists, in that order'
-Assert-True ($claudePage -match '<li><a href="/hub">Tools</a></li>' -and $claudePage -match '<a href="/ai">AI</a>' -and $claudePage -match 'aria-current="page">Claude</span>') 'its trail reads Tools > AI > Claude'
+Assert-True ($aiPage -match '<div><h1>AI</h1></div>' -and $aiPage -match '<div class="grid-3"><div class="grid__head"><h2>Claude</h2><p class="card__sub">' -and $aiPage -notmatch 'href="/ai/claude"') 'the /ai page holds Claude as an h2 heading a .grid-3, not as a card'
+Assert-True (([regex]::Matches($aiPage, '<section class="card card--link">')).Count -eq 3 -and ([regex]::Matches($aiPage, '<h3 class="menu-item__title">')).Count -eq 3 -and $aiPage -notmatch '<h2 class="menu-item__title">' -and $aiPage.IndexOf('href="/ai/claude/rules"') -lt $aiPage.IndexOf('href="/ai/claude/skills"') -and $aiPage.IndexOf('href="/ai/claude/skills"') -lt $aiPage.IndexOf('href="/ai/claude/specialists"')) 'and under it Rules, Skills and Specialists, in that order, each card titled with an h3'
+Assert-True ($null -eq (Format-HubGroupPageHtml -Href '/ai/claude')) 'Claude is a section of /ai, with no page of its own'
 foreach ($leaf in 'rules', 'skills', 'specialists') {
     $leafPage = Format-HubGroupPageHtml -Href "/ai/claude/$leaf" -RepoName 'dkj-claude-plugins'
-    Assert-True ($leafPage -match '<a href="/ai">AI</a>' -and $leafPage -match '<a href="/ai/claude">Claude</a>' -and $leafPage -match 'Nothing on this page yet\.' -and $leafPage -notmatch 'card--link') "the /ai/claude/$leaf page is a landing page of its own, under Tools > AI > Claude, with nothing on it yet"
+    Assert-True ($leafPage -match '<li><a href="/hub">Tools</a></li>' -and $leafPage -match '<a href="/ai">AI</a>' -and $leafPage -notmatch 'href="/ai/claude"' -and $leafPage -match 'Nothing on this page yet\.' -and $leafPage -notmatch 'card--link') "the /ai/claude/$leaf page is a landing page of its own, under Tools > AI, with nothing on it yet"
 }
 Assert-True ((Get-HubIconSvg -Name '') -eq '' -and (Get-HubIconSvg -Name 'nope') -eq '' -and (Format-HubCardLinkHtml -Href '/x' -Label 'X') -notmatch 'menu-item__icon') 'a card that names no icon, or one the hub lacks, draws none'
 $houseCss = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style\house-style.css'))

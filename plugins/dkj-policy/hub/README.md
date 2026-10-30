@@ -7,8 +7,8 @@ General pages linked from it: Artifacts, Issues, Release notes, SessionStart, Te
 behind the Clock card and its `/clock` page since October 27, 2026)
 (Test gate and those two since [#3470](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3470)) and Plugins
 (since [#3482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3482)), and the **AI** card, whose `/ai`
-page holds a Claude card and `/ai/claude` the Rules, Skills and Specialists pages, each a landing page with nothing on
-it yet (Maikel, October 30, 2026; groups may nest, `Get-HubGroups`). That covers
+page holds a Claude section, an `h2` over the Rules, Skills and Specialists cards, each a landing page with nothing on
+it yet (Maikel, October 30, 2026; groups may nest, and a `Section` group is a heading, `Get-HubGroups`). That covers
 BWJ-Development's repos too. Until [#3198](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3198)
 (the owner's decision, October 20, 2026) all of this shipped with `dkj-solutions`, which BWJ-Development
 never enables, so a General page reached only the DKJ-Solutions repos. **"General" means what every repo

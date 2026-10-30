@@ -49,18 +49,21 @@ cards, Rules, Skills and Specialists. A visible result, so the branch waits for 
 - [x] A group page lists its member groups, trails through its parents, and says so when it has nothing yet
 - [x] Four icons: ai, claude, rules, skills (Specialists reuses its own)
 - [x] The hub README names the AI card
+- [x] Maikel's first look: Claude is no card but the h2 of a `.grid-3` on `/ai` (a `Section` group, no page of its
+      own), and Rules, Skills and Specialists move there as h3 cards (`Format-HubCardLinkHtml -Heading 3`)
 
 ### TEST
 
 - [x] `dev-pages.tests.ps1` green (487 passed), with asserts for the AI card, the three levels and their trails
-- [x] Served from this tree on :4910: `/`, `/ai`, `/ai/claude` and the three leaves all answer 200 with the right cards
+- [x] Served from this tree on :4910: `/` and `/ai` answer with the right cards, h1 AI > h2 Claude > three h3s; the
+      three leaves answer 200 under Tools > AI; `/ai/claude` is a 404
 - [ ] The owner has looked at the pages and approves them
 
 ### DEPLOY: feat/toolbox-ai-cards
 
-The Toolbox has an AI card. Its page holds a Claude card, and Claude's page holds three: Rules, Skills and
-Specialists, each a landing page of its own with nothing on it yet. Hub groups can now nest, so a group page may hold
-other groups, and its trail runs through each of them (Tools > AI > Claude > Rules).
+The Toolbox has an AI card. Its page holds a Claude section, an h2 over three cards titled with an h3: Rules, Skills
+and Specialists, each a landing page of its own with nothing on it yet (Tools > AI > Rules). Hub groups can now nest,
+and a `Section` group is a heading on its parent's page instead of a card and a page.
 
 **Score:** 2
 
