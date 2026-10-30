@@ -252,6 +252,16 @@ function Open-DevPreviewInVsCode([string]$Url) {
     return ', opened in VS Code'
 }
 
+# After this hook has force-stopped its own server on -Port: wait up to 5 s for the port, then pick where the
+# replacement starts from a fresh snapshot (Select-DevPreviewRestartPort). Never 'reuse' (#3695).
+function Select-DevPreviewAfterStop([int]$Port, [int[]]$Ports) {
+    $until = (Get-Date).AddSeconds(5)
+    while ((Get-Date) -lt $until -and @(Get-DevPreviewListeners @($Port)).Count) { Start-Sleep -Milliseconds 200 }
+    $now = @(Get-DevPreviewListeners $Ports)
+    $table = if ($now.Count) { Get-DevPreviewProcesses } else { @{} }
+    return Select-DevPreviewRestartPort -Port $Port -Ports $Ports -Listeners $now -Processes $table -Root $root
+}
+
 # The hub: the plugin's general pages server (#3119, #3245), started or reused FIRST. Returns @{ Action =
 # 'reuse'|'start'|'refused'|'none'; Port; Base; Proc; Reason; Restarted }: Base is its url without a slash, Reason
 # says why there is no hub, Restarted that the start replaced this checkout's hub from another plugin version. Never waits and never throws: the caller waits, and whatever goes wrong here is a line.
@@ -278,17 +288,19 @@ function Start-DevPreviewHub($Listeners, $Processes) {
             return $r
         }
         # OURS, BUT FROM ANOTHER PLUGIN VERSION (#3275): what the state file means changes between releases, so
-        # that server is stopped and this version's started on the same port. One that will not stop is reused.
+        # that server is stopped and this version's started on the same port, or on the next free one where the
+        # stopped server has not let go of it yet -- never reused once stopped (#3695).
         if ($pick.Action -eq 'reuse') {
             $stale = @(Get-DevPreviewStaleHubOwners -Port $pick.Port -Listeners $Listeners -Processes $Processes -Server $server)
             if ($stale.Count) {
                 foreach ($id in $stale) { Stop-Process -Id $id -Force -ErrorAction SilentlyContinue }
-                $until = (Get-Date).AddSeconds(5)
-                while ((Get-Date) -lt $until -and @(Get-DevPreviewListeners @([int]$pick.Port)).Count) { Start-Sleep -Milliseconds 200 }
-                if (-not @(Get-DevPreviewListeners @([int]$pick.Port)).Count) {
-                    $pick = @{ Action = 'start'; Port = $pick.Port }
-                    $r.Restarted = $true
+                $pick = Select-DevPreviewAfterStop -Port $pick.Port -Ports $ports
+                if ($pick.Action -eq 'none') {
+                    $r.Action = 'none'
+                    $r.Reason = "the hub of another plugin version was stopped but still held port $($pick.Port), and no other port in $(Format-DevPreviewPorts -Ports $ports) is free"
+                    return $r
                 }
+                $r.Restarted = $true
             }
         }
         if ($pick.Action -eq 'start') {
@@ -322,7 +334,8 @@ function Start-DevPreviewProduct($Listeners, $Processes, $Cfg, [string]$LogName 
     $pick = Select-DevPreviewPort -Ports $Cfg.Ports -Listeners $Listeners -Processes $Processes -Root $root
     # OURS, BUT OLDER THAN THE TREE IT SERVES (#3657): a server that loaded its code before HEAD last moved --
     # a trunk sync, a checkout -- keeps serving the old code, so this hook's own tree is stopped and started
-    # again on the same port. One that will not let go of its port is reused, as before.
+    # again on the same port, or on the next free one where the stopped tree has not let go of it yet. A
+    # stopped server is never reused (#3695): it read 'already running' and then nothing listened.
     if ($pick.Action -eq 'reuse') {
         $outdated = @(Get-DevPreviewOutdatedProductRoots -Port $pick.Port -Listeners $Listeners -Processes $Processes -Root $root `
             -LogPath (Get-DevPreviewLogPath -Root $root -Name $LogName) -HeadMovedUtc $HeadMovedUtc)
@@ -330,12 +343,12 @@ function Start-DevPreviewProduct($Listeners, $Processes, $Cfg, [string]$LogName 
             foreach ($id in $outdated) {
                 Start-Process -FilePath 'taskkill.exe' -ArgumentList "/PID $id /T /F" -WindowStyle Hidden -Wait -ErrorAction SilentlyContinue
             }
-            $until = (Get-Date).AddSeconds(5)
-            while ((Get-Date) -lt $until -and @(Get-DevPreviewListeners @([int]$pick.Port)).Count) { Start-Sleep -Milliseconds 200 }
-            if (-not @(Get-DevPreviewListeners @([int]$pick.Port)).Count) {
-                $pick = @{ Action = 'start'; Port = $pick.Port }
-                $r.Restarted = $true
+            $pick = Select-DevPreviewAfterStop -Port $pick.Port -Ports $Cfg.Ports
+            if ($pick.Action -eq 'none') {
+                $r.Detail = "the outdated server was stopped but still held port $($pick.Port), and no other port in $(Format-DevPreviewPorts -Ports $Cfg.Ports) is free"
+                return $r
             }
+            $r.Restarted = $true
         }
     }
     if ($pick.Action -eq 'reuse') {

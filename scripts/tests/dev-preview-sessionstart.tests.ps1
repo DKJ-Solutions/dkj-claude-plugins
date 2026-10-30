@@ -270,6 +270,14 @@ Assert-True ($pick.Action -eq 'start' -and $pick.Port -eq 5174) 'with none ours,
 $pick = Select-DevPreviewPort -Ports @(5173) -Listeners @((& $L 5173 200)) -Processes $procs -Root $root
 Assert-Equal 'none' $pick.Action 'every port taken by others is none'
 
+# #3695: a server the hook stopped is never reused, even while it still holds its port.
+$pick = Select-DevPreviewRestartPort -Port 5174 -Ports @(5173, 5174, 5175) -Listeners @() -Processes @{} -Root $root
+Assert-True ($pick.Action -eq 'start' -and $pick.Port -eq 5174) 'a port the stopped server let go of is where the replacement starts'
+$pick = Select-DevPreviewRestartPort -Port 5174 -Ports @(5173, 5174, 5175) -Listeners @((& $L 5173 200), (& $L 5174 103)) -Processes $procs -Root $root
+Assert-True ($pick.Action -eq 'start' -and $pick.Port -eq 5175) 'a stopped server still holding its port, ours as it is, is not reused: the next free port is (the measured case)'
+$pick = Select-DevPreviewRestartPort -Port 5174 -Ports @(5174) -Listeners @((& $L 5174 103)) -Processes $procs -Root $root
+Assert-True ($pick.Action -eq 'none' -and $pick.Port -eq 5174) 'with its one port still held, nothing is started and the port is named'
+
 # #3275: a hub of this checkout that runs from another plugin version is stopped, not reused.
 $srv = 'C:\Users\x\.claude\plugins\cache\dkj-marketplace\dkj-policy\5.27.0\hub\pages\serve-general-pages.ps1'
 $hubProcs = @{
