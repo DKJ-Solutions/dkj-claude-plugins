@@ -39,21 +39,36 @@
 
 ### PLAN
 
+The owner asked for a `dkj-marketplace` h2 above the Marketplace grid with the cards under it as h3s, and
+mid-turn added that a page's url always matches its h1 -- so `/plugins` becomes `/marketplace`.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-MarketplacePluginsPageHtml`: a `.grid__head` with the h2 `dkj-marketplace` opens the overview's grid, its cards' labels h3s
+- [x] The product's Marketplace pages move from `/plugins` to `/marketplace` (cards, trails, the home card, the Specialists redirect)
+- [x] `Resolve-MarketplaceRedirect`: an old `/plugins` address answers a 303 to the same level under `/marketplace`
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` (495 passed) and `connector-dashboard.tests.ps1` (235 passed), the redirect asserted end to end
+- [x] Product server on 4870 restarted: `/marketplace` shows the h2 over four h3 cards, `/plugins` answers 303
+
 ### DEPLOY: feat/marketplace-section-head
 
-**Score:**
+The product's Marketplace overview opens its card grid with an h2 naming the marketplace, `dkj-marketplace`,
+and its four cards carry h3 titles under it. The Marketplace pages moved from `/plugins` to `/marketplace`,
+so a page's url matches its h1; every old `/plugins` address answers a 303 to the same page under
+`/marketplace`, and the old Specialists addresses now land there directly.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+The product's local dev pages are this repo's own; nobody who takes a release sees them.
+
+**Score:** N/A
 
 #### Pull Request
 
-The Marketplace page groups its plugin cards under a dkj-marketplace heading
+The Marketplace page moves to /marketplace and groups its cards under a dkj-marketplace heading
 
