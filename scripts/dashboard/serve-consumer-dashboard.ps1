@@ -428,8 +428,8 @@ try {
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
-            if ($path -cmatch '^/consumers((?:/[A-Za-z0-9._-]+){0,2})/?\z') {
-                # The Consumers pages were /consumers until October 30, 2026; their url follows their h1 since (Maikel).
+            if ($path -cmatch '^/connectors((?:/[A-Za-z0-9._-]+){0,2})/?\z') {
+                # The Consumers pages were /connectors until October 30, 2026; their url follows their h1 since (Maikel).
                 # An old link or bookmark lands there.
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = '/consumers' + $Matches[1] } -Method $method
                 continue

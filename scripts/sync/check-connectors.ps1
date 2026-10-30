@@ -17,6 +17,7 @@
 
     It goes once every install runs a release that carries consumer-sessioncheck.ps1.
 #>
+[CmdletBinding()]
 param(
     [string]$Manifest = '',
     [string]$ConsumerPathOverride = '',
