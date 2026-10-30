@@ -252,8 +252,8 @@ function Get-ConnectorOwnerGroup {
 
 function Get-DashboardOwnerGroups {
     <#
-        The groups in page order (DKJ, BWJ, Other; owner, October 26, 2026): each with its card label on /connectors,
-        the heading of its own page at /connectors/<Key>, and whose repos it holds.
+        The groups in page order (DKJ, BWJ, Other; owner, October 26, 2026): each with its card label on /consumers,
+        the heading of its own page at /consumers/<Key>, and whose repos it holds.
     #>
     return @(
         @{ Key = 'dkj';   Label = 'DKJ';   Title = 'DKJ repos';   Owner = 'owned by DKJ-Solutions' },
@@ -334,7 +334,7 @@ function Get-CheckoutLenses {
 
 function Format-RepoLensesCardHtml {
     <#
-        The Lenses card on a DKJ repo's own page, /connectors/dkj/<name> (Maikel, October 28, 2026): what the
+        The Lenses card on a DKJ repo's own page, /consumers/dkj/<name> (Maikel, October 28, 2026): what the
         checkout's .claude/specialists/lenses/ holds. -Lenses is a list of @{ Id; Bytes; Filled; Marked }, or
         $null where there is no checkout here or it has no lens folder; -Names maps an id to its specialist's
         name, and an id it lacks is shown bare. The filled-in lenses (Test-LensFilled) are the house facts list in columns, big to
@@ -547,9 +547,10 @@ function Format-ConnectorDashboardHtml {
         It is the Connectors page under the hub on '/' (#3097): a two-crumb trail and its own h1. The
         facts card belongs to the hub, so this page ends on its footer note.
 
-        -Group splits it in two (owner, October 26, 2026). Empty, it is /connectors: the tiles over every repo and
-        one card per owner group (Get-DashboardOwnerGroups), each linking that group's page. A group's Key, it is
-        /connectors/<Key>: a three-crumb trail, the tiles over that group, its overview table and its repo cards.
+        -Group splits it in two (owner, October 26, 2026). Empty, it is /consumers: a section per owner group
+        (Get-DashboardOwnerGroups) holding that group's repo cards, the DKJ ones handed in as -DkjCardsHtml with their
+        -Style and any warning about reading them as -NoticeHtml (Maikel, October 30, 2026). A group's Key, it is
+        /consumers/<Key>: a three-crumb trail, the tiles over that group, its overview table and its repo cards.
 
         The server serves the DKJ group its own page instead (Format-DkjReposPageHtml, Maikel, October 28, 2026):
         a card per DKJ repo, each opening that repo's page. -Group 'dkj' still renders here, as any group does.
@@ -559,7 +560,10 @@ function Format-ConnectorDashboardHtml {
     param(
         [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Connectors,
         [Parameter(Mandatory = $true)][hashtable]$Meta,
-        [ValidateSet('', 'dkj', 'bwj', 'other')][AllowEmptyString()][string]$Group = ''
+        [ValidateSet('', 'dkj', 'bwj', 'other')][AllowEmptyString()][string]$Group = '',
+        [AllowEmptyString()][string]$DkjCardsHtml = '',
+        [AllowEmptyString()][string]$Style = '',
+        [AllowEmptyString()][string]$NoticeHtml = ''
     )
     $groupDef = if ($Group) { @(Get-DashboardOwnerGroups | Where-Object { $_.Key -eq $Group })[0] } else { $null }
     $pageName = if ($groupDef) { $groupDef.Title } else { 'Consumers' }
@@ -568,25 +572,45 @@ function Format-ConnectorDashboardHtml {
     $all = if ($groupDef) { @($everyone | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $Group }) } else { $everyone }
 
     $sb = New-Object System.Text.StringBuilder
-    $trail = if ($groupDef) { @(@{ Href = '/connectors'; Label = 'Consumers' }) } else { @() }
-    [void]$sb.Append((Format-ConnectorPageStart -PageName $pageName -Trail $trail))
+    $trail = if ($groupDef) { @(@{ Href = '/consumers'; Label = 'Consumers' }) } else { @() }
+    [void]$sb.Append((Format-ConnectorPageStart -PageName $pageName -Trail $trail -Style $Style))
+    if ($NoticeHtml) { [void]$sb.AppendLine($NoticeHtml) }
 
     # The warning that the signals could not be read.
     if ($Meta.CheckFailed) {
         [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">check-connectors.ps1 could not be run: ' + (& $e $Meta.CheckFailed) + '. The register is shown without its signals.</p>')
     }
 
-    # /connectors: one card per owner group, three to a row in the hub's card form (Format-HubCardLinkHtml), each
-    # linking its group's page with that group's summary under the label. An empty group keeps its card ('0 repos').
+    # /consumers: a section per owner group headed by an h2 naming the group, and under
+    # it that group's repo cards one level up from that page, each an h3 (Maikel, October 30, 2026). The DKJ cards
+    # are the DKJ page's own (-DkjCardsHtml, Format-DkjRepoCardsHtml) in its four-to-a-row grid; without them, and
+    # for BWJ and Other, a card per registered repo, opening its details on the group's page. An empty group keeps
+    # its section and says so.
     if (-not $groupDef) {
-        [void]$sb.AppendLine('<div class="grid-3" id="groups">')
+        $rank = @{ bad = 0; warn = 1; skip = 2; good = 3 }
         foreach ($g in @(Get-DashboardOwnerGroups)) {
-            $members = @($all | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $g.Key })
-            # The hub's card (Format-HubCardLinkHtml), its label an h2 (owner, October 26, 2026). The summary is this
-            # file's own markup.
-            [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/' + $g.Key) -Label $g.Label -SubHtml (Format-DashboardGroupSummary $members) -Heading 2))
+            $members = @($all | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $g.Key } | Sort-Object @{ Expression = { $rank[[string]$_.Status] } }, @{ Expression = { [string]$_.Repo } })
+            $dkjCards = $g.Key -eq 'dkj' -and $DkjCardsHtml
+            [void]$sb.AppendLine('<div class="' + $(if ($dkjCards) { 'card-grid dr-repos' } else { 'grid-3' }) + '" id="group-' + $g.Key + '">')
+            # The h2 alone, with no sub line and no button under it (Maikel, October 30, 2026).
+            [void]$sb.AppendLine('<div class="grid__head"><h2>' + $g.Label + '</h2></div>')
+            if ($dkjCards) {
+                [void]$sb.Append($DkjCardsHtml)
+            } elseif (-not $members.Count) {
+                [void]$sb.AppendLine('<p class="note grid__full">No repo ' + $g.Owner + ' is registered under <code>connectors/</code>.</p>')
+            } else {
+                foreach ($c in $members) {
+                    $b = Get-DashboardStatusBadge ([string]$c.Status)
+                    $badge = '<span class="badge badge--sm ' + $b.Class + '" title="' + $b.Word + '" aria-label="' + $b.Word + '">' + $b.Mark + '</span>'
+                    $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
+                    $n = @($c.Plugins).Count
+                    $sub = (& $e $c.Visibility) + ' &#183; ' + $n + ' plugin' + $(if ($n -ne 1) { 's' } else { '' }) + ' &#183; ' + (Format-DashboardInstalledVersion $c)
+                    $name = ([string]$c.Repo) -replace '^.*/', ''
+                    [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/consumers/' + $g.Key + '#' + $anchor) -Label $name -SubHtml $sub -TitleBadgeHtml $badge -Heading 3))
+                }
+            }
+            [void]$sb.AppendLine('</div>')
         }
-        [void]$sb.AppendLine('</div>')
     } else {
         # A group's page: worst first, then by name.
         $rank = @{ bad = 0; warn = 1; skip = 2; good = 3 }
@@ -636,7 +660,7 @@ function Format-ConnectorDashboardHtml {
 
     # Where the data comes from, with the way to read it again: the refresh comes back to this same page.
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
-    $back = if ($groupDef) { 'connectors/' + $Group } else { 'connectors' }
+    $back = if ($groupDef) { 'consumers/' + $Group } else { 'consumers' }
     [void]$sb.Append((Format-ConnectorPageEnd -FooterHtml ('Read from <code>check-connectors.ps1</code>, checked ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=' + $back + '">re-run the check</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.')))
     return $sb.ToString()
 }
