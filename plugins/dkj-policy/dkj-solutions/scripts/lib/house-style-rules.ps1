@@ -43,7 +43,10 @@
     `.card`, `.card:hover` and `main .card` restyle every house card in the app. `.card .my-row` styles
     the repo's row, and `.my-thing.card` or `.my-panel .card` place a house component inside a domain
     one, so none of those is a finding: the consumer dashboard's `.cd-signals li .badge` nudges a badge
-    by a pixel in its own list, which is composition, not a second definition of the badge.
+    by a pixel in its own list, which is composition, not a second definition of the badge. In a brace
+    stylesheet the same holds for NESTING (#3694): a `.menu-item` rule nested in a `.my-card` rule
+    compiles to `.my-card .menu-item`, so the rules around a nested one are read with it. Measured in dkj-music-library, October 2026: five
+    nested house classes in one SCSS component read as app-wide, and turned green written out flat.
 
     THE RETIRED NAMES are every token an earlier released tag defined (house-style-v1, -v2) and every
     name in the `Was` column of the rename tables in house-style/README.md at the pinned tag, minus
@@ -284,11 +287,13 @@ function Find-HouseStyleTokenHit {
 function Find-HouseStyleClassHit {
     <#
         Every rule whose selector has a house class as its subject and names no class of the repo's own
-        anywhere. Returns @{ Name; Kind = 'styles'; Line }, one per selector.
+        anywhere. Returns @{ Name; Kind = 'styles'; Line }, one per selector. -Nesting reads a nested
+        rule together with the rules around it, for a stylesheet (#3694).
     #>
     param(
         [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
-        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Classes
+        [Parameter(Mandatory)][AllowEmptyCollection()][string[]]$Classes,
+        [switch]$Nesting
     )
 
     $set = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::Ordinal)
@@ -311,9 +316,15 @@ function Find-HouseStyleClassHit {
     $elements = New-Object System.Collections.Generic.HashSet[string] ([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($e in (Get-HouseStyleElementNames)) { [void]$elements.Add($e) }
 
-    foreach ($m in [regex]::Matches($Text, '(?<=^|[{};])(?<pre>[^{};]+)\{')) {
+    # One prelude, read: its findings, and whether it scopes what is nested inside it -- a selector list
+    # every member of which names a class of the repo's own. $InScope is that, inherited from outside.
+    $readPrelude = {
+        param($m, [bool]$InScope)
         $pre = $comment.Replace($m.Groups['pre'].Value, $blank)
-        if ($pre.Trim().StartsWith('@')) { continue }
+        # SCSS's @at-root lifts what follows it out of every enclosing rule, so it is read unscoped.
+        $atRoot = [regex]::Match($pre, '^\s*@at-root\b')
+        if ($atRoot.Success) { $pre = (' ' * $atRoot.Length) + $pre.Substring($atRoot.Length); $InScope = $false }
+        if ($pre.Trim().StartsWith('@') -or -not $pre.Trim()) { return @{ Hits = @(); Scoped = $false; AtRoot = $atRoot.Success } }
         # A SELECTOR LIST IS READ ALL OR NOTHING (#3485): every member of a real one is a selector, so one
         # member that is not -- prose, or a call's unbalanced tail -- means the text before this `{` is no
         # selector list, and none of its members is a finding. Read member by member, `the GitHub repo's
@@ -344,18 +355,47 @@ function Find-HouseStyleClassHit {
             if ($words.Count) { $isList = $false; break }
             $members += @{ Selector = $selector; Flat = $flat; Parts = $parts }
         }
-        if (-not $isList) { continue }
+        if (-not $isList) { return @{ Hits = @(); Scoped = $false; AtRoot = $atRoot.Success } }
+        $hits = @()
+        $scoped = [bool]$members.Count
         foreach ($mb in $members) {
             $selector = $mb.Selector; $flat = $mb.Flat; $parts = $mb.Parts
-            $house = @([regex]::Matches($parts[-1], $classPattern) | ForEach-Object { $_.Groups[1].Value } | Where-Object { $set.Contains($_) })
-            if ($house.Count -eq 0) { continue }
             # A class of the repo's own anywhere in the selector scopes the rule to its own component.
             # Counted without the quote rule: a page built in a string opens its first selector after a quote.
             $own = @([regex]::Matches($flat, '(?<![\w.-])\.(-?[A-Za-z_][\w-]*)(?![\w-]|\()') | Where-Object { -not $set.Contains($_.Groups[1].Value) })
-            if ($own.Count) { continue }
+            if (-not $own.Count) { $scoped = $false }
+            $house = @([regex]::Matches($parts[-1], $classPattern) | ForEach-Object { $_.Groups[1].Value } | Where-Object { $set.Contains($_) })
+            if ($house.Count -eq 0 -or $own.Count -or $InScope) { continue }
             $at = $m.Index + $pre.IndexOf($selector.Trim())
-            @{ Name = ('.' + $house[0]); Kind = 'styles'; Line = (Get-HouseStyleLineNumber -Map $map -Index ([Math]::Max($m.Index, $at))) }
+            $hits += @{ Name = ('.' + $house[0]); Kind = 'styles'; Line = (Get-HouseStyleLineNumber -Map $map -Index ([Math]::Max($m.Index, $at))) }
         }
+        return @{ Hits = $hits; Scoped = $scoped; AtRoot = $atRoot.Success }
+    }
+
+    $preludes = [regex]::Matches($Text, '(?<=^|[{};])(?<pre>[^{};]+)\{')
+    if (-not $Nesting) {
+        foreach ($m in $preludes) { (& $readPrelude $m $false).Hits }
+        return
+    }
+    # NESTING (#3694). In SCSS, Less and native CSS nesting, a `.menu-item` rule inside a `.my-card` rule
+    # compiles to `.my-card .menu-item`, which is composition -- but its prelude alone reads app-wide.
+    # So the braces are walked with a stack, comments blanked first so a brace inside one is no rule, and
+    # a rule nested in a scoping rule is composition too. A house rule nested only in an element or an
+    # at-rule (`main`, `@media`) still restyles every card, and is still a finding.
+    # Only stylesheets get this walk: in a script, a brace in a string would leave the stack unbalanced.
+    $byBrace = @{}
+    foreach ($m in $preludes) { $byBrace[$m.Index + $m.Length - 1] = $m }
+    $stack = New-Object System.Collections.Generic.Stack[bool]
+    foreach ($b in [regex]::Matches($comment.Replace($Text, $blank), '[{}]')) {
+        if ($b.Value -eq '}') { if ($stack.Count) { [void]$stack.Pop() }; continue }
+        $inScope = [bool]($stack.Count -and $stack.Peek())
+        $scoped = $inScope
+        if ($byBrace.ContainsKey($b.Index)) {
+            $r = & $readPrelude $byBrace[$b.Index] $inScope
+            $r.Hits
+            $scoped = ($inScope -and -not $r.AtRoot) -or $r.Scoped
+        }
+        $stack.Push($scoped)
     }
 }
 
@@ -503,6 +543,8 @@ function Invoke-HouseStyleCheck {
     }
     $retired = Get-HouseStyleRetiredTokens
     $exts = Get-HouseStyleScanExtensions
+    # The brace stylesheets, where a rule can nest inside another (.sass and .styl indent instead).
+    $nestingExts = @('.css', '.scss', '.less', '.pcss')
     $copySet = @($copyPaths)
     $skipped = 0
 
@@ -520,7 +562,7 @@ function Invoke-HouseStyleCheck {
         foreach ($h in @(Find-HouseStyleTokenHit -Text $text -Names $houseTokens)) {
             $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "defines the house token $($h.Name) -- add a domain token under a name of its own, or fix the value at its source (plugins/dkj-policy/assets/house-style/ in DKJ-Solutions/dkj-marketplace)" }
         }
-        foreach ($h in @(Find-HouseStyleClassHit -Text $text -Classes $houseClasses)) {
+        foreach ($h in @(Find-HouseStyleClassHit -Text $text -Classes $houseClasses -Nesting:($nestingExts -contains $ext))) {
             $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "styles the house class $($h.Name) -- give the element a domain class of its own, or fix the class at its source (plugins/dkj-policy/assets/house-style/ in DKJ-Solutions/dkj-marketplace)" }
         }
         foreach ($h in @(Find-HouseStyleTokenHit -Text $text -Names $retired -IncludeReads)) {
