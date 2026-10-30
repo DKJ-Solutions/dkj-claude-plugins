@@ -39,19 +39,37 @@
 
 ### PLAN
 
+Inbound from `dkj-music-library` (#3697). Verified against the stylesheet: inside a `.grid-2`, `.grid-3` or
+`.card-grid`, a direct `.card` stands on `--paper-3` and every child reads `--paper-3` as `--paper-4`, so a plain
+`.btn`'s border is the card's own edge colour, one paper step from its ground, with no step beyond it. The fix is
+scoped to that one place, so a plain `.btn` everywhere else keeps its `--paper-3` edge.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `house-style.css`: a plain `.btn` (not `.btn--primary`) on a card inside a grid takes `--muted` as its border,
+  and keeps it on hover (the rule outweighs `.btn:hover`)
+- [x] The header's list of where `--muted` reaches names the new use
 
 ### TEST
 
+- [ ] The owner looks at a plain `.btn` beside a `.btn--primary` on a grid card, light and dark (a visible result,
+  #3697 parked `awaiting-review-dev`)
+
 ### DEPLOY: fix/3697-btn-edge-in-grid-card
 
-**Score:**
+A plain `.btn` on a card inside a `.grid-2`, `.grid-3` or `.card-grid` now draws its edge in `--muted`, so it
+stays visible beside a `.btn--primary` in every theme
+([#3697](https://github.com/DKJ-Solutions/dkj-marketplace/issues/3697)). Before, its border was the card's own
+edge colour, one paper step from the card, and on a dark theme it barely showed. A repo that worked around this
+with a class of its own can drop that class once it takes this version.
+
+**Score:** 2 -- a button edge that was hard to see, noticed when somebody points at it.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
