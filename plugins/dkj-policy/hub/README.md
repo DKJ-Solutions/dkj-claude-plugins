@@ -4,7 +4,8 @@
 
 **Every repo that runs `dkj-policy` gets a hub at session start**, served by the plugin, with the
 General pages linked from it: Artifacts, Issues, Release notes, SessionStart, Test gate, Stopwatch, Logbook (the last three
-behind the Clock card and its `/clock` page since October 27, 2026)
+behind the Clock card and its `/clock` page since October 27, 2026; SessionStart and Clock in turn behind the
+Performance card and its `/performance` page since October 30, 2026)
 (Test gate and those two since [#3470](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3470)) and Plugins
 (since [#3482](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3482)), and the **AI** card, whose `/ai`
 page holds a Claude section, an `h2` over the Rules, Skills and Specialists cards, each a landing page with nothing on

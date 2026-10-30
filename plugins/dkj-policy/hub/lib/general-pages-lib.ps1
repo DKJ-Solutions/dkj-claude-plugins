@@ -414,6 +414,8 @@ $script:HubIcons = @{
     'stopwatch'     = '<circle cx="12" cy="14" r="7"/><path d="M12 14v-4M10 3h4M12 3v4"/>'
     'logbook'       = '<path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z"/><path d="M5 17a3 3 0 0 1 3-3h11"/>'
     'clock'         = '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+    # Performance: a speedometer, its needle swung up.
+    'performance'   = '<path d="M3.5 17a9 9 0 1 1 17 0"/><path d="M12 14l4-5"/><circle cx="12" cy="14" r="1.5"/>'
     # Installed plugins: a plug pushed into its socket, in use here. The marketplace's offer is a storefront, and
     # its consumers a subscriber ticked off (Feather's 'user-check', MIT), so the three cards that once shared one plug read apart.
     'plugins'       = '<path d="M12 2v4M8 6h8v5a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2z"/><path d="M10 13v4M14 13v4"/><rect x="4" y="17" width="16" height="4" rx="1"/>'
@@ -451,7 +453,7 @@ function Get-GeneralPages {
         @{ Href = '/artifacts';     Label = 'Artifacts';     Sub = 'Every claude.ai Artifact published from a session in this repo'; Icon = 'artifacts' },
         @{ Href = '/issues';        Label = 'Issues';        Sub = 'The open GitHub issues and where they stand, and the flow of the last four weeks'; Icon = 'issues' },
         @{ Href = '/release-notes'; Label = 'Release notes'; Sub = 'What each released version of the plugins changed'; Icon = 'release-notes' },
-        @{ Href = '/sessionstart';  Label = 'SessionStart';  Sub = 'The always-on path every session loads before its first turn'; Icon = 'sessionstart' },
+        @{ Href = '/sessionstart';  Label = 'SessionStart';  Sub = 'The always-on path every session loads before its first turn'; Icon = 'sessionstart'; Group = '/performance' },
         # Every repo's since #3470 (the owner, October 25, 2026): the source repo's own pages until then.
         @{ Href = '/test-gate';     Label = 'Test gate';     Sub = 'What each test suite costs on CI'; Icon = 'test-gate'; Group = '/clock' },
         @{ Href = '/stopwatch';     Label = 'Stopwatch';     Sub = 'How long an assignment takes, timed from a stopwatch: prompt to back on the trunk, with the transcript phases'; Icon = 'stopwatch'; Group = '/clock' },
@@ -471,9 +473,11 @@ function Get-HubGroups {
         is no card and no page: it is an h2 on its parent's page, over a grid of its members' cards. So AI opens on
         the Claude section, holding Rules, Skills and Specialists (Maikel, October 30, 2026), each a page of its own.
         A Section with Source 'lenses' takes its cards from the repo instead: one per specialist lens (Get-HubLensPages).
+        Performance holds SessionStart and Clock (the owner, October 30, 2026).
     #>
     @(
-        @{ Href = '/clock'; Label = 'Clock'; Sub = 'How long the work takes: the Test gate, the Stopwatch and the Logbook'; Icon = 'clock' },
+        @{ Href = '/performance'; Label = 'Performance'; Sub = 'What the work costs: the SessionStart path and the Clock'; Icon = 'performance' },
+        @{ Href = '/clock'; Label = 'Clock'; Sub = 'How long the work takes: the Test gate, the Stopwatch and the Logbook'; Icon = 'clock'; Group = '/performance' },
         @{ Href = '/ai'; Label = 'AI'; Sub = 'The AI this repo works with: Claude'; Icon = 'ai' },
         @{ Href = '/ai/claude'; Label = 'Claude'; Icon = 'claude'; Group = '/ai'; Section = $true },
         @{ Href = '/ai/claude/rules'; Label = 'Rules'; Sub = 'The rules Claude works by'; Icon = 'rules'; Group = '/ai/claude' },
@@ -481,6 +485,20 @@ function Get-HubGroups {
         @{ Href = '/ai/claude/specialists'; Label = 'Specialists'; Sub = 'The Claude Specialists, each with a craft of their own'; Icon = 'specialists'; Group = '/ai/claude' },
         @{ Href = '/ai/claude/specialists/lenses'; Label = 'Lenses'; Icon = 'lens'; Group = '/ai/claude/specialists'; Section = $true; Source = 'lenses' }
     )
+}
+
+function Get-HubGroupCrumbs {
+    <#
+        The crumbs from the hub down to and including the group on -Href, outermost first, each @{ Label; Href }: the
+        trail of a page that sits in that group. A Section has no page, so it is no crumb.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Href)
+    $groups = @{}; foreach ($g in Get-HubGroups) { $groups[$g.Href] = $g }
+    $trail = @()
+    for ($g = $groups[$Href]; $g; $g = $(if ($g.Group) { $groups[$g.Group] } else { $null })) {
+        if (-not $g.Section) { $trail = @(@{ Label = $g.Label; Href = $g.Href }) + $trail }
+    }
+    return $trail
 }
 
 function Get-HubLensPages {
@@ -568,19 +586,21 @@ function Format-HubCardLinkHtml {
 function Format-HubPageCardsHtml {
     <#
         -Pages (Get-GeneralPages' shape) as hub cards, one line each, in their order: a page with no Group as its
-        own card, and each Group's card (Get-HubGroups) in the place of its first page; then each top-level group no
-        general page belongs to (AI), after them.
+        own card, and each top-level Group's card (Get-HubGroups) in the place of its first page, however deep the page
+        sits (Test gate is under Clock, under Performance); then each top-level group no general page belongs to (AI),
+        after them.
     #>
     param([AllowEmptyCollection()][object[]]$Pages = @())
     $done = @{}
     foreach ($p in $Pages) {
         if (-not $p.Group) { Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon; continue }
-        if ($done.ContainsKey($p.Group)) { continue }
-        $done[$p.Group] = $true
-        $g = @(Get-HubGroups | Where-Object { $_.Href -eq $p.Group })[0]
+        $g = @(Get-HubGroupCrumbs -Href $p.Group)[0]
+        if ($done.ContainsKey($g.Href)) { continue }
+        $done[$g.Href] = $true
+        $g = @(Get-HubGroups | Where-Object { $_.Href -eq $g.Href })[0]
         Format-HubCardLinkHtml -Href $g.Href -Label $g.Label -Sub $g.Sub -Icon $g.Icon
     }
-    $grouped = @(Get-GeneralPages | Where-Object { $_.Group } | ForEach-Object { $_.Group })
+    $grouped = @(Get-GeneralPages | Where-Object { $_.Group } | ForEach-Object { @(Get-HubGroupCrumbs -Href $_.Group)[0].Href })
     foreach ($g in @(Get-HubGroups | Where-Object { -not $_.Group -and $grouped -notcontains $_.Href })) {
         Format-HubCardLinkHtml -Href $g.Href -Label $g.Label -Sub $g.Sub -Icon $g.Icon
     }
@@ -1450,7 +1470,7 @@ function Format-SessionStartPageHtml {
         [void]$body.AppendLine('</section>')
         [void]$body.AppendLine('</div>')
         return Format-GeneralPageHtml -Title $s.Title -Style $script:SessionStartStyle -Body $body.ToString() -Lead '' -Bare -SiteName $RepoName `
-            -ParentCrumbs @(@{ Label = 'SessionStart'; Href = '/sessionstart' }) -FooterNote $footer
+            -ParentCrumbs (@(Get-HubGroupCrumbs -Href '/performance') + @(@{ Label = 'SessionStart'; Href = '/sessionstart' })) -FooterNote $footer
     }
 
     if ($alert) { [void]$body.AppendLine($alert) }
@@ -1464,7 +1484,9 @@ function Format-SessionStartPageHtml {
             -Heading 2 -Id $s.Slug -Class 'ss-card'))
     }
     [void]$body.AppendLine('</div>')
-    return Format-GeneralPageHtml -Title 'SessionStart' -Style $script:SessionStartStyle -Body $body.ToString() -Lead '' -Bare -SiteName $RepoName -FooterNote $footer
+    # Under the hub's Performance page, beside the Clock (the owner, October 30, 2026).
+    return Format-GeneralPageHtml -Title 'SessionStart' -Style $script:SessionStartStyle -Body $body.ToString() -Lead '' -Bare -SiteName $RepoName `
+        -ParentCrumbs @(Get-HubGroupCrumbs -Href '/performance') -FooterNote $footer
 }
 
 function Format-ReleaseNotesEmptyPageHtml {
