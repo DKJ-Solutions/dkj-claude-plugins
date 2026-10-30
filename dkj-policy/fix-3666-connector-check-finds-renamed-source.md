@@ -39,19 +39,40 @@
 
 ### PLAN
 
+Step 6 of the rename (#3666): run the aftercare checks and repair what still resolves the old name
+`dkj-claude-plugins`. `check-connectors.ps1` and `check-roster-sync.ps1` were clean (0 errors). The
+`git grep` over this repo and the consumers found citations, the retired-names list and regexes that
+already accept both names, plus one site that resolves the name: `connector-sessioncheck.ps1` looks for
+the source checkout under the old folder names only. Measured from `dkj-lifehub` beside a checkout in a
+folder named `dkj-marketplace`: "no source checkout on this machine, so the register checks ... did not
+run".
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `connector-sessioncheck.ps1`: add `..\dkj-marketplace` and `..\..\DKJ-Solutions\dkj-marketplace` to
+  the source-checkout candidates, ahead of the old names, which stay.
 
 ### TEST
 
+- [x] Ran the patched hook from `dkj-lifehub`: "connector-sessioncheck: no errors." instead of the skip
+  line. The suites run in `ship-pr`.
+
 ### DEPLOY: fix/3666-connector-check-finds-renamed-source
 
-**Score:**
+The connector session check looked for the source checkout only under the repo's old folder names, so
+in a consumer beside a fresh clone named `dkj-marketplace` it reported no source checkout and skipped
+the register checks without saying anything was wrong. It now finds the checkout under the new name
+as well.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+A consumer session on a machine whose source checkout is named `dkj-marketplace` runs the register
+checks again (consumer registration, lens inventory, agent-def drift) instead of skipping them.
+
+**Score:** 1
 
 #### Pull Request
 
+The connector session check finds a source checkout named dkj-marketplace
