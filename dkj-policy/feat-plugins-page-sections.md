@@ -41,17 +41,29 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-PluginsPageHtml` groups the cards under two h2 sections, dkj-marketplace and MCP
+- [x] `Format-HubCardLinkHtml -Heading 3`, so the cards under those sections carry an h3 label
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: the card asserts read h3, the two sections and their order are asserted, an empty section is not drawn
+- [ ] The owner has looked at `/plugins` on the hub (a visible result)
+
 ### DEPLOY: feat/plugins-page-sections
 
-**Score:**
+The hub's Installed plugins page now splits its cards into two sections, each with an h2: **dkj-marketplace**
+for the plugins from this marketplace, and **MCP** for those from any other marketplace (Figma's). The card
+names under them are h3s, and a section with no card in it is left out. `Format-HubCardLinkHtml` takes
+`-Heading 3` for this.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+The plugins page in every DKJ repo's hub is grouped by where a plugin comes from, so the Figma connector no
+longer sits between the DKJ plugins.
+
+**Score:** 2
 
 #### Pull Request
 

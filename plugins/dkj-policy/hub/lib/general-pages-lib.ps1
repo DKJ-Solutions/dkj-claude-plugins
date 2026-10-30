@@ -480,12 +480,13 @@ function Format-HubCardLinkHtml {
         invalid HTML, and the browser closes the card's link at the inner one, so the card falls apart (#3610). One
         that does is refused with a throw.
         The label is an h2 by default (owner, October 29, 2026): the cards are the sections of the page they sit on.
+        -Heading 3 makes it an h3, for cards under a section h2 of their own (the Plugins page's marketplace groups);
         -Heading 0 keeps it a plain span, for a card inside a section that has a heading of its own; -Id and -Class (extra classes,
         such as a tone) go on the card.
     #>
     param([Parameter(Mandatory = $true)][string]$Href, [Parameter(Mandatory = $true)][string]$Label, [AllowEmptyString()][string]$Sub = '',
         [AllowEmptyString()][string]$Icon = '', [AllowEmptyString()][string]$SubHtml = '', [AllowEmptyString()][string]$ValueHtml = '',
-        [AllowEmptyString()][string]$BadgeHtml = '', [ValidateSet(0, 2)][int]$Heading = 2, [AllowEmptyString()][string]$Id = '',
+        [AllowEmptyString()][string]$BadgeHtml = '', [ValidateSet(0, 2, 3)][int]$Heading = 2, [AllowEmptyString()][string]$Id = '',
         [AllowEmptyString()][string]$Class = '', [AllowEmptyString()][string]$TitleBadgeHtml = '')
     # The docstring's NO <a>, enforced (#3610): a caller that breaks it fails its suite instead of a broken card.
     foreach ($slot in @(@('SubHtml', $SubHtml), @('ValueHtml', $ValueHtml), @('BadgeHtml', $BadgeHtml), @('TitleBadgeHtml', $TitleBadgeHtml))) {
@@ -497,7 +498,7 @@ function Format-HubCardLinkHtml {
     $v = if ($ValueHtml) { '<span class="menu-item__value">' + $ValueHtml + '</span>' } else { '' }
     $title = if ($TitleBadgeHtml) { '<span>' + (& $e $Label) + '</span>' + $TitleBadgeHtml } else { & $e $Label }
     # A heading may not sit in a <span>, so a card with one holds its label in a <div>.
-    $labelHtml = if ($Heading) { '<div class="menu-item__label"><h2 class="menu-item__title">' + $title + '</h2>' + $s + $v + '</div>' }
+    $labelHtml = if ($Heading) { '<div class="menu-item__label"><h' + $Heading + ' class="menu-item__title">' + $title + '</h' + $Heading + '>' + $s + $v + '</div>' }
              else { '<span class="menu-item__label">' + $title + $s + $v + '</span>' }
     $mark = if ($BadgeHtml) { $BadgeHtml } else { Get-HubIconSvg -Name $Icon }
     return '<section class="card card--link' + $(if ($Class) { ' ' + (& $e $Class) } else { '' }) + '"' + $(if ($Id) { ' id="' + (& $e $Id) + '"' } else { '' }) +
