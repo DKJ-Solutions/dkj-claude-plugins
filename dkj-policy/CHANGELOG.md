@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**4 / 13 minor entries** <!-- pending-tally -->
+**5 / 14 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3666-connector-check-finds-renamed-source · 20261030-144253Z
+
+The connector session check looked for the source checkout only under the repo's old folder names, so
+in a consumer beside a fresh clone named `dkj-marketplace` it reported no source checkout and skipped
+the register checks without saying anything was wrong. It now finds the checkout under the new name
+as well.
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+A consumer session on a machine whose source checkout is named `dkj-marketplace` runs the register
+checks again (consumer registration, lens inventory, agent-def drift) instead of skipping them.
+
+**Score:** 1
+
+#### Pull Request
+
+The connector session check finds a source checkout named dkj-marketplace
+
+Plugins: dkj-policy
+
+[PR #3692](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3692)
+
+---
 
 ### DEPLOY: docs/3689-recurrence-of-completed-issue · 20261030-141048Z
 
