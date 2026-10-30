@@ -2,7 +2,41 @@
 
 ## [Unreleased]
 
-**5 / 14 minor entries** <!-- pending-tally -->
+**6 / 15 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3675-consumers-folder · 20261030-151405Z
+
+The register of repos that install this marketplace's plugins is now `consumers/`, the name the rest
+of the tree already used for those repos, and no longer one that collides with MCP connectors
+([#3675](https://github.com/DKJ-Solutions/dkj-marketplace/issues/3675)). Its check is
+`scripts/sync/check-consumers.ps1`, the dashboard server is `serve-consumer-dashboard.ps1`, and the
+suites are `consumers.tests.ps1`, `consumer-sessioncheck.tests.ps1` and `consumer-dashboard.tests.ps1`.
+`check-connectors.ps1` stays as a forwarder, because a hook installed before this release finds the
+source checkout by that file and runs it. It can go once every install has this release.
+
+**Score:** 1 -- the forwarder prevents a failure that has not happened: without it, every session
+start beside a source checkout on `main` would read that checkout as absent until its plugins were
+updated.
+
+#### What makes this deploy extra special
+
+**The SessionStart hook is renamed: `connector-sessioncheck` is now `consumer-sessioncheck`.** That is
+a public interface change. Every session start in a repo with `dkj-policy` installed prints its lines
+under the new name, and the dispatcher's timing line reads `consumer` where it read `connector`.
+Nothing has to be done to take it, but anything that matches the old name (a filter, a note, a
+script that reads the session-start output) has to follow.
+
+**Score:** 2
+
+#### Pull Request
+
+Rename connectors/ to consumers/
+
+Plugins: bwj-development, dkj-policy, dkj-solutions, dkj-subagents-alpha, dkj-subagents-shopify
+
+[PR #3693](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3693)
+
+---
 
 ### DEPLOY: fix/3666-connector-check-finds-renamed-source · 20261030-144253Z
 
