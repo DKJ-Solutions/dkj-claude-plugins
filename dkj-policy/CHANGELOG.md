@@ -2,7 +2,30 @@
 
 ## [Unreleased]
 
-**3 / 7 minor entries** <!-- pending-tally -->
+**3 / 8 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/connectors-group-sections · 20261030-114237Z
+
+The Consumers page is now three sections, DKJ, BWJ and Other, each under an h2 of its own. Under each sit that group's repo cards, one level up from where they
+were and an h3 each: every DKJ repo's card, as on the DKJ page, and a card per registered BWJ and Other repo
+that opens its details on the group's page. The pages moved from `/connectors` to `/consumers`, so the url matches their h1 Consumers; an old
+address lands on its new page.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- a page of this repo's own dev server, which no consumer runs.
+
+**Score:** N/A
+
+#### Pull Request
+
+The Consumers page shows each owner group as a section with its repos' cards
+
+[PR #3682](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3682)
+
+---
 
 ### DEPLOY: fix/marketplace-teams-page · 20261030-104603Z
 
