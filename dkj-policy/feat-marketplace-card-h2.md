@@ -49,7 +49,7 @@ Maikel, October 30, 2026: on `/marketplace`, drop the `dkj-marketplace` h2 and m
 ### TEST
 
 - [x] `dev-pages.tests.ps1` green (511 passed); the live `/marketplace` shows one h1 and two card h2s
-- [ ] The owner's look at `/marketplace`
+- [x] The owner's look at `/marketplace` (Maikel: ship it)
 
 ### DEPLOY: feat/marketplace-card-h2
 
