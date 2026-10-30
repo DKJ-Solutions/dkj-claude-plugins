@@ -559,7 +559,7 @@ function Format-HubCardLinkHtml {
         that does is refused with a throw.
         The label is an h2 by default (owner, October 29, 2026): the cards are the sections of the page they sit on.
         -Heading 3 makes it an h3, for a card under a .grid__head's h2 (the AI page's Claude section, Maikel, October 30,
-        2026); -Heading 0 keeps it a plain span, for a card inside a section that has a heading of its own; -Id and -Class (extra classes,
+        2026; the Plugins page's marketplace groups); -Heading 0 keeps it a plain span, for a card inside a section that has a heading of its own; -Id and -Class (extra classes,
         such as a tone) go on the card.
     #>
     param([Parameter(Mandatory = $true)][string]$Href, [Parameter(Mandatory = $true)][string]$Label, [AllowEmptyString()][string]$Sub = '',

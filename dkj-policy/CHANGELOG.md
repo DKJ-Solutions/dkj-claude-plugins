@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**1 / 3 minor entries** <!-- pending-tally -->
+**2 / 4 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/plugins-page-sections · 20261030-092308Z
+
+The hub's Installed plugins page now splits its cards into two sections, each with an h2: **dkj-marketplace**
+for the plugins from this marketplace, and **MCP** for those from any other marketplace (Figma's). The card
+names under them are h3s, and a section with no card in it is left out. `Format-HubCardLinkHtml` takes
+`-Heading 3` for this.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The plugins page in every DKJ repo's hub is grouped by where a plugin comes from, so the Figma connector no
+longer sits between the DKJ plugins.
+
+**Score:** 2
+
+#### Pull Request
+
+Plugins page grouped under dkj-marketplace and MCP headings
+
+Plugins: dkj-policy
+
+[PR #3679](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3679)
+
+---
 
 ### DEPLOY: feat/toolbox-ai-cards · 20261030-084927Z
 
