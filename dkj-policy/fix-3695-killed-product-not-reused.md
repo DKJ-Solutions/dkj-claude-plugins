@@ -39,21 +39,42 @@
 
 ### PLAN
 
-Stop reporting 'already running' for a product server the hook itself killed but whose port freed late
+The dev-preview hook stops its own outdated server (the product after HEAD moved, #3657; the hub of
+another plugin version, #3275), waits 5 s for the port, and fell back to `reuse` when the port was still
+held. Measured October 30, 2026: the product on 4870 was reported `already running`, nothing listened
+minutes later, and its log had not been rewritten since 08:22, so no start had happened. A stopped
+server is never reused again: the replacement starts on the same port when it is free, otherwise on the
+next free port of the range, and otherwise the line says it was not started.
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Select-DevPreviewRestartPort` in `hub/lib/dev-preview-rules.ps1`: where the replacement starts, from a snapshot taken after the wait
+- [x] `Select-DevPreviewAfterStop` in the hook: the 5 s wait plus the fresh snapshot, used by both the hub and the product restart
+- [x] The hub and product restart paths no longer fall back to `reuse`; with no free port they report why
 
 ### TEST
 
+- [x] Three new asserts in `dev-preview-sessionstart.tests.ps1`: port freed, port still held by the stopped server (the measured case), and a single port still held
+- [x] `dev-preview-sessionstart.tests.ps1`: 425 passed, 0 failed, including the existing #3275 and #3657 restart scenarios
+
 ### DEPLOY: fix/3695-killed-product-not-reused
 
-**Score:**
+When a session starts after the trunk has moved, the dev-preview hook restarts the repo's product
+server, and it now really restarts it
+([#3695](https://github.com/DKJ-Solutions/dkj-marketplace/issues/3695)). Before, a stopped server that
+took more than 5 seconds to free its port was reported `already running`, and a moment later nothing
+listened at all. The replacement now starts on the same port once it is free, or on the next free port
+in the range. Where there is none, the line says so instead of naming a server that is gone. The hub's
+restart after a plugin update follows the same rule.
+
+**Score:** 2 -- the product link from the session start line pointed at nothing, which the owner
+notices the first time they open it.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A
+
+**Score:** N/A
 
 #### Pull Request
 
