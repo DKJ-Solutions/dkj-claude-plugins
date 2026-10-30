@@ -244,9 +244,8 @@ body > header, main > header { display: flex; justify-content: space-between; al
 .grid__head, .grid__full { grid-column: 1 / -1; }
 .grid__head { text-align: left; }
 .grid__head > h2 { margin: 0; }
-/* In the page column a headed group takes extra room above its h2 (#3175), so the h2 sits clearly closer to its own cards
-   (the grid's --spacing-4) than to the group before it (the column's --spacing-3 plus this): the h2s group the page. */
-.page-column > :is(.grid-2, .grid-3):has(> .grid__head):not(:first-child) { margin-top: var(--spacing-5); }
+/* A headed group takes no room of its own above it: the page column's gap is the only space between its blocks
+   (Maikel, October 30, 2026; from #3175 it took an extra --spacing-5). */
 .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--spacing-3); margin-top: var(--spacing-4); }
 .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); column-gap: var(--spacing-4); }
 .mini-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: var(--spacing-2-5); margin-top: var(--spacing-3); }

@@ -620,8 +620,8 @@ Both are gone: an `h2` may now title a card, as the Stopwatch's label cards do.
 
 - **The grouping form still stands where a page groups cards**: a `.grid-2` whose first child is a
   `.grid__head` (the `h2`, then a `p.card__sub`), then the cards; a card with `.grid__full` takes the whole
-  row. In a `.page-column`, a `.grid-2` with a `.grid__head` takes
-  an extra `--spacing-5` above it, so an `h2` sits closer to its own cards than to the group before it.
+  row. In a `.page-column` such a group takes no margin of its own: the column's `gap` is the only space between
+  its blocks (Maikel, October 30, 2026; from #3175 it took an extra `--spacing-5` above it).
 - **A card's own title under such a group is still an `h3`**: `.card__head` > `h3.card__title` (room for a
   `.badge` before the text) or a plain `h3`, then an optional `.card__sub`. A `.card__title` renders at
   `--text-h3`, in the sans.
