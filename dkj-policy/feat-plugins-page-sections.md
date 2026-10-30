@@ -47,7 +47,7 @@
 ### TEST
 
 - [x] `dev-pages.tests.ps1`: the card asserts read h3, the two sections and their order are asserted, an empty section is not drawn
-- [ ] The owner has looked at `/plugins` on the hub (a visible result)
+- [x] The owner has looked at `/plugins` on the hub (a visible result) -- "ship it"
 
 ### DEPLOY: feat/plugins-page-sections
 
