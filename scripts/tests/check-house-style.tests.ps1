@@ -142,6 +142,21 @@ Assert-Equal 4 $h[0].Line 'a blanked comment keeps the line number of the rule a
 # Measured on this repo (#3485): prose whose middle member is selector-shaped, because `a` is an element name.
 Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text "Assert-True (`$x) 'the repo''s facts, a .card, not a list'`nif (`$y) { }" -Classes $gridClasses)) 'a selector list is all or nothing: one prose member makes none of them a finding'
 Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "section p,`nmain > a .card { color: red }" -Classes $gridClasses)) 'and a list whose every member is a selector still counts'
+# Measured in dkj-music-library (#3694): house classes nested inside a domain class in SCSS.
+$scss = ".thumb-card {`n  .card,`n  .btn { height: 100%; }`n  .badge { margin: 0; }`n}"
+Assert-Equal 'styles .card, styles .btn, styles .badge' (Get-HitNames (Find-HouseStyleClassHit -Text $scss -Classes $classes)) 'without -Nesting the nested rule reads app-wide, as before'
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text $scss -Classes $classes -Nesting)) 'with -Nesting a house class nested in a domain class is composition'
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text ".my-panel {`n  @media (min-width: 1px) {`n    &:hover { .card { } }`n  }`n}" -Classes $classes -Nesting)) 'and so is one nested deeper, through an at-rule and a parent reference'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "main {`n  .card { color: red; }`n}" -Classes $classes -Nesting)) 'nested only in an element, it still restyles every card'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "@media (min-width: 1px) {`n  .card { }`n}" -Classes $classes -Nesting)) 'and nested only in an at-rule'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text ".my-panel, main {`n  .card { }`n}" -Classes $classes -Nesting)) 'a parent list scopes only when every member names a domain class'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text ".my-panel { }`n.card { }" -Classes $classes -Nesting)) 'a closed domain rule scopes nothing after it'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "// .my-panel {`n.card { }" -Classes $classes -Nesting)) 'a brace inside a comment opens no scope'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text ".my-panel {`n  @at-root .card { }`n}" -Classes $classes -Nesting)) '@at-root lifts a nested rule out of its domain scope'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text ".my-panel {`n  @at-root {`n    .card { }`n  }`n}" -Classes $classes -Nesting)) 'and so does an @at-root block'
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text ".my-panel {`n  @at-root .my-x {`n    .card { }`n  }`n}" -Classes $classes -Nesting)) 'while a domain class after @at-root scopes again'
+$h = @(Find-HouseStyleClassHit -Text "main {`n  a { }`n  .card { }`n}" -Classes $classes -Nesting)
+Assert-Equal 3 $h[0].Line 'a nested finding keeps its own line number'
 
 # The heading check, check 4 (#3175), was retired on October 24, 2026 (Maikel): an h2 may title a card.
 Assert-True (-not (Test-FunctionDefined 'Find-HouseStyleHeadingHit')) 'the retired heading check is gone from the rules'

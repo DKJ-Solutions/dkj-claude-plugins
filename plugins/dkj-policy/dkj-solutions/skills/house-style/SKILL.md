@@ -151,7 +151,9 @@ inside a card, [#3175](https://github.com/DKJ-Solutions/dkj-claude-plugins/issue
    ([#3637](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3637)).
 2. **redefine**: the repo's own layer defines no house token (`--x:`) and restyles no house class app-wide
    (`.card { }`, `main .card { }`). A house class inside a component of the repo's own (`.my-panel .card`) is
-   composition, not a redefinition.
+   composition, not a redefinition. In a `.css`, `.scss`, `.less` or `.pcss` file that holds for nesting too:
+   a `.card` rule nested in a `.my-panel` rule is read as `.my-panel .card`
+   ([#3694](https://github.com/DKJ-Solutions/dkj-marketplace/issues/3694)).
 3. **retired**: the repo's own layer neither defines nor reads (`var(--x)`) a token name the house style retired.
 
 Checks 2 and 3 use a pattern grep over every tracked file of the kinds a page is built in (`.css`, `.html`, `.js`,

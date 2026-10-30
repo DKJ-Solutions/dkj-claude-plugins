@@ -49,10 +49,13 @@ Inbound #3694, verified on the tree: `Find-HouseStyleClassHit` reads the text be
       passes it for `.css`, `.scss`, `.less` and `.pcss`
 - [x] The house-style skill's check 2 says nesting counts as composition
 - [x] Nine asserts in `check-house-style.tests.ps1`, the measured SCSS shape among them
+- [x] Review (Victor): SCSS `@at-root` lifted a nested house rule out of its scope and hid it; it is now
+      read unscoped, with three asserts. Interpolated selectors (`.a-#{$n}`) stay a false positive, as
+      before this branch: filed as #3698
 
 ### TEST
 
-- [x] `check-house-style.tests.ps1`: 112 passed, 0 failed; this repo passes its own gate
+- [x] `check-house-style.tests.ps1`: 115 passed, 0 failed; this repo passes its own gate
 
 ### DEPLOY: fix/3694-house-style-scss-nesting
 
