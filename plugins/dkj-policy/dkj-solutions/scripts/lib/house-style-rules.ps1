@@ -303,6 +303,12 @@ function Find-HouseStyleClassHit {
     # (19s of 22s on this repo before this line), so one alternation decides first whether to walk.
     $any = '(?<![\w''"-])\.(' + ((@($Classes) | Sort-Object Length -Descending | ForEach-Object { [regex]::Escape($_) }) -join '|') + ')(?![\w-])'
     if (-not [regex]::IsMatch($Text, $any)) { return }
+    # An SCSS interpolation, `.a-#{$n}`, holds a brace pair that opens no rule (#3698). In a stylesheet
+    # it is written over with `x`s of the same length, so `.a-xxxx` reads as the domain class it is and
+    # a line number still lands where it did.
+    if ($Nesting) {
+        $Text = [regex]::Replace($Text, '#\{[^{}]*\}', [System.Text.RegularExpressions.MatchEvaluator] { param($i) $i.Value -replace '[^\n]', 'x' })
+    }
     $map = New-HouseStyleLineMap -Text $Text
     # A quote before the dot is a string such as querySelector('.card'), never a stylesheet selector.
     # Nor is a dot before it -- an object spread, `...meta` -- or a `(` straight after the name, which

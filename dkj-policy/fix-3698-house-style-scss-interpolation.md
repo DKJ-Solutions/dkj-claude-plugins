@@ -39,19 +39,32 @@
 
 ### PLAN
 
+#3698, found in review of #3694: the prelude regex splits at the `{` of an SCSS `#{...}`, so an
+interpolated domain selector never scopes what is nested in it.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Find-HouseStyleClassHit -Nesting` writes each `#{...}` over with `x`s of the same length first
+- [x] Four asserts in `check-house-style.tests.ps1`: the measured shape, a value interpolation, and a line number
 
 ### TEST
 
+- [x] `check-house-style.tests.ps1`: 118 passed, 0 failed; this repo passes its own gate
+
 ### DEPLOY: fix/3698-house-style-scss-interpolation
 
-**Score:**
+`check-house-style` reads an SCSS interpolation (`.a-#{$n}`) in a stylesheet as part of the selector
+it sits in, so an interpolated rule of the repo's own scopes the house classes nested inside it, like any
+other domain class ([#3698](https://github.com/DKJ-Solutions/dkj-marketplace/issues/3698)).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions repo whose SCSS nests a house class inside an interpolated selector of its own no longer
+gets a `[redefine]` finding for it.
+
+**Score:** 2
 
 #### Pull Request
 

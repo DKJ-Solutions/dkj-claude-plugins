@@ -155,6 +155,11 @@ Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "// .my
 Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text ".my-panel {`n  @at-root .card { }`n}" -Classes $classes -Nesting)) '@at-root lifts a nested rule out of its domain scope'
 Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text ".my-panel {`n  @at-root {`n    .card { }`n  }`n}" -Classes $classes -Nesting)) 'and so does an @at-root block'
 Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text ".my-panel {`n  @at-root .my-x {`n    .card { }`n  }`n}" -Classes $classes -Nesting)) 'while a domain class after @at-root scopes again'
+# Found in review of #3694 (#3698): an interpolated domain selector scopes what is nested in it.
+Assert-Equal '' (Get-HitNames (Find-HouseStyleClassHit -Text ".a-#{`$n} { .card { x: 1 } }" -Classes $classes -Nesting)) 'an interpolated domain class scopes a nested house class'
+Assert-Equal 'styles .card' (Get-HitNames (Find-HouseStyleClassHit -Text "main { width: #{`$w}; }`n.card { }" -Classes $classes -Nesting)) 'an interpolation in a value opens no scope'
+$h = @(Find-HouseStyleClassHit -Text "x { a: #{`n`$b}; }`n.card { }" -Classes $classes -Nesting)
+Assert-Equal 3 $h[0].Line 'an interpolation across a line break keeps the line number of the rule after it'
 $h = @(Find-HouseStyleClassHit -Text "main {`n  a { }`n  .card { }`n}" -Classes $classes -Nesting)
 Assert-Equal 3 $h[0].Line 'a nested finding keeps its own line number'
 
