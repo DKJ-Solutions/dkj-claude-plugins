@@ -43,16 +43,18 @@
 
 - [x] `Resolve-MarketplaceAddress` in `scripts/lib/dev-pages-lib.ps1`: a `/marketplace` address parsed into its levels, with `dkj-subagents` alone read as the teams' group page
 - [x] `serve-connector-dashboard.ps1` routes through it instead of its inline regex
+- [x] The teams' page groups its cards: `dkj-subagents-alpha` under an `Alpha` h2, the other teams under an `Extensions` h2, each card an h3 (Maikel, October 30, 2026)
 
 ### TEST
 
-- [x] `dev-pages.tests.ps1`: an assert on every level of a `/marketplace` address, the bare `dkj-subagents` among them (508 passed)
-- [x] The product server on :4870 restarted: `/marketplace/dkj-subagents` answers 200 with the four team cards
+- [x] `dev-pages.tests.ps1`: an assert on every level of a `/marketplace` address, the bare `dkj-subagents` among them, and on the two sections and their order (510 passed)
+- [x] The product server on :4870 restarted: `/marketplace/dkj-subagents` answers 200, Alpha over the core team, Extensions over the other three
 - [ ] The owner has looked at `/marketplace/dkj-subagents`
 
 ### DEPLOY: fix/marketplace-teams-page
 
-`/marketplace/dkj-subagents` is the specialist teams' page again: one card per team. The move of dkj-policy's
+`/marketplace/dkj-subagents` is the specialist teams' page again, and it now groups them: the core team
+alone under an **Alpha** heading, the other teams under **Extensions**. The move of dkj-policy's
 add-ons onto its own page (in #3680, the same day) had made the server read that address as a plugin
 called `dkj-subagents`, which does not exist, so it answered 404. The address is now parsed in one lib
 function, `Resolve-MarketplaceAddress`, which a unit test holds to every level; the server's own fixture has

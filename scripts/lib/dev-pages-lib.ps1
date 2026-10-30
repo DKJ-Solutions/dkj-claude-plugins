@@ -552,17 +552,23 @@ function Format-MarketplacePluginsPageHtml {
     }
 
     if (-not $Plugin) {
-        # The teams' own page: one card per team, in the marketplace's order.
+        # The teams' own page: the core team under 'Alpha', every other team under 'Extensions', each an h2 over
+        # h3 cards in the marketplace's order (Maikel, October 30, 2026).
         if (-not $teams.Count) { return $null }
-        [void]$body.AppendLine('<div class="grid-3" id="teams">')
-        foreach ($p in $teams) {
-            # A team's card also counts its specialists and what reading all of them costs.
-            $sp = & $spOf $p.Name
-            $sub = @(& $state $p) + $(if ($sp) { @(([string]$sp.Rows.Count + ' specialist' + $(if ($sp.Rows.Count -ne 1) { 's' } else { '' })), ('full read ' + (& $tok $sp.TotalBytes))) } else { @() })
-            [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/marketplace/' + $teamGroup + '/' + $p.Name) -Label $p.Name -SubHtml ($sub -join ' &middot; ') -Heading 2 `
-                -Id ('plugin-' + $p.Name) -Class ('pl-card' + $(if ($p.Enabled) { '' } else { ' pl-card--off' }))))
+        $core = 'dkj-subagents-alpha'
+        foreach ($sec in @(@{ Id = 'alpha'; Title = 'Alpha'; Teams = @($teams | Where-Object { $_.Name -ceq $core }) },
+                @{ Id = 'extensions'; Title = 'Extensions'; Teams = @($teams | Where-Object { $_.Name -cne $core }) })) {
+            if (-not $sec.Teams.Count) { continue }
+            [void]$body.AppendLine('<div class="grid-3" id="' + $sec.Id + '"><div class="grid__head"><h2>' + $sec.Title + '</h2></div>')
+            foreach ($p in $sec.Teams) {
+                # A team's card also counts its specialists and what reading all of them costs.
+                $sp = & $spOf $p.Name
+                $sub = @(& $state $p) + $(if ($sp) { @(([string]$sp.Rows.Count + ' specialist' + $(if ($sp.Rows.Count -ne 1) { 's' } else { '' })), ('full read ' + (& $tok $sp.TotalBytes))) } else { @() })
+                [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/marketplace/' + $teamGroup + '/' + $p.Name) -Label $p.Name -SubHtml ($sub -join ' &middot; ') -Heading 3 `
+                    -Id ('plugin-' + $p.Name) -Class ('pl-card' + $(if ($p.Enabled) { '' } else { ' pl-card--off' }))))
+            }
+            [void]$body.AppendLine('</div>')
         }
-        [void]$body.AppendLine('</div>')
         return Format-DevPageHtml -Title $teamGroup -Style $style -Body $body.ToString() -FooterNote $footer `
             -ParentCrumbs @(@{ Label = 'Marketplace'; Href = '/marketplace' }) -Lead ''
     }
