@@ -4,11 +4,11 @@
   "localCheckout": "../djcylow-react",
   "plugins": [
     {
-      "id": "dkj-subagents-alpha@dkj-claude-plugins",
+      "id": "dkj-subagents-alpha@dkj-marketplace",
       "extensions": []
     },
     {
-      "id": "dkj-policy@dkj-claude-plugins",
+      "id": "dkj-policy@dkj-marketplace",
       "extensions": []
     }
   ],

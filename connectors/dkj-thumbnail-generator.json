@@ -7,7 +7,7 @@
   ],
   "plugins": [
     {
-      "id": "dkj-subagents-alpha@dkj-claude-plugins",
+      "id": "dkj-subagents-alpha@dkj-marketplace",
       "extensions": [
         "01-01", "02-09", "03-02", "03-07", "04-11", "04-12", "04-13", "04-18",
         "05-05", "05-06", "05-15", "06-16", "06-17", "06-19", "06-23",
@@ -15,11 +15,11 @@
       ]
     },
     {
-      "id": "dkj-policy@dkj-claude-plugins",
+      "id": "dkj-policy@dkj-marketplace",
       "extensions": []
     },
     {
-      "id": "dkj-solutions@dkj-claude-plugins",
+      "id": "dkj-solutions@dkj-marketplace",
       "extensions": []
     }
   ],
