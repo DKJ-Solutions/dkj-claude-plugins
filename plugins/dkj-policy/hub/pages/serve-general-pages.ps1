@@ -500,7 +500,7 @@ try {
             if ($gp = Format-HubGroupPageHtml -Href $path -RepoName (Get-RepoIdentity).Name -RepoRoot $root) {
                 # A group page (Get-HubGroups): /clock, holding the Stopwatch and the Logbook (the owner, October 27, 2026).
                 $html = $gp
-            } elseif ($path -cmatch '^/ai/lenses/(specialist-\d{2}-\d{2}-lens)/?$') {
+            } elseif ($path -cmatch '^/ai/claude/specialists/lenses/(specialist-\d{2}-\d{2}-lens)/?$') {
                 # One specialist lens's page, read from this checkout (Maikel, October 30, 2026); a lens it has not is a 404.
                 $html = Format-HubLensPageHtml -Name $Matches[1] -RepoRoot $root -RepoName (Get-RepoIdentity).Name
                 if ($null -eq $html) {

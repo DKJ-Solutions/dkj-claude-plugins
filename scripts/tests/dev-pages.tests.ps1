@@ -109,7 +109,9 @@ $aiPage = Format-HubGroupPageHtml -Href '/ai' -RepoName 'dkj-claude-plugins'
 Assert-True ($aiPage -match '<div><h1>AI</h1></div>' -and $aiPage -match '<div class="grid-3"><div class="grid__head"><h2>Claude</h2></div>' -and $aiPage -notmatch 'card__sub' -and $aiPage -notmatch 'href="/ai/claude"') 'the /ai page holds Claude as a lone h2 heading a .grid-3, with no sub line under it and not as a card'
 Assert-True (([regex]::Matches($aiPage, '<section class="card card--link">')).Count -eq 3 -and ([regex]::Matches($aiPage, '<h3 class="menu-item__title">')).Count -eq 3 -and $aiPage -notmatch '<h2 class="menu-item__title">' -and $aiPage.IndexOf('href="/ai/claude/rules"') -lt $aiPage.IndexOf('href="/ai/claude/skills"') -and $aiPage.IndexOf('href="/ai/claude/skills"') -lt $aiPage.IndexOf('href="/ai/claude/specialists"')) 'and under it Rules, Skills and Specialists, in that order, each card titled with an h3'
 Assert-True ($null -eq (Format-HubGroupPageHtml -Href '/ai/claude')) 'Claude is a section of /ai, with no page of its own'
-Assert-True ($aiPage -match '<div class="grid-3"><div class="grid__head"><h2>Lenses</h2></div>' -and $aiPage.IndexOf('<h2>Claude</h2>') -lt $aiPage.IndexOf('<h2>Lenses</h2>') -and $aiPage -match '(?s)<h2>Lenses</h2></div>\s*<section class="card grid__full"><p class="msg" role="status">Nothing here yet\.') 'under Claude a Lenses section, which with no repo to read says it has nothing yet'
+Assert-True ($aiPage -notmatch 'Lenses') 'the Lenses are not on /ai'
+$specPage = Format-HubGroupPageHtml -Href '/ai/claude/specialists' -RepoName 'x'
+Assert-True ($specPage -match '<div class="grid-3"><div class="grid__head"><h2>Lenses</h2></div>' -and $specPage -notmatch 'Nothing on this page yet' -and $specPage -match '(?s)<h2>Lenses</h2></div>\s*<section class="card grid__full"><p class="msg" role="status">Nothing here yet\.') 'the Specialists page holds a Lenses section, which with no repo to read says it has nothing yet'
 $lensRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('hub-lenses-' + [guid]::NewGuid().ToString('N'))
 $lensDir = Join-Path $lensRoot '.claude\specialists\lenses'
 New-Item -ItemType Directory -Path $lensDir -Force | Out-Null
@@ -120,13 +122,13 @@ try {
     $lenses = @(Get-HubLensPages -RepoRoot $lensRoot)
     Assert-Equal 'specialist-01-01-lens,specialist-05-05-lens' (($lenses | ForEach-Object { $_.Label }) -join ',') 'the lenses are the repo''s specialist-NN-NN-lens files, by name, and nothing else in the folder'
     Assert-Equal 'Derek - the DevOps Engineer' $lenses[1].Sub 'a lens card''s sub line is its own # title, past the frontmatter'
-    $aiLens = Format-HubGroupPageHtml -Href '/ai' -RepoName 'x' -RepoRoot $lensRoot
-    Assert-True ($aiLens -match 'href="/ai/lenses/specialist-01-01-lens"' -and $aiLens -match '<h3 class="menu-item__title">specialist-05-05-lens</h3>' -and ([regex]::Matches($aiLens, '<section class="card card--link">')).Count -eq 5) 'with a repo the Lenses grid holds one h3 card per lens, beside Claude''s three'
+    $specLens = Format-HubGroupPageHtml -Href '/ai/claude/specialists' -RepoName 'x' -RepoRoot $lensRoot
+    Assert-True ($specLens -match 'href="/ai/claude/specialists/lenses/specialist-01-01-lens"' -and $specLens -match '<h3 class="menu-item__title">specialist-05-05-lens</h3>' -and ([regex]::Matches($specLens, '<section class="card card--link">')).Count -eq 2) 'with a repo the Lenses grid holds one h3 card per lens'
     $lensPage = Format-HubLensPageHtml -Name 'specialist-05-05-lens' -RepoRoot $lensRoot -RepoName 'x'
-    Assert-True ($lensPage -match '<h1>specialist-05-05-lens</h1>' -and $lensPage -match 'Body &lt;b&gt;text&lt;/b&gt;\.' -and $lensPage -match '<a href="/ai">AI</a>') 'a lens''s page shows its file, escaped, under Tools > AI'
+    Assert-True ($lensPage -match '<h1>specialist-05-05-lens</h1>' -and $lensPage -match 'Body &lt;b&gt;text&lt;/b&gt;\.' -and $lensPage -match '<a href="/ai">AI</a>' -and $lensPage -match '<a href="/ai/claude/specialists">Specialists</a>') 'a lens''s page shows its file, escaped, under Tools > AI > Specialists'
     Assert-True ($null -eq (Format-HubLensPageHtml -Name 'notes' -RepoRoot $lensRoot) -and $null -eq (Format-HubLensPageHtml -Name '..\..\x' -RepoRoot $lensRoot) -and $null -eq (Format-HubLensPageHtml -Name 'specialist-09-09-lens' -RepoRoot $lensRoot)) 'a name that is no lens of the repo has no page'
 } finally { Remove-Item -LiteralPath $lensRoot -Recurse -Force -ErrorAction SilentlyContinue }
-foreach ($leaf in 'rules', 'skills', 'specialists') {
+foreach ($leaf in 'rules', 'skills') {
     $leafPage = Format-HubGroupPageHtml -Href "/ai/claude/$leaf" -RepoName 'dkj-claude-plugins'
     Assert-True ($leafPage -match '<li><a href="/hub">Tools</a></li>' -and $leafPage -match '<a href="/ai">AI</a>' -and $leafPage -notmatch 'href="/ai/claude"' -and $leafPage -match 'Nothing on this page yet\.' -and $leafPage -notmatch 'card--link') "the /ai/claude/$leaf page is a landing page of its own, under Tools > AI, with nothing on it yet"
 }

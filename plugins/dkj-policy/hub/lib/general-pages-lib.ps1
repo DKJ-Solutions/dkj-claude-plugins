@@ -479,7 +479,7 @@ function Get-HubGroups {
         @{ Href = '/ai/claude/rules'; Label = 'Rules'; Sub = 'The rules Claude works by'; Icon = 'rules'; Group = '/ai/claude' },
         @{ Href = '/ai/claude/skills'; Label = 'Skills'; Sub = 'The skills Claude can use'; Icon = 'skills'; Group = '/ai/claude' },
         @{ Href = '/ai/claude/specialists'; Label = 'Specialists'; Sub = 'The Claude Specialists, each with a craft of their own'; Icon = 'specialists'; Group = '/ai/claude' },
-        @{ Href = '/ai/lenses'; Label = 'Lenses'; Icon = 'lens'; Group = '/ai'; Section = $true; Source = 'lenses' }
+        @{ Href = '/ai/claude/specialists/lenses'; Label = 'Lenses'; Icon = 'lens'; Group = '/ai/claude/specialists'; Section = $true; Source = 'lenses' }
     )
 }
 
@@ -500,14 +500,14 @@ function Get-HubLensPages {
         try {
             foreach ($line in [System.IO.File]::ReadAllLines($f.FullName, $utf8)) { if ($line -match '^#\s+(.+)$') { $sub = $Matches[1].Trim(); break } }
         } catch { $sub = '' }
-        @{ Href = '/ai/lenses/' + $f.BaseName; Label = $f.BaseName; Sub = $sub; Icon = 'lens'; Path = $f.FullName }
+        @{ Href = '/ai/claude/specialists/lenses/' + $f.BaseName; Label = $f.BaseName; Sub = $sub; Icon = 'lens'; Path = $f.FullName }
     }
 }
 
 function Format-HubLensPageHtml {
     <#
-        One specialist lens's own page on /ai/lenses/<name> (Get-HubLensPages): an h1 with the file's name, and the file's
-        text, escaped, in a card, under Tools > AI. $null for a name the repo has no lens of.
+        One specialist lens's own page on /ai/claude/specialists/lenses/<name> (Get-HubLensPages): an h1 with the file's
+        name, and the file's text, escaped, in a card, under Tools > AI > Specialists. $null for a name the repo has no lens of.
     #>
     param([Parameter(Mandatory = $true)][string]$Name, [AllowEmptyString()][string]$RepoRoot = '', [AllowEmptyString()][string]$RepoName = '', [string]$HubHref = '/hub')
     $lens = @(Get-HubLensPages -RepoRoot $RepoRoot | Where-Object { $_.Label -ceq $Name })[0]
@@ -522,7 +522,7 @@ function Format-HubLensPageHtml {
         [void]$body.AppendLine('<p class="msg msg--warn" role="alert">This lens could not be read: ' + (& $e $_.Exception.Message) + '</p>')
     }
     return Format-GeneralPageHtml -Title $lens.Label -Body $body.ToString() -Lead '' -Bare -SiteName $RepoName -HubHref $HubHref `
-        -ParentCrumbs @(@{ Label = 'AI'; Href = '/ai' }) -FooterNote ('Read from <code>.claude/specialists/lenses/' + (& $e $lens.Label) + '.md</code> by the dkj-policy plugin''s <code>hub/lib/general-pages-lib.ps1</code>.')
+        -ParentCrumbs @(@{ Label = 'AI'; Href = '/ai' }, @{ Label = 'Specialists'; Href = '/ai/claude/specialists' }) -FooterNote ('Read from <code>.claude/specialists/lenses/' + (& $e $lens.Label) + '.md</code> by the dkj-policy plugin''s <code>hub/lib/general-pages-lib.ps1</code>.')
 }
 
 function Format-HubCardLinkHtml {
