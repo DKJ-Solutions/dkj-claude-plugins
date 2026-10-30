@@ -39,19 +39,38 @@
 
 ### PLAN
 
+Inbound #3694, verified on the tree: `Find-HouseStyleClassHit` reads the text between the previous
+`{`/`}`/`;` and a `{` as the whole selector, so a house class nested inside a domain rule reads app-wide.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Find-HouseStyleClassHit -Nesting`: walks the braces with a stack (comments blanked), so a rule
+      nested in a rule whose every selector names a domain class is composition; `Invoke-HouseStyleCheck`
+      passes it for `.css`, `.scss`, `.less` and `.pcss`
+- [x] The house-style skill's check 2 says nesting counts as composition
+- [x] Nine asserts in `check-house-style.tests.ps1`, the measured SCSS shape among them
 
 ### TEST
 
+- [x] `check-house-style.tests.ps1`: 112 passed, 0 failed; this repo passes its own gate
+
 ### DEPLOY: fix/3694-house-style-scss-nesting
 
-**Score:**
+`check-house-style` now reads a nested rule in a `.css`, `.scss`, `.less` or `.pcss` file together with
+the rules around it ([#3694](https://github.com/DKJ-Solutions/dkj-marketplace/issues/3694)). A house
+class nested inside a rule of the repo's own (a `.menu-item` rule inside `.thumb-card`) is composition,
+as it already was written out flat, and no longer a `[redefine]` finding; nested only inside an element
+or an at-rule it still is. The skill page says so under check 2.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A DKJ-Solutions repo that writes its styles in SCSS no longer has to flatten its nested house-class
+compositions, or allowlist them, to pass the house-style gate: the gate and the skill's own rule now
+agree.
+
+**Score:** 3
 
 #### Pull Request
 
