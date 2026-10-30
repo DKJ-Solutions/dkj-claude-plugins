@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Route (c), decided by Maikel on #3689 (October 30, 2026): a recurrence of an issue closed as completed
+is a comment on that issue, and it converts the issue to a record.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `CONTRIBUTING-portable.md`: a paragraph after the search-before-filing rule covering the
+  recurrence of an ordinary issue closed as completed, the conversion to a record, and the subject
+  search over closed issues.
 
 ### TEST
 
+- [x] Docs only. The gates run in `ship-pr`.
+
 ### DEPLOY: docs/3689-recurrence-of-completed-issue
 
-**Score:**
+The filing rules covered a new instance of a record and of an `awaiting-recurrences-first` issue, but
+not of an ordinary issue closed as *completed* whose repair did not hold. Three sessions handled the
+same case two ways (#3288, #3687). [`CONTRIBUTING-portable.md`](../plugins/dkj-policy/CONTRIBUTING-portable.md)
+now says what to do: comment on the closed issue, and convert it to a record in the same movement
+(`awaiting-recurrences`, `[RECORD]`, the close reason changed to *not planned*, left closed).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A session in a consuming repo that finds a recurrence of a closed, completed issue now has one route:
+comment on it and make it a record, instead of filing a new issue beside it.
+
+**Score:** 2
 
 #### Pull Request
 

@@ -300,6 +300,21 @@ A tracker that has not renamed its labels yet answers to the former names (or an
 (`awaiting-first-recurrence`, `awaiting-more-recurrences`) instead. A match is commented on, never filed
 beside, and reopened only where it waits on its first recurrence: a record stays closed (#3576, above).
 
+**A recurrence of an ordinary issue closed as *completed* is a comment on that issue, and it makes the
+issue a record** (Maikel, October 30, 2026,
+[#3689](https://github.com/DKJ-Solutions/dkj-marketplace/issues/3689)). Closing as completed said the
+repair held; a new instance says it did not, so the problem demonstrably recurs, which is what a record
+is. Record the instance as a comment on the closed issue, never as a new issue beside it, then convert
+the issue in the same movement: the `awaiting-recurrences` label, the `[RECORD]` prefix, and the closing
+reason changed to *not planned*, with the issue left closed (`gh api -X PATCH
+repos/<owner>/<repo>/issues/<n> -f state=closed -f state_reason=not_planned` changes it without a reopen). From there
+every later instance is a comment, as on any record. Measured on this tracker: #3288 was closed as
+completed on October 23, 2026, two instances on October 27 were commented on it, and the next was filed
+beside it as #3687, so one flaky assert ended up on two threads. The search before filing therefore reads
+closed issues *without* a recurrence label too, by subject: `gh issue list --state closed --search
+"<subject words>"`. `claim-issue`'s *"reopen it first"* is a pickup step, not a filing one: it applies
+when somebody sets out to repair the issue, and a record is worked by its number.
+
 **`awaiting-pull` parks an issue that waits on another issue landing through its pull request**
 ([#2757](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2757), Dave, October 3, 2026). Work that
 cannot start until a different issue has merged is not free work, and `awaiting-decision-dev` (a person's
