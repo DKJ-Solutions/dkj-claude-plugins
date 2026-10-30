@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**3 / 10 minor entries** <!-- pending-tally -->
+**3 / 11 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/connector-file-names · 20261030-131306Z
+
+The connector register's rule is one `<repo>.json` per connected repo, and three manifests still
+carried a retired name: `dkj-claude-plugins.json` is now `dkj-marketplace.json`, `life-hub.json` is now
+`dkj-lifehub.json`, and `thumbnail-generator.json` is now `dkj-thumbnail-generator.json`. Every script
+reads the file name off disk, so nothing behaves differently; the README, Sylvester's lens, one comment in
+`check-connectors.ps1` and the self-manifest case in `connectors.tests.ps1` follow the new names. Test
+fixtures that invent their own register files are left as they are.
+
+**Score:** 1 -- a reader looking for a repo's record by its name no longer has to know its old one.
+
+#### What makes this deploy extra special
+
+N/A -- the register lives in this repo only and ships to no consumer.
+
+**Score:** N/A
+
+#### Pull Request
+
+Connector manifests named after the repo they register
+
+[PR #3688](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3688)
+
+---
 
 ### DEPLOY: feat/marketplace-card-h2 · 20261030-125902Z
 
