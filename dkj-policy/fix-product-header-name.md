@@ -39,19 +39,32 @@
 
 ### PLAN
 
+The product server's site header and page titles still said `dkj-claude-plugins`, the repo's name
+before its rename to `dkj-marketplace` (reported by the owner, October 30, 2026).
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `dev-pages-lib.ps1`: the product shell's brand and site name, and the home page's title and head, say `dkj-marketplace`
+- [x] `connector-dashboard-lib.ps1`: the Consumers pages' title and site header say `dkj-marketplace`
+- [~] `run-progress-lib.ps1`'s `dkj-claude-plugins\run-steps.jsonl` left as it is: a storage path, not a name anybody reads, and moving it would orphan existing step logs
 
 ### TEST
 
+- [x] `dev-pages` (511) and `connector-dashboard` (240) suites green, their asserts now pinning `dkj-marketplace`
+- [ ] The owner's look at the product server's header
+
 ### DEPLOY: fix/product-header-name
 
-**Score:**
+The product server's site header and page titles named the repo `dkj-claude-plugins`, its name before the
+rename; they name it `dkj-marketplace` now.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the product server is this repo's own development hub; no consumer takes it.
+
+**Score:** N/A
 
 #### Pull Request
 
