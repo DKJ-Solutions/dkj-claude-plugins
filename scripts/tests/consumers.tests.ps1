@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-    Regression tests for the connectors check (scripts/sync/check-connectors.ps1) and the
-    SessionStart hook (connector-sessioncheck.ps1).
+    Regression tests for the consumers check (scripts/sync/check-consumers.ps1) and the
+    SessionStart hook (consumer-sessioncheck.ps1).
 
 .DESCRIPTION
     Dependency-free: no Pester, only PowerShell. Integration style -- runs the real scripts
@@ -9,40 +9,40 @@
     Register checks run with -SkipDrift and -SkipVersions unless a test specifically covers that
     code path (the drift check has its own suite; no plugin administration exists on CI).
 
-        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/connectors.tests.ps1
+        powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tests/consumers.tests.ps1
 
     Pure ASCII (repo convention for .ps1).
 #>
 
-# What this suite's live-tree walks read (#3309): connectors/*.json, plus the manifests, scripts and pages the connector check and hook read when they are pointed at this checkout.
-# gate-selection: walks connectors/* *.json *.ps1 *.md
+# What this suite's live-tree walks read (#3309): consumers/*.json, plus the manifests, scripts and pages the consumer check and hook read when they are pointed at this checkout.
+# gate-selection: walks consumers/* *.json *.ps1 *.md
 $ErrorActionPreference = 'Stop'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
-$Script   = Join-Path $RepoRoot 'scripts\sync\check-connectors.ps1'
-$Hook     = Join-Path $RepoRoot 'plugins\dkj-policy\hooks\connector-sessioncheck.ps1'
-$Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "connectors-test-fixture-$PID-$([guid]::NewGuid().ToString('n'))"
+$Script   = Join-Path $RepoRoot 'scripts\sync\check-consumers.ps1'
+$Hook     = Join-Path $RepoRoot 'plugins\dkj-policy\hooks\consumer-sessioncheck.ps1'
+$Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "consumers-test-fixture-$PID-$([guid]::NewGuid().ToString('n'))"
 # A scratch '~/.claude' for the isolated hook calls (9a/9e) -- no marketplace clone, no install
 # administration, so plugin-versions.ps1's fallback lands deterministically on "indeterminate"
 # regardless of what this machine's real install/clone actually look like.
-$HookHome = Join-Path ([System.IO.Path]::GetTempPath()) "connectors-hook-home-$PID-$([guid]::NewGuid().ToString('n'))"
+$HookHome = Join-Path ([System.IO.Path]::GetTempPath()) "consumers-hook-home-$PID-$([guid]::NewGuid().ToString('n'))"
 # The fake 'gh' scenario 13 drives -RemoteRunners against (#1808), plus the log of every call it
 # makes -- the log is what lets 13a assert the COST claim (nothing is called when the switch is off)
 # rather than merely stating it. Declared here so the closing finally can clear both and put PATH back.
-$FakeBin  = Join-Path ([System.IO.Path]::GetTempPath()) "connectors-fakegh-$PID-$([guid]::NewGuid().ToString('n'))"
-$GhCalls  = Join-Path ([System.IO.Path]::GetTempPath()) "connectors-ghcalls-$PID-$([guid]::NewGuid().ToString('n')).log"
+$FakeBin  = Join-Path ([System.IO.Path]::GetTempPath()) "consumers-fakegh-$PID-$([guid]::NewGuid().ToString('n'))"
+$GhCalls  = Join-Path ([System.IO.Path]::GetTempPath()) "consumers-ghcalls-$PID-$([guid]::NewGuid().ToString('n')).log"
 # A wrapper directory git-init'd in its OWN right, for check 1b's arm-4 nested-checkout scenarios
 # (#1821): the consumer fixture is built one or more levels INSIDE it via New-FixtureConsumer/
 # New-FixtureManifest's -Root, so the folder resolves inside a git work tree without BEING that work
 # tree's root. Never $Fixture's own parent -- that parent is the shared system temp folder.
-$NestedFixtureRoot = Join-Path ([System.IO.Path]::GetTempPath()) "connectors-nested-fixture-$PID-$([guid]::NewGuid().ToString('n'))"
+$NestedFixtureRoot = Join-Path ([System.IO.Path]::GetTempPath()) "consumers-nested-fixture-$PID-$([guid]::NewGuid().ToString('n'))"
 # Scenario 14's consumers, and the ONE fixture root that cannot live in the system temp folder (#2298):
 # a localCheckout is relative to the repo root and the scope guardrail refuses anything outside
 # '$RepoRoot/../..', which temp is. -ConsumerPathOverride is the usual way past that and it points EVERY
-# manifest at one directory, so it cannot express a register whose connectors are in different lens-naming
+# manifest at one directory, so it cannot express a register whose consumers are in different lens-naming
 # states -- which is the whole subject of 14. So it sits BESIDE the repo, two levels up: inside the allowed
 # scope, outside the work tree (so 'git status' is untouched), and removed in the closing finally.
-$LensFixtureRoot = Join-Path (Resolve-Path -LiteralPath (Join-Path $RepoRoot '..\..')).Path "connectors-lens-fixture-$PID-$([guid]::NewGuid().ToString('n'))"
+$LensFixtureRoot = Join-Path (Resolve-Path -LiteralPath (Join-Path $RepoRoot '..\..')).Path "consumers-lens-fixture-$PID-$([guid]::NewGuid().ToString('n'))"
 $PrevPath = $env:PATH
 
 $script:pass = 0
@@ -174,7 +174,7 @@ function New-StubWorkshop {
     $markerName = if ($ValidMarker) { 'dkj-marketplace' } else { 'fake-marketplace' }
     [System.IO.File]::WriteAllText((Join-Path $root '.claude-plugin\marketplace.json'), ('{ "name": "' + $markerName + '" }'))
     $body = (($OutputLines | ForEach-Object { 'Write-Host "' + $_ + '"' }) -join "`r`n") + "`r`nexit $ExitCode`r`n"
-    [System.IO.File]::WriteAllText((Join-Path $root 'scripts\sync\check-connectors.ps1'), $body)
+    [System.IO.File]::WriteAllText((Join-Path $root 'scripts\sync\check-consumers.ps1'), $body)
     return $root
 }
 
@@ -197,7 +197,7 @@ function Set-FixtureEnabledPlugins {
 # the URL passed in is never fetched from or pushed to -- check 1b itself only ever reads .git/config
 # via 'remote get-url'. Called AFTER New-FixtureConsumer, which rebuilds $Fixture from scratch and
 # would wipe a '.git' folder written before it. Same '2>$null' + $LASTEXITCODE idiom
-# check-connectors.ps1's own check 1b uses for the identical local git calls (see its comment on why
+# check-consumers.ps1's own check 1b uses for the identical local git calls (see its comment on why
 # this is not routed through native-capture-lib.ps1: that lib exists to bound a call that LEAVES the
 # machine).
 # -At exists for the arm-4 nested-checkout scenarios (#1821): there the git work tree is init'd one
@@ -215,7 +215,7 @@ function Set-FixtureGitCheckout {
 }
 
 try {
-    Write-Host "== connectors.tests ==" -ForegroundColor Cyan
+    Write-Host "== consumers.tests ==" -ForegroundColor Cyan
     # -UserHomeOverride pins the USER layer of the settings chain to a dir that does not exist (inbound
     # #294). The enable state is now read from the whole chain, so without this every case would inherit
     # whatever the machine running the suite has enabled globally -- and case 3 below, which asserts that
@@ -402,16 +402,16 @@ try {
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-ConsumerPathOverride', $Fixture))
     Assert-Equal 1 $r.Code 'missing extension: exit code 1'
     Assert-Match '\[ERROR\].*06-19' $r.Out 'missing extension: ERROR names the id'
-    # inbound #203: the finding carries the connector it is about. The session hook filters this output
-    # down to the signal lines and drops the '== connector: <repo>' headers, so two consumers on the
+    # inbound #203: the finding carries the consumer it is about. The session hook filters this output
+    # down to the signal lines and drops the '== consumer: <repo>' headers, so two consumers on the
     # same outdated plugin version used to produce two identical, unattributable [ERROR] lines. This is
     # the end-to-end proof that Set-CheckScope reaches a real Write-Failure line.
     # The label narrows to '<repo> / <plugin-id>' inside a plugin block: a consumer can register several
     # plugins, and one shared cause (a single outdated install) then yields one finding per plugin --
     # identical to the character once the '-- plugin:' header is filtered out. Found live in this repo's
-    # own register while verifying the connector-name fix, so the plugin id is part of the fix, not a
+    # own register while verifying the consumer-name fix, so the plugin id is part of the fix, not a
     # nice-to-have.
-    Assert-Match '\[ERROR\]\s+fixture/consumer / dkj-subagents-alpha@dkj-marketplace:' $r.Out 'missing extension: the ERROR line names the connector AND the plugin block it belongs to'
+    Assert-Match '\[ERROR\]\s+fixture/consumer / dkj-subagents-alpha@dkj-marketplace:' $r.Out 'missing extension: the ERROR line names the consumer AND the plugin block it belongs to'
 
     # --- 3. Plugin not enabled -> exit 1 --------------------------------------------------------
     New-FixtureConsumer -ExtensionIds @('06-16') -PluginEnabled $false
@@ -470,13 +470,13 @@ try {
     Assert-Match 'also-nonexistent-fixture-path' $r.Out 'candidate list, none present: the SKIP names the second candidate too'
 
     # --- 4c. A LIST whose LATER candidate resolves -> checked, not skipped --------------------------
-    #     The regression #1524 is made of: the first candidate missing must not end the connector. '.'
+    #     The regression #1524 is made of: the first candidate missing must not end the consumer. '.'
     #     is used as the resolving one for the same reason case 6 below uses it -- it is the only path
     #     relative to the repo root that is guaranteed to exist wherever this suite runs.
     $mf = New-FixtureManifest -Extensions @('06-16') -LocalCheckout @('nonexistent-fixture-path', '.')
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf))
-    Assert-NotMatch '\[SKIP\]' $r.Out 'candidate list, later one present: NOT skipped -- the first miss does not end the connector'
-    Assert-Match '== connector: fixture/consumer' $r.Out 'candidate list, later one present: the connector is actually checked'
+    Assert-NotMatch '\[SKIP\]' $r.Out 'candidate list, later one present: NOT skipped -- the first miss does not end the consumer'
+    Assert-Match '== consumer: fixture/consumer' $r.Out 'candidate list, later one present: the consumer is actually checked'
 
     # --- 5. Unregistered extension of this plugin -> INFO, exit 0 ------------------------
     New-FixtureConsumer -ExtensionIds @('06-16', '06-23')
@@ -526,17 +526,17 @@ try {
     #     see an informational "not registered" signal -- NOT the reassuring "in sync" branch. The
     #     manifest checkout does not exist, so no manifest matches this consumer -> matched=0
     #     (regression: this used to be a bare Write-Host that did not count as an info signal,
-    #     causing the hook to show "all connectors in sync").
+    #     causing the hook to show "all consumers in sync").
     New-FixtureConsumer -ExtensionIds @('06-16')
     $mf = New-FixtureManifest -Extensions @('06-16') -LocalCheckout 'nonexistent-fixture-path'
     $r = Invoke-Ps $Script ($base + @('-Manifest', $mf, '-OnlyConsumer', $Fixture))
     Assert-Equal 0 $r.Code 'unregistered consumer: exit code 0 (INFO, no block)'
     Assert-Match '\[INFO\].*not registered' $r.Out 'unregistered consumer: not-registered signal'
     Assert-Match '1 info signal' $r.Out 'unregistered consumer: counts as an info signal'
-    # This notice is about the RUN, not about any single connector, so it must not inherit the label of
+    # This notice is about the RUN, not about any single consumer, so it must not inherit the label of
     # whichever manifest the loop walked last (inbound #203 -- the reason the label is cleared after the
     # loop rather than set once). 'fixture/consumer' is exactly the label that would leak in here.
-    Assert-NotMatch '\[INFO\]\s+fixture/consumer:.*not registered' $r.Out 'unregistered consumer: the run-level notice is NOT attributed to the last connector walked'
+    Assert-NotMatch '\[INFO\]\s+fixture/consumer:.*not registered' $r.Out 'unregistered consumer: the run-level notice is NOT attributed to the last consumer walked'
     # Gap found 2026-07-28: the [INFO] above is suppressed by the session hook, so a brand-new consumer
     # was told "no errors" -- a positive all-clear for a repo the workshop cannot see at all. The
     # non-counting [UNREGISTERED] marker is what reaches the session; the [INFO] stays for the count and
@@ -552,7 +552,7 @@ try {
     Assert-Equal 0 $r.Code 'unregistered consumer: still exit 0 -- not being registered is not a failure of the plugin install'
 
     # --- 6. Real manifests of this repo: the self-manifest always checks ----------------------
-    $selfManifest = Join-Path $RepoRoot 'connectors\dkj-marketplace.json'
+    $selfManifest = Join-Path $RepoRoot 'consumers\dkj-marketplace.json'
     $r = Invoke-Ps $Script ($base + @('-Manifest', $selfManifest))
     Assert-Equal 0 $r.Code 'self-manifest (workshop consumes itself): exit code 0'
 
@@ -565,7 +565,7 @@ try {
     # A test rather than a runtime check on purpose: at run time a member lacking a layout is correct
     # on a machine that has none of it, and only the SOURCE tree can say the two lists were meant to match.
     $groupLayouts = @{}
-    foreach ($f in Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'connectors') -Filter '*.json') {
+    foreach ($f in Get-ChildItem -LiteralPath (Join-Path $RepoRoot 'consumers') -Filter '*.json') {
         $m = Get-Content -LiteralPath $f.FullName -Raw | ConvertFrom-Json
         if (-not $m.PSObject.Properties['siblingGroup']) { continue }
         $folder = ([string]$m.repo).Split('/')[-1]
@@ -632,7 +632,7 @@ try {
         # 8a. Stale record (projectPath does not exist) -> no crash, INFO, exit 0.
         New-FixtureConsumer -ExtensionIds @('06-16')
         $mf = New-FixtureManifest -Extensions @('06-16')
-        Set-FixtureAdmin '{ "version": 2, "plugins": { "dkj-subagents-alpha@dkj-marketplace": [ { "scope": "project", "projectPath": "C:\\does-not-exist-connectors-fixture", "installPath": "x", "version": "0.0.1" } ] } }'
+        Set-FixtureAdmin '{ "version": 2, "plugins": { "dkj-subagents-alpha@dkj-marketplace": [ { "scope": "project", "projectPath": "C:\\does-not-exist-consumers-fixture", "installPath": "x", "version": "0.0.1" } ] } }'
         $env:USERPROFILE = $Fixture
         $r = Invoke-Ps $Script @('-SkipDrift', '-Manifest', $mf, '-ConsumerPathOverride', $Fixture)
         Assert-Equal 0 $r.Code 'stale record: exit code 0 (no crash)'
@@ -687,7 +687,7 @@ try {
         Assert-Match 'claude plugin install dkj-subagents-alpha@dkj-marketplace --scope project' $r.Out 'enabled but no record: names the one command that settles it'
         # ...and NOT the marker, because this run is walking a consumer that is not the session's repo.
         # This is the half that keeps the [INFO]-silence rule intact: promoting the line for every
-        # connector would put another machine's business back into every session start.
+        # consumer would put another machine's business back into every session start.
         Assert-NotMatch '\[NOT-INSTALLED-HERE\]' $r.Out 'enabled but no record, ANOTHER repo: no marker -- the session hook must stay quiet about other machines'
 
         # 8e2 (#533). The same state, in the repo the session is actually in: -OnlyConsumer is how a
@@ -710,7 +710,7 @@ try {
         #      repeating it per line would cost the reader on every line to say nothing new. The value is
         #      not asserted (it is whatever HEAD is), only that it is a real short sha and that the run
         #      says so at all.
-        Assert-Match '== check-connectors .*source read at [0-9a-f]{7}' $r.Out 'source stamp: the run names the commit its version verdicts were read at'
+        Assert-Match '== check-consumers .*source read at [0-9a-f]{7}' $r.Out 'source stamp: the run names the commit its version verdicts were read at'
 
         # 8f. The same fact when the plugin is NOT enabled there keeps the old, milder wording: nothing is
         #     silently loading or failing to load, so the loud reading would be a false alarm.
@@ -746,7 +746,7 @@ try {
         $env:USERPROFILE = $oldProfile
     }
 
-    # --- 9. SessionStart hook (connector-sessioncheck.ps1) ---------------------------------------
+    # --- 9. SessionStart hook (consumer-sessioncheck.ps1) ---------------------------------------
     # 9a. No workshop checkout findable -> soft message, exit 0 (never block a session).
     #     SINCE #1591 this is no longer the literal 'check skipped' string: the hook now finds its
     #     own plugin-versions.ps1 mirror (this repo IS the workshop, so it always has one) and runs
@@ -768,7 +768,7 @@ try {
     #     deterministically covered by the stub tests 9c and 9d (a lesson from CI run PR #54).
     $r = Invoke-Ps $Hook @('-WorkshopPathOverride', $RepoRoot, '-SkipDrift', '-SkipVersions')
     Assert-Equal 0 $r.Code 'hook with a workshop: exit code 0'
-    Assert-Match 'connector-sessioncheck:' $r.Out 'hook with a workshop: session-check output'
+    Assert-Match 'consumer-sessioncheck:' $r.Out 'hook with a workshop: session-check output'
 
     # 9c. Stub workshop with clean output including boilerplate drifted lines (Victor's finding):
     #     the bare summary lines must NOT count as a signal.
@@ -795,7 +795,7 @@ try {
 
     # 9d. Stub workshop with a real error -> signals branch, line comes through. BILINGUAL: the hook
     #     must recognize both the new [ERROR] and the legacy [FOUT] as a blocking signal, because
-    #     the plugin cache (this hook) and the workshop checkout (check-connectors) can be on
+    #     the plugin cache (this hook) and the workshop checkout (check-consumers) can be on
     #     different versions.
     $stub = New-StubWorkshop -Name 'stub-error' -ExitCode 1 -OutputLines @(
         '  [ERROR] fixture-error-new',
@@ -860,7 +860,7 @@ try {
     $r = Invoke-Ps $Hook @('-WorkshopPathOverride', $stub)
     Assert-Equal 0 $r.Code 'complete stub: exit code 0'
     Assert-Match 'signals found' $r.Out 'complete stub: signals branch'
-    Assert-Match 'life-hub' $r.Out 'complete stub: the connector name travels with the finding'
+    Assert-Match 'life-hub' $r.Out 'complete stub: the consumer name travels with the finding'
     Assert-NotMatch 'may be partial' $r.Out 'complete stub: a complete report is not flagged as partial'
     Assert-Match 'scoped to this repo' $r.Out 'complete stub: the summary states the run was scoped to this repo (-OnlyConsumer)'
 
@@ -891,12 +891,12 @@ try {
     #     thing a brand-new consumer ever saw. The non-counting [UNREGISTERED] line now survives next to
     #     the no-errors verdict -- next to, not under: nothing is wrong with the plugin install here,
     #     only with the workshop's view of it, so the exit code and the "no errors" reading both stand.
-    # The stub carries the REAL message text (kept in step with check-connectors.ps1), because the
+    # The stub carries the REAL message text (kept in step with check-consumers.ps1), because the
     # jargon assertion below only means something if the fixture is faithful -- an old-wording stub would
     # make the hook look guilty of text it never produced.
     $stub = New-StubWorkshop -Name 'stub-unregistered' -ExitCode 0 -OutputLines @(
         '  [INFO]  not registered: no manifest for this consumer in the register.',
-        "  [UNREGISTERED] this repo is not in the plugin maintainer's connector register. Nothing here is affected -- the plugin works normally. If you maintain the plugin source, add a connectors/<repo>.json manifest there; if you just use the plugin, no action is needed on your side.",
+        "  [UNREGISTERED] this repo is not in the plugin maintainer's consumer register. Nothing here is affected -- the plugin works normally. If you maintain the plugin source, add a consumers/<repo>.json manifest there; if you just use the plugin, no action is needed on your side.",
         'Summary: 0 error(s), 1 info signal(s).'
     )
     $r = Invoke-Ps $Hook @('-WorkshopPathOverride', $stub)
@@ -926,7 +926,7 @@ try {
     #     line only about the repo the session is in, so the hook can surface it unconditionally.
     $stub = New-StubWorkshop -Name 'stub-inventory' -ExitCode 0 -OutputLines @(
         "  [INFO]  DKJ-Solutions/claude-code-specialists / dkj-subagents-alpha@dkj-marketplace: extension '04-11' exists in the consumer but is not in the register -- update the register or review the change.",
-        "  [INVENTORY] this repo has 1 lens(es) that its own entry in the connector register does not list (04-11) -- add them to the 'extensions' array in dkj-marketplace.json, in the same change that landed the lens. Nothing is broken: the register's view of this repo is simply behind reality.",
+        "  [INVENTORY] this repo has 1 lens(es) that its own entry in the consumer register does not list (04-11) -- add them to the 'extensions' array in dkj-marketplace.json, in the same change that landed the lens. Nothing is broken: the register's view of this repo is simply behind reality.",
         'Summary: 0 error(s), 1 info signal(s).'
     )
     $r = Invoke-Ps $Hook @('-WorkshopPathOverride', $stub)
@@ -952,7 +952,7 @@ try {
     #     also wrong, which is exactly when a session is busiest).
     $stub = New-StubWorkshop -Name 'stub-inv-mixed' -ExitCode 1 -OutputLines @(
         '  [ERROR] life-hub / dkj-subagents-alpha@dkj-marketplace: machine record is on v2.9.0, source on v2.11.0',
-        "  [INVENTORY] this repo has 1 lens(es) that its own entry in the connector register does not list (04-11) -- add them to the 'extensions' array in dkj-marketplace.json, in the same change that landed the lens. Nothing is broken: the register's view of this repo is simply behind reality.",
+        "  [INVENTORY] this repo has 1 lens(es) that its own entry in the consumer register does not list (04-11) -- add them to the 'extensions' array in dkj-marketplace.json, in the same change that landed the lens. Nothing is broken: the register's view of this repo is simply behind reality.",
         'Summary: 1 error(s), 1 info signal(s).'
     )
     $r = Invoke-Ps $Hook @('-WorkshopPathOverride', $stub)
@@ -1027,7 +1027,7 @@ try {
     #     own header rather than measured in the hook -- the commit that matters is the one the versions
     #     were read at, and a second git call could put a wrong timestamp on a right number.
     $stub = New-StubWorkshop -Name 'stub-stamp' -ExitCode 1 -OutputLines @(
-        '== check-connectors -- 4 manifest(s) -- source read at 855fd40 ==',
+        '== check-consumers -- 4 manifest(s) -- source read at 855fd40 ==',
         '  [ERROR] life-hub / dkj-subagents-alpha@dkj-marketplace: machine record is on v3.4.0, source on v3.9.0',
         'Summary: 1 error(s), 0 info signal(s).'
     )
@@ -1035,13 +1035,13 @@ try {
     Assert-Match 'signals found' $r.Out 'stamp stub: the signals branch fires'
     Assert-Match 'source read at 855fd40' $r.Out 'stamp stub: the measured commit reaches the session context'
     Assert-Match 'git rev-parse --short HEAD' $r.Out 'stamp stub: and says how to check it, which is the whole point of dating it'
-    Assert-NotMatch '== check-connectors' $r.Out 'stamp stub: the header itself is NOT forwarded -- only the fact lifted out of it'
+    Assert-NotMatch '== check-consumers' $r.Out 'stamp stub: the header itself is NOT forwarded -- only the fact lifted out of it'
 
     # 9q. No header, no stamp. A source tree without git (a consumer holding a downloaded copy) makes the
     #     check omit it, and an omitted stamp is honest where an invented one would invite exactly the
     #     trust this whole change is trying to make earnable.
     $stub = New-StubWorkshop -Name 'stub-nostamp' -ExitCode 1 -OutputLines @(
-        '== check-connectors -- 4 manifest(s) ==',
+        '== check-consumers -- 4 manifest(s) ==',
         '  [ERROR] life-hub / dkj-subagents-alpha@dkj-marketplace: machine record is on v3.4.0, source on v3.9.0',
         'Summary: 1 error(s), 0 info signal(s).'
     )
@@ -1069,7 +1069,7 @@ try {
     #     different fix, from "not registered at all" or "an extension list is behind".
     $stub = New-StubWorkshop -Name 'stub-unlisted' -ExitCode 0 -OutputLines @(
         "  [INFO]  DKJ-Solutions/claude-code-specialists / dkj-policy@dkj-marketplace: plugin 'dkj-subagents-ecomm@dkj-marketplace' is enabled in .claude/settings.json but this manifest's 'plugins' list does not name it -- it was never looped over above, so nothing about it was checked here (no extension check, no version check). Add a plugins[] block for it to dkj-marketplace.json, in the same change that enabled it, or remove the enable if that was not intended.",
-        "  [UNLISTED] this repo has 1 plugin(s) enabled that its own entry in the connector register does not list (dkj-subagents-ecomm@dkj-marketplace) -- add a plugins[] block for each to dkj-marketplace.json, in the same change that enabled it. Nothing is broken: the register's view of this repo is simply behind reality.",
+        "  [UNLISTED] this repo has 1 plugin(s) enabled that its own entry in the consumer register does not list (dkj-subagents-ecomm@dkj-marketplace) -- add a plugins[] block for each to dkj-marketplace.json, in the same change that enabled it. Nothing is broken: the register's view of this repo is simply behind reality.",
         'Summary: 0 error(s), 1 info signal(s).'
     )
     $r = Invoke-Ps $Hook @('-WorkshopPathOverride', $stub)
@@ -1095,7 +1095,7 @@ try {
     #     marker must not be dropped precisely when something else is also wrong.
     $stub = New-StubWorkshop -Name 'stub-unlisted-mixed' -ExitCode 1 -OutputLines @(
         '  [ERROR] life-hub / dkj-subagents-alpha@dkj-marketplace: machine record is on v2.9.0, source on v2.11.0',
-        '  [UNLISTED] this repo has 1 plugin(s) enabled that its own entry in the connector register does not list (dkj-subagents-ecomm@dkj-marketplace) -- add a plugins[] block for each to dkj-marketplace.json, in the same change that enabled it. Nothing is broken: the register''s view of this repo is simply behind reality.',
+        '  [UNLISTED] this repo has 1 plugin(s) enabled that its own entry in the consumer register does not list (dkj-subagents-ecomm@dkj-marketplace) -- add a plugins[] block for each to dkj-marketplace.json, in the same change that enabled it. Nothing is broken: the register''s view of this repo is simply behind reality.',
         'Summary: 1 error(s), 1 info signal(s).'
     )
     $r = Invoke-Ps $Hook @('-WorkshopPathOverride', $stub)
@@ -1112,7 +1112,7 @@ try {
     #
     #      Measured the day the teams/workflows rename shipped: this check raised four [ERROR] lines
     #      against two real consumers for ids that were correct, deliberately recorded, and which
-    #      connectors/README.md had just been updated to say are kept until each consumer migrates. The
+    #      consumers/README.md had just been updated to say are kept until each consumer migrates. The
     #      check and the doctrine contradicted each other and the doctrine was right, because this
     #      register records what a consumer HAS.
     Write-Host "a retired plugin id is an unmigrated consumer, not an invalid register" -ForegroundColor Cyan
@@ -1196,7 +1196,7 @@ try {
     Assert-Match 'both are skipped for it' $r.Out 'retired INFO: and says both are skipped, replacing the old blanket wording'
     Assert-NotMatch 'nothing below is checked for it' $r.Out 'retired INFO: the old blanket wording is gone'
 
-    # 10b6. [NOT-INSTALLED-HERE] promotion -- fires only when the connector being walked IS the
+    # 10b6. [NOT-INSTALLED-HERE] promotion -- fires only when the consumer being walked IS the
     #       session's own repo (Test-IsSessionRepo), the same scoping check 4's own promotion uses.
     $oldProfileNih = $env:USERPROFILE
     try {
@@ -1671,7 +1671,7 @@ try {
     # Check 6 reads the consumer's local checkout, so it inherited check 1: an absent consumer was
     # [SKIP] and its runners were not read at all -- and the consumers most likely to carry a stale
     # path are the ones nobody visits, which are the ones least likely to be checked out where you
-    # happen to be running. Measured on the branch that built check 6: of six registered connectors,
+    # happen to be running. Measured on the branch that built check 6: of six registered consumers,
     # three were [SKIP], including both of the two #1805 reported as red.
     #
     # DRIVEN AGAINST A FAKE gh ON PATH, not the real one. The subject is what this script does with
@@ -1681,7 +1681,7 @@ try {
 
     New-Item -ItemType Directory -Path $FakeBin -Force | Out-Null
     $Utf8NoBom = New-Object System.Text.UTF8Encoding $false
-    # 'auth status' answers the run-level probe; 'graphql' answers the per-connector read out of
+    # 'auth status' answers the run-level probe; 'graphql' answers the per-consumer read out of
     # GH_GRAPHQL_BODY with GH_GRAPHQL_EXIT as its exit code -- gh really does exit 1 on a response
     # carrying an errors[] block, which is why the script parses the body before it looks at the code.
     # EVERY call is logged, including auth status, because 13a's claim is that NONE is made.
@@ -1745,7 +1745,7 @@ exit 1
     $currentYml = New-FixtureWorkflowText -Repository 'DKJ-Solutions/claude-code-specialists' -ScriptPath 'plugins/dkj-policy/scripts/lint/check-branch-entry.ps1'
 
     # 13a. THE DEFAULT IS OFF, AND NOT ONE CALL IS MADE. This is the reason the feature is a switch at
-    #      all -- the script runs from connector-sessioncheck.ps1 at every session start -- so it is
+    #      all -- the script runs from consumer-sessioncheck.ps1 at every session start -- so it is
     #      asserted against the call log rather than trusted to the reading of an if. The [SKIP] also
     #      has to keep its original wording, because that sentence is true again when nothing is read.
     New-FixtureConsumer -ExtensionIds @('06-16')
@@ -1842,7 +1842,7 @@ exit 1
 
     # 13g. A REFUSED REQUEST IS SAID OUT LOUD. -RemoteRunners was typed on purpose, so falling back to
     #      the ordinary [SKIP] would answer a deliberate question with the silence it was typed to end.
-    #      Asked ONCE per run rather than per connector, because gh holding no credential is a property
+    #      Asked ONCE per run rather than per consumer, because gh holding no credential is a property
     #      of the machine.
     New-FixtureConsumer -ExtensionIds @('06-16')
     $env:GH_AUTH_FAIL = '1'
@@ -1992,7 +1992,7 @@ exit 1
     Assert-Match '\[ERROR\].*2 lens file\(s\) under the retired spelling' $r.Out 'retired: counted as an error, with the number of files'
     Assert-Match "e\.g\. '06-16-extension\.md'" $r.Out 'retired: it names one example rather than the whole list'
     Assert-Match 'git mv 06-16-extension\.md specialist-06-16-lens\.md' $r.Out 'retired: and the rename that repairs it, composed from the table'
-    Assert-Match 'fixture/retired' $r.Out 'retired: attributed to its connector'
+    Assert-Match 'fixture/retired' $r.Out 'retired: attributed to its consumer'
     Assert-NotMatch 'leftover' $r.Out 'retired: and not the leftover INFO -- nothing sits beside them'
 
     # --- 14c. A written lens for one id and a retired one for another -> the retired id is the error --

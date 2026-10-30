@@ -6,7 +6,7 @@
 
 .DESCRIPTION
     WHAT THIS ANSWERS, and it is a question nothing else here asks. check-consumer-drift.ps1 compares
-    a consumer against THIS source; check-connectors.ps1 asks whether a consumer's register record is
+    a consumer against THIS source; check-consumers.ps1 asks whether a consumer's register record is
     true. Both are source-to-consumer. This one is consumer-to-CONSUMER: two repos declared siblings
     build the same mechanism twice, each ahead of the other on different things, and nothing carries
     either way.
@@ -77,8 +77,8 @@
 .PARAMETER FailOnFinding
     Exit 1 when any finding is reported. Off by default -- this is a detector, not a gate.
 
-.PARAMETER ConnectorDir
-    (Optional, for tests) Read manifests from this directory instead of connectors/.
+.PARAMETER ConsumerDir
+    (Optional, for tests) Read manifests from this directory instead of consumers/.
 
 .EXAMPLE
     .\scripts\sync\check-consumer-siblings.ps1
@@ -91,7 +91,7 @@ param(
     [ValidateSet('auto', 'github', 'disk')][string]$Source = 'auto',
     [switch]$SkipAliasCheck,
     [switch]$FailOnFinding,
-    [string]$ConnectorDir = ''
+    [string]$ConsumerDir = ''
 )
 
 Set-StrictMode -Version Latest
@@ -108,7 +108,7 @@ $script:infos  = 0
 . (Join-Path $PSScriptRoot '..\lib\shared-scripts-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\hash-hex-lib.ps1')
 
-if ($ConnectorDir -eq '') { $ConnectorDir = Join-Path $RepoRoot 'connectors' }
+if ($ConsumerDir -eq '') { $ConsumerDir = Join-Path $RepoRoot 'consumers' }
 
 Write-Host ''
 Write-Host '== check-consumer-siblings: mechanisms one consumer has and its sibling does not ==' -ForegroundColor Cyan
@@ -238,7 +238,7 @@ function Get-DiskInventory {
 function Resolve-ConsumerCheckout {
     <#
         The first localCheckout candidate present on this machine, or ''. Deliberately the same
-        first-match-wins rule check-connectors.ps1 applies, and deliberately NOT a second
+        first-match-wins rule check-consumers.ps1 applies, and deliberately NOT a second
         implementation of its guardrails: this route is only ever reached for a manifest that check
         already validates, and an absolute or out-of-scope path here simply fails to resolve under
         the repo root and is reported as absent.
@@ -354,20 +354,20 @@ function Get-MarketplaceShippedScript {
 # The run
 # ---------------------------------------------------------------------------------------------------
 
-if (-not (Test-Path -LiteralPath $ConnectorDir)) {
-    Write-Failure "no connectors directory at '$ConnectorDir'."
+if (-not (Test-Path -LiteralPath $ConsumerDir)) {
+    Write-Failure "no consumers directory at '$ConsumerDir'."
     Write-CheckSummary
     exit 1
 }
 
 $manifests = @()
-foreach ($mf in (Get-ChildItem -LiteralPath $ConnectorDir -Filter '*.json' -File | Sort-Object Name)) {
+foreach ($mf in (Get-ChildItem -LiteralPath $ConsumerDir -Filter '*.json' -File | Sort-Object Name)) {
     try {
         $obj = Get-Content -LiteralPath $mf.FullName -Raw | ConvertFrom-Json
         $obj | Add-Member -NotePropertyName '__file' -NotePropertyValue $mf.Name -Force
         $manifests = @($manifests) + @($obj)
     } catch {
-        Write-Failure "connectors/$($mf.Name) is not valid JSON -- skipped."
+        Write-Failure "consumers/$($mf.Name) is not valid JSON -- skipped."
     }
 }
 
@@ -385,7 +385,7 @@ if (@($groups.Keys).Count -eq 0) {
         # NOT a finding. A register whose consumers are all independent is the ordinary state, and this
         # check is opt-in by design -- reporting its own inapplicability as a problem is how a detector
         # trains people to ignore it.
-        Write-Skip "no sibling groups declared -- add a 'siblingGroup' field to two or more connectors manifests to compare them."
+        Write-Skip "no sibling groups declared -- add a 'siblingGroup' field to two or more consumers manifests to compare them."
     }
     Write-CheckSummary
     exit 0
@@ -466,7 +466,7 @@ foreach ($groupName in $groups.Keys) {
     #
     # #2248: $label/$f.Member/$f.Members are a sibling group's own manifest 'repo' field and $f.Path is
     # a path read straight off that sibling's checkout (disk walk or GitHub listing) -- both foreign
-    # text, guarded via Format-SafePathToken the same way check-connectors.ps1 already guards the same
+    # text, guarded via Format-SafePathToken the same way check-consumers.ps1 already guards the same
     # manifest field (manifestRepo/remoteRepo/originRepo there).
     foreach ($label in @($result.Members)) {
         $mine = @($result.OnlyIn | Where-Object { $_.Member -eq $label })

@@ -139,10 +139,10 @@ try {
     }
 
     # Each hook, run the way the harness runs it. The overrides exist for exactly this purpose:
-    # connector needs to be told where the workshop is (a scratch fixture has no sibling checkout),
+    # consumer needs to be told where the workshop is (a scratch fixture has no sibling checkout),
     # the other two take the consumer path directly.
     $runs = @(
-        @{ Name = 'connector-sessioncheck';       Args = @('-WorkshopPathOverride', $repoRoot, '-SkipDrift') },
+        @{ Name = 'consumer-sessioncheck';       Args = @('-WorkshopPathOverride', $repoRoot, '-SkipDrift') },
         @{ Name = 'roster-sessioncheck';          Args = @('-ConsumerPathOverride', $FixtureRoot) },
         @{ Name = 'script-contract-sessioncheck'; Args = @('-ConsumerPathOverride', $FixtureRoot) }
     )

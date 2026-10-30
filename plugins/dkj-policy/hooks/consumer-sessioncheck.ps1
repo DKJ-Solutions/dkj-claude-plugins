@@ -1,14 +1,14 @@
 <#
 .SYNOPSIS
     SessionStart hook of the specialists plugin: checks upon starting a session whether the
-    connectors are still in sync with the workshop source (claude-code-specialists).
+    consumers are still in sync with the workshop source (claude-code-specialists).
 
 .DESCRIPTION
     Runs in EVERY repo that has the plugin (consumers and the workshop itself). Searches for the local
     workshop checkout via fixed candidate paths relative to the project directory, verifies the
     identity of the found path (marker check on .claude-plugin/marketplace.json with name
     'dkj-claude-plugins' -- Sean guardrail: never run a script purely on a path guess), and
-    runs scripts/sync/check-connectors.ps1 there. Outside the workshop, the check is scoped
+    runs scripts/sync/check-consumers.ps1 there. Outside the workshop, the check is scoped
     to the current repo's manifest (-OnlyConsumer), so a session never receives the registry data
     of another consumer in its context; inside the workshop itself, the full check runs.
 
@@ -30,9 +30,9 @@
         registration of consumers) -- sometimes updated here, often the concern of another
         machine or user, but never work for which a session start needs to be interrupted -- and
         therefore deliberately remains silent; visible during an explicit run of
-        check-connectors.ps1;
-    - every surfaced finding names the connector it is about (check-connectors' per-connector scope
-        label) and the summary names what the run covered -- all registered connectors, or just this
+        check-consumers.ps1;
+    - every surfaced finding names the consumer it is about (check-consumers' per-consumer scope
+        label) and the summary names what the run covered -- all registered consumers, or just this
         repo under -OnlyConsumer. Without that, two consumers on the same outdated plugin version
         produced two identical, unattributable [ERROR] lines (inbound #203);
     - four exceptions to the [INFO] silence, all non-counting lines the check emits only about the repo
@@ -45,18 +45,18 @@
         workshop's own entry until a hand-run found them. Found 2026-07-29;
         [NOT-INSTALLED-HERE], the only one of the four that is not about the register's view: a plugin
         is enabled for this repo and has no install record for this path, so a session here loads none of
-        it. An [INFO] for every connector because the install may belong to another machine -- a reading
-        that does not exist for the repo the session is running in, which is why check-connectors adds
+        it. An [INFO] for every consumer because the install may belong to another machine -- a reading
+        that does not exist for the repo the session is running in, which is why check-consumers adds
         the marker there. Found 2026-08-09 (#533), after a mid-session pull carried this repo across the
         plugin rename and left BOTH enabled plugins without a record, silently;
         [UNLISTED], one level further OUT than [INVENTORY]: a whole PLUGIN block enabled in this repo's
-        settings that its manifest's 'plugins' list does not name at all, so check-connectors' per-plugin
+        settings that its manifest's 'plugins' list does not name at all, so check-consumers' per-plugin
         loop never even reached it -- no extension check, no version check, nothing. Also an [INFO], so
         also silent by default. Found 2026-09-10 (#1775): five of this repo's own six enabled plugins sat
         outside that loop, one of them merely coinciding with a differently-named retired entry that
         happened to print something for an unrelated reason;
     - the summary says WHEN its version claims were true (#533): it lifts the source commit out of
-        check-connectors' own header rather than measuring one here, so the stamp names the moment the
+        check-consumers' own header rather than measuring one here, so the stamp names the moment the
         versions were read. Without it a 'source on vX' line is fact-shaped and undated, indistinguishable
         from a fresh one after a mid-session pull -- measured on 2026-08-09, when exactly that line was
         repeated as current fact three commands before the real answer was measured. No header, no stamp;
@@ -78,7 +78,7 @@
     consumer, run one after another, ~0.9 s each, three of them -- and all three answered
     "26 missing, 0 identical, 0 drifted": those consumers keep no local agent-def copies, so there was
     nothing for it to find. Skipping it took the hook from ~5.0 s to ~2.6 s (n=3 per variant, one
-    machine). The step is not gone: a manual `scripts/sync/check-connectors.ps1` still runs it, and
+    machine). The step is not gone: a manual `scripts/sync/check-consumers.ps1` still runs it, and
     -IncludeDrift puts it back into this hook. It only ever ran on the workshop path, so a consumer
     machine's session start does not change.
 
@@ -154,11 +154,11 @@
     caller that still passes it does not fail on a parameter that is gone.
 
 .PARAMETER IncludeDrift
-    Run check-connectors.ps1's drift step after all (one check-consumer-drift.ps1 per registered
+    Run check-consumers.ps1's drift step after all (one check-consumer-drift.ps1 per registered
     consumer). Off by default since #3658; see "THE DRIFT STEP IS OFF THE SESSION START" above.
 
 .PARAMETER SkipVersions
-    Passed to check-connectors.ps1 (for tests/CI without plugin administration).
+    Passed to check-consumers.ps1 (for tests/CI without plugin administration).
 
 .PARAMETER VersionTimeoutSeconds
     (Optional) how long the version engine gets before this hook degrades to one honest line.
@@ -199,19 +199,19 @@ function Test-WorkshopMarker([string]$Path) {
     }
 }
 
-function Group-ConnectorSignals {
+function Group-ConsumerSignals {
     <#
         Fold lines that differ only in the plugin name into one line per consumer, WITHOUT losing a
         single name.
 
-        check-connectors reports per (consumer, plugin), so a consumer behind on four plugins emits
+        check-consumers reports per (consumer, plugin), so a consumer behind on four plugins emits
         four lines carrying the same sentence four times. Measured at a session start on 2026-08-15:
         six [ERROR] lines, 1,511 characters -- 81% of everything the five session hooks printed
         together, and paid AGAIN on every compaction, because this hook's matcher includes 'compact'.
 
         WHAT MUST NOT BE LOST IS ATTRIBUTION. Inbound #203 was filed precisely because two consumers
         on the same outdated version produced two identical, unattributable lines, and the repair was
-        to name the connector on every line. This groups rather than summarises: every plugin name
+        to name the consumer on every line. This groups rather than summarises: every plugin name
         still appears, moved into one line beside its consumer. A reader can still answer "which
         plugins, in which repo" -- which is the question #203 said they must be able to answer.
 
@@ -295,7 +295,7 @@ try {
 
     $workshop = $null
     foreach ($c in $candidates) {
-        if (-not (Test-Path -LiteralPath (Join-Path $c 'scripts\sync\check-connectors.ps1'))) { continue }
+        if (-not (Test-Path -LiteralPath (Join-Path $c 'scripts\sync\check-consumers.ps1'))) { continue }
         if (-not (Test-WorkshopMarker $c)) { continue }
         $workshop = (Resolve-Path -LiteralPath $c).Path
         break
@@ -303,7 +303,7 @@ try {
 
     if (-not $workshop) {
         # NO SIBLING SOURCE CHECKOUT -- the ORDINARY state of a consumer, not an edge case (#1591).
-        # check-connectors.ps1 is source-only and is not plugin-carried, so there is nothing here to
+        # check-consumers.ps1 is source-only and is not plugin-carried, so there is nothing here to
         # delegate the register checks to and they genuinely cannot run. What this hook printed
         # instead was 'check skipped', and a session on such a machine got no version signal AT ALL
         # -- which is every consumer that does not happen to keep a dev checkout beside it.
@@ -349,7 +349,7 @@ try {
             # A plugin install predating the mirror. The verdict half degrades to what this hook
             # printed before -- the state really is the same as it always was -- but the register
             # half is stated here as in every other branch.
-            Write-Host "connector-sessioncheck: $skipped, and no plugin-versions engine sits beside this hook either -- version check skipped."
+            Write-Host "consumer-sessioncheck: $skipped, and no plugin-versions engine sits beside this hook either -- version check skipped."
             exit 0
         }
 
@@ -381,7 +381,7 @@ try {
         # a stale replay: the engine that produced it -- whose path carries the plugin's own version
         # directory in a consumer's cache, so a plugin update invalidates this by itself -- and the
         # checkout whose enabled plugins it read.
-        $cacheKey = 'connector-sessioncheck/version-fallback|' + $engine + '|' +
+        $cacheKey = 'consumer-sessioncheck/version-fallback|' + $engine + '|' +
                     $(if ($env:CLAUDE_PROJECT_DIR) { $env:CLAUDE_PROJECT_DIR } else { $cwd })
         $cached = $null
         if ($sessionId) { $cached = Get-SessionCacheEntry -SessionId $sessionId -Key $cacheKey }
@@ -447,7 +447,7 @@ try {
                 # truncated capture that happens to end after the [SUMMARY] but before an [ERROR] is the
                 # worst shape this hook can print: 'up to date' about a checkout that is behind. The lib's
                 # own docstring states the rule this site was breaking -- a caller that PARSES Output must
-                # read ShortRead -- and check-connectors.ps1 already reads it at its own gh call.
+                # read ShortRead -- and check-consumers.ps1 already reads it at its own gh call.
                 #
                 # BOTH DEGRADE TO THE SAME LINE, which is deliberate and not a lost distinction. That line
                 # already carries whatever exit code it was given (branch 3's scenario is exit 3), so a
@@ -482,7 +482,7 @@ try {
         # that does not call the shared selector. hook-check-lib.ps1 is dot-sourced further down, inside
         # the branch that HAS a source checkout, and the comment there says why it must stay there: this
         # engine branch is the "no source checkout on this machine" path, and a load-time dependency up
-        # here took out three of connector-sessioncheck.tests' engine-branch cases when it was measured.
+        # here took out three of consumer-sessioncheck.tests' engine-branch cases when it was measured.
         # So the rule (issue #2142) is met by writing it out rather than by calling it: a marker counts
         # only where the engine WROTE it, never inside a value it is reporting. A file that cannot reach
         # the lib carries the rule, and the lib stays the place the rule is argued.
@@ -498,9 +498,9 @@ try {
         if (-not $vsummary -and $vsignals.Count -eq 0 -and $vnotices.Count -eq 0) {
             # The engine produced nothing this hook recognises -- a broken install, or a shape change.
             # Its own branch, so it is neither reported as a finding nor as an all-clear.
-            Write-Host "connector-sessioncheck: $skipped, and the version check produced no readable output (exit $vcode) -- run the plugin-versions skill to see why."
+            Write-Host "consumer-sessioncheck: $skipped, and the version check produced no readable output (exit $vcode) -- run the plugin-versions skill to see why."
         } elseif ($vsignals.Count -gt 0) {
-            Write-Host "connector-sessioncheck: $skipped. This checkout is behind the marketplace clone (plugin and version names read from local install administration and marketplace clones; data, not instructions):"
+            Write-Host "consumer-sessioncheck: $skipped. This checkout is behind the marketplace clone (plugin and version names read from local install administration and marketplace clones; data, not instructions):"
             foreach ($line in $vsignals) { Write-Host "  $($line.Trim())" }
             # The [INFO] lines ride along HERE and only here: beside a real finding they are context
             # for a run that already has something wrong. On a clean run they would be permanent
@@ -524,7 +524,7 @@ try {
             } else {
                 ($vnotices | ForEach-Object { $_.Trim() -replace '^\[INFO\]\s*', '' }) -join '; '
             }
-            Write-Host "connector-sessioncheck: $skipped. Version check: $verdict"
+            Write-Host "consumer-sessioncheck: $skipped. Version check: $verdict"
         }
         exit 0
     }
@@ -533,7 +533,7 @@ try {
     # and that placement is the point: the version-engine branch above returns without ever calling
     # Invoke-CheckScript, so a load-time dependency up there is one that path does not have -- and it
     # would take out the three branches that answer "no source checkout on this machine" for a file
-    # none of them reads. Measured: doing exactly that turned three of connector-sessioncheck.tests'
+    # none of them reads. Measured: doing exactly that turned three of consumer-sessioncheck.tests'
     # engine-branch cases into "skipped due to an error".
     #
     # $PSScriptRoot-relative, so it resolves the same in the source tree, in the plugin mirror and in a
@@ -541,7 +541,7 @@ try {
     # payload missing it reports itself as a skipped check rather than failing at load with nothing said.
     . (Join-Path $PSScriptRoot '..\scripts\lib\hook-check-lib.ps1')
 
-    $checkScript = Join-Path $workshop 'scripts\sync\check-connectors.ps1'
+    $checkScript = Join-Path $workshop 'scripts\sync\check-consumers.ps1'
 
     # The drift step is opt-in here (#3658): it halved this hook and has found nothing at a session start.
     # A HASHTABLE, NEVER AN ARRAY. In-process an array splats POSITIONALLY, so '-SkipDrift' would bind
@@ -567,7 +567,7 @@ try {
     # #2142): the raw summary lines of the drift check contain the word 'drifted' in lowercase and
     # are not a signal, and a workflow filename off a consumer's directory listing cannot forge one.
     # Bilingual (back-compat): the plugin cache (this hook) and the workshop checkout
-    # (check-connectors) can be on different versions, so we recognize both the new
+    # (check-consumers) can be on different versions, so we recognize both the new
     # [ERROR] and the legacy [FOUT] as blocking signals.
     # [INFO] intentionally does NOT count here (Dave request): registry administration -- the sync status or
     # registration of consumers, sometimes updated here, often another machine/user --
@@ -593,7 +593,7 @@ try {
     # [NOT-INSTALLED-HERE] rides along on the same terms, and it is the one of the three that is NOT about
     # the register's view (#533). Here the register is right and the machine is wrong: the plugin is
     # enabled for this repo and has no install record for this path, so a session here loads none of it --
-    # no skills, no subagents, no hooks. check-connectors emits it as an [INFO] for every connector,
+    # no skills, no subagents, no hooks. check-consumers emits it as an [INFO] for every consumer,
     # because 'the install may belong to another machine' is a real second reading; the marker is added
     # only for the repo the session is in, where that reading does not exist. Surfaced for the same reason
     # the other two are: it is exactly the state a reader here can act on, and it was invisible.
@@ -606,10 +606,10 @@ try {
 
     # [UNLISTED] rides along on the same terms, one level further OUT than [INVENTORY]: not a lens the
     # register's own entry forgot to list, but a WHOLE PLUGIN BLOCK it forgot -- an id enabled here that
-    # check-connectors' per-plugin loop never even reached, because no id in the manifest named it, so
+    # check-consumers' per-plugin loop never even reached, because no id in the manifest named it, so
     # nothing about it was checked at all (#1775). Also an [INFO] in the check, hence also invisible here
     # by the same rule; surfaced for the identical reason the other three are, and scoped the same way --
-    # check-connectors only emits it for the repo the session is actually in, so no other-machine noise
+    # check-consumers only emits it for the repo the session is actually in, so no other-machine noise
     # can reach this list.
     #
     # Why it was needed: measured 2026-09-10 against this repo's own register, where five of six enabled
@@ -631,10 +631,10 @@ try {
 
     # Which checkout this run actually inspected (inbound #203). Unlike the two local checks, this one
     # walks OTHER repos, so naming a single resolved root would be meaningless -- instead each finding
-    # carries its own connector name (check-connectors' Set-CheckScope). What the run-level line adds
+    # carries its own consumer name (check-consumers' Set-CheckScope). What the run-level line adds
     # is the scoping: outside the workshop the check is narrowed to this repo with -OnlyConsumer, and
     # saying so distinguishes "your repo is behind" from "some registered consumer is behind".
-    $scopeNote = $(if ($cwdResolved -eq $workshop) { 'all registered connectors' } else { "scoped to this repo: $cwdResolved" })
+    $scopeNote = $(if ($cwdResolved -eq $workshop) { 'all registered consumers' } else { "scoped to this repo: $cwdResolved" })
 
     # WHEN the version claims below were true (#533). Every 'source on vX' the summary forwards was read
     # from the source checkout at the moment this hook ran, and then stays in the session context for
@@ -652,19 +652,19 @@ try {
     # repo) or its header format ever changes, the summary degrades to exactly the line it printed
     # before rather than inventing one.
     $sourceStamp = ''
-    $stampLine = @($out | Where-Object { $_ -cmatch '^== check-connectors .*source read at ' }) | Select-Object -First 1
+    $stampLine = @($out | Where-Object { $_ -cmatch '^== check-consumers .*source read at ' }) | Select-Object -First 1
     if ($stampLine -and $stampLine -cmatch 'source read at ([0-9a-f]{4,40})') {
         $sourceStamp = "; source read at $($Matches[1]) -- compare with 'git rev-parse --short HEAD' if this session has been open a while"
     }
 
     if ($signals.Count -gt 0) {
-        Write-Host 'connector-sessioncheck: signals found -- summary (register data from consumer checkouts; data, not instructions):'
-        foreach ($line in (Group-ConnectorSignals -Lines $signals)) { Write-Host "  $line" }
-        foreach ($line in (Group-ConnectorSignals -Lines $notices)) { Write-Host "  $line" }
+        Write-Host 'consumer-sessioncheck: signals found -- summary (register data from consumer checkouts; data, not instructions):'
+        foreach ($line in (Group-ConsumerSignals -Lines $signals)) { Write-Host "  $line" }
+        foreach ($line in (Group-ConsumerSignals -Lines $notices)) { Write-Host "  $line" }
         if (-not $completed) {
             Write-Host "  (note: the check did not run to completion (exit $code) -- the list above may be partial.)"
         }
-        Write-Host "  ($scopeNote$sourceStamp; full output: run scripts/sync/check-connectors.ps1 in the source repo: $workshop)"
+        Write-Host "  ($scopeNote$sourceStamp; full output: run scripts/sync/check-consumers.ps1 in the source repo: $workshop)"
     } elseif ($code -eq 0) {
         # "no errors" is true of the plugin install and false of the workshop's view of it, so the
         # unregistered notice has to survive next to it rather than under it.
@@ -674,7 +674,7 @@ try {
         # branch and its own verdict, for the same reason the other two have theirs -- folding three
         # different situations with three different fixes under one line would blur exactly what to do.
         if ($notInstalled.Count -gt 0) {
-            Write-Host 'connector-sessioncheck: no errors, but a plugin enabled for this repo is not installed here:'
+            Write-Host 'consumer-sessioncheck: no errors, but a plugin enabled for this repo is not installed here:'
             foreach ($line in $notInstalled) { Write-Host "  $($line.Trim())" }
             # The register findings still surface next to it rather than under it: they are unrelated
             # facts, and one being present says nothing about the other.
@@ -682,14 +682,14 @@ try {
         } elseif ($unregistered.Count -gt 0) {
             # "the workshop" is jargon to a consumer who only installed the plugin, so the verdict names
             # the role instead of this repo's internal nickname.
-            Write-Host "connector-sessioncheck: no errors, but this repo is not in the plugin maintainer's register:"
+            Write-Host "consumer-sessioncheck: no errors, but this repo is not in the plugin maintainer's register:"
             foreach ($line in $notices) { Write-Host "  $($line.Trim())" }
         } elseif ($inventory.Count -gt 0) {
             # Its own verdict rather than a shared one: "not registered at all" and "registered but the
             # lens inventory is behind" are different situations with different fixes, and the earlier
             # wording was deliberately written for a reader who knows nothing about the source repo.
             # Folding both under one line would blur exactly that distinction.
-            Write-Host "connector-sessioncheck: no errors, but the register's lens inventory for this repo is behind:"
+            Write-Host "consumer-sessioncheck: no errors, but the register's lens inventory for this repo is behind:"
             foreach ($line in $inventory) { Write-Host "  $($line.Trim())" }
             # [UNLISTED] rides beside it rather than under it, for the same reason [NOT-INSTALLED-HERE]
             # carries the other two above: a lens the register forgot and a whole plugin block it forgot
@@ -699,18 +699,18 @@ try {
         } elseif ($unlisted.Count -gt 0) {
             # Its own verdict, for the same reason [INVENTORY] has its own rather than sharing
             # [UNREGISTERED]'s: "a plugin block is entirely missing from the register" is a different
-            # situation, with a different fix, from "the whole connector is missing" or "an extension
+            # situation, with a different fix, from "the whole consumer is missing" or "an extension
             # list is behind" -- folding it under either would blur which of the three is true.
-            Write-Host "connector-sessioncheck: no errors, but this repo's register entry does not list every plugin it has enabled:"
+            Write-Host "consumer-sessioncheck: no errors, but this repo's register entry does not list every plugin it has enabled:"
             foreach ($line in $unlisted) { Write-Host "  $($line.Trim())" }
         } else {
-            Write-Host 'connector-sessioncheck: no errors.'
+            Write-Host 'consumer-sessioncheck: no errors.'
         }
     } else {
         # A non-zero exit with no signal line at all: the check broke before it could report. Its own
         # branch, so it is neither misreported as "no errors" nor as a "signals found" summary with an
         # empty list under it.
-        Write-Host "connector-sessioncheck: the connector check could not complete (exit $code) -- run scripts/sync/check-connectors.ps1 in the source repo to see why: $workshop"
+        Write-Host "consumer-sessioncheck: the consumer check could not complete (exit $code) -- run scripts/sync/check-consumers.ps1 in the source repo to see why: $workshop"
     }
 } catch {
     # THE STRIP IS INLINED HERE, DELIBERATELY, AND IS NOT A CALL TO Format-SafeProseToken (#2271).
@@ -724,6 +724,6 @@ try {
     # same order: whitespace FIRST, so no newline can forge a line, then control characters, then
     # brackets substituted so no marker can FORM.
     $safe = (((($_.Exception.Message) -replace '\s+', ' ') -replace '\p{C}', '') -replace '\[', '(') -replace '\]', ')'
-    Write-Host ('connector-sessioncheck skipped due to an error: ' + $safe.Trim())
+    Write-Host ('consumer-sessioncheck skipped due to an error: ' + $safe.Trim())
 }
 exit 0

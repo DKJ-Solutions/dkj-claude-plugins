@@ -760,7 +760,7 @@ try {
     ) $r.Text.Trim() '17: the whole run is the marker line plus the summary, verbatim'
 
     # --- 17b. -Brief: 'unreleased' -> [INFO], NEVER [ERROR] and never a command ----------------------
-    # THE SESSION-START HALF OF #1772. connector-sessioncheck forwards these lines into a session's
+    # THE SESSION-START HALF OF #1772. consumer-sessioncheck forwards these lines into a session's
     # context at every start; before the split this shape was an [ERROR] carrying a no-op command, in
     # the most ordinary state a checkout can be in -- sitting between two releases. If it is ever
     # promoted back to [ERROR], this is the assert that must fail.
@@ -1264,7 +1264,7 @@ try {
     Assert-Has   $r 'All 1 plugin(s) up to date on 4.32.0' '36: the summary counts it as up to date, not as behind'
 
     # --- 36b. #2218 at a session start: the same row is silent in -Brief, never a marker ------------
-    # -- THE HALF THAT REACHES A CONSUMER'S CONTEXT. connector-sessioncheck forwards these lines at
+    # -- THE HALF THAT REACHES A CONSUMER'S CONTEXT. consumer-sessioncheck forwards these lines at
     # -- every start and every compaction; before the fix every plugin in the marketplace emitted an
     # -- [INFO] naming a stale clone that had been refreshed seconds earlier, in the state every
     # -- checkout is in after a marketplace refresh.

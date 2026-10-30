@@ -274,7 +274,7 @@ function Format-RepoHubBanner {
         adds another 10, so the box shows the total owed; ticking it clears the total.
 
         ONE FUNCTION, ON EVERY HUB PAGE (#3297): both home pages (through Format-RepoHomeHeadHtml), every page
-        Format-GeneralPageHtml draws, a -Bare one included (#3356), the Connectors page (Format-ConnectorDashboardHtml), and the release notes (Format-ReleaseNotesDevPage), so the hubs carry the
+        Format-GeneralPageHtml draws, a -Bare one included (#3356), the Consumers page (Format-ConsumerDashboardHtml), and the release notes (Format-ReleaseNotesDevPage), so the hubs carry the
         same banner wherever the visitor is. It is the first thing in <body>, ABOVE the site header (owner,
         October 24, 2026; it was the first block of <main>, under the breadcrumb bar), so every caller writes it
         straight after '<body>'. It stands there with no margin, border or radius of its own, a bare strip flush against the

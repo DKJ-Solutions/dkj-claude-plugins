@@ -619,7 +619,7 @@ only while it says when each one was opened.
    **lower bound on delivery, not delivery**: the second update gate is the consumer's marketplace cache,
    which sits on their side and does not move with this repo's cadence.
 
-   **One observation on the consumer side, reported as one observation.** This session's connector hook
+   **One observation on the consumer side, reported as one observation.** This session's consumer hook
    read smartwatchbanden at **v4.1.0** against a source at v4.4.0 — three releases and roughly 20 hours
    behind, meaning those three marginal releases had delivered that consumer nothing yet. It tempers the
    cost side, and it is a single moment for a single consumer: the register keeps no update history, so
@@ -1426,7 +1426,7 @@ only readable next to the bound it is capped by**; quote the pair or neither.
 
 **WHERE THE ~90 MINUTES ACTUALLY CAME FROM, and it is not in this table.** It is
 [#2233](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2233): three suites —
-`adopt-statusline`, `connectors`, `connector-sessioncheck` — block forever on a redirected-but-never-closed
+`adopt-statusline`, `consumers`, `consumer-sessioncheck` — block forever on a redirected-but-never-closed
 stdin and are released only by the 1,800s per-suite bound (#1941), so a run in that state takes half an
 hour to go red and reports a timeout rather than a defect. The first run of this pair hit exactly that:
 **118 of 121 finished in 410.2s and the remaining three were still at zero CPU nine minutes later.**

@@ -99,7 +99,7 @@ $ErrorActionPreference = 'Stop'
 # So an import line able to put those characters into a target had its own line forwarded to every
 # session start, and '[ERROR]' did more than add a line: it made the hook print its over-the-limit
 # headline and the WHOLE report on a run whose verdict was '[OK]'. Format-SafePathToken is the answer
-# check-connectors and check-consumer-prose already give for exactly this class (#309, #414, #1419,
+# check-consumers and check-consumer-prose already give for exactly this class (#309, #414, #1419,
 # #1808) -- it strips square brackets, which the hook counts, and control characters, which could
 # forge a line or repaint the terminal this lands in. Unguarded like command-probe-lib above, not
 # guarded like consumer-check-lib below: this lib predates this check script and ships in every mirror

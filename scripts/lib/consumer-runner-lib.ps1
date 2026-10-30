@@ -59,7 +59,7 @@
       * the scaffolder suites read the emitted runners back through Get-SharedScriptReference and
         assert every referenced path EXISTS in this tree, so a move here goes red on the day it lands
         rather than in somebody else's repository days later;
-      * check-connectors.ps1 reads the runners a REGISTERED CONSUMER has already got, so a path
+      * check-consumers.ps1 reads the runners a REGISTERED CONSUMER has already got, so a path
         written before a move is reported from the register instead of discovered by a red gate.
 
     Only the second reaches a repo that adopted in August. That distinction is the whole reason this
@@ -244,7 +244,7 @@ function Get-SharedScriptReference {
     #     ordinary edit there is.
     #   * ANCHORING THE VALUE AT `$` missed `repository: owner/name  # why we check it out`. An
     #     end-of-line comment is everyday YAML, not one of the exotic shapes the header declines.
-    # Both are now covered by their own scenarios in connectors.tests.ps1. The walk itself lives in
+    # Both are now covered by their own scenarios in consumers.tests.ps1. The walk itself lives in
     # Get-SharedCheckoutBlock since #2337, shared with the ref reader.
     $prefixes = @{}
     foreach ($block in @(Get-SharedCheckoutBlock -Lines $lines -RepositoryName $RepositoryName)) {
@@ -300,7 +300,7 @@ function Test-SharedScriptReference {
         matches it exactly as a real reference does. Join-Path does not normalise '..', but Test-Path
         resolves it against the real filesystem, so handing it one unchecked turns this check into an
         existence oracle for the maintainer's own disk -- answered by the presence or absence of an
-        [ERROR] line, unattended, at every session start, for every registered connector. Bounded
+        [ERROR] line, unattended, at every session start, for every registered consumer. Bounded
         (existence only, '.ps1'-suffixed, nothing read or run) and still wrong: it is not the question
         this function is documented to answer.
 
@@ -524,10 +524,10 @@ function Test-ConsumerRunnerAdoption {
         reference, no finding, and reads exactly like a fully adopted one -- adoption and non-adoption
         are indistinguishable to the register.
 
-        MEASURED SEPTEMBER 11, 2026 (#1850). connectors/djcylow-react.json registers the full 19-lens
+        MEASURED SEPTEMBER 11, 2026 (#1850). consumers/djcylow-react.json registers the full 19-lens
         core-team adoption and names the workflow plugin, and that repository's entire
         .github/workflows/ is one ci.yml: no branch-entry.yml, no fold-on-merge.yml, no
-        verify-resolved.yml. check-connectors.ps1 reported it exactly as it reports a repo running all
+        verify-resolved.yml. check-consumers.ps1 reported it exactly as it reports a repo running all
         three.
 
         FOUR STATUSES, BECAUSE THE WAYS OF HAVING NO RUNNER ARE DIFFERENT CONVERSATIONS and a caller

@@ -120,7 +120,7 @@ foreach ($skill in @('report-issue', 'adopt-bwj-development', 'golive-block', 'p
 }
 
 # THE ASANA PREFLIGHT PROBES THE BOARD, NOT THE TOOL LIST (#2028). Availability and authorization come
-# apart: measured on a smartwatchbanden checkout, September 15, 2026, both registered Asana connectors
+# apart: measured on a smartwatchbanden checkout, September 15, 2026, both registered Asana consumers
 # were authenticated and both answered `unauthorized` for the project the seam names, because the MCP
 # was bound to a different workspace than the one ASANA_PAT drove the same board with. A preflight
 # asking only whether the tools EXIST passes in exactly that state, and step 2's `create task` is then

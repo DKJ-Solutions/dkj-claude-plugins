@@ -87,7 +87,7 @@ $script:proposed   = 0
 $script:reconciled = 0
 
 # Write-Ok + Test-PluginNameSlug/Test-PluginMarketplaceSlug + Resolve-PluginDir: shared with
-# scripts/sync/check-roster-sync.ps1 and check-connectors.ps1 (single source, issue #114). This
+# scripts/sync/check-roster-sync.ps1 and check-consumers.ps1 (single source, issue #114). This
 # lib is not repo-owned (unlike repo-config.ps1/branch-info.ps1), so it needs no consumer scaffold
 # -- it ships as part of the SAME plugin payload as this skill, two levels up under scripts/lib/,
 # so the $PSScriptRoot-relative path resolves correctly from the workshop checkout and from a
@@ -294,7 +294,7 @@ if ($missingLens.Count -eq 0 -and $missingRoster.Count -eq 0 -and $staleHeaders.
 # Split a validated plugin id into name + marketplace, or $null if either fails the slug guard.
 # Guardrail: name/marketplace become path segments -- validate as slugs before filesystem access,
 # via the shared Test-PluginNameSlug/Test-PluginMarketplaceSlug (mirrors check-roster-sync /
-# check-connectors).
+# check-consumers).
 function Split-PluginId {
     param([string]$PluginId)
     $parts = $PluginId.Split('@')

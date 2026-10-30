@@ -12,7 +12,7 @@
     "startup|resume|clear|compact", not on "startup" alone, because a SessionStart hook's injected
     stdout does not survive a compaction by itself -- a startup-only matcher made every report go
     silent after the first /compact and never return. That matcher is right and must not be narrowed.
-    What it costs is that every firing re-runs the check, and connector-sessioncheck's #1591 fallback
+    What it costs is that every firing re-runs the check, and consumer-sessioncheck's #1591 fallback
     is the expensive one: two nested powershell bring-ups plus git in the marketplace clone, measured
     at 1.1-1.8s, of which ~750ms is the process spawn alone. A session with four compactions paid it
     five times for an answer that was identical each time.

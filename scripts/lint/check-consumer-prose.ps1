@@ -42,7 +42,7 @@
 
     AND IT IS NOT THE LARGEST ITEM ON THAT BILL, named so the next reader sizes it against the real
     total: measured in the same batch, all 7 SessionStart hooks came to ~6.8 s on this machine, of which
-    connector-sessioncheck alone was ~4.9 s (~72%).
+    consumer-sessioncheck alone was ~4.9 s (~72%).
 
     WHAT DID NOT BLOCK IT, stated because the issue expected it to. #1421 deferred the merge on the
     ground that it would rename a consumer-facing hook one release after introducing it. Checked before

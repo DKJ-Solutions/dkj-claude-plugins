@@ -75,7 +75,7 @@
     dead from the OTHER end too, its checkout alive and its PLUGIN NAME retired by a rename in the
     marketplace, and that is lane 11 (issue #1773): the same file, the same doctrine, the other half of
     one defect. It is deliberately
-    not connectors/, which exists only in the source repo: this script has to work in a consumer.
+    not consumers/, which exists only in the source repo: this script has to work in a consumer.
 
     AND ONE LANE READS WHAT THAT REGISTER POINTS AT, WHICH IS NOT THE SAME ARTEFACT (issue #1812). A
     record's installPath names an extracted copy of the plugin under ~/.claude/plugins/cache/, and that

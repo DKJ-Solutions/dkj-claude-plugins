@@ -164,7 +164,7 @@ try {
     Assert-True ($r.Out -notmatch 'a second live-theme guard') 'single, unanswered: no convergence advice either'
 
     # --- the store finding: nothing says which store this repo is (#2880) ---------------------------
-    # The connector check needs an expected store to compare against. A hook cannot ask the connector,
+    # The consumer check needs an expected store to compare against. A hook cannot ask the consumer,
     # so the one thing it can report is that the repo names no store at all.
     Write-Host "no store named -- reported, in the resolution order push-preview uses" -ForegroundColor Cyan
     $r = Invoke-Check -Root (New-FixtureRepo -Label 'store-none' -LiveId '190793613653' -Store '')

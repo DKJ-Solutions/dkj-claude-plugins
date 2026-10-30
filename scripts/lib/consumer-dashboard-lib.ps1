@@ -1,15 +1,15 @@
 <#
 .SYNOPSIS
-    The judgement behind the connector dashboard (#2976): read check-connectors.ps1's report into one
+    The judgement behind the consumer dashboard (#2976): read check-consumers.ps1's report into one
     record per connected repo, decide each repo's status, and render the page. No I/O -- the server
-    (scripts/dashboard/serve-connector-dashboard.ps1) reads the manifests, runs the check and asks git,
+    (scripts/dashboard/serve-consumer-dashboard.ps1) reads the manifests, runs the check and asks git,
     and hands the results in, so every rule here is tested without a server.
 
 .DESCRIPTION
-    THE REPORT IS PARSED, NOT RE-IMPLEMENTED. check-connectors.ps1 is the one place that knows what a
-    connector's health means, and a second reading of the manifests would drift from it the day a check
+    THE REPORT IS PARSED, NOT RE-IMPLEMENTED. check-consumers.ps1 is the one place that knows what a
+    consumer's health means, and a second reading of the manifests would drift from it the day a check
     is added. So the dashboard runs it and splits its output on the block headers it already prints:
-    '== connector: <repo>' opens a repo, '-- plugin: <id>' opens a plugin inside it, and a line opening
+    '== consumer: <repo>' opens a repo, '-- plugin: <id>' opens a plugin inside it, and a line opening
     with a bracketed tag is a signal. The summary after the last block is not per-repo, so the parse
     stops at it.
 
@@ -21,7 +21,7 @@
     changes a status on its own.
 
     ANY TAG IS A SIGNAL, NOT A FIXED LIST (#2995). Besides [ERROR], [INFO], [OK] and [SKIP] the check
-    prints non-counting markers inside a connector block -- [INVENTORY], [UNLISTED], [UNREGISTERED],
+    prints non-counting markers inside a consumer block -- [INVENTORY], [UNLISTED], [UNREGISTERED],
     [NOT-INSTALLED-HERE] -- and a parser that named four tags dropped them, so such a repo read as in
     sync. Every tag other than ERROR, OK and SKIP is read as INFO: a note, never an error, which is how
     the check itself counts them.
@@ -29,22 +29,22 @@
     STATUS, worst first: 'bad' (an [ERROR]), 'warn' (an [INFO]), 'skip' (the checkout is not on this
     machine, so nothing was checked) and 'good'. A skipped repo is not called healthy: nothing was read.
 
-    ONE FUNCTION HERE TOUCHES THE DISK: Resolve-ConnectorCheckout asks whether a candidate folder exists,
+    ONE FUNCTION HERE TOUCHES THE DISK: Resolve-RegisteredCheckout asks whether a candidate folder exists,
     because the server and scripts/dashboard/repo-session.ps1 (#3231) must resolve a checkout the same way.
 
     EVERY VALUE THAT REACHES THE PAGE IS ESCAPED. Manifest fields and git subjects come from other
     repositories, so they are text, never markup.
 
-    Pure ASCII (repo convention for .ps1). Tested by scripts/tests/connector-dashboard.tests.ps1 --
+    Pure ASCII (repo convention for .ps1). Tested by scripts/tests/consumer-dashboard.tests.ps1 --
     change one, run the other.
 #>
 
 # The plugin's page shell, for the house site header (Format-SiteHeaderHtml): this repo is its source, so it is read here.
 . (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\general-pages-lib.ps1')
 
-function ConvertFrom-ConnectorCheckOutput {
+function ConvertFrom-ConsumerCheckOutput {
     <#
-        Splits check-connectors.ps1's text report into @{ <repo> = @{ Signals = list; Drift } }. Each
+        Splits check-consumers.ps1's text report into @{ <repo> = @{ Signals = list; Drift } }. Each
         signal is @{ Level; Plugin; Text }, with Plugin '' for a repo-level signal and Text stripped of the
         '<repo>: ' or '<repo> / <plugin>: ' prefix the check repeats on every line. Drift is $null, or
         @{ Dead; Drifted; PersonaDrifted; PersonaCompared } from the repo's drift block.
@@ -57,7 +57,7 @@ function ConvertFrom-ConnectorCheckOutput {
     foreach ($raw in @($Lines)) {
         if ($null -eq $raw) { continue }
         $line = [string]$raw
-        $opens = if ($line -match '^== connector: (\S+)\s*$') { 'connector' } elseif ($line -match '^-- drift-check: (\S+)\s*$') { 'drift' } else { '' }
+        $opens = if ($line -match '^== consumer: (\S+)\s*$') { 'consumer' } elseif ($line -match '^-- drift-check: (\S+)\s*$') { 'drift' } else { '' }
         if ($opens) {
             $repo = $Matches[1]
             $plugin = ''
@@ -95,7 +95,7 @@ function ConvertFrom-ConnectorCheckOutput {
     return $result
 }
 
-function Get-ConnectorStatus {
+function Get-ConsumerStatus {
     <# 'bad', 'warn', 'skip' or 'good' for one repo's signals, worst first. #>
     param([AllowEmptyCollection()][AllowNull()][object[]]$Signals)
     $levels = @(@($Signals) | Where-Object { $_ } | ForEach-Object { [string]$_.Level })
@@ -105,7 +105,7 @@ function Get-ConnectorStatus {
     return 'good'
 }
 
-function Get-ConnectorInstalledVersion {
+function Get-ConsumerInstalledVersion {
     <#
         The installed plugin version for one repo, read from the check's own per-plugin line ('machine
         record is on the source version (vX)' or 'machine record is on vA, source on vB') -- by its text,
@@ -127,9 +127,9 @@ function Get-ConnectorInstalledVersion {
 
 function Format-DashboardInstalledVersion {
     <# The Overview cell: '-' when the checkout is not here, the version, and the plugin when they differ. #>
-    param([AllowNull()]$Connector)
-    if (-not $Connector.Present) { return '-' }
-    $v = Get-ConnectorInstalledVersion $Connector.Signals
+    param([AllowNull()]$Consumer)
+    if (-not $Consumer.Present) { return '-' }
+    $v = Get-ConsumerInstalledVersion $Consumer.Signals
     if ($null -eq $v) { return 'no record' }
     $cell = 'v' + (ConvertTo-DashboardText $v.Version)
     if ($v.Mixed) { $cell += ' <code>' + (ConvertTo-DashboardText $v.Plugin) + '</code>' }
@@ -148,7 +148,7 @@ function Format-DashboardDrift {
         (& $n $Drift.PersonaDrifted) + ' of ' + (& $n $Drift.PersonaCompared) + ' personas drifted (informational)'
 }
 
-function Get-ConnectorCheckoutCandidates {
+function Get-ConsumerCheckoutCandidates {
     <# The manifest's localCheckout as a list: one relative path, or several (#1524). #>
     param([AllowNull()]$LocalCheckout)
     return @(@($LocalCheckout) | Where-Object { $_ -and ([string]$_).Trim() } | ForEach-Object { ([string]$_).Trim() })
@@ -164,7 +164,7 @@ function ConvertTo-DashboardText {
 function Test-DashboardCheckoutInScope {
     <#
         True when the resolved checkout -Full lies under -ScopeRoot at a path boundary -- the same bound
-        check-connectors.ps1 sets (two levels above this repo). A manifest is data from a public repo, and
+        check-consumers.ps1 sets (two levels above this repo). A manifest is data from a public repo, and
         the server runs git in the folder it names, so a relative '..\..\..' must not leave that root.
     #>
     param([Parameter(Mandatory = $true)][string]$Full, [Parameter(Mandatory = $true)][string]$ScopeRoot)
@@ -174,14 +174,14 @@ function Test-DashboardCheckoutInScope {
     return $f.StartsWith($r + '\', [StringComparison]::OrdinalIgnoreCase)
 }
 
-function Resolve-ConnectorCheckout {
+function Resolve-RegisteredCheckout {
     <#
         The first of a manifest's localCheckout candidates that is a folder on this machine, as a full path, or
         $null. The manifest is data from a public repo and git runs in the folder it names, so a candidate is
-        held to check-connectors' own bound: relative to -Root, and resolving under -ScopeRoot.
+        held to check-consumers' own bound: relative to -Root, and resolving under -ScopeRoot.
     #>
     param([Parameter(Mandatory = $true)][string]$Root, [AllowNull()]$LocalCheckout, [Parameter(Mandatory = $true)][string]$ScopeRoot)
-    foreach ($cand in @(Get-ConnectorCheckoutCandidates $LocalCheckout)) {
+    foreach ($cand in @(Get-ConsumerCheckoutCandidates $LocalCheckout)) {
         if ([System.IO.Path]::IsPathRooted($cand)) { continue }
         $full = [System.IO.Path]::GetFullPath((Join-Path $Root $cand))
         if (-not (Test-DashboardCheckoutInScope -Full $full -ScopeRoot $ScopeRoot)) { continue }
@@ -190,15 +190,15 @@ function Resolve-ConnectorCheckout {
     return $null
 }
 
-function Resolve-ConnectorRepo {
+function Resolve-ConsumerRepo {
     <#
         The registered repos a person means by -Name (#3231): the full 'owner/name', the name alone, the name
         without its 'dkj-' prefix, or the manifest's file name -- compared without case and without
         punctuation, so 'lifehub', 'life-hub' and 'dkj-lifehub' all name DKJ-Solutions/dkj-lifehub. Where no
-        name matches whole, a name that CONTAINS it does. -Connectors are @{ Repo; File }; returns every match,
+        name matches whole, a name that CONTAINS it does. -Consumers are @{ Repo; File }; returns every match,
         so a caller can refuse an ambiguous one rather than guess.
     #>
-    param([AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Connectors, [Parameter(Mandatory = $true)][string]$Name)
+    param([AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Consumers, [Parameter(Mandatory = $true)][string]$Name)
     $norm = { param($s) ((([string]$s).ToLowerInvariant() -replace '\.json$', '') -replace '[^a-z0-9]', '') }
     $want = & $norm $Name
     if (-not $want) { return @() }
@@ -207,7 +207,7 @@ function Resolve-ConnectorRepo {
         $short = ([string]$c.Repo -split '/')[-1]
         @((& $norm $c.Repo), (& $norm $short), (& $norm ($short -replace '^dkj-', '')), (& $norm $c.File)) | Where-Object { $_ }
     }
-    $all = @($Connectors | Where-Object { $_ })
+    $all = @($Consumers | Where-Object { $_ })
     $exact = @($all | Where-Object { @(& $keys $_) -contains $want })
     if ($exact.Count) { return $exact }
     return @($all | Where-Object { @(& $keys $_ | Where-Object { $_.Contains($want) }).Count })
@@ -235,7 +235,7 @@ function Format-RepoSessionCommand {
     return $line
 }
 
-function Get-ConnectorOwnerGroup {
+function Get-ConsumerOwnerGroup {
     <#
         The group a repo is shown under, by the owner in its 'owner/name' slug: 'bwj' (BWJ-Development),
         'dkj' (DKJ-Solutions) or 'other' for any other owner, a personal account included. Read from the
@@ -394,11 +394,11 @@ function Format-RepoLensesCardHtml {
     return @{ Html = $sb.ToString(); Style = $style }
 }
 
-function Format-ConnectorPageStart {
+function Format-ConsumerPageStart {
     <#
-        A connector page up to and including its h1: the head with the repo layer's style (-Style added to it),
+        A consumer page up to and including its h1: the head with the repo layer's style (-Style added to it),
         the hub's banner, the site header, the trail from Home through -Trail (a list of @{ Href; Label }) to
-        -PageName, and the intro holding the h1. Format-ConnectorPageEnd closes it.
+        -PageName, and the intro holding the h1. Format-ConsumerPageEnd closes it.
     #>
     param([Parameter(Mandatory = $true)][string]$PageName, [AllowEmptyCollection()][object[]]$Trail = @(), [AllowEmptyString()][string]$Style = '')
     $e = { param($v) ConvertTo-DashboardText $v }
@@ -461,8 +461,8 @@ function Format-ConnectorPageStart {
     return $sb.ToString()
 }
 
-function Format-ConnectorPageEnd {
-    <# A connector page's closing lines, after Format-ConnectorPageStart: -FooterHtml (the caller's own markup) as its footer note. #>
+function Format-ConsumerPageEnd {
+    <# A consumer page's closing lines, after Format-ConsumerPageStart: -FooterHtml (the caller's own markup) as its footer note. #>
     param([AllowEmptyString()][string]$FooterHtml = '')
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<p class="footer-note">' + $FooterHtml + '</p>')
@@ -475,41 +475,41 @@ function Format-ConnectorPageEnd {
     return $sb.ToString()
 }
 
-function Format-ConnectorRepoMiniCardHtml {
+function Format-ConsumerRepoMiniCardHtml {
     <#
         One registered repo's details as a house mini-card: its status, visibility, checkout, GitHub link and
-        manifest, and what the check says about it (Format-ConnectorRepoDetailsHtml). A group's Issues card holds one
-        per repo, and a DKJ repo's own page holds its own (Format-DkjRepoPageHtml). -Connector is one of
-        Format-ConnectorDashboardHtml's -Connectors.
+        manifest, and what the check says about it (Format-ConsumerRepoDetailsHtml). A group's Issues card holds one
+        per repo, and a DKJ repo's own page holds its own (Format-DkjRepoPageHtml). -Consumer is one of
+        Format-ConsumerDashboardHtml's -Consumers.
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$Connector)
+    param([Parameter(Mandatory = $true)][hashtable]$Consumer)
     $e = { param($v) ConvertTo-DashboardText $v }
-    $c = $Connector
+    $c = $Consumer
     $sb = New-Object System.Text.StringBuilder
     $b = Get-DashboardStatusBadge ([string]$c.Status)
     $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
     [void]$sb.AppendLine('<section class="mini-card cd-repo-card" id="' + $anchor + '">')
     [void]$sb.AppendLine('<div class="cd-repo"><span class="badge ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span><p class="cd-repo__name">' + (& $e $c.Repo) + '</p></div>')
-    $where = (@(Get-ConnectorCheckoutCandidates $c.Checkout) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ' or '
+    $where = (@(Get-ConsumerCheckoutCandidates $c.Checkout) | ForEach-Object { '<code>' + (& $e $_) + '</code>' }) -join ' or '
     $ghUrl = 'https://github.com/' + (& $e $c.Repo)
     [void]$sb.AppendLine('<p class="sub">' + $b.Word + ' &#183; ' + (& $e $c.Visibility) + ' &#183; checkout ' + $where +
-        ' &#183; <a class="cd-link" href="' + $ghUrl + '">GitHub</a> &#183; <code>connectors/' + (& $e $c.File) + '</code></p>')
-    [void]$sb.Append((Format-ConnectorRepoDetailsHtml -Connector $c))
+        ' &#183; <a class="cd-link" href="' + $ghUrl + '">GitHub</a> &#183; <code>consumers/' + (& $e $c.File) + '</code></p>')
+    [void]$sb.Append((Format-ConsumerRepoDetailsHtml -Consumer $c))
     [void]$sb.AppendLine('</section>')
     return $sb.ToString()
 }
 
-function Format-ConnectorRepoDetailsHtml {
+function Format-ConsumerRepoDetailsHtml {
     <#
         What the register's check says about one repo, under the line that names it: its trunk's last commit, its
         plugins with their lens counts, the drift, and the check's findings (or that every check passes). The register's
-        notes are not shown: they are the register's own log, for whoever keeps it (connectors/README.md), and run to
-        tens of kilobytes a repo (Maikel, October 28, 2026). A group's mini-card (Format-ConnectorRepoMiniCardHtml) holds it; a DKJ repo's own Repo
+        notes are not shown: they are the register's own log, for whoever keeps it (consumers/README.md), and run to
+        tens of kilobytes a repo (Maikel, October 28, 2026). A group's mini-card (Format-ConsumerRepoMiniCardHtml) holds it; a DKJ repo's own Repo
         card lays the same facts out as a facts list of its own (Format-DkjRepoCardHtml).
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$Connector)
+    param([Parameter(Mandatory = $true)][hashtable]$Consumer)
     $e = { param($v) ConvertTo-DashboardText $v }
-    $c = $Connector
+    $c = $Consumer
     $sb = New-Object System.Text.StringBuilder
     if ($c.Git -and $c.Git.Subject) {
         [void]$sb.AppendLine('<p class="meta" style="white-space: normal">Last commit on ' + (& $e $c.Git.Trunk) + ' ' + (& $e $c.Git.When) + ': ' + (& $e $c.Git.Subject) + '</p>')
@@ -539,12 +539,12 @@ function Format-ConnectorRepoDetailsHtml {
     return $sb.ToString()
 }
 
-function Format-ConnectorDashboardHtml {
+function Format-ConsumerDashboardHtml {
     <#
-        The whole page. -Connectors is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
-        (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConnectorCheckOutput, or $null); Status; Git (@{ Branch; Trunk; Subject; When }
+        The whole page. -Consumers is a list of @{ Repo; Visibility; File; Checkout; Present; Plugins
+        (list of @{ Id; Extensions }); Signals; Drift (see ConvertFrom-ConsumerCheckOutput, or $null); Status; Git (@{ Branch; Trunk; Subject; When }
         or $null) }. -Meta is @{ GeneratedAt; Seconds; CheckFailed }.
-        It is the Connectors page under the hub on '/' (#3097): a two-crumb trail and its own h1. The
+        It is the Consumers page under the hub on '/' (#3097): a two-crumb trail and its own h1. The
         facts card belongs to the hub, so this page ends on its footer note.
 
         -Group splits it in two (owner, October 26, 2026). Empty, it is /consumers: a section per owner group
@@ -554,11 +554,11 @@ function Format-ConnectorDashboardHtml {
 
         The server serves the DKJ group its own page instead (Format-DkjReposPageHtml, Maikel, October 28, 2026):
         a card per DKJ repo, each opening that repo's page. -Group 'dkj' still renders here, as any group does.
-        The frame -- head, banner, header, trail, h1 and the closing lines -- is Format-ConnectorPageStart and
-        Format-ConnectorPageEnd, which the DKJ pages share. A repo's mini-card is Format-ConnectorRepoMiniCardHtml.
+        The frame -- head, banner, header, trail, h1 and the closing lines -- is Format-ConsumerPageStart and
+        Format-ConsumerPageEnd, which the DKJ pages share. A repo's mini-card is Format-ConsumerRepoMiniCardHtml.
     #>
     param(
-        [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Connectors,
+        [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Consumers,
         [Parameter(Mandatory = $true)][hashtable]$Meta,
         [ValidateSet('', 'dkj', 'bwj', 'other')][AllowEmptyString()][string]$Group = '',
         [AllowEmptyString()][string]$DkjCardsHtml = '',
@@ -568,17 +568,17 @@ function Format-ConnectorDashboardHtml {
     $groupDef = if ($Group) { @(Get-DashboardOwnerGroups | Where-Object { $_.Key -eq $Group })[0] } else { $null }
     $pageName = if ($groupDef) { $groupDef.Title } else { 'Consumers' }
     $e = { param($v) ConvertTo-DashboardText $v }
-    $everyone = @($Connectors | Where-Object { $_ })
-    $all = if ($groupDef) { @($everyone | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $Group }) } else { $everyone }
+    $everyone = @($Consumers | Where-Object { $_ })
+    $all = if ($groupDef) { @($everyone | Where-Object { (Get-ConsumerOwnerGroup ([string]$_.Repo)) -eq $Group }) } else { $everyone }
 
     $sb = New-Object System.Text.StringBuilder
     $trail = if ($groupDef) { @(@{ Href = '/consumers'; Label = 'Consumers' }) } else { @() }
-    [void]$sb.Append((Format-ConnectorPageStart -PageName $pageName -Trail $trail -Style $Style))
+    [void]$sb.Append((Format-ConsumerPageStart -PageName $pageName -Trail $trail -Style $Style))
     if ($NoticeHtml) { [void]$sb.AppendLine($NoticeHtml) }
 
     # The warning that the signals could not be read.
     if ($Meta.CheckFailed) {
-        [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">check-connectors.ps1 could not be run: ' + (& $e $Meta.CheckFailed) + '. The register is shown without its signals.</p>')
+        [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">check-consumers.ps1 could not be run: ' + (& $e $Meta.CheckFailed) + '. The register is shown without its signals.</p>')
     }
 
     # /consumers: a section per owner group headed by an h2 naming the group, and under
@@ -589,7 +589,7 @@ function Format-ConnectorDashboardHtml {
     if (-not $groupDef) {
         $rank = @{ bad = 0; warn = 1; skip = 2; good = 3 }
         foreach ($g in @(Get-DashboardOwnerGroups)) {
-            $members = @($all | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $g.Key } | Sort-Object @{ Expression = { $rank[[string]$_.Status] } }, @{ Expression = { [string]$_.Repo } })
+            $members = @($all | Where-Object { (Get-ConsumerOwnerGroup ([string]$_.Repo)) -eq $g.Key } | Sort-Object @{ Expression = { $rank[[string]$_.Status] } }, @{ Expression = { [string]$_.Repo } })
             $dkjCards = $g.Key -eq 'dkj' -and $DkjCardsHtml
             [void]$sb.AppendLine('<div class="' + $(if ($dkjCards) { 'card-grid dr-repos' } else { 'grid-3' }) + '" id="group-' + $g.Key + '">')
             # The h2 alone, with no sub line and no button under it (Maikel, October 30, 2026).
@@ -597,7 +597,7 @@ function Format-ConnectorDashboardHtml {
             if ($dkjCards) {
                 [void]$sb.Append($DkjCardsHtml)
             } elseif (-not $members.Count) {
-                [void]$sb.AppendLine('<p class="note grid__full">No repo ' + $g.Owner + ' is registered under <code>connectors/</code>.</p>')
+                [void]$sb.AppendLine('<p class="note grid__full">No repo ' + $g.Owner + ' is registered under <code>consumers/</code>.</p>')
             } else {
                 foreach ($c in $members) {
                     $b = Get-DashboardStatusBadge ([string]$c.Status)
@@ -623,7 +623,7 @@ function Format-ConnectorDashboardHtml {
         [void]$sb.AppendLine('<section class="card grid__full">')
         [void]$sb.AppendLine('<div>')
         if (-not $members.Count) {
-            [void]$sb.AppendLine('<p class="note">No repo ' + $g.Owner + ' is registered under <code>connectors/</code>.</p>')
+            [void]$sb.AppendLine('<p class="note">No repo ' + $g.Owner + ' is registered under <code>consumers/</code>.</p>')
         } else {
             # A fixed column set, so the widths hold whatever the repo names are.
             [void]$sb.AppendLine('<div class="table-wrap cd-table-gap"><table class="table cd-overview" id="overview-' + $g.Key + '"><colgroup><col class="cd-col-repo"><col class="cd-col-status"><col class="cd-col-vis"><col class="cd-col-num"><col class="cd-col-ver"></colgroup><thead class="cd-thead"><tr><th>' + $g.Title + '</th><th class="cd-left">Status</th><th>Visibility</th><th>Plugins</th><th class="cd-left">Installed</th></tr></thead><tbody>')
@@ -651,7 +651,7 @@ function Format-ConnectorDashboardHtml {
             [void]$sb.AppendLine('<section class="card grid__full">')
             [void]$sb.AppendLine('<div id="group-' + $g.Key + '">')
             [void]$sb.AppendLine('<p class="sub cd-group-summary">' + (Format-DashboardGroupSummary $members) + '</p>')
-            foreach ($c in $members) { [void]$sb.Append((Format-ConnectorRepoMiniCardHtml -Connector $c)) }
+            foreach ($c in $members) { [void]$sb.Append((Format-ConsumerRepoMiniCardHtml -Consumer $c)) }
             [void]$sb.AppendLine('</div>')
             [void]$sb.AppendLine('</section>')
             [void]$sb.AppendLine('</div>')
@@ -661,6 +661,6 @@ function Format-ConnectorDashboardHtml {
     # Where the data comes from, with the way to read it again: the refresh comes back to this same page.
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
     $back = if ($groupDef) { 'consumers/' + $Group } else { 'consumers' }
-    [void]$sb.Append((Format-ConnectorPageEnd -FooterHtml ('Read from <code>check-connectors.ps1</code>, checked ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=' + $back + '">re-run the check</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.')))
+    [void]$sb.Append((Format-ConsumerPageEnd -FooterHtml ('Read from <code>check-consumers.ps1</code>, checked ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=' + $back + '">re-run the check</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-consumer-dashboard.ps1</code>.')))
     return $sb.ToString()
 }

@@ -37,7 +37,7 @@ function Get-RepoName {
 # runners are scaffolded INTO a consumer and check this repository out by name --
 # `repository: <owner>/<name>` -- so every consumer scaffolded before a rename goes on naming the old
 # one. Those runners keep working, because GitHub answers a transfer redirect; what stops working is
-# the GUARD over them. check-connectors' check 6 finds a runner by matching the name half of that
+# the GUARD over them. check-consumers' check 6 finds a runner by matching the name half of that
 # `repository:` line, and after a rename it matches nothing -- so every consumer reads as clean, which
 # is indistinguishable from being clean and is the exact silence #1805 was filed to end.
 #
@@ -1079,7 +1079,7 @@ function Get-ReleasePageTitle {
 # the owners on their own machine. This repo hosted them as the 'ccs-release-notes' worker from
 # August 15, 2026, and the path token that worker needs is local, gitignored state -- so every cut
 # on a machine without it stopped at the redeploy (#2868, #3083). The page is still built at every
-# cut; the connector dashboard serves it at /release-notes, which opens in VS Code's Simple Browser.
+# cut; the consumer dashboard serves it at /release-notes, which opens in VS Code's Simple Browser.
 $script:ReleasePageWorkerName = ''
 
 function Get-ReleasePageWorkerName {
@@ -1484,7 +1484,7 @@ function Get-DeclinedAdoptions {
 # --- The dev-preview seam (dkj-policy since #3198, #2967; this repo's answer since #2976) ---------------
 
 function Get-DevPreview {
-    <# This repo's PRODUCT: the connector dashboard server, home of Connectors and Specialists.
+    <# This repo's PRODUCT: the consumer dashboard server, home of Consumers and Specialists.
        The dkj-policy dev-preview hook starts it (or reuses it) at session start beside the plugin's hub,
        and hands out both links. Every repo has a product port (Maikel, October 26, 2026, #3540), so this
        repo no longer opts out with OwnHub: the hub is the plugin's, as in every consumer (#3245), and the
@@ -1492,7 +1492,7 @@ function Get-DevPreview {
        beside it from #3283 until #3493 retired the app.) The server binds to 127.0.0.1 itself, so the
        Command needs no bind flag. It runs under cmd.exe, hence the backslashes. #>
     @{
-        Command     = 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dashboard\serve-connector-dashboard.ps1 -Port {port}'
+        Command     = 'powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dashboard\serve-consumer-dashboard.ps1 -Port {port}'
         Ports       = 4870..4879
         WaitSeconds = 15
     }
@@ -1501,7 +1501,7 @@ function Get-DevPreview {
 # --- The house-style gate seam (dkj-solutions, #3035) ---------------------------------------------------
 
 function Get-HouseStyleAllowlist {
-    <# What check-house-style may leave alone here, each with its reason. The connector dashboard is this
+    <# What check-house-style may leave alone here, each with its reason. The consumer dashboard is this
        repo's one page on the house style, and the gate holds it. The pages below belong to dkj-policy,
        which BWJ-Development runs too, with its own styling: they stay on their own tokens by design, so
        a house-style name in them is not drift. And the gate's own suite writes the names as fixtures. #>

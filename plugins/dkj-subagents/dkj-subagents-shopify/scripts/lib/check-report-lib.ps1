@@ -65,7 +65,7 @@
                                                           honors instead of settings.json alone
                                                           (inbound #294). Single source for the
                                                           bootstrap, check-roster-sync and
-                                                          check-connectors.
+                                                          check-consumers.
       - Get-InstallRecord / Test-PluginInstalledHere  -- the OTHER half Claude Code needs: an install
                                                           record for THIS project path in
                                                           ~/.claude/plugins/installed_plugins.json
@@ -131,7 +131,7 @@
 #     resolved, since the silent git-root fallback is precisely how a check ends up inspecting a
 #     different repo than the session it reports into.
 #   - Set-CheckScope -- a short label that Write-Info/Write-Failure prepend, for a check that walks
-#     SEVERAL scopes in one run (check-connectors: one block per connector). A per-run line cannot
+#     SEVERAL scopes in one run (check-consumers: one block per consumer). A per-run line cannot
 #     disambiguate there, and the hook may surface a single line in isolation, so the finding itself
 #     has to carry its subject.
 #
@@ -325,8 +325,8 @@ function Set-CheckScope {
        findings that belong to the run as a whole are not attributed to the last scope walked.
 
        The label is SANITIZED via Format-SafeToken -- see that function for the reasoning and for why it
-       is no longer inline here. check-connectors derives this label from a connector manifest's 'repo'
-       and plugin 'id' fields, and unlike the '== connector: <repo>' header -- which the session hooks
+       is no longer inline here. check-consumers derives this label from a consumer manifest's 'repo'
+       and plugin 'id' fields, and unlike the '== consumer: <repo>' header -- which the session hooks
        filter away -- the label travels INTO the session context. Same defense-in-depth reasoning as
        Test-PluginNameSlug and Get-DisplayName: manifest values are never used raw. #>
     param([string]$Label = '')
@@ -387,7 +387,7 @@ function Write-Coverage {
 function Write-CheckSummary {
     <# Prints "Summary: N error(s), N info signal(s)." (green if no errors, red otherwise) and
        exits the script: 1 if $script:errors -gt 0, else 0. Called directly by both
-       check-connectors.ps1 and check-roster-sync.ps1 -- no more duplicated ending to mirror. #>
+       check-consumers.ps1 and check-roster-sync.ps1 -- no more duplicated ending to mirror. #>
     Write-Host "`nSummary: $($script:errors) error(s), $($script:infos) info signal(s)." -ForegroundColor $(if ($script:errors -gt 0) { 'Red' } else { 'Green' })
     if ($script:errors -gt 0) { exit 1 }
     exit 0
@@ -626,7 +626,7 @@ function Test-GitHubOwnerNameSlug {
         Is $Slug ('owner/name') held to GitHub's own shape -- an owner is alphanumeric with hyphens, a
         name adds '.' and '_' -- rather than merely escaped?
 
-        PROMOTED HERE FROM check-connectors.ps1 (#1869), where its own docstring already argued the
+        PROMOTED HERE FROM check-consumers.ps1 (#1869), where its own docstring already argued the
         case: it was factored out inside that script so two call sites could hold ONE field to ONE
         bound rather than keep "a second, silently drifting copy of the regexes". A third caller
         outside that file -- check-consumer-siblings.ps1, which turns the same 'repo' field into the
@@ -684,7 +684,7 @@ function Test-PluginMarketplaceSlug {
 #      closing count was consistent with what the bootstrap DECIDED and not with what the consumer has
 #      switched on -- and the docstring's "without settings, only its own plugin" does not cover this
 #      case at all: there ARE settings, they are one file over.
-#   3. FALSE ALARM. check-connectors reported "plugin is NOT (or no longer) enabled" for that same
+#   3. FALSE ALARM. check-consumers reported "plugin is NOT (or no longer) enabled" for that same
 #      repo in that same session. Literally true about settings.json, false about the session.
 #
 # The pair is what makes this worth a shared helper rather than three local fixes: the identical
@@ -712,7 +712,7 @@ function Get-UserClaudeHome {
        (Get-InstallRecord).
 
        $env:USERPROFILE first -- the convention the rest of these scripts use for the plugin cache, and
-       the variable the connector test already redirects to point a child process at a throwaway home --
+       the variable the consumer test already redirects to point a child process at a throwaway home --
        falling back to $HOME so the plugin's non-Windows consumers resolve something sensible rather than
        a path rooted in the empty string. Returns '' when neither is set, which every caller must read as
        "cannot look" rather than "looked and found nothing". #>
@@ -989,15 +989,15 @@ function Get-EnabledPlugins {
 # state without its owner doing anything at all: no command run, no file changed, git status clean.
 #
 # WHY THIS IS A LIB FUNCTION AND NOT A NEW READER. The query already existed, hand-rolled inside
-# check-connectors' version check -- which is why inbound #302's grep for 'installed_plugins' over the
+# check-consumers' version check -- which is why inbound #302's grep for 'installed_plugins' over the
 # PLUGIN tree came back with prose only: that reader lives in the workshop-owned scripts/sync/, outside
 # the tree it searched. The claim was right as scoped; the fix is to lift that one reader out rather than
 # add a second, since "one reader per call site, tightened in none of them" is the sentence #294 was
-# filed about. check-connectors' record-matching rules (#240: EVERY match, not the first; case- and
+# filed about. check-consumers' record-matching rules (#240: EVERY match, not the first; case- and
 # trailing-separator-insensitive, because two spellings of one path are not two answers) are preserved
 # here verbatim, and its call site now asks this function instead.
 #
-# WHY A PATHLESS RECORD COUNTS FOR EVERY REPO. check-connectors skipped records without a 'projectPath'
+# WHY A PATHLESS RECORD COUNTS FOR EVERY REPO. check-consumers skipped records without a 'projectPath'
 # and was right to -- it is comparing versions for one specific checkout. A "is it installed HERE?"
 # question cannot skip them: a record that is not scoped to a path does not exclude this path. They are
 # therefore kept separately rather than dropped, so a caller states which kind of evidence it found. Note
@@ -1044,7 +1044,7 @@ function Get-InstallRecord {
        deliberately do NOT pass their own -UserHomeOverride through to this function: that parameter is
        documented as pinning the USER LAYER OF THE SETTINGS CHAIN, and the administration is a different
        file answering a different question. A fixture that wants to control the administration redirects
-       $env:USERPROFILE for the child process, which is what the connector version test already does. #>
+       $env:USERPROFILE for the child process, which is what the consumer version test already does. #>
     param(
         [Parameter(Mandatory = $true)][string]$RepoRoot,
         [string]$UserHomeOverride = ''
@@ -1100,7 +1100,7 @@ function Get-InstallRecord {
                         # deleted throwaway directory is the case that produced inbound #301);
                         # Resolve-Path then returns $null and must never be read via .Path under
                         # StrictMode. Such a record cannot be about THIS repo, so skipping it is both
-                        # safe and correct -- carried over verbatim from check-connectors.
+                        # safe and correct -- carried over verbatim from check-consumers.
                         $recResolved = Resolve-Path -LiteralPath $projected.ProjectPath -ErrorAction SilentlyContinue
                         if (-not $recResolved) { continue }
                         if ($recResolved.Path.TrimEnd('\', '/') -ieq $rootKey) {
@@ -1205,7 +1205,7 @@ function Test-PluginInstalledHere {
 # because the record is written after the load phase and the hooks ship in the plugin that session did not
 # load. So even if the state survived, there would be nothing running to report it. Both halves have to be
 # true for the marker to be reachable from a session, and neither is. That is why this marker is documented
-# as reachable only by a DELIBERATE run, and why the workshop's own check-connectors -- which speaks about a
+# as reachable only by a DELIBERATE run, and why the workshop's own check-consumers -- which speaks about a
 # consumer from outside -- remains the only thing that can report the total case.
 #
 # "THE STATE HEALS ITSELF" WAS WRONG, AND IT IS WORTH KEEPING WHY. This block used to argue that
@@ -1220,7 +1220,7 @@ function Test-PluginInstalledHere {
 # All three are real, actionable, and about the repo the session is in, and in all three the repo still
 # WORKS -- the plugin loads from a 'local' or user-scope record just as well. So this is a non-counting
 # marker, not an [ERROR]: a red line plus exit 1 would be a lie. Classification question asked first, per
-# the connectors README rule: no shape can indicate tampering -- all are written by the CLI itself.
+# the consumers README rule: no shape can indicate tampering -- all are written by the CLI itself.
 function Get-RecordShape {
     <# Given an install record set and a plugin id, is the administration for this repo the shape the
        documents assume (exactly one 'project'-scoped record)?
@@ -1499,11 +1499,11 @@ function Get-SpecialistFileShapes {
        shape. A row whose AlsoRead is empty is a kind with one spelling, which is where every kind ends
        up once the last cache carrying the old one is gone -- and that pruning is a decision with a date
        on it, not a tidy-up to fold into the rename. Lens IS THE FIRST ROW TO GET THERE, and its date is
-       September 28, 2026 (#2292): the decision was keyed on check-connectors' lens-naming roll-up (#2289),
+       September 28, 2026 (#2292): the decision was keyed on check-consumers' lens-naming roll-up (#2289),
        the register answering Dave's "once the connector register shows all six are over", and on that day
        five consumers held only the written spelling on their remote trunks and the sixth held no lens
        file at all, so no tree anywhere was still read through '<g>-<id>-extension.md'. A consumer that reappears on that
-       spelling is now read by nothing at all -- that is what retiring it means, and check-connectors'
+       spelling is now read by nothing at all -- that is what retiring it means, and check-consumers'
        check 7 (#2591), which replaced the roll-up once it had done its job, reports such a file as a
        lens that has silently gone missing. The other three kinds have no such condition -- they are
        keyed on which plugin CACHES still carry the old spelling, which no register here can see -- so
@@ -1750,7 +1750,7 @@ function Resolve-PluginDir {
        the USER LAYER OF THE SETTINGS CHAIN, and states that its callers do not forward theirs to it
        because the administration is a different file answering a different question. A fixture that
        wants to control the administration redirects $env:USERPROFILE for the child process, which is
-       what the connector version test already does; adding a passthrough here would offer a second,
+       what the consumer version test already does; adding a passthrough here would offer a second,
        contradicting way to do it. #>
     param(
         [Parameter(Mandatory = $true)][string]$Name,

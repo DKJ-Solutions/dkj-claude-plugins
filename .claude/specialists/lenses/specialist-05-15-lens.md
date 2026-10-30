@@ -529,7 +529,7 @@ infrastructure.
   where does each one's folder sit*, read from `.claude-plugin/marketplace.json`. A script must not
   encode the layout itself: that is a fact about one layout, and this tree has moved twice
   ([how](#how-the-plugin-tree-got-its-current-address)). Dependency-free on purpose: one caller runs at
-  SessionStart (`check-connectors.ps1`, via `connector-sessioncheck`) and another is the fold. Mirrored,
+  SessionStart (`check-consumers.ps1`, via `consumer-sessioncheck`) and another is the fold. Mirrored,
   because `release-lib.ps1` dot-sources it.
 - **`scripts/lib/branch-info.ps1`** — the prefix→label→changelog-type table (shared with the
   release scripts). Deliberately no `release` prefix: a release does not go via a branch/PR but
@@ -600,8 +600,8 @@ granted it.
 
 ### The sibling check, and the one axis this repo's checks never looked along (September 11, 2026, #1869)
 
-Every other check in `connectors/` runs **source → consumer** (`check-consumer-drift.ps1` against agent-def
-copies, `check-connectors.ps1` against a consumer's register record).
+Every other check in `consumers/` runs **source → consumer** (`check-consumer-drift.ps1` against agent-def
+copies, `check-consumers.ps1` against a consumer's register record).
 [`check-consumer-siblings.ps1`](../../../scripts/sync/check-consumer-siblings.ps1) is the one that runs
 **consumer → consumer**: *"shipped centrally"* and *"used centrally"* are different facts, and a session
 inside one consumer cannot see the sibling repo it never opens, whose names have drifted apart. Before
@@ -609,7 +609,7 @@ changing it, know:
 
 - **The grouping is declared (`siblingGroup`), never inferred.** Every consumer shares `dkj-policy`, so a
   plugin-set inference would group a personal-life repo with a Shopify store. The reasoning is in
-  [the register's page](../../../connectors/README.md#the-manifest-format); case 4 of
+  [the register's page](../../../consumers/README.md#the-manifest-format); case 4 of
   [`sibling-divergence.tests.ps1`](../../../scripts/tests/sibling-divergence.tests.ps1) holds it, and it
   is the assert a later "just group by plugin set" change would delete first.
 - **The exclusions are the difference between a report and a wall.** Lenses, `SPECIALISTS.md`, the seam,
@@ -620,7 +620,7 @@ changing it, know:
   a mixed vocabulary would report every path as drifted.
 - **It reports and never prevents** (Dave's call on #1869): `-FailOnFinding` exists and nothing passes it.
   Which plugin should own a shared mechanism is an ownership decision, not a repair a script can make.
-- **`Test-GitHubOwnerNameSlug` lives in `check-report-lib.ps1`**, not `check-connectors.ps1`: a semantic
+- **`Test-GitHubOwnerNameSlug` lives in `check-report-lib.ps1`**, not `check-consumers.ps1`: a semantic
   decision gets one source (#309).
 - **Decided in:** [#1869](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1869), #309,
   [#815](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/815). The 48-path measurement is in
@@ -704,7 +704,7 @@ and are only pointed at below.
 - **Wrap at the call site — `$r = @(Get-Thing …)` — whenever you index or slice.** `return @($x)` of one
   item unrolls to a scalar, so `$r[0]` is its first character and the `.Count` guard still passes.
 - **Verify a `Write-Host` script as a child process** (`& powershell -File …`, `Invoke-Ps` in
-  `connectors.tests.ps1`), the way the hook consumes it — in-process, `Write-Host` never enters the
+  `consumers.tests.ps1`), the way the hook consumes it — in-process, `Write-Host` never enters the
   pipeline and a negative assert passes vacuously.
 - **Run a suite from the tree it judges** — `Push-Location <worktree>` or `git -C`, because
   `git rev-parse --show-toplevel` answers for the process's directory, not the script's. With the rule
@@ -812,14 +812,14 @@ folder by folder:
   four teams, none in either workflow — so a level up described a reach it does not have. It is a
   directory inside a kind directory that is not a plugin, and nothing has to be told so: a script asks
   the marketplace which plugins exist, and this folder is in no marketplace.
-- **[`connectors/`](../../../connectors/)** — the register of which repos have each plugin installed and whether
-  they are in sync (see its own [README](../../../connectors/README.md)). At the root, deliberately **not** under
-  `plugins/`: it is maintenance data read by `scripts/sync/check-connectors.ps1`, not payload, and it
+- **[`consumers/`](../../../consumers/)** — the register of which repos have each plugin installed and whether
+  they are in sync (see its own [README](../../../consumers/README.md)). At the root, deliberately **not** under
+  `plugins/`: it is maintenance data read by `scripts/sync/check-consumers.ps1`, not payload, and it
   must not travel along with the plugin cache.
 - **[`assets/`](../../../assets/)** — material that is neither code nor documentation, one subfolder per kind;
   today that is [`assets/avatars/`](../../../assets/avatars/), the profile images of the GitHub accounts this
   repo is worked on under, one PNG per account and named after it; nothing in the tree reads them. At the root for the same
-  reason as `connectors/` and with one extra property: **the marketplace clone is the whole
+  reason as `consumers/` and with one extra property: **the marketplace clone is the whole
   repository**, so anything here is on every machine at
   `~/.claude/plugins/marketplaces/dkj-marketplace/assets/…` after a
   `claude plugin marketplace update` — no release, no version bump. Under `plugins/` the same files
@@ -830,7 +830,7 @@ folder by folder:
   `subagent-shared-lib.ps1`, and `plugin-tree-lib.ps1`, which answers which plugins this repo publishes
   and where each folder sits, so no other script has to encode the layout), the lint gate + drift
   check, the changelog/PR/release scripts (incl.
-  `cut-release.ps1`), the connectors check (`check-connectors.ps1`), the agent-def generator
+  `cut-release.ps1`), the consumers check (`check-consumers.ps1`), the agent-def generator
   (`build-agent-defs.ps1` — fills in the shared blocks from `plugins/dkj-subagents/subagent-shared/`), and the tests.
   What each script does is on the page of the skill that runs it; the conventions for the directory
   itself are in [the section right below](#the-scripts-directory-is-the-source). A
@@ -891,7 +891,7 @@ administration so a clobber is restorable, #1609, and touches nothing in any rep
 core team's own**: `roster-sessioncheck` (roster-drift signalling), which ships with
 `dkj-subagents-alpha` rather than with the workflow, because it audits the roster against the plugin
 cache rather than against a way of working — everything else in the read-only set
-(`connector-sessioncheck`, `script-contract-sessioncheck`, `consumer-prose-sessioncheck`) and the two
+(`consumer-sessioncheck`, `script-contract-sessioncheck`, `consumer-prose-sessioncheck`) and the two
 hooks that go beyond reporting (`cycle-autopark`, which commits and pushes a branch's development
 document until a PR publishes it, #900; `closeout-gate`, which blocks a close-out past this repo's
 stated band, #2050) ship with `dkj-policy`. **The set is not enumerated in full anywhere**: it was, as three, and went stale twice inside two
@@ -991,14 +991,14 @@ checkout unlinks the plugin there with no error, and a machine that never ran `c
 --scope project` carries no record at all — nothing to unlink and nothing to update
 ([#1449](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1449)).
 
-**What tells you a machine is behind is its own install record, not the connector register.** No
-manifest in [`connectors/`](../../../connectors/README.md) stores a version — that bookkeeping was removed
+**What tells you a machine is behind is its own install record, not the consumer register.** No
+manifest in [`consumers/`](../../../consumers/README.md) stores a version — that bookkeeping was removed
 deliberately (July 20, 2026, see
-[`connectors/README.md`](../../../connectors/README.md#the-manifest-format)): the check reads the version
+[`consumers/README.md`](../../../consumers/README.md#the-manifest-format)): the check reads the version
 actually installed from that machine's own `installed_plugins.json` and compares it to the source
 checkout's `plugin.json`, and the register's only part in that is `localCheckout`, i.e. which machine
-record to read. `connector-sessioncheck` still reports every consumer that lags the source at session
-start, and `scripts/sync/check-connectors.ps1` is still the deliberate full run — that comparison is
+record to read. `consumer-sessioncheck` still reports every consumer that lags the source at session
+start, and `scripts/sync/check-consumers.ps1` is still the deliberate full run — that comparison is
 the only place the answer exists, because the lagging checkout itself reports a plausible version and
 works. And it exists only where a verified source checkout sits beside the consumer on that machine:
 with none found the check is skipped outright
@@ -1023,8 +1023,8 @@ in on October 13, 2026 (Maikel, [#2976](https://github.com/DKJ-Solutions/dkj-cla
 for its dev-preview hook, which is `dkj-policy`'s since
 [#3198](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3198); it stays for the house style,
 and its session check (the hub's DKJ-Solutions card it also gave ended with
-[#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475)). The hook starts the connector dashboard
-(`scripts/dashboard/serve-connector-dashboard.ps1`) through this repo's `Get-DevPreview` as the repo's product, and the
+[#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475)). The hook starts the consumer dashboard
+(`scripts/dashboard/serve-consumer-dashboard.ps1`) through this repo's `Get-DevPreview` as the repo's product, and the
 plugin's hub beside it, as in every other repo ([#3245](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3245);
 this repo opted out with `OwnHub` until [#3540](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3540)).
 The root `CLAUDE.md` imports
@@ -1042,7 +1042,7 @@ September 8 all six had been on, for validation. Before changing this, know:
   everywhere until it was restored
   ([#2978](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2978)).
 - **What switching a plugin off removes**: its blocks in
-  [`connectors/dkj-marketplace.json`](../../../connectors/dkj-marketplace.json) (`connectors.tests.ps1`'s
+  [`consumers/dkj-marketplace.json`](../../../consumers/dkj-marketplace.json) (`consumers.tests.ps1`'s
   self-manifest case fails on a registered plugin that is not enabled), the add-on teams' 11 empty lenses
   and roster rows (else an `[ORPHANS]` line at every session start), and the root `CLAUDE.md`'s import of
   the BWJ extension.
@@ -1053,12 +1053,12 @@ September 8 all six had been on, for validation. Before changing this, know:
   source, but this repo does not use it: an issue here is filed with a plain `gh issue create`, carrying
   `prio-N` and, where it applies, `minor` ([Chris's lens](specialist-01-01-lens.md)).
   `adopt-bwj-development` was never run here. To use the chapter again, set the plugin to `true`, restore
-  the import and the connector block, and run `adopt-bwj-development`.
+  the import and the consumer block, and run `adopt-bwj-development`.
 - **What is given up is the early warning.** The add-on teams were on so that a broken agent def,
   manifest, frontmatter or hook surfaced at this repo's own session start; it cost every session ~2.9k
   tokens for three teams with no work here. A broken add-on plugin now surfaces in a consumer that runs
   it, or in this repo's own gates, which read the plugin trees directly. To validate one again, set it to
-  `true`, run `sync-roster` for its rows and lenses, and re-add its block to the connector record.
+  `true`, run `sync-roster` for its rows and lenses, and re-add its block to the consumer record.
 - **A re-enable should not read two known costs as breakage.** Every specialist an enabled plugin ships
   needs a roster row and a lens (eleven kept empty on purpose). And `dkj-subagents-shopify`'s floor check
   asks which theme is live: **this repo declares `Get-ShopifyRepoHasNoStore` in
@@ -1097,7 +1097,7 @@ layer states the current answer once, in `scripts/repo-config.ps1`. Before chang
   a consumer and check this repository out by name, so a consumer scaffolded before September 10 still
   names the old slug and the guard over it would see nothing. `Get-RetiredRepoNames` in
   [`scripts/repo-config.ps1`](../../../scripts/repo-config.ps1) states the retired names and
-  `check-connectors.ps1` matches them alongside the current one. **The list only grows.**
+  `check-consumers.ps1` matches them alongside the current one. **The list only grows.**
 - **Existing citations are corrected when a file is edited for other reasons, not swept**
   ([#1526](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1526)): both spellings resolve, and a
   sweep is a diff nobody can review. The archived release history under `dkj-policy/releases/**` stays as
@@ -1120,7 +1120,7 @@ Moved here from `.claude/rules/this-repo.md` under
 
 Since August 3, 2026 the plugins sit **one** level down in `plugins/<plugin>/` instead of two in
 `claude-code-plugins/claude-specialists/<plugin>/`; the
-[one-product rule](specialist-06-16-lens.md#one-product-one-repository) retired the second level. `connectors/`
+[one-product rule](specialist-06-16-lens.md#one-product-one-repository) retired the second level. `consumers/`
 moved **to the root** in the same movement, deliberately: it is the consumer register read by
 `scripts/sync/`, not plugin payload, and must not travel in the plugin cache. The shared-block source
 stayed **inside** `plugins/` because it *is* plugin source, and was moved twice: to
@@ -1243,7 +1243,7 @@ or do not re-propose it.
 | Nested-worktree exclusion, **DECLINED** | The gate refuses a nested worktree ([#1673](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1673)) rather than excluding it from its walks | [#1678](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1678), [#1665](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1665), [#1667](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1667) | Lint runs first and refuses, so the doubled walks never run; a remembered predicate at ~20 sites is the shape #1665 was filed against; lanes live outside the tree |
 | Check 37, `.DESCRIPTION` list | Every column-0 header has an entry in the gate's marked list | [#1680](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1680), [#1494](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1494) | One direction and opt-in, so born green with 0 exemptions; the stale-entry gap is named in the check's header |
 | Check 38 removal, **DECLINED** | Check 38 keeps every def in its manifest's `agents` key | [#1771](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1771), [#1764](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1764) | A dispatch control showed the loader honours the key exclusively; `Agents (0)` in `plugin details` is inventory only. `measure-skill` was repaired instead ([#1628](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1628)) |
-| Retired-id `continue` | `check-connectors.ps1` asks the install-record question for a retired id too | [#1802](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1802), [#533](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/533), [#1773](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1773) | The report's "no check makes this comparison" was false; the real defect was a `continue` skipping a check that needs no source folder |
+| Retired-id `continue` | `check-consumers.ps1` asks the install-record question for a retired id too | [#1802](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1802), [#533](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/533), [#1773](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1773) | The report's "no check makes this comparison" was false; the real defect was a `continue` skipping a check that needs no source folder |
 | Check 39, mirror depth | A shared entry point whose `$PSScriptRoot` climb differs by copy declares a suite that runs the mirror | [#1857](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/1857), [#275](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/275), [#331](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/331) | Check 8's byte equality proves text, not behaviour; 3 of 34 entry points cross; the gate requires the declaration, not the assertion |
 
 **Live rules, read before changing a check**

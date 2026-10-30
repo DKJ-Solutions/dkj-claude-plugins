@@ -6,12 +6,12 @@
 
 .DESCRIPTION
     ANSWERS A QUESTION NO EXISTING CHECK DOES: "is the plugin version this checkout loads the same as
-    the one the marketplace clone holds, and if not, which command closes the gap?" The connector
+    the one the marketplace clone holds, and if not, which command closes the gap?" The consumer
     session check goes inert on a plain consumer with no sibling source checkout: the HOOK
-    (connector-sessioncheck.ps1) prints "no verified workshop checkout found -- check skipped" on its
-    own early-exit path and never reaches check-connectors.ps1, whose check 4 is the version
+    (consumer-sessioncheck.ps1) prints "no verified workshop checkout found -- check skipped" on its
+    own early-exit path and never reaches check-consumers.ps1, whose check 4 is the version
     comparison that then never runs. So there is no version signal at all. Naming the hook rather
-    than the check matters: that string is the hook's, and grepping check-connectors.ps1 for it finds
+    than the check matters: that string is the hook's, and grepping check-consumers.ps1 for it finds
     nothing. This script needs only two things every consumer machine already has:
 
       1. THE INSTALL RECORD -- ~/.claude/plugins/installed_plugins.json, the record whose projectPath
@@ -867,8 +867,8 @@ if ($Json) {
 if ($Brief) {
     <#
         WHY THIS IS A MODE AND NOT A SECOND SCRIPT (#1591). On a machine with no sibling source
-        checkout beside the consumer, connector-sessioncheck.ps1 has nothing to delegate to --
-        check-connectors.ps1 is source-only and is not plugin-carried -- so the hook printed
+        checkout beside the consumer, consumer-sessioncheck.ps1 has nothing to delegate to --
+        check-consumers.ps1 is source-only and is not plugin-carried -- so the hook printed
         'no verified workshop checkout found -- check skipped' and a session got no version signal at
         all. That is the ordinary state of every consumer, not an edge case. This mode is what the
         hook prints there: the same rows the default view builds, reduced to one line per plugin that
@@ -901,7 +901,7 @@ if ($Brief) {
     # enabled plugin has a record loads no hooks either, so nothing invokes this mode there and no
     # marker of any severity appears. That is the #1802 life-hub state, and it is structurally out of
     # reach from inside the affected checkout -- the vantage point that can see it is
-    # check-connectors.ps1 in the source repo, walking the register. What this marker fixes is the
+    # check-consumers.ps1 in the source repo, walking the register. What this marker fixes is the
     # PARTIAL case: some plugins loaded, one enabled and never installed, and until now the reader was
     # told so at the quietest marker the tool has.
     $notInstalled = @($rows | Where-Object { $_.Code -eq 'not-installed' })
@@ -916,7 +916,7 @@ if ($Brief) {
 
     # EVERY FIELD ON A BRIEF LINE IS SANITIZED, and this mode is where that stops being optional
     # (Sebastian, on #1591). The default view above prints to a terminal somebody is reading; these
-    # lines are forwarded verbatim into a session's CONTEXT by connector-sessioncheck, on the common
+    # lines are forwarded verbatim into a session's CONTEXT by consumer-sessioncheck, on the common
     # consumer path, at every start and every compaction. Two of the three fields are not the tool's
     # own words:
     #

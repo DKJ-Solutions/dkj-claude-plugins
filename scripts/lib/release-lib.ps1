@@ -715,7 +715,7 @@ function Set-ReleaseInternalNoteLink {
 # the one sentence that carries the whole argument for the layer this function now sits in. A size written
 # into prose drifts with every commit to the file it describes, and here it drifts in the direction that
 # WEAKENS the argument: the stale figure invites a reader to reconsider a decision the real number settles
-# harder. It also gets copied rather than re-measured -- check-connectors.ps1 declined to call into this
+# harder. It also gets copied rather than re-measured -- check-consumers.ps1 declined to call into this
 # lib and cited THIS docstring as its evidence (#1775), so one stale number became two. "thousands" cannot
 # go stale upward, which is the only direction that file has ever moved.
 

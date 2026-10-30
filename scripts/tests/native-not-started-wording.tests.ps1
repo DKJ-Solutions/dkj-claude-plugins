@@ -33,7 +33,7 @@
     cases.
 
     TWO OF THE SIX ARE WORDED DIFFERENTLY ON PURPOSE, and case 3 is what stops that being read as drift.
-    check-repo-settings.ps1 and check-connectors.ps1 both sit behind a `Get-Command gh` guard that has
+    check-repo-settings.ps1 and check-consumers.ps1 both sit behind a `Get-Command gh` guard that has
     ALREADY proved gh is on PATH before their capture is taken, so "gh is not installed" would be a
     cause the run has measured to be false -- the very class of unmeasured diagnosis this whole family
     exists to stop printing. What is reachable at those two is a gh that was found and still could not be
@@ -79,7 +79,7 @@ $sites = @(
        What        = 'the DEPLOY-lock read'
        NotStarted  = 'gh is not installed here, or is not on PATH (issue #2234), so the read never ran'
        Unmeasured  = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing is known about the read' }
-    @{ File        = 'scripts\sync\check-connectors.ps1'
+    @{ File        = 'scripts\sync\check-consumers.ps1'
        What        = "a consumer's repo read (behind a Get-Command and an auth gate)"
        NotStarted  = 'gh was found and authenticated at the start of this run but could not be started for this read (issue #2234)'
        Unmeasured  = 'gh ran and its exit code came back unmeasurable (issue #1931), so nothing arrived that this could judge' }
@@ -151,7 +151,7 @@ Write-Host ''
 Write-Host '-- 3. a site behind a PATH guard names a launch failure, not an absent CLI --' -ForegroundColor Cyan
 foreach ($guarded in @(
     @{ File = 'scripts\lint\check-repo-settings.ps1'; Guard = 'Get-Command gh' }
-    @{ File = 'scripts\sync\check-connectors.ps1';    Guard = 'Get-Command gh' }
+    @{ File = 'scripts\sync\check-consumers.ps1';    Guard = 'Get-Command gh' }
 )) {
     $src  = $sourceCache[$guarded.File]
     $leaf = Split-Path -Leaf $guarded.File

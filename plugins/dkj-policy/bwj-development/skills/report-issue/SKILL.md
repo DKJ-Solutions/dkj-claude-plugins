@@ -53,20 +53,20 @@ rather than by this page**: the reach-label gate in step 2 below. The full rule 
 - **Probe the BOARD, not the tool list.** Read the project `Get-AsanaProjectGid` names -- the same
   read step 2 makes for the section and the select-field options, only made earlier, so it costs no
   extra round trip and its answer carries forward. **Availability and authorization come apart:** a
-  connector can be registered, authenticated and answering, and still be bound to a *different
+  consumer can be registered, authenticated and answering, and still be bound to a *different
   workspace* than the one `Get-AsanaWorkspaceGid` names -- and then the tool list looks perfectly
   healthy while every call against this board returns `unauthorized`. A preflight that asks only
   whether the tools are there reports green for a connection that cannot do the job, and the session
   learns it from a failing `create task` in step 2, half way through the procedure the preflight
   exists to get ahead of.
 - **A missing tool and an `unauthorized` board take the same branch: still do step 1, then stop with a
-  clear note -- never skip the GitHub issue.** Say in that note that the connector is authorized
+  clear note -- never skip the GitHub issue.** Say in that note that the consumer is authorized
   against the **wrong workspace**, because *available but unauthorized* reads to a session as a
-  connector it broke, whereas the remedy is a re-authorization against the workspace the seam names
+  consumer it broke, whereas the remedy is a re-authorization against the workspace the seam names
   and is not something a session can do from here. Measured on a `smartwatchbanden` checkout,
   September 15, 2026 ([#2028](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2028)): both
-  registered Asana connectors authenticated and both `Not Authorized` for the project the seam names,
-  while a script over a personal `ASANA_PAT` read that same board fine -- so the connector was bound to a
+  registered Asana consumers authenticated and both `Not Authorized` for the project the seam names,
+  while a script over a personal `ASANA_PAT` read that same board fine -- so the consumer was bound to a
   different workspace than the token, and only the MCP was wrong.
 
 ## Step 1 -- the GitHub issue (always)

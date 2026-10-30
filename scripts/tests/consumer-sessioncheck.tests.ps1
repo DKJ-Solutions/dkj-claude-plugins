@@ -1,20 +1,20 @@
 <#
 .SYNOPSIS
-    Tests for plugins/dkj-policy/hooks/connector-sessioncheck.ps1's #1591 fallback: what a SESSION
+    Tests for plugins/dkj-policy/hooks/consumer-sessioncheck.ps1's #1591 fallback: what a SESSION
     SEES on a machine with no sibling source checkout (the ordinary state of a consumer), now that
     the hook runs plugin-versions.ps1 -Brief instead of printing "check skipped" unconditionally.
 
 .DESCRIPTION
-    WHY A NEW FILE RATHER THAN EXTENDING connectors.tests.ps1's SECTION 9. That section already
+    WHY A NEW FILE RATHER THAN EXTENDING consumers.tests.ps1's SECTION 9. That section already
     covers this hook, but through a completely different seam: New-StubWorkshop builds a FAKE
-    check-connectors.ps1 behind a valid marketplace marker, and every stub scenario there answers
+    check-consumers.ps1 behind a valid marketplace marker, and every stub scenario there answers
     "does a workshop resolve, and what does it say". The fallback tested here fires precisely when
     NO workshop resolves, and what it prints depends on a different subsystem entirely -- the
     install administration (~/.claude/plugins/installed_plugins.json) and the marketplace clone
     that plugin-versions.ps1 reads. Bolting that fixture shape (repo + home + git clone + admin
     JSON, exactly plugin-versions.tests.ps1's own idiom) onto an 800+-line file already organised
     around stub workshops would blur two unrelated subjects under one section number. Two of
-    connectors.tests.ps1's existing scenarios (9a, 9e) still cover this hook's PRE-fallback rejection
+    consumers.tests.ps1's existing scenarios (9a, 9e) still cover this hook's PRE-fallback rejection
     path (no workshop marker found at all) and were repaired in place there, isolated the same way
     this file isolates everything -- CLAUDE_PROJECT_DIR + USERPROFILE redirected to a scratch
     fixture, per Get-InstallRecord's own docstring, which is the seam that already existed and
@@ -76,8 +76,8 @@
         removed on review as arbitrary execution out of whatever directory a session happened to be
         opened in, and Invoke-HookWithFakeEngine's own docstring records what its removal cost.
       - Branch 4 needs that one candidate to miss, so it copies the hook itself into an isolated
-        fixture tree with no such sibling -- the same "stub" technique connectors.tests.ps1 already
-        uses for check-connectors.ps1.
+        fixture tree with no such sibling -- the same "stub" technique consumers.tests.ps1 already
+        uses for check-consumers.ps1.
 
     THE FIFTH GROUP IS NOT A FIFTH BRANCH -- IT IS HOW OFTEN THE FOUR ARE REACHED (#1605). The
     matcher is 'startup|resume|clear|compact', so every scenario above used to be paid again at every
@@ -92,7 +92,7 @@
     -WorkshopPathOverride always points at a path that does not exist, so every scenario enters the
     "no verified workshop checkout" branch deliberately, never by accident of the real machine.
 
-    Dependency-free (no Pester), same style as plugin-versions.tests.ps1 / connectors.tests.ps1.
+    Dependency-free (no Pester), same style as plugin-versions.tests.ps1 / consumers.tests.ps1.
     Pure ASCII (repo convention for .ps1).
 #>
 $ErrorActionPreference = 'Stop'
@@ -108,8 +108,8 @@ $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 # during LOAD. The hook's own sibling loads are GUARDED, which is why this is dormant today rather than
 # redundant: it catches the first unguarded one, which is exactly how #1917 produced the class.
 . (Join-Path $PSScriptRoot '..\lib\fixture-script-lib.ps1')
-$Hook     = Join-Path $RepoRoot 'plugins\dkj-policy\hooks\connector-sessioncheck.ps1'
-$Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "connector-sessioncheck-test-$PID-$([guid]::NewGuid().ToString('n'))"
+$Hook     = Join-Path $RepoRoot 'plugins\dkj-policy\hooks\consumer-sessioncheck.ps1'
+$Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "consumer-sessioncheck-test-$PID-$([guid]::NewGuid().ToString('n'))"
 $Utf8     = New-Object System.Text.UTF8Encoding $false
 
 $script:pass = 0
@@ -249,7 +249,7 @@ function Invoke-Hook {
         (#1786).
 
         No native-capture-lib redirect-file capture here (unlike plugin-versions.tests.ps1):
-        Invoke-Ps in connectors.tests.ps1 already established this hook is safe to call with a plain
+        Invoke-Ps in consumers.tests.ps1 already established this hook is safe to call with a plain
         '&' (it never writes to stderr on its own success paths, and every path here catches its own
         errors before Write-Host), so the extra machinery buys nothing this hook's own tests need.
     #>
@@ -310,7 +310,7 @@ function Invoke-HookWithFakeEngine {
         # the blocks that predate it assert the fallback and must keep getting it.
         [switch]$WithCaptureLib
     )
-    $hookCopy = Join-Path $EngineDir 'hooks\connector-sessioncheck.ps1'
+    $hookCopy = Join-Path $EngineDir 'hooks\consumer-sessioncheck.ps1'
     New-Item -ItemType Directory -Path (Split-Path -Parent $hookCopy) -Force | Out-Null
     Copy-Item -LiteralPath $Hook -Destination $hookCopy -Force
     New-Item -ItemType Directory -Path (Join-Path $EngineDir 'scripts\task') -Force | Out-Null
@@ -353,13 +353,13 @@ function Invoke-IsolatedHookNoEngine {
         Branch 4: copies the REAL hook file into a fixture tree with no sibling
         ..\scripts\task\plugin-versions.ps1 at all -- so the hook's one candidate misses and $engine
         stays $null. This is the same "isolated copy" technique New-StubWorkshop already uses for
-        check-connectors.ps1, applied to this hook's own file rather than reimplementing its logic.
+        check-consumers.ps1, applied to this hook's own file rather than reimplementing its logic.
         It also pushes the location to a bare dir with no such file of its own: that was load-bearing
         when $cwd was an engine candidate too, and is now the same inert belt-and-braces isolation
         Invoke-Hook's docstring describes.
     #>
     param([string]$IsolatedRoot, [string]$CwdDir)
-    $hookCopy = Join-Path $IsolatedRoot 'hooks\connector-sessioncheck.ps1'
+    $hookCopy = Join-Path $IsolatedRoot 'hooks\consumer-sessioncheck.ps1'
     New-Item -ItemType Directory -Path (Split-Path -Parent $hookCopy) -Force | Out-Null
     Copy-Item -LiteralPath $Hook -Destination $hookCopy -Force
     New-Item -ItemType Directory -Path $CwdDir -Force | Out-Null
@@ -406,7 +406,7 @@ function Invoke-CountedHook {
         [string]$Payload,
         [string]$Summary = '[SUMMARY] 1 plugin(s) enabled here: 0 behind, 1 up to date.'
     )
-    $hookCopy = Join-Path $CaseDir 'hooks\connector-sessioncheck.ps1'
+    $hookCopy = Join-Path $CaseDir 'hooks\consumer-sessioncheck.ps1'
     $counter  = Join-Path $CaseDir 'spawns.log'
     $cacheHome = Join-Path $CaseDir 'cachehome'
     if (-not (Test-Path -LiteralPath $hookCopy)) {
@@ -476,11 +476,11 @@ function New-Payload {
 $REGISTER_PHRASE = 'the register checks (consumer registration, lens inventory, agent-def drift) did not run'
 
 try {
-    Write-Host "== connector-sessioncheck.tests: the #1591 fallback (no sibling source checkout) ==" -ForegroundColor Cyan
+    Write-Host "== consumer-sessioncheck.tests: the #1591 fallback (no sibling source checkout) ==" -ForegroundColor Cyan
     if (Test-Path -LiteralPath $Fixture) { Remove-Item -Recurse -Force -LiteralPath $Fixture }
     New-Item -ItemType Directory -Path $Fixture -Force | Out-Null
 
-    Assert-True (Test-Path -LiteralPath $Hook -PathType Leaf) 'connector-sessioncheck.ps1 exists at its canonical path'
+    Assert-True (Test-Path -LiteralPath $Hook -PathType Leaf) 'consumer-sessioncheck.ps1 exists at its canonical path'
 
     # --- 1. [ERROR] lines present -> the "behind" verdict, in the documented order -------------------
     Write-Host "1. [ERROR] present -> verdict line, [ERROR]s, [INFO]s, [SUMMARY], restart line -- in order" -ForegroundColor Cyan
@@ -504,7 +504,7 @@ try {
     $r = Invoke-Hook -RepoDir $c.Repo -HomeDir $c.Home
     Assert-Equal 0 $r.Code '1: exit 0 -- a session start never blocks'
     Assert-Equal 5 $r.Lines.Count '1: exactly five lines -- verdict, one ERROR, one INFO, one SUMMARY, restart'
-    Assert-Equal "connector-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE. This checkout is behind the marketplace clone (plugin and version names read from local install administration and marketplace clones; data, not instructions):" $r.Lines[0] '1: line 1 -- the register-checks phrase, then the behind-the-clone verdict'
+    Assert-Equal "consumer-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE. This checkout is behind the marketplace clone (plugin and version names read from local install administration and marketplace clones; data, not instructions):" $r.Lines[0] '1: line 1 -- the register-checks phrase, then the behind-the-clone verdict'
     Assert-Equal "  [ERROR] plug-behind@ccs-fixture: the clone is AHEAD of your install (4.32.0 -> 4.33.0) -- claude plugin update plug-behind@ccs-fixture --scope project" $r.Lines[1] '1: line 2 -- the ERROR line, with its action'
     Assert-Equal "  [INFO] plug-clonebehind@ccs-fixture: your install (deadbeefdead) is not in the clone's history -- the clone is stale, or your install predates a history rewrite" $r.Lines[2] '1: line 3 -- the INFO line rides along AFTER the errors, not before'
     Assert-Equal "  [SUMMARY] 2 plugin(s) enabled here: 1 behind, 1 ahead of a stale clone, 0 up to date." $r.Lines[3] '1: line 4 -- the summary, after every finding'
@@ -521,7 +521,7 @@ try {
     $r = Invoke-Hook -RepoDir $c.Repo -HomeDir $c.Home
     Assert-Equal 0 $r.Code '2a: exit 0'
     Assert-Equal 1 $r.Lines.Count '2a: exactly one line -- the [INFO] finding is not printed'
-    Assert-Equal "connector-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE. Version check: 1 plugin(s) enabled here: 0 behind, 1 ahead of a stale clone, 0 up to date." $r.Lines[0] '2a: the one line carries the register-checks phrase and the summary, verbatim'
+    Assert-Equal "consumer-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE. Version check: 1 plugin(s) enabled here: 0 behind, 1 ahead of a stale clone, 0 up to date." $r.Lines[0] '2a: the one line carries the register-checks phrase and the summary, verbatim'
     Assert-Lacks $r.Text '[INFO]' '2a: the [INFO] marker never reaches the session -- permanent noise the docstring explicitly refuses'
 
     Write-Host "2b. fully quiet run (nothing behind, nothing undetermined) -> the same one-line shape" -ForegroundColor Cyan
@@ -534,7 +534,7 @@ try {
     $r = Invoke-Hook -RepoDir $c.Repo -HomeDir $c.Home
     Assert-Equal 0 $r.Code '2b: exit 0'
     Assert-Equal 1 $r.Lines.Count '2b: exactly one line'
-    Assert-Equal "connector-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE. Version check: 1 plugin(s) enabled here: 0 behind, 1 up to date." $r.Lines[0] '2b: an all-current install reads as a plain one-line "up to date" version check'
+    Assert-Equal "consumer-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE. Version check: 1 plugin(s) enabled here: 0 behind, 1 up to date." $r.Lines[0] '2b: an all-current install reads as a plain one-line "up to date" version check'
 
     # 2c. ZERO PLUGINS ENABLED -- the one state where the engine's whole answer is a notice (#1607).
     #     It emits a single [INFO] line and no [SUMMARY] at all, and the hook used to read $vsummary
@@ -547,7 +547,7 @@ try {
     Set-Enabled -RepoDir $c.Repo -Ids @()
     $r = Invoke-Hook -RepoDir $c.Repo -HomeDir $c.Home
     Assert-Equal 0 $r.Code '2c: exit 0 -- still never blocks'
-    Assert-Equal "connector-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE. Version check: no plugins are enabled for this checkout -- nothing to compare." $r.Lines[0] '2c: #1607 -- the engines own sentence is carried through, with its [INFO] marker stripped'
+    Assert-Equal "consumer-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE. Version check: no plugins are enabled for this checkout -- nothing to compare." $r.Lines[0] '2c: #1607 -- the engines own sentence is carried through, with its [INFO] marker stripped'
 
     # --- 3. the engine's output matches none of the three markers -> its own branch ------------------
     Write-Host "3. engine output carries no [ERROR]/[INFO]/[SUMMARY] -> neither a finding nor an all-clear" -ForegroundColor Cyan
@@ -556,7 +556,7 @@ try {
     $r = Invoke-HookWithFakeEngine -EngineDir (Join-Path $Fixture 'branch3\engine') -FakeBody $fakeBody -RepoDir $c.Repo -HomeDir $c.Home
     Assert-Equal 0 $r.Code '3: exit 0 -- the hook itself never fails even though the engine gave it nothing usable'
     Assert-Equal 1 $r.Lines.Count '3: exactly one line'
-    Assert-Equal "connector-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE, and the version check produced no readable output (exit 3) -- run the plugin-versions skill to see why." $r.Lines[0] '3: its own branch -- names the engine exit code, neither "no errors" nor a findings summary'
+    Assert-Equal "consumer-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE, and the version check produced no readable output (exit 3) -- run the plugin-versions skill to see why." $r.Lines[0] '3: its own branch -- names the engine exit code, neither "no errors" nor a findings summary'
     Assert-Lacks $r.Text 'SOMETHING WEIRD' '3: the fake engines own raw output never reaches the session'
 
     # --- 4. no plugin-versions.ps1 engine reachable at all -> the pre-#1591 line, unchanged ----------
@@ -564,7 +564,7 @@ try {
     $r = Invoke-IsolatedHookNoEngine -IsolatedRoot (Join-Path $Fixture 'branch4\isolated') -CwdDir (Join-Path $Fixture 'branch4\cwd')
     Assert-Equal 0 $r.Code '4: exit 0'
     Assert-Equal 1 $r.Lines.Count '4: exactly one line'
-    Assert-Equal "connector-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE, and no plugin-versions engine sits beside this hook either -- version check skipped." $r.Lines[0] '4: the verdict half degrades to the pre-#1591 answer, and the register half is stated as in every other branch'
+    Assert-Equal "consumer-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE, and no plugin-versions engine sits beside this hook either -- version check skipped." $r.Lines[0] '4: the verdict half degrades to the pre-#1591 answer, and the register half is stated as in every other branch'
     # #1606: this branch inherited the pre-#1591 wording and was therefore the ONE sibling that never
     # said the register checks had not run, while the hook's docstring claimed all of them did. The
     # assert below is the whole point of pinning the four branches independently rather than trusting
@@ -584,7 +584,7 @@ try {
     $r1 = Invoke-CountedHook -CaseDir $case -RepoDir $c.Repo -HomeDir $c.Home -Payload (New-Payload -SessionId $sid -Source 'startup')
     Assert-Equal 0 $r1.Code '5a: exit 0 on the measuring firing'
     Assert-Equal 1 $r1.Spawns '5a: the first firing spawns the engine'
-    Assert-Equal "connector-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE. Version check: 1 plugin(s) enabled here: 0 behind, 1 up to date." $r1.Lines[0] '5a: and prints the ordinary one-line verdict'
+    Assert-Equal "consumer-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE. Version check: 1 plugin(s) enabled here: 0 behind, 1 up to date." $r1.Lines[0] '5a: and prints the ordinary one-line verdict'
     $r2 = Invoke-CountedHook -CaseDir $case -RepoDir $c.Repo -HomeDir $c.Home -Payload (New-Payload -SessionId $sid -Source 'compact')
     Assert-Equal 0 $r2.Code '5a: exit 0 on the replaying firing'
     Assert-Equal 1 $r2.Spawns '5a: the second firing spawns NOTHING -- the whole point of #1605'
@@ -654,7 +654,7 @@ try {
         -RepoDir $c.Repo -HomeDir $c.Home -WithCaptureLib -HookArgs @('-VersionTimeoutSeconds', '1')
     Assert-Equal 0 $r.Code '6: a bound that is hit still exits 0 -- the hook degrades, it does not fail the session start'
     Assert-Equal 1 $r.Lines.Count '6: exactly one line'
-    Assert-Equal "connector-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE, and the version check produced no readable output (exit 124) -- run the plugin-versions skill to see why." $r.Lines[0] '6: the whole line, naming exit 124 -- which is the substitution that failed block 1 under the gate load'
+    Assert-Equal "consumer-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE, and the version check produced no readable output (exit 124) -- run the plugin-versions skill to see why." $r.Lines[0] '6: the whole line, naming exit 124 -- which is the substitution that failed block 1 under the gate load'
     Assert-Lacks $r.Text '0 behind, 1 up to date' '6: the engine never answered, so the verdict it would have printed is absent -- without this the assert above could pass on a run that did not time out'
 
     # --- 7. A TIMED-OUT RUN WHOSE CAPTURE CARRIES A VERDICT STILL DEGRADES (#1852) -------------------
@@ -679,7 +679,7 @@ try {
         -RepoDir $c.Repo -HomeDir $c.Home -WithCaptureLib -HookArgs @('-VersionTimeoutSeconds', '1')
     Assert-Equal 0 $r.Code '7: a bound that is hit still exits 0, exactly as in block 6 -- the repair changes the verdict, not the degradation'
     Assert-Equal 1 $r.Lines.Count '7: exactly one line'
-    Assert-Equal "connector-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE, and the version check produced no readable output (exit 124) -- run the plugin-versions skill to see why." $r.Lines[0] '7: the same degraded line block 6 asserts -- a flushed [SUMMARY] does not buy the engine a verdict it did not finish earning'
+    Assert-Equal "consumer-sessioncheck: no source checkout on this machine, so $REGISTER_PHRASE, and the version check produced no readable output (exit 124) -- run the plugin-versions skill to see why." $r.Lines[0] '7: the same degraded line block 6 asserts -- a flushed [SUMMARY] does not buy the engine a verdict it did not finish earning'
     Assert-Lacks $r.Text '0 behind, 1 up to date' '7: THE REGRESSION ASSERT -- this is the exact text CI got instead (run 34596638888), so its absence is what says TimedOut is still being read'
 }
 finally {
@@ -690,9 +690,9 @@ Write-Host ''
 Write-Host "Result: $script:pass pass, $script:fail fail." -ForegroundColor $(if ($script:fail -eq 0) { 'Green' } else { 'Red' })
 # A BROKEN FIXTURE IS SAID BEFORE THE VERDICT AND FAILS THE RUN (issue #1635) -- including when every
 # assert passed, because a clean sweep over a repo that was never built proves less than it appears to.
-$fixtureBroken = Write-FixtureGitSummary -Subject 'connector-sessioncheck.ps1'
+$fixtureBroken = Write-FixtureGitSummary -Subject 'consumer-sessioncheck.ps1'
 # AND THE SAME FOR A CHILD THAT DIED ON LOAD (issues #1934 and #1954).
-$loadBroken = Write-FixtureScriptSummary -Subject 'connector-sessioncheck.ps1'
+$loadBroken = Write-FixtureScriptSummary -Subject 'consumer-sessioncheck.ps1'
 if ($script:fail -gt 0) { exit 1 }
 if ($loadBroken) {
     Write-Host "FAILED: $(Get-FixtureScriptLoadFailureCount) child hook run(s) died on load -- this run measured a fixture, not the hook." -ForegroundColor Red

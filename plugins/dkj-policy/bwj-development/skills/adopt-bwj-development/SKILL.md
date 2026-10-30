@@ -598,7 +598,7 @@ permanent header the first real entry lands under. See
 - It does not enable the plugin -- that is a `.claude/settings.json` change you make first.
 - It does not create the Asana project or token.
 - It does not copy or maintain any CI workflow, and it sets no repo secret or variable.
-- It does not register this repo in the source repo's `connectors/` register -- that happens in the
+- It does not register this repo in the source repo's `consumers/` register -- that happens in the
   source repo after this repo's settings change has merged.
 - **It does not set up the shared pages worker.** That seam (`Get-BwjPagesConfig`), the KV namespace
   and the one-time deploy are [`publish-page`](../publish-page/SKILL.md)'s own setup section, and they

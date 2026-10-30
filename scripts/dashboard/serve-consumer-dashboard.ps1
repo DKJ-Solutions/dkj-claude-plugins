@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
     Serve this repo's PRODUCT on http://localhost:<Port>/ (#3540): the home page on '/', and this repo's own
-    pages, which it links: /consumers, every repo registered under connectors/ with its plugins, its local
-    checkout and what check-connectors.ps1 reports for it on this machine (#2976), one card per owner group
+    pages, which it links: /consumers, every repo registered under consumers/ with its plugins, its local
+    checkout and what check-consumers.ps1 reports for it on this machine (#2976), one card per owner group
     with each group a page of its own at /consumers/dkj, /bwj and /other -- the DKJ one a card per
     DKJ-Solutions repo on GitHub or checked out here (#3231; its own page at /dkj-repos until #3549, which now
     redirects there), each opening a page of its own at /consumers/dkj/<name>: the repo, what the register's
@@ -28,7 +28,7 @@
     Get-DevPreview in scripts/repo-config.ps1, as the repo's product beside the plugin's hub (#3540); it can
     be started by hand the same way:
 
-        powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dashboard\serve-connector-dashboard.ps1 -Port 4870
+        powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dashboard\serve-consumer-dashboard.ps1 -Port 4870
 
     A TcpListener ON 127.0.0.1, NOT AN HttpListener. Under HttpListener the listening socket belongs to
     http.sys (the System process, PID 4), so the hook's ownership check -- which walks from the socket's
@@ -38,7 +38,7 @@
     not localhost:<Port> or 127.0.0.1:<Port> is refused (DNS rebinding).
 
     THE DATA IS READ ON DEMAND AND KEPT FOR -CacheSeconds. The first request after that runs
-    check-connectors.ps1 again, drift check included (#2997, about 1.4 s more), reads every connectors/*.json, and asks
+    check-consumers.ps1 again, drift check included (#2997, about 1.4 s more), reads every consumers/*.json, and asks
     git for the last commit on each checkout's trunk -- local refs only, no fetch.
     /refresh drops the cache and redirects to the page.
 
@@ -56,11 +56,11 @@
     root first, as the hook's own start line does, so the hook still recognises it as this checkout's.
     The home page's footer names that loaded commit, not the live one. Static files skip the check.
     A successor that dies at start (a broken commit) leaves the port empty, with the reason in
-    %TEMP%\serve-connector-dashboard-<Port>-<guid>.log; the next session's hook starts a server again. A root
+    %TEMP%\serve-consumer-dashboard-<Port>-<guid>.log; the next session's hook starts a server again. A root
     holding '%' or '"', which cmd.exe would rewrite, gets the notice but no restart.
 
-    Pure ASCII (repo convention for .ps1). The page's rules are in scripts/lib/connector-dashboard-lib.ps1,
-    tested by scripts/tests/connector-dashboard.tests.ps1.
+    Pure ASCII (repo convention for .ps1). The page's rules are in scripts/lib/consumer-dashboard-lib.ps1,
+    tested by scripts/tests/consumer-dashboard.tests.ps1.
 
 .PARAMETER Port
     The loopback port to listen on (1024-65535).
@@ -90,7 +90,7 @@ $ErrorActionPreference = 'Stop'
 
 $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride).TrimEnd('\', '/') }
         else { (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path }
-. (Join-Path $root 'scripts\lib\connector-dashboard-lib.ps1')
+. (Join-Path $root 'scripts\lib\consumer-dashboard-lib.ps1')
 . (Join-Path $root 'scripts\lib\dev-pages-lib.ps1')
 # The state file the hook writes, and the probe of the plugin's hub server (#3119), whose url the home page links
 # (#3540): the plugin's, read from this repo's own tree because this repo is the plugin's source.
@@ -152,26 +152,26 @@ function Get-DashboardModel {
     $parsed = @{}
     $ErrorActionPreference = 'Continue'   # the same 5.1 stderr trap as in Invoke-DashboardGit
     try {
-        $check = Join-Path $root 'scripts\sync\check-connectors.ps1'
+        $check = Join-Path $root 'scripts\sync\check-consumers.ps1'
         $lines = & powershell -NoProfile -ExecutionPolicy Bypass -File $check 2>&1 | ForEach-Object { [string]$_ }
-        $parsed = ConvertFrom-ConnectorCheckOutput -Lines $lines
-        if (-not $parsed.Count) { $meta.CheckFailed = 'it printed no connector block' }
+        $parsed = ConvertFrom-ConsumerCheckOutput -Lines $lines
+        if (-not $parsed.Count) { $meta.CheckFailed = 'it printed no consumer block' }
     } catch {
         $meta.CheckFailed = ([string]$_.Exception.Message) -replace '\s+', ' '
     }
 
-    $connectors = @()
-    foreach ($f in @(Get-ChildItem -LiteralPath (Join-Path $root 'connectors') -Filter '*.json' -File | Sort-Object Name)) {
+    $consumers = @()
+    foreach ($f in @(Get-ChildItem -LiteralPath (Join-Path $root 'consumers') -Filter '*.json' -File | Sort-Object Name)) {
         try { $m = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 | ConvertFrom-Json } catch { continue }
         $repo = [string]$m.repo
         if (-not $repo) { continue }
-        $candidates = @(Get-ConnectorCheckoutCandidates $m.localCheckout)
+        $candidates = @(Get-ConsumerCheckoutCandidates $m.localCheckout)
         # The manifest is data from a public repo and git runs in the folder it names, so the path is held to
-        # check-connectors' own bound -- the one resolver repo-session.ps1 uses too (#3231).
-        $resolved = Resolve-ConnectorCheckout -Root $root -LocalCheckout $m.localCheckout -ScopeRoot $scopeRoot
+        # check-consumers' own bound -- the one resolver repo-session.ps1 uses too (#3231).
+        $resolved = Resolve-RegisteredCheckout -Root $root -LocalCheckout $m.localCheckout -ScopeRoot $scopeRoot
         $signals = if ($parsed.Contains($repo)) { @($parsed[$repo].Signals) } else { @() }
         $plugins = @(@($m.plugins) | Where-Object { $_ } | ForEach-Object { @{ Id = [string]$_.id; Extensions = @($_.extensions) } })
-        $connectors += @{
+        $consumers += @{
             Repo       = $repo
             Visibility = [string]$m.visibility
             File       = $f.Name
@@ -180,12 +180,12 @@ function Get-DashboardModel {
             Plugins    = $plugins
             Signals    = $signals
             Drift      = if ($parsed.Contains($repo)) { $parsed[$repo].Drift } else { $null }
-            Status     = Get-ConnectorStatus $signals
+            Status     = Get-ConsumerStatus $signals
             Git        = if ($resolved) { Get-DashboardGitInfo $resolved } else { $null }
         }
     }
     $meta.Seconds = ((Get-Date) - $started).TotalSeconds
-    return @{ Connectors = $connectors; Meta = $meta; At = Get-Date }
+    return @{ Consumers = $consumers; Meta = $meta; At = Get-Date }
 }
 
 function Get-SpecialistNames {
@@ -198,7 +198,7 @@ function Get-SpecialistNames {
 function Get-DkjReposModel {
     <#
         The DKJ repos page's data (#3231): one GraphQL call for every DKJ-Solutions repo with its open issue and
-        pull request counts, and the checkouts beside this repo. Cached like the Connectors page, because the
+        pull request counts, and the checkouts beside this repo. Cached like the Consumers page, because the
         call goes over the network.
     #>
     $started = Get-Date
@@ -296,7 +296,7 @@ function Get-PluginsModel {
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $listener = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $Port)
 $listener.Start()
-Write-Host "connector dashboard: http://localhost:$Port/"
+Write-Host "consumer dashboard: http://localhost:$Port/"
 $cache = $null
 $dkjCache = $null
 # The commit this process loaded its code from; $null outside a git checkout or on an unborn HEAD, and
@@ -388,19 +388,19 @@ try {
                 if ($group -eq 'dkj') {
                     # The DKJ group's page is a card per DKJ repo, each opening its own page (Maikel, October 28, 2026).
                     if ($null -eq $dkjCache -or ((Get-Date) - $dkjCache.At).TotalSeconds -ge $CacheSeconds) { $dkjCache = Get-DkjReposModel }
-                    $dkjConnectors = @($cache.Connectors | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq 'dkj' })
-                    $html = Format-DkjReposPageHtml -Query $dkjCache.Query -Checkouts $dkjCache.Checkouts -Connectors $dkjConnectors -Meta $dkjCache.Meta -CheckMeta $cache.Meta
+                    $dkjConsumers = @($cache.Consumers | Where-Object { (Get-ConsumerOwnerGroup ([string]$_.Repo)) -eq 'dkj' })
+                    $html = Format-DkjReposPageHtml -Query $dkjCache.Query -Checkouts $dkjCache.Checkouts -Consumers $dkjConsumers -Meta $dkjCache.Meta -CheckMeta $cache.Meta
                     # A failed read of GitHub is shown once and not kept, so the next request asks again (Victor, #3231).
                     if ($dkjCache.Query.Error) { $dkjCache = $null }
                 } elseif ($group) {
-                    $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta -Group $group
+                    $html = Format-ConsumerDashboardHtml -Consumers $cache.Consumers -Meta $cache.Meta -Group $group
                 } else {
                     # The overview holds the DKJ group's own cards under its DKJ h2, an h3 each (Maikel, October 30, 2026).
                     if ($null -eq $dkjCache -or ((Get-Date) - $dkjCache.At).TotalSeconds -ge $CacheSeconds) { $dkjCache = Get-DkjReposModel }
-                    $dkjConnectors = @($cache.Connectors | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq 'dkj' })
-                    $cards = Format-DkjRepoCardsHtml -Query $dkjCache.Query -Checkouts $dkjCache.Checkouts -Connectors $dkjConnectors -Heading 3
+                    $dkjConsumers = @($cache.Consumers | Where-Object { (Get-ConsumerOwnerGroup ([string]$_.Repo)) -eq 'dkj' })
+                    $cards = Format-DkjRepoCardsHtml -Query $dkjCache.Query -Checkouts $dkjCache.Checkouts -Consumers $dkjConsumers -Heading 3
                     $notice = if ($dkjCache.Query.Error) { '<p class="msg msg--warn" role="alert">GitHub could not be read: ' + (ConvertTo-DashboardText $dkjCache.Query.Error) + '. The DKJ checkouts on this machine are shown without their issues.</p>' } else { '' }
-                    $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta -DkjCardsHtml $cards -Style (Get-DkjRepoCardStyle) -NoticeHtml $notice
+                    $html = Format-ConsumerDashboardHtml -Consumers $cache.Consumers -Meta $cache.Meta -DkjCardsHtml $cards -Style (Get-DkjRepoCardStyle) -NoticeHtml $notice
                     if ($dkjCache.Query.Error) { $dkjCache = $null }
                 }
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
@@ -420,11 +420,11 @@ try {
                     continue
                 }
                 $co = $set.ByRepo[$row.Repo]
-                # Its Connector card is its entry in the register, read with the register and cached with it.
+                # Its Consumer card is its entry in the register, read with the register and cached with it.
                 if ($null -eq $cache -or ((Get-Date) - $cache.At).TotalSeconds -ge $CacheSeconds) { $cache = Get-DashboardModel }
-                $reg = @($cache.Connectors | Where-Object { ([string]$_.Repo) -eq [string]$row.Repo })[0]
+                $reg = @($cache.Consumers | Where-Object { ([string]$_.Repo) -eq [string]$row.Repo })[0]
                 $lensCard = Format-RepoLensesCardHtml -Lenses (Get-CheckoutLenses -Path $(if ($co) { [string]$co.Path } else { '' })) -Names (Get-SpecialistNames)
-                $html = Format-DkjRepoPageHtml -Row $row -Checkout $co -Connector $reg -LensesHtml $lensCard.Html -LensesStyle $lensCard.Style -Meta $meta
+                $html = Format-DkjRepoPageHtml -Row $row -Checkout $co -Consumer $reg -LensesHtml $lensCard.Html -LensesStyle $lensCard.Style -Meta $meta
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue
             }
@@ -508,12 +508,12 @@ if ($restart -and ($root + $PSCommandPath) -notmatch '[%"]') {
     $argLine = (@($PSBoundParameters.GetEnumerator() | Where-Object { $_.Key -ne 'RepoRootOverride' } |
         ForEach-Object { "-$($_.Key) `"$($_.Value)`"" }) -join ' ')
     if ($RepoRootOverride) { $argLine += " -RepoRootOverride `"$root`"" }
-    $log = Join-Path ([System.IO.Path]::GetTempPath()) "serve-connector-dashboard-$Port-$([guid]::NewGuid().ToString('n')).log"
+    $log = Join-Path ([System.IO.Path]::GetTempPath()) "serve-consumer-dashboard-$Port-$([guid]::NewGuid().ToString('n')).log"
     try {
         Start-Process -FilePath 'cmd.exe' -WorkingDirectory $root -WindowStyle Hidden -ArgumentList (
             '/d /s /c "cd /d "{0}" && powershell -NoProfile -ExecutionPolicy Bypass -File "{1}" {2} > "{3}" 2>&1"' -f $root, $PSCommandPath, $argLine, $log) | Out-Null
     } catch {
         # The port is free either way, so the next session's hook starts a server again.
-        [Console]::Error.WriteLine("serve-connector-dashboard: the successor did not start -- $($_.Exception.Message)")
+        [Console]::Error.WriteLine("serve-consumer-dashboard: the successor did not start -- $($_.Exception.Message)")
     }
 }

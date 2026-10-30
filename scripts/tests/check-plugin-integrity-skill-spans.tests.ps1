@@ -31,7 +31,7 @@ try {
     Write-QuietRootDocuments -Fixture $Fixture
 
     # === check 10: marked "all skills" enumerations vs. the canonical skillset ==========================
-    # Only CONTRIBUTING.md's content is varied per scenario. The connectors README is left exactly as
+    # Only CONTRIBUTING.md's content is varied per scenario. The consumers README is left exactly as
     # Write-QuietRootDocuments wrote it above (marker-free), so it never contributes a
     # <!-- skills:all --> span of its own -- keeping every assertion below attributable to
     # CONTRIBUTING.md alone.
@@ -151,7 +151,7 @@ try {
     $s7Lines = @(
         '# Contributing'
         ''
-        'Session hooks `connector-sessioncheck`, `roster-sessioncheck`, and `script-contract-sessioncheck` run at session start.'
+        'Session hooks `consumer-sessioncheck`, `roster-sessioncheck`, and `script-contract-sessioncheck` run at session start.'
         'Only the skills (<!-- skills:all -->`skill-alpha`, `skill-beta`<!-- /skills:all -->) remain available there.'
     )
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'CONTRIBUTING.md'), (($s7Lines -join "`n") + "`n"), $Utf8NoBom)

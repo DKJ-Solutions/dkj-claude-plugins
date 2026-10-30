@@ -464,7 +464,7 @@ try {
     # IT IS PINNED RATHER THAN REPAIRED, deliberately. Discarding the flushed tail here would take the
     # evidence away from the callers that print it, which is exactly #1252's judgement at the read one
     # function down: for a stalled git push that tail IS the diagnosis. The half that was missing was
-    # never in this lib -- it was a caller reading neither field. connector-sessioncheck.ps1 was that
+    # never in this lib -- it was a caller reading neither field. consumer-sessioncheck.ps1 was that
     # caller, and CI is where it surfaced (run 34596638888): a killed version check reported as clean.
     # THE BOUND IS CALIBRATED, BECAUSE A FIXED 2s WAS RACING A QUANTITY NOTHING BOUNDS (#1939). The
     # assert above needs only that the bound EXPIRE, which any bound under the child's sleep delivers.
@@ -2002,9 +2002,9 @@ foreach ($af in $auditFiles) {
 # 94 -> 95 (#3078): ship-pr.ps1's $remoteCl (`git show origin/main:<changelog>`, -Utf8 because the entry text
 # is parsed), read after a failed fast-forward to ask whether the fold is already upstream. Only a measured 0
 # AND the branch document's absence turn the verdict; anything else keeps the "fold is owed" refusal.
-# 95 -> 96: serve-connector-dashboard.ps1's $q (`gh issue list`, -Utf8 because issue titles are rendered), 60 s
+# 95 -> 96: serve-consumer-dashboard.ps1's $q (`gh issue list`, -Utf8 because issue titles are rendered), 60 s
 # bound. An unmeasured exit, a non-zero one or a short read is a ReadError on the Issues page, never a blank one.
-# 96 -> 95 (#3119): serve-connector-dashboard.ps1's $q is gone with the Issues page, which moved to the dkj-solutions
+# 96 -> 95 (#3119): serve-consumer-dashboard.ps1's $q is gone with the Issues page, which moved to the dkj-solutions
 # plugin's general pages server (scripts/pages/serve-general-pages.ps1). That server bounds its gh and git calls with
 # a process helper of its own, because the plugin depends on no lib of dkj-policy, so no site is added here.
 # 95 -> 97 (#3136): claim-issue.ps1's two stale-park reads in -Candidates, `gh api repos/<slug>/issues/<n>` and

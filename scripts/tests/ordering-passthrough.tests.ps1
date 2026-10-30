@@ -196,7 +196,7 @@ foreach ($root in $releaseRoots) {
             # is narration falling into the success stream by accident, which is the UNASSIGNED form.
             if ($line -match '^\s*(\[[^\]]+\])?\s*\$[\w:]+\s*=') { continue }
             if ($line -match '\|\s*Out-Host') { $guarded++; continue }
-            # Piped into something that renders it is equally fine -- check-connectors' filter-then-
+            # Piped into something that renders it is equally fine -- check-consumers' filter-then-
             # Write-Host shape is the existing precedent in this tree.
             if ($line -match '\|\s*(Where-Object|ForEach-Object|Select-String|Tee-Object|Out-Null)') { $guarded++; continue }
             $offenders += "$($file.Name):$lineNo"

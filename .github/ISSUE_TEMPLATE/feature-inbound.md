@@ -1,5 +1,5 @@
 ---
-name: Inbound feature (from a connector)
+name: Inbound feature (from a consumer)
 about: Something missing from the shared core, discovered in a consuming repo (life-hub, smartwatchbanden) that must land in the source first
 title: "feature-inbound: <short summary>"
 labels: feature-inbound

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Look into any repo registered under connectors/, or any DKJ-Solutions checkout beside this repo, and open
+    Look into any repo registered under consumers/, or any DKJ-Solutions checkout beside this repo, and open
     Claude Code in its checkout, from this repo (#3231).
 
 .DESCRIPTION
@@ -14,7 +14,7 @@
                                   message when one is given; -WhatIf prints the command instead of running it
 
     -Repo is what a person calls the repo: 'lifehub', 'life-hub', 'dkj-lifehub' or 'DKJ-Solutions/dkj-lifehub'
-    (Resolve-ConnectorRepo). A name that matches more than one repo is refused, with the candidates.
+    (Resolve-ConsumerRepo). A name that matches more than one repo is refused, with the candidates.
 
     THE SESSION OPENS IN THE OTHER CHECKOUT, NEVER IN THIS ONE. Work done in another repo from a session here
     would run under this repo's rules instead of that repo's own CLAUDE.md, lenses and team, and could carry a
@@ -66,36 +66,36 @@ $ErrorActionPreference = 'Stop'
 
 $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride).TrimEnd('\', '/') }
         else { (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path }
-# The hub's page lib: it brings connector-dashboard-lib with it, and Find-DkjCheckouts.
+# The hub's page lib: it brings consumer-dashboard-lib with it, and Find-DkjCheckouts.
 . (Join-Path $root 'scripts\lib\dev-pages-lib.ps1')
 $scopeRoot = [System.IO.Path]::GetFullPath((Join-Path $root '..\..'))
 
 function Invoke-RepoGit {
     param([string]$Path, [string[]]$GitArgs)
     # 'Continue' and the catch: under 'Stop', Windows PowerShell 5.1 turns a native command's stderr into a
-    # terminating error even with 2>$null (the same trap serve-connector-dashboard.ps1 names).
+    # terminating error even with 2>$null (the same trap serve-consumer-dashboard.ps1 names).
     $ErrorActionPreference = 'Continue'
     try { $out = & git -C $Path @GitArgs 2>$null } catch { return $null }
     if ($LASTEXITCODE -ne 0) { return $null }
     return , @($out)
 }
 
-$connectors = @(foreach ($f in @(Get-ChildItem -LiteralPath (Join-Path $root 'connectors') -Filter '*.json' -File | Sort-Object Name)) {
+$consumers = @(foreach ($f in @(Get-ChildItem -LiteralPath (Join-Path $root 'consumers') -Filter '*.json' -File | Sort-Object Name)) {
     try { $m = Get-Content -LiteralPath $f.FullName -Raw -Encoding UTF8 | ConvertFrom-Json } catch { continue }
     if (-not [string]$m.repo) { continue }
     @{ Repo = [string]$m.repo; File = $f.Name; Visibility = [string]$m.visibility
-       Path = (Resolve-ConnectorCheckout -Root $root -LocalCheckout $m.localCheckout -ScopeRoot $scopeRoot) }
+       Path = (Resolve-RegisteredCheckout -Root $root -LocalCheckout $m.localCheckout -ScopeRoot $scopeRoot) }
 })
 # And every DKJ-Solutions checkout beside this repo, registered or not, as the DKJ repos page (/consumers/dkj) finds them: the
 # register lists only the repos that run a plugin of this marketplace.
 foreach ($d in @(Find-DkjCheckouts -ParentDir (Split-Path -Parent $root) -Owner 'DKJ-Solutions')) {
-    $known = @($connectors | Where-Object { $_.Repo -eq $d.Repo })
+    $known = @($consumers | Where-Object { $_.Repo -eq $d.Repo })
     if ($known.Count) { if (-not $known[0].Path) { $known[0].Path = $d.Path } }
-    else { $connectors += @{ Repo = $d.Repo; File = ''; Visibility = ''; Path = $d.Path } }
+    else { $consumers += @{ Repo = $d.Repo; File = ''; Visibility = ''; Path = $d.Path } }
 }
 
 if ($List) {
-    foreach ($c in $connectors) {
+    foreach ($c in $consumers) {
         $where = if ($c.Path) { $c.Path } else { '(not checked out on this machine)' }
         $branch = if ($c.Path) { $b = Invoke-RepoGit $c.Path @('rev-parse', '--abbrev-ref', 'HEAD'); if ($b) { " [$([string]$b[0])]" } else { '' } } else { '' }
         Write-Output ('{0,-40} {1,-8} {2}{3}' -f $c.Repo, $c.Visibility, $where, $branch)
@@ -103,9 +103,9 @@ if ($List) {
     exit 0
 }
 
-$hits = @(Resolve-ConnectorRepo -Connectors $connectors -Name $Repo)
+$hits = @(Resolve-ConsumerRepo -Consumers $consumers -Name $Repo)
 if (-not $hits.Count) {
-    Write-Output "[REFUSED] no known repo is called '$Repo'. Known: $((@($connectors | ForEach-Object { $_.Repo })) -join ', ')."
+    Write-Output "[REFUSED] no known repo is called '$Repo'. Known: $((@($consumers | ForEach-Object { $_.Repo })) -join ', ')."
     exit 1
 }
 if ($hits.Count -gt 1) {
@@ -114,7 +114,7 @@ if ($hits.Count -gt 1) {
 }
 $c = $hits[0]
 if (-not $c.Path) {
-    Write-Output "[REFUSED] $($c.Repo) has no checkout on this machine (connectors/$($c.File) names where it is looked for). Clone it beside this repo first."
+    Write-Output "[REFUSED] $($c.Repo) has no checkout on this machine (consumers/$($c.File) names where it is looked for). Clone it beside this repo first."
     exit 1
 }
 

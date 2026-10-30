@@ -1302,7 +1302,7 @@ try {
     Assert-Equal 'main' (Get-SharedRefLine -Text $repoSettings) 'repo-settings.yml, which holds no write scope, still tracks main (#1805)'
     Assert-True ($rApply.Flat -like '*`[pin`]*fetch the shared scripts at*(-SharedRefOverride)*') 'the run says which pin it wrote'
 
-    # THE READER AGREES WITH THE WRITER (#2337). check-connectors judges a registered consumer's runners
+    # THE READER AGREES WITH THE WRITER (#2337). check-consumers judges a registered consumer's runners
     # through consumer-runner-lib, so what this scaffolder writes has to read back as a credential-holding
     # runner pinned at its release -- and repo-settings.yml as not judged at all. A drift between the two
     # shapes would make check 6d either blind to every pinned runner or loud about every fresh one.

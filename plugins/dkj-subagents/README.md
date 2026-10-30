@@ -399,15 +399,15 @@ were declined and the reasoning is recorded here, because it is the kind of prop
   workflow's pages plus the skills and hooks that resolve through that variable.
 - **A plugin rename is not a `claude plugin update`.** It is uninstall, install under the new id, and a
   `settings.json` edit — in every consumer, by hand, plus each consumer's own `SPECIALISTS.md`, whose
-  `@`-import carries the full marketplace path. Three prior rename rounds are recorded in `connectors/`,
-  and each left `check-connectors.ps1` unable to resolve the retired id, skipping that plugin's whole
+  `@`-import carries the full marketplace path. Three prior rename rounds are recorded in `consumers/`,
+  and each left `check-consumers.ps1` unable to resolve the retired id, skipping that plugin's whole
   drift check until somebody edited the register.
 
 **The fourth — the team side to `dkj-subagents-*` — survived on the merits and paid that cost the same
 day, under [#1698](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1698).** Every
 consumer running `dkj-team-alpha` or one of its siblings owes exactly the migration the reasoning above
 warned of: uninstall, install under the new id, the `settings.json` edit, plus its own `SPECIALISTS.md`
-`@`-import and its `connectors/` register entry. That walkthrough lived in a root `INSTALL.md`, retired
+`@`-import and its `consumers/` register entry. That walkthrough lived in a root `INSTALL.md`, retired
 on September 24, 2026; the release notes of that version carry it.
 
 What the three declined renames earned instead is this section and each plugin's `displayName` — the
@@ -523,7 +523,7 @@ deliberately have **no** agent def; their portable source lives in
 via an `@` import in its `CLAUDE.md` (the orchestrator always, the other personas on demand). The
 local extension `.claude/specialists/lenses/<group>-<id>-extension.md` is
 therefore **lens-only**: only the repo-specific `## Specific to this repo` part, no copy of the body. The
-drift lint (see the [connectors README](../../connectors/README.md#maintenance-drift-lint)) recognizes
+drift lint (see the [consumers README](../../consumers/README.md#maintenance-drift-lint)) recognizes
 such a lens-only extension and reports it as `LENS-ONLY`. The lint's agent-def↔manual coupling
 deliberately leaves personas alone (they have no agent def).
 

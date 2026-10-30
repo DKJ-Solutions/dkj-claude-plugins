@@ -35,7 +35,7 @@
           tree there, a non-canonical family segment left behind by a pre-#179 bootstrap, and the
           legacy .claude/extensions/<g>-<id>-extension.md.
 
-    Findings + severity (same [OK]/[INFO]/[ERROR] convention as check-connectors.ps1):
+    Findings + severity (same [OK]/[INFO]/[ERROR] convention as check-consumers.ps1):
       - an '@'-import in the roster file that does NOT resolve -> [ERROR] (inbound #414). The roster is
                                                  repo-local and always loads; the orchestrator's BODY is
                                                  the only part that comes from outside it, through one
@@ -145,7 +145,7 @@
     without touching the real machine's user settings. Scoped to the SETTINGS CHAIN only: the install
     administration (inbound #302) is a different file answering a different question and is read via
     $env:USERPROFILE, so a fixture that wants to control it redirects that env var for the child process
-    -- the pattern the connector version test already uses.
+    -- the pattern the consumer version test already uses.
 
 .EXAMPLE
     .\scripts\sync\check-roster-sync.ps1
@@ -177,7 +177,7 @@ $script:infos  = 0
 $midDot = [char]0x00B7
 
 # Write-Ok/Write-Info/Write-Failure + Test-PluginNameSlug/Test-PluginMarketplaceSlug + Resolve-PluginDir
-# + Resolve-CheckRoot/Write-CheckScope: shared with check-connectors.ps1 and
+# + Resolve-CheckRoot/Write-CheckScope: shared with check-consumers.ps1 and
 # skills/sync-roster/sync-roster.ps1 (single source, issue #114). This script is a whole-file mirror
 # (scripts/lib/shared-scripts-lib.ps1); check-report-lib.ps1 is registered in that same pair set and
 # therefore travels along, so a $PSScriptRoot-relative dot-source (not $repoRoot -- this lib is not
@@ -518,7 +518,7 @@ function Get-MarkdownImports {
 #
 # $env:USERPROFILE rather than -UserHomeOverride: that parameter is documented as scoped to the SETTINGS
 # CHAIN, and widening it here would make one flag mean two things in one script. A fixture that needs to
-# control this redirects the env var for the child process -- the pattern the connector version test
+# control this redirects the env var for the child process -- the pattern the consumer version test
 # already uses, and the same split this file already applies to the install administration.
 function Resolve-ImportTarget {
     param([string]$Import, [string]$BaseDir)
@@ -808,7 +808,7 @@ if ($enabledIds.Count -gt 0) {
     # Worth knowing about its own reach: in the WORST case of this state -- no plugin installed for this
     # path at all -- nothing in this repo runs the hook that would surface this line, because the hook
     # ships in the plugin. That is not an argument against the marker but the reason the same query now
-    # also runs in check-connectors, from the workshop, ABOUT each registered consumer: the one vantage
+    # also runs in check-consumers, from the workshop, ABOUT each registered consumer: the one vantage
     # point that still has a voice when a consumer has gone silent.
     if ($notInstalledHere.Count -gt 0) {
         # Format-SafeToken on every id before it is joined into this line (inbound #309). A plugin id is
@@ -1061,7 +1061,7 @@ foreach ($plugId in ($enabledIds | Sort-Object -Unique)) {
     $plugIdShown = Format-SafeToken -Value $plugId
 
     # Guardrail: plugin-name/marketplace come from settings and become path segments -- validate as
-    # slugs before touching the filesystem (mirrors check-connectors' Get-PluginDir).
+    # slugs before touching the filesystem (mirrors check-consumers' Get-PluginDir).
     #
     # These two use Format-SuspectToken, not Format-SafeToken: here the id IS the complaint, so showing a
     # cleaned-up version without saying so would present a plausible id as the subject of an "invalid id"
@@ -1293,7 +1293,7 @@ if ($pluginNames.Count -gt 0) {
 
 if ($suppressedForBootstrap -gt 0) {
     # Non-counting marker the session hooks surface, same shape as [ORPHANS] above and
-    # [UNREGISTERED]/[INVENTORY] in connector-sessioncheck: the plugin install is fine, only this
+    # [UNREGISTERED]/[INVENTORY] in consumer-sessioncheck: the plugin install is fine, only this
     # repo's own side of the setup has not happened. Counting it as an error would put a red line and
     # exit 1 in every session of a repo whose owner has simply not got round to the bootstrap -- and
     # not shouting at that person is the entire point of issue #225.

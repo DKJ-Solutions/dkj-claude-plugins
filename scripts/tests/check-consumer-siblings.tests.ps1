@@ -38,7 +38,7 @@
     directories; the comparison never touches GitHub. The only filesystem quirk worth flagging: the
     script resolves its OWN repo root from $PSScriptRoot (it takes no -RepoRoot override) and refuses
     an absolute localCheckout candidate, so a fixture checkout has to be a real directory reachable by a
-    RELATIVE path from this repo's actual root -- exactly the shape every real connectors/*.json
+    RELATIVE path from this repo's actual root -- exactly the shape every real consumers/*.json
     manifest already uses ('../life-hub', '../../bwjecommerce/smartwatchbanden'). The two fixture
     checkouts below are therefore created as siblings of this checkout, not under %TEMP%, and removed
     in a finally block.
@@ -51,7 +51,7 @@
       - The SHIPPED lane's $f.Class and $where text (Find-ShippedMechanism's Plugin/Path) are, per the
         #2248 commit, this repo's OWN data and deliberately unguarded -- nothing here asserts that
         either, since asserting an absence of stripping on trusted data is not what this suite is for.
-      - A malformed connectors/*.json is not exercised -- the 'is not valid JSON -- skipped' line
+      - A malformed consumers/*.json is not exercised -- the 'is not valid JSON -- skipped' line
         prints the manifest FILE's own on-disk name (Get-ChildItem's $mf.Name), never a value read out
         of a manifest's FIELDS, so it carries nothing #2248 or #2272 was ever about.
 
@@ -89,7 +89,7 @@ function Assert-True {
 }
 
 # --- Fixture: two consumer checkouts, siblings of THIS repo root, exactly the shape a real
-#     connectors/*.json localCheckout already uses ('../life-hub'). Not under %TEMP% -- see the
+#     consumers/*.json localCheckout already uses ('../life-hub'). Not under %TEMP% -- see the
 #     docstring above for why a relative-only field forces this. --------------------------------------
 $siblingParent = Split-Path -Parent $RepoRoot
 $tag = "$PID-$([guid]::NewGuid().ToString('N').Substring(0, 8))"
@@ -97,7 +97,7 @@ $nameA = "zz-check-consumer-siblings-fixture-$tag-a"
 $nameB = "zz-check-consumer-siblings-fixture-$tag-b"
 $dirA  = Join-Path $siblingParent $nameA
 $dirB  = Join-Path $siblingParent $nameB
-$ConnectorDir = Join-Path ([System.IO.Path]::GetTempPath()) "check-consumer-siblings-manifests-$tag"
+$ConsumerDir = Join-Path ([System.IO.Path]::GetTempPath()) "check-consumer-siblings-manifests-$tag"
 
 try {
     Write-Host '== check-consumer-siblings.tests: scripts/sync/check-consumer-siblings.ps1 (#2248) ==' -ForegroundColor Cyan
@@ -109,7 +109,7 @@ try {
     # B carries nothing under a comparable root, so A's file above is reported ONLY-IN A.
     New-Item -ItemType Directory -Path $dirB -Force | Out-Null
 
-    New-Item -ItemType Directory -Path $ConnectorDir -Force | Out-Null
+    New-Item -ItemType Directory -Path $ConsumerDir -Force | Out-Null
 
     # A control character CANNOT survive in a Windows filename or in JSON without escaping, but it CAN
     # be a manifest field's VALUE -- exactly the #2248 class (a repo's 'repo' field, its own text, never
@@ -129,8 +129,8 @@ try {
         siblingGroup  = 'check-consumer-siblings-2248-test'
         localCheckout = "..\$nameB"
     }
-    ($manifestA | ConvertTo-Json) | Set-Content -LiteralPath (Join-Path $ConnectorDir 'fixture-a.json') -Encoding utf8
-    ($manifestB | ConvertTo-Json) | Set-Content -LiteralPath (Join-Path $ConnectorDir 'fixture-b.json') -Encoding utf8
+    ($manifestA | ConvertTo-Json) | Set-Content -LiteralPath (Join-Path $ConsumerDir 'fixture-a.json') -Encoding utf8
+    ($manifestB | ConvertTo-Json) | Set-Content -LiteralPath (Join-Path $ConsumerDir 'fixture-b.json') -Encoding utf8
 
     # A SECOND, INDEPENDENT sibling group (#2272), to reach the 'read $label : ...' line every readable
     # member prints and the 'group ... not compared' line an UNREADABLE one feeds.
@@ -153,13 +153,13 @@ try {
         siblingGroup  = 'check-consumer-siblings-2248-unreadable-test'
         localCheckout = "..\$nameB"
     }
-    ($manifestC | ConvertTo-Json) | Set-Content -LiteralPath (Join-Path $ConnectorDir 'fixture-c.json') -Encoding utf8
-    ($manifestD | ConvertTo-Json) | Set-Content -LiteralPath (Join-Path $ConnectorDir 'fixture-d.json') -Encoding utf8
+    ($manifestC | ConvertTo-Json) | Set-Content -LiteralPath (Join-Path $ConsumerDir 'fixture-c.json') -Encoding utf8
+    ($manifestD | ConvertTo-Json) | Set-Content -LiteralPath (Join-Path $ConsumerDir 'fixture-d.json') -Encoding utf8
 
     # No 2>&1: this run's own stdout is all that is asserted, and a native-command stderr reformat is
     # exactly the trap scripts/tests/*.tests.ps1's own conventions (Tycho's lens) warn against copying.
     $out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Script `
-        -ConnectorDir $ConnectorDir -Source disk -SkipAliasCheck
+        -ConsumerDir $ConsumerDir -Source disk -SkipAliasCheck
     $code = $LASTEXITCODE
     $joined = ($out -join "`n")
 
@@ -240,7 +240,7 @@ try {
     Assert-True ($notComparedLines[0] -match 'no localCheckout candidate resolves on this machine') `
         'and the plain-English reason text (never foreign on this route) still reaches the line unmangled'
 } finally {
-    foreach ($d in @($dirA, $dirB, $ConnectorDir)) {
+    foreach ($d in @($dirA, $dirB, $ConsumerDir)) {
         if (Test-Path -LiteralPath $d) { Remove-Item -LiteralPath $d -Recurse -Force -ErrorAction SilentlyContinue }
     }
 }

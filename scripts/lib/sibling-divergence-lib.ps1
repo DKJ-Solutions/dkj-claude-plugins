@@ -8,8 +8,8 @@
 
         . (Join-Path $PSScriptRoot '..\lib\sibling-divergence-lib.ps1')
 
-    WHY THIS EXISTS. The connectors register already records which repos consume this plugin, and
-    connectors/xoxowildhearts.json states in its own notes what it was asked for: "the register is
+    WHY THIS EXISTS. The consumers register already records which repos consume this plugin, and
+    consumers/xoxowildhearts.json states in its own notes what it was asked for: "the register is
     where the two Shopify consumers diverging can be seen." It was never given the check that reads
     it that way, and #1869 measured the cost -- of 48 tooling paths the two BWJ stores share, 47 have
     diverged, and the one that has not is a verbatim plugin template.

@@ -36,11 +36,11 @@ brought back.
 ## The question it answers, and why nothing else does
 
 "Is the plugin version this checkout loads the same as the one the marketplace clone holds, and if not,
-which command closes the gap?" The connector session check is the nearest existing signal, and it goes
+which command closes the gap?" The consumer session check is the nearest existing signal, and it goes
 **inert** on a plain consumer with no sibling source checkout beside it. Two files, and it is worth
-keeping them apart: the hook (`connector-sessioncheck.ps1`) prints
+keeping them apart: the hook (`consumer-sessioncheck.ps1`) prints
 *"no verified workshop checkout found -- check skipped"* on its own early-exit path, so
-`check-connectors.ps1` -- and with it the check 4 that compares versions -- is never invoked. That
+`check-consumers.ps1` -- and with it the check 4 that compares versions -- is never invoked. That
 string is the hook's own; grepping the check for it finds nothing. Either way you get no version
 answer. This skill needs no source checkout: it reads what every consumer machine has.
 
@@ -184,9 +184,9 @@ the other two are **test seams** a consumer never types.
 
 ### `-Brief`, and who reads it
 
-This is what `connector-sessioncheck` prints on a machine with **no** sibling source checkout, which
+This is what `consumer-sessioncheck` prints on a machine with **no** sibling source checkout, which
 is the ordinary state of a consumer rather than an edge case. The register checks there genuinely
-cannot run -- `check-connectors.ps1` is source-only and is not plugin-carried -- so until
+cannot run -- `check-consumers.ps1` is source-only and is not plugin-carried -- so until
 [#1591](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1591) the hook printed
 *"check skipped"* and a session got no version signal at all.
 

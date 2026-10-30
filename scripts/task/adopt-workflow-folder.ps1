@@ -247,7 +247,7 @@ $noteRootRelPath = ($noteRootRelPath -replace '\\', '/').TrimEnd('/')
 #
 # THE PIN STAYS, AND THE EXPOSURE IS COVERED AT THE OTHER END -- because it cannot be covered here. This
 # command writes the path once, at adoption, and nothing rewrites it afterwards, so no change made in
-# this file can reach a repo that adopted in August. What can: check-connectors.ps1's check 6, which
+# this file can reach a repo that adopted in August. What can: check-consumers.ps1's check 6, which
 # reads the runners a registered consumer actually has and reports a path this tree no longer holds; and
 # this command's own suite, which now DERIVES the emitted path from the emitted file and asserts it
 # exists here, where the three literal asserts in adopt-ci-floor.tests.ps1 compared the output
@@ -259,7 +259,7 @@ $noteRootRelPath = ($noteRootRelPath -replace '\\', '/').TrimEnd('/')
 # reusable workflow in the source now (.github/workflows/reusable-branch-entry.yml, `on: workflow_call`)
 # and what lands here is the trigger and one `uses:` line. The `ref: main` argument travels with it
 # unchanged: the caller names `@main`, and the reusable workflow checks the scripts out at `main` too.
-# check-connectors' check 6 still sees the consumer, because consumer-runner-lib reads a `uses:` of a
+# check-consumers' check 6 still sees the consumer, because consumer-runner-lib reads a `uses:` of a
 # workflow in this repo as a reference into this tree, exactly as it reads a checkout step.
 #
 # NO timeout-minutes IN THE CALLER, and that is GitHub's rule rather than a gap: a job that calls a
@@ -314,7 +314,7 @@ $entryGateWorkflow = @(
 #
 # THE PINNED REF is the same moving branch branch-entry.yml above uses, for the reason argued there at
 # length, and since #2422 it is the same caller shape too: the runner is
-# .github/workflows/reusable-always-on-budget.yml in the source, and check-connectors.ps1's check 6 reads
+# .github/workflows/reusable-always-on-budget.yml in the source, and check-consumers.ps1's check 6 reads
 # the `uses:` line the way it reads a checkout step, so it still notices if that file moves.
 $alwaysOnGateWorkflow = @(
     '# The always-on budget: a PR may not grow what every session pays before a single assignment is',

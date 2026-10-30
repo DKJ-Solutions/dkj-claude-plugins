@@ -60,9 +60,9 @@ just advice.
   times over.** [#1802](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1802), picked up
   September 10, 2026, the day it was filed. Its three underlying findings about `~/.claude`'s plugin
   administration stood; the proposed repair's justification did not survive a grep of the tree it was
-  filed against — `plugin-versions.ps1`, `check-connectors.ps1` check 4, and `tidy-machine.ps1` lane 11
+  filed against — `plugin-versions.ps1`, `check-consumers.ps1` check 4, and `tidy-machine.ps1` lane 11
   each already answer the question the report said nothing answered. What did stand underneath the false
-  premise was narrower and real: a `continue` in check-connectors' retired-plugin branch skipped a whole
+  premise was narrower and real: a `continue` in check-consumers' retired-plugin branch skipped a whole
   block, including the one check inside it whose subject did not depend on the reason the other two were
   skipped. Full measurement in #1802 itself, indexed in
   [Sylvester's lens](../../specialists/lenses/specialist-05-15-lens.md#the-retired-id-continue-and-the-block-it-silently-skipped-september-10-2026-1802).

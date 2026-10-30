@@ -291,7 +291,7 @@ Write-Host "== specialists-init bootstrap -- $ConsumerRoot ==" -ForegroundColor 
 
 # Lens inventory per plugin, collected while the lenses below are written or found. It feeds the
 # register proposal this script prints at the end: 'which <group>-<id>s does this repo have a lens
-# for' is exactly what the workshop's connector manifest records in its 'extensions' array. Collected
+# for' is exactly what the workshop's consumer manifest records in its 'extensions' array. Collected
 # for BOTH the created and the already-present case -- the manifest describes the repo's state, not
 # what this particular run happened to do.
 $registerInventory = @{}
@@ -442,7 +442,7 @@ $ownPluginName = Get-OwnPluginName $ownPluginRoot
 # Plugin names validated as slugs before converting to paths.
 $pluginNames = @($ownPluginName)
 # The FULL plugin ids ('<name>@<marketplace>'), kept alongside the bare names: the workshop's
-# connector manifest identifies a plugin by its full id, so the register proposal at the end of this
+# consumer manifest identifies a plugin by its full id, so the register proposal at the end of this
 # script needs the '@marketplace' part that the name-only list above deliberately drops.
 $pluginIdByName = @{}
 # Same defensive shape as $family above: the lib is dot-sourced only IF PRESENT, because a missing lib
@@ -468,7 +468,7 @@ if ($null -ne $enabledPlugins) {
 }
 
 # WHICH MARKETPLACE IS OURS (inbound #1084). The consumer's chain can enable plugins from several
-# marketplaces -- this machine's own does -- and the connector register at the end of this run is
+# marketplaces -- this machine's own does -- and the consumer register at the end of this run is
 # THIS family's. Read off this script's own plugin id rather than derived from a path: the id is what
 # the register itself keys on, and the path-derivation this file already warns about twice (#179,
 # #405) yields the marketplace in one layout and the plugin in another. $null where the chain does
@@ -1109,7 +1109,7 @@ $importBlock
 # --- 3. Settings/hooks proposal (DOES NOT touch settings.json) -------------------------------------
 # The header below offers settings.local.json as an equal alternative, and as of inbound #294 that is
 # finally true of this family's own checks: the enable state is read from the whole chain, so a reader
-# who follows this advice is no longer invisible to the bootstrap, the roster check and the connector
+# who follows this advice is no longer invisible to the bootstrap, the roster check and the consumer
 # check. Before that fix this line pointed at the one file none of the three read -- the plugin
 # recommending a configuration it could not see. Keep the two in step: widening this hint again means
 # widening Get-SettingsChainPaths first.
@@ -1696,17 +1696,17 @@ if ($proposedWritten) {
     Write-Host "     The merged file leaves it out entirely, so if you pasted that, this one is done." -ForegroundColor Gray
 }
 Write-Host "  4. Restart Claude Code session to activate new @-imports + config." -ForegroundColor Gray
-Write-Host "  5. Register this repo in the workshop's connector register -- paste-ready block below." -ForegroundColor Gray
+Write-Host "  5. Register this repo in the workshop's consumer register -- paste-ready block below." -ForegroundColor Gray
 
 # --- Register proposal (workshop-side) -------------------------------------------------------------
 # Why this block exists: bootstrapping a consumer used to leave NO trace towards the register, and
 # nothing else fills that gap either. The register lives in the workshop
-# (connectors/<repo>.json) while this script runs in the
+# (consumers/<repo>.json) while this script runs in the
 # consumer, and the register's own doctrine is explicit that it never writes cross-repo -- so this
 # script cannot create the manifest, only hand you one. Without it the workshop is blind to this repo:
 # no plugin-version check, no lens-inventory check, no agent-def drift check. Found 2026-07-28, after a
 # third consumer had been running (and filing inbound issues) unregistered for days without anyone
-# noticing -- see also the [UNREGISTERED] signal that check-connectors now surfaces at session start.
+# noticing -- see also the [UNREGISTERED] signal that check-consumers now surfaces at session start.
 #
 # Proposal only, deliberately: 'visibility' and 'localCheckout' cannot be derived here (this script
 # does not know where the workshop checkout sits relative to this repo, and guessing a path is exactly
@@ -1717,11 +1717,11 @@ Write-Host "  5. Register this repo in the workshop's connector register -- past
 # filled only while walking each plugin's agents/ directory, so a plugin that ships skills, scripts
 # and hooks and NO agents never entered it and could not reach this block -- and the workflow plugin
 # is exactly that shape. A consumer pasting the proposal verbatim then registered a manifest with
-# that row missing, which is not merely terse: check-connectors reports PER PLUGIN off this list, so
+# that row missing, which is not merely terse: check-consumers reports PER PLUGIN off this list, so
 # the repo drops out of the version view for that plugin specifically, and the '[ERROR] machine
 # record is on vX, source on vY' line that exists to catch a stale consumer cannot fire for it.
 # Silently, because a row that is simply absent looks exactly like a plugin that is not enabled
-# there. Every manifest already in connectors/ lists the workflow plugin, so the old proposal
+# there. Every manifest already in consumers/ lists the workflow plugin, so the old proposal
 # disagreed with the register it is a proposal for.
 #
 # An empty "extensions" array is a TRUE statement about a plugin that ships no lenses, and it is what
@@ -1733,13 +1733,13 @@ Write-Host "  5. Register this repo in the workshop's connector register -- past
 # Get-PluginAgentsDir only ever looked beside this plugin's own root, so a plugin from ANOTHER
 # marketplace could not enter the inventory either -- and widening the row set to "every enabled
 # plugin" without this filter would have handed the consumer a manifest naming plugins this register
-# knows nothing about. check-connectors classifies such a row as a well-formed name the marketplace
+# knows nothing about. check-consumers classifies such a row as a well-formed name the marketplace
 # no longer declares and reports "this consumer has not migrated to the current names yet", which
 # would be a false statement about a plugin that was never this family's. Test-OurMarketplace makes
 # that call once, up where the enabled ids are read, so this block and the per-plugin notice in the
 # lens loop cannot answer it two different ways -- the drift this file already carries scars from.
 Write-Host ""
-Write-Host "-- connector register proposal (for the WORKSHOP repo, not this one)" -ForegroundColor Cyan
+Write-Host "-- consumer register proposal (for the WORKSHOP repo, not this one)" -ForegroundColor Cyan
 if (-not $ownMarketplace) {
     Write-Host "  [notice] this script's own plugin id is not in the settings chain, so the rows below could not be limited to one marketplace -- drop any plugin that is not part of this family before saving." -ForegroundColor Yellow
 }
@@ -1777,7 +1777,7 @@ $($pluginBlocks -join ",`n")
 "@
     foreach ($line in ($manifest -split "`r?`n")) { Write-Host "  $line" -ForegroundColor Gray }
     Write-Host ""
-    Write-Host "  Save as connectors/$leaf.json in the WORKSHOP repo," -ForegroundColor Gray
+    Write-Host "  Save as consumers/$leaf.json in the WORKSHOP repo," -ForegroundColor Gray
     Write-Host "  via that repo's normal branch + PR flow. Fill in the two VUL-IN fields first." -ForegroundColor Gray
     Write-Host "  Privacy boundary: the workshop is public -- metadata only, never lens content or absolute paths." -ForegroundColor Gray
 }

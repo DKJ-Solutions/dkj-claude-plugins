@@ -4,7 +4,7 @@
     reads off its own stdin payload, and the per-session cache keyed on it.
 
 .DESCRIPTION
-    WHY A LIB SUITE BESIDE connector-sessioncheck.tests.ps1 RATHER THAN ONLY SCENARIOS THERE. That
+    WHY A LIB SUITE BESIDE consumer-sessioncheck.tests.ps1 RATHER THAN ONLY SCENARIOS THERE. That
     file answers "what does a session SEE", by driving the real hook against a real engine, and the
     two new scenarios it gained for this change answer the only question that needs a hook: does a
     second firing spawn the engine again. Everything else about this cache is a set of decisions with
@@ -19,7 +19,7 @@
     asserted refused individually rather than as a group, because a whitelist that is quietly widened
     by one character is the failure mode here and a group assertion would still pass.
 
-    Dependency-free (no Pester), same style as connector-sessioncheck.tests.ps1 /
+    Dependency-free (no Pester), same style as consumer-sessioncheck.tests.ps1 /
     plugin-versions.tests.ps1. Pure ASCII (repo convention for .ps1).
 #>
 $ErrorActionPreference = 'Stop'

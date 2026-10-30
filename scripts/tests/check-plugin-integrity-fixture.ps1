@@ -257,7 +257,7 @@ $deadLink = './this-file-does-not-exist-xyz.md'
 $s24Contributing = @('# Contributing', '', 'Nothing to run here.')
 
 # THE QUIET ROOT DOCUMENTS -- issue #2304, the -links split. The fixture itself writes neither
-# CONTRIBUTING.md nor the connectors README; check 4's scenarios A and B do, first broken and then fixed,
+# CONTRIBUTING.md nor the consumers README; check 4's scenarios A and B do, first broken and then fixed,
 # and while checks 10, 28, 29, 30 and 32 shared that file every one of them started from the FIXED pair
 # without saying so. Two of them lean on it outright: check 28's scenario 19 needs a CONTRIBUTING.md at
 # the root to prove the import rule is file-relative, and check 32's scenario 49 reads the file back to
@@ -266,7 +266,7 @@ $s24Contributing = @('# Contributing', '', 'Nothing to run here.')
 function Write-QuietRootDocuments {
     param([Parameter(Mandatory)][string]$Fixture)
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'CONTRIBUTING.md'), "# Contributing`n`nNothing to link to here.`n", $Utf8NoBom)
-    [System.IO.File]::WriteAllText((Join-Path $Fixture 'connectors\README.md'), "# Connectors`n`nNothing to link to here.`n", $Utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $Fixture 'consumers\README.md'), "# Consumers`n`nNothing to link to here.`n", $Utf8NoBom)
 }
 
 # The fixture every one of the suites starts from: a throwaway repo root holding the REAL
@@ -288,7 +288,7 @@ function New-IntegrityFixture {
     # scripts\lint and scripts\lib so each scenario owns its own state, which is what lets the suites be
     # partitioned on cost rather than on which one happens to run first.
     New-Item -ItemType Directory -Path (Join-Path $Fixture 'scripts\task') -Force | Out-Null
-    New-Item -ItemType Directory -Path (Join-Path $Fixture 'connectors') -Force | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $Fixture 'consumers') -Force | Out-Null
     # check 10 fixture: two canonical skills (skill-alpha, skill-beta) plus a DEPTH DECOY -- a
     # SKILL.md one level deeper (skills/<name>/references/SKILL.md) that must NOT be picked up as a
     # third canonical skill, exercising the exact-depth binding of check 10's canonical-skillset scan.

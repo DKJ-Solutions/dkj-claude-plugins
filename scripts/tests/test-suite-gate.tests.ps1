@@ -1605,7 +1605,7 @@ finally {
 # --- Every suite's temp fixture must be UNGUESSABLE, not merely per-process -----------------------
 #
 # THE FAILURE THIS PREVENTS, measured on August 11, 2026. Running one suite by hand while the gate was
-# running produced TWO failing asserts in connectors.tests.ps1 -- a suite that passes on its own. Nothing
+# running produced TWO failing asserts in consumers.tests.ps1 -- a suite that passes on its own. Nothing
 # was wrong with the code under test: both runs built a fixture at the same fixed temp path, and each
 # tore down the other's tree mid-assert. The visible result is a red gate naming a subject that is fine,
 # which is the most expensive kind of false failure because the obvious next move is to go and read the

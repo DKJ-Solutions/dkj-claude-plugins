@@ -7,7 +7,7 @@
 .DESCRIPTION
     WHY IT EXISTS. Measured October 15, 2026 across the DKJ-Solutions org, nothing checked a consumer's
     copy: dkj-lifehub vendored a stylesheet matching no released tag, four repos had no copy and still
-    used the retired names, and this repo's own connector dashboard used four tokens house-style-v3 no
+    used the retired names, and this repo's own consumer dashboard used four tokens house-style-v3 no
     longer defines (#3033). Without a gate the migration to one design system drifts again after it
     lands, so this is phase 1 of that plan.
 
@@ -42,7 +42,7 @@
     SUBJECT of a selector -- in the last compound -- and the selector names no class of the repo's own.
     `.card`, `.card:hover` and `main .card` restyle every house card in the app. `.card .my-row` styles
     the repo's row, and `.my-thing.card` or `.my-panel .card` place a house component inside a domain
-    one, so none of those is a finding: the connector dashboard's `.cd-signals li .badge` nudges a badge
+    one, so none of those is a finding: the consumer dashboard's `.cd-signals li .badge` nudges a badge
     by a pixel in its own list, which is composition, not a second definition of the badge.
 
     THE RETIRED NAMES are every token an earlier released tag defined (house-style-v1, -v2) and every
