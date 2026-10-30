@@ -41,17 +41,29 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] Rename the three manifests whose file name no longer matches their `repo` field
+- [x] Update the literal references (README, Sylvester's lens, a comment in `check-connectors.ps1`, `connectors.tests.ps1`)
 
 ### TEST
 
+- [x] `connectors.tests.ps1` green on its own (417 pass, 0 fail); the full gate runs in `open-pr`
+
 ### DEPLOY: fix/connector-file-names
 
-**Score:**
+The connector register's rule is one `<repo>.json` per connected repo, and three manifests still
+carried a retired name: `dkj-claude-plugins.json` is now `dkj-marketplace.json`, `life-hub.json` is now
+`dkj-lifehub.json`, and `thumbnail-generator.json` is now `dkj-thumbnail-generator.json`. Every script
+reads the file name off disk, so nothing behaves differently; the README, Sylvester's lens, one comment in
+`check-connectors.ps1` and the self-manifest case in `connectors.tests.ps1` follow the new names. Test
+fixtures that invent their own register files are left as they are.
+
+**Score:** 1 -- a reader looking for a repo's record by its name no longer has to know its old one.
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the register lives in this repo only and ships to no consumer.
+
+**Score:** N/A
 
 #### Pull Request
 

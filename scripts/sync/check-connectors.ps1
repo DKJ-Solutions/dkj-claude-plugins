@@ -1099,7 +1099,7 @@ foreach ($mf in $manifestFiles) {
                    }
                    return $false })) {
         # ARM 2 -- THIS REPO'S OWN RENAME HISTORY, AND BOUNDED TO IT. Measured on this machine:
-        # connectors/dkj-claude-plugins.json names 'DKJ-Solutions/dkj-marketplace' (the #1769
+        # connectors/dkj-marketplace.json names 'DKJ-Solutions/dkj-marketplace' (the #1769
         # rename), while THIS checkout's own origin is still
         # 'https://github.com/DKJ-Solutions/claude-code-specialists.git' -- a name-half match this
         # repo's own rename history explains, consistent with a transfer redirect. Without this arm,
