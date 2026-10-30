@@ -39,21 +39,33 @@
 
 ### PLAN
 
+Closes #3664. The last two consumers migrated in their own repos: dkj-thumbnail-generator
+(DKJ-Solutions/dkj-thumbnail-generator#50) and djcylow-react (DaveKJohn/djcylow-react#182), each done from a
+throwaway clone, because neither is checked out on this machine. Now that both have merged, the register follows.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `connectors/thumbnail-generator.json`, `djcylow-react.json`: every `plugins[].id` to
+      `<plugin>@dkj-marketplace`. The `notes` keep the names they were written with.
 
 ### TEST
 
+- [ ] `check-connectors.ps1`: 0 errors. The gates are left to `ship-pr`.
+
 ### DEPLOY: feat/3664-connectors-last-two
 
-**Score:**
+The connector register names the dkj-marketplace ids for the last two consumers, dkj-thumbnail-generator
+and djcylow-react, so every registered consumer has moved
+([#3664](https://github.com/DKJ-Solutions/dkj-marketplace/issues/3664)).
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- the register is this repo's own bookkeeping.
+
+**Score:** N/A
 
 #### Pull Request
 
 Register the last two consumers under dkj-marketplace ids
-
