@@ -425,6 +425,20 @@ function Resolve-MarketplaceRedirect {
     return '/marketplace' + $Matches[1]
 }
 
+function Resolve-MarketplaceAddress {
+    <#
+        The levels a /marketplace address names, as Format-MarketplacePluginsPageHtml takes them: @{ Group; Plugin;
+        Specialist }, each '' where the address does not reach it, or $null for no /marketplace address at all.
+        /marketplace/dkj-subagents alone is the teams' group page, never a plugin of that name -- the address the
+        add-ons' move (October 30, 2026) briefly turned into a 404.
+    #>
+    param([AllowEmptyString()][string]$Path)
+    if ($Path -cnotmatch '^/marketplace(?:/([a-z0-9-]+)(?:/([a-z0-9-]+)(?:/([a-z0-9-]+))?)?)?/?\z') { return $null }
+    $first = [string]$Matches[1]; $second = [string]$Matches[2]
+    $group = if ($second -or $first -ceq 'dkj-subagents') { $first } else { '' }
+    return @{ Group = $group; Plugin = $(if ($group) { $second } else { $first }); Specialist = [string]$Matches[3] }
+}
+
 function Resolve-MarketplaceAddOnRedirect {
     <#
         Where an add-on of dkj-policy's top-level address now lives (Maikel, October 30, 2026: the add-ons stand on

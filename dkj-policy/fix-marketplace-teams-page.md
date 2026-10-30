@@ -41,17 +41,30 @@
 
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Resolve-MarketplaceAddress` in `scripts/lib/dev-pages-lib.ps1`: a `/marketplace` address parsed into its levels, with `dkj-subagents` alone read as the teams' group page
+- [x] `serve-connector-dashboard.ps1` routes through it instead of its inline regex
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: an assert on every level of a `/marketplace` address, the bare `dkj-subagents` among them (508 passed)
+- [x] The product server on :4870 restarted: `/marketplace/dkj-subagents` answers 200 with the four team cards
+- [ ] The owner has looked at `/marketplace/dkj-subagents`
+
 ### DEPLOY: fix/marketplace-teams-page
 
-**Score:**
+`/marketplace/dkj-subagents` is the specialist teams' page again: one card per team. The move of dkj-policy's
+add-ons onto its own page (in #3680, the same day) had made the server read that address as a plugin
+called `dkj-subagents`, which does not exist, so it answered 404. The address is now parsed in one lib
+function, `Resolve-MarketplaceAddress`, which a unit test holds to every level; the server's own fixture has
+no teams, so its 404 assert could not tell the two readings apart.
+
+**Score:** 3
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the product hub runs only in this repo's own checkout; no consumer serves it.
+
+**Score:** N/A
 
 #### Pull Request
 
