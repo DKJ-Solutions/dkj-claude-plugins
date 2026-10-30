@@ -39,19 +39,34 @@
 
 ### PLAN
 
+Dave, October 30, 2026: a new Performance card on the hub, with SessionStart and Clock moved onto its page.
+A visible result, so the branch waits for his look before it ships.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `general-pages-lib.ps1`: a group may sit in a group (`Group` on a `Get-HubGroups` row); `Get-HubMembers` and `Get-HubGroupCrumbs` draw the cards and the trail at any depth; the Performance group and its icon
+- [x] SessionStart under `/performance`, Clock under it too; the crumbs of SessionStart, Test gate, Stopwatch and Logbook pages read through Performance
+- [x] README of the hub names the new card
 
 ### TEST
 
+- [x] `dev-pages`, `dev-preview-sessionstart`, `stopwatch` suites updated and green; `logbook` and `connector-dashboard` green
+- [x] The branch's own server on 4891: `/hub` shows Performance in SessionStart's place, `/performance` holds SessionStart and Clock, the trails read Tools > Performance > ...
+
 ### DEPLOY: feat/hub-performance-card
 
-**Score:**
+The hub's home page has a Performance card in SessionStart's place. Its `/performance` page holds the
+SessionStart and Clock cards, and the Clock keeps the Test gate, the Stopwatch and the Logbook. Every page
+under those two now has Performance in its trail. Groups on the hub can now nest, so a group page can hold
+another group's card.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+A user of any repo's toolbox finds SessionStart and the Clock one click deeper, behind the new Performance card.
+
+**Score:** 2
 
 #### Pull Request
 

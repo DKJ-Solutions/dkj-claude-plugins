@@ -498,7 +498,8 @@ try {
             }
             $html = $null
             if ($gp = Format-HubGroupPageHtml -Href $path -RepoName (Get-RepoIdentity).Name) {
-                # A group page (Get-HubGroups): /clock, holding the Stopwatch and the Logbook (the owner, October 27, 2026).
+                # A group page (Get-HubGroups): /performance, holding SessionStart and the Clock (the owner, October 30, 2026),
+                # and /clock, holding the Test gate, the Stopwatch and the Logbook (October 27, 2026).
                 $html = $gp
             } elseif ($path -match '^/test-gate(?:/([a-z0-9-]{1,40})(?:/([A-Za-z0-9._-]{1,120}))?)?/?$') {
                 # The overview, a list's page, or one suite's (the owner, October 27, 2026); a path none names is a 404.
