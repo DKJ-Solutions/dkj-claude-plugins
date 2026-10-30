@@ -425,6 +425,18 @@ function Resolve-MarketplaceRedirect {
     return '/marketplace' + $Matches[1]
 }
 
+function Resolve-MarketplaceAddOnRedirect {
+    <#
+        Where an add-on of dkj-policy's top-level address now lives (Maikel, October 30, 2026: the add-ons stand on
+        dkj-policy's page): /marketplace/dkj-policy/<name> for a -Name in -Plugins whose kind is 'add-on to
+        dkj-policy', and '' for anything else, so every other plugin keeps its own address.
+    #>
+    param([AllowEmptyCollection()][object[]]$Plugins = @(), [AllowEmptyString()][string]$Name)
+    $p = @(@($Plugins) | Where-Object { $_ -and [string]$_.Name -ceq $Name })[0]
+    if (-not $p -or (Get-MarketplacePluginKind -Name ([string]$p.Name) -Source ([string]$p.Source)) -cne 'add-on to dkj-policy') { return '' }
+    return '/marketplace/dkj-policy/' + $Name
+}
+
 function Get-MarketplacePluginKind {
     <#
         What kind of plugin -Name is, from its name and its -Source path in marketplace.json: a team (the core
@@ -454,7 +466,9 @@ function Format-MarketplacePluginsPageHtml {
         plugin's page -- /marketplace/<name>, or /marketplace/dkj-subagents/<name> for a team, so a team is reachable only
         under its group: the marketplace's line as the lead, a facts card and the full description as paragraphs
         (the hub's ConvertTo-PluginDescriptionHtml). A -Group or -Plugin that names nothing, or a plugin under the
-        wrong level, returns $null, so the server answers 404 rather than an empty page.
+        wrong level, returns $null, so the server answers 404 rather than an empty page. dkj-policy's add-ons
+        (Maikel, October 30, 2026) are not on the overview: dkj-policy's page carries them as cards, and each is
+        -Group 'dkj-policy' -Plugin <name>, /marketplace/dkj-policy/<name>.
 
         THE SPECIALISTS LIVE ON THEIR TEAMS' PAGES (the owner, October 28, 2026: the Specialists pages and these
         were two doors to the same four teams). -SpecialistRows is ConvertTo-SpecialistRow's shape and
@@ -478,7 +492,12 @@ function Format-MarketplacePluginsPageHtml {
     $teamGroup = 'dkj-subagents'
     $isTeam = { param($p) [string]$p.Name -like ($teamGroup + '-*') }
     $teams = @($all | Where-Object { & $isTeam $_ })
-    if ($Group -and $Group -cne $teamGroup) { return $null }
+    # dkj-policy's add-ons stand on dkj-policy's own page, not the overview (Maikel, October 30, 2026), so each
+    # is reached under it, /marketplace/dkj-policy/<name>, as a team is under its group.
+    $addOnParent = 'dkj-policy'
+    $isAddOn = { param($p) (Get-MarketplacePluginKind -Name ([string]$p.Name) -Source ([string]$p.Source)) -ceq 'add-on to dkj-policy' }
+    $addOns = @($all | Where-Object { & $isAddOn $_ })
+    if ($Group -and $Group -cne $teamGroup -and -not ($Group -ceq $addOnParent -and $Plugin)) { return $null }
     $spPlugins = @(Get-SpecialistPlugins -Rows @($SpecialistRows))
     $spOf = { param($name) @($spPlugins | Where-Object { $_.Plugin -ceq $name })[0] }
     $tok = { param($b) if ([int64]$b -le 0) { '--' } else { '~' + (Format-DevNumber ([Math]::Round([double]$b / $CharsPerToken))) } }
@@ -508,6 +527,7 @@ function Format-MarketplacePluginsPageHtml {
                     -Id ('group-' + $teamGroup) -Class ('pl-card' + $(if ($on) { '' } else { ' pl-card--off' }))))
                 continue
             }
+            if (& $isAddOn $p) { continue }
             [void]$body.AppendLine((& $card $p ('/marketplace/' + $p.Name) 3))
         }
         if (-not $all.Count) {
@@ -534,15 +554,18 @@ function Format-MarketplacePluginsPageHtml {
     }
 
     $p = @($all | Where-Object { $_.Name -ceq $Plugin })[0]
-    if (-not $p -or [bool]$Group -ne [bool](& $isTeam $p)) { return $null }
-    $sp = if ($Group) { & $spOf $p.Name } else { $null }
+    if (-not $p) { return $null }
+    # Each plugin at its one level: a team under its group, an add-on under dkj-policy, any other at the top.
+    $parent = if (& $isTeam $p) { $teamGroup } elseif (& $isAddOn $p) { $addOnParent } else { '' }
+    if ($Group -cne $parent) { return $null }
+    $sp = if ($Group -ceq $teamGroup) { & $spOf $p.Name } else { $null }
     if ($Specialist) {
         $one = if ($sp) { @($sp.Rows | Where-Object { $_.Slug -ceq $Specialist })[0] } else { $null }
         if (-not $one) { return $null }
         return Format-SpecialistPageHtml -Row $one -Pick $sp -CharsPerToken $CharsPerToken -ReadError $SpecialistReadError
     }
     $crumbs = @(@{ Label = 'Marketplace'; Href = '/marketplace' })
-    if ($Group) { $crumbs += @{ Label = $teamGroup; Href = '/marketplace/' + $teamGroup } }
+    if ($Group) { $crumbs += @{ Label = $Group; Href = '/marketplace/' + $Group } }
     # '' rather than no output for a zero: in 5.1 a call that writes nothing empties the whole @(a, b, ...) it stands in.
     $count = { param($n, $word) if ([int]$n -gt 0) { [string]$n + ' ' + $word + $(if ([int]$n -ne 1) { 's' } else { '' }) } else { '' } }
     $holds = @((& $count $p.Subagents 'subagent'), (& $count $p.Personas 'persona'), (& $count $p.Skills 'skill'), (& $count $p.Hooks 'hook')) | Where-Object { $_ }
@@ -562,7 +585,13 @@ function Format-MarketplacePluginsPageHtml {
     [void]$body.AppendLine('<section class="card grid__full"><div class="card__head"><h2>Description</h2><p class="card__sub">From its <code>.claude-plugin/plugin.json</code></p></div>' +
         $(if ($p.Description) { ConvertTo-PluginDescriptionHtml -Text $p.Description } else { '<p class="note">None.</p>' }) + '</section>')
     [void]$body.AppendLine('</div>')
-    if ($Group) {
+    if ($p.Name -ceq $addOnParent -and $addOns.Count) {
+        # dkj-policy's page: its add-ons under its facts, one card each, h3s under the section's h2.
+        [void]$body.AppendLine('<div class="grid-3" id="add-ons"><div class="grid__head"><h2>Add-ons</h2></div>')
+        foreach ($a in $addOns) { [void]$body.AppendLine((& $card $a ('/marketplace/' + $addOnParent + '/' + $a.Name) 3)) }
+        [void]$body.AppendLine('</div>')
+    }
+    if ($Group -ceq $teamGroup) {
         # A team's page: its specialists under its facts.
         $pick = if ($sp) { $sp } else { @{ Plugin = $p.Name; Rows = @() } }
         [void]$body.Append((Format-SpecialistTeamHtml -Pick $pick -CharsPerToken $CharsPerToken -BaseHref ('/marketplace/' + $teamGroup + '/' + $p.Name) -ReadError $SpecialistReadError))

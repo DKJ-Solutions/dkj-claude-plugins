@@ -47,16 +47,18 @@ mid-turn added that a page's url always matches its h1 -- so `/plugins` becomes 
 - [x] `Format-MarketplacePluginsPageHtml`: a `.grid__head` with the h2 `dkj-marketplace` opens the overview's grid, its cards' labels h3s
 - [x] The product's Marketplace pages move from `/plugins` to `/marketplace` (cards, trails, the home card, the Specialists redirect)
 - [x] `Resolve-MarketplaceRedirect`: an old `/plugins` address answers a 303 to the same level under `/marketplace`
+- [x] dkj-policy's add-ons (bwj-development, dkj-solutions) leave the overview for an Add-ons section on dkj-policy's page, each at `/marketplace/dkj-policy/<name>`; `Resolve-MarketplaceAddOnRedirect` sends the old top-level address there
 
 ### TEST
 
-- [x] `dev-pages.tests.ps1` (495 passed) and `connector-dashboard.tests.ps1` (235 passed), the redirect asserted end to end
-- [x] Product server on 4870 restarted: `/marketplace` shows the h2 over four h3 cards, `/plugins` answers 303
+- [x] `dev-pages.tests.ps1` (500 passed) and `connector-dashboard.tests.ps1` (235 passed), the redirect asserted end to end
+- [x] Product server on 4870 restarted: `/marketplace` shows the h2 over two h3 cards, `/marketplace/dkj-policy` its two add-ons, the old addresses answer 303
 
 ### DEPLOY: feat/marketplace-section-head
 
 The product's Marketplace overview opens its card grid with an h2 naming the marketplace, `dkj-marketplace`,
-and its four cards carry h3 titles under it. The Marketplace pages moved from `/plugins` to `/marketplace`,
+and its cards carry h3 titles under it. dkj-policy's two add-ons, bwj-development and dkj-solutions, moved
+off the overview into an Add-ons section on dkj-policy's own page, each at `/marketplace/dkj-policy/<name>`. The Marketplace pages moved from `/plugins` to `/marketplace`,
 so a page's url matches its h1; every old `/plugins` address answers a 303 to the same page under
 `/marketplace`, and the old Specialists addresses now land there directly.
 

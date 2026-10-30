@@ -443,11 +443,18 @@ try {
                 # Every plugin this marketplace ships, the specialist teams' page, or one plugin's own page (the
                 # owner, October 27, 2026): /marketplace/dkj-subagents[/<team>[/<specialist>]] or /marketplace/<name>, a team's
                 # page carrying its specialists since October 28, 2026. Anything the marketplace or the team does not
-                # list is a 404, never an empty page.
+                # list is a 404, never an empty page. dkj-policy's add-ons are /marketplace/dkj-policy/<name> since
+                # October 30, 2026 (Maikel); the lib decides which group a plugin may stand under.
                 $plFirst = [string]$Matches[1]; $plSecond = [string]$Matches[2]; $plThird = [string]$Matches[3]
-                $plGroup = if ($plFirst -ceq 'dkj-subagents') { $plFirst } elseif ($plSecond) { 'none' } else { '' }
+                $plGroup = if ($plSecond) { $plFirst } else { '' }
                 $plName = if ($plGroup) { $plSecond } else { $plFirst }
                 $pl = Get-PluginsModel
+                $aoTo = if (-not $plGroup) { Resolve-MarketplaceAddOnRedirect -Plugins $pl.Plugins -Name $plName } else { '' }
+                if ($aoTo) {
+                    # An add-on's address before it moved under dkj-policy: an old link lands on its page there.
+                    Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $aoTo } -Method $method
+                    continue
+                }
                 # The specialists are read only for the teams' pages, the one place that shows them.
                 $sp = if ($plGroup -ceq 'dkj-subagents') { Get-SpecialistsModel } else { @{ Rows = @(); Error = ''; CharsPerToken = 3.0 } }
                 $html = Format-MarketplacePluginsPageHtml -Plugins $pl.Plugins -ReadError $pl.Error -Group $plGroup -Plugin $plName -Specialist $plThird `
