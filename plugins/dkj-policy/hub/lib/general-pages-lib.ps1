@@ -428,6 +428,7 @@ $script:HubIcons = @{
     'ai'            = '<path d="M10 3l1.8 4.7 4.7 1.8-4.7 1.8L10 16l-1.8-4.7L3.5 9.5l4.7-1.8z"/><path d="M18 14l.9 2.1 2.1.9-2.1.9L18 20l-.9-2.1-2.1-.9 2.1-.9z"/>'
     'claude'        = '<path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"/>'
     'rules'         = '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>'
+    'lens'          = '<circle cx="11" cy="11" r="6"/><path d="M15.5 15.5L21 21"/>'
     'skills'        = '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>'
 }
 
@@ -469,6 +470,7 @@ function Get-HubGroups {
         the hub. A group with no general page of its own is still a hub card (Format-HubPageCardsHtml). A Section group
         is no card and no page: it is an h2 on its parent's page, over a grid of its members' cards. So AI opens on
         the Claude section, holding Rules, Skills and Specialists (Maikel, October 30, 2026), each a page of its own.
+        A Section with Source 'lenses' takes its cards from the repo instead: one per specialist lens (Get-HubLensPages).
     #>
     @(
         @{ Href = '/clock'; Label = 'Clock'; Sub = 'How long the work takes: the Test gate, the Stopwatch and the Logbook'; Icon = 'clock' },
@@ -476,8 +478,51 @@ function Get-HubGroups {
         @{ Href = '/ai/claude'; Label = 'Claude'; Icon = 'claude'; Group = '/ai'; Section = $true },
         @{ Href = '/ai/claude/rules'; Label = 'Rules'; Sub = 'The rules Claude works by'; Icon = 'rules'; Group = '/ai/claude' },
         @{ Href = '/ai/claude/skills'; Label = 'Skills'; Sub = 'The skills Claude can use'; Icon = 'skills'; Group = '/ai/claude' },
-        @{ Href = '/ai/claude/specialists'; Label = 'Specialists'; Sub = 'The Claude Specialists, each with a craft of their own'; Icon = 'specialists'; Group = '/ai/claude' }
+        @{ Href = '/ai/claude/specialists'; Label = 'Specialists'; Sub = 'The Claude Specialists, each with a craft of their own'; Icon = 'specialists'; Group = '/ai/claude' },
+        @{ Href = '/ai/lenses'; Label = 'Lenses'; Icon = 'lens'; Group = '/ai'; Section = $true; Source = 'lenses' }
     )
+}
+
+function Get-HubLensPages {
+    <#
+        Every specialist lens of the repo at -RepoRoot (.claude/specialists/lenses/specialist-NN-NN-lens.md), by name:
+        each a card's @{ Href; Label; Sub; Icon; Path }, its Label the file's name and its Sub the lens's own '# ' title.
+        Read per request, so a lens added to the checkout is on the page at once (Maikel, October 30, 2026). None where
+        the repo keeps no lenses, or no -RepoRoot is given.
+    #>
+    param([AllowEmptyString()][string]$RepoRoot = '')
+    if (-not $RepoRoot) { return @() }
+    $dir = Join-Path $RepoRoot '.claude\specialists\lenses'
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) { return @() }
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+    foreach ($f in @(Get-ChildItem -LiteralPath $dir -File | Where-Object { $_.Name -cmatch '^specialist-\d{2}-\d{2}-lens\.md\z' } | Sort-Object Name)) {
+        $sub = ''
+        try {
+            foreach ($line in [System.IO.File]::ReadAllLines($f.FullName, $utf8)) { if ($line -match '^#\s+(.+)$') { $sub = $Matches[1].Trim(); break } }
+        } catch { $sub = '' }
+        @{ Href = '/ai/lenses/' + $f.BaseName; Label = $f.BaseName; Sub = $sub; Icon = 'lens'; Path = $f.FullName }
+    }
+}
+
+function Format-HubLensPageHtml {
+    <#
+        One specialist lens's own page on /ai/lenses/<name> (Get-HubLensPages): an h1 with the file's name, and the file's
+        text, escaped, in a card, under Tools > AI. $null for a name the repo has no lens of.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Name, [AllowEmptyString()][string]$RepoRoot = '', [AllowEmptyString()][string]$RepoName = '', [string]$HubHref = '/hub')
+    $lens = @(Get-HubLensPages -RepoRoot $RepoRoot | Where-Object { $_.Label -ceq $Name })[0]
+    if (-not $lens) { return $null }
+    $e = { param($v) ConvertTo-GeneralPageText $v }
+    $body = New-Object System.Text.StringBuilder
+    [void]$body.AppendLine('<div><h1>' + (& $e $lens.Label) + '</h1></div>')
+    try {
+        $text = [System.IO.File]::ReadAllText($lens.Path, (New-Object System.Text.UTF8Encoding($false)))
+        [void]$body.AppendLine('<section class="card"><div class="prose prose--fill"><pre tabindex="0"><code>' + (& $e $text) + '</code></pre></div></section>')
+    } catch {
+        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">This lens could not be read: ' + (& $e $_.Exception.Message) + '</p>')
+    }
+    return Format-GeneralPageHtml -Title $lens.Label -Body $body.ToString() -Lead '' -Bare -SiteName $RepoName -HubHref $HubHref `
+        -ParentCrumbs @(@{ Label = 'AI'; Href = '/ai' }) -FooterNote ('Read from <code>.claude/specialists/lenses/' + (& $e $lens.Label) + '.md</code> by the dkj-policy plugin''s <code>hub/lib/general-pages-lib.ps1</code>.')
 }
 
 function Format-HubCardLinkHtml {
@@ -547,8 +592,10 @@ function Format-HubGroupPageHtml {
         page and member group, three to a row, each one link; then each member Section, a .grid-3 headed by its h2 and
         holding its members as h3 cards. A group with no member yet says so in one card. Its trail runs through every
         group it sits in but a Section, which has no page. $null for an Href no group has, and for a Section.
+        -RepoRoot is the checkout a Source section reads its cards from (the Lenses, Get-HubLensPages).
     #>
-    param([Parameter(Mandatory = $true)][string]$Href, [AllowEmptyString()][string]$RepoName = '', [string]$HubHref = '/hub')
+    param([Parameter(Mandatory = $true)][string]$Href, [AllowEmptyString()][string]$RepoName = '', [string]$HubHref = '/hub',
+        [AllowEmptyString()][string]$RepoRoot = '')
     $groups = @(Get-HubGroups)
     $g = @($groups | Where-Object { $_.Href -ceq $Href })[0]
     if (-not $g -or $g.Section) { return $null }
@@ -580,8 +627,12 @@ function Format-HubGroupPageHtml {
         # The house grouping form: a .grid__head over the cards, whose titles are then h3s. The h2 alone, with no
         # p.card__sub under it (Maikel, October 30, 2026).
         [void]$body.AppendLine('<div class="grid-3"><div class="grid__head"><h2>' + (& $e $sec.Label) + '</h2></div>')
-        foreach ($p in @($groups | Where-Object { $_.Group -ceq $sec.Href })) {
+        $cards = if ($sec.Source -eq 'lenses') { @(Get-HubLensPages -RepoRoot $RepoRoot) } else { @($groups | Where-Object { $_.Group -ceq $sec.Href }) }
+        foreach ($p in $cards) {
             [void]$body.AppendLine((Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon -Heading 3))
+        }
+        if ($cards.Count -eq 0) {
+            [void]$body.AppendLine('<section class="card grid__full"><p class="msg" role="status">Nothing here yet.</p></section>')
         }
         [void]$body.AppendLine('</div>')
     }

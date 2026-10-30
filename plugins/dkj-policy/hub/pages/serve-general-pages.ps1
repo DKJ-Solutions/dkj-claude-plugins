@@ -497,9 +497,16 @@ try {
                 continue
             }
             $html = $null
-            if ($gp = Format-HubGroupPageHtml -Href $path -RepoName (Get-RepoIdentity).Name) {
+            if ($gp = Format-HubGroupPageHtml -Href $path -RepoName (Get-RepoIdentity).Name -RepoRoot $root) {
                 # A group page (Get-HubGroups): /clock, holding the Stopwatch and the Logbook (the owner, October 27, 2026).
                 $html = $gp
+            } elseif ($path -cmatch '^/ai/lenses/(specialist-\d{2}-\d{2}-lens)/?$') {
+                # One specialist lens's page, read from this checkout (Maikel, October 30, 2026); a lens it has not is a 404.
+                $html = Format-HubLensPageHtml -Name $Matches[1] -RepoRoot $root -RepoName (Get-RepoIdentity).Name
+                if ($null -eq $html) {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('No lens of that name in this repo.')) -Method $method
+                    continue
+                }
             } elseif ($path -match '^/test-gate(?:/([a-z0-9-]{1,40})(?:/([A-Za-z0-9._-]{1,120}))?)?/?$') {
                 # The overview, a list's page, or one suite's (the owner, October 27, 2026); a path none names is a 404.
                 $tgPath = (@($Matches[1], $Matches[2]) | Where-Object { $_ }) -join '/'
