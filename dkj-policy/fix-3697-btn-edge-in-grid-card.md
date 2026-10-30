@@ -52,8 +52,8 @@ scoped to that one place, so a plain `.btn` everywhere else keeps its `--paper-3
 
 ### TEST
 
-- [ ] The owner looks at a plain `.btn` beside a `.btn--primary` on a grid card, light and dark (a visible result,
-  #3697 parked `awaiting-review-dev`)
+- [x] The owner looked at a plain `.btn` beside a `.btn--primary` on a grid card, light and dark, and approved it
+  (Dave, October 30, 2026)
 
 ### DEPLOY: fix/3697-btn-edge-in-grid-card
 
