@@ -50,7 +50,9 @@ throwaway clone, because neither is checked out on this machine. Now that both h
 
 ### TEST
 
-- [ ] `check-connectors.ps1`: 0 errors. The gates are left to `ship-pr`.
+- [x] `check-connectors.ps1`: 0 errors, but it SKIPs both, because neither is checked out here. So the ids were
+      read against each consumer's merged `.claude/settings.json` on origin instead: both enable their registered
+      plugins under `@dkj-marketplace`. The gates are left to `ship-pr`.
 
 ### DEPLOY: feat/3664-connectors-last-two
 
