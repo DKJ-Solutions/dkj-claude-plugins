@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**3 / 6 minor entries** <!-- pending-tally -->
+**3 / 7 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/marketplace-teams-page · 20261030-104603Z
+
+`/marketplace/dkj-subagents` is the specialist teams' page again, and it now groups them: the core team
+alone under an **Alpha** heading, the other teams under **Extensions**. The move of dkj-policy's
+add-ons onto its own page (in #3680, the same day) had made the server read that address as a plugin
+called `dkj-subagents`, which does not exist, so it answered 404. The address is now parsed in one lib
+function, `Resolve-MarketplaceAddress`, which a unit test holds to every level; the server's own fixture has
+no teams, so its 404 assert could not tell the two readings apart.
+
+**Score:** 3
+
+#### What makes this deploy extra special
+
+N/A: the product hub runs only in this repo's own checkout; no consumer serves it.
+
+**Score:** N/A
+
+#### Pull Request
+
+/marketplace/dkj-subagents shows the specialist teams again instead of a 404
+
+[PR #3681](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3681)
+
+---
 
 ### DEPLOY: feat/hub-performance-card · 20261030-095251Z
 
