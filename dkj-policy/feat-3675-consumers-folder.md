@@ -53,6 +53,10 @@ a different thing and stays.
 
 ### TEST
 
+- [x] `main` merged in after #3666, which git carried onto the renamed `consumer-sessioncheck.ps1`; no new `connectors/` reference outside history, the forwarder, the redirect test and the dated session-start snapshot
+- [x] The four gates: roster sync, plugin integrity, script contract, unfolded entry -- 0 errors
+- [x] `check-consumers.ps1`, the `check-connectors.ps1` forwarder and the `consumer-sessioncheck` hook run clean on this checkout
+
 ### DEPLOY: feat/3675-consumers-folder
 
 The register of repos that install this marketplace's plugins is now `consumers/`, the name the rest
