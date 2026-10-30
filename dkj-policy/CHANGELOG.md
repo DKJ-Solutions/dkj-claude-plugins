@@ -2,7 +2,34 @@
 
 ## [Unreleased]
 
-**3 / 12 minor entries** <!-- pending-tally -->
+**4 / 13 minor entries** <!-- pending-tally -->
+
+### DEPLOY: docs/3689-recurrence-of-completed-issue · 20261030-141048Z
+
+The filing rules covered a new instance of a record and of an `awaiting-recurrences-first` issue, but
+not of an ordinary issue closed as *completed* whose repair did not hold. Three sessions handled the
+same case two ways (#3288, #3687). [`CONTRIBUTING-portable.md`](../plugins/dkj-policy/CONTRIBUTING-portable.md)
+now says what to do: comment on the closed issue, and convert it to a record in the same movement
+(`awaiting-recurrences`, `[RECORD]`, the close reason changed to *not planned*, left closed).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A session in a consuming repo that finds a recurrence of a closed, completed issue now has one route:
+comment on it and make it a record, instead of filing a new issue beside it.
+
+**Score:** 2
+
+#### Pull Request
+
+A recurrence of an issue closed as completed makes it a record
+
+Plugins: dkj-policy
+
+[PR #3690](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3690)
+
+---
 
 ### DEPLOY: feat/3664-connectors-last-two · 20261030-134647Z
 
