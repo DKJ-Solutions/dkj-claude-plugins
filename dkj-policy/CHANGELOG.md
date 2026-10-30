@@ -2,7 +2,29 @@
 
 ## [Unreleased]
 
-**3 / 11 minor entries** <!-- pending-tally -->
+**3 / 12 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/3664-connectors-last-two · 20261030-134647Z
+
+The connector register names the dkj-marketplace ids for the last two consumers, dkj-thumbnail-generator
+and djcylow-react, so every registered consumer has moved
+([#3664](https://github.com/DKJ-Solutions/dkj-marketplace/issues/3664)).
+
+**Score:** 1
+
+#### What makes this deploy extra special
+
+N/A -- the register is this repo's own bookkeeping.
+
+**Score:** N/A
+
+#### Pull Request
+
+Register the last two consumers under dkj-marketplace ids
+
+[PR #3685](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3685)
+
+---
 
 ### DEPLOY: fix/connector-file-names · 20261030-131306Z
 
