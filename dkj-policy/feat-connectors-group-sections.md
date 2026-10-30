@@ -49,6 +49,9 @@ one level up with an h3 each. Read as: the repo cards from the group pages move 
 - [x] `Format-ConnectorDashboardHtml` overview: a section per group, its h2 head with summary and a link to
   the group page; DKJ holds its own cards, BWJ and Other a card per registered repo opening its details
 - [x] The server hands the overview the DKJ cards, their style and any GitHub read warning
+- [x] The url follows the h1: the Consumers pages move from `/connectors` to `/consumers`, an old address answered with a 303
+- [x] The group h2 stands alone, with no sub line or button under it (Maikel)
+- [x] The DKJ cards' smaller title is scoped to their h2, so an h3 card keeps the house `--text-h3`
 
 ### TEST
 
@@ -57,10 +60,10 @@ one level up with an h3 each. Read as: the repo cards from the group pages move 
 
 ### DEPLOY: feat/connectors-group-sections
 
-The Consumers page (`/connectors`) is now three sections, DKJ, BWJ and Other, each under its own h2 with the
-group's summary and a link to its page. Under each sit that group's repo cards, one level up from where they
+The Consumers page is now three sections, DKJ, BWJ and Other, each under an h2 of its own. Under each sit that group's repo cards, one level up from where they
 were and an h3 each: every DKJ repo's card, as on the DKJ page, and a card per registered BWJ and Other repo
-that opens its details on the group's page.
+that opens its details on the group's page. The pages moved from `/connectors` to `/consumers`, so the url matches their h1 Consumers; an old
+address lands on its new page.
 
 **Score:** 2
 

@@ -26,7 +26,7 @@
     and bar helpers, so nothing is written twice.
 
     THE DKJ REPOS ON GITHUB (#3231): every DKJ-Solutions repo, its checkout beside this repo, and the command that
-    opens Claude Code there -- a section of the DKJ group's connector page, /connectors/dkj, since #3549, not a page
+    opens Claude Code there -- a section of the DKJ group's connector page, /consumers/dkj, since #3549, not a page
     of its own. Find-DkjCheckouts is the one function in this file that reads the disk.
 
     EVERY VALUE THAT REACHES THE PAGE IS ESCAPED, through connector-dashboard-lib's ConvertTo-DashboardText
@@ -71,7 +71,7 @@ function Get-ProductPages {
         them: the specialists are the dkj-subagents teams', so they live on those teams' own Plugins pages.
     #>
     @(
-        @{ Href = '/connectors';  Label = 'Consumers';   Sub = 'Every repo that installs plugins from this marketplace, registered under connectors/ and checked by check-connectors.ps1 on this machine'; Icon = 'consumers' }
+        @{ Href = '/consumers';  Label = 'Consumers';   Sub = 'Every repo that installs plugins from this marketplace, registered under connectors/ and checked by check-connectors.ps1 on this machine'; Icon = 'consumers' }
         @{ Href = '/marketplace';     Label = 'Marketplace'; Sub = 'Every plugin this marketplace ships, its version and what it holds'; Icon = 'marketplace' }
     )
 }
@@ -733,7 +733,7 @@ function Get-DkjRepoRows {
 function Format-DkjRepoFactsHtml {
     <#
         A DKJ repo's GitHub facts as one line of the caller's markup: its visibility, its open issues and PRs (each
-        a link where there are any), the day of its last push. Shared by its card on /connectors/dkj and the Repo
+        a link where there are any), the day of its last push. Shared by its card on /consumers/dkj and the Repo
         card on its own page. The links are built from owner/name, never from the answer's url field (Sebastian,
         #3231). -NoLinks writes the counts as text, for a card that is itself one link: an <a> inside an <a> is
         invalid HTML, so the browser closes the card's link at the first count and the card falls apart (Maikel's
@@ -837,7 +837,7 @@ function Get-DkjRepoCardStyle {
     <# The repo layer for the DKJ pages (.dr-*): the repo cards' grid and lines, the Repo card's description, facts list and session command. #>
     return (@(
         '.dr-link { color: var(--primary); text-underline-offset: 2px; }',
-        # /connectors/dkj: four cards to a row, at most three rows of them (Maikel, October 28, 2026) -- so four
+        # /consumers/dkj: four cards to a row, at most three rows of them (Maikel, October 28, 2026) -- so four
         # columns hold down to a narrow editor pane, where the VS Code Simple Browser this page is read in sits,
         # three below that, and one only at phone width.
         '.dr-repos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--spacing-3); }',
@@ -847,7 +847,8 @@ function Get-DkjRepoCardStyle {
         # Each card three lines at most: the name, the facts and the checkout. The name a size down, to fit four to a
         # row; the house style cuts it off where it still does not fit and keeps the status mark after it in its
         # place, and .dr-clip does the same for the facts and the checkout (Maikel, October 28, 2026).
-        '.dr-repos .menu-item__title { font-size: var(--text-lg); }',
+        # The h2 cards only: an h3 card (the Consumers overview) keeps the house --text-h3 (Maikel, October 30, 2026).
+        '.dr-repos h2.menu-item__title { font-size: var(--text-lg); }',
         '.dr-clip { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-sm); }',
         '.dr-clip code { font-size: var(--text-xs); }',
         # A grid-2 track is 1fr, which never shrinks below what its card holds -- and the session command is one nowrap
@@ -894,14 +895,14 @@ function Format-DkjRepoCardsHtml {
         $reg = $byConnector[([string]$r.Repo).ToLowerInvariant()]
         $badge = if ($reg) { $b = Get-DashboardStatusBadge ([string]$reg.Status); '<span class="badge badge--sm ' + $b.Class + '" title="' + $b.Word + '" aria-label="' + $b.Word + '">' + $b.Mark + '</span>' } else { '' }
         $id = 'repo-' + (([string]$r.Name) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
-        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/dkj/' + $r.Name) -Label ([string]$r.Name) -SubHtml (& $clip (Format-DkjRepoFactsHtml -Row $r -NoLinks)) -ValueHtml $value -TitleBadgeHtml $badge -Heading $Heading -Id $id))
+        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/consumers/dkj/' + $r.Name) -Label ([string]$r.Name) -SubHtml (& $clip (Format-DkjRepoFactsHtml -Row $r -NoLinks)) -ValueHtml $value -TitleBadgeHtml $badge -Heading $Heading -Id $id))
     }
     return $sb.ToString()
 }
 
 function Format-DkjReposPageHtml {
     <#
-        /connectors/dkj (Maikel, October 28, 2026): one card per DKJ repo, in the hub's card form three to a row
+        /consumers/dkj (Maikel, October 28, 2026): one card per DKJ repo, in the hub's card form three to a row
         (Format-HubCardLinkHtml), each opening that repo's own page (Format-DkjRepoPageHtml). Newest push first: the
         repos GitHub lists, then every checkout it did not (Get-DkjRepoRows), so the page never hides a folder on
         disk. A card's line is its GitHub facts, its value its checkout here, and its mark the status
@@ -921,7 +922,7 @@ function Format-DkjReposPageHtml {
     $set = Get-DkjRepoRows -Query $Query -Checkouts $Checkouts
 
     $sb = New-Object System.Text.StringBuilder
-    [void]$sb.Append((Format-ConnectorPageStart -PageName 'DKJ repos' -Trail @(@{ Href = '/connectors'; Label = 'Consumers' }) -Style (Get-DkjRepoCardStyle)))
+    [void]$sb.Append((Format-ConnectorPageStart -PageName 'DKJ repos' -Trail @(@{ Href = '/consumers'; Label = 'Consumers' }) -Style (Get-DkjRepoCardStyle)))
     if ($Query.Error) {
         [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">GitHub could not be read: ' + (& $e $Query.Error) + '. The checkouts on this machine are shown without their issues.</p>')
     }
@@ -941,13 +942,13 @@ function Format-DkjReposPageHtml {
 
     $secs = { param($m) if ($null -ne $m.Seconds) { ' in ' + ([double]$m.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' } }
     $checked = if ($CheckMeta.GeneratedAt) { ' The status is read from <code>check-connectors.ps1</code>, checked ' + (& $e $CheckMeta.GeneratedAt) + (& $secs $CheckMeta) + '.' } else { '' }
-    [void]$sb.Append((Format-ConnectorPageEnd -FooterHtml ('Read with one <code>gh api graphql</code> call and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + (& $secs $Meta) + '.' + $checked + ' (<a class="cd-link" href="/refresh?page=connectors/dkj">read again</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.')))
+    [void]$sb.Append((Format-ConnectorPageEnd -FooterHtml ('Read with one <code>gh api graphql</code> call and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + (& $secs $Meta) + '.' + $checked + ' (<a class="cd-link" href="/refresh?page=consumers/dkj">read again</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.')))
     return $sb.ToString()
 }
 
 function Format-DkjRepoPageHtml {
     <#
-        A DKJ repo's own page, /connectors/dkj/<name> (Maikel, October 28, 2026): the trail Home > Connectors > DKJ
+        A DKJ repo's own page, /consumers/dkj/<name> (Maikel, October 28, 2026): the trail Home > Connectors > DKJ
         repos > the repo, then a GitHub card and a This machine card side by side, with no group head
         (Format-DkjRepoCardHtml), and Lenses (Format-RepoLensesCardHtml, which the server hands in as -LensesHtml and
         -LensesStyle). -Connector is its entry in the register or $null; -Meta is @{ GeneratedAt; Seconds } of the
@@ -964,7 +965,7 @@ function Format-DkjRepoPageHtml {
     $e = { param($v) ConvertTo-DashboardText $v }
     $sb = New-Object System.Text.StringBuilder
     $style = (Get-DkjRepoCardStyle) + $(if ($LensesStyle) { "`n" + $LensesStyle } else { '' })
-    [void]$sb.Append((Format-ConnectorPageStart -PageName ([string]$Row.Name) -Trail @(@{ Href = '/connectors'; Label = 'Consumers' }, @{ Href = '/connectors/dkj'; Label = 'DKJ repos' }) -Style $style))
+    [void]$sb.Append((Format-ConnectorPageStart -PageName ([string]$Row.Name) -Trail @(@{ Href = '/consumers'; Label = 'Consumers' }, @{ Href = '/consumers/dkj'; Label = 'DKJ repos' }) -Style $style))
     # No group head (Maikel, October 28, 2026): the page's h1 names the repo and each card carries its own h2.
     [void]$sb.AppendLine('<div class="grid-2" id="repo">')
     [void]$sb.Append((Format-DkjRepoCardHtml -Row $Row -Checkout $Checkout -Connector $Connector))
@@ -972,6 +973,6 @@ function Format-DkjRepoPageHtml {
     if ($LensesHtml) { [void]$sb.Append($LensesHtml) }
     [void]$sb.AppendLine((Get-CopyButtonScript))
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
-    [void]$sb.Append((Format-ConnectorPageEnd -FooterHtml ('Read with one <code>gh api graphql</code> call and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=connectors/dkj/' + (& $e $Row.Name) + '">read again</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.')))
+    [void]$sb.Append((Format-ConnectorPageEnd -FooterHtml ('Read with one <code>gh api graphql</code> call and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=consumers/dkj/' + (& $e $Row.Name) + '">read again</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.')))
     return $sb.ToString()
 }
