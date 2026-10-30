@@ -552,7 +552,7 @@ try {
     Assert-Equal 0 $r.Code 'unregistered consumer: still exit 0 -- not being registered is not a failure of the plugin install'
 
     # --- 6. Real manifests of this repo: the self-manifest always checks ----------------------
-    $selfManifest = Join-Path $RepoRoot 'connectors\dkj-claude-plugins.json'
+    $selfManifest = Join-Path $RepoRoot 'connectors\dkj-marketplace.json'
     $r = Invoke-Ps $Script ($base + @('-Manifest', $selfManifest))
     Assert-Equal 0 $r.Code 'self-manifest (workshop consumes itself): exit code 0'
 
@@ -926,7 +926,7 @@ try {
     #     line only about the repo the session is in, so the hook can surface it unconditionally.
     $stub = New-StubWorkshop -Name 'stub-inventory' -ExitCode 0 -OutputLines @(
         "  [INFO]  DKJ-Solutions/claude-code-specialists / dkj-subagents-alpha@dkj-marketplace: extension '04-11' exists in the consumer but is not in the register -- update the register or review the change.",
-        "  [INVENTORY] this repo has 1 lens(es) that its own entry in the connector register does not list (04-11) -- add them to the 'extensions' array in dkj-claude-plugins.json, in the same change that landed the lens. Nothing is broken: the register's view of this repo is simply behind reality.",
+        "  [INVENTORY] this repo has 1 lens(es) that its own entry in the connector register does not list (04-11) -- add them to the 'extensions' array in dkj-marketplace.json, in the same change that landed the lens. Nothing is broken: the register's view of this repo is simply behind reality.",
         'Summary: 0 error(s), 1 info signal(s).'
     )
     $r = Invoke-Ps $Hook @('-WorkshopPathOverride', $stub)
@@ -952,7 +952,7 @@ try {
     #     also wrong, which is exactly when a session is busiest).
     $stub = New-StubWorkshop -Name 'stub-inv-mixed' -ExitCode 1 -OutputLines @(
         '  [ERROR] life-hub / dkj-subagents-alpha@dkj-marketplace: machine record is on v2.9.0, source on v2.11.0',
-        "  [INVENTORY] this repo has 1 lens(es) that its own entry in the connector register does not list (04-11) -- add them to the 'extensions' array in dkj-claude-plugins.json, in the same change that landed the lens. Nothing is broken: the register's view of this repo is simply behind reality.",
+        "  [INVENTORY] this repo has 1 lens(es) that its own entry in the connector register does not list (04-11) -- add them to the 'extensions' array in dkj-marketplace.json, in the same change that landed the lens. Nothing is broken: the register's view of this repo is simply behind reality.",
         'Summary: 1 error(s), 1 info signal(s).'
     )
     $r = Invoke-Ps $Hook @('-WorkshopPathOverride', $stub)
@@ -1068,8 +1068,8 @@ try {
     #     scenarios: a whole plugin block the register never named is a different situation, with a
     #     different fix, from "not registered at all" or "an extension list is behind".
     $stub = New-StubWorkshop -Name 'stub-unlisted' -ExitCode 0 -OutputLines @(
-        "  [INFO]  DKJ-Solutions/claude-code-specialists / dkj-policy@dkj-marketplace: plugin 'dkj-subagents-ecomm@dkj-marketplace' is enabled in .claude/settings.json but this manifest's 'plugins' list does not name it -- it was never looped over above, so nothing about it was checked here (no extension check, no version check). Add a plugins[] block for it to dkj-claude-plugins.json, in the same change that enabled it, or remove the enable if that was not intended.",
-        "  [UNLISTED] this repo has 1 plugin(s) enabled that its own entry in the connector register does not list (dkj-subagents-ecomm@dkj-marketplace) -- add a plugins[] block for each to dkj-claude-plugins.json, in the same change that enabled it. Nothing is broken: the register's view of this repo is simply behind reality.",
+        "  [INFO]  DKJ-Solutions/claude-code-specialists / dkj-policy@dkj-marketplace: plugin 'dkj-subagents-ecomm@dkj-marketplace' is enabled in .claude/settings.json but this manifest's 'plugins' list does not name it -- it was never looped over above, so nothing about it was checked here (no extension check, no version check). Add a plugins[] block for it to dkj-marketplace.json, in the same change that enabled it, or remove the enable if that was not intended.",
+        "  [UNLISTED] this repo has 1 plugin(s) enabled that its own entry in the connector register does not list (dkj-subagents-ecomm@dkj-marketplace) -- add a plugins[] block for each to dkj-marketplace.json, in the same change that enabled it. Nothing is broken: the register's view of this repo is simply behind reality.",
         'Summary: 0 error(s), 1 info signal(s).'
     )
     $r = Invoke-Ps $Hook @('-WorkshopPathOverride', $stub)
@@ -1095,7 +1095,7 @@ try {
     #     marker must not be dropped precisely when something else is also wrong.
     $stub = New-StubWorkshop -Name 'stub-unlisted-mixed' -ExitCode 1 -OutputLines @(
         '  [ERROR] life-hub / dkj-subagents-alpha@dkj-marketplace: machine record is on v2.9.0, source on v2.11.0',
-        '  [UNLISTED] this repo has 1 plugin(s) enabled that its own entry in the connector register does not list (dkj-subagents-ecomm@dkj-marketplace) -- add a plugins[] block for each to dkj-claude-plugins.json, in the same change that enabled it. Nothing is broken: the register''s view of this repo is simply behind reality.',
+        '  [UNLISTED] this repo has 1 plugin(s) enabled that its own entry in the connector register does not list (dkj-subagents-ecomm@dkj-marketplace) -- add a plugins[] block for each to dkj-marketplace.json, in the same change that enabled it. Nothing is broken: the register''s view of this repo is simply behind reality.',
         'Summary: 1 error(s), 1 info signal(s).'
     )
     $r = Invoke-Ps $Hook @('-WorkshopPathOverride', $stub)
