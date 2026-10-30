@@ -96,12 +96,42 @@ Assert-True (@(Get-HubGroups | Where-Object { -not (Get-HubIconSvg -Name $_.Icon
 Write-Host '-- the Clock group page (the owner, October 27, 2026)' -ForegroundColor Cyan
 Assert-Equal '/test-gate,/stopwatch,/logbook' ((Get-GeneralPages | Where-Object { $_.Group -eq '/clock' } | ForEach-Object { $_.Href }) -join ',') 'Test gate, Stopwatch and Logbook belong to the Clock group, in that order'
 $clockCards = @(Format-HubPageCardsHtml -Pages @(Get-GeneralPages))
-Assert-True ($clockCards.Count -eq 6 -and @($clockCards | Where-Object { $_ -notmatch '^<section class="card card--link">' }).Count -eq 0 -and @($clockCards | Where-Object { ([regex]::Matches($_, '<a ')).Count -ne 1 }).Count -eq 0) 'the hub draws six cards for the eight pages, each a .card--link holding exactly one link'
+Assert-True ($clockCards.Count -eq 7 -and @($clockCards | Where-Object { $_ -notmatch '^<section class="card card--link">' }).Count -eq 0 -and @($clockCards | Where-Object { ([regex]::Matches($_, '<a ')).Count -ne 1 }).Count -eq 0) 'the hub draws seven cards for the eight pages and the AI group, each a .card--link holding exactly one link'
 Assert-True ($clockCards[4] -match 'href="/clock"' -and $clockCards[4] -match 'menu-item__title">Clock<' -and -not ($clockCards -match 'href="/(test-gate|stopwatch|logbook)"')) 'the Clock card takes the Test gate''s place and links /clock; no member has a hub card of its own'
 $clockPage = Format-HubGroupPageHtml -Href '/clock' -RepoName 'dkj-claude-plugins'
 Assert-True ($clockPage -match '<div><h1>Clock</h1></div>' -and ([regex]::Matches($clockPage, '<section class="card card--link">')).Count -eq 3 -and $clockPage.IndexOf('href="/test-gate"') -lt $clockPage.IndexOf('href="/stopwatch"') -and $clockPage.IndexOf('href="/stopwatch"') -lt $clockPage.IndexOf('href="/logbook"')) 'the /clock page is an h1 above its group (never inside it) and one card link each for Test gate, Stopwatch and Logbook, in that order'
 Assert-True ($clockPage -match 'aria-current="page">Clock</span>' -and $clockPage -match '<li><a href="/hub">Tools</a></li>') 'its trail reads Tools > Clock'
 Assert-True ($null -eq (Format-HubGroupPageHtml -Href '/nope') -and $null -eq (Format-HubGroupPageHtml -Href '/Clock')) 'a path no group has is no group page'
+
+Write-Host '-- the AI group: AI > Claude > Rules, Skills, Specialists (Maikel, October 30, 2026)' -ForegroundColor Cyan
+Assert-True ($clockCards[6] -match 'href="/ai"' -and $clockCards[6] -match 'menu-item__title">AI<' -and -not ($clockCards -match 'href="/ai/')) 'the AI card is the hub''s last, after the general pages, and no nested group has a hub card of its own'
+$aiPage = Format-HubGroupPageHtml -Href '/ai' -RepoName 'dkj-claude-plugins'
+Assert-True ($aiPage -match '<div><h1>AI</h1></div>' -and $aiPage -match '<div class="grid-3"><div class="grid__head"><h2>Claude</h2></div>' -and $aiPage -notmatch 'card__sub' -and $aiPage -notmatch 'href="/ai/claude"') 'the /ai page holds Claude as a lone h2 heading a .grid-3, with no sub line under it and not as a card'
+Assert-True (([regex]::Matches($aiPage, '<section class="card card--link">')).Count -eq 3 -and ([regex]::Matches($aiPage, '<h3 class="menu-item__title">')).Count -eq 3 -and $aiPage -notmatch '<h2 class="menu-item__title">' -and $aiPage.IndexOf('href="/ai/claude/rules"') -lt $aiPage.IndexOf('href="/ai/claude/skills"') -and $aiPage.IndexOf('href="/ai/claude/skills"') -lt $aiPage.IndexOf('href="/ai/claude/specialists"')) 'and under it Rules, Skills and Specialists, in that order, each card titled with an h3'
+Assert-True ($null -eq (Format-HubGroupPageHtml -Href '/ai/claude')) 'Claude is a section of /ai, with no page of its own'
+Assert-True ($aiPage -notmatch 'Lenses') 'the Lenses are not on /ai'
+$specPage = Format-HubGroupPageHtml -Href '/ai/claude/specialists' -RepoName 'x'
+Assert-True ($specPage -match '<div class="grid-3"><div class="grid__head"><h2>Lenses</h2></div>' -and $specPage -notmatch 'Nothing on this page yet' -and $specPage -match '(?s)<h2>Lenses</h2></div>\s*<section class="card grid__full"><p class="msg" role="status">Nothing here yet\.') 'the Specialists page holds a Lenses section, which with no repo to read says it has nothing yet'
+$lensRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('hub-lenses-' + [guid]::NewGuid().ToString('N'))
+$lensDir = Join-Path $lensRoot '.claude\specialists\lenses'
+New-Item -ItemType Directory -Path $lensDir -Force | Out-Null
+try {
+    [System.IO.File]::WriteAllText((Join-Path $lensDir 'specialist-05-05-lens.md'), "---`nid: 05`n---`n`n# Derek - the DevOps Engineer`n`nBody <b>text</b>.`n")
+    [System.IO.File]::WriteAllText((Join-Path $lensDir 'specialist-01-01-lens.md'), "# Chris - the Chief of Staff`n")
+    [System.IO.File]::WriteAllText((Join-Path $lensDir 'notes.md'), "# Not a lens`n")
+    $lenses = @(Get-HubLensPages -RepoRoot $lensRoot)
+    Assert-Equal 'specialist-01-01-lens,specialist-05-05-lens' (($lenses | ForEach-Object { $_.Label }) -join ',') 'the lenses are the repo''s specialist-NN-NN-lens files, by name, and nothing else in the folder'
+    Assert-Equal 'Derek - the DevOps Engineer' $lenses[1].Sub 'a lens card''s sub line is its own # title, past the frontmatter'
+    $specLens = Format-HubGroupPageHtml -Href '/ai/claude/specialists' -RepoName 'x' -RepoRoot $lensRoot
+    Assert-True ($specLens -match 'href="/ai/claude/specialists/lenses/specialist-01-01-lens"' -and $specLens -match '<h3 class="menu-item__title">specialist-05-05-lens</h3>' -and ([regex]::Matches($specLens, '<section class="card card--link">')).Count -eq 2) 'with a repo the Lenses grid holds one h3 card per lens'
+    $lensPage = Format-HubLensPageHtml -Name 'specialist-05-05-lens' -RepoRoot $lensRoot -RepoName 'x'
+    Assert-True ($lensPage -match '<h1>specialist-05-05-lens</h1>' -and $lensPage -match 'Body &lt;b&gt;text&lt;/b&gt;\.' -and $lensPage -match '<a href="/ai">AI</a>' -and $lensPage -match '<a href="/ai/claude/specialists">Specialists</a>') 'a lens''s page shows its file, escaped, under Tools > AI > Specialists'
+    Assert-True ($null -eq (Format-HubLensPageHtml -Name 'notes' -RepoRoot $lensRoot) -and $null -eq (Format-HubLensPageHtml -Name '..\..\x' -RepoRoot $lensRoot) -and $null -eq (Format-HubLensPageHtml -Name 'specialist-09-09-lens' -RepoRoot $lensRoot)) 'a name that is no lens of the repo has no page'
+} finally { Remove-Item -LiteralPath $lensRoot -Recurse -Force -ErrorAction SilentlyContinue }
+foreach ($leaf in 'rules', 'skills') {
+    $leafPage = Format-HubGroupPageHtml -Href "/ai/claude/$leaf" -RepoName 'dkj-claude-plugins'
+    Assert-True ($leafPage -match '<li><a href="/hub">Tools</a></li>' -and $leafPage -match '<a href="/ai">AI</a>' -and $leafPage -notmatch 'href="/ai/claude"' -and $leafPage -match 'Nothing on this page yet\.' -and $leafPage -notmatch 'card--link') "the /ai/claude/$leaf page is a landing page of its own, under Tools > AI, with nothing on it yet"
+}
 Assert-True ((Get-HubIconSvg -Name '') -eq '' -and (Get-HubIconSvg -Name 'nope') -eq '' -and (Format-HubCardLinkHtml -Href '/x' -Label 'X') -notmatch 'menu-item__icon') 'a card that names no icon, or one the hub lacks, draws none'
 $houseCss = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style\house-style.css'))
 Assert-True ($houseCss -match '\.card--link \{ position: relative; display: flex; flex-direction: column; justify-content: center; \}' -and $houseCss -match '\.card--link a::after \{ content: ""; position: absolute; inset: 0; \}') 'the house style stretches a .card--link''s one link over the card, its content in the middle of the card''s height'

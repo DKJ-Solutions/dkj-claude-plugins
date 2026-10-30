@@ -2,7 +2,38 @@
 
 ## [Unreleased]
 
-**0 / 2 patch entries** <!-- pending-tally -->
+**1 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/toolbox-ai-cards · 20261030-084927Z
+
+The Toolbox has an AI card. Its page holds a Claude section, an h2 over three cards titled with an h3: Rules, Skills
+and Specialists, each a landing page of its own with nothing on it yet (Tools > AI > Rules). Hub groups can now nest,
+and a `Section` group is a heading on its parent's page instead of a card and a page. The Specialists page holds a Lenses section, which
+has a card for every specialist lens the repo keeps in `.claude/specialists/lenses/`, named after its file, and
+each opens on a page with that lens's text.
+
+The house style no longer gives a headed group (a `.grid-2` or `.grid-3` opening on a `.grid__head`) an extra
+`--spacing-5` above it in the page column: the column's own `gap` is now the only space between its blocks, on every
+page that renders with `house-style.css`.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every repo's Toolbox shows the new AI card, though the pages under it are still empty. And every DKJ-Solutions page
+that groups cards under an h2 sits a little tighter: the group loses the extra space above it.
+
+**Score:** 2
+
+#### Pull Request
+
+An AI card on the Toolbox, with a Claude card holding Rules, Skills and Specialists
+
+Plugins: dkj-policy
+
+[PR #3676](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3676)
+
+---
 
 ### DEPLOY: feat/3672-register-mesowise · 20261029-231733Z
 
