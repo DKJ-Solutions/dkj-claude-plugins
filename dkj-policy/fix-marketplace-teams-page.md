@@ -49,7 +49,7 @@
 
 - [x] `dev-pages.tests.ps1`: an assert on every level of a `/marketplace` address, the bare `dkj-subagents` among them, and on the two sections and their order (510 passed)
 - [x] The product server on :4870 restarted: `/marketplace/dkj-subagents` answers 200, Alpha over the core team, Extensions over the other three
-- [ ] The owner has looked at `/marketplace/dkj-subagents`
+- [x] The owner has looked at `/marketplace/dkj-subagents` and said ship it
 
 ### DEPLOY: fix/marketplace-teams-page
 
