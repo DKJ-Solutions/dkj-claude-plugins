@@ -2,7 +2,35 @@
 
 ## [Unreleased]
 
-**0 / 1 patch entry** <!-- pending-tally -->
+**1 / 2 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3694-house-style-scss-nesting · 20261030-172451Z
+
+`check-house-style` now reads a nested rule in a `.css`, `.scss`, `.less` or `.pcss` file together with
+the rules around it ([#3694](https://github.com/DKJ-Solutions/dkj-marketplace/issues/3694)). A house
+class nested inside a rule of the repo's own (a `.menu-item` rule inside `.thumb-card`) is composition,
+as it already was written out flat, and no longer a `[redefine]` finding; nested only inside an element
+or an at-rule it still is. The skill page says so under check 2.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A DKJ-Solutions repo that writes its styles in SCSS no longer has to flatten its nested house-class
+compositions, or allowlist them, to pass the house-style gate: the gate and the skill's own rule now
+agree.
+
+**Score:** 3
+
+#### Pull Request
+
+check-house-style reads a nested SCSS selector as an app-wide redefinition of a house class
+
+Plugins: dkj-solutions
+
+[PR #3699](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3699)
+
+---
 
 ### DEPLOY: fix/3695-killed-product-not-reused · 20261030-165759Z
 
