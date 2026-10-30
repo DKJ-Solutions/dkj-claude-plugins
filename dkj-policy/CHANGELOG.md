@@ -2,7 +2,33 @@
 
 ## [Unreleased]
 
-**1 / 2 minor entries** <!-- pending-tally -->
+**1 / 3 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/3697-btn-edge-in-grid-card · 20261030-173410Z
+
+A plain `.btn` on a card inside a `.grid-2`, `.grid-3` or `.card-grid` now draws its edge in `--muted`, so it
+stays visible beside a `.btn--primary` in every theme
+([#3697](https://github.com/DKJ-Solutions/dkj-marketplace/issues/3697)). Before, its border was the card's own
+edge colour, one paper step from the card, and on a dark theme it barely showed. A repo that worked around this
+with a class of its own can drop that class once it takes this version.
+
+**Score:** 2 -- a button edge that was hard to see, noticed when somebody points at it.
+
+#### What makes this deploy extra special
+
+N/A
+
+**Score:** N/A
+
+#### Pull Request
+
+A plain .btn on a card inside a grid keeps a visible edge
+
+Plugins: dkj-policy
+
+[PR #3701](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3701)
+
+---
 
 ### DEPLOY: fix/3694-house-style-scss-nesting · 20261030-172451Z
 
