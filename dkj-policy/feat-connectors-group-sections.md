@@ -56,7 +56,7 @@ one level up with an h3 each. Read as: the repo cards from the group pages move 
 ### TEST
 
 - [x] `connector-dashboard.tests.ps1` and `dev-pages.tests.ps1` green, the overview's asserts rewritten
-- [ ] The owner's look at `http://localhost:4870/connectors`
+- [ ] The owner's look at `http://localhost:4870/consumers`
 
 ### DEPLOY: feat/connectors-group-sections
 
