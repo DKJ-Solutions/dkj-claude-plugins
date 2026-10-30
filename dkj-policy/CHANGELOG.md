@@ -2,7 +2,32 @@
 
 ## [Unreleased]
 
-**2 / 5 minor entries** <!-- pending-tally -->
+**3 / 6 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/hub-performance-card · 20261030-095251Z
+
+The hub's home page has a Performance card in SessionStart's place. Its `/performance` page holds the
+SessionStart and Clock cards, and the Clock keeps the Test gate, the Stopwatch and the Logbook. Every page
+under those two now has Performance in its trail, and the hub shows a page that sits two groups deep under
+its top-level group's card.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+A user of any repo's toolbox finds SessionStart and the Clock one click deeper, behind the new Performance card.
+
+**Score:** 2
+
+#### Pull Request
+
+A Performance card on the hub, holding SessionStart and Clock
+
+Plugins: dkj-policy
+
+[PR #3678](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3678)
+
+---
 
 ### DEPLOY: feat/marketplace-section-head · 20261030-093702Z
 
