@@ -279,8 +279,12 @@ try {
         # keyed on the folder path. So both spellings are candidates and neither expires -- a path that
         # does not resolve costs one Test-Path, while a missing candidate costs a [SKIP] line that
         # ASSERTS the source checkout is absent, which is the silent failure #1524 was made of.
+        # The second rename (#3660, to 'dkj-marketplace') added the newest spelling: a fresh clone takes
+        # it, and until it was listed every consumer beside such a clone printed that [SKIP] (#3666).
         $candidates = @(
             $cwd,
+            (Join-Path $cwd '..\dkj-marketplace'),
+            (Join-Path $cwd '..\..\DKJ-Solutions\dkj-marketplace'),
             (Join-Path $cwd '..\dkj-claude-plugins'),
             (Join-Path $cwd '..\claude-code-specialists'),
             (Join-Path $cwd '..\..\DKJ-Solutions\dkj-claude-plugins'),
