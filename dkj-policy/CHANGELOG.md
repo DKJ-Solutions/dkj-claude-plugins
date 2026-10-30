@@ -2,7 +2,28 @@
 
 ## [Unreleased]
 
-**3 / 8 minor entries** <!-- pending-tally -->
+**3 / 9 minor entries** <!-- pending-tally -->
+
+### DEPLOY: fix/product-header-name · 20261030-123223Z
+
+The product server's site header and page titles named the repo `dkj-claude-plugins`, its name before the
+rename; they name it `dkj-marketplace` now.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+N/A -- the product server is this repo's own development hub; no consumer takes it.
+
+**Score:** N/A
+
+#### Pull Request
+
+The product pages name the repo dkj-marketplace again
+
+[PR #3684](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3684)
+
+---
 
 ### DEPLOY: feat/connectors-group-sections · 20261030-114237Z
 
