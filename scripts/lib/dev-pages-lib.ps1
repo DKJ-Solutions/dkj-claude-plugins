@@ -60,7 +60,7 @@ function Format-DevPageHtml {
     )
     # -Bare: no h1 or lead above the body, the general banner still on top (Format-GeneralPageHtml's own switch, #3356), for a page that opens on its content.
     return Format-GeneralPageHtml -Title $Title -Lead $Lead -Body $Body -Style $Style -FooterNote $FooterNote -ThemeKey $ThemeKey `
-        -Brand 'dkj-claude-plugins' -BrandTag 'product' -SiteName 'dkj-claude-plugins' -HubHref '/' -HomeLabel 'Home' -Bare:$Bare -ParentCrumbs $ParentCrumbs
+        -Brand 'dkj-marketplace' -BrandTag 'product' -SiteName 'dkj-marketplace' -HubHref '/' -HomeLabel 'Home' -Bare:$Bare -ParentCrumbs $ParentCrumbs
 }
 
 function Get-ProductPages {
@@ -95,12 +95,12 @@ function Format-ProductHomeHtml {
     [void]$sb.AppendLine('<head>')
     [void]$sb.AppendLine('<meta charset="utf-8">')
     [void]$sb.AppendLine('<meta name="viewport" content="width=device-width, initial-scale=1">')
-    [void]$sb.AppendLine('<title>dkj-claude-plugins -- Home</title>')
+    [void]$sb.AppendLine('<title>dkj-marketplace -- Home</title>')
     [void]$sb.AppendLine('<link rel="stylesheet" href="/house-style.css">')
     [void]$sb.AppendLine('<script src="/house-theme.js"></script>')
     [void]$sb.AppendLine('</head>')
     [void]$sb.AppendLine('<body>')
-    [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName 'dkj-claude-plugins' -Brand 'dkj-claude-plugins' -BrandTag 'product' -HomeLabel 'Home' -Lead 'The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.'))
+    [void]$sb.Append((Format-RepoHomeHeadHtml -RepoName 'dkj-marketplace' -Brand 'dkj-marketplace' -BrandTag 'product' -HomeLabel 'Home' -Lead 'The source of the Claude Specialists plugins: the marketplace, its agent definitions, manuals and skills, and the scripts and gates that ship them.'))
     # Every page a card of its own, three to a row, with no heading above them (the house hub form, #3383): the
     # hub first, so the way back is where the eye starts, then this repo's own pages.
     [void]$sb.AppendLine('<div class="grid-3">')

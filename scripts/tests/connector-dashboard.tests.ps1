@@ -239,7 +239,7 @@ $three = @(
     @{ Repo = 'DKJ-Solutions/y'; Status = 'good'; Plugins = @(); Signals = @(); Present = $false; Git = $null },
     @{ Repo = 'DKJ-Solutions/w'; Status = 'bad'; Plugins = @(); Signals = @(); Present = $false; Git = $null })
 $overview = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' }
-Assert-True ($overview -match '<h1>Consumers</h1>' -and $overview -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span></span>' -and $overview -match '<span aria-current="page">Consumers</span>') 'the overview''s h1 is Consumers, and the site header names this repo''s product, whose page it is (#3540)'
+Assert-True ($overview -match '<h1>Consumers</h1>' -and $overview -match 'site-header__name">dkj-marketplace <span class="site-header__tag">product</span></span>' -and $overview -match '<span aria-current="page">Consumers</span>') 'the overview''s h1 is Consumers, and the site header names this repo''s product, whose page it is (#3540)'
 $cD = $overview.IndexOf('<div class="grid__head"><h2>DKJ</h2>'); $cB = $overview.IndexOf('<div class="grid__head"><h2>BWJ</h2>'); $cO = $overview.IndexOf('<div class="grid__head"><h2>Other</h2>')
 Assert-True ($cD -ge 0 -and $cD -lt $cB -and $cB -lt $cO) 'the overview has an h2 section per owner group, DKJ, BWJ, Other (Maikel, October 30, 2026)'
 Assert-True ($overview -match '<div class="grid-3" id="group-dkj">' -and $overview.Contains('<div class="grid__head"><h2>DKJ</h2></div>') -and $overview -notmatch 'card__sub' -and $overview -notmatch 'class="btn"') 'each section heads with its h2 alone: no sub line and no button under it (Maikel, October 30, 2026)'
@@ -255,7 +255,7 @@ Assert-True ($withDkj -match '<div class="card-grid dr-repos" id="group-dkj">' -
 Assert-True ($overview -notmatch 'class="tiles"' -and $overview -notmatch 'class="lead"') 'the overview has no tiles and no lead: its h1, then its groups'' sections (owner, October 26, 2026)'
 Assert-True ($html -notmatch 'class="tiles"' -and $html -notmatch 'class="lead"') 'and neither has a group''s page'
 $dkj = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' } -Group 'dkj'
-Assert-True ($dkj -match '<h1>DKJ repos</h1>' -and $dkj -match '<title>dkj-claude-plugins -- DKJ repos</title>') 'a group page is headed by its group'
+Assert-True ($dkj -match '<h1>DKJ repos</h1>' -and $dkj -match '<title>dkj-marketplace -- DKJ repos</title>') 'a group page is headed by its group'
 Assert-True (([regex]::Matches($dkj, '<section class="mini-card cd-repo-card"')).Count -eq 2 -and $dkj -notmatch 'Someone/x') 'and holds that group''s repos alone'
 Assert-True ($dkj.IndexOf('id="repo-dkj-solutions-w"') -lt $dkj.IndexOf('id="repo-dkj-solutions-y"')) 'inside a group, worst first'
 Assert-Equal 1 ([regex]::Matches($dkj, '<div class="grid-2" id="overview">\r?\n<div class="grid__head"><h2>Connected repos</h2>')).Count 'the group''s overview is one card, its h2 Connected repos above it (#3175)'
@@ -308,7 +308,7 @@ try {
     Assert-True ($null -eq (Get-CheckoutLenses -Path (Join-Path $lensTree 'missing')) -and $null -eq (Get-CheckoutLenses -Path '')) 'no folder, or no checkout, reads as $null'
 } finally { Remove-Item -LiteralPath $lensTree -Recurse -Force -ErrorAction SilentlyContinue }
 $framed = (Format-ConnectorPageStart -PageName 'a <b>' -Trail @(@{ Href = '/consumers'; Label = 'Consumers' }, @{ Href = '/consumers/dkj'; Label = 'DKJ repos' }) -Style '.x { }') + (Format-ConnectorPageEnd -FooterHtml 'Foot <code>x</code>')
-Assert-True ($framed.Contains('<title>dkj-claude-plugins -- a &lt;b&gt;</title>') -and $framed.Contains('<h1>a &lt;b&gt;</h1>') -and $framed.Contains('<a href="/consumers/dkj">DKJ repos</a>') -and $framed.Contains('.x { }') -and $framed.Contains('<p class="footer-note">Foot <code>x</code></p>') -and $framed.TrimEnd().EndsWith('</html>')) 'the page frame escapes its name, walks its trail, carries the caller''s style and footer, and closes the page'
+Assert-True ($framed.Contains('<title>dkj-marketplace -- a &lt;b&gt;</title>') -and $framed.Contains('<h1>a &lt;b&gt;</h1>') -and $framed.Contains('<a href="/consumers/dkj">DKJ repos</a>') -and $framed.Contains('.x { }') -and $framed.Contains('<p class="footer-note">Foot <code>x</code></p>') -and $framed.TrimEnd().EndsWith('</html>')) 'the page frame escapes its name, walks its trail, carries the caller''s style and footer, and closes the page'
 Assert-True ($overview -notmatch 'id="lenses"' -and $dkj -notmatch 'id="lenses"') 'neither the overview nor a group''s page holds a Lenses card: that is a repo''s own page'
 
 Write-Host '-- group 1e: the skill pins a checksum for each canonical file' -ForegroundColor Cyan
@@ -492,7 +492,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $srcState = Get-RepoHubStatePath -Root $src
             # The product's home page on '/' and the pages under it (#3540).
             $home3 = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($home3 -match 'HTTP/1.1 200' -and $home3 -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span>' -and $home3 -match 'href="/consumers"' -and $home3 -notmatch 'href="/specialists"' -and $home3 -match 'href="/marketplace"' -and $home3 -notmatch 'href="/dkj-repos"') '/ serves the product''s home page, linking Connectors and Plugins'
+            Assert-True ($home3 -match 'HTTP/1.1 200' -and $home3 -match 'site-header__name">dkj-marketplace <span class="site-header__tag">product</span>' -and $home3 -match 'href="/consumers"' -and $home3 -notmatch 'href="/specialists"' -and $home3 -match 'href="/marketplace"' -and $home3 -notmatch 'href="/dkj-repos"') '/ serves the product''s home page, linking Connectors and Plugins'
             $r = if ($up) { Get-Raw 'GET' '/marketplace' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Marketplace</h1>' -and $r -match 'href="/marketplace/p-one"' -and $r -match 'v9\.8\.7') '/marketplace lists each marketplace plugin as a card linking its own page, with its version'
             Assert-True ($r -match 'id="plugin-p-bad"' -and $r -match 'msg--warn[^\n]*p-bad \(its source\)') 'and a plugin whose source leaves plugins/ keeps its card, with nothing read from it and the reason named'
@@ -533,7 +533,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
                 # arrives same-site -- a top-level navigation. A fetch or a cross-site request does not get in.
                 $nav = "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: navigate`r`nSec-Fetch-Dest: document`r`n"
                 $r = Get-Raw 'GET' '/' "localhost:$port3" $nav $port3
-                Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<title>dkj-claude-plugins -- Home</title>') 'a same-site navigation from the hub to the product is served'
+                Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<title>dkj-marketplace -- Home</title>') 'a same-site navigation from the hub to the product is served'
                 $r = Get-Raw 'GET' '/consumers' "localhost:$port3" "Sec-Fetch-Site: same-site`r`nSec-Fetch-Mode: cors`r`n" $port3
                 Assert-True ($r -match 'HTTP/1.1 403') 'a same-site fetch is still refused'
                 $r = Get-Raw 'GET' '/' "localhost:$port3" "Sec-Fetch-Site: cross-site`r`nSec-Fetch-Mode: navigate`r`n" $port3
