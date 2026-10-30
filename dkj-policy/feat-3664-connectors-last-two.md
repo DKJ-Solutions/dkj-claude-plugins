@@ -45,7 +45,8 @@ throwaway clone, because neither is checked out on this machine. Now that both h
 
 ### CREATE
 
-- [x] `connectors/thumbnail-generator.json`, `djcylow-react.json`: every `plugins[].id` to
+- [x] `connectors/dkj-thumbnail-generator.json` (renamed on `main` by #3688 while this branch was open),
+      `djcylow-react.json`: every `plugins[].id` to
       `<plugin>@dkj-marketplace`. The `notes` keep the names they were written with.
 
 ### TEST
