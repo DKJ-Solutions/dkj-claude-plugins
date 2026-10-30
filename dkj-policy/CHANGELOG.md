@@ -2,7 +2,31 @@
 
 ## [Unreleased]
 
-**2 / 4 minor entries** <!-- pending-tally -->
+**2 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/marketplace-section-head · 20261030-093702Z
+
+The product's Marketplace overview opens its card grid with an h2 naming the marketplace, `dkj-marketplace`,
+and its cards carry h3 titles under it. dkj-policy's two add-ons, bwj-development and dkj-solutions, moved
+off the overview into an Add-ons section at the top of dkj-policy's own page, each at `/marketplace/dkj-policy/<name>`. The Marketplace pages moved from `/plugins` to `/marketplace`,
+so a page's url matches its h1; every old `/plugins` address answers a 303 to the same page under
+`/marketplace`, and the old Specialists addresses now land there directly.
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+The product's local dev pages are this repo's own; nobody who takes a release sees them.
+
+**Score:** N/A
+
+#### Pull Request
+
+The Marketplace page moves to /marketplace and groups its cards under a dkj-marketplace heading
+
+[PR #3680](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3680)
+
+---
 
 ### DEPLOY: feat/plugins-page-sections · 20261030-092308Z
 

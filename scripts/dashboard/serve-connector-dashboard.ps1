@@ -8,8 +8,8 @@
     redirects there), each opening a page of its own at /connectors/dkj/<name>: the repo, what the register's
     check reports for it, a session to open there, and what its checkout's specialist lenses hold (October 28,
     2026); and
-    /plugins, every plugin .claude-plugin/marketplace.json lists, each with a page of its own at /plugins/<name>,
-    the specialist teams (dkj-subagents-*) one card whose page is /plugins/dkj-subagents; a team's own page shows
+    /marketplace, every plugin .claude-plugin/marketplace.json lists, each with a page of its own at /marketplace/<name>,
+    the specialist teams (dkj-subagents-*) one card whose page is /marketplace/dkj-subagents; a team's own page shows
     its specialists and the context each one costs, read from this tree, and each has a page of its own under it
     (/specialists, their own pages until October 28, 2026, redirects there). The rules of
     each page are in scripts/lib/dev-pages-lib.ps1. The server takes no POST but the banner's.
@@ -432,15 +432,29 @@ try {
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $spTo } -Method $method
                 continue
             }
-            if ($path -cmatch '^/plugins(?:/([a-z0-9-]+)(?:/([a-z0-9-]+)(?:/([a-z0-9-]+))?)?)?/?\z') {
+            $mpTo = Resolve-MarketplaceRedirect -Path $path
+            if ($mpTo) {
+                # The Marketplace pages were /plugins until October 30, 2026; their url follows their h1 since
+                # (Maikel). An old link or bookmark lands there.
+                Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $mpTo } -Method $method
+                continue
+            }
+            if ($path -cmatch '^/marketplace(?:/([a-z0-9-]+)(?:/([a-z0-9-]+)(?:/([a-z0-9-]+))?)?)?/?\z') {
                 # Every plugin this marketplace ships, the specialist teams' page, or one plugin's own page (the
-                # owner, October 27, 2026): /plugins/dkj-subagents[/<team>[/<specialist>]] or /plugins/<name>, a team's
+                # owner, October 27, 2026): /marketplace/dkj-subagents[/<team>[/<specialist>]] or /marketplace/<name>, a team's
                 # page carrying its specialists since October 28, 2026. Anything the marketplace or the team does not
-                # list is a 404, never an empty page.
+                # list is a 404, never an empty page. dkj-policy's add-ons are /marketplace/dkj-policy/<name> since
+                # October 30, 2026 (Maikel); the lib decides which group a plugin may stand under.
                 $plFirst = [string]$Matches[1]; $plSecond = [string]$Matches[2]; $plThird = [string]$Matches[3]
-                $plGroup = if ($plFirst -ceq 'dkj-subagents') { $plFirst } elseif ($plSecond) { 'none' } else { '' }
+                $plGroup = if ($plSecond) { $plFirst } else { '' }
                 $plName = if ($plGroup) { $plSecond } else { $plFirst }
                 $pl = Get-PluginsModel
+                $aoTo = if (-not $plGroup) { Resolve-MarketplaceAddOnRedirect -Plugins $pl.Plugins -Name $plName } else { '' }
+                if ($aoTo) {
+                    # An add-on's address before it moved under dkj-policy: an old link lands on its page there.
+                    Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $aoTo } -Method $method
+                    continue
+                }
                 # The specialists are read only for the teams' pages, the one place that shows them.
                 $sp = if ($plGroup -ceq 'dkj-subagents') { Get-SpecialistsModel } else { @{ Rows = @(); Error = ''; CharsPerToken = 3.0 } }
                 $html = Format-MarketplacePluginsPageHtml -Plugins $pl.Plugins -ReadError $pl.Error -Group $plGroup -Plugin $plName -Specialist $plThird `
