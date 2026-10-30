@@ -186,7 +186,8 @@ function Format-PluginsPageHtml {
         The Plugins overview, as compact as the Stopwatch's (the owner, October 25, 2026): no tiles, lead or status
         line, only a card per plugin -- its state as a badge, its name as the card's one link to
         its own page (Format-PluginPageHtml), and its installed version or what is wrong. Problems first, then by
-        name. Everything else -- the description, the command, the clone -- is on the plugin's page. -Model is
+        name, under two h2 sections -- dkj-marketplace's plugins, and MCP for every other marketplace's -- whose cards'
+        names are h3s. Everything else -- the description, the command, the clone -- is on the plugin's page. -Model is
         ConvertFrom-PluginVersionsJson's; -ReadError is set when the script could not be found or run. -RepoName
         names the repo; -HubHref is the Home crumb's target ('/hub' on the general server, '/' on a hub that serves
         the page itself).
@@ -212,14 +213,21 @@ function Format-PluginsPageHtml {
     } elseif (-not $rows.Count) {
         [void]$body.AppendLine('<p class="msg" role="status">No plugin is enabled in this repo. Consulted: ' + (& $e $Model.Consulted) + '.</p>')
     }
-    if ($rows.Count) {
-        [void]$body.AppendLine('<div class="grid-3" id="plugins">')
-        foreach ($r in $rows) {
+    # Two sections, each an h2 over its cards' h3s (the owner, October 30, 2026): the plugins from dkj-marketplace,
+    # and MCP for every other marketplace's (Figma's). A section with no card is not drawn.
+    $sections = @(
+        @{ Id = 'dkj-marketplace'; Title = 'dkj-marketplace'; Rows = @($rows | Where-Object { $_.Marketplace -ceq 'dkj-marketplace' }) }
+        @{ Id = 'mcp'; Title = 'MCP'; Rows = @($rows | Where-Object { $_.Marketplace -cne 'dkj-marketplace' }) }
+    )
+    foreach ($section in @($sections | Where-Object { $_.Rows.Count })) {
+        [void]$body.AppendLine('<div class="grid-3" id="plugins-' + $section.Id + '">')
+        [void]$body.AppendLine('<div class="grid__head"><h2>' + (& $e $section.Title) + '</h2></div>')
+        foreach ($r in $section.Rows) {
             # The sub line says the status in words, since the badge is only its mark.
             $sub = (& $e $r.Status.Label) + ': ' + $(if ($r.Status.Level -ne 'ok') { & $e (Get-PluginProblemText $r) }
                    elseif ($r.InstVersion) { (& $e $r.InstVersion) + $(if ($r.InstScope) { ', ' + (& $e $r.InstScope) + ' scope' } else { '' }) }
                    else { & $e $r.InstText })
-            [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/plugins/' + $r.Name) -Label $r.Name -SubHtml $sub -BadgeHtml (Format-PluginBadgeHtml $r.Status.Level)))
+            [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/plugins/' + $r.Name) -Label $r.Name -SubHtml $sub -BadgeHtml (Format-PluginBadgeHtml $r.Status.Level) -Heading 3))
         }
         [void]$body.AppendLine('</div>')
     }
