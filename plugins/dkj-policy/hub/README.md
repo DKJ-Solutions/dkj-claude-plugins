@@ -1,4 +1,4 @@
-# The hub â€” the dev-preview hook and the general pages server
+# The hub — the dev-preview hook and the general pages server
 
 **On screen it is called Toolbox** (the owner, October 27, 2026): the session-start line, the site header's tag, a product's card, and the first crumb, which reads **Tools**. The code, the `/hub` route and this page keep the word *hub* for the mechanism.
 
