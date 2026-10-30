@@ -4,6 +4,7 @@
 
 | Version | Date | Type | Title |
 |---|---|---|---|
+| [6.1.0](audience/6.x/6.1.0.md) | 2026-10-30 | Minor | Minor release |
 | [6.0.0](audience/6.x/6.0.0.md) | 2026-10-29 | Major | The marketplace is now dkj-marketplace |
 
 ### 5.x
