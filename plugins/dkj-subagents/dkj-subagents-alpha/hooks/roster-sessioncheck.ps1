@@ -5,14 +5,14 @@
     enabled plugins, and surfaces a blocking-signal summary if a specialist is missing.
 
 .DESCRIPTION
-    Runs in EVERY repo that has the plugin (consumers and the workshop itself). Unlike the connector
+    Runs in EVERY repo that has the plugin (consumers and the workshop itself). Unlike the consumer
     session check, the roster check runs LOCALLY: check-roster-sync.ps1 reads this repo's own settings
     chain (~/.claude/settings.json, .claude/settings.json, .claude/settings.local.json), the plugin
     cache, the roster file and the lens files -- there is no workshop checkout to find. The hook simply
     runs the mirrored check script that ships in the plugin
     (${CLAUDE_PLUGIN_ROOT}/scripts/sync/check-roster-sync.ps1) against the current repo.
 
-    Deliberately soft, mirroring connector-sessioncheck.ps1:
+    Deliberately soft, mirroring consumer-sessioncheck.ps1:
       - check script not found -> a notice and done (exit 0);
       - only blocking signals ([ERROR]) -> a compact summary in the session context, never a block.
         [INFO] (orphans, deliberate ignore-list skips, uncached plugins) stays silent at session
@@ -138,7 +138,7 @@ try {
     # [ERROR] lines at all -- and it gets its own verdict below, because "roster in sync" would be a
     # bald-faced lie for a repo that has no roster. Kept out of $signals on purpose: nothing is wrong
     # with the plugin install, so this must not read as a failure. Same shape as [ORPHANS] here and
-    # [UNREGISTERED]/[INVENTORY] in connector-sessioncheck.
+    # [UNREGISTERED]/[INVENTORY] in consumer-sessioncheck.
     $bootstrapLines = @(Select-CheckMarkerLine -Output $out -Marker '[BOOTSTRAP]')
 
     # [ROSTER-PENDING] rides along the same way (inbound #333), and it exists because the DOCUMENTED HAPPY
@@ -194,7 +194,7 @@ try {
     # by a DELIBERATE run, in a repo where a record went missing and no session has started since -- a much
     # narrower window than "the partial case is covered". The state that actually survives a session start
     # is a record of the wrong SHAPE, which is what [RECORD-SHAPE] below reports; the total case is still
-    # covered from the workshop by check-connectors, which can speak about a consumer that has gone silent.
+    # covered from the workshop by check-consumers, which can speak about a consumer that has gone silent.
     $notInstalledLines = @(Select-CheckMarkerLine -Output $out -Marker '[NOT-INSTALLED-HERE]')
 
     # [RECORD-SHAPE] rides along the same way (inbound #314/#315/#323), and it exists because of the

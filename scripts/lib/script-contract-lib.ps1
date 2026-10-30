@@ -970,7 +970,7 @@ function Resolve-SharedScriptPath {
 # so a consumer who worked through the adoption page before those landed has a floor that was complete
 # on the day they built it and is not complete now.
 #
-# WHY THE REGISTER COULD NOT ANSWER IT, which is the half the report did not have. check-connectors.ps1's
+# WHY THE REGISTER COULD NOT ANSWER IT, which is the half the report did not have. check-consumers.ps1's
 # check 6c was built for almost exactly this question (#1850) and is BINARY: Test-ConsumerRunnerAdoption
 # returns 'adopted' the moment ONE workflow checks this tree out, so a consumer holding branch-entry.yml
 # and none of the three runners reads green. And it runs in the SOURCE repo, over the register, which

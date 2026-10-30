@@ -84,7 +84,7 @@ if (-not $repoRoot -or -not (Test-Path -LiteralPath $repoRoot)) {
 }
 
 # Get-DisplayName is the single source for turning a raw `name:` into a display name (issue #145).
-# Dot-sourced UNCONDITIONALLY, like every sibling in this directory (check-roster-sync, check-connectors):
+# Dot-sourced UNCONDITIONALLY, like every sibling in this directory (check-roster-sync, check-consumers):
 # this script is workshop-only and never mirrored, so the lib is always beside it. A guarded version with
 # a local fallback stood here until review -- and the fallback was byte-identical to the real function,
 # which makes it a silent copy free to drift rather than a degraded last resort.

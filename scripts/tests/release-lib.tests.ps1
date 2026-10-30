@@ -1561,7 +1561,7 @@ $touchedFiles = @(
     'plugins/dkj-subagents-alpha/manuals/specialist-01-01-manual.md',
     'plugins/dkj-subagents-lifehub/agents/foo.md',
     'plugins/subagent-shared/inbound-behaviour.md',
-    'connectors/some-repo.json',
+    'consumers/some-repo.json',
     'README.md',
     'scripts/lib/release-lib.ps1'
 )
@@ -1570,7 +1570,7 @@ Assert-Equal 2 $touched.Count 'two touched plugins (deduplicated + sorted)'
 Assert-Equal 'dkj-subagents-alpha' $touched[0] 'first plugin name alphabetically'
 Assert-Equal 'dkj-subagents-lifehub' $touched[1] 'second plugin name alphabetically'
 # The two non-plugin directories, one on each side of the plugins root after the #405 flattening:
-# subagent-shared/ sits INSIDE it, connectors/ at the ROOT. Both are asserted, so neither half can quietly
+# subagent-shared/ sits INSIDE it, consumers/ at the ROOT. Both are asserted, so neither half can quietly
 # regress into counting as a plugin. Neither needs excluding by name any more -- a directory that is not
 # in the marketplace is not a plugin, which is what makes the pair of assertions cheap to keep.
 #
@@ -1579,8 +1579,8 @@ Assert-Equal 'dkj-subagents-lifehub' $touched[1] 'second plugin name alphabetica
 # one level further down, inside plugins/dkj-subagents/ -- is asserted in the nested block below, which is the
 # one that describes the repo as it is.
 Assert-Equal $false ([bool]($touched -contains 'subagent-shared')) 'subagent-shared is plugin source, not a plugin'
-Assert-Equal $false ([bool]($touched -contains 'connectors')) 'connectors folder does not count as a plugin'
-Assert-Equal 0 (@(Get-TouchedPlugins -Files @('connectors/life-hub.json') -PluginRoots $flatRoots)).Count 'connectors at the repo root is under no plugin root'
+Assert-Equal $false ([bool]($touched -contains 'consumers')) 'consumers folder does not count as a plugin'
+Assert-Equal 0 (@(Get-TouchedPlugins -Files @('consumers/life-hub.json') -PluginRoots $flatRoots)).Count 'consumers at the repo root is under no plugin root'
 Assert-Equal 0 (@(Get-TouchedPlugins -Files @())).Count 'empty input -> empty set'
 Assert-Equal 0 (@(Get-TouchedPlugins -Files $touchedFiles)).Count 'no roots given (a repo that publishes nothing) -> empty set, whatever the paths look like'
 Assert-Equal 0 (@(Get-TouchedPlugins -Files @('README.md', 'scripts/lib/release-lib.ps1') -PluginRoots $flatRoots)).Count 'non-plugin paths ignored'

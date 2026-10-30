@@ -24,7 +24,7 @@
         .github/ISSUE_TEMPLATE/           the inbound path the docs link to
         .gitignore, .gitattributes        so a clone behaves the same
 
-    WHAT DOES NOT. scripts/, .claude/, connectors/, CLAUDE.md, SECURITY.md, and the whole of
+    WHAT DOES NOT. scripts/, .claude/, consumers/, CLAUDE.md, SECURITY.md, and the whole of
     dkj-policy/ EXCEPT its CHANGELOG.md -- which is named as its own published path above
     rather than travelling with the folder. That is one file out of a maintainer's folder, and it is
     there because the changelog is context for whoever opens the business repo wherever this repo
@@ -168,7 +168,7 @@ $ErrorActionPreference = 'Stop'
 # root instead, which puts them outside every published path without anything having to remember them.
 # An exclusion list was the obvious alternative and was declined: a list is silent about the third
 # plumbing page somebody adds later, while a folder boundary refuses it by construction. Same reasoning
-# that put connectors/ at the root.
+# that put consumers/ at the root.
 #
 # What a colleague on this marketplace still needs is plugins/ADOPTION.md -- the bootstrap, the roster
 # and the lenses -- and that travels with 'plugins' exactly as before.

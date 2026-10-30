@@ -2161,9 +2161,9 @@ function Write-SelfConsumptionReminder {
 
         THE LOOP HAS A MISSING RETURN EDGE. A cut commits straight to the trunk, so no PR and no CI run
         afterwards; the installed plugin cache keeps whatever version it had, and the only thing that
-        notices is the connector session check -- at the START of some later session, as an [ERROR] that
+        notices is the consumer session check -- at the START of some later session, as an [ERROR] that
         reads like a fault rather than like the completely ordinary consequence of having just cut.
-        Measured on 2026-08-15: this repo sat on v4.9.0 against a v4.11.0 source, six connector rows red,
+        Measured on 2026-08-15: this repo sat on v4.9.0 against a v4.11.0 source, six consumer rows red,
         after two releases were cut the same day. One consequence was invisible until looked for: a hook
         the release had ADDED could not fire, because the cache predated it.
 
@@ -2199,7 +2199,7 @@ function Write-SelfConsumptionReminder {
         unreadable, which is the right default here too -- "I could not look" is not evidence of absence,
         and erring that way can only restore the old line, never suppress a command that would have worked.
         Its one edge, a PATHLESS record, therefore also gets an update line; that state is a broken
-        administration rather than an adoption route, and it is check-connectors' shape report to name.
+        administration rather than an adoption route, and it is check-consumers' shape report to name.
     #>
     $enabled = @()
     $marketplaceName = ''
@@ -2247,7 +2247,7 @@ function Write-SelfConsumptionReminder {
         Write-Host "      them as `"not installed`", which is not a failure to chase:"
         foreach ($id in $declarative) { Write-Host "        $id" }
     }
-    Write-Host "      Until then the connector check reports this repo as outdated, and any hook or agent"
+    Write-Host "      Until then the consumer check reports this repo as outdated, and any hook or agent"
     Write-Host "      def this release added is not loaded here yet."
 }
 

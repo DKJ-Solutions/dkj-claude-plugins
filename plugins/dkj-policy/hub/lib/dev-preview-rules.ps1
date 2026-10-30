@@ -29,7 +29,7 @@
     opens with it. It read 'Repo dashboard' until dkj-brandbook v0.3.0 (#3097), 'Repo hub' until #3285 and
     'Repository' until #3291 gave that name to the GitHub repo's own page (/repository) and called the port
     hub. A repo once chose its own
-    word through a Name key, and three repos said Showcase, connector dashboard and dev-preview for the
+    word through a Name key, and three repos said Showcase, consumer dashboard and dev-preview for the
     same page. A Name a repo still states is ignored rather than refused, so a config that predates this
     keeps working; the word "dev-preview" stays the MECHANISM's, on the hook's lines about its own setup
     (skipped, config unreadable, a config it cannot run), which are printed before any config is read.

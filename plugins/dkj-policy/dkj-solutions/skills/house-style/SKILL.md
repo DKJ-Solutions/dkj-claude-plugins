@@ -196,7 +196,7 @@ led to the `dkj-brandbook` repo, which will be archived once the migration in
 DKJ-Solutions app the next time it takes a copy, so the branch stops for the owner's look instead of
 merging.
 
-**There is one canonical copy of the files, and it is that folder.** The source repo's connector dashboard
+**There is one canonical copy of the files, and it is that folder.** The source repo's consumer dashboard
 and the plugin's own hub (the general pages server, which serves every repo's hub) both read it in place, so
 no second copy needs replacing by hand
 ([#2989](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2989),

@@ -122,7 +122,7 @@ entries rather than off which section they sit in.
   comes from the PR's `mergedAt`, not the clock, because a fold does not always run in the same minute as
   its merge (this repo has found entries still unfolded the next morning). The fold also
   automatically derives a **`Plugins:` line** from the PR's files (paths under
-  `plugins/<plugin>/`; the `connectors/` directory does not count) — which the release notes read to
+  `plugins/<plugin>/`; the `consumers/` directory does not count) — which the release notes read to
   say which plugins a change touched. It served the per-plugin CHANGELOGs too until those were retired
   on August 8, 2026; the line outlived them because the notes were always a second reader. This
   commit goes directly onto `main` — the **first of the three** permitted exceptions, the release commit

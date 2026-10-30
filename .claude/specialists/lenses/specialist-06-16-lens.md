@@ -161,7 +161,7 @@ answers that only the owning specialist has to keep true.
   hers alone to hold.
   **Be exact about what that rule buys, because it is legibility rather than prevention.** It already
   existed when #1779's seven sites ignored it, so it is not shown to stop the next one. What it is shown
-  to do is keep a stale figure *readable*: `check-connectors.ps1:119` states its own `wc -l` and went
+  to do is keep a stale figure *readable*: `check-consumers.ps1:119` states its own `wc -l` and went
   stale by a line inside one eight-commit fast-forward, and a reader can still act on it — while the
   seven sites that omitted the method each argued a layer decision at a third of its real strength. So
   press for the method on any figure a reader could re-derive, and expect that to be worth more after
@@ -232,7 +232,7 @@ answers that only the owning specialist has to keep true.
   weakened by this and must not be: a citation is auditable and a paraphrase is not, and this tree has
   scar tissue from measurements rewritten until nothing in them was checkable. What is bounded is the
   *excerpt*. The **repo name, the file and the line** are published as before — they are already in
-  `connectors/` and in the `bwj-development` skill — and they are what carries the provenance, so the
+  `consumers/` and in the `bwj-development` skill — and they are what carries the provenance, so the
   quote itself shrinks to the characters the check, the count or the argument actually turns on.
   Everything the finding does not read is the consumer's own wording and stays in the consumer's own
   tree.
@@ -314,7 +314,7 @@ for it."* The copy attached to the GitHub Release still carries the error, becau
 is not rewritten.
 
 **Why this repo is unusually exposed to it.** Being a plugin source, a large share of what it writes is
-*about other repos* — which version a consumer runs, whether a connector migrated, what an
+*about other repos* — which version a consumer runs, whether a consumer migrated, what an
 organisation has installed. Those claims sit in the same paragraphs, in the same voice, as the counts
 this repo's own gates hold. The same red-team pass re-ran a sample of the second kind and **every one
 reproduced exactly** (roster ids against agent defs, an empty ignore list, retired PR-template
@@ -398,7 +398,7 @@ next edit does to it; and never take `grep -c` for an occurrence count, which is
 
 The rule is #952's and this tree has applied it at every rename since — the `#1437` commit
 (`17149edb`) states it in so many words: *"Dated measurements keep the name they were written with,"*
-which is why the release archive's prose, the folded changelog entries and `connectors/` are left
+which is why the release archive's prose, the folded changelog entries and `consumers/` are left
 alone and only link **targets** are repointed. **Until
 [#1743](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1743) it was written down
 nowhere but in commit messages**, which is the one place a rule cannot be read before the work rather

@@ -16,7 +16,7 @@
     count against the other's, and that assert only means something inside one run.
 
     Check 4 guards file-set COVERAGE rather than the scan engine: if the $linkFiles list is refactored
-    and drops CONTRIBUTING.md, the connectors README or one of the four payload layers, that must fail
+    and drops CONTRIBUTING.md, the consumers README or one of the four payload layers, that must fail
     loudly here.
 
     Check 28 is check 4's sibling -- the same scan set, a different syntax -- and its scenarios pin the
@@ -41,13 +41,13 @@ try {
     New-IntegrityFixture -Fixture $Fixture
 
     # --- Scenario A: dead links in the two target files + a decoy outside the scan set --------------
-    Write-Host "check 4 coverage -- CONTRIBUTING.md + connectors README are IN the scan set" -ForegroundColor Cyan
+    Write-Host "check 4 coverage -- CONTRIBUTING.md + consumers README are IN the scan set" -ForegroundColor Cyan
     $contributingBroken = "# Contributing`n`nSee [nope]($deadLink) for details.`n"
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'CONTRIBUTING.md'), $contributingBroken, $Utf8NoBom)
-    $connectorsBroken = "# Connectors`n`nSee [nope]($deadLink) for details.`n"
-    [System.IO.File]::WriteAllText((Join-Path $Fixture 'connectors\README.md'), $connectorsBroken, $Utf8NoBom)
+    $consumersBroken = "# Consumers`n`nSee [nope]($deadLink) for details.`n"
+    [System.IO.File]::WriteAllText((Join-Path $Fixture 'consumers\README.md'), $consumersBroken, $Utf8NoBom)
     # Decoy: same dead link, but in a file that check 4 does NOT scan -- proves the two hits below
-    # are due to CONTRIBUTING.md / the connectors README specifically being in the file list, not
+    # are due to CONTRIBUTING.md / the consumers README specifically being in the file list, not
     # some accidental blanket scan of every .md file in the fixture.
     #
     # IT MOVED OUT OF THE ROOT IN #405, AND THAT IS THE POINT IT NOW PROVES. This decoy used to sit at
@@ -67,19 +67,19 @@ try {
     $a = Invoke-Integrity -FixtureRoot $Fixture
     Assert-Equal 1 $a.Code 'scenario A: exit 1 (findings present)'
     Assert-True ($a.Out -match [regex]::Escape('.\CONTRIBUTING.md') -and $a.Out -match '\[link\]') 'CONTRIBUTING.md dead link is reported'
-    Assert-True ($a.Out -match [regex]::Escape('.\connectors\README.md')) 'connectors README dead link is reported'
+    Assert-True ($a.Out -match [regex]::Escape('.\consumers\README.md')) 'consumers README dead link is reported'
     Assert-True (-not ($a.Out -match [regex]::Escape('NOTES.md'))) 'decoy notes\NOTES.md (outside the scan set) is NOT reported -- proves the scan is scope-limited, not a blanket walk'
 
     # --- Scenario B: fix both dead links -- the two specific findings disappear ----------------------
     Write-Host "check 4 coverage -- fixing the dead links removes exactly those findings" -ForegroundColor Cyan
     $contributingFixed = "# Contributing`n`nNothing to link to here.`n"
     [System.IO.File]::WriteAllText((Join-Path $Fixture 'CONTRIBUTING.md'), $contributingFixed, $Utf8NoBom)
-    $connectorsFixed = "# Connectors`n`nNothing to link to here.`n"
-    [System.IO.File]::WriteAllText((Join-Path $Fixture 'connectors\README.md'), $connectorsFixed, $Utf8NoBom)
+    $consumersFixed = "# Consumers`n`nNothing to link to here.`n"
+    [System.IO.File]::WriteAllText((Join-Path $Fixture 'consumers\README.md'), $consumersFixed, $Utf8NoBom)
 
     $b = Invoke-Integrity -FixtureRoot $Fixture
     Assert-True (-not ($b.Out -match [regex]::Escape('.\CONTRIBUTING.md') + '.*dead link')) 'CONTRIBUTING.md dead-link finding is gone once fixed'
-    Assert-True (-not ($b.Out -match [regex]::Escape('.\connectors\README.md') + '.*dead link')) 'connectors README dead-link finding is gone once fixed'
+    Assert-True (-not ($b.Out -match [regex]::Escape('.\consumers\README.md') + '.*dead link')) 'consumers README dead-link finding is gone once fixed'
 
     # --- Scenario B2: the four payload layers added in #481 are IN the scan set ---------------------
     # Agent defs, subagent-shared, .github and .claude/rules matched no category until August 6, 2026 --
@@ -139,23 +139,23 @@ try {
     $entryFx    = Join-Path $entryDirFx 'branch-deployment.md'
     $progressFx = Join-Path $entryDirFx 'branch-cycle.md'
     $devFx      = Join-Path $Fixture 'dkj-policy\development.md'
-    # 'connectors/README.md' exists in this fixture. From dkj-policy/ -- where this fixture's
+    # 'consumers/README.md' exists in this fixture. From dkj-policy/ -- where this fixture's
     # CHANGELOG.md resolves to -- it is reached with one '../', and the bare root form is dead there.
     [System.IO.File]::WriteAllText($entryFx,
-        "## Fixture entry`n`nSee [the connectors README](../connectors/README.md), [the root form](connectors/README.md) and [nope]($deadLink).`n", $Utf8NoBom)
+        "## Fixture entry`n`nSee [the consumers README](../consumers/README.md), [the root form](consumers/README.md) and [nope]($deadLink).`n", $Utf8NoBom)
     # Today's single document: the changelog sits in ITS directory, so the link reads exactly as written.
     [System.IO.File]::WriteAllText($devFx,
-        "## Development: ``feat/fixture```n`n### DEPLOY: ``feat/fixture```n`nSee [the connectors README](../connectors/README.md).`n", $Utf8NoBom)
+        "## Development: ``feat/fixture```n`n### DEPLOY: ``feat/fixture```n`nSee [the consumers README](../consumers/README.md).`n", $Utf8NoBom)
     # The step list never travels, so it keeps the ordinary nested convention: '../../' to reach the root.
     [System.IO.File]::WriteAllText($progressFx,
-        "# Branch progress`n`n**Branch:** ``feat/fixture```n`n## Steps`n`n- [ ] see [the connectors README](../../connectors/README.md)`n", $Utf8NoBom)
+        "# Branch progress`n`n**Branch:** ``feat/fixture```n`n## Steps`n`n- [ ] see [the consumers README](../../consumers/README.md)`n", $Utf8NoBom)
 
     $b4 = Invoke-Integrity -FixtureRoot $Fixture
-    Assert-True (-not ($b4.Out -match 'dead link ''\.\./connectors/README\.md''')) `
+    Assert-True (-not ($b4.Out -match 'dead link ''\.\./consumers/README\.md''')) `
         'entry links: the link that reads correctly beside the changelog is NOT dead -- that is where the fold puts the text'
     Assert-True (-not ($b4.Out -match [regex]::Escape('.\dkj-policy\development.md'))) `
         "entry links: today's document is judged from its own directory, because the changelog sits there too"
-    Assert-True ($b4.Out -match 'dead link ''connectors/README\.md''') `
+    Assert-True ($b4.Out -match 'dead link ''consumers/README\.md''') `
         'entry links: the ROOT form IS dead on the legacy name -- the base is the changelog, not the repo root'
     Assert-True ($b4.Out -match [regex]::Escape('.\dkj-policy\branch\branch-deployment.md') -and $b4.Out -match [regex]::Escape($deadLink)) `
         'entry links: a genuinely dead link in the entry IS still reported -- the rebase is not a way out of the check'

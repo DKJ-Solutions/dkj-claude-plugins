@@ -1,8 +1,8 @@
-# connectors/ — the registry of connected repos
+# consumers/ — the registry of connected repos
 
 This is the registry of **which repos have installed this family's plugins and whether they are
 still in sync with this repo** — one `<repo>.json` manifest per connected repo, directly in this
-directory, each containing the extension inventory per plugin. The connector *is* the repo. This
+directory, each containing the extension inventory per plugin. The consumer *is* the repo. This
 README is the doctrine; the manifests are the data.
 
 **The registry deliberately lives at the family level, next to the plugin directories — not inside
@@ -101,7 +101,7 @@ be thorough about machines nobody uses.
   September 6, 2026). Both BWJ manifests recorded a `davekokbwj/` path that exists on neither machine
   holding those checkouts, and the cost is not that the path was wrong — it is *how* a wrong path is
   reported. A path that does not resolve produces `[SKIP] checkout ... not present on this machine`: a
-  sentence that **asserts an absence**, exits 0, and suppresses the whole connector block. On the
+  sentence that **asserts an absence**, exits 0, and suppresses the whole consumer block. On the
   machine that finding was measured from, one such skip covered four `[INFO]` lines and a drift check
   reading 26 missing agent-defs. A wrong-but-loud value would have been repaired the day it drifted; a
   false skip taught nobody anything, so writing one machine's answer in and leaving the others silently
@@ -111,7 +111,7 @@ be thorough about machines nobody uses.
   ([#2141](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2141)). They sit on the same
   machine layout, so a candidate one of them needs is a candidate all of them need -- and adding one to a
   single manifest is what produced the fourth false `[SKIP]` in this class, after #1524, #1807 and #1831.
-  `connectors.tests.ps1` case 6b compares the lists with the repo folder taken off each candidate, so
+  `consumers.tests.ps1` case 6b compares the lists with the repo folder taken off each candidate, so
   the pair cannot drift apart unnoticed. A layout still goes into a group only once a machine has been
   measured to place a checkout there, per the rule above; the invariant then carries it to the siblings.
 - `plugins` contains, per installed plugin, that plugin's `extensions` inventory.
@@ -144,7 +144,7 @@ be thorough about machines nobody uses.
   so its `.claude/settings.json` and its record live in the same tree and can land in the same commit.
   When they do, nothing is claimed ahead of anything — and the alternative is worse in a measurable
   way. During the marketplace rename the self-record was deliberately held back, and
-  `connectors.tests.ps1` case 6 then failed on precisely the disagreement the check exists to report,
+  `consumers.tests.ps1` case 6 then failed on precisely the disagreement the check exists to report,
   which `open-pr.ps1` turns into a refusal; the only other way through was opening the rename's own
   pull request with `-SkipTests`, i.e. the test gate off on the largest merge this repo has made.
   **The carve-out is the self-record and nothing else.** Every other consumer migrates its record on
@@ -186,7 +186,7 @@ be thorough about machines nobody uses.
 
 ## The check
 
-[`scripts/sync/check-connectors.ps1`](../scripts/sync/check-connectors.ps1) runs the two-way
+[`scripts/sync/check-consumers.ps1`](../scripts/sync/check-consumers.ps1) runs the two-way
 check across all manifests: plugin still enabled, registered extensions present (outbound),
 unregistered extensions flagged (inbound), the machine version against the source, whether the
 consumer's CI runners still name paths that exist here (#1805 — the one check whose subject is a path
@@ -197,9 +197,9 @@ consumer the content drift check
 start of a workday or session:
 
 ```powershell
-.\scripts\sync\check-connectors.ps1                  # everything
-.\scripts\sync\check-connectors.ps1 -SkipDrift       # registry checks only (fast)
-.\scripts\sync\check-connectors.ps1 -RemoteRunners   # also judge the CI runners of absent consumers
+.\scripts\sync\check-consumers.ps1                  # everything
+.\scripts\sync\check-consumers.ps1 -SkipDrift       # registry checks only (fast)
+.\scripts\sync\check-consumers.ps1 -RemoteRunners   # also judge the CI runners of absent consumers
 ```
 
 **`-RemoteRunners` is the one switch here that turns something ON, and it exists because of a blind
@@ -208,13 +208,13 @@ consumer that is not checked out on the machine you are running from is `[SKIP]`
 is read — which is correct for an extension inventory or a machine record, and lands badly on the CI
 runner check: those runners name a path *into this tree*, and a consumer nobody visits is exactly the
 one whose stale path nobody has noticed. Measured September 10, 2026: of the six registered
-connectors, three were `[SKIP]` on this machine, including both of the two whose runners were red.
+consumers, three were `[SKIP]` on this machine, including both of the two whose runners were red.
 
 With the switch, an absent consumer's `.github/workflows/*.yml` are read from its default branch over
 the GitHub API and judged by the same code the local half uses. It is **off by default and stays
-that way**: this script is what `connector-sessioncheck.ps1` runs at every session start, and a
-network call per absent connector does not belong on that path. Where the read cannot be made — no
-`gh`, no credential, a repository this token cannot see — it says so per connector and quotes what the
+that way**: this script is what `consumer-sessioncheck.ps1` runs at every session start, and a
+network call per absent consumer does not belong on that path. Where the read cannot be made — no
+`gh`, no credential, a repository this token cannot see — it says so per consumer and quotes what the
 API answered, rather than falling through to a silence that would read as an all-clear.
 
 **And the runner check could not tell an unadopted consumer from a clean one, which is a different
@@ -271,10 +271,10 @@ each directory a lens may live in (`Get-LensDirCandidates`) and reports what it 
   not one.
 
 **It replaces the `[LENS-RETIREMENT]` roll-up** (#2289, #2298). That roll-up asked whether all six
-connectors were over the rename, so the old spelling could be dropped. #2292 answered that question and
+consumers were over the rename, so the old spelling could be dropped. #2292 answered that question and
 acted on it, and after that the roll-up could only mislead. Its *not yet* arm could no longer fire, a
 consumer that fell behind read as *unmeasured* rather than as behind, and its green ending invited a
-retirement that had already happened. Its test seam, `-ConnectorsRootOverride`, went with it.
+retirement that had already happened. Its test seam, `-ConsumersRootOverride`, went with it.
 
 **Lens only.** The other three kinds (manual, persona, subagent) live in a consumer's **plugin cache**
 rather than in its own tree, so their old spellings are keyed on which versions are still installed,
@@ -288,7 +288,7 @@ every consumer, so no physical copy in the consuming repo is needed and thus no 
 every consumer literally consumes the same files. Left over from a transition, however, a consuming
 repo may still have an outdated local copy of an agent def that is by now shared here.
 [`scripts/lint/check-consumer-drift.ps1`](../scripts/lint/check-consumer-drift.ps1) (invoked
-per consumer as part of the `check-connectors.ps1` run above, or standalone) compares such a local
+per consumer as part of the `check-consumers.ps1` run above, or standalone) compares such a local
 copy (read-only, changes nothing) with the canonical version here and reports `MISSING` (already
 migrated), `IDENTICAL` (dead copy, safe to remove), or `DRIFTED` (inspect first before removing). The
 cleanup itself happens in the consuming repo, not by this script. The same script's persona-body
@@ -407,7 +407,7 @@ structural path difference.
 - **Update the `extensions` inventory in the same change that lands the lens — nothing will remind
   you later.** "Exists in the consumer but is not in the register" is an `[INFO]`, and the session
   hook surfaces only `[ERROR]` lines, so a drifted inventory is invisible at session start; it takes
-  a deliberate run of `check-connectors.ps1` to find. On July 29, 2026 such a run found eleven of
+  a deliberate run of `check-consumers.ps1` to find. On July 29, 2026 such a run found eleven of
   them at once, six in the register of *this* repo — the lenses had landed with the adopt-the-six
   change (PR #212) and the inventory was simply never updated alongside. The rule above ("after a
   refresh") was already there and was not enough, because it reads as a follow-up step and a
@@ -418,8 +418,8 @@ structural path difference.
 
 The **`dkj-policy`** plugin carries a **SessionStart hook**
 ([`hooks/hooks.json`](../plugins/dkj-policy/hooks/hooks.json) +
-[`connector-sessioncheck.ps1`](../plugins/dkj-policy/hooks/connector-sessioncheck.ps1)) that, when a
-session starts, locates the workshop checkout and runs the connectors check there.
+[`consumer-sessioncheck.ps1`](../plugins/dkj-policy/hooks/consumer-sessioncheck.ps1)) that, when a
+session starts, locates the workshop checkout and runs the consumers check there.
 
 **It moved out of the core on August 8, 2026, and the reason is what this register is.** The check
 reads *this* register — Dave's own list of his own repos — and looks for a local workshop checkout to
@@ -440,7 +440,7 @@ exit 0, read-only). `[INFO]` signals — registry administration about the sync 
 registration of consumers: sometimes something to update here, often the business of another
 machine or user, but in no case work worth interrupting a session start for — deliberately stay
 silent at session start (decision by Dave, July 20, 2026); they are visible on a deliberate run of
-`check-connectors.ps1` in the workshop. From this follows
+`check-consumers.ps1` in the workshop. From this follows
 a classification rule for extensions of the check (security review advice, July 20, 2026): a new
 signal category that may be security-relevant (e.g. an indication of tampering) must never be
 classified as `[INFO]`, but as `[ERROR]` — otherwise it silently stays out of sight at session
@@ -448,10 +448,10 @@ start.
 
 **First named exception to that silence: `[UNREGISTERED]`** (July 28, 2026). "This repo has no manifest
 in the register" was filed as `[INFO]`, and the consequence was the worst possible reading: a
-brand-new consumer got `connector-sessioncheck: no errors.` — a positive all-clear for a repo this
+brand-new consumer got `consumer-sessioncheck: no errors.` — a positive all-clear for a repo this
 workshop cannot see at all (no plugin-version check, no lens inventory, no agent-def drift). Found
 after a third consumer had been running, and filing inbound issues, unregistered for days without
-anyone noticing. `check-connectors.ps1` therefore also emits a **non-counting `[UNREGISTERED]`** line
+anyone noticing. `check-consumers.ps1` therefore also emits a **non-counting `[UNREGISTERED]`** line
 that the hook does surface, next to the no-errors verdict rather than under it — nothing is wrong with
 the plugin install there, only with this workshop's view of it, so the exit code stays 0 and the
 per-signal `[INFO]` line stays suppressed.
@@ -473,9 +473,9 @@ surfaced it for a day, because the finding is an `[INFO]` and the hook shows onl
 but a rule alone was demonstrably not enough — the earlier "after a refresh, also update the manifest"
 rule was already on the books when this drift happened.
 
-Scoped exactly as narrowly as the reasoning allows: `check-connectors.ps1` emits the marker **only for
-the connector whose checkout is the repo the session is in** — the workshop's own `localCheckout: "."`
-entry on a full sweep, or the consumer's own entry under `-OnlyConsumer`. Every other connector's
+Scoped exactly as narrowly as the reasoning allows: `check-consumers.ps1` emits the marker **only for
+the consumer whose checkout is the repo the session is in** — the workshop's own `localCheckout: "."`
+entry on a full sweep, or the consumer's own entry under `-OnlyConsumer`. Every other consumer's
 inventory drift stays an `[INFO]` and stays silent, so the `[INFO]` rule's justification ("often the
 business of another machine or user") keeps applying wherever it is actually true. Decision by Dave,
 July 29, 2026.
@@ -521,7 +521,7 @@ enabled id itself was still never examined; the other four produced no line anyw
 as `[INFO]` at check 5 for the same reason `[INVENTORY]` is:
 a register that is merely behind is not a fault to interrupt a session over, and a deliberate run should
 still list every one. Same `Test-IsSessionRepo` scoping as `[INVENTORY]`/`[NOT-INSTALLED-HERE]`, for the
-same reason — every *other* connector's under-registration stays an `[INFO]` and stays silent, because
+same reason — every *other* consumer's under-registration stays an `[INFO]` and stays silent, because
 that is genuinely the maintainer's business rather than this session's.
 
 **Scoped to this register's own marketplace, not to every id a consumer might enable.** An id naming a
@@ -543,7 +543,7 @@ show for it, which is not hypothetical: a session started at `faa7273` (source v
 moved to `855fd40` (source v3.9.0) at 10:24, and the line already in context still said v3.6.0. It was
 repeated as current fact, because an undated claim is indistinguishable from a fresh one.
 
-So the run header names the commit: `== check-connectors -- 4 manifest(s) -- source read at 5becd87 ==`,
+So the run header names the commit: `== check-consumers -- 4 manifest(s) -- source read at 5becd87 ==`,
 and the hook lifts that value into its summary line with a pointer to `git rev-parse --short HEAD`. Two
 properties worth keeping when this is touched: it is printed **once at run level**, because it is the
 same answer for every finding and repeating it per line costs the reader on every line to say nothing
@@ -560,7 +560,7 @@ which then lands here through the normal branch + PR flow. This hook is one of t
 exceptions to the rule that plugins carry no hooks/skills — the full list is in
 [Sylvester's repo lens](../.claude/specialists/lenses/specialist-05-15-lens.md#what-lives-here-and-what-doesnt), and it has grown since
 this paragraph first named its two siblings — and shrank again on August 26, 2026: three SessionStart
-hooks (`connector-sessioncheck` and `script-contract-sessioncheck` in `dkj-policy`,
+hooks (`consumer-sessioncheck` and `script-contract-sessioncheck` in `dkj-policy`,
 `roster-sessioncheck` in the core team), two Stop hooks (`cycle-autopark`, also
 `dkj-policy` — the first hook here that *acts* instead of reporting, #900 — and `closeout-gate`, the
 first that *refuses*, #2050) plus the skill

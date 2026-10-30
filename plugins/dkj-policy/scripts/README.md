@@ -201,9 +201,9 @@ needed.
 
 ## Precedent
 
-The plugin runs `hooks/connector-sessioncheck.ps1` via `hooks/hooks.json` with `${CLAUDE_PLUGIN_ROOT}` in
+The plugin runs `hooks/consumer-sessioncheck.ps1` via `hooks/hooks.json` with `${CLAUDE_PLUGIN_ROOT}` in
 every repo that enables **this** plugin, without registration in the consumer's `settings.json`. (It ran
 in every consumer until August 8, 2026, when it moved out of the core team along with the rest of this
-way of working — see the [connectors README](https://github.com/DKJ-Solutions/claude-code-specialists/blob/main/connectors/README.md).)
+way of working — see the [consumers README](https://github.com/DKJ-Solutions/claude-code-specialists/blob/main/consumers/README.md).)
 That hook mechanism is proven; the shared-scripts mirror + skill above extends that same SSOT principle
 to standalone-invokable workflow scripts.

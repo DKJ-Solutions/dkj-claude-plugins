@@ -37,7 +37,7 @@
          CONTRIBUTING.md, SECURITY.md, INSTALL.md, UNINSTALL.md and any unfolded changelog entry file
          -- globbed, never named), every .claude/extensions/*.md, every <plugin>/skills/*/SKILL.md, every
          <plugin>/manuals/*-manual.md, every <plugin>/personas/*-persona.md, every releases/**/*.md,
-         every <plugin>/RELEASE.md, connectors/README.md, and
+         every <plugin>/RELEASE.md, consumers/README.md, and
          every plugin's own plugins/<plugin>/CHANGELOG.md (#103).
          Checked: (a) the linked
          file exists, and (b) if the link
@@ -1023,7 +1023,7 @@ Write-Coverage -Category 'written-name' -Checked $wnChecked `
 # --- 4. dead relative links + broken anchors ---------------------------------------------------------
 # Scanned files: README.md, CHANGELOG.md, CLAUDE.md, CONTRIBUTING.md, the repo lenses (the seam
 # .claude/specialists/, its pre-seam and legacy locations), every <plugin>/skills/*/SKILL.md, every
-# <plugin>/manuals/*-manual.md, every releases/**/*.md and the connectors README. For every relative
+# <plugin>/manuals/*-manual.md, every releases/**/*.md and the consumers README. For every relative
 # link it is checked (a) that the linked file exists, and (b) if the link has a #anchor: that anchor
 # exists as a heading in the target file (GitHub slug rules). External http(s)/mailto links are skipped.
 
@@ -1178,12 +1178,12 @@ $handbook = Join-Path $RepoRoot '.claude\plugins\claude-specialists\README.md'
 if (Test-Path -LiteralPath $handbook) { $linkFiles += $handbook }
 # Every plugin's own CHANGELOG.md (the consumer-facing card that cut-release.ps1 updates) did not yet
 # belong to the scan set -- added (#103).
-# The connectors README (connectors/) did not yet belong to
+# The consumers README (consumers/) did not yet belong to
 # the scan set either -- added alongside CONTRIBUTING.md (#159 follow-up, spotted by Edith).
-$connectorsReadme = Join-Path $RepoRoot 'connectors\README.md'
-if (Test-Path -LiteralPath $connectorsReadme) { $linkFiles += $connectorsReadme }
+$consumersReadme = Join-Path $RepoRoot 'consumers\README.md'
+if (Test-Path -LiteralPath $consumersReadme) { $linkFiles += $consumersReadme }
 $linkFiles += (Get-ChildItem -Path (Join-Path $RepoRoot 'plugins') -Recurse -Filter 'CHANGELOG.md' -File |
-    Where-Object { $_.FullName -notmatch '\\connectors\\' } |
+    Where-Object { $_.FullName -notmatch '\\consumers\\' } |
     Select-Object -ExpandProperty FullName)
 # The repo lenses live in the seam (.claude/specialists/, the canonical location since #253), on the
 # pre-seam plugin path, or on the legacy path -- scan all of them, wherever they are.
@@ -6048,7 +6048,7 @@ if (Test-CheckEnabled 'shopify-force') {
 #
 # WHAT THE DERIVATION MEASURES HERE, so a later drop in coverage is visible rather than silent: 14 hook
 # files, 8 of which select on markers, resolving to 15 subject files -- 7 source/mirror pairs plus
-# check-connectors.ps1, which only the source repo carries -- and 69 marker emissions. Born green at 0
+# check-consumers.ps1, which only the source repo carries -- and 69 marker emissions. Born green at 0
 # findings and 0 exemptions, exactly as #2150 predicted. That is what makes this a guard against the next
 # line somebody writes rather than a repair, and it is the same trade check 44 states: a rule born green
 # and kept green is cheap, and it is also a rule nobody ever sees fire.
@@ -6157,7 +6157,7 @@ foreach ($mcHook in $mcHookFiles) {
 
     # RESOLVED AGAINST BOTH ROOTS, because a hook names its check by a relative path and the two roots are
     # the two things that path is ever joined to: the plugin root for a plugin-carried check, and the repo
-    # root for connector-sessioncheck, which reaches into the source checkout. Every candidate that EXISTS
+    # root for consumer-sessioncheck, which reaches into the source checkout. Every candidate that EXISTS
     # becomes a subject, which is also what puts a shared script's source copy and its plugin mirror both
     # in scope -- the drift lint holds them identical, so a rule that reached only one would be half a rule.
     foreach ($mcCmd in (Get-PsScriptCommandAsts -Path $mcHook.FullName)) {

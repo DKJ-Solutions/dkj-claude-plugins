@@ -29,8 +29,8 @@ logic in `release-lib.ps1` (version bump, CHANGELOG transformation, release-note
   files — see [the split below](#the-lint-gate-suite-is-more-than-one-file-august-16-2026-split-again-september-22-2026)), the shared
   agent-def blocks (`subagent-shared.tests.ps1`), the branch/changelog/release chain
   (`branch-info.tests.ps1`, `new-branch.tests.ps1`, `fold-changelog.tests.ps1`,
-  `cut-release-guardrail.tests.ps1`, `park-branch.tests.ps1`), the connectors + roster machinery
-  (`connectors.tests.ps1`, `roster-sync.tests.ps1`, `sync-roster.tests.ps1`), the shared-scripts
+  `cut-release-guardrail.tests.ps1`, `park-branch.tests.ps1`), the consumers + roster machinery
+  (`consumers.tests.ps1`, `roster-sync.tests.ps1`, `sync-roster.tests.ps1`), the shared-scripts
   mirror + contract (`shared-scripts.tests.ps1`, `script-contract.tests.ps1`), the bootstrap drift
   check (`bootstrap-drift.tests.ps1`), the repo-config helper (`repo-config.tests.ps1`), and the test
   gate itself (`test-suite-gate.tests.ps1` — the runner all three callers share, which had only
@@ -209,7 +209,7 @@ sites it called the exposure:**
 
 | suites | sites | condition 1 | genuinely exposed |
 |---|---:|---|---:|
-| `roster-sync`, `connectors`, `script-contract`, `sync-roster`, `adopt-workflow-folder`, `config-blueprint` | 311 | **no** -- stdout only | **0** |
+| `roster-sync`, `consumers`, `script-contract`, `sync-roster`, `adopt-workflow-folder`, `config-blueprint` | 311 | **no** -- stdout only | **0** |
 | `cut-release-drive` | 4 | yes | 0 today, structurally reachable |
 | `publish-to-business` | 13 | yes (`2>&1`) | **3** |
 
@@ -354,7 +354,7 @@ end. `test-suite-gate.tests.ps1` enforces it and names the offending `file:line`
   it attributes a stray directory to a run that is still alive, and the gate's capture lookup globs on
   `<label>-<pid>-*`. It also still answers collision: the test gate is a throttled parallel scheduler,
   and two runs sharing a fixed path tear down each other's tree mid-assert — measured August 11, 2026,
-  `connectors.tests.ps1` passed alone and failed twice when run twice at once.
+  `consumers.tests.ps1` passed alone and failed twice when run twice at once.
 - **A variable holding a fresh guid (`$tag`, `$Guid`) also passes**, for suites needing one path per child
   invocation; the gate suite pins those two names to a real guid of usable width via the parsed syntax.
   A per-case `$Label` alone is not enough — it repeats across runs.

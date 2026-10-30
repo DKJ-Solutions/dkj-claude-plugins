@@ -1,5 +1,5 @@
 ---
-name: Inbound bug (from a connector)
+name: Inbound bug (from a consumer)
 about: Something the shared core ships is wrong, found in a consuming repo (life-hub, smartwatchbanden) -- the fix must land in the source first
 title: "bug-inbound: <short summary>"
 labels: bug-inbound

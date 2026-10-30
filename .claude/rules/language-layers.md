@@ -150,8 +150,8 @@ discovery — as an earlier pass did for `.github/workflows/ci.yml` — not a qu
 - **Legacy back-compat markers** deliberately keep recognizing existing, not-yet-migrated consumer
   content and are not translation debt: the slot heading `## Specific to this repo` alongside its legacy
   predecessor in the drift-check (`scripts/lint/check-consumer-drift.ps1`) and the bootstrap templates,
-  and the `[ERROR]` marker alongside its legacy predecessor in the connector session hook
-  (`connector-sessioncheck.ps1`), and — since [#1769](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1769) —
+  and the `[ERROR]` marker alongside its legacy predecessor in the consumer session hook
+  (`consumer-sessioncheck.ps1`), and — since [#1769](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1769) —
   the retired marketplace name `claude-code-specialists` matched alongside `dkj-claude-plugins` in the
   teardown script's `settings.json` probe (`specialists-teardown/teardown.ps1`): a consumer that has not
   yet done the flag-day re-install still carries the old name in every `enabledPlugins` key.

@@ -352,7 +352,7 @@ function Get-HubV([string]$Cmd, [int]$Parent = 0) {
 }
 
 Assert-Equal 'unreadable' (Get-HubV '').Class 'a command line that cannot be read is said, not taken for "not ours"'
-Assert-Equal 'not-hub' (Get-HubV 'powershell -File "C:\r\scripts\dashboard\serve-connector-dashboard.ps1" -Port 4870').Class 'a product server is not a hub process'
+Assert-Equal 'not-hub' (Get-HubV 'powershell -File "C:\r\scripts\dashboard\serve-consumer-dashboard.ps1" -Port 4870').Class 'a product server is not a hub process'
 
 $r = Get-HubV "powershell -NoProfile -File `"$Live\hub\pages\serve-general-pages.ps1`" -Port 4890" 100
 Assert-Equal 'live' $r.Class 'the session hub from an installed version is live, though the hook that launched it has exited'

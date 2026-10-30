@@ -1,17 +1,17 @@
 <#
 .SYNOPSIS
-    This repo's PRODUCT (#3540): the home page on '/' and its own pages -- Connectors and Plugins, the specialists on their teams' Plugins pages.
+    This repo's PRODUCT (#3540): the home page on '/' and its own pages -- Consumers and Plugins, the specialists on their teams' Plugins pages.
     The hub is the dkj-policy plugin's, as in every other repo (#3245): this repo states its dev server as
     its product and no longer opts out with OwnHub, so the general pages -- Repository, Artifacts, Issues,
     Release notes, SessionStart, Test gate, Stopwatch, Logbook and Plugins -- are the plugin hub's, and the
-    product's home page links back to it. No I/O -- the server (scripts/dashboard/serve-connector-dashboard.ps1)
+    product's home page links back to it. No I/O -- the server (scripts/dashboard/serve-consumer-dashboard.ps1)
     measures and reads, and hands the results in, so every rule here is tested without a server.
 
 .DESCRIPTION
     EVERY REPO HAS A PRODUCT PORT (Maikel, October 26, 2026, #3540). Retiring the brandbook/ app (#3493) took
     the product port with it and made this server the hub again, with the product's pages on it. The app
     could go; the port could not. So this server is the product once more, as it was from #3283 to #3493 for
-    Connectors, Specialists and DKJ repos, and the hub is the plugin's: the same form as every consumer
+    Consumers, Specialists and DKJ repos, and the hub is the plugin's: the same form as every consumer
     (#3464), so a hub change reaches this repo with a plugin update too.
 
     THE HOME PAGE is the house hub form (#3383): the general banner, the site header naming the repo with
@@ -26,16 +26,16 @@
     and bar helpers, so nothing is written twice.
 
     THE DKJ REPOS ON GITHUB (#3231): every DKJ-Solutions repo, its checkout beside this repo, and the command that
-    opens Claude Code there -- a section of the DKJ group's connector page, /consumers/dkj, since #3549, not a page
+    opens Claude Code there -- a section of the DKJ group's consumer page, /consumers/dkj, since #3549, not a page
     of its own. Find-DkjCheckouts is the one function in this file that reads the disk.
 
-    EVERY VALUE THAT REACHES THE PAGE IS ESCAPED, through connector-dashboard-lib's ConvertTo-DashboardText
+    EVERY VALUE THAT REACHES THE PAGE IS ESCAPED, through consumer-dashboard-lib's ConvertTo-DashboardText
     here and the plugin lib's own escape there (the two are the same five replacements).
 
     Pure ASCII (repo convention for .ps1). Tested by scripts/tests/dev-pages.tests.ps1.
 #>
 
-. (Join-Path $PSScriptRoot 'connector-dashboard-lib.ps1')
+. (Join-Path $PSScriptRoot 'consumer-dashboard-lib.ps1')
 # The plugin's lib: this repo is its source, so it reads it from its own tree -- dkj-policy's page shell and
 # card (#3198).
 . (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\general-pages-lib.ps1')
@@ -44,7 +44,7 @@
 
 function Format-DevPageHtml {
     <#
-        The whole page around -Body, for this repo's own pages (Connectors, Specialists, Plugins): the
+        The whole page around -Body, for this repo's own pages (Consumers, Specialists, Plugins): the
         plugin's page shell with this repo's site header, tagged 'product' (#3540), its title and theme key,
         and the Home crumb on '/', the product's home page.
     #>
@@ -71,7 +71,7 @@ function Get-ProductPages {
         them: the specialists are the dkj-subagents teams', so they live on those teams' own Plugins pages.
     #>
     @(
-        @{ Href = '/consumers';  Label = 'Consumers';   Sub = 'Every repo that installs plugins from this marketplace, registered under connectors/ and checked by check-connectors.ps1 on this machine'; Icon = 'consumers' }
+        @{ Href = '/consumers';  Label = 'Consumers';   Sub = 'Every repo that installs plugins from this marketplace, registered under consumers/ and checked by check-consumers.ps1 on this machine'; Icon = 'consumers' }
         @{ Href = '/marketplace';     Label = 'Marketplace'; Sub = 'Every plugin this marketplace ships, its version and what it holds'; Icon = 'marketplace' }
     )
 }
@@ -112,7 +112,7 @@ function Format-ProductHomeHtml {
     foreach ($p in @($Pages)) { [void]$sb.AppendLine((Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon)) }
     [void]$sb.AppendLine('</div>')
     $at = if ($SourceCommit) { ', from <code>' + (& $e $SourceCommit) + '</code>' } else { '' }
-    [void]$sb.AppendLine('<p class="footer-note">Each page names its own source. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>' + $at + '.</p>')
+    [void]$sb.AppendLine('<p class="footer-note">Each page names its own source. Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-consumer-dashboard.ps1</code>' + $at + '.</p>')
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
     # The fit alarm, as the plugin's page shell closes every hub page (#3558).
@@ -758,9 +758,9 @@ function Format-DkjRepoCardHtml {
         GitHub link; no description, which only repeated what the repo is (Maikel, October 28, 2026). This machine: Status (the register check's, or Not registered), Checkout, Last
         commit on its trunk, Plugins (by name, with their lens count where they have any), Checks, Drift where
         there is any, and its manifest; the check's findings under the list, only where there are any; the
-        session command to copy last. -Connector is its entry in the register, or $null.
+        session command to copy last. -Consumer is its entry in the register, or $null.
     #>
-    param([Parameter(Mandatory = $true)][hashtable]$Row, [AllowNull()]$Checkout, [AllowNull()]$Connector)
+    param([Parameter(Mandatory = $true)][hashtable]$Row, [AllowNull()]$Checkout, [AllowNull()]$Consumer)
     $e = { param($v) ConvertTo-DashboardText $v }
     $url = 'https://github.com/' + (& $e $Row.Repo)
     # Every fact is one line (Maikel, October 28, 2026): a detail follows its value after a dot instead of on a line of
@@ -773,7 +773,7 @@ function Format-DkjRepoCardHtml {
     }
     $count = { param($n, $path) if ($null -eq $n) { '--' } elseif ($n -gt 0) { '<a class="dr-link" href="' + $url + $path + '">' + $n + '</a>' } else { '0' } }
     $head = { param($title) '<div class="card__head"><h2>' + $title + '</h2></div>' }
-    $b = if ($Connector) { Get-DashboardStatusBadge ([string]$Connector.Status) } else { @{ Class = 'badge--neutral'; Mark = '-'; Word = 'Not registered' } }
+    $b = if ($Consumer) { Get-DashboardStatusBadge ([string]$Consumer.Status) } else { @{ Class = 'badge--neutral'; Mark = '-'; Word = 'Not registered' } }
 
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.AppendLine('<section class="card dr-card">')
@@ -793,28 +793,28 @@ function Format-DkjRepoCardHtml {
     [void]$sb.AppendLine((& $fact 'Status' ('<span class="cd-status"><span class="badge badge--sm ' + $b.Class + '" aria-hidden="true">' + $b.Mark + '</span>' + $b.Word + '</span>') ''))
     $where = if ($Checkout) { '<code>' + (& $e $Checkout.Branch) + '</code> &middot; ' + $(if ($Checkout.Dirty) { [string]$Checkout.Dirty + ' uncommitted' } else { 'clean' }) } else { 'Not checked out here' }
     [void]$sb.AppendLine((& $fact 'Checkout' $where ''))
-    if ($Connector -and $Connector.Git -and $Connector.Git.Subject) {
-        [void]$sb.AppendLine((& $fact ('Last commit on ' + (& $e $Connector.Git.Trunk)) (& $e $Connector.Git.When) (& $e $Connector.Git.Subject)))
+    if ($Consumer -and $Consumer.Git -and $Consumer.Git.Subject) {
+        [void]$sb.AppendLine((& $fact ('Last commit on ' + (& $e $Consumer.Git.Trunk)) (& $e $Consumer.Git.When) (& $e $Consumer.Git.Subject)))
     }
-    if ($Connector) {
+    if ($Consumer) {
         # A plugin by its name alone: the '@<marketplace>' every id here carries says nothing on this page.
-        $plugins = @(@($Connector.Plugins) | Where-Object { $_ } | ForEach-Object {
+        $plugins = @(@($Consumer.Plugins) | Where-Object { $_ } | ForEach-Object {
             $n = @($_.Extensions).Count
             (& $e (([string]$_.Id) -replace '@.*$', '')) + $(if ($n) { ' (' + $n + ' lens' + $(if ($n -ne 1) { 'es' } else { '' }) + ')' } else { '' })
         })
         if ($plugins.Count) { [void]$sb.AppendLine((& $fact 'Plugins' ($plugins -join ', ') '' -Tip)) }
-        $findings = @(@($Connector.Signals) | Where-Object { $_.Level -eq 'ERROR' -or $_.Level -eq 'INFO' -or $_.Level -eq 'SKIP' })
-        $nOk = @(@($Connector.Signals) | Where-Object { $_.Level -eq 'OK' }).Count
-        $checks = if ($findings.Count) { [string]$findings.Count + ' finding' + $(if ($findings.Count -ne 1) { 's' } else { '' }) + ', listed below' } elseif ($Connector.Present) { 'All ' + $nOk + ' pass' } else { 'Not run: no checkout here' }
+        $findings = @(@($Consumer.Signals) | Where-Object { $_.Level -eq 'ERROR' -or $_.Level -eq 'INFO' -or $_.Level -eq 'SKIP' })
+        $nOk = @(@($Consumer.Signals) | Where-Object { $_.Level -eq 'OK' }).Count
+        $checks = if ($findings.Count) { [string]$findings.Count + ' finding' + $(if ($findings.Count -ne 1) { 's' } else { '' }) + ', listed below' } elseif ($Consumer.Present) { 'All ' + $nOk + ' pass' } else { 'Not run: no checkout here' }
         [void]$sb.AppendLine((& $fact 'Checks' $checks ''))
-        $drift = Format-DashboardDrift $Connector.Drift
+        $drift = Format-DashboardDrift $Consumer.Drift
         if ($drift) { [void]$sb.AppendLine((& $fact 'Drift' $drift '')) }
-        [void]$sb.AppendLine((& $fact 'Register' ('<code>connectors/' + (& $e $Connector.File) + '</code>') ''))
+        [void]$sb.AppendLine((& $fact 'Register' ('<code>consumers/' + (& $e $Consumer.File) + '</code>') ''))
     } else {
-        [void]$sb.AppendLine((& $fact 'Register' 'Not under <code>connectors/</code>, so not checked' ''))
+        [void]$sb.AppendLine((& $fact 'Register' 'Not under <code>consumers/</code>, so not checked' ''))
     }
     [void]$sb.AppendLine('</dl>')
-    if ($Connector -and $findings.Count) {
+    if ($Consumer -and $findings.Count) {
         [void]$sb.AppendLine('<ul class="cd-signals">')
         foreach ($s in $findings) {
             $cls = switch ($s.Level) { 'ERROR' { 'badge--bad' } 'INFO' { 'badge--warn' } default { 'badge--neutral' } }
@@ -879,19 +879,19 @@ function Format-DkjRepoCardsHtml {
     param(
         [Parameter(Mandatory = $true)][hashtable]$Query,
         [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Checkouts,
-        [AllowEmptyCollection()][object[]]$Connectors = @(),
+        [AllowEmptyCollection()][object[]]$Consumers = @(),
         [ValidateSet(2, 3)][int]$Heading = 2
     )
     $e = { param($v) ConvertTo-DashboardText $v }
     $set = Get-DkjRepoRows -Query $Query -Checkouts $Checkouts
-    $byConnector = @{}
-    foreach ($c in @($Connectors | Where-Object { $_ })) { $byConnector[([string]$c.Repo).ToLowerInvariant()] = $c }
+    $byConsumer = @{}
+    foreach ($c in @($Consumers | Where-Object { $_ })) { $byConsumer[([string]$c.Repo).ToLowerInvariant()] = $c }
     $sb = New-Object System.Text.StringBuilder
     $clip = { param($html) '<span class="dr-clip" title="' + (& $e ($html -replace '<[^>]+>', '' -replace '&middot;', [string][char]0x00B7)) + '">' + $html + '</span>' }
     foreach ($r in @($set.Rows)) {
         $co = $set.ByRepo[$r.Repo]
         $value = & $clip $(if ($co) { '<code>' + (& $e $co.Branch) + '</code> ' + $(if ($co.Dirty) { [string]$co.Dirty + ' uncommitted' } else { 'clean' }) } else { 'Not checked out here' })
-        $reg = $byConnector[([string]$r.Repo).ToLowerInvariant()]
+        $reg = $byConsumer[([string]$r.Repo).ToLowerInvariant()]
         $badge = if ($reg) { $b = Get-DashboardStatusBadge ([string]$reg.Status); '<span class="badge badge--sm ' + $b.Class + '" title="' + $b.Word + '" aria-label="' + $b.Word + '">' + $b.Mark + '</span>' } else { '' }
         $id = 'repo-' + (([string]$r.Name) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
         [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/consumers/dkj/' + $r.Name) -Label ([string]$r.Name) -SubHtml (& $clip (Format-DkjRepoFactsHtml -Row $r -NoLinks)) -ValueHtml $value -TitleBadgeHtml $badge -Heading $Heading -Id $id))
@@ -905,15 +905,15 @@ function Format-DkjReposPageHtml {
         (Format-HubCardLinkHtml), each opening that repo's own page (Format-DkjRepoPageHtml). Newest push first: the
         repos GitHub lists, then every checkout it did not (Get-DkjRepoRows), so the page never hides a folder on
         disk. A card's line is its GitHub facts, its value its checkout here, and its mark the status
-        check-connectors.ps1 gives it where it is registered under connectors/.
-        -Query is ConvertFrom-DkjRepoQuery's result, -Checkouts Find-DkjCheckouts' list, -Connectors the
-        register's repos (Format-ConnectorDashboardHtml's -Connectors), -Meta @{ GeneratedAt; Seconds } of the
+        check-consumers.ps1 gives it where it is registered under consumers/.
+        -Query is ConvertFrom-DkjRepoQuery's result, -Checkouts Find-DkjCheckouts' list, -Consumers the
+        register's repos (Format-ConsumerDashboardHtml's -Consumers), -Meta @{ GeneratedAt; Seconds } of the
         GitHub read and -CheckMeta that of the register's, with its CheckFailed.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Query,
         [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Checkouts,
-        [AllowEmptyCollection()][object[]]$Connectors = @(),
+        [AllowEmptyCollection()][object[]]$Consumers = @(),
         [Parameter(Mandatory = $true)][hashtable]$Meta,
         [hashtable]$CheckMeta = @{}
     )
@@ -921,42 +921,42 @@ function Format-DkjReposPageHtml {
     $set = Get-DkjRepoRows -Query $Query -Checkouts $Checkouts
 
     $sb = New-Object System.Text.StringBuilder
-    [void]$sb.Append((Format-ConnectorPageStart -PageName 'DKJ repos' -Trail @(@{ Href = '/consumers'; Label = 'Consumers' }) -Style (Get-DkjRepoCardStyle)))
+    [void]$sb.Append((Format-ConsumerPageStart -PageName 'DKJ repos' -Trail @(@{ Href = '/consumers'; Label = 'Consumers' }) -Style (Get-DkjRepoCardStyle)))
     if ($Query.Error) {
         [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">GitHub could not be read: ' + (& $e $Query.Error) + '. The checkouts on this machine are shown without their issues.</p>')
     }
     if ($CheckMeta.CheckFailed) {
-        [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">check-connectors.ps1 could not be run: ' + (& $e $CheckMeta.CheckFailed) + '. The cards are shown without their status.</p>')
+        [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">check-consumers.ps1 could not be run: ' + (& $e $CheckMeta.CheckFailed) + '. The cards are shown without their status.</p>')
     }
     # Four to a row, each card three lines at most -- its name, its facts, its checkout -- a longer one cut off with
     # an ellipsis and whole in its tooltip (Maikel, October 28, 2026). The house grids stop at three, so the four
     # columns are this page's own layer (.dr-repos), never a house class redefined; .card-grid gives it the house
     # padding every container of cards keeps.
     [void]$sb.AppendLine('<div class="card-grid dr-repos" id="repos">')
-    [void]$sb.Append((Format-DkjRepoCardsHtml -Query $Query -Checkouts $Checkouts -Connectors $Connectors -Heading 2))
+    [void]$sb.Append((Format-DkjRepoCardsHtml -Query $Query -Checkouts $Checkouts -Consumers $Consumers -Heading 2))
     [void]$sb.AppendLine('</div>')
     if (-not @($set.Rows).Count) { [void]$sb.AppendLine('<p class="note">No DKJ-Solutions repo was found, on GitHub or beside this repo.</p>') }
     $nArch = @(@($Query.Archived) | Where-Object { $_ -and -not $set.ByRepo.ContainsKey($_) }).Count
     if ($nArch) { [void]$sb.AppendLine('<p class="note">' + $nArch + ' archived repo' + $(if ($nArch -ne 1) { 's are' } else { ' is' }) + ' left out.</p>') }
 
     $secs = { param($m) if ($null -ne $m.Seconds) { ' in ' + ([double]$m.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' } }
-    $checked = if ($CheckMeta.GeneratedAt) { ' The status is read from <code>check-connectors.ps1</code>, checked ' + (& $e $CheckMeta.GeneratedAt) + (& $secs $CheckMeta) + '.' } else { '' }
-    [void]$sb.Append((Format-ConnectorPageEnd -FooterHtml ('Read with one <code>gh api graphql</code> call and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + (& $secs $Meta) + '.' + $checked + ' (<a class="cd-link" href="/refresh?page=consumers/dkj">read again</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.')))
+    $checked = if ($CheckMeta.GeneratedAt) { ' The status is read from <code>check-consumers.ps1</code>, checked ' + (& $e $CheckMeta.GeneratedAt) + (& $secs $CheckMeta) + '.' } else { '' }
+    [void]$sb.Append((Format-ConsumerPageEnd -FooterHtml ('Read with one <code>gh api graphql</code> call and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + (& $secs $Meta) + '.' + $checked + ' (<a class="cd-link" href="/refresh?page=consumers/dkj">read again</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-consumer-dashboard.ps1</code>.')))
     return $sb.ToString()
 }
 
 function Format-DkjRepoPageHtml {
     <#
-        A DKJ repo's own page, /consumers/dkj/<name> (Maikel, October 28, 2026): the trail Home > Connectors > DKJ
+        A DKJ repo's own page, /consumers/dkj/<name> (Maikel, October 28, 2026): the trail Home > Consumers > DKJ
         repos > the repo, then a GitHub card and a This machine card side by side, with no group head
         (Format-DkjRepoCardHtml), and Lenses (Format-RepoLensesCardHtml, which the server hands in as -LensesHtml and
-        -LensesStyle). -Connector is its entry in the register or $null; -Meta is @{ GeneratedAt; Seconds } of the
+        -LensesStyle). -Consumer is its entry in the register or $null; -Meta is @{ GeneratedAt; Seconds } of the
         GitHub read.
     #>
     param(
         [Parameter(Mandatory = $true)][hashtable]$Row,
         [AllowNull()]$Checkout,
-        [AllowNull()]$Connector,
+        [AllowNull()]$Consumer,
         [AllowEmptyString()][string]$LensesHtml = '',
         [AllowEmptyString()][string]$LensesStyle = '',
         [Parameter(Mandatory = $true)][hashtable]$Meta
@@ -964,14 +964,14 @@ function Format-DkjRepoPageHtml {
     $e = { param($v) ConvertTo-DashboardText $v }
     $sb = New-Object System.Text.StringBuilder
     $style = (Get-DkjRepoCardStyle) + $(if ($LensesStyle) { "`n" + $LensesStyle } else { '' })
-    [void]$sb.Append((Format-ConnectorPageStart -PageName ([string]$Row.Name) -Trail @(@{ Href = '/consumers'; Label = 'Consumers' }, @{ Href = '/consumers/dkj'; Label = 'DKJ repos' }) -Style $style))
+    [void]$sb.Append((Format-ConsumerPageStart -PageName ([string]$Row.Name) -Trail @(@{ Href = '/consumers'; Label = 'Consumers' }, @{ Href = '/consumers/dkj'; Label = 'DKJ repos' }) -Style $style))
     # No group head (Maikel, October 28, 2026): the page's h1 names the repo and each card carries its own h2.
     [void]$sb.AppendLine('<div class="grid-2" id="repo">')
-    [void]$sb.Append((Format-DkjRepoCardHtml -Row $Row -Checkout $Checkout -Connector $Connector))
+    [void]$sb.Append((Format-DkjRepoCardHtml -Row $Row -Checkout $Checkout -Consumer $Consumer))
     [void]$sb.AppendLine('</div>')
     if ($LensesHtml) { [void]$sb.Append($LensesHtml) }
     [void]$sb.AppendLine((Get-CopyButtonScript))
     $secs = if ($null -ne $Meta.Seconds) { ' in ' + ([double]$Meta.Seconds).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture) + 's' } else { '' }
-    [void]$sb.Append((Format-ConnectorPageEnd -FooterHtml ('Read with one <code>gh api graphql</code> call and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=consumers/dkj/' + (& $e $Row.Name) + '">read again</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-connector-dashboard.ps1</code>.')))
+    [void]$sb.Append((Format-ConsumerPageEnd -FooterHtml ('Read with one <code>gh api graphql</code> call and from the checkouts beside this repo, ' + (& $e $Meta.GeneratedAt) + $secs + ' (<a class="cd-link" href="/refresh?page=consumers/dkj/' + (& $e $Row.Name) + '">read again</a>). Served on 127.0.0.1 only, by <code>scripts/dashboard/serve-consumer-dashboard.ps1</code>.')))
     return $sb.ToString()
 }

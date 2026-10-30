@@ -20,7 +20,7 @@
         exception for the one sibling directory that is plugin SOURCE but not a plugin;
       * a path segment index, ($p.Mirror -split '[\\/]')[1], in the shared-scripts registry;
       * three Split-Path calls upward from a plugin.json in cut-release.ps1;
-      * Join-Path <pluginsRoot> <name> in check-connectors.ps1.
+      * Join-Path <pluginsRoot> <name> in check-consumers.ps1.
 
     All five encode the same two assumptions -- that a plugin folder is named after the plugin, and
     that it sits exactly one level under plugins/ -- and neither is a fact about plugins. They are
@@ -49,8 +49,8 @@
 
     No Set-StrictMode here: dot-sourcing would change the strict mode of the calling script.
 
-    No dependencies, deliberately. One caller runs at SessionStart -- check-connectors.ps1, via the
-    connector-sessioncheck hook -- where pulling a heavyweight lib in to resolve a handful of paths is a
+    No dependencies, deliberately. One caller runs at SessionStart -- check-consumers.ps1, via the
+    consumer-sessioncheck hook -- where pulling a heavyweight lib in to resolve a handful of paths is a
     cost paid on every single session. The other reason is the fold: fold-changelog-entry.ps1 needs
     Get-TouchedPlugins and runs immediately after a merge, directly on the trunk, and reaching it
     through release-lib would load thousands of lines of entry-scaffold-lib behind it.
@@ -102,7 +102,7 @@ function ConvertFrom-MarketplaceJson {
 
         THE FALLBACK IS LAZY, which is what keeps the header's no-dependencies rule intact. The Add-Type
         for System.Web.Extensions sits after ConvertFrom-Json has already refused, so the ordinary run --
-        including check-connectors.ps1 on every SessionStart -- loads exactly what it loaded before. The
+        including check-consumers.ps1 on every SessionStart -- loads exactly what it loaded before. The
         assembly is .NET Framework only, so on PowerShell 7 the Add-Type fails and the original error
         stands; that is correct rather than a gap, because 7's reader does not fold case in the first
         place.
@@ -383,8 +383,8 @@ function Get-PluginNameForPath {
 
           * plugins/dkj-subagents/subagent-shared/ is not a plugin, so it is not matched -- no name has to be
             excluded by hand. Under the previous shape the excluded sibling had to be rewritten every
-            time the layout moved (it named connectors/ until August 3, 2026, by which point
-            connectors/ had left plugins/ entirely and the real sibling went uncounted). That sibling
+            time the layout moved (it named consumers/ until August 3, 2026, by which point
+            consumers/ had left plugins/ entirely and the real sibling went uncounted). That sibling
             moved AGAIN on August 17, 2026, from plugins/ down into plugins/dkj-subagents/ beside the only
             plugins that consume it, and this function needed no edit for it -- which is the property
             it was extracted to have;
@@ -423,8 +423,8 @@ function Get-TouchedPlugins {
 
         IT ASKS THE MARKETPLACE NOW, INSTEAD OF MATCHING A PATH SHAPE. This used to be the regex
         '^plugins/([a-z0-9][a-z0-9-]*)/' with 'subagent-shared' excluded by name, and the comment above it
-        recorded that the excluded sibling had already had to be rewritten once: it named connectors/
-        until August 3, 2026, by which point connectors/ had moved to the repo root -- so the exclusion
+        recorded that the excluded sibling had already had to be rewritten once: it named consumers/
+        until August 3, 2026, by which point consumers/ had moved to the repo root -- so the exclusion
         was guarding nothing while the real sibling, subagent-shared/, went uncounted. That is the failure
         mode of encoding a layout in a pattern. Reading the roots removes both halves at once:
         subagent-shared/ is not in the marketplace so it cannot match, and a plugin at any depth does.

@@ -187,7 +187,7 @@ success line names the scope and no version at all — and the query for it is i
 
 Since `v3.0.7` you do not have to remember to: the checks run that same `projectPath` query themselves
 (inbound [#302](https://github.com/DaveKJohn/claude-code-specialists/issues/302)). `check-roster-sync` emits
-a `[NOT-INSTALLED-HERE]` line, and the workshop's `check-connectors` says it about each registered
+a `[NOT-INSTALLED-HERE]` line, and the workshop's `check-consumers` says it about each registered
 consumer — which matters here, because a repo that loads nothing cannot report for itself: the hook that
 would is inside the plugin that is not loading. What was **not** established is the trigger. Two
 attempts with a barer setup (a git repo, one enabled plugin, a session, no bootstrap) produced no record
@@ -551,7 +551,7 @@ and `git status` silent.
    ([#2752](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2752)); where that check is
    missing or not required, review such a PR by eye. The `gh repo edit`
    rule is exact for the same reason: a trailing wildcard would also allow `--visibility`.
-6. **Register proposal** — prints a paste-ready **connector manifest** for the *workshop* repo: the
+6. **Register proposal** — prints a paste-ready **consumer manifest** for the *workshop* repo: the
    repo name derived from the git remote, plus one row per **enabled plugin of this marketplace**,
    carrying that plugin's lens inventory (personas included).
 
@@ -642,19 +642,19 @@ After the script:
 5. **Restart the session.** The new `@`-import and config only become active on a **restart** of
    Claude Code.
 6. **Register the repo in the workshop.** Take the printed manifest block, fill in the two `VUL-IN`
-   fields, and land it as `connectors/<repo>.json` in the marketplace repo via that repo's normal
+   fields, and land it as `consumers/<repo>.json` in the marketplace repo via that repo's normal
    branch + PR flow. Skip this and the workshop stays blind to this repo: no plugin-version check, no
    lens-inventory check, no agent-def drift check.
 
    **Do not count on a reminder — on a plain consumer there is none.** The `[UNREGISTERED]` line does
-   exist, but it comes from `check-connectors.ps1`, and `connector-sessioncheck` only runs that script
+   exist, but it comes from `check-consumers.ps1`, and `consumer-sessioncheck` only runs that script
    when it finds a **verified workshop checkout on this machine**. A consumer does not have one; the
    workshop's own maintainer does. Measured in round v13 on an unregistered repo — every session of the
    round printed exactly this and nothing further (inbound
    [#383](https://github.com/DaveKJohn/claude-code-specialists/issues/383)):
 
    ```text
-   connector-sessioncheck: no verified workshop checkout found on this machine -- check skipped.
+   consumer-sessioncheck: no verified workshop checkout found on this machine -- check skipped.
    ```
 
    That is defensible behaviour: the check has nothing to check against. It does mean the safety net

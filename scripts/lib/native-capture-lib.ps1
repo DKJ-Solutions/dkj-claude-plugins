@@ -317,7 +317,7 @@ $script:GateLaneMemoryPollSeconds = 5
 # WHAT ACTUALLY MOVES A SUITE PAST THIS BOUND IS THE PACE OF THE WHOLE RUN, AND IT WAS MEASURED RATHER
 # THAN INFERRED -- issue #2263, September 22, 2026. #2263 read #2255's 9-lane timeout as lane CONTENTION
 # -- fewer lanes, slower suite -- and proposed a bound scaled by the lane count. Instrumented with
-# scripts/maintenance/reproduce-suite-contention.ps1 (one machine, one suite, connectors.tests.ps1),
+# scripts/maintenance/reproduce-suite-contention.ps1 (one machine, one suite, consumers.tests.ps1),
 # contention runs the OTHER WAY: 53.4/53.2/53.6s under 3 busy siblings, 118.0s under 13 and
 # 198.9/188.1s under 23, against 53.4/50.5s standalone on a settled machine. Taken against the slower
 # standalone reading of 53.4s, that is 1.00x, 2.21x and 3.72x. MORE lanes make a suite slower -- so a
@@ -1375,7 +1375,7 @@ function Stop-NativeProcessTree {
         startup under load took longer than the child had left to run -- finishes inside that grace
         window, and its FULL output is read back and returned as Output with TimedOut = $true. Measured
         September 11, 2026 in CI under the test gate's sixteen lanes: a 5s child under a 1s bound came
-        back complete, and connector-sessioncheck.ps1 -- which picked its verdict from Output's content
+        back complete, and consumer-sessioncheck.ps1 -- which picked its verdict from Output's content
         and never read TimedOut -- printed the killed run's answer as a clean version check.
 
         SO THE ANSWER IS STILL NOT TO THROW HERE, and nothing below this line changed: a kill is

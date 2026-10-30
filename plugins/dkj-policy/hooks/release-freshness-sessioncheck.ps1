@@ -4,7 +4,7 @@
     release of the dkj plugins than the one this session is running (issues #2673, #2702).
 
 .DESCRIPTION
-    THE GAP IT CLOSES. connector-sessioncheck compares this checkout's install against the LOCAL
+    THE GAP IT CLOSES. consumer-sessioncheck compares this checkout's install against the LOCAL
     marketplace clone, and deliberately says nothing when the clone itself is stale (#1591). The clone
     advances only on `claude plugin marketplace update`, so the one comparison that answers "should I
     run update-plugins?" -- the running release against GitHub's newest -- never ran at session start.
@@ -15,7 +15,7 @@
     only -- "A successful hook's stdout is never shown in the transcript" (Claude Code hooks reference,
     read October 1, 2026). So even a perfect verdict would have been invisible to the person who has
     to act on it. This hook answers in JSON instead: `systemMessage` is shown to the user, and
-    `hookSpecificOutput.additionalContext` tells the model the same fact. connector-sessioncheck could
+    `hookSpecificOutput.additionalContext` tells the model the same fact. consumer-sessioncheck could
     not carry it, because a hook's stdout is either one JSON object or plain text, and that hook's
     whole report is plain text.
 
@@ -258,7 +258,7 @@ try {
 
     . (Join-Path $PSScriptRoot '..\scripts\lib\native-capture-lib.ps1')
 
-    # GUARDED, like connector-sessioncheck's: the cache only saves a probe, so its absence or failure
+    # GUARDED, like consumer-sessioncheck's: the cache only saves a probe, so its absence or failure
     # must degrade to measuring rather than to the catch below.
     $sessionId = ''
     $cacheLib = Join-Path $PSScriptRoot '..\scripts\lib\session-cache-lib.ps1'

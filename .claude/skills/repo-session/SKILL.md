@@ -1,6 +1,6 @@
 ---
 name: repo-session
-description: Look into any DKJ repo from this hub (registered under connectors/, or a DKJ-Solutions checkout beside this repo) -- its checkout, branch, uncommitted files and open issues -- and open Claude Code in THAT repo's checkout, in a window of its own, optionally with a first prompt ("start a new dossier in the lifehub"). Use whenever a request here is about another repo -- "check the lifehub", "start a dossier in lifehub", "what is open in dkj-recipes", in whatever language -- and when an issue for another repo has to be filed in that repo. Read-only except for starting that window.
+description: Look into any DKJ repo from this hub (registered under consumers/, or a DKJ-Solutions checkout beside this repo) -- its checkout, branch, uncommitted files and open issues -- and open Claude Code in THAT repo's checkout, in a window of its own, optionally with a first prompt ("start a new dossier in the lifehub"). Use whenever a request here is about another repo -- "check the lifehub", "start a dossier in lifehub", "what is open in dkj-recipes", in whatever language -- and when an issue for another repo has to be filed in that repo. Read-only except for starting that window.
 ---
 
 # repo-session -- the hub looks in, and hands the work over
@@ -10,7 +10,7 @@ description: Look into any DKJ repo from this hub (registered under connectors/,
 from here the owner wants to look into the other repos and start work in one of them, say a new dossier
 in `dkj-lifehub`, without first finding that repo and starting it by hand.
 
-**It is repo-local**, beside `harvest-artifacts`: it reads this repo's own `connectors/` register and
+**It is repo-local**, beside `harvest-artifacts`: it reads this repo's own `consumers/` register and
 every DKJ-Solutions checkout beside this repo (`Find-DkjCheckouts`, the same finder as the hub's **DKJ
 repos** page), so a DKJ repo that runs no plugin of this marketplace is reachable too. Nothing here ships in
 a plugin.

@@ -32,7 +32,7 @@
     rounds. That is MORE than one spawn in isolation and far less than six, because six simultaneous
     process creations contend for CPU and disk rather than each costing what one costs. Against that,
     a parallel batch cannot finish before its slowest member, and the slowest of the six real hooks
-    (connector) went from 2161 ms to 1856 ms -- so ~305 ms is the floor the real hooks put under it.
+    (consumer) went from 2161 ms to 1856 ms -- so ~305 ms is the floor the real hooks put under it.
     The two agree, which is the only reason either is quoted.
 
     THE REAL SIX WERE ALSO TIMED IN PARALLEL, AND THAT RUN IS NOT QUOTED ANYWHERE. Its variance was
@@ -231,7 +231,7 @@ function Select-CheckMarkerLine {
         indentation of a continuation. The unanchored form cannot tell a marker the check WROTE from
         one that arrived inside a value the check is REPORTING, and those values come out of the
         tree: an '@'-import target and the path of the file importing it (check-always-on-budget), a
-        workflow filename off a consumer's directory listing (check-connectors), a line of the
+        workflow filename off a consumer's directory listing (check-consumers), a line of the
         consumer's own prose (check-consumer-prose). So a document able to put the characters
         '[WARN]' on the always-on path had its own line forwarded to every session start under the
         hook's indentation, and '[ERROR]' did more than add a line: it made the hook print its
@@ -247,13 +247,13 @@ function Select-CheckMarkerLine {
 
         ONE DEFINITION, BECAUSE THE RULE WAS THE SAME IN TWENTY-SIX PLACES. Eight hooks across two
         plugins selected on markers, each with its own hand-written '\[...\]' escape, and one block
-        (connector-sessioncheck's engine branch) had already been anchored on its own -- which is the
+        (consumer-sessioncheck's engine branch) had already been anchored on its own -- which is the
         drift this lib exists to prevent. Markers are passed as LITERALS ('[ERROR]'), escaped here, so
         a call site cannot get the escaping subtly wrong either: read as a regex, '[ERROR]' is a
         character class matching one of E/R/O, which selects nearly every line and still looks right.
 
         ONE CALL SITE DELIBERATELY DOES NOT USE THIS, and it is not an oversight to tidy away.
-        connector-sessioncheck's engine branch runs BEFORE this lib is dot-sourced, because that
+        consumer-sessioncheck's engine branch runs BEFORE this lib is dot-sourced, because that
         dot-source sits inside the branch that has a source checkout and moving it up was measured to
         take out three of that hook's engine-branch test cases. So that block writes the anchor out by
         hand and says so at the line: a file that cannot reach the lib carries the rule, and the lib

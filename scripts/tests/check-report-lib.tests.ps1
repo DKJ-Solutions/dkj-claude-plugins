@@ -884,7 +884,7 @@ try {
     #     $env:USERPROFILE is redirected rather than a -UserHomeOverride passed: Get-InstallRecord
     #     documents that flag as pinning the settings chain, and states its callers do not forward theirs.
     #     Resolve-PluginDir therefore offers no passthrough, and this is the sanctioned way to point it at
-    #     a throwaway home -- the same route the connector version test uses.
+    #     a throwaway home -- the same route the consumer version test uses.
     Write-Host "Resolve-PluginDir -- install record first, cache scan as fallback" -ForegroundColor Cyan
     $rpCache = Join-Path $Fixture 'rpcache'
     $rpRepo  = Join-Path $Fixture 'rprepo'

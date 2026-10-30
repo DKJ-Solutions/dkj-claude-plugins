@@ -163,7 +163,7 @@
                                       "closeout-gate.tests.ps1",
                                       "closeout-lib.tests.ps1",
                                       "command-guard-lib.tests.ps1",
-                                      "connector-sessioncheck.tests.ps1",
+                                      "consumer-sessioncheck.tests.ps1",
                                       "consumer-prose-gate.tests.ps1",
                                       "cycle-autopark.tests.ps1",
                                       "git-identity-gate.tests.ps1",
@@ -180,7 +180,7 @@
                        "tips":  [
                                     "A session runs the installed plugin copy, not this tree, so a hook change reaches a session here only after a release."
                                 ],
-                       "split":  "the SessionStart checks (claude-home, connector, consumer-prose, git-identity, release-freshness) and the trunk-sync prep step; the tool-use guards (command-guard-lib, guard-working-copy, background-run-lib, hook-fail-closed); the Stop hooks and the close-out (cycle-autopark, closeout-gate, closeout-lib); and the hook plumbing (hook-check-lib, hook-stdin-guard, session-cache-lib, sessioncheck-dispatch)."
+                       "split":  "the SessionStart checks (claude-home, consumer, consumer-prose, git-identity, release-freshness) and the trunk-sync prep step; the tool-use guards (command-guard-lib, guard-working-copy, background-run-lib, hook-fail-closed); the Stop hooks and the close-out (cycle-autopark, closeout-gate, closeout-lib); and the hook plumbing (hook-check-lib, hook-stdin-guard, session-cache-lib, sessioncheck-dispatch)."
                    },
                    {
                        "key":  "adopt",
@@ -207,11 +207,11 @@
                    {
                        "key":  "tools",
                        "title":  "Machine upkeep and measuring",
-                       "guards":  "the tools a session runs on request: tidy-machine, prune-merged, the plugin updates, the connector and sibling checks, and the measure skills",
+                       "guards":  "the tools a session runs on request: tidy-machine, prune-merged, the plugin updates, the consumer and sibling checks, and the measure skills",
                        "suites":  [
                                       "check-consumer-siblings.tests.ps1",
                                       "closeout-measure.tests.ps1",
-                                      "connectors.tests.ps1",
+                                      "consumers.tests.ps1",
                                       "fanout-lib.tests.ps1",
                                       "find-specialist-mentions.tests.ps1",
                                       "measure-always-on.tests.ps1",
@@ -227,14 +227,14 @@
                        "tips":  [
                                     "Most of these run only when somebody asks for them, so a regression here goes unnoticed in daily work until the suite catches it."
                                 ],
-                       "split":  "the measure skills (measure-always-on, measure-session-start, measure-skill, closeout-measure); machine upkeep (tidy-lib, prune-merged, plugin-versions, update-plugins); and the cross-repo checks (connectors, the sibling checks, policy-drift, find-specialist-mentions, fanout)."
+                       "split":  "the measure skills (measure-always-on, measure-session-start, measure-skill, closeout-measure); machine upkeep (tidy-lib, prune-merged, plugin-versions, update-plugins); and the cross-repo checks (consumers, the sibling checks, policy-drift, find-specialist-mentions, fanout)."
                    },
                    {
                        "key":  "pages",
                        "title":  "The dev server pages",
                        "guards":  "the hub and its pages, the server that serves them, the hook that starts it and the live issue dashboard",
                        "suites":  [
-                                      "connector-dashboard.tests.ps1",
+                                      "consumer-dashboard.tests.ps1",
                                       "dev-pages.tests.ps1",
                                       "dev-preview-sessionstart.tests.ps1",
                                       "hub-airsquats.tests.ps1",

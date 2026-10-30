@@ -965,7 +965,7 @@ if ($liveHits.Count -eq 0) {
     $notes += "Free-standing audit: clean. Nothing a session loads, a script resolves, or a gate depends on still points at the plugin. That is the requirement met, verified rather than assumed."
 } else {
     # No silent caps: a bounded list must say what it bounded, or a truncated report reads as a complete
-    # one -- the same rule the release notes and the connector summary follow.
+    # one -- the same rule the release notes and the consumer summary follow.
     $show = 40
     foreach ($h in ($liveHits | Select-Object -First $show)) {
         Write-Host ("  [LIVE]   " + $h.Rel + ":" + $h.Line + " -- " + $h.What) -ForegroundColor Yellow

@@ -4,7 +4,7 @@
     and the source repo's own hub server share: reading one request head off a TcpClient, writing one
     response, and the two refusals every request meets first (a Host that is not loopback, a browser
     request from another site). One copy, so a fix to either rule lands in both servers (#3119). The
-    source repo's own hub (scripts/dashboard/serve-connector-dashboard.ps1) loads it from the plugin tree
+    source repo's own hub (scripts/dashboard/serve-consumer-dashboard.ps1) loads it from the plugin tree
     too, rather than keeping a copy of its own (#3163).
 
 .DESCRIPTION

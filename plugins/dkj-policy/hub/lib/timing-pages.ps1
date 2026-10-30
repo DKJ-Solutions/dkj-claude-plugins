@@ -4,7 +4,7 @@
     /stopwatch/<label>/<run>, /logbook and /logbook/<slug>.
 
 .DESCRIPTION
-    ONE ROUTER FOR TWO SERVERS. The pages began on the source repo's own hub (serve-connector-dashboard.ps1) and are
+    ONE ROUTER FOR TWO SERVERS. The pages began on the source repo's own hub (serve-consumer-dashboard.ps1) and are
     every repo's since #3470, served by this plugin's serve-general-pages.ps1. Both servers call
     Resolve-HubTimingPage with a context from New-HubTimingContext, so the rules of which page a path is, and which
     path is a redirect or a 404, are written once.

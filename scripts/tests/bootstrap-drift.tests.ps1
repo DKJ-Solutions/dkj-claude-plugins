@@ -80,7 +80,7 @@ $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 # files, so without this the lens counts asserted below would depend on what the machine running the
 # suite happens to have enabled globally -- green here, red elsewhere, for a reason no assertion names.
 # $env:USERPROFILE is what Get-SettingsChainPaths resolves and what a child process inherits, so
-# redirecting it once covers every Invoke-Script call (the same technique connectors.tests.ps1 uses).
+# redirecting it once covers every Invoke-Script call (the same technique consumers.tests.ps1 uses).
 $OldUserProfile = $env:USERPROFILE
 $env:USERPROFILE = Join-Path $Fixture '..\bootstrap-drift-no-user-home'
 
@@ -208,12 +208,12 @@ try {
     Assert-True ($suggestText -match 'no workflow plugin is enabled here') 'core-only: the empty allow half says WHY it is empty'
 
     # --- 1b. Register proposal: the bootstrap points at the workshop register (gap found 2026-07-28) --
-    #     Bootstrapping a consumer used to leave no trace towards the connector register, and nothing
+    #     Bootstrapping a consumer used to leave no trace towards the consumer register, and nothing
     #     else filled that gap -- a third consumer ran unregistered for days while the workshop stayed
     #     blind to its plugin version, lens inventory and agent-def drift. The script cannot create the
     #     manifest (it lives in the workshop; the register never writes cross-repo), so it must hand one
     #     over. These assertions pin the handover, not the wording of the prose around it.
-    Assert-True ($r1.Out -match 'connector register proposal') 'register proposal: the bootstrap prints a register block'
+    Assert-True ($r1.Out -match 'consumer register proposal') 'register proposal: the bootstrap prints a register block'
     Assert-True ($r1.Out -match '"repo"\s*:') 'register proposal: the block is a manifest with a repo field'
     # The inventory must cover BOTH lens kinds -- a persona-only specialist (01-01) and an agent
     # (06-16). Missing the personas would hand over a manifest that under-reports the repo, which is
@@ -226,7 +226,7 @@ try {
     Assert-True ($r1.Out -match 'visibility.*VUL-IN') 'register proposal: visibility is left as VUL-IN, not guessed'
     Assert-True ($r1.Out -match 'localCheckout.*VUL-IN') 'register proposal: localCheckout is left as VUL-IN, not guessed'
     # Propose-only, like every other bootstrap output: nothing may be written into the consumer.
-    Assert-True (-not (Test-Path -LiteralPath (Join-Path $Fixture 'connectors'))) 'register proposal: writes no connectors/ dir into the consumer'
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $Fixture 'consumers'))) 'register proposal: writes no consumers/ dir into the consumer'
 
     # --- 1b'. Created files never pass through a junction (issue #2540) -----------------------------
     # A consumer of its own, beside $Fixture, so the blocks below keep reading run 1's tree. The seam
@@ -517,7 +517,7 @@ try {
     # The proposal used to be built from the lens inventory, which is filled ONLY while walking a
     # plugin's agents/ directory -- so the workflow plugin, which ships skills, scripts and hooks and
     # no agents, could not enter it. A consumer pasting the block registered a manifest with that row
-    # missing, and check-connectors reports PER PLUGIN off that list: the version-gap [ERROR] that
+    # missing, and check-consumers reports PER PLUGIN off that list: the version-gap [ERROR] that
     # exists to catch a stale consumer cannot fire for a plugin nobody listed. This fixture is the
     # exact shape that produced it, which is why the assertion lives here rather than in a fixture
     # written for it.
@@ -563,7 +563,7 @@ try {
     #     came from the lens inventory, a foreign plugin could not enter it either -- Get-PluginAgentsDir
     #     only ever looked beside this plugin's own root. So the old behaviour was right by accident,
     #     and building the rows from "every enabled plugin" removes the accident. A foreign row is not
-    #     merely noise: check-connectors reads a name its marketplace does not declare as RETIRED and
+    #     merely noise: check-consumers reads a name its marketplace does not declare as RETIRED and
     #     tells the maintainer "this consumer has not migrated to the current names yet" -- a false
     #     statement about a plugin that was never this family's. Measured on the machine this suite
     #     runs on, whose own chain enables figma@claude-plugins-official.

@@ -457,12 +457,12 @@ count is worth stating precisely because the wrong one is what kept the second s
    `enabledPlugins` keys and off a machine's `installed_plugins.json` (`check-roster-sync.ps1`,
    `check-claude-home.ps1`, `tidy-machine.ps1`, `update-plugins.ps1`, `check-policy-drift.ps1`); a
    consumer's own workflow filenames and paths, their git `origin` remote slug, and their
-   connector-manifest `repo` field (`check-connectors.ps1`); a GitHub API error message
-   (`check-connectors.ps1`, ~L677); version strings read out of a third-party marketplace clone's
+   consumer-manifest `repo` field (`check-consumers.ps1`); a GitHub API error message
+   (`check-consumers.ps1`, ~L677); version strings read out of a third-party marketplace clone's
    `plugin.json` (`plugin-versions.ps1`, whose own comment ~L805-830 names this as the exact class
    `Format-SafeToken` was built for); matched PROSE fragments quoted straight out of a consumer's own
    doc (`check-consumer-prose.ps1` ~L214-235, `check-policy-drift.ps1` ~L484, via
-   `Format-SafeProseToken`); and `Set-CheckScope`'s label, derived from a connector manifest's `repo`
+   `Format-SafeProseToken`); and `Set-CheckScope`'s label, derived from a consumer manifest's `repo`
    field and a plugin `id` -- its own docstring notes that this label travels INTO the session context,
    unlike the header the session hooks filter away. `consumer-check-lib.ps1`, `consumer-runner-lib.ps1`,
    `hook-check-lib.ps1`, `check-always-on-budget.ps1` and `check-plugin-integrity.ps1` reach the same
@@ -502,8 +502,8 @@ count is worth stating precisely because the wrong one is what kept the second s
 
     All four now guard `$f.Path` via `Format-SafePathToken`. **The repair went further than the four
     values this entry named**: `$label` (the `ONLY-IN` group header, L474), `$f.Member` (L476) and
-    `$f.Members` (L481, L497) -- a sibling group's own connector-manifest `repo` field, printed at the
-    same sites -- are guarded the same way, on the verified precedent that `check-connectors.ps1`
+    `$f.Members` (L481, L497) -- a sibling group's own consumer-manifest `repo` field, printed at the
+    same sites -- are guarded the same way, on the verified precedent that `check-consumers.ps1`
     already guards that identical `$manifestRepo` field with `Format-SafePathToken` at six sites
     (L983, L990, L1039, L1041, L1065, L1069). **And deliberately left unguarded, stated as a decision in
     a code comment rather than missed**: `$f.Class` (this script's own enum, its `'only-in'`/`'partial'`/
@@ -514,7 +514,7 @@ count is worth stating precisely because the wrong one is what kept the second s
 
     **And two more sites in the same file needed a further guard -- `$label`'s reached the trunk
     independently, under #2272 via PR #2275; `$inv.Reason`'s is this branch's own.** Tycho filed #2272
-    after finding `$label`, the same connector-manifest `repo` field, still printing completely
+    after finding `$label`, the same consumer-manifest `repo` field, still printing completely
     unguarded earlier in the script, before the group loop: L444 (the `$unreadable` line, inside the
     `if (-not $inv.Ok)` branch) and L449 (the per-member `read <label> : N comparable path(s) via
     <reason>` line). #2272 sat unclaimed on the tracker while this branch carried it; another session

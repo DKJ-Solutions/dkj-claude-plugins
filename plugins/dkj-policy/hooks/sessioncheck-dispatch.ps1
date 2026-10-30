@@ -17,7 +17,7 @@
     entries cost the SLOWEST check, not the sum. A loop would trade the cold starts for wall-clock.
     Measured on this repo, n=2, Windows PowerShell 5.1: the ten checks one after another in one
     interpreter 7529 / 7659 ms; the same ten in a runspace pool 3124 / 2967 ms, which is the slowest
-    check (connector, ~2.8 s) plus little. Threads inside one process are what the pool costs instead.
+    check (consumer, ~2.8 s) plus little. Threads inside one process are what the pool costs instead.
 
     EACH CHECK STILL RUNS AS ITS OWN SCRIPT, through Invoke-CheckScript (hook-check-lib.ps1, #1625):
     its 'exit' ends the check and not this dispatcher, and its Write-Host is captured rather than
@@ -63,7 +63,7 @@
     THE TIMING LINE. A session start had grown heavy (a trunk sync, ten checks, a hub start beside them)
     while nothing on screen said how long it took. So the dispatcher times each prep step and each check
     and ends its systemMessage with one line the person sees:
-        sessionstart: 3.4 s -- prep 0.9 s (trunk-sync), checks 2.5 s (slowest: connector 2.3 s, ...)
+        sessionstart: 3.4 s -- prep 0.9 s (trunk-sync), checks 2.5 s (slowest: consumer 2.3 s, ...)
     It goes to the systemMessage only, never to additionalContext: it is for the person waiting, and the
     model has no use for it, so it costs no context. The interpreter's own cold start and the separate
     dev-preview entry, which runs beside this one, are outside it -- the line says "dispatcher" time,
@@ -96,8 +96,8 @@ function Format-DispatchSeconds([double]$Ms) {
     return ($Ms / 1000).ToString('0.0', [System.Globalization.CultureInfo]::InvariantCulture) + ' s'
 }
 
-# Each script's name without its pattern suffix, so the timing line reads 'connector', not
-# 'connector-sessioncheck'.
+# Each script's name without its pattern suffix, so the timing line reads 'consumer', not
+# 'consumer-sessioncheck'.
 function Get-DispatchShortName([string]$BaseName) {
     return ($BaseName -replace '-session(check|prep)$', '')
 }

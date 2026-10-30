@@ -39,19 +39,43 @@
 
 ### PLAN
 
+Full rename, as decided on the issue (maikel-bwj, October 30, 2026): folder, script, hook and tests.
+History keeps its words (#952): the release documents, the pending `CHANGELOG.md` entries, the dated
+manifest `notes`, quoted words and branch-name citations. "Connector" in the Shopify and MCP sense is
+a different thing and stays.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `connectors/` -> `consumers/`, and every reference to the register in scripts, hooks, tests, skills, lenses and docs
+- [x] `check-connectors.ps1` -> `check-consumers.ps1`, `connector-sessioncheck.ps1` -> `consumer-sessioncheck.ps1`, the dashboard server and lib, and the three suites
+- [x] `Resolve-ConnectorCheckout` -> `Resolve-RegisteredCheckout`, because `check-consumer-siblings.ps1` already defines a `Resolve-ConsumerCheckout`
+- [x] `scripts/sync/check-connectors.ps1` kept as a forwarder for hooks installed before this release
 
 ### TEST
 
 ### DEPLOY: feat/3675-consumers-folder
 
-**Score:**
+The register of repos that install this marketplace's plugins is now `consumers/`, the name the rest
+of the tree already used for those repos, and no longer one that collides with MCP connectors
+([#3675](https://github.com/DKJ-Solutions/dkj-marketplace/issues/3675)). Its check is
+`scripts/sync/check-consumers.ps1`, the dashboard server is `serve-consumer-dashboard.ps1`, and the
+suites are `consumers.tests.ps1`, `consumer-sessioncheck.tests.ps1` and `consumer-dashboard.tests.ps1`.
+`check-connectors.ps1` stays as a forwarder, because a hook installed before this release finds the
+source checkout by that file and runs it. It can go once every install has this release.
+
+**Score:** 1 -- the forwarder prevents a failure that has not happened: without it, every session
+start beside a source checkout on `main` would read that checkout as absent until its plugins were
+updated.
 
 #### What makes this deploy extra special
 
-**Score:**
+**The SessionStart hook is renamed: `connector-sessioncheck` is now `consumer-sessioncheck`.** That is
+a public interface change. Every session start in a repo with `dkj-policy` installed prints its lines
+under the new name, and the dispatcher's timing line reads `consumer` where it read `connector`.
+Nothing has to be done to take it, but anything that matches the old name (a filter, a note, a
+script that reads the session-start output) has to follow.
+
+**Score:** 2
 
 #### Pull Request
 

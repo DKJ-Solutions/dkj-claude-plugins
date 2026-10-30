@@ -260,7 +260,7 @@ this page. Measured September 10, 2026: two consumer repos were red on **every**
 neither had been noticed, because neither had opened one since the break.
 
 **The pin still stands, because the exposure is now covered at the other end.** The source repo's
-`check-connectors.ps1` reads the runners its registered consumers actually have and reports a path that
+`check-consumers.ps1` reads the runners its registered consumers actually have and reports a path that
 tree no longer holds, naming where the script went; and its scaffolder suites derive the emitted path
 from the emitted file and assert it exists, so a move goes red on the day it lands. Neither could be
 built into this scaffolder: it writes your workflow once, at adoption, and nothing rewrites it

@@ -1,15 +1,15 @@
 <#
 .SYNOPSIS
-    Tests for scripts/lib/connector-dashboard-lib.ps1 and the server beside it,
-    scripts/dashboard/serve-connector-dashboard.ps1 -- the connector dashboard (#2976).
+    Tests for scripts/lib/consumer-dashboard-lib.ps1 and the server beside it,
+    scripts/dashboard/serve-consumer-dashboard.ps1 -- the consumer dashboard (#2976).
 
 .DESCRIPTION
-    Group 1 pins the rules without a server: how check-connectors.ps1's report splits into repos and
+    Group 1 pins the rules without a server: how check-consumers.ps1's report splits into repos and
     plugins, which status a repo gets, which Host is served, that every value the page shows is
     escaped, and that the house-style skill pins a checksum for each canonical file. Group 2 starts
     the real server on a free loopback port against this tree and asks it for the static files, a foreign Host, a cross-site request, a POST, a missing path, a dripping client and
     an oversized head. Group 3 serves the page from a fixture tree: a checkout with no upstream, one
-    outside the scope root, and no check-connectors.ps1 at all -- and the four general routes that moved to
+    outside the scope root, and no check-consumers.ps1 at all -- and the four general routes that moved to
     the general pages server (#3119, dkj-policy's since #3198): the hub's General card before and after a state file
     names a server that answers, and the relayed answer or the 404 each of those routes gets (#3168).
 
@@ -18,8 +18,8 @@
 $ErrorActionPreference = 'Continue'
 
 $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
-$Server   = Join-Path $RepoRoot 'scripts\dashboard\serve-connector-dashboard.ps1'
-. (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1')
+$Server   = Join-Path $RepoRoot 'scripts\dashboard\serve-consumer-dashboard.ps1'
+. (Join-Path $RepoRoot 'scripts\lib\consumer-dashboard-lib.ps1')
 # The state file's reader and writer, which the server and these fixtures share (#3119).
 $PluginLib = Join-Path $RepoRoot 'plugins\dkj-policy\hub\lib'
 $GeneralServer = Join-Path $RepoRoot 'plugins\dkj-policy\hub\pages\serve-general-pages.ps1'
@@ -43,25 +43,25 @@ function Assert-Equal {
 Write-Host '-- group 1a: the report splits into repos and plugins' -ForegroundColor Cyan
 
 $report = @(
-    '== check-connectors -- 3 manifest(s) -- source read at abc1234 ==',
+    '== check-consumers -- 3 manifest(s) -- source read at abc1234 ==',
     '',
-    '== connector: Org/alpha',
+    '== consumer: Org/alpha',
     '  [ERROR] Org/alpha: origin names someone else',
     '',
-    '== connector: Org/beta',
+    '== consumer: Org/beta',
     '  -- plugin: p1@m',
     '  [OK]    plugin is enabled in .claude/settings.json',
     '  [ERROR] Org/beta / p1@m: machine record is on v1, source on v2',
     '  [INFO]  Org/beta: plugin q@m is enabled but not listed',
     '',
-    '== connector: Org/gamma',
+    '== consumer: Org/gamma',
     '  [SKIP]  checkout ''../gamma'' not present on this machine -- not checked.',
     '',
     'Summary: 2 error(s), 1 info signal(s).',
     '  [ERROR] Org/beta: after the summary, not a signal'
 )
-$parsed = ConvertFrom-ConnectorCheckOutput -Lines $report
-Assert-Equal 'Org/alpha Org/beta Org/gamma' (@($parsed.Keys) -join ' ') 'every connector block becomes a repo, in report order; the opening line is not one'
+$parsed = ConvertFrom-ConsumerCheckOutput -Lines $report
+Assert-Equal 'Org/alpha Org/beta Org/gamma' (@($parsed.Keys) -join ' ') 'every consumer block becomes a repo, in report order; the opening line is not one'
 Assert-Equal 1 @($parsed['Org/alpha'].Signals).Count 'a repo-level signal belongs to its repo'
 Assert-Equal 'origin names someone else' $parsed['Org/alpha'].Signals[0].Text 'the "<repo>: " prefix is stripped'
 $beta = @($parsed['Org/beta'].Signals)
@@ -69,44 +69,44 @@ Assert-Equal 3 $beta.Count 'the summary after the last block adds nothing to it'
 Assert-Equal 'p1@m' $beta[1].Plugin 'a signal under "-- plugin:" carries that plugin'
 Assert-Equal 'machine record is on v1, source on v2' $beta[1].Text 'the "<repo> / <plugin>: " prefix is stripped'
 Assert-Equal 'plugin q@m is enabled but not listed' $beta[2].Text 'a repo-level prefix is stripped inside a plugin block too'
-Assert-Equal 0 @((ConvertFrom-ConnectorCheckOutput -Lines @()).Keys).Count 'an empty report is no repos, not an error'
-Assert-Equal 0 @((ConvertFrom-ConnectorCheckOutput -Lines $null).Keys).Count 'no report at all is no repos either'
+Assert-Equal 0 @((ConvertFrom-ConsumerCheckOutput -Lines @()).Keys).Count 'an empty report is no repos, not an error'
+Assert-Equal 0 @((ConvertFrom-ConsumerCheckOutput -Lines $null).Keys).Count 'no report at all is no repos either'
 
-# #2995: the check prints non-counting markers inside a connector block, and a parser naming four
+# #2995: the check prints non-counting markers inside a consumer block, and a parser naming four
 # tags dropped them -- so such a repo read as 'In sync'.
-$markers = ConvertFrom-ConnectorCheckOutput -Lines @(
-    '== connector: Org/delta',
+$markers = ConvertFrom-ConsumerCheckOutput -Lines @(
+    '== consumer: Org/delta',
     '  [OK]    plugin is enabled in .claude/settings.json',
-    '  [INVENTORY] this repo has 1 lens(es) that its own entry in the connector register does not list (x)',
+    '  [INVENTORY] this repo has 1 lens(es) that its own entry in the consumer register does not list (x)',
     '  -- plugin: p1@m',
     '  [NOT-INSTALLED-HERE] ''p1@m'' is enabled in .claude/settings.json but has no install record',
     '  [UNLISTED] this repo has 1 plugin(s) enabled that its own entry does not list (q@m)',
     '  [UNREGISTERED] Org/delta: not in the register'
 )
 $delta = @($markers['Org/delta'].Signals)
-Assert-Equal 5 $delta.Count 'every bracketed tag inside a connector block is a signal, not just four named ones'
+Assert-Equal 5 $delta.Count 'every bracketed tag inside a consumer block is a signal, not just four named ones'
 Assert-Equal 'OK INFO INFO INFO INFO' (($delta | ForEach-Object { $_.Level }) -join ' ') 'a tag other than ERROR, OK or SKIP is read as INFO -- a note, never an error'
 Assert-Equal 'p1@m' $delta[2].Plugin 'a marker under "-- plugin:" carries that plugin'
 Assert-Equal 'not in the register' $delta[4].Text 'a marker''s "<repo>: " prefix is stripped like any signal''s'
-Assert-Equal 'warn' (Get-ConnectorStatus $delta) 'a repo with only a marker beside [OK] is warn, not In sync'
+Assert-Equal 'warn' (Get-ConsumerStatus $delta) 'a repo with only a marker beside [OK] is warn, not In sync'
 
 Write-Host '-- group 1b: status, worst first' -ForegroundColor Cyan
 
-Assert-Equal 'bad'  (Get-ConnectorStatus $beta) 'an [ERROR] makes a repo bad, whatever else it has'
-Assert-Equal 'warn' (Get-ConnectorStatus @(@{ Level = 'OK' }, @{ Level = 'INFO' })) 'an [INFO] without an error is warn'
-Assert-Equal 'skip' (Get-ConnectorStatus @($parsed['Org/gamma'].Signals)) 'a skipped checkout is skip -- nothing was read, so it is not called healthy'
-Assert-Equal 'good' (Get-ConnectorStatus @(@{ Level = 'OK' })) 'only [OK] is good'
-Assert-Equal 'good' (Get-ConnectorStatus @()) 'no signals is good'
+Assert-Equal 'bad'  (Get-ConsumerStatus $beta) 'an [ERROR] makes a repo bad, whatever else it has'
+Assert-Equal 'warn' (Get-ConsumerStatus @(@{ Level = 'OK' }, @{ Level = 'INFO' })) 'an [INFO] without an error is warn'
+Assert-Equal 'skip' (Get-ConsumerStatus @($parsed['Org/gamma'].Signals)) 'a skipped checkout is skip -- nothing was read, so it is not called healthy'
+Assert-Equal 'good' (Get-ConsumerStatus @(@{ Level = 'OK' })) 'only [OK] is good'
+Assert-Equal 'good' (Get-ConsumerStatus @()) 'no signals is good'
 
 Write-Host '-- group 1b1: a drift block belongs to the repo it names (#2997)' -ForegroundColor Cyan
 
-$driftReport = ConvertFrom-ConnectorCheckOutput -Lines @(
-    '== connector: Org/clean',
+$driftReport = ConvertFrom-ConsumerCheckOutput -Lines @(
+    '== consumer: Org/clean',
     '  [OK]    plugin is enabled in .claude/settings.json',
-    '== connector: Org/drifty',
+    '== consumer: Org/drifty',
     '  -- plugin: p1@m',
     '  [OK]    machine record is on the source version (v5.18.0)',
-    '== connector: Org/far',
+    '== consumer: Org/far',
     '  [SKIP]  checkout ''../far'' not present on this machine -- not checked.',
     '',
     '-- drift-check: Org/clean',
@@ -127,47 +127,47 @@ $driftReport = ConvertFrom-ConnectorCheckOutput -Lines @(
 )
 $dc = $driftReport['Org/clean']
 Assert-Equal '0 0 0 4' "$($dc.Drift.Dead) $($dc.Drift.Drifted) $($dc.Drift.PersonaDrifted) $($dc.Drift.PersonaCompared)" 'the two summary lines become the repo''s Drift record'
-Assert-Equal 'good' (Get-ConnectorStatus $dc.Signals) 'a clean drift block leaves the status alone'
+Assert-Equal 'good' (Get-ConsumerStatus $dc.Signals) 'a clean drift block leaves the status alone'
 $dd = $driftReport['Org/drifty']
 Assert-Equal '1 1 1 4' "$($dd.Drift.Dead) $($dd.Drift.Drifted) $($dd.Drift.PersonaDrifted) $($dd.Drift.PersonaCompared)" 'non-zero counts are read'
 Assert-Equal 2 @($dd.Signals).Count 'only the [ERROR] joins the signals -- the per-file lines with local paths do not'
 Assert-Equal 'agent-def drift found -- see check-consumer-drift.' @($dd.Signals)[1].Text 'the drift [ERROR] belongs to the repo its block names, prefix stripped, no plugin carried over'
 Assert-Equal '' @($dd.Signals)[1].Plugin 'a drift block opens with no plugin'
-Assert-Equal 'bad' (Get-ConnectorStatus $dd.Signals) 'agent-def drift makes the repo bad, as the check counts it'
+Assert-Equal 'bad' (Get-ConsumerStatus $dd.Signals) 'agent-def drift makes the repo bad, as the check counts it'
 Assert-True ($null -eq $driftReport['Org/far'].Drift) 'a repo with no drift block has no Drift record'
-$personaOnly = ConvertFrom-ConnectorCheckOutput -Lines @(
-    '== connector: Org/p', '  [OK]    fine', '-- drift-check: Org/p',
+$personaOnly = ConvertFrom-ConsumerCheckOutput -Lines @(
+    '== consumer: Org/p', '  [OK]    fine', '-- drift-check: Org/p',
     '  Agent-def summary: 26 missing, 0 identical (dead copies), 0 drifted.',
     '    Persona drift is INFORMATIONAL (does not affect the exit code): 2 drifted of 4 compared.')
-Assert-Equal 'good' (Get-ConnectorStatus $personaOnly['Org/p'].Signals) 'persona drift alone never changes the status'
+Assert-Equal 'good' (Get-ConsumerStatus $personaOnly['Org/p'].Signals) 'persona drift alone never changes the status'
 Assert-Equal 'Drift: 1 dead copies &#183; 1 drifted agent defs &#183; 1 of 4 personas drifted (informational)' (Format-DashboardDrift $dd.Drift) 'the card line names all three counts'
 Assert-Equal '' (Format-DashboardDrift $null) 'no Drift record, no line'
 Assert-True ((Format-DashboardDrift @{ Dead = 0; Drifted = $null; PersonaDrifted = $null; PersonaCompared = $null }) -match 'Drift: 0 dead copies &#183; \? drifted') 'a count the check did not print reads ?'
 
 Write-Host '-- group 1b2: the installed plugin version (#2996)' -ForegroundColor Cyan
 
-$verReport = ConvertFrom-ConnectorCheckOutput -Lines @(
-    '== connector: Org/same',
+$verReport = ConvertFrom-ConsumerCheckOutput -Lines @(
+    '== consumer: Org/same',
     '  -- plugin: a@m',
     '  [OK]    machine record is on the source version (v5.18.0)',
     '  -- plugin: b@m',
     '  [OK]    machine record is on the source version (v5.18.0)',
-    '== connector: Org/lags',
+    '== consumer: Org/lags',
     '  -- plugin: a@m',
     '  [OK]    machine record is on the source version (v5.18.0)',
     '  -- plugin: b@m',
     '  [ERROR] Org/lags / b@m: machine record is on v5.9.2, source on v5.18.0 -- update the plugin',
-    '== connector: Org/norecord',
+    '== consumer: Org/norecord',
     '  -- plugin: a@m',
     '  [INFO]  no machine record for this consumer (the install may run via a different machine).'
 )
-$same = Get-ConnectorInstalledVersion $verReport['Org/same'].Signals
+$same = Get-ConsumerInstalledVersion $verReport['Org/same'].Signals
 Assert-Equal '5.18.0' $same.Version 'the version comes from the check''s own machine-record line'
 Assert-True (-not $same.Mixed) 'plugins on one version are not mixed'
-$lags = Get-ConnectorInstalledVersion $verReport['Org/lags'].Signals
+$lags = Get-ConsumerInstalledVersion $verReport['Org/lags'].Signals
 Assert-Equal '5.9.2 b@m' "$($lags.Version) $($lags.Plugin)" 'the lowest version wins, compared as a version (5.9.2 below 5.18.0), with its plugin'
 Assert-True $lags.Mixed 'plugins on different versions are mixed'
-Assert-True ($null -eq (Get-ConnectorInstalledVersion $verReport['Org/norecord'].Signals)) 'no machine-record line is no version'
+Assert-True ($null -eq (Get-ConsumerInstalledVersion $verReport['Org/norecord'].Signals)) 'no machine-record line is no version'
 Assert-Equal 'v5.18.0' (Format-DashboardInstalledVersion @{ Present = $true; Signals = $verReport['Org/same'].Signals }) 'one version: the cell is the version alone'
 Assert-Equal 'v5.9.2 <code>b@m</code>' (Format-DashboardInstalledVersion @{ Present = $true; Signals = $verReport['Org/lags'].Signals }) 'differing versions: the cell names the lowest and its plugin'
 Assert-Equal 'no record' (Format-DashboardInstalledVersion @{ Present = $true; Signals = $verReport['Org/norecord'].Signals }) 'a checkout here with no record says so'
@@ -175,8 +175,8 @@ Assert-Equal '-' (Format-DashboardInstalledVersion @{ Present = $false; Signals 
 
 Write-Host '-- group 1c: the checkout list and the Host guard' -ForegroundColor Cyan
 
-Assert-Equal '../a' ((Get-ConnectorCheckoutCandidates '../a') -join ',') 'one path is a list of one'
-Assert-Equal '../a,../b' ((Get-ConnectorCheckoutCandidates @('../a', ' ', '../b')) -join ',') 'a list drops its blanks'
+Assert-Equal '../a' ((Get-ConsumerCheckoutCandidates '../a') -join ',') 'one path is a list of one'
+Assert-Equal '../a,../b' ((Get-ConsumerCheckoutCandidates @('../a', ' ', '../b')) -join ',') 'a list drops its blanks'
 Assert-True  (Test-LoopbackHost 'localhost:4870' 4870) 'localhost on our port is served'
 Assert-True  (Test-LoopbackHost '127.0.0.1:4870' 4870) '127.0.0.1 on our port is served'
 Assert-True  (Test-LoopbackHost 'LocalHost:4870 ' 4870) 'the Host is compared case-insensitively and trimmed'
@@ -201,7 +201,7 @@ Assert-True  (-not (Test-LoopbackCrossSite '')) 'no header (curl) is served'
 Write-Host '-- group 1d: the page escapes what it shows' -ForegroundColor Cyan
 
 $hostile = '<script>alert(1)</script>'
-$connectors = @(
+$consumers = @(
     @{ Repo = 'Org/beta'; Visibility = 'private'; File = 'beta.json'; Checkout = @('../beta'); Present = $true
        Plugins = @(@{ Id = 'p1@m'; Extensions = @('01-01', '05-05') }); Signals = $beta; Status = 'bad'
        Git = @{ Branch = 'feat/y'; Trunk = 'main'; Subject = $hostile; When = '2 days ago' }; Notes = "a`"note" },
@@ -209,7 +209,7 @@ $connectors = @(
        Plugins = @(); Signals = @($parsed['Org/gamma'].Signals); Status = 'skip'; Git = $null; Notes = '' }
 )
 # Both repos are owned by neither DKJ nor BWJ, so their details are the Other group's page (owner, October 26, 2026).
-$html = Format-ConnectorDashboardHtml -Connectors $connectors -Meta @{ GeneratedAt = 'now'; SourceCommit = 'abc1234'; Seconds = 1.25; CheckFailed = $null } -Group 'other'
+$html = Format-ConsumerDashboardHtml -Consumers $consumers -Meta @{ GeneratedAt = 'now'; SourceCommit = 'abc1234'; Seconds = 1.25; CheckFailed = $null } -Group 'other'
 Assert-True ($html -notmatch '<script>alert') 'a git subject is shown as text, never as markup'
 Assert-True ($html -match '&lt;script&gt;alert') 'and it is still shown'
 Assert-True ($html -notmatch 'a&quot;note' -and $html -notmatch 'a"note' -and $html -notmatch 'Register notes') 'the register notes are not on the page at all (October 28, 2026), so they need no escaping'
@@ -230,15 +230,15 @@ Assert-True ($html.Contains((Format-RepoHubBanner)) -and ([regex]::Matches($html
 $ix = @('id="hub-banner"', 'class="site-header"', 'class="breadcrumbs-bar"', '<h1>', 'Connected repos</h2>', 'Issues</h2>', 'class="footer-note"') | ForEach-Object { $html.IndexOf($_) }
 Assert-True ((@($ix | Where-Object { $_ -lt 0 }).Count -eq 0) -and ((($ix | Sort-Object) -join ',') -eq ($ix -join ','))) 'and its blocks stand in the form''s order'
 Assert-True ($html -match '1\.3s|1\.2s') 'the run time is printed with an invariant decimal point'
-Assert-Equal 'bwj' (Get-ConnectorOwnerGroup 'BWJ-Development/shop') 'a BWJ-Development repo is in the BWJ group'
-Assert-Equal 'dkj' (Get-ConnectorOwnerGroup 'dkj-solutions/hub') 'a DKJ-Solutions repo is in the DKJ group, whatever the case'
-Assert-Equal 'other' (Get-ConnectorOwnerGroup 'DaveKJohn/djcylow-react') 'any other owner is Other'
-Assert-Equal 'other' (Get-ConnectorOwnerGroup '') 'no slug is Other, not an error'
+Assert-Equal 'bwj' (Get-ConsumerOwnerGroup 'BWJ-Development/shop') 'a BWJ-Development repo is in the BWJ group'
+Assert-Equal 'dkj' (Get-ConsumerOwnerGroup 'dkj-solutions/hub') 'a DKJ-Solutions repo is in the DKJ group, whatever the case'
+Assert-Equal 'other' (Get-ConsumerOwnerGroup 'DaveKJohn/djcylow-react') 'any other owner is Other'
+Assert-Equal 'other' (Get-ConsumerOwnerGroup '') 'no slug is Other, not an error'
 $three = @(
     @{ Repo = 'Someone/x'; Status = 'bad'; Plugins = @(); Signals = @(); Present = $false; Git = $null },
     @{ Repo = 'DKJ-Solutions/y'; Status = 'good'; Plugins = @(); Signals = @(); Present = $false; Git = $null },
     @{ Repo = 'DKJ-Solutions/w'; Status = 'bad'; Plugins = @(); Signals = @(); Present = $false; Git = $null })
-$overview = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' }
+$overview = Format-ConsumerDashboardHtml -Consumers $three -Meta @{ GeneratedAt = 'now' }
 Assert-True ($overview -match '<h1>Consumers</h1>' -and $overview -match 'site-header__name">dkj-marketplace <span class="site-header__tag">product</span></span>' -and $overview -match '<span aria-current="page">Consumers</span>') 'the overview''s h1 is Consumers, and the site header names this repo''s product, whose page it is (#3540)'
 $cD = $overview.IndexOf('<div class="grid__head"><h2>DKJ</h2>'); $cB = $overview.IndexOf('<div class="grid__head"><h2>BWJ</h2>'); $cO = $overview.IndexOf('<div class="grid__head"><h2>Other</h2>')
 Assert-True ($cD -ge 0 -and $cD -lt $cB -and $cB -lt $cO) 'the overview has an h2 section per owner group, DKJ, BWJ, Other (Maikel, October 30, 2026)'
@@ -250,11 +250,11 @@ Assert-True ($overview.IndexOf('href="/consumers/dkj#repo-dkj-solutions-w"') -ge
 Assert-True ($overview.Contains('<span>w</span><span class="badge badge--sm badge--bad"') -and $overview -match 'href="/consumers/other#repo-someone-x"') 'the card names the repo without its owner, its status mark after the name'
 Assert-True ($overview -match '<h2>BWJ</h2></div>' -and $overview -match 'No repo owned by BWJ-Development is registered') 'an empty group keeps its section and says so'
 Assert-True ($overview -notmatch 'Connected repos</h2>' -and $overview -notmatch '<section class="mini-card' -and $overview -notmatch 'id="issues"') 'the overview holds no table and no details: those are the group pages'
-$withDkj = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' } -DkjCardsHtml ((Format-HubCardLinkHtml -Href '/a' -Label 'a' -Heading 3) + (Format-HubCardLinkHtml -Href '/b' -Label 'b' -Heading 3)) -Style '.dr-x { }' -NoticeHtml '<p class="msg">n</p>'
+$withDkj = Format-ConsumerDashboardHtml -Consumers $three -Meta @{ GeneratedAt = 'now' } -DkjCardsHtml ((Format-HubCardLinkHtml -Href '/a' -Label 'a' -Heading 3) + (Format-HubCardLinkHtml -Href '/b' -Label 'b' -Heading 3)) -Style '.dr-x { }' -NoticeHtml '<p class="msg">n</p>'
 Assert-True ($withDkj -match '<div class="card-grid dr-repos" id="group-dkj">' -and $withDkj.Contains('<h2>DKJ</h2></div>') -and ([regex]::Matches($withDkj, '<h3 class="menu-item__title">')).Count -eq 3 -and $withDkj -notmatch 'consumers/dkj#repo' -and $withDkj.Contains('.dr-x { }') -and $withDkj.Contains('<p class="msg">n</p>')) 'handed the DKJ page''s own cards, the DKJ section holds those in their grid, with their style and notice'
 Assert-True ($overview -notmatch 'class="tiles"' -and $overview -notmatch 'class="lead"') 'the overview has no tiles and no lead: its h1, then its groups'' sections (owner, October 26, 2026)'
 Assert-True ($html -notmatch 'class="tiles"' -and $html -notmatch 'class="lead"') 'and neither has a group''s page'
-$dkj = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' } -Group 'dkj'
+$dkj = Format-ConsumerDashboardHtml -Consumers $three -Meta @{ GeneratedAt = 'now' } -Group 'dkj'
 Assert-True ($dkj -match '<h1>DKJ repos</h1>' -and $dkj -match '<title>dkj-marketplace -- DKJ repos</title>') 'a group page is headed by its group'
 Assert-True (([regex]::Matches($dkj, '<section class="mini-card cd-repo-card"')).Count -eq 2 -and $dkj -notmatch 'Someone/x') 'and holds that group''s repos alone'
 Assert-True ($dkj.IndexOf('id="repo-dkj-solutions-w"') -lt $dkj.IndexOf('id="repo-dkj-solutions-y"')) 'inside a group, worst first'
@@ -263,7 +263,7 @@ Assert-True ($dkj -match '<table class="table cd-overview" id="overview-dkj">' -
 $iS = $dkj.IndexOf('<div class="grid-2" id="issues">')
 Assert-True ($dkj.IndexOf('id="overview-dkj"') -lt $iS -and $dkj -match '<div id="group-dkj">\r?\n<p class="sub cd-group-summary">2 repos &#183; 1 needs action &#183; 1 in sync</p>' -and $dkj -match '<p class="cd-repo__name">DKJ-Solutions/w</p>' -and $dkj -notmatch '<h3') 'the details sit beside Connected repos: an h2 Issues, the group''s summary line, no h3 repeating the page''s own heading'
 Assert-True (([regex]::Matches($dkj, 'class="card grid__full"')).Count -eq 2 -and $dkj -notmatch 'card__head.{0,2}<h2' -and ([regex]::Matches($dkj, '<section class="mini-card cd-repo-card"')).Count -eq 2) 'Connected repos and Issues are a card each, and each repo a house mini-card inside Issues'
-$bwj = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' } -Group 'bwj'
+$bwj = Format-ConsumerDashboardHtml -Consumers $three -Meta @{ GeneratedAt = 'now' } -Group 'bwj'
 Assert-True ($bwj -match '<h1>BWJ repos</h1>' -and $bwj -match 'No repo owned by BWJ-Development is registered' -and $bwj -notmatch 'id="issues"') 'an empty group''s page says so, and has no details card'
 Assert-Equal '3 repos &#183; 1 needs action &#183; 2 in sync' (Format-DashboardGroupSummary @(@{ Status = 'good' }, @{ Status = 'bad' }, @{ Status = 'good' })) 'a group summary counts its repos, then each status worst first'
 Assert-Equal '1 repo &#183; 1 not on this machine' (Format-DashboardGroupSummary @(@{ Status = 'skip' })) 'one repo is singular'
@@ -271,10 +271,10 @@ Assert-Equal '2 repos &#183; 2 need action' (Format-DashboardGroupSummary @(@{ S
 Assert-True ($html -match '\.cd-repo__name \{ margin: 0; font-weight: 600; \}' -and $html -notmatch '<h4') 'a repo name is a bold line, not a heading: the house style has no h4 (October 25, 2026)'
 Assert-True ($html -notmatch '<th>Errors</th>' -and $html -notmatch '<th>Notes</th>' -and ([regex]::Match($html, '<colgroup>.*?</colgroup>').Value -split '<col ').Count -eq 6) 'the overview has no Errors or Notes column: five columns, five widths'
 Assert-True ($html -notmatch '>Main</th>' -and $html -notmatch '>Checkout</th>' -and $html -notmatch 'behind') 'the overview has no Main or Checkout column, and nothing measures a trunk against origin'
-$failed = Format-ConnectorDashboardHtml -Connectors @() -Meta @{ GeneratedAt = 'now'; SourceCommit = ''; Seconds = $null; CheckFailed = 'boom <b>' }
+$failed = Format-ConsumerDashboardHtml -Consumers @() -Meta @{ GeneratedAt = 'now'; SourceCommit = ''; Seconds = $null; CheckFailed = 'boom <b>' }
 Assert-True ($failed -match 'class="msg msg--warn" role="alert"' -and $failed -match 'boom &lt;b&gt;') 'a check that could not run is the form''s warning line, escaped'
 
-$noted = Format-ConnectorRepoMiniCardHtml -Connector @{ Repo = 'Org/n'; Status = 'good'; Visibility = 'public'; File = 'n.json'; Checkout = @('../n'); Plugins = @(); Signals = @(); Present = $true; Git = $null; Notes = 'REGISTERED on 2026-08-20, a long log' }
+$noted = Format-ConsumerRepoMiniCardHtml -Consumer @{ Repo = 'Org/n'; Status = 'good'; Visibility = 'public'; File = 'n.json'; Checkout = @('../n'); Plugins = @(); Signals = @(); Present = $true; Git = $null; Notes = 'REGISTERED on 2026-08-20, a long log' }
 Assert-True ($noted -notmatch 'Register notes' -and $noted -notmatch 'a long log' -and $noted -notmatch 'cd-notes') 'the register''s notes are not shown: they are its keeper''s log, not something to read on a page (October 28, 2026)'
 # The Lenses card on a DKJ repo's own page, /consumers/dkj/<name> (Maikel, October 28, 2026).
 $scaffold = "---`nid: 17`ngroup: 06`n---`n`n# 06-17 - repo lens`n`n> Created by specialists-init as an empty template.`n`n## Specific to this repo (VUL-IN)`n`n<!-- TODO: describe what this specialist does`n     in THIS repo. -->`n"
@@ -294,7 +294,7 @@ Assert-True ($card.Html.Contains('<dl class="facts cd-lenses">') -and $card.Html
 Assert-True ($card.Html.Contains('Scaffolds only (2): <code>02-09</code> Paula, <code>06-17</code></p>')) 'the scaffolds are one line, by id, with their names where known'
 Assert-True ((Format-RepoLensesCardHtml -Lenses $null).Html.Contains('No checkout of this repo on this machine holds') -and (Format-RepoLensesCardHtml -Lenses $null).Html.Contains('Not read on this machine')) 'no checkout or no lens folder is said, not an empty table'
 Assert-True ((Format-RepoLensesCardHtml -Lenses @()).Html.Contains('holds no lens') -and (Format-RepoLensesCardHtml -Lenses @(@{ Id = '06-17'; Bytes = 709; Filled = $false })).Html.Contains('Every lens is still its scaffold')) 'an empty folder, and a folder of scaffolds only, each say so'
-$lensTree = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-lenses-$PID-$([guid]::NewGuid().ToString('n'))"
+$lensTree = Join-Path ([System.IO.Path]::GetTempPath()) "consumer-dashboard-lenses-$PID-$([guid]::NewGuid().ToString('n'))"
 try {
     New-Item -ItemType Directory -Force -Path (Join-Path $lensTree '.claude\specialists\lenses') | Out-Null
     Set-Content -LiteralPath (Join-Path $lensTree '.claude\specialists\lenses\specialist-05-05-lens.md') -Encoding ASCII -Value "## Specific to this repo`n`nThe theme lives in theme/."
@@ -307,7 +307,7 @@ try {
     Assert-True ($null -ne $none -and @($none).Count -eq 0) 'an empty lens folder reads as no lens, not as no folder'
     Assert-True ($null -eq (Get-CheckoutLenses -Path (Join-Path $lensTree 'missing')) -and $null -eq (Get-CheckoutLenses -Path '')) 'no folder, or no checkout, reads as $null'
 } finally { Remove-Item -LiteralPath $lensTree -Recurse -Force -ErrorAction SilentlyContinue }
-$framed = (Format-ConnectorPageStart -PageName 'a <b>' -Trail @(@{ Href = '/consumers'; Label = 'Consumers' }, @{ Href = '/consumers/dkj'; Label = 'DKJ repos' }) -Style '.x { }') + (Format-ConnectorPageEnd -FooterHtml 'Foot <code>x</code>')
+$framed = (Format-ConsumerPageStart -PageName 'a <b>' -Trail @(@{ Href = '/consumers'; Label = 'Consumers' }, @{ Href = '/consumers/dkj'; Label = 'DKJ repos' }) -Style '.x { }') + (Format-ConsumerPageEnd -FooterHtml 'Foot <code>x</code>')
 Assert-True ($framed.Contains('<title>dkj-marketplace -- a &lt;b&gt;</title>') -and $framed.Contains('<h1>a &lt;b&gt;</h1>') -and $framed.Contains('<a href="/consumers/dkj">DKJ repos</a>') -and $framed.Contains('.x { }') -and $framed.Contains('<p class="footer-note">Foot <code>x</code></p>') -and $framed.TrimEnd().EndsWith('</html>')) 'the page frame escapes its name, walks its trail, carries the caller''s style and footer, and closes the page'
 Assert-True ($overview -notmatch 'id="lenses"' -and $dkj -notmatch 'id="lenses"') 'neither the overview nor a group''s page holds a Lenses card: that is a repo''s own page'
 
@@ -383,7 +383,7 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             foreach ($general in '/stopwatch', '/logbook', '/test-gate', '/repository', '/artifacts', '/issues', '/sessionstart', '/release-notes', '/about') {
                 Assert-Equal 404 (Get-Status 'GET' $general "localhost:$port") "$general is no page of the product: it is the plugin hub's"
             }
-            Assert-Equal 404 (Get-Status 'GET' '/../connectors/x.json' "localhost:$port") 'a path outside the routes is not found'
+            Assert-Equal 404 (Get-Status 'GET' '/../consumers/x.json' "localhost:$port") 'a path outside the routes is not found'
             # The brandbook app is retired (#3493): the product neither serves nor redirects it, and the house style's specimens are under the hub's /plugins.
             Assert-Equal 404 (Get-Status 'GET' '/brandbook' "localhost:$port") '/brandbook is not a page of the product'
             Assert-Equal 404 (Get-Status 'GET' '/brandbook/' "localhost:$port") 'and neither is /brandbook/'
@@ -393,10 +393,10 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             Assert-True ($who -match 'HTTP/1.1 200' -and $who.EndsWith("`r`n`r`n" + (Get-DevPreviewRootHash -Root $RepoRoot))) '/whoami answers the hash of this root, as the general server does'
             Assert-Equal 303 (Get-Status 'GET' '/refresh' "localhost:$port") '/refresh redirects to the page'
             Assert-True ((Get-Raw 'GET' '/refresh?page=consumers' "localhost:$port") -match 'Location: /consumers\r') '/refresh?page= goes back to the page that asked'
-            Assert-True ((Get-Raw 'GET' '/connectors/dkj/x' "localhost:$port") -match 'HTTP/1.1 303[\s\S]*Location: /consumers/dkj/x\r') 'an old /connectors address lands on its /consumers page, whose url follows its h1 Consumers (Maikel, October 30, 2026)'
-            Assert-True ((Get-Raw 'GET' '/connectors' "localhost:$port") -match 'Location: /consumers\r') 'the old overview address too'
-            Assert-True ((Get-Raw 'GET' '/refresh?page=consumers/bwj' "localhost:$port") -match 'Location: /consumers/bwj\r') 'and to a Connectors group page that asked (owner, October 26, 2026)'
-            Assert-Equal 404 (Get-Status 'GET' '/consumers/nope' "localhost:$port") 'a Connectors group no owner has is not found'
+            Assert-True ((Get-Raw 'GET' '/consumers/dkj/x' "localhost:$port") -match 'HTTP/1.1 303[\s\S]*Location: /consumers/dkj/x\r') 'an old /consumers address lands on its /consumers page, whose url follows its h1 Consumers (Maikel, October 30, 2026)'
+            Assert-True ((Get-Raw 'GET' '/consumers' "localhost:$port") -match 'Location: /consumers\r') 'the old overview address too'
+            Assert-True ((Get-Raw 'GET' '/refresh?page=consumers/bwj' "localhost:$port") -match 'Location: /consumers/bwj\r') 'and to a Consumers group page that asked (owner, October 26, 2026)'
+            Assert-Equal 404 (Get-Status 'GET' '/consumers/nope' "localhost:$port") 'a Consumers group no owner has is not found'
             Assert-True ((Get-Raw 'GET' '/refresh?page=sessionstart' "localhost:$port") -match 'Location: /\r') 'and a general page''s refresh is no page of the product''s (#3540)'
             Assert-True ((Get-Raw 'GET' '/refresh?page=//evil.example' "localhost:$port") -match 'Location: /\r') 'and to the index for a page outside its list'
             Assert-Equal 403 (Get-Status 'GET' '/refresh' "localhost:$port" "Sec-Fetch-Site: cross-site`r`n") 'a request another site makes is refused'
@@ -435,22 +435,22 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
     # Layout: <fixture>\org\src is the repo root, so the scope root is <fixture>. <fixture>\org\noup holds
     # a commit and no upstream, which made 'rev-list HEAD...@{u}' throw under 'Stop' and blanked the page
     # (#2976 review). <outside> is a git repo beyond the scope root that one manifest points at. The fixture
-    # carries no check-connectors.ps1, so the check's failure path is exercised too.
-    $fixture = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-$PID-$([guid]::NewGuid().ToString('n'))"
+    # carries no check-consumers.ps1, so the check's failure path is exercised too.
+    $fixture = Join-Path ([System.IO.Path]::GetTempPath()) "consumer-dashboard-$PID-$([guid]::NewGuid().ToString('n'))"
     $src = Join-Path $fixture 'org\src'
     $noup = Join-Path $fixture 'org\noup'
-    $outside = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-outside-$PID-$([guid]::NewGuid().ToString('n'))"
+    $outside = Join-Path ([System.IO.Path]::GetTempPath()) "consumer-dashboard-outside-$PID-$([guid]::NewGuid().ToString('n'))"
     $group3Done = $false
     try {
-        New-Item -ItemType Directory -Force -Path (Join-Path $src 'scripts\lib'), (Join-Path $src 'scripts\dashboard'),(Join-Path $src 'plugins\dkj-policy\assets\house-style'), (Join-Path $src 'connectors'), $noup, $outside | Out-Null
-        Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $src 'scripts\lib\')
+        New-Item -ItemType Directory -Force -Path (Join-Path $src 'scripts\lib'), (Join-Path $src 'scripts\dashboard'),(Join-Path $src 'plugins\dkj-policy\assets\house-style'), (Join-Path $src 'consumers'), $noup, $outside | Out-Null
+        Copy-Item (Join-Path $RepoRoot 'scripts\lib\consumer-dashboard-lib.ps1') (Join-Path $src 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $src 'scripts\lib\')
         # dev-pages-lib reads the plugins' libs from the plugin tree beside scripts/, and the server its state reader.
         New-Item -ItemType Directory -Force -Path (Join-Path $src 'plugins\dkj-policy\hub\lib') | Out-Null
         Copy-Item (Join-Path $PluginLib '*.ps1') (Join-Path $src 'plugins\dkj-policy\hub\lib\')
         Copy-Item $Server (Join-Path $src 'scripts\dashboard\')
-        Set-Content -LiteralPath (Join-Path $src 'connectors\noup.json') -Encoding ASCII -Value '{ "repo": "Org/noup", "visibility": "private", "localCheckout": "../noup", "plugins": [] }'
-        Set-Content -LiteralPath (Join-Path $src 'connectors\far.json') -Encoding ASCII -Value ('{ "repo": "Org/far", "visibility": "public", "localCheckout": "../../../' + (Split-Path -Leaf $outside) + '", "plugins": [] }')
+        Set-Content -LiteralPath (Join-Path $src 'consumers\noup.json') -Encoding ASCII -Value '{ "repo": "Org/noup", "visibility": "private", "localCheckout": "../noup", "plugins": [] }'
+        Set-Content -LiteralPath (Join-Path $src 'consumers\far.json') -Encoding ASCII -Value ('{ "repo": "Org/far", "visibility": "public", "localCheckout": "../../../' + (Split-Path -Leaf $outside) + '", "plugins": [] }')
         # One marketplace plugin with a manifest, a skill and a hook, and one whose source escapes plugins/ (the Plugins page).
         New-Item -ItemType Directory -Force -Path (Join-Path $src '.claude-plugin'), (Join-Path $src 'plugins\p-one\.claude-plugin'), (Join-Path $src 'plugins\p-one\skills\s1'), (Join-Path $src 'plugins\p-one\hooks') | Out-Null
         Set-Content -LiteralPath (Join-Path $src '.claude-plugin\marketplace.json') -Encoding ASCII -Value '{ "plugins": [ { "name": "p-one", "source": "./plugins/p-one", "description": "The first <b>one</b>." }, { "name": "p-bad", "source": "./plugins/../..", "description": "Escapes." } ] }'
@@ -469,7 +469,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         $probe.Start(); $genPort3 = $probe.LocalEndpoint.Port; $probe.Stop()
         $env:DKJ_GENERAL_PAGES_PORTS = [string]$genPort3
         $proc3 = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
-            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $src 'scripts\dashboard\serve-connector-dashboard.ps1')`"", '-Port', $port3)
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $src 'scripts\dashboard\serve-consumer-dashboard.ps1')`"", '-Port', $port3)
         try {
             # Asserted on its own, so a recurrence says whether the server never came up or the page did not
             # come back -- the question #3038 could not answer from four asserts failing together.
@@ -492,7 +492,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             $srcState = Get-RepoHubStatePath -Root $src
             # The product's home page on '/' and the pages under it (#3540).
             $home3 = if ($up) { Get-Raw 'GET' '/' "localhost:$port3" '' $port3 } else { '' }
-            Assert-True ($home3 -match 'HTTP/1.1 200' -and $home3 -match 'site-header__name">dkj-marketplace <span class="site-header__tag">product</span>' -and $home3 -match 'href="/consumers"' -and $home3 -notmatch 'href="/specialists"' -and $home3 -match 'href="/marketplace"' -and $home3 -notmatch 'href="/dkj-repos"') '/ serves the product''s home page, linking Connectors and Plugins'
+            Assert-True ($home3 -match 'HTTP/1.1 200' -and $home3 -match 'site-header__name">dkj-marketplace <span class="site-header__tag">product</span>' -and $home3 -match 'href="/consumers"' -and $home3 -notmatch 'href="/specialists"' -and $home3 -match 'href="/marketplace"' -and $home3 -notmatch 'href="/dkj-repos"') '/ serves the product''s home page, linking Consumers and Plugins'
             $r = if ($up) { Get-Raw 'GET' '/marketplace' "localhost:$port3" '' $port3 } else { '' }
             Assert-True ($r -match 'HTTP/1.1 200' -and $r -match '<h1>Marketplace</h1>' -and $r -match 'href="/marketplace/p-one"' -and $r -match 'v9\.8\.7') '/marketplace lists each marketplace plugin as a card linking its own page, with its version'
             Assert-True ($r -match 'id="plugin-p-bad"' -and $r -match 'msg--warn[^\n]*p-bad \(its source\)') 'and a plugin whose source leaves plugins/ keeps its card, with nothing read from it and the reason named'
@@ -569,12 +569,12 @@ Write-Host '-- group 4: a server whose checkout moved restarts itself on the new
 if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -and (Get-Command git -ErrorAction SilentlyContinue) -and $group2Ran) {
     # Measured October 18, 2026: the hook started the server, a pull moved HEAD four seconds later, and the
     # server kept serving the old pages while its "Source at" line read the new commit live.
-    $fixture4 = Join-Path ([System.IO.Path]::GetTempPath()) "connector-dashboard-move-$PID-$([guid]::NewGuid().ToString('n'))"
+    $fixture4 = Join-Path ([System.IO.Path]::GetTempPath()) "consumer-dashboard-move-$PID-$([guid]::NewGuid().ToString('n'))"
     $port4 = $null
     $group4Done = $false
     try {
         New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'scripts\lib'), (Join-Path $fixture4 'scripts\dashboard'),(Join-Path $fixture4 'plugins\dkj-policy\assets\house-style') | Out-Null
-        Copy-Item (Join-Path $RepoRoot 'scripts\lib\connector-dashboard-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
+        Copy-Item (Join-Path $RepoRoot 'scripts\lib\consumer-dashboard-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
         New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'plugins\dkj-policy\hub\lib') | Out-Null
         Copy-Item (Join-Path $PluginLib '*.ps1') (Join-Path $fixture4 'plugins\dkj-policy\hub\lib\')
@@ -588,7 +588,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
         $probe = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, 0)
         $probe.Start(); $port4 = $probe.LocalEndpoint.Port; $probe.Stop()
         $proc4 = Start-Process -FilePath 'powershell' -PassThru -WindowStyle Hidden -ArgumentList @(
-            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $fixture4 'scripts\dashboard\serve-connector-dashboard.ps1')`"", '-Port', $port4)
+            '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $fixture4 'scripts\dashboard\serve-consumer-dashboard.ps1')`"", '-Port', $port4)
         $up = Wait-ServerUp $port4
         Assert-True $up 'the group-4 server listens on the port it was given'
         $hub = if ($up) { Get-Raw 'GET' '/' "localhost:$port4" '' $port4 } else { '' }
@@ -636,7 +636,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
             Start-Sleep -Milliseconds 500
         }
         Remove-Item -LiteralPath $fixture4 -Recurse -Force -ErrorAction SilentlyContinue
-        if ($port4) { Get-ChildItem -LiteralPath ([System.IO.Path]::GetTempPath()) -Filter "serve-connector-dashboard-$port4-*.log" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue }
+        if ($port4) { Get-ChildItem -LiteralPath ([System.IO.Path]::GetTempPath()) -Filter "serve-consumer-dashboard-$port4-*.log" -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue }
     }
 } else {
     $group4Done = $null
@@ -653,14 +653,14 @@ $regs = @(
     @{ Repo = 'DKJ-Solutions/dkj-music-library'; File = 'music-library.json' }
 )
 foreach ($n in 'lifehub', 'life-hub', 'dkj-lifehub', 'DKJ-Solutions/dkj-lifehub', 'LIFEHUB', 'life-hub.json') {
-    $hit = @(Resolve-ConnectorRepo -Connectors $regs -Name $n)
+    $hit = @(Resolve-ConsumerRepo -Consumers $regs -Name $n)
     Assert-True ($hit.Count -eq 1 -and $hit[0].Repo -eq 'DKJ-Solutions/dkj-lifehub') "'$n' names dkj-lifehub"
 }
-$hit = @(Resolve-ConnectorRepo -Connectors $regs -Name 'thumb')
+$hit = @(Resolve-ConsumerRepo -Consumers $regs -Name 'thumb')
 Assert-True ($hit.Count -eq 1 -and $hit[0].Repo -eq 'DKJ-Solutions/dkj-thumbnail-generator') 'a part of a name names the one repo containing it'
-Assert-True (@(Resolve-ConnectorRepo -Connectors $regs -Name 'r').Count -ge 2)'an ambiguous part returns every match, so the caller can refuse it'
-Assert-Equal 0 (@(Resolve-ConnectorRepo -Connectors $regs -Name 'nothing-like-it').Count) 'an unknown name matches nothing'
-Assert-Equal 0 (@(Resolve-ConnectorRepo -Connectors $regs -Name '--').Count) 'a name of punctuation alone matches nothing'
+Assert-True (@(Resolve-ConsumerRepo -Consumers $regs -Name 'r').Count -ge 2)'an ambiguous part returns every match, so the caller can refuse it'
+Assert-Equal 0 (@(Resolve-ConsumerRepo -Consumers $regs -Name 'nothing-like-it').Count) 'an unknown name matches nothing'
+Assert-Equal 0 (@(Resolve-ConsumerRepo -Consumers $regs -Name '--').Count) 'a name of punctuation alone matches nothing'
 
 Assert-Equal "'a''b'" (ConvertTo-PowerShellLiteral "a'b") 'a straight single quote is doubled'
 $curly = 'dossier' + [char]0x2019 + 's'
@@ -676,17 +676,17 @@ Assert-Equal "Set-Location -LiteralPath 'C:\x\o''b'; claude 'start it''s dossier
 # repo-session.ps1 against a fixture tree: the register resolves, a missing checkout is refused, -WhatIf runs nothing.
 $rsRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('repo-session-' + [guid]::NewGuid().ToString('n'))
 $rsHub = Join-Path $rsRoot 'org\hub'
-New-Item -ItemType Directory -Force -Path (Join-Path $rsHub 'connectors'), (Join-Path $rsHub 'scripts\lib'), (Join-Path $rsRoot 'org\dkj-lifehub') | Out-Null
-# repo-session.ps1 loads the hub's page lib, which loads the connector lib and the plugin libs beside it
+New-Item -ItemType Directory -Force -Path (Join-Path $rsHub 'consumers'), (Join-Path $rsHub 'scripts\lib'), (Join-Path $rsRoot 'org\dkj-lifehub') | Out-Null
+# repo-session.ps1 loads the hub's page lib, which loads the consumer lib and the plugin libs beside it
 # (dev-preview-rules.ps1 for the Product card's url rule, #3468; test-gate-lib.ps1, the Test gate's page, #3470; plugins-page-lib.ps1, whose description paragraphs the product's Plugins pages use).
-foreach ($lib in 'scripts\lib\connector-dashboard-lib.ps1', 'scripts\lib\dev-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\general-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\dev-preview-rules.ps1', 'plugins\dkj-policy\hub\lib\test-gate-lib.ps1', 'plugins\dkj-policy\hub\lib\plugins-page-lib.ps1') {
+foreach ($lib in 'scripts\lib\consumer-dashboard-lib.ps1', 'scripts\lib\dev-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\general-pages-lib.ps1', 'plugins\dkj-policy\hub\lib\dev-preview-rules.ps1', 'plugins\dkj-policy\hub\lib\test-gate-lib.ps1', 'plugins\dkj-policy\hub\lib\plugins-page-lib.ps1') {
     $to = Join-Path $rsHub (Split-Path -Parent $lib)
     New-Item -ItemType Directory -Force -Path $to | Out-Null
     Copy-Item -LiteralPath (Join-Path $RepoRoot $lib) -Destination $to
 }
-Set-Content -LiteralPath (Join-Path $rsHub 'connectors\life-hub.json') -Encoding UTF8 -Value '{ "repo": "DKJ-Solutions/dkj-lifehub", "visibility": "private", "localCheckout": ["../dkj-lifehub", "../life-hub"] }'
-Set-Content -LiteralPath (Join-Path $rsHub 'connectors\recipes.json') -Encoding UTF8 -Value '{ "repo": "DKJ-Solutions/dkj-recipes", "visibility": "private", "localCheckout": "../dkj-recipes" }'
-Set-Content -LiteralPath (Join-Path $rsHub 'connectors\escape.json') -Encoding UTF8 -Value '{ "repo": "DKJ-Solutions/escape", "visibility": "public", "localCheckout": "../../../../.." }'
+Set-Content -LiteralPath (Join-Path $rsHub 'consumers\life-hub.json') -Encoding UTF8 -Value '{ "repo": "DKJ-Solutions/dkj-lifehub", "visibility": "private", "localCheckout": ["../dkj-lifehub", "../life-hub"] }'
+Set-Content -LiteralPath (Join-Path $rsHub 'consumers\recipes.json') -Encoding UTF8 -Value '{ "repo": "DKJ-Solutions/dkj-recipes", "visibility": "private", "localCheckout": "../dkj-recipes" }'
+Set-Content -LiteralPath (Join-Path $rsHub 'consumers\escape.json') -Encoding UTF8 -Value '{ "repo": "DKJ-Solutions/escape", "visibility": "public", "localCheckout": "../../../../.." }'
 $rsScript = Join-Path $RepoRoot 'scripts\dashboard\repo-session.ps1'
 $run = { param([string[]]$a) $o = & powershell -NoProfile -ExecutionPolicy Bypass -File $rsScript @a -RepoRootOverride $rsHub 2>&1 | ForEach-Object { [string]$_ }; @{ Out = ($o -join "`n"); Code = $LASTEXITCODE } }
 try {
@@ -715,6 +715,6 @@ try {
 }
 
 Write-Host ''
-Write-Host "connector-dashboard: $script:pass passed, $script:fail failed"
+Write-Host "consumer-dashboard: $script:pass passed, $script:fail failed"
 if ($script:fail -gt 0) { exit 1 }
 exit 0

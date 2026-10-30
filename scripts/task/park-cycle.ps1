@@ -286,7 +286,7 @@ function Write-CycleCollisionReport {
 # call and this is the lib that makes one safe -- see the block below.
 . (Join-Path $PSScriptRoot '..\lib\native-capture-lib.ps1')
 # Get-GitTopLevelPath for the repo-root read below (issue #2115). Named here rather than inherited:
-# this script dot-sources no lib that already carries it, unlike worktree-lane and check-connectors,
+# this script dot-sources no lib that already carries it, unlike worktree-lane and check-consumers,
 # which reach it through check-report-lib.
 . (Join-Path $PSScriptRoot '..\lib\repo-root-lib.ps1')
 . (Join-Path $PSScriptRoot '..\lib\entry-scaffold-lib.ps1')

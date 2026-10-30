@@ -157,7 +157,7 @@ function Get-SharedScriptPairs {
         @{
             # PER-DEVICE PLUGIN VERSION OVERVIEW (Dave, September 8, 2026). "Which plugin version is
             # installed in this checkout, on this machine, and is a plugin update due?" -- a question
-            # no existing check answers: check-connectors' check 4 goes inert on a plain consumer with
+            # no existing check answers: check-consumers' check 4 goes inert on a plain consumer with
             # no sibling source checkout. Reads the install record for this checkout's path
             # (Get-InstallRecord) against the marketplace clone's plugin.json .version + git HEAD --
             # both present on every consumer machine -- and prints a verdict per plugin.
@@ -877,12 +877,12 @@ function Get-SharedScriptPairs {
             # THE OTHER HALF OF THE SAME COST (issue #1605, September 8, 2026). hook-check-lib above
             # removed the second interpreter a hook starts; this one removes the REPEAT -- the
             # 'startup|resume|clear|compact' matcher means a session with four compactions runs every
-            # check five times, and connector-sessioncheck's #1591 fallback cannot be run in-process
+            # check five times, and consumer-sessioncheck's #1591 fallback cannot be run in-process
             # at all (it is bounded by a 30 s timeout, which an in-process call cannot be abandoned
             # under). So its verdict is held for the life of the session instead, keyed on the
             # session_id the harness writes to the hook's stdin.
             #
-            # MIRRORED INTO dkj-policy ONLY, and only that, because connector-sessioncheck.ps1 is its
+            # MIRRORED INTO dkj-policy ONLY, and only that, because consumer-sessioncheck.ps1 is its
             # one caller and ships there. A consumer's hook dot-sources it as a $PSScriptRoot sibling,
             # so a payload without it would find nothing -- which the hook handles by measuring, the
             # same way it did before this lib existed, but the pair is registered so that never
@@ -985,7 +985,7 @@ function Get-SharedScriptPairs {
             # silently OFF and every SessionStart firing re-spawns the engine. That is invisible in
             # production: nothing is wrong, only slower and quieter. Measured on the branch that added
             # this entry, where the test fixture's copy list had not learned the new sibling and
-            # connector-sessioncheck case 5a counted 2 spawns against the 1 it asserts.
+            # consumer-sessioncheck case 5a counted 2 spawns against the 1 it asserts.
             #
             # NO CONTRACT ROW FOLLOWS: nothing in it is repo-owned. It takes a value and returns a
             # string -- no seam, no path, no git, no network.

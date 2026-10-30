@@ -32,7 +32,7 @@ hub (below).
 
 These are plugin-only files, like [`../worker/`](../worker/): no root copy in the source repo mirrors
 them. They are tested there by `dev-preview-sessionstart.tests.ps1`, `dev-pages.tests.ps1`,
-`connector-dashboard.tests.ps1`, `stopwatch.tests.ps1`, `stopwatch-sync.tests.ps1` and `logbook.tests.ps1`.
+`consumer-dashboard.tests.ps1`, `stopwatch.tests.ps1`, `stopwatch-sync.tests.ps1` and `logbook.tests.ps1`.
 
 ## One look in every repo
 
@@ -261,7 +261,7 @@ Every page's first crumb is `/hub`, the hub on the same origin. A repo's product
 pages from its own origin with `Copy-LoopbackUpstream` (in
 [`lib/loopback-server-lib.ps1`](lib/loopback-server-lib.ps1)) and link them by bare path. The pages then
 share that product's `localStorage`, and with it the theme and width choice under their key,
-`general-pages`. The source repo's connector dashboard does this, a relay it kept from its years as an own
+`general-pages`. The source repo's consumer dashboard does this, a relay it kept from its years as an own
 hub ([#3168](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3168)). The pages
 carry the repo's name, `owner/name` from the `origin` remote, else the folder's. Each issue links to the
 `url` `gh` returned for it, and only when that is a GitHub issue link.
@@ -364,9 +364,9 @@ record the runs (`hooks/stopwatch-hook.ps1`, `hooks/logbook-hook.ps1`), and the 
 
 ## In the source repo
 
-This repo's hub is this plugin's, as in every other repo: since #3540 its `Get-DevPreview` states no `OwnHub`; #3643 then retired that opt-out for every repo. Its product is the **connector dashboard** (every repo
-registered under `connectors/` and what `check-connectors.ps1` reports for it), the specialists and their
-context cost, and, on the DKJ group's connector page, every DKJ repo on GitHub, served on `127.0.0.1` by `scripts/dashboard/serve-connector-dashboard.ps1`,
+This repo's hub is this plugin's, as in every other repo: since #3540 its `Get-DevPreview` states no `OwnHub`; #3643 then retired that opt-out for every repo. Its product is the **consumer dashboard** (every repo
+registered under `consumers/` and what `check-consumers.ps1` reports for it), the specialists and their
+context cost, and, on the DKJ group's consumer page, every DKJ repo on GitHub, served on `127.0.0.1` by `scripts/dashboard/serve-consumer-dashboard.ps1`,
 with the house style from this tree and a first card back to the hub. `scripts/lib/dev-pages-lib.ps1` reads
 `lib/general-pages-lib.ps1` from this tree for the page shell. The General pages, the Test gate among them,
 are the hub's alone: the suite selection this checkout's change makes, which the old own hub added to its Test
