@@ -51,7 +51,7 @@ before its rename to `dkj-marketplace` (reported by the owner, October 30, 2026)
 ### TEST
 
 - [x] `dev-pages` (511) and `connector-dashboard` (240) suites green, their asserts now pinning `dkj-marketplace`
-- [ ] The owner's look at the product server's header
+- [x] The owner's look at the product server's header (approved, October 30, 2026)
 
 ### DEPLOY: fix/product-header-name
 
