@@ -62,7 +62,7 @@ cards, Rules, Skills and Specialists. A visible result, so the branch waits for 
 - [x] `dev-pages.tests.ps1` green (487 passed), with asserts for the AI card, the three levels and their trails
 - [x] Served from this tree on :4910: `/` and `/ai` answer with the right cards, h1 AI > h2 Claude > three h3s; the
       three leaves answer 200 under Tools > AI; `/ai/claude` is a 404
-- [ ] The owner has looked at the pages and approves them
+- [x] The owner has looked at the pages and approves them (Maikel: "ship it", October 30, 2026)
 
 ### DEPLOY: feat/toolbox-ai-cards
 
