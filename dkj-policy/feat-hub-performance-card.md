@@ -44,7 +44,7 @@ A visible result, so the branch waits for his look before it ships.
 
 ### CREATE
 
-- [x] `general-pages-lib.ps1`: a group may sit in a group (`Group` on a `Get-HubGroups` row); `Get-HubMembers` and `Get-HubGroupCrumbs` draw the cards and the trail at any depth; the Performance group and its icon
+- [x] `general-pages-lib.ps1`: the Performance group and its icon, Clock under it; `Get-HubGroupCrumbs` gives a group's trail, and the hub draws a page's top-level group's card (merged onto main's nested groups and Sections from #3676)
 - [x] SessionStart under `/performance`, Clock under it too; the crumbs of SessionStart, Test gate, Stopwatch and Logbook pages read through Performance
 - [x] README of the hub names the new card
 
@@ -57,8 +57,8 @@ A visible result, so the branch waits for his look before it ships.
 
 The hub's home page has a Performance card in SessionStart's place. Its `/performance` page holds the
 SessionStart and Clock cards, and the Clock keeps the Test gate, the Stopwatch and the Logbook. Every page
-under those two now has Performance in its trail. Groups on the hub can now nest, so a group page can hold
-another group's card.
+under those two now has Performance in its trail, and the hub shows a page that sits two groups deep under
+its top-level group's card.
 
 **Score:** 2
 

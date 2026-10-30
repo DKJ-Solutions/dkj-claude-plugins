@@ -425,6 +425,13 @@ $script:HubIcons = @{
     'consumers'     = '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M17 11l2 2 4-4"/>'
     'specialists'   = '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>'
     'dkj-repos'     = '<path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
+    # The AI group and its Claude page (Maikel, October 30, 2026): two sparkles, Claude's asterisk, a ruled list and
+    # a wrench (Feather's 'tool', MIT); the Specialists card reuses 'specialists' above.
+    'ai'            = '<path d="M10 3l1.8 4.7 4.7 1.8-4.7 1.8L10 16l-1.8-4.7L3.5 9.5l4.7-1.8z"/><path d="M18 14l.9 2.1 2.1.9-2.1.9L18 20l-.9-2.1-2.1-.9 2.1-.9z"/>'
+    'claude'        = '<path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"/>'
+    'rules'         = '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>'
+    'lens'          = '<circle cx="11" cy="11" r="6"/><path d="M15.5 15.5L21 21"/>'
+    'skills'        = '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>'
 }
 
 function Get-HubIconSvg {
@@ -461,40 +468,79 @@ function Get-HubGroups {
         The group pages, each the one card on the hub for the general pages whose Group is its Href, and a page of
         its own holding a card per member (Format-HubGroupPageHtml). A hub card is always ONE link, so a group is a
         page, never a card with several rows: Clock holds Test gate, Stopwatch and Logbook (the owner, October 27, 2026).
-        A group may itself have a Group, the page it is a card on instead of the hub: Performance holds SessionStart
-        and Clock (the owner, October 30, 2026).
+        A group may sit in another: its Group is the parent group's Href, and it is a card on that page instead of
+        the hub. A group with no general page of its own is still a hub card (Format-HubPageCardsHtml). A Section group
+        is no card and no page: it is an h2 on its parent's page, over a grid of its members' cards. So AI opens on
+        the Claude section, holding Rules, Skills and Specialists (Maikel, October 30, 2026), each a page of its own.
+        A Section with Source 'lenses' takes its cards from the repo instead: one per specialist lens (Get-HubLensPages).
+        Performance holds SessionStart and Clock (the owner, October 30, 2026).
     #>
     @(
         @{ Href = '/performance'; Label = 'Performance'; Sub = 'What the work costs: the SessionStart path and the Clock'; Icon = 'performance' },
-        @{ Href = '/clock'; Label = 'Clock'; Sub = 'How long the work takes: the Test gate, the Stopwatch and the Logbook'; Icon = 'clock'; Group = '/performance' }
+        @{ Href = '/clock'; Label = 'Clock'; Sub = 'How long the work takes: the Test gate, the Stopwatch and the Logbook'; Icon = 'clock'; Group = '/performance' },
+        @{ Href = '/ai'; Label = 'AI'; Sub = 'The AI this repo works with: Claude'; Icon = 'ai' },
+        @{ Href = '/ai/claude'; Label = 'Claude'; Icon = 'claude'; Group = '/ai'; Section = $true },
+        @{ Href = '/ai/claude/rules'; Label = 'Rules'; Sub = 'The rules Claude works by'; Icon = 'rules'; Group = '/ai/claude' },
+        @{ Href = '/ai/claude/skills'; Label = 'Skills'; Sub = 'The skills Claude can use'; Icon = 'skills'; Group = '/ai/claude' },
+        @{ Href = '/ai/claude/specialists'; Label = 'Specialists'; Sub = 'The Claude Specialists, each with a craft of their own'; Icon = 'specialists'; Group = '/ai/claude' },
+        @{ Href = '/ai/claude/specialists/lenses'; Label = 'Lenses'; Icon = 'lens'; Group = '/ai/claude/specialists'; Section = $true; Source = 'lenses' }
     )
 }
 
 function Get-HubGroupCrumbs {
-    <# The crumbs from the hub down to and including the group page on -Href, outermost first, each @{ Label; Href }. #>
+    <#
+        The crumbs from the hub down to and including the group on -Href, outermost first, each @{ Label; Href }: the
+        trail of a page that sits in that group. A Section has no page, so it is no crumb.
+    #>
     param([Parameter(Mandatory = $true)][string]$Href)
     $groups = @{}; foreach ($g in Get-HubGroups) { $groups[$g.Href] = $g }
     $trail = @()
-    for ($g = $groups[$Href]; $g; $g = $(if ($g.Group) { $groups[$g.Group] } else { $null })) { $trail = @(@{ Label = $g.Label; Href = $g.Href }) + $trail }
+    for ($g = $groups[$Href]; $g; $g = $(if ($g.Group) { $groups[$g.Group] } else { $null })) {
+        if (-not $g.Section) { $trail = @(@{ Label = $g.Label; Href = $g.Href }) + $trail }
+    }
     return $trail
 }
 
-function Get-HubMembers {
+function Get-HubLensPages {
     <#
-        The cards on the page -Parent names ('' for the hub), in Get-GeneralPages' order: a page whose Group is
-        -Parent as itself, and a page deeper down as the group on -Parent's level that holds it, in the place of its
-        first page. -Pages narrows which pages count (default: every one).
+        Every specialist lens of the repo at -RepoRoot (.claude/specialists/lenses/specialist-NN-NN-lens.md), by name:
+        each a card's @{ Href; Label; Sub; Icon; Path }, its Label the file's name and its Sub the lens's own '# ' title.
+        Read per request, so a lens added to the checkout is on the page at once (Maikel, October 30, 2026). None where
+        the repo keeps no lenses, or no -RepoRoot is given.
     #>
-    param([AllowEmptyString()][string]$Parent = '', [object[]]$Pages = @(Get-GeneralPages))
-    $groups = @{}; foreach ($g in Get-HubGroups) { $groups[$g.Href] = $g }
-    $done = @{}
-    foreach ($p in $Pages) {
-        $item = $p
-        while ($item -and [string]$item.Group -ne $Parent) { $item = $(if ($item.Group) { $groups[$item.Group] } else { $null }) }
-        if (-not $item -or $done.ContainsKey($item.Href)) { continue }
-        $done[$item.Href] = $true
-        $item
+    param([AllowEmptyString()][string]$RepoRoot = '')
+    if (-not $RepoRoot) { return @() }
+    $dir = Join-Path $RepoRoot '.claude\specialists\lenses'
+    if (-not (Test-Path -LiteralPath $dir -PathType Container)) { return @() }
+    $utf8 = New-Object System.Text.UTF8Encoding($false)
+    foreach ($f in @(Get-ChildItem -LiteralPath $dir -File | Where-Object { $_.Name -cmatch '^specialist-\d{2}-\d{2}-lens\.md\z' } | Sort-Object Name)) {
+        $sub = ''
+        try {
+            foreach ($line in [System.IO.File]::ReadAllLines($f.FullName, $utf8)) { if ($line -match '^#\s+(.+)$') { $sub = $Matches[1].Trim(); break } }
+        } catch { $sub = '' }
+        @{ Href = '/ai/claude/specialists/lenses/' + $f.BaseName; Label = $f.BaseName; Sub = $sub; Icon = 'lens'; Path = $f.FullName }
     }
+}
+
+function Format-HubLensPageHtml {
+    <#
+        One specialist lens's own page on /ai/claude/specialists/lenses/<name> (Get-HubLensPages): an h1 with the file's
+        name, and the file's text, escaped, in a card, under Tools > AI > Specialists. $null for a name the repo has no lens of.
+    #>
+    param([Parameter(Mandatory = $true)][string]$Name, [AllowEmptyString()][string]$RepoRoot = '', [AllowEmptyString()][string]$RepoName = '', [string]$HubHref = '/hub')
+    $lens = @(Get-HubLensPages -RepoRoot $RepoRoot | Where-Object { $_.Label -ceq $Name })[0]
+    if (-not $lens) { return $null }
+    $e = { param($v) ConvertTo-GeneralPageText $v }
+    $body = New-Object System.Text.StringBuilder
+    [void]$body.AppendLine('<div><h1>' + (& $e $lens.Label) + '</h1></div>')
+    try {
+        $text = [System.IO.File]::ReadAllText($lens.Path, (New-Object System.Text.UTF8Encoding($false)))
+        [void]$body.AppendLine('<section class="card"><div class="prose prose--fill"><pre tabindex="0"><code>' + (& $e $text) + '</code></pre></div></section>')
+    } catch {
+        [void]$body.AppendLine('<p class="msg msg--warn" role="alert">This lens could not be read: ' + (& $e $_.Exception.Message) + '</p>')
+    }
+    return Format-GeneralPageHtml -Title $lens.Label -Body $body.ToString() -Lead '' -Bare -SiteName $RepoName -HubHref $HubHref `
+        -ParentCrumbs @(@{ Label = 'AI'; Href = '/ai' }, @{ Label = 'Specialists'; Href = '/ai/claude/specialists' }) -FooterNote ('Read from <code>.claude/specialists/lenses/' + (& $e $lens.Label) + '.md</code> by the dkj-policy plugin''s <code>hub/lib/general-pages-lib.ps1</code>.')
 }
 
 function Format-HubCardLinkHtml {
@@ -512,12 +558,13 @@ function Format-HubCardLinkHtml {
         invalid HTML, and the browser closes the card's link at the inner one, so the card falls apart (#3610). One
         that does is refused with a throw.
         The label is an h2 by default (owner, October 29, 2026): the cards are the sections of the page they sit on.
-        -Heading 0 keeps it a plain span, for a card inside a section that has a heading of its own; -Id and -Class (extra classes,
+        -Heading 3 makes it an h3, for a card under a .grid__head's h2 (the AI page's Claude section, Maikel, October 30,
+        2026); -Heading 0 keeps it a plain span, for a card inside a section that has a heading of its own; -Id and -Class (extra classes,
         such as a tone) go on the card.
     #>
     param([Parameter(Mandatory = $true)][string]$Href, [Parameter(Mandatory = $true)][string]$Label, [AllowEmptyString()][string]$Sub = '',
         [AllowEmptyString()][string]$Icon = '', [AllowEmptyString()][string]$SubHtml = '', [AllowEmptyString()][string]$ValueHtml = '',
-        [AllowEmptyString()][string]$BadgeHtml = '', [ValidateSet(0, 2)][int]$Heading = 2, [AllowEmptyString()][string]$Id = '',
+        [AllowEmptyString()][string]$BadgeHtml = '', [ValidateSet(0, 2, 3)][int]$Heading = 2, [AllowEmptyString()][string]$Id = '',
         [AllowEmptyString()][string]$Class = '', [AllowEmptyString()][string]$TitleBadgeHtml = '')
     # The docstring's NO <a>, enforced (#3610): a caller that breaks it fails its suite instead of a broken card.
     foreach ($slot in @(@('SubHtml', $SubHtml), @('ValueHtml', $ValueHtml), @('BadgeHtml', $BadgeHtml), @('TitleBadgeHtml', $TitleBadgeHtml))) {
@@ -529,7 +576,7 @@ function Format-HubCardLinkHtml {
     $v = if ($ValueHtml) { '<span class="menu-item__value">' + $ValueHtml + '</span>' } else { '' }
     $title = if ($TitleBadgeHtml) { '<span>' + (& $e $Label) + '</span>' + $TitleBadgeHtml } else { & $e $Label }
     # A heading may not sit in a <span>, so a card with one holds its label in a <div>.
-    $labelHtml = if ($Heading) { '<div class="menu-item__label"><h2 class="menu-item__title">' + $title + '</h2>' + $s + $v + '</div>' }
+    $labelHtml = if ($Heading) { '<div class="menu-item__label"><h' + $Heading + ' class="menu-item__title">' + $title + '</h' + $Heading + '>' + $s + $v + '</div>' }
              else { '<span class="menu-item__label">' + $title + $s + $v + '</span>' }
     $mark = if ($BadgeHtml) { $BadgeHtml } else { Get-HubIconSvg -Name $Icon }
     return '<section class="card card--link' + $(if ($Class) { ' ' + (& $e $Class) } else { '' }) + '"' + $(if ($Id) { ' id="' + (& $e $Id) + '"' } else { '' }) +
@@ -539,32 +586,78 @@ function Format-HubCardLinkHtml {
 function Format-HubPageCardsHtml {
     <#
         -Pages (Get-GeneralPages' shape) as hub cards, one line each, in their order: a page with no Group as its
-        own card, and each outermost Group's card (Get-HubGroups) in the place of its first page.
+        own card, and each top-level Group's card (Get-HubGroups) in the place of its first page, however deep the page
+        sits (Test gate is under Clock, under Performance); then each top-level group no general page belongs to (AI),
+        after them.
     #>
     param([AllowEmptyCollection()][object[]]$Pages = @())
-    foreach ($m in @(Get-HubMembers -Pages $Pages)) { Format-HubCardLinkHtml -Href $m.Href -Label $m.Label -Sub $m.Sub -Icon $m.Icon }
+    $done = @{}
+    foreach ($p in $Pages) {
+        if (-not $p.Group) { Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon; continue }
+        $g = @(Get-HubGroupCrumbs -Href $p.Group)[0]
+        if ($done.ContainsKey($g.Href)) { continue }
+        $done[$g.Href] = $true
+        $g = @(Get-HubGroups | Where-Object { $_.Href -eq $g.Href })[0]
+        Format-HubCardLinkHtml -Href $g.Href -Label $g.Label -Sub $g.Sub -Icon $g.Icon
+    }
+    $grouped = @(Get-GeneralPages | Where-Object { $_.Group } | ForEach-Object { @(Get-HubGroupCrumbs -Href $_.Group)[0].Href })
+    foreach ($g in @(Get-HubGroups | Where-Object { -not $_.Group -and $grouped -notcontains $_.Href })) {
+        Format-HubCardLinkHtml -Href $g.Href -Label $g.Label -Sub $g.Sub -Icon $g.Icon
+    }
 }
 
 function Format-HubGroupPageHtml {
     <#
         The group page on -Href (Get-HubGroups), bare like the SessionStart overview: an h1 with a card per member
-        (Get-HubMembers: a page, or a group nested in this one), three to a row, each one link, under the crumbs of
-        the groups above it. $null for an Href no group has.
+        page and member group, three to a row, each one link; then each member Section, a .grid-3 headed by its h2 and
+        holding its members as h3 cards. A group with no member yet says so in one card. Its trail runs through every
+        group it sits in but a Section, which has no page. $null for an Href no group has, and for a Section.
+        -RepoRoot is the checkout a Source section reads its cards from (the Lenses, Get-HubLensPages).
     #>
-    param([Parameter(Mandatory = $true)][string]$Href, [AllowEmptyString()][string]$RepoName = '', [string]$HubHref = '/hub')
-    $g = @(Get-HubGroups | Where-Object { $_.Href -ceq $Href })[0]
-    if (-not $g) { return $null }
+    param([Parameter(Mandatory = $true)][string]$Href, [AllowEmptyString()][string]$RepoName = '', [string]$HubHref = '/hub',
+        [AllowEmptyString()][string]$RepoRoot = '')
+    $groups = @(Get-HubGroups)
+    $g = @($groups | Where-Object { $_.Href -ceq $Href })[0]
+    if (-not $g -or $g.Section) { return $null }
+    $crumbs = @()
+    $parent = $g.Group
+    while ($parent) {
+        $pg = @($groups | Where-Object { $_.Href -ceq $parent })[0]
+        if (-not $pg) { break }
+        if (-not $pg.Section) { $crumbs = @(@{ Label = $pg.Label; Href = $pg.Href }) + $crumbs }
+        $parent = $pg.Group
+    }
+    $e = { param($v) ConvertTo-GeneralPageText $v }
+    $members = @(@(Get-GeneralPages | Where-Object { $_.Group -eq $g.Href }) + @($groups | Where-Object { $_.Group -ceq $g.Href -and -not $_.Section }))
+    $sections = @($groups | Where-Object { $_.Group -ceq $g.Href -and $_.Section })
     $body = New-Object System.Text.StringBuilder
     # The h1 stands on the page above the group, never inside its surface: the h1 is never framed (owner, October 28, 2026).
-    [void]$body.AppendLine('<div><h1>' + (ConvertTo-GeneralPageText $g.Label) + '</h1></div>')
-    [void]$body.AppendLine('<div class="grid-3">')
-    foreach ($m in @(Get-HubMembers -Parent $g.Href)) {
-        [void]$body.AppendLine((Format-HubCardLinkHtml -Href $m.Href -Label $m.Label -Sub $m.Sub -Icon $m.Icon))
+    [void]$body.AppendLine('<div><h1>' + (& $e $g.Label) + '</h1></div>')
+    if ($members.Count -eq 0 -and $sections.Count -eq 0) {
+        [void]$body.AppendLine('<section class="card"><p class="msg" role="status">Nothing on this page yet.</p></section>')
     }
-    [void]$body.AppendLine('</div>')
-    $parents = @(Get-HubGroupCrumbs -Href $g.Href | Select-Object -SkipLast 1)
-    return Format-GeneralPageHtml -Title $g.Label -Body $body.ToString() -Lead '' -Bare -SiteName $RepoName -HubHref $HubHref -ParentCrumbs $parents `
-        -FooterNote 'Built by the dkj-policy plugin''s <code>hub/lib/general-pages-lib.ps1</code>.'
+    if ($members.Count -gt 0) {
+        [void]$body.AppendLine('<div class="grid-3">')
+        foreach ($p in $members) {
+            [void]$body.AppendLine((Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon))
+        }
+        [void]$body.AppendLine('</div>')
+    }
+    foreach ($sec in $sections) {
+        # The house grouping form: a .grid__head over the cards, whose titles are then h3s. The h2 alone, with no
+        # p.card__sub under it (Maikel, October 30, 2026).
+        [void]$body.AppendLine('<div class="grid-3"><div class="grid__head"><h2>' + (& $e $sec.Label) + '</h2></div>')
+        $cards = if ($sec.Source -eq 'lenses') { @(Get-HubLensPages -RepoRoot $RepoRoot) } else { @($groups | Where-Object { $_.Group -ceq $sec.Href }) }
+        foreach ($p in $cards) {
+            [void]$body.AppendLine((Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon -Heading 3))
+        }
+        if ($cards.Count -eq 0) {
+            [void]$body.AppendLine('<section class="card grid__full"><p class="msg" role="status">Nothing here yet.</p></section>')
+        }
+        [void]$body.AppendLine('</div>')
+    }
+    return Format-GeneralPageHtml -Title $g.Label -Body $body.ToString() -Lead '' -Bare -SiteName $RepoName -HubHref $HubHref `
+        -ParentCrumbs $crumbs -FooterNote 'Built by the dkj-policy plugin''s <code>hub/lib/general-pages-lib.ps1</code>.'
 }
 
 function ConvertTo-SiteHeaderName {
