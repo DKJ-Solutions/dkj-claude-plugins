@@ -39,19 +39,30 @@
 
 ### PLAN
 
+Maikel, October 30, 2026: on `/marketplace`, drop the `dkj-marketplace` h2 and make the two cards' titles h2s.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-MarketplacePluginsPageHtml`: no `grid__head` on the overview, the cards at `-Heading 2`
+- [x] `dev-pages.tests.ps1`: the overview's asserts follow
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` green (511 passed); the live `/marketplace` shows one h1 and two card h2s
+- [ ] The owner's look at `/marketplace`
+
 ### DEPLOY: feat/marketplace-card-h2
 
-**Score:**
+The hub's Marketplace overview no longer carries a `dkj-marketplace` h2 above its cards; each card's title
+(`dkj-subagents`, `dkj-policy`) is the page's h2 instead.
+
+**Score:** 1
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a dev-hub page of this repo; nothing a consumer installs changes.
+
+**Score:** N/A
 
 #### Pull Request
 

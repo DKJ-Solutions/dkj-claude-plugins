@@ -527,9 +527,8 @@ function Format-MarketplacePluginsPageHtml {
     $style = '.pl-card--off { opacity: 0.7; }'
 
     if (-not $Plugin -and -not $Group) {
-        # The cards stand under the marketplace's own name as the section's h2, so their titles are h3s
-        # (Maikel, October 30, 2026).
-        [void]$body.AppendLine('<div class="grid-3" id="plugins"><div class="grid__head"><h2>dkj-marketplace</h2></div>')
+        # No section h2 above the cards: each card's title is the h2 itself (Maikel, October 30, 2026).
+        [void]$body.AppendLine('<div class="grid-3" id="plugins">')
         $teamsDone = $false
         foreach ($p in $all) {
             if (& $isTeam $p) {
@@ -537,12 +536,12 @@ function Format-MarketplacePluginsPageHtml {
                 $teamsDone = $true
                 $on = @($teams | Where-Object { $_.Enabled }).Count
                 $sub = [string]$teams.Count + ' specialist team' + $(if ($teams.Count -ne 1) { 's' } else { '' }) + ' &middot; ' + $on + ' enabled here'
-                [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/marketplace/' + $teamGroup) -Label $teamGroup -SubHtml $sub -Heading 3 `
+                [void]$body.AppendLine((Format-HubCardLinkHtml -Href ('/marketplace/' + $teamGroup) -Label $teamGroup -SubHtml $sub -Heading 2 `
                     -Id ('group-' + $teamGroup) -Class ('pl-card' + $(if ($on) { '' } else { ' pl-card--off' }))))
                 continue
             }
             if (& $isAddOn $p) { continue }
-            [void]$body.AppendLine((& $card $p ('/marketplace/' + $p.Name) 3))
+            [void]$body.AppendLine((& $card $p ('/marketplace/' + $p.Name) 2))
         }
         if (-not $all.Count) {
             [void]$body.AppendLine('<section class="card grid__full"><p class="note">No plugin was found.</p></section>')
