@@ -473,7 +473,7 @@ function Get-HubGroups {
     @(
         @{ Href = '/clock'; Label = 'Clock'; Sub = 'How long the work takes: the Test gate, the Stopwatch and the Logbook'; Icon = 'clock' },
         @{ Href = '/ai'; Label = 'AI'; Sub = 'The AI this repo works with: Claude'; Icon = 'ai' },
-        @{ Href = '/ai/claude'; Label = 'Claude'; Sub = 'How Claude works here: its rules, its skills and its specialists'; Icon = 'claude'; Group = '/ai'; Section = $true },
+        @{ Href = '/ai/claude'; Label = 'Claude'; Icon = 'claude'; Group = '/ai'; Section = $true },
         @{ Href = '/ai/claude/rules'; Label = 'Rules'; Sub = 'The rules Claude works by'; Icon = 'rules'; Group = '/ai/claude' },
         @{ Href = '/ai/claude/skills'; Label = 'Skills'; Sub = 'The skills Claude can use'; Icon = 'skills'; Group = '/ai/claude' },
         @{ Href = '/ai/claude/specialists'; Label = 'Specialists'; Sub = 'The Claude Specialists, each with a craft of their own'; Icon = 'specialists'; Group = '/ai/claude' }
@@ -577,9 +577,9 @@ function Format-HubGroupPageHtml {
         [void]$body.AppendLine('</div>')
     }
     foreach ($sec in $sections) {
-        # The house grouping form: a .grid__head (the h2, then a p.card__sub) over the cards, whose titles are then h3s.
-        [void]$body.AppendLine('<div class="grid-3"><div class="grid__head"><h2>' + (& $e $sec.Label) + '</h2>' +
-            $(if ($sec.Sub) { '<p class="card__sub">' + (& $e $sec.Sub) + '</p>' } else { '' }) + '</div>')
+        # The house grouping form: a .grid__head over the cards, whose titles are then h3s. The h2 alone, with no
+        # p.card__sub under it (Maikel, October 30, 2026).
+        [void]$body.AppendLine('<div class="grid-3"><div class="grid__head"><h2>' + (& $e $sec.Label) + '</h2></div>')
         foreach ($p in @($groups | Where-Object { $_.Group -ceq $sec.Href })) {
             [void]$body.AppendLine((Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon -Heading 3))
         }
