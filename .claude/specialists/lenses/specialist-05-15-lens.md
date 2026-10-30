@@ -1042,7 +1042,7 @@ September 8 all six had been on, for validation. Before changing this, know:
   everywhere until it was restored
   ([#2978](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2978)).
 - **What switching a plugin off removes**: its blocks in
-  [`connectors/dkj-claude-plugins.json`](../../../connectors/dkj-claude-plugins.json) (`connectors.tests.ps1`'s
+  [`connectors/dkj-marketplace.json`](../../../connectors/dkj-marketplace.json) (`connectors.tests.ps1`'s
   self-manifest case fails on a registered plugin that is not enabled), the add-on teams' 11 empty lenses
   and roster rows (else an `[ORPHANS]` line at every session start), and the root `CLAUDE.md`'s import of
   the BWJ extension.

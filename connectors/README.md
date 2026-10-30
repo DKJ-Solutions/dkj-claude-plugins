@@ -140,7 +140,7 @@ be thorough about machines nobody uses.
   2026, on [#1769](https://github.com/DKJ-Solutions/claude-code-specialists/issues/1769)). The rule
   above holds because the register and the consumer are two parties, so writing a new id here before
   that consumer reinstalls is this side claiming something about the other. For
-  [`dkj-claude-plugins.json`](dkj-claude-plugins.json) they are one party: this repo consumes itself,
+  [`dkj-marketplace.json`](dkj-marketplace.json) they are one party: this repo consumes itself,
   so its `.claude/settings.json` and its record live in the same tree and can land in the same commit.
   When they do, nothing is claimed ahead of anything — and the alternative is worse in a measurable
   way. During the marketplace rename the self-record was deliberately held back, and
