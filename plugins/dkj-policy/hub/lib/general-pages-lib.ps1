@@ -423,6 +423,12 @@ $script:HubIcons = @{
     'consumers'     = '<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M17 11l2 2 4-4"/>'
     'specialists'   = '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/>'
     'dkj-repos'     = '<path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'
+    # The AI group and its Claude page (Maikel, October 30, 2026): two sparkles, Claude's asterisk, a ruled list and
+    # a wrench (Feather's 'tool', MIT); the Specialists card reuses 'specialists' above.
+    'ai'            = '<path d="M10 3l1.8 4.7 4.7 1.8-4.7 1.8L10 16l-1.8-4.7L3.5 9.5l4.7-1.8z"/><path d="M18 14l.9 2.1 2.1.9-2.1.9L18 20l-.9-2.1-2.1-.9 2.1-.9z"/>'
+    'claude'        = '<path d="M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6L5.6 18.4"/>'
+    'rules'         = '<path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/>'
+    'skills'        = '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>'
 }
 
 function Get-HubIconSvg {
@@ -459,9 +465,17 @@ function Get-HubGroups {
         The group pages, each the one card on the hub for the general pages whose Group is its Href, and a page of
         its own holding a card per member (Format-HubGroupPageHtml). A hub card is always ONE link, so a group is a
         page, never a card with several rows: Clock holds Test gate, Stopwatch and Logbook (the owner, October 27, 2026).
+        A group may sit in another: its Group is the parent group's Href, and it is a card on that page instead of
+        the hub. A group with no general page of its own is still a hub card (Format-HubPageCardsHtml), so AI opens on
+        Claude, and Claude on Rules, Skills and Specialists (Maikel, October 30, 2026), each a page of its own.
     #>
     @(
-        @{ Href = '/clock'; Label = 'Clock'; Sub = 'How long the work takes: the Test gate, the Stopwatch and the Logbook'; Icon = 'clock' }
+        @{ Href = '/clock'; Label = 'Clock'; Sub = 'How long the work takes: the Test gate, the Stopwatch and the Logbook'; Icon = 'clock' },
+        @{ Href = '/ai'; Label = 'AI'; Sub = 'The AI this repo works with: Claude'; Icon = 'ai' },
+        @{ Href = '/ai/claude'; Label = 'Claude'; Sub = 'How Claude works here: its rules, its skills and its specialists'; Icon = 'claude'; Group = '/ai' },
+        @{ Href = '/ai/claude/rules'; Label = 'Rules'; Sub = 'The rules Claude works by'; Icon = 'rules'; Group = '/ai/claude' },
+        @{ Href = '/ai/claude/skills'; Label = 'Skills'; Sub = 'The skills Claude can use'; Icon = 'skills'; Group = '/ai/claude' },
+        @{ Href = '/ai/claude/specialists'; Label = 'Specialists'; Sub = 'The Claude Specialists, each with a craft of their own'; Icon = 'specialists'; Group = '/ai/claude' }
     )
 }
 
@@ -507,7 +521,8 @@ function Format-HubCardLinkHtml {
 function Format-HubPageCardsHtml {
     <#
         -Pages (Get-GeneralPages' shape) as hub cards, one line each, in their order: a page with no Group as its
-        own card, and each Group's card (Get-HubGroups) in the place of its first page.
+        own card, and each Group's card (Get-HubGroups) in the place of its first page; then each top-level group no
+        general page belongs to (AI), after them.
     #>
     param([AllowEmptyCollection()][object[]]$Pages = @())
     $done = @{}
@@ -518,26 +533,45 @@ function Format-HubPageCardsHtml {
         $g = @(Get-HubGroups | Where-Object { $_.Href -eq $p.Group })[0]
         Format-HubCardLinkHtml -Href $g.Href -Label $g.Label -Sub $g.Sub -Icon $g.Icon
     }
+    $grouped = @(Get-GeneralPages | Where-Object { $_.Group } | ForEach-Object { $_.Group })
+    foreach ($g in @(Get-HubGroups | Where-Object { -not $_.Group -and $grouped -notcontains $_.Href })) {
+        Format-HubCardLinkHtml -Href $g.Href -Label $g.Label -Sub $g.Sub -Icon $g.Icon
+    }
 }
 
 function Format-HubGroupPageHtml {
     <#
         The group page on -Href (Get-HubGroups), bare like the SessionStart overview: an h1 with a card per member
-        page, three to a row, each one link. $null for an Href no group has.
+        page and member group, three to a row, each one link; a group with no member yet says so in one card. Its trail
+        runs through every group it sits in. $null for an Href no group has.
     #>
     param([Parameter(Mandatory = $true)][string]$Href, [AllowEmptyString()][string]$RepoName = '', [string]$HubHref = '/hub')
-    $g = @(Get-HubGroups | Where-Object { $_.Href -ceq $Href })[0]
+    $groups = @(Get-HubGroups)
+    $g = @($groups | Where-Object { $_.Href -ceq $Href })[0]
     if (-not $g) { return $null }
+    $crumbs = @()
+    $parent = $g.Group
+    while ($parent) {
+        $pg = @($groups | Where-Object { $_.Href -ceq $parent })[0]
+        if (-not $pg) { break }
+        $crumbs = @(@{ Label = $pg.Label; Href = $pg.Href }) + $crumbs
+        $parent = $pg.Group
+    }
+    $members = @(@(Get-GeneralPages | Where-Object { $_.Group -eq $g.Href }) + @($groups | Where-Object { $_.Group -ceq $g.Href }))
     $body = New-Object System.Text.StringBuilder
     # The h1 stands on the page above the group, never inside its surface: the h1 is never framed (owner, October 28, 2026).
     [void]$body.AppendLine('<div><h1>' + (ConvertTo-GeneralPageText $g.Label) + '</h1></div>')
-    [void]$body.AppendLine('<div class="grid-3">')
-    foreach ($p in @(Get-GeneralPages | Where-Object { $_.Group -eq $g.Href })) {
-        [void]$body.AppendLine((Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon))
+    if ($members.Count -eq 0) {
+        [void]$body.AppendLine('<section class="card"><p class="msg" role="status">Nothing on this page yet.</p></section>')
+    } else {
+        [void]$body.AppendLine('<div class="grid-3">')
+        foreach ($p in $members) {
+            [void]$body.AppendLine((Format-HubCardLinkHtml -Href $p.Href -Label $p.Label -Sub $p.Sub -Icon $p.Icon))
+        }
+        [void]$body.AppendLine('</div>')
     }
-    [void]$body.AppendLine('</div>')
     return Format-GeneralPageHtml -Title $g.Label -Body $body.ToString() -Lead '' -Bare -SiteName $RepoName -HubHref $HubHref `
-        -FooterNote 'Built by the dkj-policy plugin''s <code>hub/lib/general-pages-lib.ps1</code>.'
+        -ParentCrumbs $crumbs -FooterNote 'Built by the dkj-policy plugin''s <code>hub/lib/general-pages-lib.ps1</code>.'
 }
 
 function ConvertTo-SiteHeaderName {

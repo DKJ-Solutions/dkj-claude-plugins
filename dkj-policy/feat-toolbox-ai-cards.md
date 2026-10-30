@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Maikel, October 30, 2026: an AI card on the Toolbox; its landing page a Claude card; Claude's landing page three
+cards, Rules, Skills and Specialists. A visible result, so the branch waits for the owner's look before it merges.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Get-HubGroups` takes a parent `Group`, and holds AI, Claude, Rules, Skills and Specialists as groups
+- [x] A top-level group with no general page of its own is a hub card (`Format-HubPageCardsHtml`)
+- [x] A group page lists its member groups, trails through its parents, and says so when it has nothing yet
+- [x] Four icons: ai, claude, rules, skills (Specialists reuses its own)
+- [x] The hub README names the AI card
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` green (487 passed), with asserts for the AI card, the three levels and their trails
+- [x] Served from this tree on :4910: `/`, `/ai`, `/ai/claude` and the three leaves all answer 200 with the right cards
+- [ ] The owner has looked at the pages and approves them
+
 ### DEPLOY: feat/toolbox-ai-cards
 
-**Score:**
+The Toolbox has an AI card. Its page holds a Claude card, and Claude's page holds three: Rules, Skills and
+Specialists, each a landing page of its own with nothing on it yet. Hub groups can now nest, so a group page may hold
+other groups, and its trail runs through each of them (Tools > AI > Claude > Rules).
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Every repo's Toolbox shows the new AI card, though the pages under it are still empty.
+
+**Score:** 2
 
 #### Pull Request
 
