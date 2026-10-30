@@ -574,6 +574,13 @@ function Format-MarketplacePluginsPageHtml {
     if (-not $p.Enabled) {
         [void]$body.AppendLine('<p class="msg" role="status">Not enabled in this repo''s <code>.claude/settings.json</code>: no session here loads it.</p>')
     }
+    if ($p.Name -ceq $addOnParent -and $addOns.Count) {
+        # dkj-policy's page opens on its add-ons, above its facts (Maikel, October 30, 2026): one card each, h3s
+        # under the section's h2.
+        [void]$body.AppendLine('<div class="grid-3" id="add-ons"><div class="grid__head"><h2>Add-ons</h2></div>')
+        foreach ($a in $addOns) { [void]$body.AppendLine((& $card $a ('/marketplace/' + $addOnParent + '/' + $a.Name) 3)) }
+        [void]$body.AppendLine('</div>')
+    }
     [void]$body.AppendLine('<div class="grid-2" id="about">')
     [void]$body.AppendLine('<section class="card grid__full"><div class="card__head"><h2>What it is</h2></div><dl class="facts">')
     [void]$body.AppendLine('<div><dt>Kind</dt><dd>' + (& $e $p.Kind) + '</dd></div>')
@@ -585,12 +592,6 @@ function Format-MarketplacePluginsPageHtml {
     [void]$body.AppendLine('<section class="card grid__full"><div class="card__head"><h2>Description</h2><p class="card__sub">From its <code>.claude-plugin/plugin.json</code></p></div>' +
         $(if ($p.Description) { ConvertTo-PluginDescriptionHtml -Text $p.Description } else { '<p class="note">None.</p>' }) + '</section>')
     [void]$body.AppendLine('</div>')
-    if ($p.Name -ceq $addOnParent -and $addOns.Count) {
-        # dkj-policy's page: its add-ons under its facts, one card each, h3s under the section's h2.
-        [void]$body.AppendLine('<div class="grid-3" id="add-ons"><div class="grid__head"><h2>Add-ons</h2></div>')
-        foreach ($a in $addOns) { [void]$body.AppendLine((& $card $a ('/marketplace/' + $addOnParent + '/' + $a.Name) 3)) }
-        [void]$body.AppendLine('</div>')
-    }
     if ($Group -ceq $teamGroup) {
         # A team's page: its specialists under its facts.
         $pick = if ($sp) { $sp } else { @{ Plugin = $p.Name; Rows = @() } }
