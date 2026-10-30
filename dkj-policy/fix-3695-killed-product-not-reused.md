@@ -56,6 +56,8 @@ next free port of the range, and otherwise the line says it was not started.
 
 - [x] Three new asserts in `dev-preview-sessionstart.tests.ps1`: port freed, port still held by the stopped server (the measured case), and a single port still held
 - [x] `dev-preview-sessionstart.tests.ps1`: 425 passed, 0 failed, including the existing #3275 and #3657 restart scenarios
+- [~] A hook-level case where the stopped server keeps its port: not built, because a force-stopped test listener frees its port at once, so the held state cannot be produced reliably and a case that never reaches it would only look like coverage. The decision lives in `Select-DevPreviewRestartPort`, which the three asserts cover
+- [x] Review: Victor (no correctness findings) and Sebastian (no security findings)
 
 ### DEPLOY: fix/3695-killed-product-not-reused
 

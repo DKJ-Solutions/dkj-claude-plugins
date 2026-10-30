@@ -462,6 +462,30 @@ function Select-DevPreviewPort {
     return @{ Action = 'none'; Port = $null }
 }
 
+function Select-DevPreviewRestartPort {
+    <#
+        Where the replacement starts once the hook has force-stopped its own server on -Port (#3275, #3657) and
+        waited for the port: -Port itself where it is free now, else the first other free port of -Ports.
+        Returns @{ Action = 'start'|'none'; Port }, from a snapshot taken AFTER that wait. INBOUND #3695: a
+        stopped server still holding its port at the end of the wait was reused, so the line said 'already
+        running' -- and once it let go nothing listened at all, measured with this repo's product on 4870 after
+        a trunk sync. A server this hook has stopped is never reused: it is going, whatever it still holds.
+    #>
+    param(
+        [int]$Port,
+        [Parameter(Mandatory = $true)][int[]]$Ports,
+        [AllowEmptyCollection()][object[]]$Listeners,
+        [Parameter(Mandatory = $true)][hashtable]$Processes,
+        [Parameter(Mandatory = $true)][string]$Root
+    )
+    foreach ($p in @(@($Port) + @($Ports | Where-Object { $_ -ne $Port }))) {
+        if ((Get-DevPreviewPortState -Port $p -Listeners $Listeners -Processes $Processes -Root $Root) -eq 'free') {
+            return @{ Action = 'start'; Port = $p }
+        }
+    }
+    return @{ Action = 'none'; Port = $Port }
+}
+
 function Get-DevPreviewStaleHubOwners {
     <#
         The process ids listening on -Port whose own command line runs a serve-general-pages.ps1 from an
