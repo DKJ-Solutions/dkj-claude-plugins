@@ -547,8 +547,9 @@ function Format-ConnectorDashboardHtml {
         It is the Connectors page under the hub on '/' (#3097): a two-crumb trail and its own h1. The
         facts card belongs to the hub, so this page ends on its footer note.
 
-        -Group splits it in two (owner, October 26, 2026). Empty, it is /connectors: the tiles over every repo and
-        one card per owner group (Get-DashboardOwnerGroups), each linking that group's page. A group's Key, it is
+        -Group splits it in two (owner, October 26, 2026). Empty, it is /connectors: a section per owner group
+        (Get-DashboardOwnerGroups) holding that group's repo cards, the DKJ ones handed in as -DkjCardsHtml with their
+        -Style and any warning about reading them as -NoticeHtml (Maikel, October 30, 2026). A group's Key, it is
         /connectors/<Key>: a three-crumb trail, the tiles over that group, its overview table and its repo cards.
 
         The server serves the DKJ group its own page instead (Format-DkjReposPageHtml, Maikel, October 28, 2026):
@@ -559,7 +560,10 @@ function Format-ConnectorDashboardHtml {
     param(
         [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Connectors,
         [Parameter(Mandatory = $true)][hashtable]$Meta,
-        [ValidateSet('', 'dkj', 'bwj', 'other')][AllowEmptyString()][string]$Group = ''
+        [ValidateSet('', 'dkj', 'bwj', 'other')][AllowEmptyString()][string]$Group = '',
+        [AllowEmptyString()][string]$DkjCardsHtml = '',
+        [AllowEmptyString()][string]$Style = '',
+        [AllowEmptyString()][string]$NoticeHtml = ''
     )
     $groupDef = if ($Group) { @(Get-DashboardOwnerGroups | Where-Object { $_.Key -eq $Group })[0] } else { $null }
     $pageName = if ($groupDef) { $groupDef.Title } else { 'Consumers' }
@@ -569,24 +573,45 @@ function Format-ConnectorDashboardHtml {
 
     $sb = New-Object System.Text.StringBuilder
     $trail = if ($groupDef) { @(@{ Href = '/connectors'; Label = 'Consumers' }) } else { @() }
-    [void]$sb.Append((Format-ConnectorPageStart -PageName $pageName -Trail $trail))
+    [void]$sb.Append((Format-ConnectorPageStart -PageName $pageName -Trail $trail -Style $Style))
+    if ($NoticeHtml) { [void]$sb.AppendLine($NoticeHtml) }
 
     # The warning that the signals could not be read.
     if ($Meta.CheckFailed) {
         [void]$sb.AppendLine('<p class="msg msg--warn" role="alert">check-connectors.ps1 could not be run: ' + (& $e $Meta.CheckFailed) + '. The register is shown without its signals.</p>')
     }
 
-    # /connectors: one card per owner group, three to a row in the hub's card form (Format-HubCardLinkHtml), each
-    # linking its group's page with that group's summary under the label. An empty group keeps its card ('0 repos').
+    # /connectors: a section per owner group, its h2 the group with its summary and a way to its own page, and under
+    # it that group's repo cards one level up from that page, each an h3 (Maikel, October 30, 2026). The DKJ cards
+    # are the DKJ page's own (-DkjCardsHtml, Format-DkjRepoCardsHtml) in its four-to-a-row grid; without them, and
+    # for BWJ and Other, a card per registered repo, opening its details on the group's page. An empty group keeps
+    # its section and says so.
     if (-not $groupDef) {
-        [void]$sb.AppendLine('<div class="grid-3" id="groups">')
+        $rank = @{ bad = 0; warn = 1; skip = 2; good = 3 }
         foreach ($g in @(Get-DashboardOwnerGroups)) {
-            $members = @($all | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $g.Key })
-            # The hub's card (Format-HubCardLinkHtml), its label an h2 (owner, October 26, 2026). The summary is this
-            # file's own markup.
-            [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/' + $g.Key) -Label $g.Label -SubHtml (Format-DashboardGroupSummary $members) -Heading 2))
+            $members = @($all | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq $g.Key } | Sort-Object @{ Expression = { $rank[[string]$_.Status] } }, @{ Expression = { [string]$_.Repo } })
+            $dkjCards = $g.Key -eq 'dkj' -and $DkjCardsHtml
+            [void]$sb.AppendLine('<div class="' + $(if ($dkjCards) { 'card-grid dr-repos' } else { 'grid-3' }) + '" id="group-' + $g.Key + '">')
+            # The DKJ cards hold every DKJ repo, registered or not, so their head counts the cards rather than the register.
+            $summary = if ($dkjCards) { $nCards = ([regex]::Matches($DkjCardsHtml, 'class="menu-item"')).Count; "$nCards repo" + $(if ($nCards -ne 1) { 's' } else { '' }) + ' &#183; ' + $members.Count + ' registered' } else { Format-DashboardGroupSummary $members }
+            [void]$sb.AppendLine('<div class="grid__head"><h2>' + $g.Label + '</h2><p class="card__sub">' + $summary + '</p><a class="btn" href="/connectors/' + $g.Key + '">Open ' + $g.Title + '</a></div>')
+            if ($dkjCards) {
+                [void]$sb.Append($DkjCardsHtml)
+            } elseif (-not $members.Count) {
+                [void]$sb.AppendLine('<p class="note grid__full">No repo ' + $g.Owner + ' is registered under <code>connectors/</code>.</p>')
+            } else {
+                foreach ($c in $members) {
+                    $b = Get-DashboardStatusBadge ([string]$c.Status)
+                    $badge = '<span class="badge badge--sm ' + $b.Class + '" title="' + $b.Word + '" aria-label="' + $b.Word + '">' + $b.Mark + '</span>'
+                    $anchor = 'repo-' + (([string]$c.Repo) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
+                    $n = @($c.Plugins).Count
+                    $sub = (& $e $c.Visibility) + ' &#183; ' + $n + ' plugin' + $(if ($n -ne 1) { 's' } else { '' }) + ' &#183; ' + (Format-DashboardInstalledVersion $c)
+                    $name = ([string]$c.Repo) -replace '^.*/', ''
+                    [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/' + $g.Key + '#' + $anchor) -Label $name -SubHtml $sub -TitleBadgeHtml $badge -Heading 3))
+                }
+            }
+            [void]$sb.AppendLine('</div>')
         }
-        [void]$sb.AppendLine('</div>')
     } else {
         # A group's page: worst first, then by name.
         $rank = @{ bad = 0; warn = 1; skip = 2; good = 3 }

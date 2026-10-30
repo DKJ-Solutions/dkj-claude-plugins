@@ -392,8 +392,16 @@ try {
                     $html = Format-DkjReposPageHtml -Query $dkjCache.Query -Checkouts $dkjCache.Checkouts -Connectors $dkjConnectors -Meta $dkjCache.Meta -CheckMeta $cache.Meta
                     # A failed read of GitHub is shown once and not kept, so the next request asks again (Victor, #3231).
                     if ($dkjCache.Query.Error) { $dkjCache = $null }
-                } else {
+                } elseif ($group) {
                     $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta -Group $group
+                } else {
+                    # The overview holds the DKJ group's own cards under its DKJ h2, an h3 each (Maikel, October 30, 2026).
+                    if ($null -eq $dkjCache -or ((Get-Date) - $dkjCache.At).TotalSeconds -ge $CacheSeconds) { $dkjCache = Get-DkjReposModel }
+                    $dkjConnectors = @($cache.Connectors | Where-Object { (Get-ConnectorOwnerGroup ([string]$_.Repo)) -eq 'dkj' })
+                    $cards = Format-DkjRepoCardsHtml -Query $dkjCache.Query -Checkouts $dkjCache.Checkouts -Connectors $dkjConnectors -Heading 3
+                    $notice = if ($dkjCache.Query.Error) { '<p class="msg msg--warn" role="alert">GitHub could not be read: ' + (ConvertTo-DashboardText $dkjCache.Query.Error) + '. The DKJ checkouts on this machine are shown without their issues.</p>' } else { '' }
+                    $html = Format-ConnectorDashboardHtml -Connectors $cache.Connectors -Meta $cache.Meta -DkjCardsHtml $cards -Style (Get-DkjRepoCardStyle) -NoticeHtml $notice
+                    if ($dkjCache.Query.Error) { $dkjCache = $null }
                 }
                 Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
                 continue

@@ -847,7 +847,7 @@ function Get-DkjRepoCardStyle {
         # Each card three lines at most: the name, the facts and the checkout. The name a size down, to fit four to a
         # row; the house style cuts it off where it still does not fit and keeps the status mark after it in its
         # place, and .dr-clip does the same for the facts and the checkout (Maikel, October 28, 2026).
-        '.dr-repos h2 { font-size: var(--text-lg); }',
+        '.dr-repos .menu-item__title { font-size: var(--text-lg); }',
         '.dr-clip { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: var(--text-sm); }',
         '.dr-clip code { font-size: var(--text-xs); }',
         # A grid-2 track is 1fr, which never shrinks below what its card holds -- and the session command is one nowrap
@@ -867,6 +867,36 @@ function Get-DkjRepoCardStyle {
         '.dr-card > .dr-session { display: flex; align-items: center; gap: var(--spacing-2); margin-top: var(--spacing-3); }',
         '.dr-session code { flex: 1 1 auto; min-width: 0; font-size: var(--text-xs); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }'
     ) -join "`n")
+}
+
+function Format-DkjRepoCardsHtml {
+    <#
+        The DKJ repos' cards and nothing around them: one per repo in the hub's card form (Format-HubCardLinkHtml), each
+        opening that repo's own page. The DKJ group's page sets them in its .dr-repos grid with an h2 each, and the
+        Consumers overview under its DKJ h2 with an h3 each (Maikel, October 30, 2026). The parameters are
+        Format-DkjReposPageHtml's; -Heading is the cards' heading level.
+    #>
+    param(
+        [Parameter(Mandatory = $true)][hashtable]$Query,
+        [AllowEmptyCollection()][Parameter(Mandatory = $true)][object[]]$Checkouts,
+        [AllowEmptyCollection()][object[]]$Connectors = @(),
+        [ValidateSet(2, 3)][int]$Heading = 2
+    )
+    $e = { param($v) ConvertTo-DashboardText $v }
+    $set = Get-DkjRepoRows -Query $Query -Checkouts $Checkouts
+    $byConnector = @{}
+    foreach ($c in @($Connectors | Where-Object { $_ })) { $byConnector[([string]$c.Repo).ToLowerInvariant()] = $c }
+    $sb = New-Object System.Text.StringBuilder
+    $clip = { param($html) '<span class="dr-clip" title="' + (& $e ($html -replace '<[^>]+>', '' -replace '&middot;', [string][char]0x00B7)) + '">' + $html + '</span>' }
+    foreach ($r in @($set.Rows)) {
+        $co = $set.ByRepo[$r.Repo]
+        $value = & $clip $(if ($co) { '<code>' + (& $e $co.Branch) + '</code> ' + $(if ($co.Dirty) { [string]$co.Dirty + ' uncommitted' } else { 'clean' }) } else { 'Not checked out here' })
+        $reg = $byConnector[([string]$r.Repo).ToLowerInvariant()]
+        $badge = if ($reg) { $b = Get-DashboardStatusBadge ([string]$reg.Status); '<span class="badge badge--sm ' + $b.Class + '" title="' + $b.Word + '" aria-label="' + $b.Word + '">' + $b.Mark + '</span>' } else { '' }
+        $id = 'repo-' + (([string]$r.Name) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
+        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/dkj/' + $r.Name) -Label ([string]$r.Name) -SubHtml (& $clip (Format-DkjRepoFactsHtml -Row $r -NoLinks)) -ValueHtml $value -TitleBadgeHtml $badge -Heading $Heading -Id $id))
+    }
+    return $sb.ToString()
 }
 
 function Format-DkjReposPageHtml {
@@ -889,8 +919,6 @@ function Format-DkjReposPageHtml {
     )
     $e = { param($v) ConvertTo-DashboardText $v }
     $set = Get-DkjRepoRows -Query $Query -Checkouts $Checkouts
-    $byConnector = @{}
-    foreach ($c in @($Connectors | Where-Object { $_ })) { $byConnector[([string]$c.Repo).ToLowerInvariant()] = $c }
 
     $sb = New-Object System.Text.StringBuilder
     [void]$sb.Append((Format-ConnectorPageStart -PageName 'DKJ repos' -Trail @(@{ Href = '/connectors'; Label = 'Consumers' }) -Style (Get-DkjRepoCardStyle)))
@@ -905,15 +933,7 @@ function Format-DkjReposPageHtml {
     # columns are this page's own layer (.dr-repos), never a house class redefined; .card-grid gives it the house
     # padding every container of cards keeps.
     [void]$sb.AppendLine('<div class="card-grid dr-repos" id="repos">')
-    $clip = { param($html) '<span class="dr-clip" title="' + (& $e ($html -replace '<[^>]+>', '' -replace '&middot;', [string][char]0x00B7)) + '">' + $html + '</span>' }
-    foreach ($r in @($set.Rows)) {
-        $co = $set.ByRepo[$r.Repo]
-        $value = & $clip $(if ($co) { '<code>' + (& $e $co.Branch) + '</code> ' + $(if ($co.Dirty) { [string]$co.Dirty + ' uncommitted' } else { 'clean' }) } else { 'Not checked out here' })
-        $reg = $byConnector[([string]$r.Repo).ToLowerInvariant()]
-        $badge = if ($reg) { $b = Get-DashboardStatusBadge ([string]$reg.Status); '<span class="badge badge--sm ' + $b.Class + '" title="' + $b.Word + '" aria-label="' + $b.Word + '">' + $b.Mark + '</span>' } else { '' }
-        $id = 'repo-' + (([string]$r.Name) -replace '[^A-Za-z0-9]+', '-').ToLowerInvariant()
-        [void]$sb.AppendLine((Format-HubCardLinkHtml -Href ('/connectors/dkj/' + $r.Name) -Label ([string]$r.Name) -SubHtml (& $clip (Format-DkjRepoFactsHtml -Row $r -NoLinks)) -ValueHtml $value -TitleBadgeHtml $badge -Heading 2 -Id $id))
-    }
+    [void]$sb.Append((Format-DkjRepoCardsHtml -Query $Query -Checkouts $Checkouts -Connectors $Connectors -Heading 2))
     [void]$sb.AppendLine('</div>')
     if (-not @($set.Rows).Count) { [void]$sb.AppendLine('<p class="note">No DKJ-Solutions repo was found, on GitHub or beside this repo.</p>') }
     $nArch = @(@($Query.Archived) | Where-Object { $_ -and -not $set.ByRepo.ContainsKey($_) }).Count

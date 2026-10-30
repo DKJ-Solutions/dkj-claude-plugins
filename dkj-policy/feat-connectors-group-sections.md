@@ -39,19 +39,36 @@
 
 ### PLAN
 
+Maikel, October 30, 2026: on `/connectors`, three h2 headers for DKJ, BWJ and Other, and the cards moved
+one level up with an h3 each. Read as: the repo cards from the group pages move up under their group's h2.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Format-DkjRepoCardsHtml` (`scripts/lib/dev-pages-lib.ps1`): the DKJ repo cards on their own, with a
+  heading level, shared by the DKJ group page (h2) and the overview (h3)
+- [x] `Format-ConnectorDashboardHtml` overview: a section per group, its h2 head with summary and a link to
+  the group page; DKJ holds its own cards, BWJ and Other a card per registered repo opening its details
+- [x] The server hands the overview the DKJ cards, their style and any GitHub read warning
 
 ### TEST
 
+- [x] `connector-dashboard.tests.ps1` and `dev-pages.tests.ps1` green, the overview's asserts rewritten
+- [ ] The owner's look at `http://localhost:4870/connectors`
+
 ### DEPLOY: feat/connectors-group-sections
 
-**Score:**
+The Consumers page (`/connectors`) is now three sections, DKJ, BWJ and Other, each under its own h2 with the
+group's summary and a link to its page. Under each sit that group's repo cards, one level up from where they
+were and an h3 each: every DKJ repo's card, as on the DKJ page, and a card per registered BWJ and Other repo
+that opens its details on the group's page.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A -- a page of this repo's own dev server, which no consumer runs.
+
+**Score:** N/A
 
 #### Pull Request
 

@@ -240,14 +240,18 @@ $three = @(
     @{ Repo = 'DKJ-Solutions/w'; Status = 'bad'; Plugins = @(); Signals = @(); Present = $false; Git = $null })
 $overview = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' }
 Assert-True ($overview -match '<h1>Consumers</h1>' -and $overview -match 'site-header__name">dkj-claude-plugins <span class="site-header__tag">product</span></span>' -and $overview -match '<span aria-current="page">Consumers</span>') 'the overview''s h1 is Consumers, and the site header names this repo''s product, whose page it is (#3540)'
-$cD = $overview.IndexOf('href="/connectors/dkj"'); $cB = $overview.IndexOf('href="/connectors/bwj"'); $cO = $overview.IndexOf('href="/connectors/other"')
-Assert-True ($cD -ge 0 -and $cD -lt $cB -and $cB -lt $cO) 'the overview has a card per owner group, DKJ, BWJ, Other, each linking its own page (owner, October 26, 2026)'
-Assert-Equal 3 ([regex]::Matches($overview, '<section class="card card--link">')).Count 'three cards, in the hub''s card form'
-Assert-True ($overview -match '<div class="grid-3" id="groups">' -and $overview -notmatch 'grid__head') 'the cards sit three to a row, with no heading above them'
-Assert-True ($overview.Contains('<div class="menu-item__label"><h2 class="menu-item__title">DKJ</h2><span class="menu-item__sub">2 repos &#183; 1 needs action &#183; 1 in sync</span></div>')) 'a card''s label is an h2, its group''s summary under it (owner, October 26, 2026)'
-Assert-Equal 3 ([regex]::Matches($overview, '<h2 class="menu-item__title">')).Count 'one h2 per card'
-Assert-True ($overview.Contains('<h2 class="menu-item__title">BWJ</h2><span class="menu-item__sub">0 repos</span>')) 'an empty group keeps its card'
-Assert-True ($overview -notmatch 'Connected repos</h2>' -and $overview -notmatch '<section class="mini-card' -and $overview -notmatch 'id="issues"') 'the overview holds no table and no repo card: those are the group pages'
+$cD = $overview.IndexOf('<div class="grid__head"><h2>DKJ</h2>'); $cB = $overview.IndexOf('<div class="grid__head"><h2>BWJ</h2>'); $cO = $overview.IndexOf('<div class="grid__head"><h2>Other</h2>')
+Assert-True ($cD -ge 0 -and $cD -lt $cB -and $cB -lt $cO) 'the overview has an h2 section per owner group, DKJ, BWJ, Other (Maikel, October 30, 2026)'
+Assert-True ($overview -match '<div class="grid-3" id="group-dkj">' -and $overview.Contains('<h2>DKJ</h2><p class="card__sub">2 repos &#183; 1 needs action &#183; 1 in sync</p><a class="btn" href="/connectors/dkj">Open DKJ repos</a>')) 'each section heads with its group''s summary and the way to its own page'
+Assert-Equal 3 ([regex]::Matches($overview, '<section class="card card--link">')).Count 'its repos'' cards sit one level up from the group pages, one per registered repo'
+Assert-Equal 3 ([regex]::Matches($overview, '<h3 class="menu-item__title">')).Count 'each card an h3 under its group''s h2'
+Assert-Equal 0 ([regex]::Matches($overview, '<h2 class="menu-item__title">')).Count 'and no card is an h2 any more'
+Assert-True ($overview.IndexOf('href="/connectors/dkj#repo-dkj-solutions-w"') -ge 0 -and $overview.IndexOf('href="/connectors/dkj#repo-dkj-solutions-w"') -lt $overview.IndexOf('href="/connectors/dkj#repo-dkj-solutions-y"')) 'a registered repo''s card opens its details on the group''s page, worst first'
+Assert-True ($overview.Contains('<span>w</span><span class="badge badge--sm badge--bad"') -and $overview -match 'href="/connectors/other#repo-someone-x"') 'the card names the repo without its owner, its status mark after the name'
+Assert-True ($overview -match '<h2>BWJ</h2><p class="card__sub">0 repos</p>' -and $overview -match 'No repo owned by BWJ-Development is registered') 'an empty group keeps its section and says so'
+Assert-True ($overview -notmatch 'Connected repos</h2>' -and $overview -notmatch '<section class="mini-card' -and $overview -notmatch 'id="issues"') 'the overview holds no table and no details: those are the group pages'
+$withDkj = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' } -DkjCardsHtml ((Format-HubCardLinkHtml -Href '/a' -Label 'a' -Heading 3) + (Format-HubCardLinkHtml -Href '/b' -Label 'b' -Heading 3)) -Style '.dr-x { }' -NoticeHtml '<p class="msg">n</p>'
+Assert-True ($withDkj -match '<div class="card-grid dr-repos" id="group-dkj">' -and $withDkj.Contains('<h2>DKJ</h2><p class="card__sub">2 repos &#183; 2 registered</p>') -and $withDkj -notmatch 'connectors/dkj#repo' -and $withDkj.Contains('.dr-x { }') -and $withDkj.Contains('<p class="msg">n</p>')) 'handed the DKJ page''s own cards, the DKJ section holds those in their grid, counting them, with their style and notice'
 Assert-True ($overview -notmatch 'class="tiles"' -and $overview -notmatch 'class="lead"') 'the overview has no tiles and no lead: its h1, then its cards, each carrying its group''s summary (owner, October 26, 2026)'
 Assert-True ($html -notmatch 'class="tiles"' -and $html -notmatch 'class="lead"') 'and neither has a group''s page'
 $dkj = Format-ConnectorDashboardHtml -Connectors $three -Meta @{ GeneratedAt = 'now' } -Group 'dkj'
