@@ -19,7 +19,7 @@
      The dark token block therefore appears twice; keep both in sync.
 
    How far a theme reaches: every use of --muted (a grey of the colour: the pressed .seg, .badge--info,
-   .meter--info, focus rings), the text caret and the selection; --primary, the colour itself,
+   .meter--info, focus rings, a plain .btn's edge on a card inside a grid), the text caret and the selection; --primary, the colour itself,
    for links, titles and values, the settings toggle's edge and the breadcrumb bar (#3235), .btn--primary (a filled main action, owner's decision, October 15, 2026, #109) and
    native checkboxes, radios, sliders and progress bars through accent-color. Beyond that, by default: the page,
    the cards and tiles stand on the paper (--paper-1, --paper-2), every line and tinted surface is --paper-3, and
@@ -436,6 +436,10 @@ p, p.meta { color: var(--fg-1); }
    border one step on so the edge stays drawn; .btn--primary darkens its own fill below. */
 .btn:hover:not(:disabled) { background: var(--paper-3); border-color: var(--paper-4); }
 .btn:focus-visible { outline: 2px solid var(--muted); outline-offset: 2px; }
+/* On a card inside a grid (#3697) the border's --paper-3 reads --paper-4, the card's own edge, one step from its
+   --paper-3 ground, and no paper step lies beyond it. So a plain .btn there takes --muted as its edge, hover included,
+   and keeps a visible outline beside a .btn--primary. */
+:is(.grid-2, .grid-3, .card-grid) > .card .btn:not(.btn--primary) { border-color: var(--muted); }
 /* Segmented switch: <span class="seg" role="group"><button aria-pressed="true">A</button><button aria-pressed="false">B</button></span>. */
 .seg { display: inline-flex; border: 1px solid var(--paper-3); border-radius: 8px; overflow: hidden; vertical-align: middle; }
 .seg button { background: none; border: 0; color: var(--fg-1); padding: 0 var(--spacing-2-5); height: 100%; font: inherit; font-size: var(--text-sm); cursor: pointer; }
