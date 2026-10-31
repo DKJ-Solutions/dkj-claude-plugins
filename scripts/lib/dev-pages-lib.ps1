@@ -39,7 +39,8 @@
 # The plugin's lib: this repo is its source, so it reads it from its own tree -- dkj-policy's page shell and
 # card (#3198).
 . (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\general-pages-lib.ps1')
-# And the hub's Plugins page lib, for ConvertTo-PluginDescriptionHtml: a plugin's description as paragraphs.
+# And the hub's Plugins page lib, for ConvertTo-PluginDescriptionHtml (a plugin's description as paragraphs) and the house
+# style's specimens (Get-HouseStyleSpecimensParts).
 . (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\plugins-page-lib.ps1')
 
 function Format-DevPageHtml {
@@ -57,12 +58,12 @@ function Format-DevPageHtml {
         [string]$ThemeKey = 'general-pages',
         [switch]$Bare,
         [AllowEmptyCollection()][object[]]$ParentCrumbs = @(),
-        [AllowEmptyString()][string]$Sub = ''
+        [AllowEmptyString()][string]$Info = ''
     )
     # -Bare: no h1 or lead above the body, the general banner still on top (Format-GeneralPageHtml's own switch, #3356), for a page that opens on its content.
-    # -Sub: the one short line under the h1 a plugin's page carries (Format-GeneralPageHtml's own, escaped by the caller).
+    # -Info: what a plugin's page is about, behind the "?" right of its h1 (Format-GeneralPageHtml's own, escaped by the caller).
     return Format-GeneralPageHtml -Title $Title -Lead $Lead -Body $Body -Style $Style -FooterNote $FooterNote -ThemeKey $ThemeKey `
-        -Brand 'dkj-marketplace' -BrandTag 'product' -SiteName 'dkj-marketplace' -HubHref '/' -HomeLabel 'Home' -Bare:$Bare -ParentCrumbs $ParentCrumbs -Sub $Sub
+        -Brand 'dkj-marketplace' -BrandTag 'product' -SiteName 'dkj-marketplace' -HubHref '/' -HomeLabel 'Home' -Bare:$Bare -ParentCrumbs $ParentCrumbs -Info $Info
 }
 
 function Get-ProductPages {
@@ -513,8 +514,8 @@ function Format-MarketplacePluginsPageHtml {
         teams (dkj-subagents-*), which stand as ONE card, 'dkj-subagents', in the place of the first of them. With
         -Group 'dkj-subagents' alone it is that card's page, one link card per team. With -Plugin it is one
         plugin's page -- /marketplace/<name>, or /marketplace/dkj-subagents/<name> for a team, so a team is reachable only
-        under its group: the marketplace's line as the lead, a facts card and the full description as paragraphs
-        (the hub's ConvertTo-PluginDescriptionHtml). A -Group or -Plugin that names nothing, or a plugin under the
+        under its group: the marketplace's line as the lead, a facts card, and the full description as paragraphs (the hub's
+        ConvertTo-PluginDescriptionHtml) behind the "?" right of the h1 (Maikel, October 31, 2026: no Description card since). A -Group or -Plugin that names nothing, or a plugin under the
         wrong level, returns $null, so the server answers 404 rather than an empty page. dkj-policy's add-ons
         (Maikel, October 30, 2026) are not on the overview: dkj-policy's page carries them as cards, and each is
         -Group 'dkj-policy' -Plugin <name>, /marketplace/dkj-policy/<name>.
@@ -623,11 +624,11 @@ function Format-MarketplacePluginsPageHtml {
     # '' rather than no output for a zero: in 5.1 a call that writes nothing empties the whole @(a, b, ...) it stands in.
     $count = { param($n, $word) if ([int]$n -gt 0) { [string]$n + ' ' + $word + $(if ([int]$n -ne 1) { 's' } else { '' }) } else { '' } }
     $holds = @((& $count $p.Subagents 'subagent'), (& $count $p.Personas 'persona'), (& $count $p.Skills 'skill'), (& $count $p.Hooks 'hook')) | Where-Object { $_ }
-    # The lead is the marketplace's line up to its first sentence: some run to paragraphs, which the description card holds.
+    # The lead is the marketplace's line up to its first sentence: some run to paragraphs.
     $lead = if ([string]$p.Summary -cmatch '^(.+?[.!?])\s+[A-Z]') { $Matches[1] } else { [string]$p.Summary }
-    # Its description shortened to its first sentence, as the sub line under the h1 (Maikel, October 31, 2026): the
-    # one page kind the house style lets carry one. With no description the marketplace's line stands in.
-    $short = if ([string]$p.Description -cmatch '^(.+?[.!?])(\s+[A-Z]|\s*\z)') { $Matches[1] } elseif ($p.Description) { [string]$p.Description } else { $lead }
+    # Its whole description, behind the "?" right of the h1 (Maikel, October 31, 2026): nothing under the h1, so
+    # the page opens on its content (#3585). With no description the marketplace's line stands in; with neither, no "?".
+    $info = if ($p.Description) { ConvertTo-PluginDescriptionHtml -Text $p.Description } elseif ($p.Summary) { '<p>' + (& $e $p.Summary) + '</p>' } else { '' }
     if (-not $p.Enabled) {
         [void]$body.AppendLine('<p class="msg" role="status">Not enabled in this repo''s <code>.claude/settings.json</code>: no session here loads it.</p>')
     }
@@ -653,8 +654,7 @@ function Format-MarketplacePluginsPageHtml {
     [void]$body.AppendLine('<div><dt>Holds</dt><dd>' + $(if ($holds) { $holds -join ' &middot; ' } else { '<span class="note">nothing counted</span>' }) + '</dd></div>')
     [void]$body.AppendLine('<div><dt>Source</dt><dd><code>' + (& $e $p.Source) + '</code></dd></div>')
     [void]$body.AppendLine('</dl></section>')
-    [void]$body.AppendLine('<section class="card grid__full"><div class="card__head"><h2>Description</h2><p class="card__sub">From its <code>.claude-plugin/plugin.json</code></p></div>' +
-        $(if ($p.Description) { ConvertTo-PluginDescriptionHtml -Text $p.Description } else { '<p class="note">None.</p>' }) + '</section>')
+    # No Description card (Maikel, October 31, 2026): the description is behind the "?" right of the h1.
     [void]$body.AppendLine('</div>')
     if ($Group -ceq $teamGroup) {
         # A team's page: its specialists under its facts.
@@ -664,7 +664,7 @@ function Format-MarketplacePluginsPageHtml {
         $footer += ' ' + (Get-SpecialistsFooter -CharsPerToken $CharsPerToken)
     }
     return Format-DevPageHtml -Title $p.Name -Style $style -Body $body.ToString() -FooterNote $footer -Lead (& $e $lead) `
-        -ParentCrumbs $crumbs -Sub (& $e $short)
+        -ParentCrumbs $crumbs -Info $info
 }
 
 function Find-DkjCheckouts {

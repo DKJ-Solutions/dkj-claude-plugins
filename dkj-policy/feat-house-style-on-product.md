@@ -48,7 +48,7 @@ repo only, so every consumer's toolbox keeps its own copy.
 - [x] `plugins-page-lib.ps1`: `Get-HouseStyleSpecimensParts` holds the page's content, so the toolbox and the product render the same page in their own shells; `Resolve-HouseStyleProductUrl` decides the redirect
 - [x] `serve-general-pages.ps1`: in the source repo, with a product stated, `/plugins/dkj-policy/house-style[/<section>]` is a 302 to the product
 - [x] `dev-pages-lib.ps1` + `serve-consumer-dashboard.ps1`: `/marketplace/dkj-policy/house-style[/<section>]` on the product, and a card on its dkj-policy page
-- [x] Maikel, same day: a plugin's page shows its description, shortened to its first sentence, as a `.sub` line under the h1. `Format-GeneralPageHtml` takes `-Sub`; the house style's rule 5 (#3585) names a plugin's page as its one exception, in the README and the `house-style` skill
+- [x] Maikel, same day: a plugin's page drops its Description card and puts the description behind a "?" `.info-button` right of the h1, a `.tooltip--explain` shown on hover or focus. `Format-GeneralPageHtml` takes `-Info` and `Get-PageInfoScript` places and opens the tooltip; the house style gains `.page-title` (the h1 and its button on one row), named in the README and the `house-style` skill beside rule 5 (#3585), which holds
 
 ### TEST
 
@@ -63,9 +63,9 @@ section and a card on the product's dkj-policy page, read from this tree on ever
 sends its own house-style pages there once a release carries the redirect; in every other repo the toolbox
 keeps serving them, since only the source repo holds the canonical `specimens.html`.
 
-A plugin's page on the product now opens with its description, shortened to its first sentence, as one `.sub`
-line under the `h1`. The house style's rule that a page opens on its `h1` alone (#3585) names a plugin's page as
-its one exception, and `Format-GeneralPageHtml` takes that line as `-Sub`.
+A plugin's page on the product has no Description card any more: its description is behind a "?" right of the`nh1`, shown as a tooltip while the pointer is on it or it has focus. `Format-GeneralPageHtml` takes it as `-Info`,
+and the house style gains `.page-title`, the `h1` and its `.info-button` on one row, so a page still opens on its
+`h1` alone (#3585).
 
 **Score:** 2
 
