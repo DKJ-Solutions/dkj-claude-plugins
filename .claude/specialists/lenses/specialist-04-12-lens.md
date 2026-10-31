@@ -10,21 +10,21 @@ group: 04
 
 ## Specific to this repo (claude-code-specialists)
 
-**Gwen's domain here is the `house-style` skill page**:
-[`plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md`](../../../plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md).
+**Gwen's domain here is the `dkj-brandbook` skill page**:
+[`plugins/dkj-policy/dkj-solutions/skills/dkj-brandbook/SKILL.md`](../../../plugins/dkj-policy/dkj-solutions/skills/dkj-brandbook/SKILL.md).
 Since October 18, 2026 ([#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130)) the
 stylesheet, the theme script, the full rules and the page patterns live in this plugin's
-[`assets/house-style/`](../../../plugins/dkj-policy/assets/house-style/), and the change to
-the house style is made there. The page stays a pointer to them (they were in `dkj-brandbook` from
+[`assets/dkj-brandbook/`](../../../plugins/dkj-policy/assets/dkj-brandbook/), and the change to
+the brand book is made there. The page stays a pointer to them (they were in the `dkj-brandbook` repo, now archived, from
 October 13). Their House style page ships beside them (`specimens.html`: every token, the twelve themes,
 every component with its variants and states) and this repo's hub shows it from the tree under Plugins, on
 `/plugins/dkj-policy/house-style`, so a change to them is a visible result that stops for the owner's look
 there. The
-brand book app that showed them before is retired
+Brandbook app that showed them before is retired
 ([#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)); the `house-style-css` CI gate
 covers the stylesheet's syntax and tokens, not the look.
 
 - **Keep the page a pointer.** It carries where the files are and the three rules a session needs before
   it fetches them (copy unchanged, a repo layer on top, never redefine). Token tables, themes and
-  reserved class names belong in `assets/house-style/README.md`; a second copy on the page is the
+  reserved class names belong in `assets/dkj-brandbook/README.md`; a second copy on the page is the
   drift the move removed.

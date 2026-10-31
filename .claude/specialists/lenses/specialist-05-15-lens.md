@@ -1021,7 +1021,7 @@ fact of which plugins are enabled, and this is the harness consequence behind it
 **Three of the seven are enabled: the core team, `dkj-policy` and `dkj-solutions`.** `dkj-solutions` came
 in on October 13, 2026 (Maikel, [#2976](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2976))
 for its dev-preview hook, which is `dkj-policy`'s since
-[#3198](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3198); it stays for the house style,
+[#3198](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3198); it stays for the brand book,
 and its session check (the hub's DKJ-Solutions card it also gave ended with
 [#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475)). The hook starts the consumer dashboard
 (`scripts/dashboard/serve-consumer-dashboard.ps1`) through this repo's `Get-DevPreview` as the repo's product, and the

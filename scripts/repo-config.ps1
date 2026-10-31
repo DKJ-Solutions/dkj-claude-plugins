@@ -738,7 +738,7 @@ function Get-ReleasePluginTier {
     return $script:ReleasePluginTier
 }
 
-# The URLs cut-release repoints at the tag it is cutting (#3133). The house-style skill pins its consumer
+# The URLs cut-release repoints at the tag it is cutting (#3133). The dkj-brandbook skill pins its consumer
 # URLs at this repo's own release tag, and the only tag carrying the bytes its checksum table names is the
 # one of the release that ships them -- a number that does not exist until the cut decides it. So the cut
 # writes it, in the release commit beside the plugin.json bumps. The owner chose this over pinning by hand
@@ -746,9 +746,9 @@ function Get-ReleasePluginTier {
 # owner's choice of October 28, 2026): a cell every house-style branch rewrote by hand conflicted between any two
 # of them, and between releases it named bytes the tag beside it does not serve.
 $script:ReleaseVersionPins = @(
-    @{ Path = 'plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md'
+    @{ Path = 'plugins/dkj-policy/dkj-solutions/skills/dkj-brandbook/SKILL.md'
        Prefix = 'https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/'
-       Checksums = @('plugins/dkj-policy/assets/house-style/house-style.css', 'plugins/dkj-policy/assets/house-style/house-theme.js') }
+       Checksums = @('plugins/dkj-policy/assets/dkj-brandbook/house-style.css', 'plugins/dkj-policy/assets/dkj-brandbook/house-theme.js') }
 )
 
 function Get-ReleaseVersionPins {

@@ -1,8 +1,8 @@
 {
   "name": "dkj-solutions",
   "displayName": "Claude Specialists - DKJ policy for DKJ-Solutions (policy scaffold, DKJ-Solutions scope)",
-  "description": "The shared rules for DKJ-Solutions apps, written once instead of in every repo. Two chapters. THE HOUSE STYLE: one look for every page, report, dashboard or Artifact a DKJ-Solutions app makes -- one set of colours and sizes, one stylesheet, and twelve themes you pick from (six light, six dark). Your repo adds its own pieces on top and never changes the shared ones; a check holds it to that, in CI and at the start of every session. THE TRACKER LABELS: a new feature is labelled feature, a fix bug. Requires 'dkj-subagents-alpha' and 'dkj-policy'. Enable it in DKJ-Solutions repos only; BWJ-Development has its own styling.",
+  "description": "The shared rules for DKJ-Solutions apps, written once instead of in every repo. Two chapters. THE BRAND BOOK: one look for every page, report, dashboard or Artifact a DKJ-Solutions app makes -- one set of colours and sizes, one stylesheet, and twelve themes you pick from (six light, six dark). Your repo adds its own pieces on top and never changes the shared ones; a check holds it to that, in CI and at the start of every session. THE TRACKER LABELS: a new feature is labelled feature, a fix bug. Requires 'dkj-subagents-alpha' and 'dkj-policy'. Enable it in DKJ-Solutions repos only; BWJ-Development has its own styling.",
   "version": "6.1.0",
   "author": { "name": "DaveKJohn" },
-  "keywords": ["specialists", "workflow", "claude-code", "dkj-solutions", "house-style", "design-tokens", "opt-in"]
+  "keywords": ["specialists", "workflow", "claude-code", "dkj-solutions", "dkj-brandbook", "house-style", "design-tokens", "opt-in"]
 }

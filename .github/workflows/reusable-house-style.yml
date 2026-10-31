@@ -1,9 +1,9 @@
 # The house-style gate AS A CONSUMER RUNS IT -- a reusable workflow (`on: workflow_call`), called from a
 # few-line .github/workflows/house-style.yml in a DKJ-Solutions repo with a UI (issue #3035). Every vendored
-# house-style.css / house-theme.js is the copy the house-style skill pins, and the repo's own layer
+# house-style.css / house-theme.js is the copy the dkj-brandbook skill pins, and the repo's own layer
 # redefines no house token or class, uses no retired token name and puts no h2 inside a card.
 #
-# The caller, as the house-style skill gives it:
+# The caller, as the dkj-brandbook skill gives it:
 #
 #   name: House style
 #   on:
@@ -71,10 +71,12 @@ jobs:
         shell: pwsh
         run: |
           . .workflow-scripts/plugins/dkj-policy/dkj-solutions/scripts/lib/house-style-rules.ps1
-          $page = Get-Content -Raw -LiteralPath .workflow-scripts/plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md
+          $pagePath = '.workflow-scripts/plugins/dkj-policy/dkj-solutions/skills/dkj-brandbook/SKILL.md'
+          if (-not (Test-Path -LiteralPath $pagePath)) { $pagePath = '.workflow-scripts/plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md' }
+          $page = Get-Content -Raw -LiteralPath $pagePath
           $tag = (Get-HouseStylePin -SkillText $page).Tag
           if ("$tag" -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+$') {
-            Write-Host "::error::the house-style skill page names no release tag of this repo ('$tag'), so there is no pinned page to check against"
+            Write-Host "::error::the dkj-brandbook skill page names no release tag of this repo ('$tag'), so there is no pinned page to check against"
             exit 2
           }
           "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -85,7 +87,11 @@ jobs:
           repository: DKJ-Solutions/dkj-marketplace
           ref: ${{ steps.pin.outputs.tag }}
           path: .workflow-pin
-          sparse-checkout: plugins/dkj-policy/dkj-solutions/skills/house-style
+          # The skill was named house-style before the rename to dkj-brandbook, and a tag cut before it
+          # carries the page under that folder, so both are fetched and the gate takes whichever exists.
+          sparse-checkout: |
+            plugins/dkj-policy/dkj-solutions/skills/dkj-brandbook
+            plugins/dkj-policy/dkj-solutions/skills/house-style
           persist-credentials: false
 
       - name: The house style holds
@@ -93,5 +99,7 @@ jobs:
         env:
           CLAUDE_PROJECT_DIR: ${{ github.workspace }}
         run: |
-          powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/plugins/dkj-policy/dkj-solutions/scripts/lint/check-house-style.ps1 -SkillPath .workflow-pin/plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md
+          $skill = '.workflow-pin/plugins/dkj-policy/dkj-solutions/skills/dkj-brandbook/SKILL.md'
+          if (-not (Test-Path -LiteralPath $skill)) { $skill = '.workflow-pin/plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md' }
+          powershell -NoProfile -ExecutionPolicy Bypass -File .workflow-scripts/plugins/dkj-policy/dkj-solutions/scripts/lint/check-house-style.ps1 -SkillPath $skill
           exit $LASTEXITCODE
