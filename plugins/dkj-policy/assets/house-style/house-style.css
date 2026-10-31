@@ -292,6 +292,10 @@ h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; 
 .page-info-button::before { content: ""; position: absolute; width: 24px; height: 24px; box-sizing: border-box;
   border: 1px solid var(--primary); border-radius: 50%; background: var(--paper-1); }
 .page-info-button svg { position: relative; }
+/* On the letters, not on the line box (Maikel, October 31, 2026). The row centres the button on the h1's line box,
+   whose middle sits above the letters: measured at the 32px h1, the caps' middle is 2px lower and the lower case's
+   5.5px. A tenth of the h1's size (3.2px) puts the "?" between the two, and scales with the h1. */
+.page-title .page-info-button { transform: translateY(calc(var(--text-h1) * 0.1)); }
 .page-info-button:focus-visible { outline: 2px solid var(--primary); outline-offset: -4px; }
 .muted { color: var(--muted); font-size: var(--text-sm); }
 .meta { font-size: var(--text-sm); color: var(--fg-2); white-space: nowrap; }
