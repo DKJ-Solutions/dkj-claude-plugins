@@ -39,7 +39,8 @@
 # The plugin's lib: this repo is its source, so it reads it from its own tree -- dkj-policy's page shell and
 # card (#3198).
 . (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\general-pages-lib.ps1')
-# And the hub's Plugins page lib, for ConvertTo-PluginDescriptionHtml: a plugin's description as paragraphs.
+# And the hub's Plugins page lib, for ConvertTo-PluginDescriptionHtml (a plugin's description as paragraphs) and the house
+# style's specimens (Get-HouseStyleSpecimensParts).
 . (Join-Path $PSScriptRoot '..\..\plugins\dkj-policy\hub\lib\plugins-page-lib.ps1')
 
 function Format-DevPageHtml {
@@ -56,11 +57,13 @@ function Format-DevPageHtml {
         [AllowEmptyString()][string]$FooterNote = '',
         [string]$ThemeKey = 'general-pages',
         [switch]$Bare,
-        [AllowEmptyCollection()][object[]]$ParentCrumbs = @()
+        [AllowEmptyCollection()][object[]]$ParentCrumbs = @(),
+        [AllowEmptyString()][string]$Info = ''
     )
     # -Bare: no h1 or lead above the body, the general banner still on top (Format-GeneralPageHtml's own switch, #3356), for a page that opens on its content.
+    # -Info: what a plugin's page is about, behind the "?" right of its h1 (Format-GeneralPageHtml's own, escaped by the caller).
     return Format-GeneralPageHtml -Title $Title -Lead $Lead -Body $Body -Style $Style -FooterNote $FooterNote -ThemeKey $ThemeKey `
-        -Brand 'dkj-marketplace' -BrandTag 'product' -SiteName 'dkj-marketplace' -HubHref '/' -HomeLabel 'Home' -Bare:$Bare -ParentCrumbs $ParentCrumbs
+        -Brand 'dkj-marketplace' -BrandTag 'product' -SiteName 'dkj-marketplace' -HubHref '/' -HomeLabel 'Home' -Bare:$Bare -ParentCrumbs $ParentCrumbs -Info $Info
 }
 
 function Get-ProductPages {
@@ -439,6 +442,39 @@ function Resolve-MarketplaceAddress {
     return @{ Group = $group; Plugin = $(if ($group) { $second } else { $first }); Specialist = [string]$Matches[3] }
 }
 
+function Resolve-ProductHouseStyleRequest {
+    <#
+        The house style's specimens on the product (Maikel, October 31, 2026): /marketplace/dkj-policy/house-style is
+        @{ Section = '' }, /marketplace/dkj-policy/house-style/<section> @{ Section = '<section>' }, anything else
+        $null. Asked before Resolve-MarketplaceAddress, which would read 'house-style' as a plugin's name.
+    #>
+    param([AllowEmptyString()][string]$Path)
+    if ($Path -cnotmatch '^/marketplace/dkj-policy/house-style(?:/([a-z][a-z-]{0,39}))?/?\z') { return $null }
+    return @{ Section = [string]$Matches[1] }
+}
+
+function Format-ProductHouseStylePageHtml {
+    <#
+        The house style's specimens in the product's shell, under Marketplace and dkj-policy, the plugin whose files
+        they document: the same page the toolbox shows on /plugins/dkj-policy/house-style, from the plugin's
+        Get-HouseStyleSpecimensParts, which the toolbox in this repo now sends here. -Body is this checkout's
+        plugins/dkj-policy/assets/house-style/specimens.html, -ReadError why it could not be read. A -Section no
+        section has returns $null, a 404.
+    #>
+    param(
+        [AllowEmptyString()][string]$Body = '',
+        [AllowEmptyString()][string]$ReadError = '',
+        [AllowEmptyString()][string]$Section = ''
+    )
+    $base = '/marketplace/dkj-policy/house-style'
+    $parts = Get-HouseStyleSpecimensParts -Body $Body -ReadError $ReadError -Section $Section -BasePath $base
+    if ($null -eq $parts) { return $null }
+    $crumbs = @(@{ Label = 'Marketplace'; Href = '/marketplace' }, @{ Label = 'dkj-policy'; Href = '/marketplace/dkj-policy' })
+    if ($parts.Section) { $crumbs += @{ Label = 'House style'; Href = $base } }
+    return Format-DevPageHtml -Title $parts.Title -Lead $parts.Lead -Body $parts.Body -ParentCrumbs $crumbs `
+        -FooterNote 'Read from this checkout''s <code>plugins/dkj-policy/assets/house-style/specimens.html</code> on every request, so it is the tree, not the installed release.'
+}
+
 function Resolve-MarketplaceAddOnRedirect {
     <#
         Where an add-on of dkj-policy's top-level address now lives (Maikel, October 30, 2026: the add-ons stand on
@@ -478,8 +514,8 @@ function Format-MarketplacePluginsPageHtml {
         teams (dkj-subagents-*), which stand as ONE card, 'dkj-subagents', in the place of the first of them. With
         -Group 'dkj-subagents' alone it is that card's page, one link card per team. With -Plugin it is one
         plugin's page -- /marketplace/<name>, or /marketplace/dkj-subagents/<name> for a team, so a team is reachable only
-        under its group: the marketplace's line as the lead, a facts card and the full description as paragraphs
-        (the hub's ConvertTo-PluginDescriptionHtml). A -Group or -Plugin that names nothing, or a plugin under the
+        under its group: the marketplace's line as the lead, a facts card, and the full description as paragraphs (the hub's
+        ConvertTo-PluginDescriptionHtml) behind the "?" right of the h1 (Maikel, October 31, 2026: no Description card since). A -Group or -Plugin that names nothing, or a plugin under the
         wrong level, returns $null, so the server answers 404 rather than an empty page. dkj-policy's add-ons
         (Maikel, October 30, 2026) are not on the overview: dkj-policy's page carries them as cards, and each is
         -Group 'dkj-policy' -Plugin <name>, /marketplace/dkj-policy/<name>.
@@ -588,8 +624,11 @@ function Format-MarketplacePluginsPageHtml {
     # '' rather than no output for a zero: in 5.1 a call that writes nothing empties the whole @(a, b, ...) it stands in.
     $count = { param($n, $word) if ([int]$n -gt 0) { [string]$n + ' ' + $word + $(if ([int]$n -ne 1) { 's' } else { '' }) } else { '' } }
     $holds = @((& $count $p.Subagents 'subagent'), (& $count $p.Personas 'persona'), (& $count $p.Skills 'skill'), (& $count $p.Hooks 'hook')) | Where-Object { $_ }
-    # The lead is the marketplace's line up to its first sentence: some run to paragraphs, which the description card holds.
+    # The lead is the marketplace's line up to its first sentence: some run to paragraphs.
     $lead = if ([string]$p.Summary -cmatch '^(.+?[.!?])\s+[A-Z]') { $Matches[1] } else { [string]$p.Summary }
+    # Its whole description, behind the "?" right of the h1 (Maikel, October 31, 2026): nothing under the h1, so
+    # the page opens on its content (#3585). With no description the marketplace's line stands in; with neither, no "?".
+    $info = if ($p.Description) { ConvertTo-PluginDescriptionHtml -Text $p.Description } elseif ($p.Summary) { '<p>' + (& $e $p.Summary) + '</p>' } else { '' }
     if (-not $p.Enabled) {
         [void]$body.AppendLine('<p class="msg" role="status">Not enabled in this repo''s <code>.claude/settings.json</code>: no session here loads it.</p>')
     }
@@ -600,6 +639,13 @@ function Format-MarketplacePluginsPageHtml {
         foreach ($a in $addOns) { [void]$body.AppendLine((& $card $a ('/marketplace/' + $addOnParent + '/' + $a.Name) 3)) }
         [void]$body.AppendLine('</div>')
     }
+    if ($p.Name -ceq $addOnParent) {
+        # What dkj-policy ships that can be looked at: the house style's specimens (Maikel, October 31, 2026).
+        [void]$body.AppendLine('<div class="grid-3" id="house-style"><div class="grid__head"><h2>House style</h2></div>')
+        [void]$body.AppendLine((Format-HubCardLinkHtml -Href '/marketplace/dkj-policy/house-style' -Label 'Specimens' -Heading 3 `
+            -Sub 'Every token, the twelve themes and every component, with their variants and states' -Icon 'house-style'))
+        [void]$body.AppendLine('</div>')
+    }
     [void]$body.AppendLine('<div class="grid-2" id="about">')
     [void]$body.AppendLine('<section class="card grid__full"><div class="card__head"><h2>What it is</h2></div><dl class="facts">')
     [void]$body.AppendLine('<div><dt>Kind</dt><dd>' + (& $e $p.Kind) + '</dd></div>')
@@ -608,8 +654,7 @@ function Format-MarketplacePluginsPageHtml {
     [void]$body.AppendLine('<div><dt>Holds</dt><dd>' + $(if ($holds) { $holds -join ' &middot; ' } else { '<span class="note">nothing counted</span>' }) + '</dd></div>')
     [void]$body.AppendLine('<div><dt>Source</dt><dd><code>' + (& $e $p.Source) + '</code></dd></div>')
     [void]$body.AppendLine('</dl></section>')
-    [void]$body.AppendLine('<section class="card grid__full"><div class="card__head"><h2>Description</h2><p class="card__sub">From its <code>.claude-plugin/plugin.json</code></p></div>' +
-        $(if ($p.Description) { ConvertTo-PluginDescriptionHtml -Text $p.Description } else { '<p class="note">None.</p>' }) + '</section>')
+    # No Description card (Maikel, October 31, 2026): the description is behind the "?" right of the h1.
     [void]$body.AppendLine('</div>')
     if ($Group -ceq $teamGroup) {
         # A team's page: its specialists under its facts.
@@ -619,7 +664,7 @@ function Format-MarketplacePluginsPageHtml {
         $footer += ' ' + (Get-SpecialistsFooter -CharsPerToken $CharsPerToken)
     }
     return Format-DevPageHtml -Title $p.Name -Style $style -Body $body.ToString() -FooterNote $footer -Lead (& $e $lead) `
-        -ParentCrumbs $crumbs
+        -ParentCrumbs $crumbs -Info $info
 }
 
 function Find-DkjCheckouts {

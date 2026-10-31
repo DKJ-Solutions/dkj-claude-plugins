@@ -73,7 +73,8 @@ that checks the stylesheet's syntax and tokens; the page is the look.
    hoogte van het scherm"* (I have to be economical with screen height). No `.lead`, no `.lede` of the
    repo's own, and no plain `<p>` that explains the page. A sentence saying what the page is for goes in its
    `<meta name="description">`, not on screen. Real content is not an intro: an empty state that says a list
-   is empty stays.
+   is empty stays. Where a page does want to say more, as a plugin's page does with its description, it goes behind a
+   `.page-info-button` right of the `h1` (`.page-title`), shown only on hover or focus (Maikel, October 31, 2026).
 6. **The `h1` is never framed** (the owner, October 28, 2026). It gets no border, outline, shadow or
    background of its own, and the page's `h1` stands on the page itself, never inside a card, a panel or
    any other bordered box. `house-style.css` clears all four on every `h1`. The rest is a layout rule: the
@@ -538,7 +539,7 @@ the page header (`body > header`, `main > header`, with `.header--accent`) and i
 sortable headers via `.sort`/`.arrow` on `aria-sort`), `.seg` (a segmented switch), `.legend`/`.legend__item` (with
 `--line`), `.swatch`, `.badge` (with `--good`, `--warn`, `--bad`, `--info`, `--neutral`, `--sm`),
 `.badge-row`, `.badge-list` (a `<ul>` of `.badge-row` items), `.meter` (with `--good`, `--warn`, `--bad`, `--info`), `.mini-cards`/`.mini-card` (with
-`--highlight`), `.item-grid`/`.item`, `.notice`, `.note`, `.meta`, `.muted`, `.sub`, `.eyebrow`, `.lead`, `.msg` (with `--warn`), `.facts` (with `--row`: the facts as one row on the page, label over value, no card), `.fill-primary`, `.fill-inverse`, `.page-column`, `.page-cta`, `.num` (tabular
+`--highlight`), `.item-grid`/`.item`, `.notice`, `.note`, `.meta`, `.muted`, `.sub`, `.eyebrow`, `.lead`, `.msg` (with `--warn`), `.facts` (with `--row`: the facts as one row on the page, label over value, no card), `.fill-primary`, `.fill-inverse`, `.page-column`, `.page-title` (the `h1` with a `.page-info-button` right of it, a drawn "?" on a 24px ring with a 1px solid border, in a 44px button, whose `.tooltip--explain` says what the page is about on hover or focus), `.page-cta`, `.num` (tabular
 numerals), `.delta` (with `--up`/`--down`, aliased `.pos`/`.neg`), `.btn` (with `--primary`, and a `:hover`, `:focus-visible` and `:disabled` state for both), `.info-button`, `.tooltip`
 (with `--explain`, and `--open` for one anchored to a trigger), `.more` (a disclosure), `.moretoggle` (a full-width read-more button), `.chart` (the SVG chart scope),
 `.theme-picker` (with `__row`, `__label`, `__swatches`), `.theme-swatch` (with `--light`, `--dark`) and

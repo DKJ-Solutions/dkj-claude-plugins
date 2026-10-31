@@ -529,6 +529,17 @@ try {
                 if (-not $plReq.Name) {
                     $html = Format-PluginsPageHtml -Model $pl.Model -ReadError $pl.Error -RepoName (Get-RepoIdentity).Name
                 } elseif ($plRow = Find-PluginsPageRow -Model $pl.Model -Name $plReq.Name) {
+                    $hsState = if ($plReq.Page -eq 'house-style') { Read-RepoHubState -Root $root } else { $null }
+                    $hsTo = if ($hsState -and $hsState.Mode -eq 'product') {
+                        Resolve-HouseStyleProductUrl -IsSource (Test-Path -LiteralPath (Join-Path $root 'plugins\dkj-policy\assets\house-style\specimens.html') -PathType Leaf) `
+                            -ProductUrl $hsState.Product -Section $plReq.Section
+                    } else { '' }
+                    if ($hsTo) {
+                        # The source repo shows them on its product (Maikel, October 31, 2026); a 302, since that
+                        # depends on which product this session started.
+                        Send-LoopbackResponse $stream 302 'Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('On the product.')) @{ Location = $hsTo } -Method $method
+                        continue
+                    }
                     if ($plReq.Page -eq 'house-style') {
                         # The specimens beside the stylesheet this server already serves (#3493), read per request.
                         $specError = ''; $spec = ''

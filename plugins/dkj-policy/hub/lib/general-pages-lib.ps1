@@ -124,6 +124,23 @@ function Get-PageSectionCount {
     return [regex]::Matches($Body, 'class="grid__head">\s*<h2[\s>]').Count
 }
 
+function Get-PageInfoScript {
+    <#
+        The "?" beside a page's h1 (-Info on Format-GeneralPageHtml): the house .tooltip is position: fixed, so this
+        places it under the button, kept inside the window, and opens it (.tooltip--open) while the pointer is on the
+        button or on the tooltip itself (WCAG 1.4.13: it can be hovered), or while the button has focus; Escape closes
+        it. A short delay on leaving lets the pointer cross from the button onto the text.
+    #>
+    return '<script>(function () { var b = document.getElementById("page-info-button"), t = document.getElementById("page-info"); if (!b || !t) return; var h;' +
+        ' function show() { clearTimeout(h); t.classList.add("tooltip--open"); b.setAttribute("aria-expanded", "true"); var r = b.getBoundingClientRect();' +
+        ' t.style.top = (r.bottom + 8) + "px"; t.style.left = Math.max(8, Math.min(r.left, window.innerWidth - t.offsetWidth - 8)) + "px"; }' +
+        ' function close() { t.classList.remove("tooltip--open"); b.setAttribute("aria-expanded", "false"); }' +
+        ' function hide() { h = setTimeout(close, 150); }' +
+        ' [b, t].forEach(function (el) { el.addEventListener("mouseenter", show); el.addEventListener("mouseleave", hide); });' +
+        ' b.addEventListener("focus", show); b.addEventListener("blur", hide);' +
+        ' document.addEventListener("keydown", function (e) { if (e.key === "Escape") { clearTimeout(h); close(); } }); })();</script>'
+}
+
 function Format-GeneralPageHtml {
     <#
         The whole page around -Body. -Title is the page's own name: the last crumb, the h1 and the
@@ -144,6 +161,10 @@ function Format-GeneralPageHtml {
         another (the Stopwatch's run pages) names its parent so the trail reads Home > parent > the page.
         -HeadAside is markup the caller has escaped, set at the far right of the h1's row: the intro is then the house
         page-header row (main > header, a flex row with the title on the left), as a plugin's page does with its state.
+        -Info is markup the caller has escaped: what the page is about, behind a drawn "?" (.page-info-button) right of the h1,
+        shown as a .tooltip--explain only while the pointer is on the button or the tooltip, or the button has focus
+        (Maikel, October 31, 2026, for a plugin's page). Nothing is on screen until then, so #3585 holds. Empty, as on
+        every other page, there is no button.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Title,
@@ -160,7 +181,8 @@ function Format-GeneralPageHtml {
         [switch]$Bare,
         [AllowEmptyCollection()][object[]]$ParentCrumbs = @(),
         [AllowEmptyString()][string]$HeadAside = '',
-        [string]$HomeLabel = 'Tools'
+        [string]$HomeLabel = 'Tools',
+        [AllowEmptyString()][string]$Info = ''
     )
     # EVERY NAMED PAGE CARRIES THE SITE HEADER (owner, October 22, 2026): a caller that names its site and passes no
     # -Brand gets the repo's short name in it, with 'hub' after it, since these are the hub's pages.
@@ -207,7 +229,17 @@ function Format-GeneralPageHtml {
         if ($HeadAside) { [void]$sb.AppendLine('<header>') }
         [void]$sb.AppendLine('<div>')
         if ($Eyebrow -and -not $Brand) { [void]$sb.AppendLine('<p class="eyebrow">' + (& $e $Eyebrow) + '</p>') }
-        [void]$sb.AppendLine('<h1>' + (& $e $Title) + '</h1>')
+        if ($Info) {
+            # The h1 and its "?" on one row; the tooltip is fixed, placed by Get-PageInfoScript beside the button.
+            # The "?" glyph is drawn, as mesowise draws its own (Maikel, October 31, 2026), so it never leans on a font's
+            # baseline; its ring is the button's CSS border (.page-info-button::before), in a 44px button that is all tap target.
+            $glyph = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
+                '<path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5M12 17.5v.01" /></svg>'
+            [void]$sb.AppendLine('<div class="page-title"><h1>' + (& $e $Title) + '</h1><button class="page-info-button" type="button" id="page-info-button" aria-label="About ' + (& $e $Title) + '" aria-describedby="page-info" aria-expanded="false">' + $glyph + '</button></div>')
+            [void]$sb.AppendLine('<div class="tooltip tooltip--explain" id="page-info" role="tooltip">' + $Info + '</div>')
+        } else {
+            [void]$sb.AppendLine('<h1>' + (& $e $Title) + '</h1>')
+        }
         [void]$sb.AppendLine('</div>')
         if ($HeadAside) { [void]$sb.AppendLine($HeadAside); [void]$sb.AppendLine('</header>') }
     }
@@ -222,6 +254,7 @@ function Format-GeneralPageHtml {
     if ($FooterNote) { [void]$sb.AppendLine('<p class="footer-note">' + $FooterNote + '</p>') }
     [void]$sb.AppendLine('</main>')
     [void]$sb.AppendLine('<script>DKJTheme.settings(document.getElementById("settings"), { label: "Settings", title: "Settings", theme: "Theme", reset: "Reset theme", light: "Light", dark: "Dark", width: "Width", fluid: "Fluid", phone: "Phone", full: "Full" });</script>')
+    if ($Info -and -not $Bare) { [void]$sb.AppendLine((Get-PageInfoScript)) }
     [void]$sb.AppendLine((Format-FitAlarmHtml))
     [void]$sb.AppendLine('</body>')
     [void]$sb.AppendLine('</html>')
