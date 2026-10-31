@@ -49,6 +49,7 @@ repo only, so every consumer's toolbox keeps its own copy.
 - [x] `serve-general-pages.ps1`: in the source repo, with a product stated, `/plugins/dkj-policy/house-style[/<section>]` is a 302 to the product
 - [x] `dev-pages-lib.ps1` + `serve-consumer-dashboard.ps1`: `/marketplace/dkj-policy/house-style[/<section>]` on the product, and a card on its dkj-policy page
 - [x] Maikel, same day: a plugin's page drops its Description card and puts the description behind a "?" right of the h1 -- drawn as mesowise draws its own, a 24px SVG ring and glyph in a 44px `.page-info-button`, primary on the paper -- a `.tooltip--explain` shown on hover or focus. `Format-GeneralPageHtml` takes `-Info` and `Get-PageInfoScript` places and opens the tooltip; the house style gains `.page-title` (the h1 and its button on one row) and `.page-info-button`, named in the README and the `house-style` skill beside rule 5 (#3585), which holds
+- [x] Maikel, same day: the seven `plugin.json` descriptions -- the text behind the "?" -- rewritten for a user: what the plugin gives you, when to enable it, what it needs. bwj-development keeps "Four chapters", which its suite pins
 
 ### TEST
 
@@ -63,7 +64,8 @@ section and a card on the product's dkj-policy page, read from this tree on ever
 sends its own house-style pages there once a release carries the redirect; in every other repo the toolbox
 keeps serving them, since only the source repo holds the canonical `specimens.html`.
 
-A plugin's page on the product has no Description card any more: its description is behind a "?" right of the`nh1`, shown as a tooltip while the pointer is on it or it has focus. `Format-GeneralPageHtml` takes it as `-Info`,
+A plugin's page on the product has no Description card any more: its description is behind a "?" right of the
+`h1`, shown as a tooltip while the pointer is on it or it has focus. `Format-GeneralPageHtml` takes it as `-Info`,
 and the house style gains `.page-title`, the `h1` and its `.page-info-button` on one row, so a page still opens on its
 `h1` alone (#3585).
 
@@ -71,9 +73,12 @@ and the house style gains `.page-title`, the `h1` and its `.page-info-button` on
 
 #### What makes this deploy extra special
 
-N/A: the redirect fires only in the house style's source repo, so no consumer's toolbox changes.
+Every plugin's own description is rewritten for the person who installs it: what it gives you, when to enable it and
+what it needs, without the internal terms the old ones were written in. It is the text `claude plugin details` and
+the toolbox's Plugins page show, so it reaches every user with the next release. The redirect itself fires only in
+the house style's source repo, so no consumer's toolbox changes.
 
-**Score:** N/A
+**Score:** 2
 
 #### Pull Request
 
