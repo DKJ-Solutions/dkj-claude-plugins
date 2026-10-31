@@ -39,19 +39,29 @@
 
 ### PLAN
 
+Resolves #3703. A visible result: parked for the owner's look, not merged.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `Split-HouseStyleSpecimens` starts the tail at the first column-0 `<dialog`, not the first one anywhere
+- [x] `dev-pages.tests.ps1`: the real tail holds no open in-place dialog and no `.spec-stage`, and an indented fixture dialog does not start it
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1` green (529 passed)
+- [x] The Overlays page rendered headless on the product server: one copy of each specimen, nothing floating over the page
+
 ### DEPLOY: fix/3703-specimens-tail-anchor
 
-**Score:**
+The hub's house-style specimens are cut into a page per section, and each page takes the file's tail: the closed modal specimens and their script. That tail began at the first `<dialog` anywhere, which since the Overlays section shows dialogs open in place was one of those, so every section page carried the rest of the Overlays section outside its `.spec-stage`, where the browser's own `dialog[open]` style centres it over the top of the page. The tail now begins at the first column-0 `<dialog`, which is the modals alone, and the suite holds the real tail to that.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+Anybody browsing the house style in the toolbox saw an open dialog floating over every section page, and a duplicate of half the Overlays section below it; both are gone.
+
+**Score:** 2
 
 #### Pull Request
 

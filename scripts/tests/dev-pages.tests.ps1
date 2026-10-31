@@ -894,6 +894,9 @@ Assert-True ($specimens -notmatch '(?i)<(html|head|body)[ >]' -and $specimens -n
 $realSplit = Split-HouseStyleSpecimens -Body $specimens
 Assert-Equal ([regex]::Matches($specimens, 'class="grid__head"><h2').Count) @($realSplit.Sections).Count 'the real specimens split into every section they head, none lost to the cut (#3563)'
 Assert-True ((@($realSplit.Sections) | Where-Object { $_.Cards -lt 1 }).Count -eq 0 -and $realSplit.Tail -match '^<dialog' -and $realSplit.Head -match '<style>') 'every real section holds specimens, and the style and dialogs land on each section''s page'
+Assert-True ($realSplit.Tail -notmatch '<dialog[^>]*\bopen\b' -and $realSplit.Tail -notmatch 'class="spec-stage' -and $realSplit.Tail -match 'id="hs-modal"') 'the tail is the closed modal specimens alone, not the open in-place dialogs of Overlays, which outside .spec-stage float over every page (#3703)'
+$fixIndented = '<div class="spec-page">' + "`n" + '<div class="grid-2">' + "`n" + '  <div class="grid__head"><h2 id="hs-o">O</h2><p class="card__sub">s</p></div>' + "`n" + '  <section class="card"><dialog class="dialog" open>in place</dialog></section>' + "`n" + '</div>' + "`n" + '</div>' + "`n" + '<dialog id="m">modal</dialog>'
+Assert-Equal '<dialog id="m">modal</dialog>' (Split-HouseStyleSpecimens -Body $fixIndented).Tail 'an indented <dialog> inside a section does not start the tail; the first column-0 one does (#3703)'
 $realPages = @(@(Format-HouseStyleSpecimensPageHtml -Body $specimens) + @(@($realSplit.Sections) | ForEach-Object { Format-HouseStyleSpecimensPageHtml -Body $specimens -Section $_.Slug }))
 Assert-True ((@($realPages) | Where-Object { $_ -match 'sections in one column' }).Count -eq 0) 'the real house-style overview and every section page keep within the long-page rule'
 Write-Host '-- the house style on the product, and the toolbox sending it there (Maikel, October 31, 2026)' -ForegroundColor Cyan
