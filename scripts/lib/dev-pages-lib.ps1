@@ -439,6 +439,39 @@ function Resolve-MarketplaceAddress {
     return @{ Group = $group; Plugin = $(if ($group) { $second } else { $first }); Specialist = [string]$Matches[3] }
 }
 
+function Resolve-ProductHouseStyleRequest {
+    <#
+        The house style's specimens on the product (Maikel, October 31, 2026): /marketplace/dkj-policy/house-style is
+        @{ Section = '' }, /marketplace/dkj-policy/house-style/<section> @{ Section = '<section>' }, anything else
+        $null. Asked before Resolve-MarketplaceAddress, which would read 'house-style' as a plugin's name.
+    #>
+    param([AllowEmptyString()][string]$Path)
+    if ($Path -cnotmatch '^/marketplace/dkj-policy/house-style(?:/([a-z][a-z-]{0,39}))?/?\z') { return $null }
+    return @{ Section = [string]$Matches[1] }
+}
+
+function Format-ProductHouseStylePageHtml {
+    <#
+        The house style's specimens in the product's shell, under Marketplace and dkj-policy, the plugin whose files
+        they document: the same page the toolbox shows on /plugins/dkj-policy/house-style, from the plugin's
+        Get-HouseStyleSpecimensParts, which the toolbox in this repo now sends here. -Body is this checkout's
+        plugins/dkj-policy/assets/house-style/specimens.html, -ReadError why it could not be read. A -Section no
+        section has returns $null, a 404.
+    #>
+    param(
+        [AllowEmptyString()][string]$Body = '',
+        [AllowEmptyString()][string]$ReadError = '',
+        [AllowEmptyString()][string]$Section = ''
+    )
+    $base = '/marketplace/dkj-policy/house-style'
+    $parts = Get-HouseStyleSpecimensParts -Body $Body -ReadError $ReadError -Section $Section -BasePath $base
+    if ($null -eq $parts) { return $null }
+    $crumbs = @(@{ Label = 'Marketplace'; Href = '/marketplace' }, @{ Label = 'dkj-policy'; Href = '/marketplace/dkj-policy' })
+    if ($parts.Section) { $crumbs += @{ Label = 'House style'; Href = $base } }
+    return Format-DevPageHtml -Title $parts.Title -Lead $parts.Lead -Body $parts.Body -ParentCrumbs $crumbs `
+        -FooterNote 'Read from this checkout''s <code>plugins/dkj-policy/assets/house-style/specimens.html</code> on every request, so it is the tree, not the installed release.'
+}
+
 function Resolve-MarketplaceAddOnRedirect {
     <#
         Where an add-on of dkj-policy's top-level address now lives (Maikel, October 30, 2026: the add-ons stand on
@@ -598,6 +631,13 @@ function Format-MarketplacePluginsPageHtml {
         # under the section's h2.
         [void]$body.AppendLine('<div class="grid-3" id="add-ons"><div class="grid__head"><h2>Add-ons</h2></div>')
         foreach ($a in $addOns) { [void]$body.AppendLine((& $card $a ('/marketplace/' + $addOnParent + '/' + $a.Name) 3)) }
+        [void]$body.AppendLine('</div>')
+    }
+    if ($p.Name -ceq $addOnParent) {
+        # What dkj-policy ships that can be looked at: the house style's specimens (Maikel, October 31, 2026).
+        [void]$body.AppendLine('<div class="grid-3" id="house-style"><div class="grid__head"><h2>House style</h2></div>')
+        [void]$body.AppendLine((Format-HubCardLinkHtml -Href '/marketplace/dkj-policy/house-style' -Label 'Specimens' -Heading 3 `
+            -Sub 'Every token, the twelve themes and every component, with their variants and states' -Icon 'house-style'))
         [void]$body.AppendLine('</div>')
     }
     [void]$body.AppendLine('<div class="grid-2" id="about">')

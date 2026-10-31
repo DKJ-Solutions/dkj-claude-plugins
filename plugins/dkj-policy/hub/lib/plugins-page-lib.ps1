@@ -324,31 +324,20 @@ function Split-HouseStyleSpecimens {
     return @{ Head = $head; Sections = $sections; Tail = $tail }
 }
 
-function Format-HouseStyleSpecimensPageHtml {
+function Get-HouseStyleSpecimensParts {
     <#
-        The house style's specimens under /plugins/dkj-policy/house-style (#3493): every token, theme and component
-        of the stylesheet, under the Plugins and dkj-policy crumbs, because the files they document sit in dkj-policy
-        (#3531) and every repo running its toolbox renders with them (#3629); the rule to start from them stays
-        dkj-solutions'. -Body is assets/house-style/specimens.html
-        from the same payload as house-style.css (Get-HouseStyleDir), a body fragment trusted as the plugin's own
-        markup; -ReadError is why it could not be read, shown, escaped, in its place.
-
-        A LONG PAGE BECOMES CARDS WITH A PAGE EACH (#3563): with no -Section the page is an overview, one card per
-        section of the specimens naming how many specimens it holds, and each card opens
-        /plugins/dkj-policy/house-style/<section>, that section alone. A -Section no section has returns $null,
-        which the server answers with a 404.
+        What a specimens page holds, without the page around it, so the toolbox and the source repo's product
+        (#3540) render the same page each in its own shell: @{ Title; Lead; Body; Section }, Section $true on a
+        section's own page. -BasePath is where the overview lives, each section's card opening <BasePath>/<slug>.
+        A -Section no section has returns $null. -Body and -ReadError as Format-HouseStyleSpecimensPageHtml takes them.
     #>
     param(
         [AllowEmptyString()][string]$Body = '',
         [AllowEmptyString()][string]$ReadError = '',
-        [AllowEmptyString()][string]$RepoName = '',
         [AllowEmptyString()][string]$Section = '',
-        [string]$HubHref = '/hub'
+        [string]$BasePath = '/plugins/dkj-policy/house-style'
     )
     $e = { param($v) ConvertTo-GeneralPageText $v }
-    $base = '/plugins/dkj-policy/house-style'
-    $crumbs = @(@{ Label = 'Installed plugins'; Href = '/plugins' }, @{ Label = 'dkj-policy'; Href = '/plugins/dkj-policy' })
-    $footer = 'The stylesheet and these specimens are <code>assets/house-style/</code> in the dkj-policy plugin this toolbox runs from.'
     $split = if ($ReadError) { @{ Head = ''; Sections = @(); Tail = '' } } else { Split-HouseStyleSpecimens -Body $Body }
 
     if ($Section) {
@@ -356,8 +345,7 @@ function Format-HouseStyleSpecimensPageHtml {
         if (-not $s) { return $null }
         # The section's own cards, without its grid__head: the page's h1 and lead already carry its name and line.
         $content = $split.Head + '<div class="spec-page">' + "`n" + '<div class="' + $s.Grid + '">' + "`n" + $s.Inner + '</div>' + "`n" + '</div>' + "`n" + $split.Tail
-        return Format-GeneralPageHtml -Title $s.Title -Body $content -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
-            -ParentCrumbs ($crumbs + @(@{ Label = 'House style'; Href = $base })) -Lead $s.Sub -FooterNote $footer
+        return @{ Title = $s.Title; Lead = $s.Sub; Body = $content; Section = $true }
     }
 
     $out = New-Object System.Text.StringBuilder
@@ -370,12 +358,55 @@ function Format-HouseStyleSpecimensPageHtml {
         foreach ($s in $split.Sections) {
             # The house's one card (Format-HubCardLinkHtml, the README's "The card"), never a hand-written variant.
             $count = if ($s.Cards -eq 1) { '1 specimen' } else { [string]$s.Cards + ' specimens' }
-            [void]$out.AppendLine((Format-HubCardLinkHtml -Href ($base + '/' + $s.Slug) -Label $s.Title -Sub $count))
+            [void]$out.AppendLine((Format-HubCardLinkHtml -Href ($BasePath + '/' + $s.Slug) -Label $s.Title -Sub $count))
         }
         [void]$out.AppendLine('</div>')
     }
-    return Format-GeneralPageHtml -Title 'House style' -Body $out.ToString() -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
-        -ParentCrumbs $crumbs `
-        -Lead 'Every token, the twelve themes and every component of the DKJ-Solutions house style, with their variants and states.' `
-        -FooterNote $footer
+    return @{ Title = 'House style'; Body = $out.ToString(); Section = $false
+              Lead = 'Every token, the twelve themes and every component of the DKJ-Solutions house style, with their variants and states.' }
+}
+
+function Format-HouseStyleSpecimensPageHtml {
+    <#
+        The house style's specimens under /plugins/dkj-policy/house-style (#3493): every token, theme and component
+        of the stylesheet, under the Plugins and dkj-policy crumbs, because the files they document sit in dkj-policy
+        (#3531) and every repo running its toolbox renders with them (#3629); the rule to start from them stays
+        dkj-solutions'. -Body is assets/house-style/specimens.html
+        from the same payload as house-style.css (Get-HouseStyleDir), a body fragment trusted as the plugin's own
+        markup; -ReadError is why it could not be read, shown, escaped, in its place.
+
+        A LONG PAGE BECOMES CARDS WITH A PAGE EACH (#3563): with no -Section the page is an overview, one card per
+        section of the specimens naming how many specimens it holds, and each card opens
+        /plugins/dkj-policy/house-style/<section>, that section alone. A -Section no section has returns $null,
+        which the server answers with a 404. What the page holds is Get-HouseStyleSpecimensParts'; this is its
+        toolbox shell.
+    #>
+    param(
+        [AllowEmptyString()][string]$Body = '',
+        [AllowEmptyString()][string]$ReadError = '',
+        [AllowEmptyString()][string]$RepoName = '',
+        [AllowEmptyString()][string]$Section = '',
+        [string]$HubHref = '/hub'
+    )
+    $base = '/plugins/dkj-policy/house-style'
+    $parts = Get-HouseStyleSpecimensParts -Body $Body -ReadError $ReadError -Section $Section -BasePath $base
+    if ($null -eq $parts) { return $null }
+    $crumbs = @(@{ Label = 'Installed plugins'; Href = '/plugins' }, @{ Label = 'dkj-policy'; Href = '/plugins/dkj-policy' })
+    if ($parts.Section) { $crumbs += @{ Label = 'House style'; Href = $base } }
+    return Format-GeneralPageHtml -Title $parts.Title -Body $parts.Body -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
+        -ParentCrumbs $crumbs -Lead $parts.Lead `
+        -FooterNote 'The stylesheet and these specimens are <code>assets/house-style/</code> in the dkj-policy plugin this toolbox runs from.'
+}
+
+function Resolve-HouseStyleProductUrl {
+    <#
+        Where the toolbox sends its house-style pages instead of serving them (Maikel, October 31, 2026): in the
+        house style's SOURCE repo, whose product shows them at /marketplace/dkj-policy/house-style[/<section>]
+        beside the plugin they belong to. -IsSource is whether this checkout holds the canonical
+        plugins/dkj-policy/assets/house-style/specimens.html; -ProductUrl is the product the state file names.
+        '' -- serve them here -- in every other repo, and where no plain loopback product is known.
+    #>
+    param([bool]$IsSource, [AllowEmptyString()][string]$ProductUrl = '', [AllowEmptyString()][string]$Section = '')
+    if (-not $IsSource -or $ProductUrl -cnotmatch '^http://localhost:[0-9]{4,5}/?\z') { return '' }
+    return $ProductUrl.TrimEnd('/') + '/marketplace/dkj-policy/house-style' + $(if ($Section) { '/' + $Section })
 }

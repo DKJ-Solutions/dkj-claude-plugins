@@ -39,19 +39,35 @@
 
 ### PLAN
 
+Maikel, October 31, 2026: the house style's specimens should be seen on this repo's product port, not its
+toolbox. Chosen of three options: the product gets the page, and the toolbox redirects there in the source
+repo only, so every consumer's toolbox keeps its own copy.
+
 ### CREATE
 
-- [ ] TODO: the first step of this branch
+- [x] `plugins-page-lib.ps1`: `Get-HouseStyleSpecimensParts` holds the page's content, so the toolbox and the product render the same page in their own shells; `Resolve-HouseStyleProductUrl` decides the redirect
+- [x] `serve-general-pages.ps1`: in the source repo, with a product stated, `/plugins/dkj-policy/house-style[/<section>]` is a 302 to the product
+- [x] `dev-pages-lib.ps1` + `serve-consumer-dashboard.ps1`: `/marketplace/dkj-policy/house-style[/<section>]` on the product, and a card on its dkj-policy page
 
 ### TEST
 
+- [x] `dev-pages.tests.ps1`: the product's route, shell, 404 and read error, the redirect's three refusals, and the dkj-policy card -- 522 passed
+- [ ] The product page checked in the browser on port 4870
+
 ### DEPLOY: feat/house-style-on-product
 
-**Score:**
+The house style's specimens are on this repo's product, at `/marketplace/dkj-policy/house-style` with a page per
+section and a card on the product's dkj-policy page, read from this tree on every request. The toolbox here
+sends its own house-style pages there once a release carries the redirect; in every other repo the toolbox
+keeps serving them, since only the source repo holds the canonical `specimens.html`.
+
+**Score:** 2
 
 #### What makes this deploy extra special
 
-**Score:**
+N/A: the redirect fires only in the house style's source repo, so no consumer's toolbox changes.
+
+**Score:** N/A
 
 #### Pull Request
 

@@ -11,16 +11,18 @@
     /marketplace, every plugin .claude-plugin/marketplace.json lists, each with a page of its own at /marketplace/<name>,
     the specialist teams (dkj-subagents-*) one card whose page is /marketplace/dkj-subagents; a team's own page shows
     its specialists and the context each one costs, read from this tree, and each has a page of its own under it
-    (/specialists, their own pages until October 28, 2026, redirects there). The rules of
+    (/specialists, their own pages until October 28, 2026, redirects there); and the house style's specimens
+    under dkj-policy, /marketplace/dkj-policy/house-style[/<section>] (Maikel, October 31, 2026). The rules of
     each page are in scripts/lib/dev-pages-lib.ps1. The server takes no POST but the banner's.
 
     EVERY REPO HAS A PRODUCT PORT (Maikel, October 26, 2026, #3540). This server was this repo's own hub
     under OwnHub (#3245), with the brandbook/ app's Vite dev server as the product beside it (#3283).
     Retiring the app (#3493) took the product port with it, which was never the intent. So the hub is the
     dkj-policy plugin's now, as in every other repo, and this server is the product: the general pages --
-    Repository, Artifacts, Issues, Release notes, SessionStart, Test gate, Stopwatch, Logbook, Plugins and
-    the house style's specimens under it -- are the plugin hub's, on its own port, and no longer relayed or
-    built here. The home page links the hub, read from the state file the dev-preview hook writes
+    Repository, Artifacts, Issues, Release notes, SessionStart, Test gate, Stopwatch, Logbook and Plugins --
+    are the plugin hub's, on its own port, and no longer relayed or built here. The house style's specimens
+    are the one exception, back here since October 31, 2026 (Maikel): this repo is their source, so its
+    toolbox sends its own house-style pages to this product (Resolve-HouseStyleProductUrl). The home page links the hub, read from the state file the dev-preview hook writes
     (Get-GeneralPagesUrl), and '/hub' sends there too.
 
 .DESCRIPTION
@@ -451,6 +453,20 @@ try {
                 # The Marketplace pages were /plugins until October 30, 2026; their url follows their h1 since
                 # (Maikel). An old link or bookmark lands there.
                 Send-LoopbackResponse $stream 303 'See Other' 'text/plain; charset=utf-8' ([byte[]]@()) @{ Location = $mpTo } -Method $method
+                continue
+            }
+            $hsAt = Resolve-ProductHouseStyleRequest -Path $path
+            if ($hsAt) {
+                # The house style's specimens under dkj-policy (Maikel, October 31, 2026), read from this tree per
+                # request; the toolbox in this repo sends its own house-style pages here. A section none has is a 404.
+                $specError = ''; $spec = ''
+                try { $spec = [System.IO.File]::ReadAllText((Join-Path $styleDir 'specimens.html'), $utf8) } catch { $specError = $_.Exception.Message }
+                $html = Format-ProductHouseStylePageHtml -Body $spec -ReadError $specError -Section $hsAt.Section
+                if ($null -eq $html) {
+                    Send-LoopbackResponse $stream 404 'Not Found' 'text/plain; charset=utf-8' ($utf8.GetBytes('Not found: no house-style section of that name.')) -Method $method
+                } else {
+                    Send-LoopbackResponse $stream 200 'OK' 'text/html; charset=utf-8' ($utf8.GetBytes($html)) -Method $method
+                }
                 continue
             }
             $mpAt = Resolve-MarketplaceAddress -Path $path
