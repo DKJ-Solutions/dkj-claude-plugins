@@ -281,10 +281,16 @@ h3 { font-size: var(--text-h3); margin: 0 0 var(--spacing-2); font-weight: 600; 
 /* There is no h4, h5 or h6: the scale ends at h3 (owner, October 25, 2026; h6 went on October 20). */
 .sub { color: var(--muted); font-size: var(--text-sm); margin: 0 0 var(--spacing-4); }   /* line under a heading */
 /* The h1 with a "?" right of it that explains the page in a .tooltip--explain on hover or focus, so nothing sits
-   under the h1 (Maikel, October 31, 2026; rule 5 of the README holds). The row's gap is the space, not the button's own margin. */
-.page-title { display: flex; align-items: center; gap: var(--spacing-2); }
-/* Its "?" is in the primary at rest, ring and mark, on the page's own paper (Maikel, October 31, 2026). */
-.page-title .info-button { margin-left: 0; border-color: var(--primary); color: var(--primary); background: var(--paper-1); }
+   under the h1 (Maikel, October 31, 2026; rule 5 of the README holds). The row's gap is the space. */
+.page-title { display: flex; align-items: center; gap: var(--spacing-1); }
+/* .page-info-button: the "?" as mesowise draws it, a 24px SVG ring and glyph in currentColor, in a 44px button that
+   is all tap target and has no ring of its own. The negative margin keeps the 44px from making the h1's row taller.
+   The ring and the mark are the primary, the inside the page's paper (Maikel, October 31, 2026). */
+.page-info-button { flex: none; width: 44px; height: 44px; margin: -10px -10px -10px -6px; padding: 0; display: inline-flex;
+  align-items: center; justify-content: center; border: 0; border-radius: 50%; background: transparent; color: var(--primary);
+  cursor: help; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.page-info-button svg circle { fill: var(--paper-1); }
+.page-info-button:focus-visible { outline: 2px solid var(--primary); outline-offset: -4px; }
 .muted { color: var(--muted); font-size: var(--text-sm); }
 .meta { font-size: var(--text-sm); color: var(--fg-2); white-space: nowrap; }
 .note { font-size: var(--text-sm); color: var(--muted); margin-top: var(--spacing-1); }

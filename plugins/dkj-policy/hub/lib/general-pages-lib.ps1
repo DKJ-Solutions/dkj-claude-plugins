@@ -161,7 +161,7 @@ function Format-GeneralPageHtml {
         another (the Stopwatch's run pages) names its parent so the trail reads Home > parent > the page.
         -HeadAside is markup the caller has escaped, set at the far right of the h1's row: the intro is then the house
         page-header row (main > header, a flex row with the title on the left), as a plugin's page does with its state.
-        -Info is markup the caller has escaped: what the page is about, behind a "?" .info-button right of the h1,
+        -Info is markup the caller has escaped: what the page is about, behind a drawn "?" (.page-info-button) right of the h1,
         shown as a .tooltip--explain only while the pointer is on the button or the tooltip, or the button has focus
         (Maikel, October 31, 2026, for a plugin's page). Nothing is on screen until then, so #3585 holds. Empty, as on
         every other page, there is no button.
@@ -231,7 +231,11 @@ function Format-GeneralPageHtml {
         if ($Eyebrow -and -not $Brand) { [void]$sb.AppendLine('<p class="eyebrow">' + (& $e $Eyebrow) + '</p>') }
         if ($Info) {
             # The h1 and its "?" on one row; the tooltip is fixed, placed by Get-PageInfoScript beside the button.
-            [void]$sb.AppendLine('<div class="page-title"><h1>' + (& $e $Title) + '</h1><button class="info-button" type="button" id="page-info-button" aria-label="About ' + (& $e $Title) + '" aria-describedby="page-info" aria-expanded="false">?</button></div>')
+            # The "?" is drawn, as mesowise draws its own (Maikel, October 31, 2026): a 24px ring and glyph in one stroke, so it
+            # never leans on a font's baseline, in a 44px button that is the whole tap target.
+            $glyph = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
+                '<circle cx="12" cy="12" r="10" /><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5M12 17.5v.01" /></svg>'
+            [void]$sb.AppendLine('<div class="page-title"><h1>' + (& $e $Title) + '</h1><button class="page-info-button" type="button" id="page-info-button" aria-label="About ' + (& $e $Title) + '" aria-describedby="page-info" aria-expanded="false">' + $glyph + '</button></div>')
             [void]$sb.AppendLine('<div class="tooltip tooltip--explain" id="page-info" role="tooltip">' + $Info + '</div>')
         } else {
             [void]$sb.AppendLine('<h1>' + (& $e $Title) + '</h1>')
