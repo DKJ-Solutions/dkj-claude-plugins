@@ -2,7 +2,40 @@
 
 ## [Unreleased]
 
-**2 / 4 minor entries** <!-- pending-tally -->
+**3 / 5 minor entries** <!-- pending-tally -->
+
+### DEPLOY: feat/house-style-on-product · 20261031-111530Z
+
+The house style's specimens are on this repo's product, at `/marketplace/dkj-policy/house-style` with a page per
+section and a card on the product's dkj-policy page, read from this tree on every request. The toolbox here
+sends its own house-style pages there once a release carries the redirect; in every other repo the toolbox
+keeps serving them, since only the source repo holds the canonical `specimens.html`.
+
+A plugin's page on the product has no Description card any more: its description is behind a "?" right of the
+`h1`, shown as a tooltip while the pointer is on it or it has focus. `Format-GeneralPageHtml` takes it as `-Info`,
+and the house style gains `.page-title`, the `h1` and its `.page-info-button` on one row, so a page still opens on its
+`h1` alone (#3585).
+
+**Score:** 2
+
+#### What makes this deploy extra special
+
+Every plugin's own description is rewritten for the person who installs it: what it gives you, when to enable it and
+what it needs, without the internal terms the old ones were written in. It is the text `claude plugin details` and
+the toolbox's Plugins page show, so it reaches every user with the next release. The redirect itself fires only in
+the house style's source repo, so no consumer's toolbox changes.
+
+**Score:** 2
+
+#### Pull Request
+
+The house style's specimens on the product port; the toolbox redirects there in the source repo
+
+Plugins: bwj-development, dkj-policy, dkj-solutions, dkj-subagents-alpha, dkj-subagents-ecomm, dkj-subagents-lifehub, dkj-subagents-shopify
+
+[PR #3702](https://github.com/DKJ-Solutions/dkj-marketplace/pull/3702)
+
+---
 
 ### DEPLOY: fix/3698-house-style-scss-interpolation · 20261030-175934Z
 
