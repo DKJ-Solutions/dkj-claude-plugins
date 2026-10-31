@@ -59,7 +59,7 @@ inside `dkj-policy`'s own payload.
 
 **No consumer hub shows or serves the Brandbook**
 ([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475), the owner, October 25, 2026).
-From #3283 to #3493 the brand book was the source repo's `brandbook/` React app, that repo's own product on
+From #3283 to #3493 the Brandbook app was the source repo's `brandbook/` React app, that repo's own product on
 its own product port, and from #3198 to #3475 this plugin also put a DKJ-Solutions card on the hub of every
 repo that enabled it, and the general pages server answered `/brandbook` there with the build each release
 copied into `assets/brandbook/` (#3210). The hub card and that route were taken off, and the release stopped

@@ -49,7 +49,7 @@
     nested house classes in one SCSS component read as app-wide, and turned green written out flat.
 
     THE RETIRED NAMES are every token an earlier released tag defined (house-style-v1, -v2) and every
-    name in the `Was` column of the rename tables in house-style/README.md at the pinned tag, minus
+    name in the `Was` column of the rename tables in assets/dkj-brandbook/README.md (assets/house-style/README.md before the rename) at the pinned tag, minus
     every name that tag's stylesheet defines again (`--ink-2` was retired and is live again as an ink
     step since October 20, 2026, when the twelve `--primary-*` steps split into paper and ink and were
     retired themselves; and `--primary` and `--muted` are live again since October 21, 2026, when the seven ink
@@ -583,7 +583,7 @@ function Invoke-HouseStyleCheck {
             $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "styles the house class $($h.Name) -- give the element a domain class of its own, or fix the class at its source (plugins/dkj-policy/assets/dkj-brandbook/ in DKJ-Solutions/dkj-marketplace)" }
         }
         foreach ($h in @(Find-HouseStyleTokenHit -Text $text -Names $retired -IncludeReads)) {
-            $hits += @{ Check = 'retired'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "$($h.Kind) $($h.Name), a token name the house style retired -- rename it per the rename tables in house-style/README.md at $($Pin.Tag)" }
+            $hits += @{ Check = 'retired'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "$($h.Kind) $($h.Name), a token name the house style retired -- rename it per the rename tables in assets/dkj-brandbook/README.md at $($Pin.Tag) (assets/house-style/README.md at a tag before the rename)" }
         }
         foreach ($f in $hits) {
             if (Test-HouseStyleAllowed -Path $rel -Name $f.Name -Allow $Allow) { $allowed++ } else { $findings.Add($f) }

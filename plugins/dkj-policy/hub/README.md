@@ -58,7 +58,7 @@ starts from them stays there.
 
 **No hub shows or serves the Brandbook, whether or not the repo enables `dkj-solutions`**
 ([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475), the owner, October 25, 2026). The
-brand book was a product of `dkj-claude-plugins`, shown only there on its own product port (#3283), and
+Brandbook app was a product of `dkj-claude-plugins`, shown only there on its own product port (#3283), and
 that app is retired (#3493). On every hub `/brandbook` is a plain 404 and the home page has no Brand book
 card. Until #3475, a repo enabling `dkj-solutions` got both (#3198, #3270).
 
@@ -231,8 +231,8 @@ names the checkout), started hidden and detached.
 
 **It serves no Brandbook, in any repo** ([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475),
 the owner, October 25, 2026). From #3198 to #3475 a DKJ-Solutions repo's server served a fifth page, the
-brand book app's build from `dkj-solutions/assets/brandbook/`, under `/brandbook/`. The route went with #3475, and the app itself with #3493: no repo has a Brand book to
-show. The brand book's own specimens are a page under Plugins instead, on `/plugins/dkj-policy/house-style`,
+Brandbook app's build from `dkj-solutions/assets/brandbook/`, under `/brandbook/`. The route went with #3475, and the app itself with #3493: no repo has a Brand book to
+show. The brand book's own specimens are a page under Plugins instead, on `/plugins/dkj-policy/house-style` (still labelled House style, #3704),
 in every repo that runs the toolbox, BWJ-Development's included ([#3629](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3629));
 the old `/plugins/dkj-solutions/house-style` redirects there.
 
