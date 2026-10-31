@@ -55,7 +55,7 @@ repo only, so every consumer's toolbox keeps its own copy.
 
 - [x] `dev-pages.tests.ps1`: the product's route, shell, 404 and read error, the redirect's three refusals, and the dkj-policy card -- 522 passed
 - [x] The restarted product on port 4870 serves the overview (11 section cards), a section page (`/tokens`) and the dkj-policy page with its new card, each a 200
-- [ ] The owner has looked at the product page (a visible result, so it waits for that look)
+- [x] The owner has looked at the product page (a visible result, so it waits for that look): Maikel shaped it across the session and said "ship it"
 
 ### DEPLOY: feat/house-style-on-product
 
