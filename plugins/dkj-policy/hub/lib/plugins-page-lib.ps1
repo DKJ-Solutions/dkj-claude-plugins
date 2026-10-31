@@ -302,7 +302,7 @@ function Format-PluginPageHtml {
 
 function Split-HouseStyleSpecimens {
     <#
-        assets/house-style/specimens.html cut along its sections (#3563), so each can be a page of its own. A section is
+        assets/dkj-brandbook/specimens.html cut along its sections (#3563), so each can be a page of its own. A section is
         a column-0 <div class="grid-N"> opening on a grid__head with <h2 id="hs-<slug>">, up to the next column-0
         </div>. Returns @{ Head; Sections; Tail }: Head is what precedes <div class="spec-page"> (the specimens' own
         style block and icon sprite), Tail is from the first column-0 <dialog> on (the modal specimens and the script), and
@@ -373,7 +373,7 @@ function Format-HouseStyleSpecimensPageHtml {
         The house style's specimens under /plugins/dkj-policy/house-style (#3493): every token, theme and component
         of the stylesheet, under the Plugins and dkj-policy crumbs, because the files they document sit in dkj-policy
         (#3531) and every repo running its toolbox renders with them (#3629); the rule to start from them stays
-        dkj-solutions'. -Body is assets/house-style/specimens.html
+        dkj-solutions'. -Body is assets/dkj-brandbook/specimens.html
         from the same payload as house-style.css (Get-HouseStyleDir), a body fragment trusted as the plugin's own
         markup; -ReadError is why it could not be read, shown, escaped, in its place.
 
@@ -397,7 +397,7 @@ function Format-HouseStyleSpecimensPageHtml {
     if ($parts.Section) { $crumbs += @{ Label = 'House style'; Href = $base } }
     return Format-GeneralPageHtml -Title $parts.Title -Body $parts.Body -Eyebrow $RepoName -SiteName $RepoName -HubHref $HubHref `
         -ParentCrumbs $crumbs -Lead $parts.Lead `
-        -FooterNote 'The stylesheet and these specimens are <code>assets/house-style/</code> in the dkj-policy plugin this toolbox runs from.'
+        -FooterNote 'The stylesheet and these specimens are <code>assets/dkj-brandbook/</code> in the dkj-policy plugin this toolbox runs from.'
 }
 
 function Resolve-HouseStyleProductUrl {
@@ -405,7 +405,7 @@ function Resolve-HouseStyleProductUrl {
         Where the toolbox sends its house-style pages instead of serving them (Maikel, October 31, 2026): in the
         house style's SOURCE repo, whose product shows them at /marketplace/dkj-policy/house-style[/<section>]
         beside the plugin they belong to. -IsSource is whether this checkout holds the canonical
-        plugins/dkj-policy/assets/house-style/specimens.html; -ProductUrl is the product the state file names.
+        plugins/dkj-policy/assets/dkj-brandbook/specimens.html; -ProductUrl is the product the state file names.
         '' -- serve them here -- in every other repo, and where no plain loopback product is known.
     #>
     param([bool]$IsSource, [AllowEmptyString()][string]$ProductUrl = '', [AllowEmptyString()][string]$Section = '')

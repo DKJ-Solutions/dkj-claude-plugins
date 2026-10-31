@@ -12,7 +12,7 @@ group: 04
 ## Specific to this repo (VUL-IN)
 
 <!-- History: from #3283 until [#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)
-     (October 26, 2026) Cody's domain here was the brand book app, `brandbook/`. That app is retired, so he has
+     (October 26, 2026) Cody's domain here was the Brandbook app, `brandbook/`. That app is retired, so he has
      no work in this repo; a house-style change is Gwen's (see her lens). -->
 
 <!-- TODO: describe what this specialist does in THIS repo:

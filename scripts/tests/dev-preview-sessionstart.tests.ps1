@@ -459,10 +459,10 @@ Assert-True ($html -match ('site-header__name">n{80} <span')) 'and cut at 80 cha
 Assert-True ((Format-PluginRepoHubHtml -RepoName "a`nb") -match 'site-header__name">a b <span') 'with control characters made spaces'
 Assert-True ((Format-PluginRepoHubHtml -RepoName '  ') -match 'site-header__name">this repo <span') 'and a blank name read as this repo'
 
-# The hub serves the plugin's canonical copy in place (#2989). Its checksums in the house-style skill's
+# The hub serves the plugin's canonical copy in place (#2989). Its checksums in the dkj-brandbook skill's
 # table are the release cut's to write (#3636), so between cuts they name the tag's bytes, not the tree's:
 # what holds here is that the copy is where the hub reads it and the table has a cell for it.
-$skillPage = Get-Content -LiteralPath (Join-Path $SolutionsRoot 'skills\house-style\SKILL.md') -Raw
+$skillPage = Get-Content -LiteralPath (Join-Path $SolutionsRoot 'skills\dkj-brandbook\SKILL.md') -Raw
 foreach ($file in 'house-style.css', 'house-theme.js') {
     $pinned = [regex]::Match($skillPage, '\|\s*`' + [regex]::Escape($file) + '`\s*\|[^|]*\|\s*`([0-9a-f]{64})`').Groups[1].Value
     Assert-True ($pinned -and (Test-Path -LiteralPath (Join-Path (Get-HouseStyleDir -PluginRoot $PluginRoot) $file) -PathType Leaf)) "the plugin's canonical $file is where the hub reads it, and the skill pins a checksum for it"
@@ -543,7 +543,7 @@ Assert-True (-not (Test-DkjSolutionsEnabled -Root $enRoot)) 'and settings.local.
 Assert-True (Test-DkjSolutionsEnabled -Root $enRoot) 'while a settings.local.json that is not JSON says nothing'
 [System.IO.File]::WriteAllText((Join-Path $enRoot '.claude\settings.json'), '{ "enabledPlugins": { "dkj-policy@dkj-marketplace": true, "dkj-solutions@dkj-marketplace": false } }')
 Assert-True (-not (Test-DkjSolutionsEnabled -Root $enRoot)) 'a repo that sets it false, as the BWJ-Development repos do, is none'
-Assert-True ((Get-HouseStyleDir -PluginRoot $PluginRoot).EndsWith('\dkj-policy\assets\house-style')) 'the house style is read from dkj-policy''s own assets folder, which every install carries'
+Assert-True ((Get-HouseStyleDir -PluginRoot $PluginRoot).EndsWith('\dkj-policy\assets\dkj-brandbook')) 'the house style is read from dkj-policy''s own assets folder, which every install carries'
 # The Sec-Fetch rule both plugin servers share (#3119). Ports do not count toward "site", so the hub's link, the
 # 303 hop and the crumb back all arrive same-site, as top-level navigations.
 Assert-True (-not (Test-LoopbackCrossSite -SecFetchSite 'same-site' -SecFetchMode 'navigate' -Method 'GET')) 'a same-site top-level GET navigation is served'

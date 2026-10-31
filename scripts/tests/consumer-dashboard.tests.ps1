@@ -6,7 +6,7 @@
 .DESCRIPTION
     Group 1 pins the rules without a server: how check-consumers.ps1's report splits into repos and
     plugins, which status a repo gets, which Host is served, that every value the page shows is
-    escaped, and that the house-style skill pins a checksum for each canonical file. Group 2 starts
+    escaped, and that the dkj-brandbook skill pins a checksum for each canonical file. Group 2 starts
     the real server on a free loopback port against this tree and asks it for the static files, a foreign Host, a cross-site request, a POST, a missing path, a dripping client and
     an oversized head. Group 3 serves the page from a fixture tree: a checkout with no upstream, one
     outside the scope root, and no check-consumers.ps1 at all -- and the four general routes that moved to
@@ -317,7 +317,7 @@ Write-Host '-- group 1e: the skill pins a checksum for each canonical file' -For
 # nothing noticed. There is now one canonical copy, in the plugin (#3130), which the dashboard reads in place.
 # Its checksums are the release cut's to write (#3636): between cuts the table names the tag's bytes, not the
 # tree's, so this suite holds only that the table has a cell for each file.
-$skillPage = Get-Content -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\skills\house-style\SKILL.md') -Raw
+$skillPage = Get-Content -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions\skills\dkj-brandbook\SKILL.md') -Raw
 foreach ($file in 'house-style.css', 'house-theme.js') {
     $row = [regex]::Match($skillPage, '(?m)^\| `' + [regex]::Escape($file) + '` \|.*\| `([0-9a-f]{64})` \|\s*$')
     Assert-True $row.Success "the skill's table pins a sha256 for $file"
@@ -401,7 +401,7 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
             Assert-True ((Get-Raw 'GET' '/refresh?page=//evil.example' "localhost:$port") -match 'Location: /\r') 'and to the index for a page outside its list'
             Assert-Equal 403 (Get-Status 'GET' '/refresh' "localhost:$port" "Sec-Fetch-Site: cross-site`r`n") 'a request another site makes is refused'
             # A HEAD answers like the GET would, real Content-Length included, and carries no body (#3161).
-            $cssLength = (Get-Item -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style\house-style.css')).Length
+            $cssLength = (Get-Item -LiteralPath (Join-Path $RepoRoot 'plugins\dkj-policy\assets\dkj-brandbook\house-style.css')).Length
             $headRaw = Get-Raw 'HEAD' '/house-style.css' "localhost:$port"
             Assert-True ($headRaw -match "Content-Length: $cssLength\r" -and $headRaw.EndsWith("`r`n`r`n")) 'HEAD on a static file sends the real Content-Length and no body'
             $head404 = Get-Raw 'HEAD' '/nope' "localhost:$port"
@@ -442,7 +442,7 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
     $outside = Join-Path ([System.IO.Path]::GetTempPath()) "consumer-dashboard-outside-$PID-$([guid]::NewGuid().ToString('n'))"
     $group3Done = $false
     try {
-        New-Item -ItemType Directory -Force -Path (Join-Path $src 'scripts\lib'), (Join-Path $src 'scripts\dashboard'),(Join-Path $src 'plugins\dkj-policy\assets\house-style'), (Join-Path $src 'consumers'), $noup, $outside | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $src 'scripts\lib'), (Join-Path $src 'scripts\dashboard'),(Join-Path $src 'plugins\dkj-policy\assets\dkj-brandbook'), (Join-Path $src 'consumers'), $noup, $outside | Out-Null
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\consumer-dashboard-lib.ps1') (Join-Path $src 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $src 'scripts\lib\')
         # dev-pages-lib reads the plugins' libs from the plugin tree beside scripts/, and the server its state reader.
@@ -573,14 +573,14 @@ if ([System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT -a
     $port4 = $null
     $group4Done = $false
     try {
-        New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'scripts\lib'), (Join-Path $fixture4 'scripts\dashboard'),(Join-Path $fixture4 'plugins\dkj-policy\assets\house-style') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'scripts\lib'), (Join-Path $fixture4 'scripts\dashboard'),(Join-Path $fixture4 'plugins\dkj-policy\assets\dkj-brandbook') | Out-Null
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\consumer-dashboard-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
         Copy-Item (Join-Path $RepoRoot 'scripts\lib\dev-pages-lib.ps1') (Join-Path $fixture4 'scripts\lib\')
         New-Item -ItemType Directory -Force -Path (Join-Path $fixture4 'plugins\dkj-policy\hub\lib') | Out-Null
         Copy-Item (Join-Path $PluginLib '*.ps1') (Join-Path $fixture4 'plugins\dkj-policy\hub\lib\')
         Copy-Item $Server (Join-Path $fixture4 'scripts\dashboard\')
         # The stylesheet is there and the theme script is not: a present and a missing static file side by side.
-        [System.IO.File]::WriteAllText((Join-Path $fixture4 'plugins\dkj-policy\assets\house-style\house-style.css'), 'body{}')
+        [System.IO.File]::WriteAllText((Join-Path $fixture4 'plugins\dkj-policy\assets\dkj-brandbook\house-style.css'), 'body{}')
         & git -C $fixture4 init -q 2>$null
         & git -C $fixture4 -c user.name=t -c user.email=t@example.invalid commit -q --allow-empty -m 'first' 2>$null
         $first = ([string](& git -C $fixture4 rev-parse HEAD)).Trim()

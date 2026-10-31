@@ -1,13 +1,13 @@
 <#
 .SYNOPSIS
     The house-style gate (#3035): every vendored house-style.css / house-theme.js is the copy the
-    house-style skill pins, and the repo's own layer redefines no house token or class, and uses no
+    dkj-brandbook skill pins, and the repo's own layer redefines no house token or class, and uses no
     retired token name. In this plugin's source repo the canonical copy is the source rather than a
     copy, and is exempt from the pin (#3637; the lib says why).
 
 .DESCRIPTION
     The rules and the reasoning behind each are in scripts/lib/house-style-rules.ps1 beside this
-    script; the pinned checksums are read from skills/house-style/SKILL.md, the one place they are
+    script; the pinned checksums are read from skills/dkj-brandbook/SKILL.md, the one place they are
     written. This script resolves the repo, reads its allowlist, runs the checks and prints them.
 
     It runs in two places: as a CI gate, through the reusable workflow
@@ -40,14 +40,14 @@ $root = [System.IO.Path]::GetFullPath($root).TrimEnd('\', '/')
 
 Write-Host "== check-house-style -- $root =="
 
-$skillPath = if ($SkillPath) { $SkillPath } else { Join-Path $PSScriptRoot '../../skills/house-style/SKILL.md' }
+$skillPath = if ($SkillPath) { $SkillPath } else { Join-Path $PSScriptRoot '../../skills/dkj-brandbook/SKILL.md' }
 if (-not (Test-Path -LiteralPath $skillPath -PathType Leaf)) {
-    Write-Host "[ERROR] the house-style skill page is not beside this script ($skillPath) -- reinstall or update the dkj-solutions plugin." -ForegroundColor Red
+    Write-Host "[ERROR] the dkj-brandbook skill page is not beside this script ($skillPath) -- reinstall or update the dkj-solutions plugin." -ForegroundColor Red
     exit 2
 }
 $pin = Get-HouseStylePin -SkillText ([System.IO.File]::ReadAllText($skillPath, [System.Text.Encoding]::UTF8))
 if (-not $pin) {
-    Write-Host '[ERROR] the house-style skill page carries no complete checksum table -- nothing to check the copies against.' -ForegroundColor Red
+    Write-Host '[ERROR] the dkj-brandbook skill page carries no complete checksum table -- nothing to check the copies against.' -ForegroundColor Red
     exit 2
 }
 

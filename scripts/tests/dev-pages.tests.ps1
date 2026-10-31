@@ -139,7 +139,7 @@ foreach ($leaf in 'rules', 'skills') {
     Assert-True ($leafPage -match '<li><a href="/hub">Tools</a></li>' -and $leafPage -match '<a href="/ai">AI</a>' -and $leafPage -notmatch 'href="/ai/claude"' -and $leafPage -match 'Nothing on this page yet\.' -and $leafPage -notmatch 'card--link') "the /ai/claude/$leaf page is a landing page of its own, under Tools > AI, with nothing on it yet"
 }
 Assert-True ((Get-HubIconSvg -Name '') -eq '' -and (Get-HubIconSvg -Name 'nope') -eq '' -and (Format-HubCardLinkHtml -Href '/x' -Label 'X') -notmatch 'menu-item__icon') 'a card that names no icon, or one the hub lacks, draws none'
-$houseCss = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style\house-style.css'))
+$houseCss = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\assets\dkj-brandbook\house-style.css'))
 Assert-True ($houseCss -match '\.card--link \{ position: relative; display: flex; flex-direction: column; justify-content: center; \}' -and $houseCss -match '\.card--link a::after \{ content: ""; position: absolute; inset: 0; \}') 'the house style stretches a .card--link''s one link over the card, its content in the middle of the card''s height'
 Assert-True ($ph -notmatch '<style>' -and $ph -notmatch 'grid__head') 'the home page restyles nothing and has no group heading (#3133)'
 $homeBanner = $ph.IndexOf('<div class="notice" id="hub-banner"')
@@ -786,7 +786,7 @@ Assert-True ((Format-DkjReposPageHtml -Query $evil -Checkouts @() -Meta @{ Gener
 $dpErr = Format-DkjReposPageHtml -Query (ConvertFrom-DkjRepoQuery -Json '') -Checkouts $co -Meta @{ GeneratedAt = 'x'; Seconds = $null } -CheckMeta @{ CheckFailed = 'boom <b>' }
 Assert-True ($dpErr -match 'GitHub could not be read' -and $dpErr -match 'check-consumers\.ps1 could not be run: boom &lt;b&gt;' -and $dpErr.Contains('href="/consumers/dkj/dkj-lifehub"') -and $dpErr.IndexOf('msg--warn') -lt $dpErr.IndexOf('id="repos"')) 'when GitHub or the check cannot be read the page says so above the cards, and still lists the checkouts'
 Assert-True ((Format-DkjReposPageHtml -Query @{ Repos = @(); Archived = @(); Error = '' } -Checkouts @() -Meta @{ GeneratedAt = 'x' }) -match 'No DKJ-Solutions repo was found') 'no repo at all says so'
-$houseCss = [IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style\house-style.css'))
+$houseCss = [IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\assets\dkj-brandbook\house-style.css'))
 Assert-True ($houseCss.Contains('.card--link .menu-item__label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }') -and $houseCss.Contains('.card--link .menu-item__title { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }') -and $houseCss.Contains('.card--link .menu-item__title > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }') -and $houseCss.Contains('.card--link .menu-item__label > :is(.menu-item__sub, .menu-item__value) { white-space: normal; }')) 'every card''s title is one line, cut off where it does not fit, a mark after it kept, its description still wrapping -- in the house style, not per page (owner, October 28, 2026)'Write-Host '-- a DKJ repo''s own page, /consumers/dkj/<name>: Repo, Consumer and Lenses (October 28, 2026)' -ForegroundColor Cyan
 $set = Get-DkjRepoRows -Query $q -Checkouts $co
 Assert-True ($set.Rows.Count -eq 2 -and $set.Rows[1].Name -eq 'unlisted' -and $set.ByRepo['DKJ-Solutions/dkj-lifehub'].Path -eq 'C:\x\dkj-lifehub') 'the repo rows are GitHub''s, then each checkout GitHub did not list, with each checkout by its repo'
@@ -889,7 +889,7 @@ Assert-True ($hsSec.Page -eq 'house-style' -and $hsSec.Section -eq 'tokens' -and
 Assert-True ((Format-HouseStyleSpecimensPageHtml -Body '<p>no sections</p>') -match 'no section was found') 'specimens with no section say so, rather than drawing an empty grid'
 $hsErr = Format-HouseStyleSpecimensPageHtml -Body $hsFix -ReadError 'gone <now>'
 Assert-True ($hsErr -notmatch 'card--link' -and $hsErr -match 'could not be read: gone &lt;now&gt;') 'a read error replaces the specimens, escaped'
-$specimens = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style\specimens.html'))
+$specimens = [System.IO.File]::ReadAllText((Join-Path $RepoRoot 'plugins\dkj-policy\assets\dkj-brandbook\specimens.html'))
 Assert-True ($specimens -notmatch '(?i)<(html|head|body)[ >]' -and $specimens -notmatch '(?i)<link ' -and $specimens -notmatch '(?i)<script[^>]+src=') 'the specimens ship beside the stylesheet as a body fragment: the shell, the stylesheet and the theme script are the server''s'
 $realSplit = Split-HouseStyleSpecimens -Body $specimens
 Assert-Equal ([regex]::Matches($specimens, 'class="grid__head"><h2').Count) @($realSplit.Sections).Count 'the real specimens split into every section they head, none lost to the cut (#3563)'

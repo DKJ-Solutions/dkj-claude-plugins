@@ -458,7 +458,7 @@ function Format-ProductHouseStylePageHtml {
         The house style's specimens in the product's shell, under Marketplace and dkj-policy, the plugin whose files
         they document: the same page the toolbox shows on /plugins/dkj-policy/house-style, from the plugin's
         Get-HouseStyleSpecimensParts, which the toolbox in this repo now sends here. -Body is this checkout's
-        plugins/dkj-policy/assets/house-style/specimens.html, -ReadError why it could not be read. A -Section no
+        plugins/dkj-policy/assets/dkj-brandbook/specimens.html, -ReadError why it could not be read. A -Section no
         section has returns $null, a 404.
     #>
     param(
@@ -472,7 +472,7 @@ function Format-ProductHouseStylePageHtml {
     $crumbs = @(@{ Label = 'Marketplace'; Href = '/marketplace' }, @{ Label = 'dkj-policy'; Href = '/marketplace/dkj-policy' })
     if ($parts.Section) { $crumbs += @{ Label = 'House style'; Href = $base } }
     return Format-DevPageHtml -Title $parts.Title -Lead $parts.Lead -Body $parts.Body -ParentCrumbs $crumbs `
-        -FooterNote 'Read from this checkout''s <code>plugins/dkj-policy/assets/house-style/specimens.html</code> on every request, so it is the tree, not the installed release.'
+        -FooterNote 'Read from this checkout''s <code>plugins/dkj-policy/assets/dkj-brandbook/specimens.html</code> on every request, so it is the tree, not the installed release.'
 }
 
 function Resolve-MarketplaceAddOnRedirect {

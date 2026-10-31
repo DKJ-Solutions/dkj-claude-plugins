@@ -21,7 +21,7 @@
 
     THEY RENDER IN THE HOUSE STYLE IN EVERY REPO, BWJ-Development's included. They are this plugin's own
     tooling, not a repo's product, so they keep one look wherever they run; the stylesheet and theme script
-    are read from this plugin's own assets/house-style/ (Get-HouseStyleDir), which every install of
+    are read from this plugin's own assets/dkj-brandbook/ (Get-HouseStyleDir), which every install of
     dkj-policy carries; they sat in the dkj-solutions extension's folder until #3531.
 
     NOTHING HERE IS A REPO'S. Every value that is the repo's -- its name, its issue links, the register
@@ -828,12 +828,12 @@ function Get-AlwaysOnBudgetLibCandidates {
 function Get-HouseStyleDir {
     <#
         The house style's folder (house-style.css, house-theme.js) the two plugin servers serve:
-        assets/house-style/ inside -PluginRoot, the dkj-policy folder they run from (#3531; the
+        assets/dkj-brandbook/ inside -PluginRoot, the dkj-policy folder they run from (#3531; the
         dkj-solutions extension's folder until then). Every dkj-policy install carries it, so the pages
         keep one look in every repo (#3198).
     #>
     param([Parameter(Mandatory = $true)][string]$PluginRoot)
-    return Join-Path $PluginRoot.TrimEnd('\', '/') 'assets\house-style'
+    return Join-Path $PluginRoot.TrimEnd('\', '/') 'assets\dkj-brandbook'
 }
 
 function Get-ReleaseNotesPageNeed {
