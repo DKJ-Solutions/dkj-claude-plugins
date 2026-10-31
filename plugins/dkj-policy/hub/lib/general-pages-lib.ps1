@@ -231,10 +231,10 @@ function Format-GeneralPageHtml {
         if ($Eyebrow -and -not $Brand) { [void]$sb.AppendLine('<p class="eyebrow">' + (& $e $Eyebrow) + '</p>') }
         if ($Info) {
             # The h1 and its "?" on one row; the tooltip is fixed, placed by Get-PageInfoScript beside the button.
-            # The "?" is drawn, as mesowise draws its own (Maikel, October 31, 2026): a 24px ring and glyph in one stroke, so it
-            # never leans on a font's baseline, in a 44px button that is the whole tap target.
+            # The "?" glyph is drawn, as mesowise draws its own (Maikel, October 31, 2026), so it never leans on a font's
+            # baseline; its ring is the button's CSS border (.page-info-button::before), in a 44px button that is all tap target.
             $glyph = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">' +
-                '<circle cx="12" cy="12" r="10" /><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5M12 17.5v.01" /></svg>'
+                '<path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4.5M12 17.5v.01" /></svg>'
             [void]$sb.AppendLine('<div class="page-title"><h1>' + (& $e $Title) + '</h1><button class="page-info-button" type="button" id="page-info-button" aria-label="About ' + (& $e $Title) + '" aria-describedby="page-info" aria-expanded="false">' + $glyph + '</button></div>')
             [void]$sb.AppendLine('<div class="tooltip tooltip--explain" id="page-info" role="tooltip">' + $Info + '</div>')
         } else {
