@@ -144,6 +144,9 @@ function Format-GeneralPageHtml {
         another (the Stopwatch's run pages) names its parent so the trail reads Home > parent > the page.
         -HeadAside is markup the caller has escaped, set at the far right of the h1's row: the intro is then the house
         page-header row (main > header, a flex row with the title on the left), as a plugin's page does with its state.
+        -Sub is markup the caller has escaped: ONE short sentence as a .sub line under the h1, for a page that
+        describes one thing -- a plugin's page (Maikel, October 31, 2026, the one exception to #3585's rule). Empty,
+        as on every other page, it is left out.
     #>
     param(
         [Parameter(Mandatory = $true)][string]$Title,
@@ -160,7 +163,8 @@ function Format-GeneralPageHtml {
         [switch]$Bare,
         [AllowEmptyCollection()][object[]]$ParentCrumbs = @(),
         [AllowEmptyString()][string]$HeadAside = '',
-        [string]$HomeLabel = 'Tools'
+        [string]$HomeLabel = 'Tools',
+        [AllowEmptyString()][string]$Sub = ''
     )
     # EVERY NAMED PAGE CARRIES THE SITE HEADER (owner, October 22, 2026): a caller that names its site and passes no
     # -Brand gets the repo's short name in it, with 'hub' after it, since these are the hub's pages.
@@ -208,6 +212,7 @@ function Format-GeneralPageHtml {
         [void]$sb.AppendLine('<div>')
         if ($Eyebrow -and -not $Brand) { [void]$sb.AppendLine('<p class="eyebrow">' + (& $e $Eyebrow) + '</p>') }
         [void]$sb.AppendLine('<h1>' + (& $e $Title) + '</h1>')
+        if ($Sub) { [void]$sb.AppendLine('<p class="sub">' + $Sub + '</p>') }
         [void]$sb.AppendLine('</div>')
         if ($HeadAside) { [void]$sb.AppendLine($HeadAside); [void]$sb.AppendLine('</header>') }
     }

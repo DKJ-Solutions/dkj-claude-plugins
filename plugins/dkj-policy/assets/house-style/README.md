@@ -73,7 +73,9 @@ that checks the stylesheet's syntax and tokens; the page is the look.
    hoogte van het scherm"* (I have to be economical with screen height). No `.lead`, no `.lede` of the
    repo's own, and no plain `<p>` that explains the page. A sentence saying what the page is for goes in its
    `<meta name="description">`, not on screen. Real content is not an intro: an empty state that says a list
-   is empty stays.
+   is empty stays. **One exception: a plugin's page** (Maikel, October 31, 2026) carries its description,
+   shortened to its first sentence, as one `.sub` line under the `h1`, because there the description is what
+   the page is about. That is one line, never a paragraph, and no other page takes it as precedent.
 6. **The `h1` is never framed** (the owner, October 28, 2026). It gets no border, outline, shadow or
    background of its own, and the page's `h1` stands on the page itself, never inside a card, a panel or
    any other bordered box. `house-style.css` clears all four on every `h1`. The rest is a layout rule: the

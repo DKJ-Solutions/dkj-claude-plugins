@@ -118,7 +118,8 @@ page, dashboard and Artifact is designed to that screen first:
   [#3585](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3585)): no intro or explainer
   paragraph under it, whether `.lead`, a `.lede` of the repo's own or a plain `<p>`. Screen height is
   scarce. What the page is for goes in its `<meta name="description">`. An empty state that says a list is
-  empty is content, not an intro, and stays.
+  empty is content, not an intro, and stays. The one exception is a plugin's page, whose shortened
+  description is a single `.sub` line under the `h1` (Maikel, October 31, 2026).
 - **The `h1` is never framed** (the owner, October 28, 2026): no border, outline, shadow or background
   on it, and the page's `h1` never sits inside a card, panel or bordered box. It stands on the page.
 - **One row where one row does.** Label and value on one line (`.facts--row`), a card's action beside

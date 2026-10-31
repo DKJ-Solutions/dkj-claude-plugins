@@ -911,6 +911,15 @@ Assert-Equal 'http://localhost:4870/marketplace/dkj-policy/house-style/tokens' (
 Assert-True ((Resolve-HouseStyleProductUrl -IsSource $false -ProductUrl 'http://localhost:4870') -eq '' -and (Resolve-HouseStyleProductUrl -IsSource $true -ProductUrl '') -eq '' -and (Resolve-HouseStyleProductUrl -IsSource $true -ProductUrl 'http://evil.example:4870') -eq '') 'every other repo, a repo with no product, and anything but a loopback url keep the page in the toolbox'
 $mpPolicy = Format-MarketplacePluginsPageHtml -Plugins @(@{ Name = 'dkj-policy'; Kind = 'workflow'; Source = './plugins/dkj-policy'; Version = '1.0.0'; Enabled = $true; Summary = 's'; Description = 'd'; Subagents = 0; Personas = 0; Skills = 0; Hooks = 0 }) -Plugin 'dkj-policy'
 Assert-True ($mpPolicy -match 'id="house-style"' -and $mpPolicy -match 'href="/marketplace/dkj-policy/house-style"') 'the product''s dkj-policy page links the specimens as a card'
+Write-Host '-- a plugin''s page carries its shortened description under the h1 (Maikel, October 31, 2026)' -ForegroundColor Cyan
+$subRow = @{ Name = 'dkj-policy'; Kind = 'workflow'; Source = './plugins/dkj-policy'; Version = '1.0.0'; Enabled = $true; Summary = 'The line. More.'; Subagents = 0; Personas = 0; Skills = 0; Hooks = 0
+             Description = 'One way of working, <packaged>: a & b. A workflow is not a team.' }
+$subPage = Format-MarketplacePluginsPageHtml -Plugins @($subRow) -Plugin 'dkj-policy'
+Assert-True ($subPage -match '<h1>dkj-policy</h1>\r?\n<p class="sub">One way of working, &lt;packaged&gt;: a &amp; b\.</p>') 'the description''s first sentence, escaped, is the .sub line right under the h1'
+Assert-True ($subPage -notmatch 'class="sub">[^<]*A workflow' -and $subPage -match 'A workflow is not a team') 'only that sentence: the whole description stays in its card'
+$subRow.Description = ''
+Assert-True ((Format-MarketplacePluginsPageHtml -Plugins @($subRow) -Plugin 'dkj-policy') -match '<p class="sub">The line\.</p>') 'with no description the marketplace''s line stands in'
+Assert-True ((Format-MarketplacePluginsPageHtml -Plugins @($subRow)) -notmatch 'class="sub"' -and (Format-ProductHouseStylePageHtml -Body $hsFix) -notmatch 'class="sub"') 'and no other page carries one: the overview and the specimens open on their h1 alone (#3585)'
 Write-Host '-- one card link, never a hand-written one (#3563, #3566)' -ForegroundColor Cyan
 # Every `card card--link` in the hub's and the repo's page code, per file. Format-HubCardLinkHtml is the one card, and the
 # variants written before this guard have all moved onto it (#3566), so it is the list's only entry.

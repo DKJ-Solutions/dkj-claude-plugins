@@ -56,11 +56,13 @@ function Format-DevPageHtml {
         [AllowEmptyString()][string]$FooterNote = '',
         [string]$ThemeKey = 'general-pages',
         [switch]$Bare,
-        [AllowEmptyCollection()][object[]]$ParentCrumbs = @()
+        [AllowEmptyCollection()][object[]]$ParentCrumbs = @(),
+        [AllowEmptyString()][string]$Sub = ''
     )
     # -Bare: no h1 or lead above the body, the general banner still on top (Format-GeneralPageHtml's own switch, #3356), for a page that opens on its content.
+    # -Sub: the one short line under the h1 a plugin's page carries (Format-GeneralPageHtml's own, escaped by the caller).
     return Format-GeneralPageHtml -Title $Title -Lead $Lead -Body $Body -Style $Style -FooterNote $FooterNote -ThemeKey $ThemeKey `
-        -Brand 'dkj-marketplace' -BrandTag 'product' -SiteName 'dkj-marketplace' -HubHref '/' -HomeLabel 'Home' -Bare:$Bare -ParentCrumbs $ParentCrumbs
+        -Brand 'dkj-marketplace' -BrandTag 'product' -SiteName 'dkj-marketplace' -HubHref '/' -HomeLabel 'Home' -Bare:$Bare -ParentCrumbs $ParentCrumbs -Sub $Sub
 }
 
 function Get-ProductPages {
@@ -623,6 +625,9 @@ function Format-MarketplacePluginsPageHtml {
     $holds = @((& $count $p.Subagents 'subagent'), (& $count $p.Personas 'persona'), (& $count $p.Skills 'skill'), (& $count $p.Hooks 'hook')) | Where-Object { $_ }
     # The lead is the marketplace's line up to its first sentence: some run to paragraphs, which the description card holds.
     $lead = if ([string]$p.Summary -cmatch '^(.+?[.!?])\s+[A-Z]') { $Matches[1] } else { [string]$p.Summary }
+    # Its description shortened to its first sentence, as the sub line under the h1 (Maikel, October 31, 2026): the
+    # one page kind the house style lets carry one. With no description the marketplace's line stands in.
+    $short = if ([string]$p.Description -cmatch '^(.+?[.!?])(\s+[A-Z]|\s*\z)') { $Matches[1] } elseif ($p.Description) { [string]$p.Description } else { $lead }
     if (-not $p.Enabled) {
         [void]$body.AppendLine('<p class="msg" role="status">Not enabled in this repo''s <code>.claude/settings.json</code>: no session here loads it.</p>')
     }
@@ -659,7 +664,7 @@ function Format-MarketplacePluginsPageHtml {
         $footer += ' ' + (Get-SpecialistsFooter -CharsPerToken $CharsPerToken)
     }
     return Format-DevPageHtml -Title $p.Name -Style $style -Body $body.ToString() -FooterNote $footer -Lead (& $e $lead) `
-        -ParentCrumbs $crumbs
+        -ParentCrumbs $crumbs -Sub (& $e $short)
 }
 
 function Find-DkjCheckouts {
