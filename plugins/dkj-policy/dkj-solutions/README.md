@@ -9,7 +9,7 @@ no specialists.
 
 | Chapter | Where | What it holds |
 |---|---|---|
-| The house style | [`skills/house-style/`](skills/house-style/SKILL.md) | The canonical house style in `dkj-policy`'s [`assets/house-style/`](https://github.com/DKJ-Solutions/dkj-marketplace/tree/main/plugins/dkj-policy/assets/house-style/) (the design tokens, the twelve themes, the base stylesheet and the rules), the skill with what a session needs before it fetches them, and the `check-house-style` gate that holds a repo to them |
+| The brand book | [`skills/dkj-brandbook/`](skills/dkj-brandbook/SKILL.md) | The canonical brand book in `dkj-policy`'s [`assets/dkj-brandbook/`](https://github.com/DKJ-Solutions/dkj-marketplace/tree/main/plugins/dkj-policy/assets/dkj-brandbook/) (the design tokens, the twelve themes, the base stylesheet and the rules), the skill with what a session needs before it fetches them, and the `check-house-style` gate that holds a repo to them |
 | The tracker labels | [below](#the-tracker-labels--feature-and-bug-in-every-repo) | `feat/` is labelled `feature` and `fix/` `bug`, in every DKJ-Solutions repo, and how a repo still on `enhancement` moves over |
 
 ## The tracker labels — `feature` and `bug`, in every repo
@@ -42,9 +42,9 @@ not a rule a session has to follow, so it is no chapter and `CLAUDE.md` does not
 [`hooks/house-style-sessioncheck.ps1`](hooks/house-style-sessioncheck.ps1) runs the `check-house-style`
 gate at session start (`startup`, `resume`, `clear`) and reports what it finds: a vendored copy that is not
 the pinned one, a redefined house token or class, a retired token name. It is read-only and never fails
-the session. In a repo with no house style at all it prints one line saying there is nothing to check.
+the session. In a repo with no brand book at all it prints one line saying there is nothing to check.
 The gate itself, its allowlist and the CI caller are on the
-[`house-style` skill page](skills/house-style/SKILL.md#the-gate-check-house-style)
+[`dkj-brandbook` skill page](skills/dkj-brandbook/SKILL.md#the-gate-check-house-style)
 ([#3035](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3035)).
 
 ## The hub and the retired Brandbook
@@ -54,7 +54,7 @@ The gate itself, its allowlist and the CI caller are on the
 20, 2026): "General" means what every repo has, whichever organisation it belongs to, and BWJ-Development
 never enables this plugin. They are documented in
 [`dkj-policy`'s `hub/README.md`](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/hub/README.md), the `Get-DevPreview` seam included.
-Every page the hub machinery renders uses the house style, in every repo, from the copy of this folder
+Every page the hub machinery renders uses the brand book, in every repo, from the copy of this folder
 inside `dkj-policy`'s own payload.
 
 **No consumer hub shows or serves the Brandbook**
@@ -65,7 +65,7 @@ repo that enabled it, and the general pages server answered `/brandbook` there w
 copied into `assets/brandbook/` (#3210). The hub card and that route were taken off, and the release stopped
 building and shipping that folder ([#3477](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3477)).
 The app itself is retired ([#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493), the
-owner, October 26, 2026): `dkj-policy`'s `assets/house-style/` is the one central place for DKJ styling, and a
+owner, October 26, 2026): `dkj-policy`'s `assets/dkj-brandbook/` is the one central place for DKJ styling, and a
 house-style change is judged by eye on its House style page, `specimens.html` in that folder, which every hub that
 runs `dkj-policy` shows under Plugins (`/plugins/dkj-policy/house-style`, #3629).
 
@@ -103,8 +103,8 @@ change shows here before the release that ships it; every other hub that runs `d
 copy. The `house-style-css` CI gate checks the
 stylesheet itself.
 
-The house style itself is maintained in this repo, in `plugins/dkj-policy/assets/house-style/`, since
+The brand book itself is maintained in this repo, in `plugins/dkj-policy/assets/dkj-brandbook/`, since
 [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130) (October 18, 2026) moved it in
-from `dkj-brandbook` and [#3531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3531)
+from the `dkj-brandbook` repo (archived since; the name now belongs to the brand book here) and [#3531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3531)
 (October 26, 2026) moved the files from this plugin into `dkj-policy`, whose hub renders in them in every
 repo. The rule, the skill and the gate stay here. A consuming repo asks for a change through an inbound issue on this repo.

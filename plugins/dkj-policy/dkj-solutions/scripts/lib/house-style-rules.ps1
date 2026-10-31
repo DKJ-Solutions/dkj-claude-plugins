@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
     The rules behind check-house-style (#3035): is every vendored copy of the house style the copy the
-    house-style skill pins, does the repo's own layer leave the house tokens and classes alone, and does
+    dkj-brandbook skill pins, does the repo's own layer leave the house tokens and classes alone, and does
     it still use a token name the house style retired.
 
 .DESCRIPTION
@@ -56,11 +56,11 @@
     steps split into one primary, two greys and four text steps, #3235, and were retired in turn). The rename tables
     alone miss `--gain`, which v1 and v2 defined and v3 dropped
     without a row. They are listed here rather than fetched, so the gate needs no network; a change to the
-    canonical copy in assets/house-style/ that retires a name updates this list in the same change
+    canonical copy in assets/dkj-brandbook/ that retires a name updates this list in the same change
     (#3130), and the suite holds the list to that copy so a live name can never be listed as retired.
 
     THE SOURCE REPO'S OWN COPY IS NOT A COPY (#3637). In DKJ-Solutions/dkj-marketplace the files under
-    plugins/dkj-policy/assets/house-style/ are the canonical source, and between a house-style merge and
+    plugins/dkj-policy/assets/dkj-brandbook/ are the canonical source, and between a house-style merge and
     the next cut they run ahead of the tag that every install pins -- so holding them to that pin told
     the session to revert merged work. There those two files skip check 1, still serve as the verified
     stylesheet for check 2, and a note says when they differ from the pinned tag. Every other copy in
@@ -91,7 +91,12 @@ function Get-HouseStyleCopyNames {
 
 function Get-HouseStyleCanonicalDir {
     <# Where the source repo keeps the canonical house style, relative to its root (#3531). #>
-    return 'plugins/dkj-policy/assets/house-style'
+    return 'plugins/dkj-policy/assets/dkj-brandbook'
+}
+
+function Get-HouseStyleSkillDirNames {
+    <# The skill's folder names under dkj-solutions/skills/, current first: a page read at an older tag sits under the old one. #>
+    return [string[]]@('dkj-brandbook', 'house-style')
 }
 
 function Test-HouseStyleSourceRepo {
@@ -147,8 +152,9 @@ function Get-HouseStylePin {
         The pinned tag and the sha256 per file, read from the skill page's table -- the one place they
         are written. Returns @{ Tag; Hashes = @{ '<leaf>' = '<sha256>' } }, or $null when the page
         carries no complete table.
-        The URL path is read in both spellings: plugins/dkj-policy/assets/house-style/ since #3531, and
-        plugins/dkj-policy/dkj-solutions/assets/house-style/ before it, which every page at an earlier tag
+        The URL path is read in every spelling it has had: plugins/dkj-policy/assets/dkj-brandbook/ since
+        the rename to dkj-brandbook, plugins/dkj-policy/assets/house-style/ from #3531 until then, and
+        plugins/dkj-policy/dkj-solutions/assets/house-style/ before that, which every page at an earlier tag
         still carries -- and the reusable gate reads the page AT the pinned tag.
     #>
     param([Parameter(Mandatory)][string]$SkillText)
@@ -159,7 +165,7 @@ function Get-HouseStylePin {
         $m = [regex]::Match($line, '^\|\s*`(?<file>house-style\.css|house-theme\.js)`\s*\|\s*`(?<url>[^`]+)`\s*\|\s*`(?<sha>[0-9a-f]{64})`\s*\|')
         if (-not $m.Success) { continue }
         $hashes[$m.Groups['file'].Value] = $m.Groups['sha'].Value
-        $t = [regex]::Match($m.Groups['url'].Value, '/(?:dkj-marketplace|dkj-claude-plugins)/(?<tag>[^/]+)/plugins/dkj-policy/(?:dkj-solutions/)?assets/house-style/')
+        $t = [regex]::Match($m.Groups['url'].Value, '/(?:dkj-marketplace|dkj-claude-plugins)/(?<tag>[^/]+)/plugins/dkj-policy/(?:dkj-solutions/)?assets/(?:dkj-brandbook|house-style)/')
         if ($t.Success) { $tag = $t.Groups['tag'].Value }
     }
     foreach ($name in (Get-HouseStyleCopyNames)) { if (-not $hashes.ContainsKey($name)) { return $null } }
@@ -184,11 +190,16 @@ function Get-HouseStyleTagPin {
         if (-not (Test-Path -LiteralPath $env:DKJ_HOUSE_STYLE_TAG_PAGE -PathType Leaf)) { return $null }
         $TagPageText = [System.IO.File]::ReadAllText($env:DKJ_HOUSE_STYLE_TAG_PAGE, [System.Text.Encoding]::UTF8)
     } elseif (-not $PSBoundParameters.ContainsKey('TagPageText')) {
-        $url = "https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/$($Pin.Tag)/plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md"
-        try {
-            [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-            $TagPageText = [string](Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop).Content
-        } catch { return $null }
+        # The skill was named house-style until the rename to dkj-brandbook, so a tag cut before it carries
+        # the page under the old folder: try the current name first, then the old one.
+        [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+        foreach ($skillDir in (Get-HouseStyleSkillDirNames)) {
+            $url = "https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/$($Pin.Tag)/plugins/dkj-policy/dkj-solutions/skills/$skillDir/SKILL.md"
+            try {
+                $TagPageText = [string](Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec $TimeoutSec -ErrorAction Stop).Content
+                break
+            } catch { $TagPageText = $null }
+        }
     }
     if (-not $TagPageText) { return $null }
     $tagPin = Get-HouseStylePin -SkillText $TagPageText
@@ -532,11 +543,11 @@ function Invoke-HouseStyleCheck {
         } elseif ($pinned) {
             if ($leaf -eq 'house-style.css' -and -not $verifiedCss) { $verifiedCss = [System.Text.Encoding]::UTF8.GetString($bytes) }
         } else {
-            $findings.Add(@{ Check = 'pin'; Path = $rel; Line = 0; Name = $leaf; Text = "is not the copy the house-style skill pins at $($Pin.Tag) -- replace it with the file served at that tag, unchanged" })
+            $findings.Add(@{ Check = 'pin'; Path = $rel; Line = 0; Name = $leaf; Text = "is not the copy the dkj-brandbook skill pins at $($Pin.Tag) -- replace it with the file served at that tag, unchanged" })
         }
     }
     if (-not @($copies | Where-Object { ([System.IO.Path]::GetFileName($_.Path)).ToLowerInvariant() -eq 'house-style.css' }).Count) {
-        $findings.Add(@{ Check = 'missing'; Path = '.'; Line = 0; Name = 'house-style.css'; Text = "no vendored house-style.css in the tracked files -- vendor the copy the house-style skill pins at $($Pin.Tag)" })
+        $findings.Add(@{ Check = 'missing'; Path = '.'; Line = 0; Name = 'house-style.css'; Text = "no vendored house-style.css in the tracked files -- vendor the copy the dkj-brandbook skill pins at $($Pin.Tag)" })
     }
 
     # --- 2 and 3: the repo's own layer----------------------------------------------------------------
@@ -566,10 +577,10 @@ function Invoke-HouseStyleCheck {
 
         $hits = @()
         foreach ($h in @(Find-HouseStyleTokenHit -Text $text -Names $houseTokens)) {
-            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "defines the house token $($h.Name) -- add a domain token under a name of its own, or fix the value at its source (plugins/dkj-policy/assets/house-style/ in DKJ-Solutions/dkj-marketplace)" }
+            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "defines the house token $($h.Name) -- add a domain token under a name of its own, or fix the value at its source (plugins/dkj-policy/assets/dkj-brandbook/ in DKJ-Solutions/dkj-marketplace)" }
         }
         foreach ($h in @(Find-HouseStyleClassHit -Text $text -Classes $houseClasses -Nesting:($nestingExts -contains $ext))) {
-            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "styles the house class $($h.Name) -- give the element a domain class of its own, or fix the class at its source (plugins/dkj-policy/assets/house-style/ in DKJ-Solutions/dkj-marketplace)" }
+            $hits += @{ Check = 'redefine'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "styles the house class $($h.Name) -- give the element a domain class of its own, or fix the class at its source (plugins/dkj-policy/assets/dkj-brandbook/ in DKJ-Solutions/dkj-marketplace)" }
         }
         foreach ($h in @(Find-HouseStyleTokenHit -Text $text -Names $retired -IncludeReads)) {
             $hits += @{ Check = 'retired'; Path = $rel; Line = $h.Line; Name = $h.Name; Text = "$($h.Kind) $($h.Name), a token name the house style retired -- rename it per the rename tables in house-style/README.md at $($Pin.Tag)" }

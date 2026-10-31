@@ -39,7 +39,7 @@
                       own copy first, then this plugin's, run in a CHILD process bounded at 30 s (Read-PluginsPageModel,
                       hub/lib/plugins-page-lib.ps1, #3482). A script that fails or is missing is a warning on the page.
       /plugins/dkj-policy/house-style[/<section>]
-                      the house style's specimens (assets/house-style/specimens.html, read per request): a card per
+                      the house style's specimens (assets/dkj-brandbook/specimens.html, read per request): a card per
                       section, and each section's own page (Split-HouseStyleSpecimens, #3563); a slug no section has
                       is a 404. The old /plugins/dkj-solutions/house-style[/<section>] is a 301 to it (#3629).
       /stopwatch, /stopwatch/<label>[/<run>], /logbook, /logbook/<slug>
@@ -63,7 +63,7 @@
                       takes a POST, served same-origin only.
       /whoami         the hash of the repo root this server was started in (Get-DevPreviewRootHash): the
                       hubs ask it before they link here, because an open port does not say whose server it is.
-      /house-style.css, /house-theme.js   the canonical copy under assets/house-style/ in this
+      /house-style.css, /house-theme.js   the canonical copy under assets/dkj-brandbook/ in this
                       plugin's payload (Get-HouseStyleDir), in every repo: the pages keep one look everywhere.
     The repo's name on the pages is owner/name from the origin remote, else the folder's name.
 
@@ -531,7 +531,7 @@ try {
                 } elseif ($plRow = Find-PluginsPageRow -Model $pl.Model -Name $plReq.Name) {
                     $hsState = if ($plReq.Page -eq 'house-style') { Read-RepoHubState -Root $root } else { $null }
                     $hsTo = if ($hsState -and $hsState.Mode -eq 'product') {
-                        Resolve-HouseStyleProductUrl -IsSource (Test-Path -LiteralPath (Join-Path $root 'plugins\dkj-policy\assets\house-style\specimens.html') -PathType Leaf) `
+                        Resolve-HouseStyleProductUrl -IsSource (Test-Path -LiteralPath (Join-Path $root 'plugins\dkj-policy\assets\dkj-brandbook\specimens.html') -PathType Leaf) `
                             -ProductUrl $hsState.Product -Section $plReq.Section
                     } else { '' }
                     if ($hsTo) {

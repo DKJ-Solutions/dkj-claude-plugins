@@ -19,8 +19,8 @@ $RepoRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..\..')).Path
 $Plugin   = Join-Path $RepoRoot 'plugins\dkj-policy\dkj-solutions'
 $Gate     = Join-Path $Plugin 'scripts\lint\check-house-style.ps1'
 $Hook     = Join-Path $Plugin 'hooks\house-style-sessioncheck.ps1'
-$Skill    = Join-Path $Plugin 'skills\house-style\SKILL.md'
-$Vendored = Join-Path $RepoRoot 'plugins\dkj-policy\assets\house-style'
+$Skill    = Join-Path $Plugin 'skills\dkj-brandbook\SKILL.md'
+$Vendored = Join-Path $RepoRoot 'plugins\dkj-policy\assets\dkj-brandbook'
 # $PID and a guid in the fixture path: the test gate runs suites in parallel.
 $Fixture  = Join-Path ([System.IO.Path]::GetTempPath()) "house-style-$PID-$([guid]::NewGuid().ToString('n'))"
 
@@ -51,22 +51,27 @@ Assert-True ($null -ne $pin) 'the skill page carries a complete checksum table'
 # would turn every such pull request red. The README link is absolute since #3531: the README lives in dkj-policy,
 # outside the dkj-solutions plugin root a consumer installs.
 Assert-True ($pin.Tag -cmatch '^v\d+\.\d+\.\d+$') 'the tag is read from the fetch URL'
-Assert-True ([System.IO.File]::ReadAllText($Skill).Contains('](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/assets/house-style/README.md)')) 'the skill links the README in dkj-policy absolutely, since a relative link leaves the dkj-solutions plugin root'
+Assert-True ([System.IO.File]::ReadAllText($Skill).Contains('](https://github.com/DKJ-Solutions/dkj-marketplace/blob/main/plugins/dkj-policy/assets/dkj-brandbook/README.md)')) 'the skill links the README in dkj-policy absolutely, since a relative link leaves the dkj-solutions plugin root'
 Assert-True (Test-Path -LiteralPath (Join-Path $Vendored 'README.md')) 'the README the skill links exists in the plugin'
 # The canonical copy is NOT held to the pin here (#3636): between releases the pin names the tag's bytes, and a
 # branch that changes the stylesheet no longer hand-edits the cell -- the cut writes it from the blob it tags. So
 # what this suite holds is that the cut is told to: both files are under Checksums of the skill page's pin.
 . (Join-Path $RepoRoot 'scripts\repo-config.ps1')
-$skillPins = @(Get-ReleaseVersionPins | Where-Object { $_.Path -eq 'plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL.md' })
+$skillPins = @(Get-ReleaseVersionPins | Where-Object { $_.Path -eq 'plugins/dkj-policy/dkj-solutions/skills/dkj-brandbook/SKILL.md' })
 Assert-Equal 1 $skillPins.Count 'the cut repoints the skill page (Get-ReleaseVersionPins)'
 foreach ($leaf in 'house-style.css', 'house-theme.js') {
-    Assert-True (@($skillPins | ForEach-Object { $_.Checksums }) -contains "plugins/dkj-policy/assets/house-style/$leaf") "...and writes the checksum of the canonical $leaf beside its URL"
+    Assert-True (@($skillPins | ForEach-Object { $_.Checksums }) -contains "plugins/dkj-policy/assets/dkj-brandbook/$leaf") "...and writes the checksum of the canonical $leaf beside its URL"
 }
 Assert-True ($null -eq (Get-HouseStylePin -SkillText '| `house-style.css` | `x` | `aa` |')) 'a page without both rows is no pin'
 # A page at a tag before #3531 names the files under dkj-solutions/assets/, and the reusable gate reads the page AT that tag.
 $oldRow = '| `{0}` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/v5.32.0/plugins/dkj-policy/dkj-solutions/assets/house-style/{0}` | `{1}` |'
 $oldPage = ($oldRow -f 'house-style.css', ('a' * 64)) + "`n" + ($oldRow -f 'house-theme.js', ('b' * 64))
 Assert-Equal 'v5.32.0' (Get-HouseStylePin -SkillText $oldPage).Tag 'a pin URL on the pre-#3531 path still yields its tag'
+# A page at a tag before the rename to dkj-brandbook names the files under assets/house-style/.
+$midRow = '| `{0}` | `https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/v6.1.0/plugins/dkj-policy/assets/house-style/{0}` | `{1}` |'
+$midPage = ($midRow -f 'house-style.css', ('a' * 64)) + "`n" + ($midRow -f 'house-theme.js', ('b' * 64))
+Assert-Equal 'v6.1.0' (Get-HouseStylePin -SkillText $midPage).Tag 'a pin URL on the pre-rename assets/house-style/ path still yields its tag'
+Assert-Equal 'dkj-brandbook,house-style' ((Get-HouseStyleSkillDirNames) -join ',') 'the page at a tag is looked for under the current skill folder first, then the pre-rename one'
 
 # The page at the tag (#3588): taken only when it pins the same tag the installed page names.
 $installed = @{ Tag = 'v5.32.0'; Hashes = @{} }
@@ -223,7 +228,7 @@ try {
         $treeHash = @(Get-HouseStyleSha256 -Bytes ([System.IO.File]::ReadAllBytes((Join-Path $Vendored $leaf))))[-1]
         $realSkill = $realSkill.Replace($pin.Hashes[$leaf], $treeHash)
     }
-    $Skill = Join-Path $fxPlugin 'skills\house-style\SKILL.md'
+    $Skill = Join-Path $fxPlugin 'skills\dkj-brandbook\SKILL.md'
     New-Item -ItemType Directory -Force -Path (Split-Path $Skill) | Out-Null
     [System.IO.File]::WriteAllText($Skill, $realSkill)
     $pin = Get-HouseStylePin -SkillText $realSkill
@@ -295,7 +300,7 @@ try {
 
     # #3637: in the source repo the canonical copy runs ahead of the pin between cuts, and is not a copy.
     $source = New-FixtureRepo 'source'
-    $canonDir = Join-Path $source 'plugins\dkj-policy\assets\house-style'
+    $canonDir = Join-Path $source 'plugins\dkj-policy\assets\dkj-brandbook'
     New-Item -ItemType Directory -Force -Path $canonDir, (Join-Path $source '.claude-plugin') | Out-Null
     Copy-Item -LiteralPath (Join-Path $Vendored 'house-style.css'), (Join-Path $Vendored 'house-theme.js') -Destination $canonDir
     Add-Content -LiteralPath (Join-Path $canonDir 'house-style.css') -Value '/* merged since the cut */'
@@ -306,7 +311,7 @@ try {
     Assert-True (-not (Test-HouseStyleSourceRepo -RepoRoot $clean)) 'a repo without a manifest is not'
     $r = Invoke-Child $Gate $source 'RepoRoot'
     Assert-True ($r.Out -notmatch '\[pin\]') 'the source repo''s canonical copy, ahead of the pin, is no pin finding'
-    Assert-True ($r.Out -match '\[source\]   plugins/dkj-policy/assets/house-style/house-style\.css' -and $r.Out -match 'house-style\.css is this repo''s canonical copy and differs from') '...it is named as the source, and as differing from the tag'
+    Assert-True ($r.Out -match '\[source\]   plugins/dkj-policy/assets/dkj-brandbook/house-style\.css' -and $r.Out -match 'house-style\.css is this repo''s canonical copy and differs from') '...it is named as the source, and as differing from the tag'
     Assert-True ($r.Out -notmatch 'house-theme\.js is this repo''s canonical copy') '...and a canonical file equal to the pin carries no note'
     Assert-True ($r.Code -eq 1 -and $r.Out -match '\[redefine\] web/app\.css:1 styles the house class \.card') '...and still serves check 2 as the verified stylesheet'
     Remove-Item -LiteralPath (Join-Path $source 'web\app.css')
@@ -318,7 +323,7 @@ try {
     Copy-Item -LiteralPath (Join-Path $canonDir 'house-style.css') -Destination $demo
     Invoke-FixtureGitIn $source add -A
     $r = Invoke-Child $Gate $source 'RepoRoot'
-    Assert-True ($r.Code -eq 1 -and $r.Out -match '\[pin\] plugins/dkj-policy/assets/house-style/demo/house-style\.css') 'a copy nested under the canonical folder is a copy, not the source'
+    Assert-True ($r.Code -eq 1 -and $r.Out -match '\[pin\] plugins/dkj-policy/assets/dkj-brandbook/demo/house-style\.css') 'a copy nested under the canonical folder is a copy, not the source'
     Remove-Item -LiteralPath $demo -Recurse -Force
     Copy-Item -LiteralPath (Join-Path $canonDir 'house-style.css') -Destination (Join-Path $source 'web\house-style.css')
     Invoke-FixtureGitIn $source add -A
@@ -350,7 +355,8 @@ Assert-True (Test-HouseStyleSourceRepo -RepoRoot $RepoRoot) 'this repo is read a
 # The reusable workflow reads the pin at the tag the page names (#3148), not at the ref it runs from.
 $wf = [System.IO.File]::ReadAllText((Join-Path $RepoRoot '.github\workflows\reusable-house-style.yml'))
 Assert-True ($wf -match 'ref: \$\{\{ steps\.pin\.outputs\.tag \}\}') 'the reusable gate checks out the skill page at the pinned tag'
-Assert-True ($wf -match 'check-house-style\.ps1 -SkillPath \.workflow-pin/plugins/dkj-policy/dkj-solutions/skills/house-style/SKILL\.md') '...and hands that page to the gate'
+Assert-True ($wf -match "\.workflow-pin/plugins/dkj-policy/dkj-solutions/skills/dkj-brandbook/SKILL\.md'" -and $wf -match 'check-house-style\.ps1 -SkillPath \$skill') '...and hands that page to the gate'
+Assert-True ($wf -match 'sparse-checkout: \|\s+plugins/dkj-policy/dkj-solutions/skills/dkj-brandbook\s+plugins/dkj-policy/dkj-solutions/skills/house-style') '...fetching the pre-rename skill folder too, since a tag cut before the rename carries the page there'
 
 Write-Host ''
 # A broken fixture fails the run even when every assert passed (issue #1635).

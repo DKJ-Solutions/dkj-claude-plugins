@@ -24,7 +24,7 @@
     and judge every copy against it; a clean session never touches the network.
 
     IN THE SOURCE REPO THE CANONICAL COPY IS NOT JUDGED AGAINST THE PIN (#3637). Its files under
-    plugins/dkj-policy/assets/house-style/ run ahead of the installed tag between cuts, and telling the
+    plugins/dkj-policy/assets/dkj-brandbook/ run ahead of the installed tag between cuts, and telling the
     session to replace them with the tag's file would revert merged work. The lib decides it.
 
 .PARAMETER RepoRootOverride
@@ -54,7 +54,7 @@ function ConvertTo-SessionSafe([string]$Text, [int]$Max = 160) {
 }
 
 $libPath = Join-Path $PSScriptRoot '../scripts/lib/house-style-rules.ps1'
-$skillPath = Join-Path $PSScriptRoot '../skills/house-style/SKILL.md'
+$skillPath = Join-Path $PSScriptRoot '../skills/dkj-brandbook/SKILL.md'
 if (-not (Test-Path -LiteralPath $libPath -PathType Leaf) -or -not (Test-Path -LiteralPath $skillPath -PathType Leaf)) {
     Write-Output "${name}: skipped -- the house-style lib or skill page is not beside this hook; reinstall or update the dkj-solutions plugin."
     exit 0
@@ -66,7 +66,7 @@ $root = [System.IO.Path]::GetFullPath($root).TrimEnd('\', '/')
 if (-not (Test-Path -LiteralPath (Join-Path $root '.git'))) { exit 0 }
 
 $pin = Get-HouseStylePin -SkillText ([System.IO.File]::ReadAllText($skillPath, [System.Text.Encoding]::UTF8))
-if (-not $pin) { Write-Output "${name}: skipped -- the house-style skill page carries no complete checksum table."; exit 0 }
+if (-not $pin) { Write-Output "${name}: skipped -- the dkj-brandbook skill page carries no complete checksum table."; exit 0 }
 
 $allow = Read-HouseStyleAllowlist -RepoRoot $root
 if (-not $allow.Ok) { Write-Output "${name}: [WARN] scripts/repo-config.ps1: $(ConvertTo-SessionSafe $allow.Problem) -- the check did not run."; exit 0 }
@@ -99,6 +99,6 @@ foreach ($f in ($findings | Select-Object -First $shown)) {
     $lines += "  [$($f.Check)] $where $($f.Text)"
 }
 if ($findings.Count -gt $shown) { $lines += "  ... and $($findings.Count - $shown) more." }
-$lines += '  The full list: run the dkj-solutions plugin''s scripts/lint/check-house-style.ps1 from the repo root (the house-style skill names it).'
+$lines += '  The full list: run the dkj-solutions plugin''s scripts/lint/check-house-style.ps1 from the repo root (the dkj-brandbook skill names it).'
 Write-Output ($lines -join [Environment]::NewLine)
 exit 0

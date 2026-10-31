@@ -105,7 +105,7 @@ $root = if ($RepoRootOverride) { [System.IO.Path]::GetFullPath($RepoRootOverride
 
 $scopeRoot = [System.IO.Path]::GetFullPath((Join-Path $root '..\..'))
 # The canonical copy lives in the plugin (#3130); the hub no longer vendors its own.
-$styleDir = Join-Path $root 'plugins\dkj-policy\assets\house-style'
+$styleDir = Join-Path $root 'plugins\dkj-policy\assets\dkj-brandbook'
 $static = @{
     '/house-style.css' = @{ File = (Join-Path $styleDir 'house-style.css'); Type = 'text/css; charset=utf-8' }
     '/house-theme.js'  = @{ File = (Join-Path $styleDir 'house-theme.js');  Type = 'text/javascript; charset=utf-8' }

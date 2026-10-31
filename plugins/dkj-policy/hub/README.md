@@ -41,17 +41,17 @@ them. They are tested there by `dev-preview-sessionstart.tests.ps1`, `dev-pages.
 
 1. **Every repo that runs `dkj-policy` gets the Toolbox, with no exceptions.** The plugin serves it at
    session start whatever the repo states, and no repo can opt out of it or put its own server in its place.
-2. **The Toolbox renders in the house style in every one of those repos, BWJ-Development's included.** It is
+2. **The Toolbox renders in the brand book in every one of those repos, BWJ-Development's included.** It is
    this plugin's own tooling, not a repo's product, so it keeps one look wherever it runs, the way any tool's
    own screens do. Nothing in the repo can change that.
-3. **A repo's product port is the repo's own, and the house style reaches it only in a DKJ-Solutions repo.**
+3. **A repo's product port is the repo's own, and the brand book reaches it only in a DKJ-Solutions repo.**
    There it is a rule, not an automatism: the `dkj-solutions` extension says every page a DKJ-Solutions app
-   renders starts from the house style, the app copies `house-style.css` and `house-theme.js` in unchanged,
+   renders starts from the brand book, the app copies `house-style.css` and `house-theme.js` in unchanged,
    and that extension's `check-house-style` gate holds the copies to the pinned release. A BWJ-Development
    repo, which never enables `dkj-solutions`, styles its product itself.
 
 The stylesheet and theme script come from this plugin's own
-[`assets/house-style/`](../assets/house-style/) (`Get-HouseStyleDir`), which every install of `dkj-policy`
+[`assets/dkj-brandbook/`](../assets/dkj-brandbook/) (`Get-HouseStyleDir`), which every install of `dkj-policy`
 carries. They sat in the `dkj-solutions` extension's folder until
 [#3531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3531); the rule that a DKJ-Solutions app
 starts from them stays there.
@@ -74,7 +74,7 @@ link on that hub, not the hub itself.
 
 **The hub has one form, in every repo** (the owner's decision, October 16, 2026,
 [#3066](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3066)): the one laid down in
-[`assets/house-style/README.md`](../assets/house-style/README.md), section
+[`assets/dkj-brandbook/README.md`](../assets/dkj-brandbook/README.md), section
 "The hub": one page on `/`, under the site header (#3289, which ended #3270's separate About this repo
 page; an old link to `/about` is sent to `/`), and since #3383 a grid of card links with a separate
 **GitHub** page (called Repository until it took the GitHub name and logo). The blocks and their order are fixed. The general banner stands above the site header,
@@ -99,7 +99,7 @@ open with it.
 October 29, 2026). From #3245 to #3643 a repo could state `OwnHub = $true` in `Get-DevPreview`, and its own
 server was then the hub instead of this plugin's, with a nested `Product = @{ ... }` beside it from
 [#3283](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3283). Such a hub was the repo's own, so
-nothing held it to the house style, and a BWJ-Development repo could leave the Toolbox's one look behind.
+nothing held it to the brand book, and a BWJ-Development repo could leave the Toolbox's one look behind.
 Since #3540 every repo has a product port and #3464 had rolled this plugin's hub out to every DKJ repo, so
 the opt-out had no remaining use. **Both keys are ignored where a repo still states them**, the way `Name`
 has been since #3064: the repo's server is its product on this plugin's Toolbox, a `Product` beside it is
@@ -232,7 +232,7 @@ names the checkout), started hidden and detached.
 **It serves no Brandbook, in any repo** ([#3475](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3475),
 the owner, October 25, 2026). From #3198 to #3475 a DKJ-Solutions repo's server served a fifth page, the
 brand book app's build from `dkj-solutions/assets/brandbook/`, under `/brandbook/`. The route went with #3475, and the app itself with #3493: no repo has a Brand book to
-show. The house style's own specimens are a page under Plugins instead, on `/plugins/dkj-policy/house-style`,
+show. The brand book's own specimens are a page under Plugins instead, on `/plugins/dkj-policy/house-style`,
 in every repo that runs the toolbox, BWJ-Development's included ([#3629](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3629));
 the old `/plugins/dkj-solutions/house-style` redirects there.
 
@@ -242,7 +242,7 @@ the old `/plugins/dkj-solutions/house-style` redirects there.
 | `/repository` | The state file and the `origin` remote: the hub's GitHub page, its facts and a card for Issues and, where the remote is on github.com, its pull requests and CI runs (#3383) | Always answers; with no github.com remote the facts carry no GitHub row and the page no GitHub cards |
 | `/artifacts` | `scripts/dashboard/artifacts.json`, on every request | The page says the file is not there |
 | `/issues` | `gh issue list`, three calls (the open issues, and those opened and closed in the last 28 days), for `--repo <owner/name>` taken from the `origin` remote when it is on github.com, else for the repo `gh` finds in the working directory; kept for five minutes | A `gh` that fails or is missing is a warning on the page |
-| `/release-notes` | `dkj-policy/releases/page/release-notes.html`, dressed in the house style on the way out. Built first where it is absent or older than a file under `dkj-policy/releases`, by `build-release-notes-page.ps1` in a child process (bounded at 60 s), the repo's own copy else this plugin's: the page is a gitignored snapshot that nothing else builds (#3189) | A plain 404 text naming why it could not be built; where a rebuild fails, the older page is served |
+| `/release-notes` | `dkj-policy/releases/page/release-notes.html`, dressed in the brand book on the way out. Built first where it is absent or older than a file under `dkj-policy/releases`, by `build-release-notes-page.ps1` in a child process (bounded at 60 s), the repo's own copy else this plugin's: the page is a gitignored snapshot that nothing else builds (#3189) | A plain 404 text naming why it could not be built; where a rebuild fails, the older page is served |
 | `/sessionstart` | The always-on path, measured in a child process (bounded at 60 s) by `always-on-budget-lib.ps1`, the repo's own copy else this plugin's; kept for a minute | The reason it could not measure, on the page |
 | `/test-gate` | `scripts/tests/suite-durations.json`, grouped by `scripts/tests/suite-groups.json` where the repo keeps one, and each suite's own `.SYNOPSIS` (#3470) | The page says no test gate has been measured in this repo yet |
 | `/stopwatch`, `/stopwatch/<label>[/<run>]` | This repo's Stopwatch store on this machine, and the session transcripts for a run's phases (#3470; see the timing pages below) | An empty overview |
@@ -367,7 +367,7 @@ record the runs (`hooks/stopwatch-hook.ps1`, `hooks/logbook-hook.ps1`), and the 
 This repo's hub is this plugin's, as in every other repo: since #3540 its `Get-DevPreview` states no `OwnHub`; #3643 then retired that opt-out for every repo. Its product is the **consumer dashboard** (every repo
 registered under `consumers/` and what `check-consumers.ps1` reports for it), the specialists and their
 context cost, and, on the DKJ group's consumer page, every DKJ repo on GitHub, served on `127.0.0.1` by `scripts/dashboard/serve-consumer-dashboard.ps1`,
-with the house style from this tree and a first card back to the hub. `scripts/lib/dev-pages-lib.ps1` reads
+with the brand book from this tree and a first card back to the hub. `scripts/lib/dev-pages-lib.ps1` reads
 `lib/general-pages-lib.ps1` from this tree for the page shell. The General pages, the Test gate among them,
 are the hub's alone: the suite selection this checkout's change makes, which the old own hub added to its Test
 gate, went with it. That server uses a

@@ -1,4 +1,4 @@
-# The DKJ-Solutions house style
+# The DKJ-Solutions brand book
 
 **Every DKJ-Solutions app looks like one family, and this folder is where that family is written down**
 (Dave, issue [#2695](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2695), October 1,
@@ -11,7 +11,7 @@ library's scales, below), and the copy in this folder is the only one:
 **It lives in the `dkj-policy` plugin**, because the plugin's own hub and General pages render in it in
 every repo, BWJ-Development's included
 ([#3531](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3531), October 26, 2026). The **rule**
-that a DKJ-Solutions app starts from it stays in the `dkj-solutions` plugin, whose `house-style` skill
+that a DKJ-Solutions app starts from it stays in the `dkj-solutions` plugin, whose `dkj-brandbook` skill
 points here and pins the files. It spent October 13 to 18, 2026 in the `dkj-brandbook` repo, came back
 into `dkj-solutions` with [#3130](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3130), and
 moved one level up into `dkj-policy` with #3531. **A session or a build
@@ -22,8 +22,8 @@ moving ref that an admin can push to past the review. A tag is a version somebod
 URLs, with `<tag>` the release tag the skill pins, which the release cut writes into the skill
 ([#3133](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3133)):
 
-- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/<tag>/plugins/dkj-policy/assets/house-style/house-style.css`
-- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/<tag>/plugins/dkj-policy/assets/house-style/house-theme.js`
+- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/<tag>/plugins/dkj-policy/assets/dkj-brandbook/house-style.css`
+- `https://raw.githubusercontent.com/DKJ-Solutions/dkj-marketplace/<tag>/plugins/dkj-policy/assets/dkj-brandbook/house-theme.js`
 
 **The rule that an app starts from it reaches DKJ-Solutions and nothing else**, through the
 `dkj-solutions` extension, where an app copies the files in and `check-house-style` holds the copy to the pin:
@@ -66,7 +66,7 @@ that checks the stylesheet's syntax and tokens; the page is the look.
 4. **Design to one screen of about 1300 x 900, at the full width, with nothing the brief did not ask for**
    (the owner, October 26, 2026; about 1300 x 900, a guideline, since October 27, when it replaced 1400 x 600): no scroll where cutting ornament or going wider avoids it, blocks side
    by side rather than stacked, and no eyebrow, sub line, lead or extra row unless the brief asks for
-   one. The full rule is in the `house-style` skill, under "Density".
+   one. The full rule is in the `dkj-brandbook` skill, under "Density".
 5. **A page opens on its `h1` and goes straight to its content: no intro paragraph under it** (Dave, for
    every DKJ-Solutions product, October 27, 2026,
    [#3585](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3585)): *"ik moet zuinig zijn met de
@@ -328,7 +328,7 @@ renders at the browser's default size.
 ## Themes: the user picks the colour
 
 **Every DKJ-Solutions app has the same form, and a colour of its own that the user picks** (Maikel,
-October 12, 2026). The house style carries twelve themes. Each one is a mode, light or dark, plus a
+October 12, 2026). The brand book carries twelve themes. Each one is a mode, light or dark, plus a
 primary colour, its `--primary` in either mode (the dot the picker draws):
 
 | Mode | Themes (`data-theme`), in hue order |
@@ -562,10 +562,10 @@ pointer is shown by its own script and stays click-through.
 
 ## App components (from MesoWise)
 
-**The house style is extended with the MesoWise app** (Maikel, October 12, 2026; ported here on
+**The brand book is extended with the MesoWise app** (Maikel, October 12, 2026; ported here on
 October 13, 2026 by [#18](https://github.com/DKJ-Solutions/dkj-brandbook/issues/18), after the owner's
 choice on [dkj-claude-plugins#2955](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/2955)):
-the components that app had and the house style lacked were lifted into the same stylesheet. They are
+the components that app had and the brand book lacked were lifted into the same stylesheet. They are
 the generic, mobile-first parts of an app shell: a narrow column, a form field, touch buttons, a dialog
 and a side drawer, a top bar and a menu list. The group sits at the end of
 [`house-style.css`](house-style.css), under "App components".
@@ -594,7 +594,7 @@ generic `.chip`, the stat rows and the stepper are house classes since the
 
 ## Brand-book components
 
-**The brand-book app was retired under [#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)** (owner's decision, October 26, 2026), and its component CSS moved here first so consumers receive it. Only the families the house style had no class for were ported, renamed to the house convention (unprefixed, `.block`, `.block__part`, `.block--modifier`); a family the house style already had was dropped in favour of the house class, so there is one vocabulary. The components were lifted from MesoWise and the ETF tracker, plus brand-book originals (`.prose`, `.figure`, `.filter-chips`, `.date-list`). The group sits at the end of [`house-style.css`](house-style.css), under "Brand-book components".
+**The brand-book app was retired under [#3493](https://github.com/DKJ-Solutions/dkj-claude-plugins/issues/3493)** (owner's decision, October 26, 2026), and its component CSS moved here first so consumers receive it. Only the families the brand book had no class for were ported, renamed to the house convention (unprefixed, `.block`, `.block__part`, `.block--modifier`); a family the brand book already had was dropped in favour of the house class, so there is one vocabulary. The components were lifted from MesoWise and the ETF tracker, plus brand-book originals (`.prose`, `.figure`, `.filter-chips`, `.date-list`). The group sits at the end of [`house-style.css`](house-style.css), under "Brand-book components".
 
 **Ported:** alert, banner, panel, chip, tag, filter chips, round and badge toggles, help, a structured disclosure (`.more--structured`), group heading, question head and verdict, amount, answer box, flash, page header, read-only field value, checkbox, stepper, search combobox, value box, stat and formula rows, step header, info rows, bill, comparison and calculation tables, date list, figure, prose, and the chart's tooltip rows.
 
@@ -604,7 +604,7 @@ generic `.chip`, the stat rows and the stepper are house classes since the
 
 - **New tokens.** `--radius-xs` 4px, `--radius-sm` 6px, `--radius-md` 8px, `--radius-md-plus` 10px, `--radius-lg` 12px, `--radius-pill` 999px; `--control-lg` 52px; `--datecol` 10ch; `--font-mono`. Everything else the brand book defined maps onto an existing token (`--tap`, `--control-h`, `--topbar-h`, `--column-narrow`, the spacing and type scales) or onto a literal as in the older classes (weights, line heights, tracking, focus ring, motion).
 - **Sizes and focus.** Interactive parts are at least `--tap` (44px) high, or grow their hit area to it (`::after`). The focus ring is `--muted`, 2px, offset 2px (inset where the part is clipped).
-- **Contrast.** Every pairing is a token pair already used in the house style. A date row marked `--invalid` shows its date and reason in `--negative-5` (the brand book used `--negative-3`, which is a fill step, not a text step). The native checkbox takes the theme through `accent-color`.
+- **Contrast.** Every pairing is a token pair already used in the brand book. A date row marked `--invalid` shows its date and reason in `--negative-5` (the brand book used `--negative-3`, which is a fill step, not a text step). The native checkbox takes the theme through `accent-color`.
 - **Browser support.** `.calc` needs `subgrid`, `.more--structured` container queries, `.step-head__value` uses `text-box` (ignored where unsupported, the figure is only less tightly centred).
 - **Markup contracts.** The combobox marks its active option with `aria-selected="true"`, not a class. A stat row's button is an `.icon-btn` made `--control-h` square.
 
@@ -641,7 +641,7 @@ its own.
 - **Always visible:** the bar sticks to the top of the screen while the page scrolls. It is one `--tap`
   (44px) high and one line: a trail longer than the screen scrolls sideways inside the bar instead of
   wrapping, so the height never changes. Whatever else sticks to the top sits under it, at `top: var(--tap)`;
-  the house style already does that for the floating settings button and for in-page anchors.
+  the brand book already does that for the floating settings button and for in-page anchors.
 - **The trail:** it always starts at **Tools** on the toolbox, linking to `/` (it read **Repo hub** until #3270 and **Home** until the owner renamed it, October 27, 2026; a product keeps **Home** for its own pages). Each further crumb is one level
   down: the product (under its own name), then a page inside it. The last crumb is the current page,
   unlinked, with `aria-current="page"`. The bar stands on the theme's colour, `--primary` (owner, #3235, October 21, 2026), so
@@ -666,7 +666,7 @@ its own.
   [`patterns/repo-dashboard.html`](patterns/repo-dashboard.html) carries it.
 
 **What this changes for an app that takes the update:** nothing that exists, only an addition. A page
-without the bar does not break, but it does not follow the house style until it has one. An app with its
+without the bar does not break, but it does not follow the brand book until it has one. An app with its
 own sticky element at `top: 0` (a sidebar, a toolbar) moves it to `top: var(--tap)` when it adds the bar,
 or the bar covers it.
 
@@ -677,7 +677,7 @@ or the bar covers it.
 four sections**, each a `.grid__head` with its own `h2`, it becomes an **overview**: one card per section,
 and each card opens **a page of its own** at `<page>/<section>`. Finding one part of a page should never mean
 scrolling past the rest. This was decided one page at a time (the Stopwatch, SessionStart in #3543, the
-house style's own specimens in #3563, the Specialists in #3551) and is written down here once, so a new or
+brand book's own specimens in #3563, the Specialists in #3551) and is written down here once, so a new or
 growing page gets this shape without anyone having to point it out.
 
 - **The overview card is THE card**: the hub's one card link ([The card](#the-hub), a `.card.card--link`
@@ -842,7 +842,7 @@ the Repository page. **What is the repo's own:** the name, its products, its own
 the facts, and the data source. A private repo reads its lists without the GitHub API's unauthenticated
 access and says how in the footer note.
 
-**No `<header>` directly inside `<main>`.** The house style makes `main > header` the page-header row, a
+**No `<header>` directly inside `<main>`.** The brand book makes `main > header` the page-header row, a
 flex row with its controls beside the title. The site header stands above `<main>`, outside it, and #137
 hit exactly this with an intro that was a `<header>`.
 
@@ -872,10 +872,10 @@ and its tokens, the market report's layout, the month-note button drawn on a cha
 primary/secondary view switch, the mapping from ETF/share/cash to a colour, and the Dutch status class
 names. The three
 series colours survive as `--cat-1..3`, with the same values. A generic danger/alert component is **not**
-in the house style yet. Adding one is a design decision for the owner, not something to back-fill from
+in the brand book yet. Adding one is a design decision for the owner, not something to back-fill from
 the advice zone.
 
-## Changing the house style
+## Changing the brand book
 
 A change here reaches every DKJ-Solutions app the next time it takes a copy, so it is a **visible
 result**: the branch stops for the owner's look instead of merging. Bring a consumer's improvement here
@@ -887,7 +887,7 @@ on the owner's explicit request, like any tag. The first four releases were set 
 `vX.Y.Z` release (#172, #178), and every release since is cut with the `dkj-policy` plugin's
 `cut-release` and tagged `vX.Y.Z`. The cut also writes the release's changelog notes and its row in
 [`dkj-policy/releases/history.md`](https://github.com/DKJ-Solutions/dkj-brandbook/blob/v0.4.0/dkj-policy/releases/history.md), which lists the four earlier releases
-too. A tag is never moved or reused: a fix is a new release. Then the `house-style` skill in the
+too. A tag is never moved or reused: a fix is a new release. Then the `dkj-brandbook` skill in the
 `dkj-solutions` plugin
 ([DKJ-Solutions/dkj-marketplace](https://github.com/DKJ-Solutions/dkj-marketplace)) is repointed to
 the new tag, through an inbound issue there, and the apps get it with that plugin release. So one house-style
